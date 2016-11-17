@@ -42,6 +42,10 @@
  * \brief internal communicator structure.
  */
 typedef struct {
+  int     nitem; /*!< Nb items in the communicator */
+
+  int*    intvalues;  /*!< Array of integer */
+  double* doublevalues;  /*!< Array of double */
   
 } PMMG_int_comm;
 typedef PMMG_int_comm  * PMMG_pint_comm;
@@ -51,7 +55,17 @@ typedef PMMG_int_comm  * PMMG_pint_comm;
  * \brief external communicator structure.
  */
 typedef struct {
-  
+  int        color_in;  /*!< Color of the hosting processor */
+  int        color_out; /*!< Color of the remote processor */
+
+  int        nitem; /*!< Nb items in the communicator */
+
+  int*       int_comm_index; /*!< Index of the items in the internal communicators */
+
+  int*       itosend; /*!< Array to send the data to the remote processor */
+  int*       itorecv; /*!< Array to receive the data to the remote processor */
+  double*    rtosend; /*!< Array to send the data to the remote processor */
+  double*    rtorecv; /*!< Array to receive the data to the remote processor */
 } PMMG_ext_comm;
 typedef PMMG_ext_comm  * PMMG_pext_comm;
 
@@ -60,11 +74,23 @@ typedef PMMG_ext_comm  * PMMG_pext_comm;
  * \brief Grp mesh structure.
  */
 typedef struct {
-  MMG5_pMesh   mesh;  /*mesh definition : coordinates, tetra etc..*/
-  MMG5_pSol    sol;   /*physical solutions defined on each point of the mesh*/
-  MMG5_pSol    met;   /*metric*/
+  MMG5_pMesh   mesh;  /*!<mesh definition : coordinates, tetra etc..*/
+  MMG5_pSol    sol;   /*!<physical solutions defined on each point of the mesh*/
+  MMG5_pSol    met;   /*!<metric*/
 
-  
+  /*communicators*/
+  int          nitem_int_node_comm;/*!< Nb nodes of this grp in internal communicator*/
+  int*         node2int_node_comm_index1; /*!< List of interface nodes (local index)*/
+  int*         node2int_node_comm_index2; /*!< List of index in internal communicator (where put the interface nodes)*/
+
+  int          nitem_int_edge_comm;/*!< Nb edges of this grp in internal communicator*/
+  int*         node2int_edge_comm_index1; /*!< List of interface edges (local index)*/
+  int*         node2int_edge_comm_index2; /*!< List of index in internal communicator (where put the interface edges)*/
+
+  int          nitem_int_face_comm;/*!< Nb faces of this grp in internal communicator*/
+  int*         node2int_face_comm_index1; /*!< List of interface faces (local index)*/
+  int*         node2int_face_comm_index2; /*!< List of index in internal communicator (where put the interface faces)*/
+
 } PMMG_Grp;
 typedef PMMG_Grp  * PMMG_pGrp;
 
@@ -85,10 +111,19 @@ typedef struct {
   PMMG_pGrp listgrp;    /*!< List of grp */
 
   /* internal communicators */
+  PMMG_pint_comm  int_node_comm; /*!< Internal node communicator */
+  PMMG_pint_comm  int_edge_comm; /*!< Internal edge communicator */
   PMMG_pint_comm  int_face_comm; /*!< Internal face communicator */
 
-  /* external communicators */
-  PMMG_pext_comm send_ext_face_comm; 
+  /* external communicators A REVOIR : il faut un pointer de pointer : on a plusieurs ext_face_com, un par pair de proc*/
+  int            next_face_comm;    /*!< Number of external face communicator*/
+  PMMG_pext_comm ext_face_comm; 
+
+  int            next_node_comm;    /*!< Number of external node communicator */
+  PMMG_pext_comm ext_node_comm; 
+
+  int            next_edge_comm;    /*!< Number of external edge communicator */
+  PMMG_pext_comm ext_edge_comm; 
 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;

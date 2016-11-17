@@ -26,9 +26,14 @@ int main(int argc,char *argv[]) {
     /*Read sequential mesh*/
 
     /*call metis for partionning*/
+
+    /*send mesh partionning to other proc*/
+  } {
+    /*receive mesh*/
   }
 
   /*perform mesh adaptation*/
+  
   
 
   if(!parmesh.myrank) {
