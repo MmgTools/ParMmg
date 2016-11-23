@@ -111,11 +111,11 @@ typedef struct {
   PMMG_pGrp listgrp;    /*!< List of grp */
 
   /* internal communicators */
-  PMMG_pint_comm  int_node_comm; /*!< Internal node communicator */
+  PMMG_pint_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_int_comm, it is not an array) */
   PMMG_pint_comm  int_edge_comm; /*!< Internal edge communicator */
   PMMG_pint_comm  int_face_comm; /*!< Internal face communicator */
 
-  /* external communicators A REVOIR : il faut un pointer de pointer : on a plusieurs ext_face_com, un par pair de proc*/
+  /* external communicators */
   int            next_face_comm;    /*!< Number of external face communicator*/
   PMMG_pext_comm ext_face_comm; 
 
