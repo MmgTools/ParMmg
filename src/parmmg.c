@@ -12,6 +12,7 @@
  */
 int main(int argc,char *argv[]) {
   PMMG_pParMesh    parmesh;
+  int              *part;
 
   if ( parmesh )  _MMG5_SAFE_FREE(parmesh);
   _MMG5_SAFE_CALLOC(parmesh,1,PMMG_ParMesh);
@@ -31,13 +32,18 @@ int main(int argc,char *argv[]) {
 
     /*Read sequential mesh*/
 #warning : for the moment, we only read a mesh named m.mesh
-    PMMG_loadMesh(parmesh,"m.mesh");
+    if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
     
     /*call metis for partionning*/
+    _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->np,int);
+    if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
     
     /*send mesh partionning to other proc*/
+    if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
+    _MMG5_SAFE_FREE(part);
   } {
     /*receive mesh*/
+    if(!PMMG_distributeMesh(parmesh,NULL)) return(PMMG_STRONGFAILURE);
   }
 
   /*perform mesh adaptation*/

@@ -12,7 +12,7 @@
 #include "libparmmg.h"
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the ParMesh structure.
  * \param filename name of file.
  * \return 0 if the file is not found, -1 if we detect mismatch parameters,
  * 1 otherwise.
@@ -43,7 +43,7 @@ int PMMG_loadMesh(PMMG_pParMesh parmesh, const char *filename) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the ParMesh structure.
  * \param filename pointer toward the name of file.
  * \return 0 if failed, 1 otherwise.
  *

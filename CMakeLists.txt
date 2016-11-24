@@ -139,6 +139,38 @@ ENDIF()
 
  ############################################################################
   #####
+  #####        Metis
+  #####
+  ############################################################################
+  # add metis library?
+  SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
+  INCLUDE(cmake/modules/FindMetis.cmake)
+
+  IF(METIS_FOUND)
+    OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
+    IF( USE_METIS )
+      # Set flags for building test program
+      INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIR})
+
+      SET(CMAKE_REQUIRED_INCLUDES ${METIS_INCLUDE_DIR})
+      SET(CMAKE_REQUIRED_LIBRARIES ${METIS_LIBRARY})
+      SET(CMAKE_REQUIRED_LIBRARIES ${PARMETIS_LIBRARY})
+
+      SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
+      MESSAGE(STATUS
+        "Compilation with metis: ${METIS_LIBRARY}")
+      SET( LIBRARIES ${METIS_LINK_FLAGS} ${LIBRARIES})
+      SET( LIBRARIES ${PARMETIS_LIBRARY} ${LIBRARIES})
+      SET( LIBRARIES ${METIS_LIBRARY} ${LIBRARIES})
+    ENDIF()
+  ELSE ( )
+    MESSAGE ( WARNING "Metis library not found:"
+      "If you have already installed Metis and want to use it, "
+      "please set the CMake variable or environment variable METIS_DIR "
+      "to your metis directory.")
+  ENDIF ( )
+ ############################################################################
+  #####
   #####         Scotch
   #####
   ############################################################################
