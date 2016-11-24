@@ -36,16 +36,16 @@ int main(int argc,char *argv[]) {
     if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
     
     /*call metis for partionning*/
-    _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->np,int);
-    //if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
-    
-    /*send mesh partionning to other proc*/
-    //if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
-    _MMG5_SAFE_FREE(part);
-  } {
-    /*receive mesh*/
-    // if(!PMMG_distributeMesh(parmesh,NULL)) return(PMMG_STRONGFAILURE);
+    _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
+    if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
+  } else {
+    _MMG5_SAFE_CALLOC(part,1,int);
   }
+
+  /*send mesh partionning to other proc*/
+  if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
+  _MMG5_SAFE_FREE(part);
+ 
 
   /*perform mesh adaptation*/
   

@@ -1,5 +1,7 @@
 #include "libparmmgtypes.h"
 #include "mmg3d.h"
+#include "libmmg3d.h"
+
 #include "mpi.h"
 
 

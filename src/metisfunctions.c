@@ -76,8 +76,11 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
   nproc      = parmesh->nprocs;
   
   ier =  METIS_PartGraphKway(&nelt,&ncon,xadj,adjncy,NULL/*vwgt*/,NULL/*vsize*/,
-			     NULL/*adjwgt*/,&nproc,NULL/*tpwgts*/,
-			     NULL/*ubvec*/,NULL/*options*/,&objval,part);
+  			     NULL/*adjwgt*/,&nproc,NULL/*tpwgts*/,
+  			     NULL/*ubvec*/,NULL/*options*/,&objval,part);
+  /* ier =  METIS_PartGraphRecursive(&nelt,&ncon,xadj,adjncy,NULL/\*vwgt*\/,NULL/\*vsize*\/, */
+  /* 			     NULL/\*adjwgt*\/,&nproc,NULL/\*tpwgts*\/, */
+  /* 			     NULL/\*ubvec*\/,NULL/\*options*\/,&objval,part); */
 
   /**/
 
