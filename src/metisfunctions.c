@@ -37,7 +37,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
   } 
   
   /*mesh -> graph*/
-  xadj            = (int*) calloc(mesh->ne + 1,sizeof(int));
+  _MMG5_SAFE_CALLOC(xadj,mesh->ne + 1,int);
 
   /*count neighboors*/
   xadj[0]  = 0;
@@ -55,7 +55,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
   }
   
 
-  adjncy = (int*) calloc(totCount + 1,sizeof(int));
+  _MMG5_SAFE_CALLOC(adjncy,totCount + 1,int);
 
   count = 0;
   for(k=1 ; k<=mesh->ne ; k++) { 
@@ -81,8 +81,8 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
 
   /**/
 
-  free(xadj);
-  free(adjncy);
+  _MMG5_SAFE_FREE(xadj);
+  _MMG5_SAFE_FREE(adjncy);
   return(1);
 
 }

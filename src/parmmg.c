@@ -18,9 +18,10 @@ int main(int argc,char *argv[]) {
   _MMG5_SAFE_CALLOC(parmesh,1,PMMG_ParMesh);
   
   /*Init MPI*/
+  parmesh->comm = MPI_COMM_WORLD;
   MPI_Init(&argc, &argv);
-  MPI_Comm_size(MPI_COMM_WORLD, &parmesh->nprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &parmesh->myrank);
+  MPI_Comm_size(parmesh->comm, &parmesh->nprocs);
+  MPI_Comm_rank(parmesh->comm, &parmesh->myrank);
 
 #warning CECILE : do we need a variadic Init for Parmmg ?
   //???PMMG_Init(parmesh);
@@ -36,14 +37,14 @@ int main(int argc,char *argv[]) {
     
     /*call metis for partionning*/
     _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->np,int);
-    if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
+    //if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
     
     /*send mesh partionning to other proc*/
-    if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
+    //if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
     _MMG5_SAFE_FREE(part);
   } {
     /*receive mesh*/
-    if(!PMMG_distributeMesh(parmesh,NULL)) return(PMMG_STRONGFAILURE);
+    // if(!PMMG_distributeMesh(parmesh,NULL)) return(PMMG_STRONGFAILURE);
   }
 
   /*perform mesh adaptation*/

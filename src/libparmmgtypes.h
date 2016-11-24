@@ -1,4 +1,5 @@
 #include "mmg/libmmgtypes.h"
+#include "mpi.h"
 #include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -104,6 +105,7 @@ typedef struct {
   /* mpi info*/
   int      nprocs;
   int      myrank;
+  MPI_Comm comm;
   
   /* grp */
   int       neltpergrp; /*!< Average number of elements per group */
