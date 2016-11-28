@@ -28,14 +28,15 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   int         i,j,k,iadr,*nbelt,*nbpt,*targetpoint,*tetracomm;
   int         iproc,icurc,itet;
   MPI_Status  status;
-  
- 
+
   _MMG5_SAFE_CALLOC(nbelt,parmesh->nprocs,int);
   _MMG5_SAFE_CALLOC(nbpt,parmesh->nprocs,int);
 
-  if(!parmesh->myrank) {
+  if ( !parmesh->myrank ) {
+
     grp = parmesh->listgrp;
     mesh = grp[0].mesh;
+
     /*mark tetra with target proc*/
     /*count number of elt per proc*/
     for(k=1 ; k<=mesh->ne ; k++) {
@@ -44,17 +45,18 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
       nbelt[part[k-1]]++;
     }
   } else {
+    /* In a first stage, we have only 1 group per processor */
     parmesh->ngrp = 1;
     _MMG5_SAFE_CALLOC(parmesh->listgrp,parmesh->ngrp,PMMG_Grp);
 
     grp = &parmesh->listgrp[0];
-    
+
     grp->mesh = NULL;
     grp->sol  = NULL;
-    
+
     MMG3D_Init_mesh(MMG5_ARG_start,MMG5_ARG_ppMesh,&grp->mesh,
-		    MMG5_ARG_ppMet,&grp->sol,
-		    MMG5_ARG_end);
+                    MMG5_ARG_ppMet,&grp->sol,
+                    MMG5_ARG_end);
     mesh = grp->mesh;
 
   }
@@ -68,25 +70,25 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
     for(iproc=1 ; iproc<parmesh->nprocs ; iproc++) {
       _MMG5_SAFE_CALLOC(tetracomm,5*nbelt[iproc],int);
       _MMG5_SAFE_CALLOC(pointcomm,12*nbelt[iproc],double);
-      _MMG5_SAFE_CALLOC(targetpoint,mesh->np+1,int); 
+      _MMG5_SAFE_CALLOC(targetpoint,mesh->np+1,int);
       icurc = 0;
       itet = 0;
       for(k=1 ; k<=mesh->ne ; k++) {
-	pt = &mesh->tetra[k];
-	if(pt->mark != iproc) continue;
-	for(j=0 ; j<4 ; j++) {
-	  ppt = &mesh->point[pt->v[j]];
-	  if(!targetpoint[pt->v[j]]) {
-	    targetpoint[pt->v[j]] = icurc/3;
-	    pointcomm[icurc++] = ppt->c[0];
-	    pointcomm[icurc++] = ppt->c[1];
-	    pointcomm[icurc++] = ppt->c[2];
-	    if(icurc == 12*nbelt[iproc]) printf("memory alloc problem in distribute mesh\n");
-	    nbpt[iproc]++;
-	  }
-	  tetracomm[itet++] = targetpoint[pt->v[j]];
-	}
-	tetracomm[itet++] = pt->ref;
+        pt = &mesh->tetra[k];
+        if(pt->mark != iproc) continue;
+        for(j=0 ; j<4 ; j++) {
+          ppt = &mesh->point[pt->v[j]];
+          if(!targetpoint[pt->v[j]]) {
+            targetpoint[pt->v[j]] = icurc/3;
+            pointcomm[icurc++] = ppt->c[0];
+            pointcomm[icurc++] = ppt->c[1];
+            pointcomm[icurc++] = ppt->c[2];
+            if(icurc == 12*nbelt[iproc]) printf("memory alloc problem in distribute mesh\n");
+            nbpt[iproc]++;
+          }
+          tetracomm[itet++] = targetpoint[pt->v[j]];
+        }
+        tetracomm[itet++] = pt->ref;
       }
       //assert(itet==nbelt[iproc]);
       MPI_Send(&tetracomm[0],5*nbelt[iproc],MPI_INT,iproc,0,parmesh->comm);
@@ -113,14 +115,14 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
     for(k=1 ; k<=4*nbelt[parmesh->myrank] ; k++) {
       ppt = &mesh->point[k];
       for(i=0 ; i<3 ; i++) {
-	ppt->c[i] = pointcomm[icurc++];
+        ppt->c[i] = pointcomm[icurc++];
       }
     }
     icurc = 0;
     for(k=1 ; k<=nbelt[parmesh->myrank] ; k++) {
       pt = &mesh->tetra[k];
       for(i=0 ; i<4 ; i++) {
-	pt->v[i] = tetracomm[icurc++]+1;
+        pt->v[i] = tetracomm[icurc++]+1;
       }
       pt->ref = tetracomm[icurc++];
     }
@@ -133,6 +135,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   _MMG5_SAFE_FREE(nbelt);
   _MMG5_SAFE_FREE(nbpt);
 
-  
+
   return(1);
 }

@@ -47,7 +47,7 @@ typedef struct {
 
   int*    intvalues;  /*!< Array of integer */
   double* doublevalues;  /*!< Array of double */
-  
+
 } PMMG_int_comm;
 typedef PMMG_int_comm  * PMMG_pint_comm;
 
@@ -101,12 +101,12 @@ typedef PMMG_Grp  * PMMG_pGrp;
  * \brief ParMmg mesh structure.
  */
 typedef struct {
-  
+
   /* mpi info*/
   int      nprocs;
   int      myrank;
   MPI_Comm comm;
-  
+
   /* grp */
   int       neltpergrp; /*!< Average number of elements per group */
   int       ngrp;       /*!< Number of grp */
@@ -119,13 +119,13 @@ typedef struct {
 
   /* external communicators */
   int            next_face_comm;    /*!< Number of external face communicator*/
-  PMMG_pext_comm ext_face_comm; 
+  PMMG_pext_comm ext_face_comm;
 
   int            next_node_comm;    /*!< Number of external node communicator */
-  PMMG_pext_comm ext_node_comm; 
+  PMMG_pext_comm ext_node_comm;
 
   int            next_edge_comm;    /*!< Number of external edge communicator */
-  PMMG_pext_comm ext_edge_comm; 
+  PMMG_pext_comm ext_edge_comm;
 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;

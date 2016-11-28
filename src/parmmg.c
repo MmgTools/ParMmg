@@ -16,7 +16,7 @@ int main(int argc,char *argv[]) {
 
   if ( parmesh )  _MMG5_SAFE_FREE(parmesh);
   _MMG5_SAFE_CALLOC(parmesh,1,PMMG_ParMesh);
-  
+
   /*Init MPI*/
   parmesh->comm = MPI_COMM_WORLD;
   MPI_Init(&argc, &argv);
@@ -25,7 +25,7 @@ int main(int argc,char *argv[]) {
 
 #warning CECILE : do we need a variadic Init for Parmmg ?
   //???PMMG_Init(parmesh);
-  
+
   if(!parmesh->myrank) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
@@ -34,7 +34,7 @@ int main(int argc,char *argv[]) {
     /*Read sequential mesh*/
 #warning : for the moment, we only read a mesh named m.mesh
     if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
-    
+
     /*call metis for partionning*/
     _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
     if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
@@ -45,11 +45,11 @@ int main(int argc,char *argv[]) {
   /*send mesh partionning to other proc*/
   if(!PMMG_distributeMesh(parmesh,part)) return(PMMG_STRONGFAILURE);
   _MMG5_SAFE_FREE(part);
- 
+
 
   /*perform mesh adaptation*/
-  
-  
+
+
 
   if(!parmesh->myrank) {
     /*receive mesh*/
@@ -62,7 +62,7 @@ int main(int argc,char *argv[]) {
   }
 
   /*free structures*/
-  
+
   /*Finalize MPI*/
   MPI_Finalize();
 
