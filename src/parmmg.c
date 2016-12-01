@@ -38,6 +38,13 @@ int main(int argc,char *argv[]) {
     /*call metis for partionning*/
     _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
     if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
+
+    /* Mesh analysis: compute ridges, singularities, normals... and store the
+       triangles into the xTetra structure */
+    if ( !_MMG3D_analys(parmesh->listgrp[0].mesh) ) return(PMMG_STRONGFAILURE);
+
+    _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja);
+
   } else {
     _MMG5_SAFE_CALLOC(part,1,int);
   }
