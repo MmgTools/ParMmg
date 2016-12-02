@@ -51,7 +51,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
     }
     assert(nbAdj<=4);
     totCount += nbAdj;
-    xadj[k] = xadj[k-1] + nbAdj;
+    xadj[k] = totCount;
   }
 
 
@@ -63,9 +63,12 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
     adja = &mesh->adja[iadr];
     for(j=0 ; j<4 ; j++) {
       jel = adja[j]/4;
-      if(!jel) continue;
-      adjncy[count++] = jel;
+
+      if ( !jel ) continue;
+
+      adjncy[count++] = jel-1;
     }
+
     if(count!=xadj[k]) printf("count %d %d %d\n",k,count,xadj[k]);
     assert(count==(xadj[k]));
   }

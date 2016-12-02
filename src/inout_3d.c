@@ -22,23 +22,28 @@
  */
 int PMMG_loadMesh(PMMG_pParMesh parmesh, const char *filename) {
   PMMG_pGrp  grp;
-  
+
   /*listgrp allocation*/
   parmesh->ngrp = 1;
   _MMG5_SAFE_CALLOC(parmesh->listgrp,parmesh->ngrp,PMMG_Grp);
 
   grp = &parmesh->listgrp[0];
-  
+
   grp->mesh = NULL;
   grp->sol  = NULL;
 
   MMG3D_Init_mesh(MMG5_ARG_start,MMG5_ARG_ppMesh,&grp->mesh,
-		  MMG5_ARG_ppMet,&grp->sol,
-		  MMG5_ARG_end);
+                  MMG5_ARG_ppMet,&grp->sol,
+                  MMG5_ARG_end);
   if ( !MMG3D_Set_inputMeshName(grp->mesh,filename) ) return(0);
+
+  if ( !parmesh->myrank )
+    if ( !MMG3D_Set_iparameter(grp->mesh,grp->sol,MMG3D_IPARAM_verbose,0) )
+      return(0);
+
   if ( !MMG3D_loadMesh(grp->mesh,filename) )  return(0);
 
-  
+
   return(1);
 }
 
@@ -49,7 +54,7 @@ int PMMG_loadMesh(PMMG_pParMesh parmesh, const char *filename) {
  *
  * Save mesh data.
  *
- * 
+ *
  */
 int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
 

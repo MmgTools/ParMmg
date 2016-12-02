@@ -1,5 +1,5 @@
 /**
- * \file distribute.c
+ * \file distributemesh.c
  * \brief Distribute the mesh on the processors.
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (Inria/UBordeaux)
@@ -10,13 +10,92 @@
 
 
 #include "libparmmg.h"
+
+/**
+ * \param xtetra pointer toward a table containing the xtetra structures.
+ * \param *perm pointer toward the permutation table (to perform in place
+ * permutations).
+ * \param ind1 index of the first xtetra to swap.
+ * \param ind2 index of the second xtetra to swap.
+ *
+ * Swap two xtetra in the table of xtetrahedras.
+ *
+ */
+static inline
+void PMMG_swapxTetra(MMG5_pxTetra xtetra, int* perm, int ind1, int ind2) {
+  MMG5_xTetra pxttmp;
+  int         tmp;
+
+  /** 1- swap the xtetra */
+  memcpy(&pxttmp      ,&xtetra[ind2],sizeof(MMG5_xTetra));
+  memcpy(&xtetra[ind2],&xtetra[ind1],sizeof(MMG5_xTetra));
+  memcpy(&xtetra[ind1],&pxttmp      ,sizeof(MMG5_xTetra));
+
+  /** 2- swap the permutation table */
+  tmp        = perm[ind2];
+  perm[ind2] = perm[ind1];
+  perm[ind1] = tmp;
+}
+
+/**
+ * \param xpoint pointer toward a table containing the xpoint structures.
+ * \param *perm pointer toward the permutation table (to perform in place
+ * permutations).
+ * \param ind1 index of the first xpoint to swap.
+ * \param ind2 index of the second xpoint to swap.
+ *
+ * Swap two xpoint in the table of xpoints.
+ *
+ */
+static inline
+void PMMG_swapxPoint(MMG5_pxPoint xpoint, int* perm, int ind1, int ind2) {
+  MMG5_xPoint pxptmp;
+  int         tmp;
+
+  /** 1- swap the xpoint */
+  memcpy(&pxptmp      ,&xpoint[ind2],sizeof(MMG5_xPoint));
+  memcpy(&xpoint[ind2],&xpoint[ind1],sizeof(MMG5_xPoint));
+  memcpy(&xpoint[ind1],&pxptmp      ,sizeof(MMG5_xPoint));
+
+  /** 2- swap the permutation table */
+  tmp        = perm[ind2];
+  perm[ind2] = perm[ind1];
+  perm[ind1] = tmp;
+}
+
+/**
+ * \param point pointer toward a table containing the point structures.
+ * \param *perm pointer toward the permutation table (to perform in place
+ * permutations).
+ * \param ind1 index of the first xpoint to swap.
+ * \param ind2 index of the second xpoint to swap.
+ *
+ * Swap two points in the table of points.
+ *
+ */
+static inline
+void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
+  MMG5_Point ppttmp;
+  int         tmp;
+
+  /** 1- swap the xpoint */
+  memcpy(&ppttmp      ,&point[ind2], sizeof(MMG5_Point));
+  memcpy(&point[ind2] ,&point[ind1], sizeof(MMG5_Point));
+  memcpy(&point[ind1] ,&ppttmp      ,sizeof(MMG5_Point));
+
+  /** 2- swap the permutation table */
+  tmp        = perm[ind2];
+  perm[ind2] = perm[ind1];
+  perm[ind1] = tmp;
+}
+
+
 /**
  * \param parmesh pointer toward the mesh structure.
- * \param part pointer toward an array of int containing the partitions (proc master).
- * \return 0 if the file is not found, -1 if we detect mismatch parameters,
- * 1 otherwise.
+ * \param part pointer toward an array of int containing the partitions.
+ * \return 0 if fail, 1 otherwise.
  *
- * Proc 0 send at all the processors a part of the mesh.
+ * Delete parts of the mesh not on the processor.
  *
  */
 int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
@@ -24,267 +103,132 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   MMG5_pMesh   mesh;
 #warning add solution/metric communication
   MMG5_pSol    sol;
-  MMG5_pTetra  pt;
+  MMG5_pTetra  pt,ptnew;
   MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt;
+  MMG5_pPoint  ppt, pptnew;
   MMG5_pxPoint pxp;
-  double       *pointcomm,*xPtcomm;
-  int          i,j,k,iadr,*nbTet,*nbxTet,*nbPt,*nbxPt;
-  int          *targetpoint,*tetracomm,*xTetcomm,*xpcomm,*xtcomm;
-  int          iproc,icurc,itet,ixTet,nxp,nxt,ixPt;
-  MPI_Status   status;
+  int          rank,np,ne,nbl,nxt,nxp;
+  int          *pointPerm,*xPointPerm,*xTetraPerm;
+  int          ip,iploc,ifac,j,k,kvois,rankVois;
+  char         filename[11];
 
-  _MMG5_SAFE_CALLOC(nbTet,parmesh->nprocs,int);
-  _MMG5_SAFE_CALLOC(nbPt,parmesh->nprocs,int);
-  _MMG5_SAFE_CALLOC(nbxTet,parmesh->nprocs,int);
-  _MMG5_SAFE_CALLOC(nbxPt,parmesh->nprocs,int);
+  grp  = parmesh->listgrp;
+  mesh = grp[0].mesh;
+  rank = parmesh->myrank;
 
-  if ( !parmesh->myrank ) {
+#warning to trash
+  printf( " je suis le proc %d\n", parmesh->myrank);
 
-    grp = parmesh->listgrp;
-    mesh = grp[0].mesh;
+  _MMG5_SAFE_CALLOC(pointPerm,mesh->np,int);
+  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xt,int);
+  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp,int);
 
-    /*mark tetra with target proc*/
-    /*count number of elt per proc*/
-    for(k=1 ; k<=mesh->ne ; k++) {
-      pt = &mesh->tetra[k];
-      pt->mark = part[k-1];
-      nbTet[part[k-1]]++;
-      if ( pt->xt ) nbxTet[part[k-1]]++;
-    }
-  } else {
-    /* In a first stage, we have only 1 group per processor */
-    parmesh->ngrp = 1;
-    _MMG5_SAFE_CALLOC(parmesh->listgrp,parmesh->ngrp,PMMG_Grp);
+  nxp = 0;
+  nxt = 0;
+  np  = 0;
 
-    grp = &parmesh->listgrp[0];
 
-    grp->mesh = NULL;
-    grp->sol  = NULL;
+  /** Reset the tmp field of points */
+  for ( k=1; k<=mesh->np; k++ )
+    mesh->point[k].tmp = 0;
 
-    MMG3D_Init_mesh(MMG5_ARG_start,MMG5_ARG_ppMesh,&grp->mesh,
-                    MMG5_ARG_ppMet,&grp->sol,
-                    MMG5_ARG_end);
-    mesh = grp->mesh;
+  /** Count and mark mesh entities over the proc */
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    pt->mark = part[k-1];
 
-  }
+    if ( pt->mark != rank )
+      continue;
 
-  /*send at each proc its number of elt*/
-  MPI_Bcast(&nbTet[0],parmesh->nprocs,MPI_INT,0,parmesh->comm);
-  MPI_Bcast(&nbxTet[0],parmesh->nprocs,MPI_INT,0,parmesh->comm);
+    for ( ifac=0; ifac<4; ifac++ ) {
+      kvois    = mesh->adja[4*k-3+ifac]/4;
+      rankVois = part[kvois-1];
 
-  printf("je suis %d, recu ok %d\n",parmesh->myrank,nbTet[parmesh->myrank]);
+      for ( j=0; j<3; ++j ) {
+        iploc = _MMG5_idir[ifac][j];
+        ip    = pt->v[iploc];
+        ppt   = &mesh->point[ip];
 
-  if ( !parmesh->myrank ) {
-    for ( iproc=1 ; iproc<parmesh->nprocs ; iproc++ ) {
-      _MMG5_SAFE_CALLOC(tetracomm,5*nbTet[iproc],int);
-      _MMG5_SAFE_CALLOC(xtcomm,nbxTet[iproc],int);
-      _MMG5_SAFE_CALLOC(xTetcomm,10*nbxTet[iproc],int);
-      _MMG5_SAFE_CALLOC(pointcomm,12*nbTet[iproc],double);
-      _MMG5_SAFE_CALLOC(xpcomm,4*nbxTet[iproc],int);
-      _MMG5_SAFE_CALLOC(xPtcomm,24*nbxTet[iproc],double);
-      _MMG5_SAFE_CALLOC(targetpoint,mesh->np+1,int);
+        if ( !ppt->tmp ) {
+          /* Mark the new point index and update the table of permutation */
+          ppt->tmp = ++np;
+          pointPerm[ip] = np;
 
-      icurc = 0;
-      itet  = 0;
-      ixTet = 0;
-      ixPt  = 0;
-      nxp   = 0;
-      nxt   = 0;
-
-      for ( k=1; k<=mesh->ne; k++ ) {
-        pt = &mesh->tetra[k];
-
-        if ( pt->mark != iproc ) continue;
-
-        for ( j=0; j<4; j++ ) {
-          ppt = &mesh->point[pt->v[j]];
-
-          if ( !targetpoint[pt->v[j]] ) {
-            targetpoint[pt->v[j]] = icurc/3;
-            pointcomm[icurc++] = ppt->c[0];
-            pointcomm[icurc++] = ppt->c[1];
-            pointcomm[icurc++] = ppt->c[2];
-
-            if ( icurc == 12*nbTet[iproc] ) {
-              printf("memory alloc problem in distribute mesh\n");
-              exit(EXIT_FAILURE);
-            }
-            nbPt[iproc]++;
-
-            /* Store xpoint if needed */
-            if ( ppt->xp ) {
-              nbxPt[iproc]++;
-              pxp = &mesh->xpoint[ppt->xp];
-
-              xpcomm[nxp++] = targetpoint[pt->v[j]];
-
-              for ( i=0; i<3; ++i )
-                xPtcomm[ixPt++] = pxp->n1[i];
-
-              for ( i=0; i<3; ++i )
-                xPtcomm[ixPt++] = pxp->n2[i];
-            }
+          /* update the table of permutation for xPoint if needed */
+          if ( ppt->xp ) {
+            pxp                 = &mesh->xpoint[ppt->xp];
+            xPointPerm[ppt->xp] = ++nxp;
+            ppt->xp             = nxp;
           }
-          tetracomm[itet++] = targetpoint[pt->v[j]];
         }
-        tetracomm[itet++] = pt->ref;
-
-        /* Store xtetra if needed */
-        if ( !pt->xt ) continue;
-
-        pxt = &mesh->xtetra[pt->xt];
-        xtcomm[nxt++] = (itet-1)/4;
-
-        for ( j=0; j<4; ++j )
-          xTetcomm[ixTet++] = pxt->ref[j];
-
-        for ( j=0; j<6; ++j )
-          xTetcomm[ixTet++] = pxt->edg[j];
-
-      }
-
-      //assert(itet==nbTet[iproc]);
-      /* Send number of points and xpoints */
-      MPI_Send(&nbPt[iproc],1,MPI_INT,iproc,0,parmesh->comm);
-      MPI_Send(&nbxPt[iproc],1,MPI_INT,iproc,0,parmesh->comm);
-
-      /* Send mesh data */
-      MPI_Send(&tetracomm[0],5*nbTet[iproc],MPI_INT,iproc,0,parmesh->comm);
-      MPI_Send(&xtcomm[0],nbxTet[iproc],MPI_INT,iproc,0,parmesh->comm);
-      MPI_Send(&xTetcomm[0],10*nbxTet[iproc],MPI_INT,iproc,0,parmesh->comm);
-      MPI_Send(&pointcomm[0],3*nbPt[iproc],MPI_DOUBLE,iproc,0,parmesh->comm);
-      MPI_Send(&xpcomm[0],nbxPt[iproc],MPI_INT,iproc,0,parmesh->comm);
-      MPI_Send(&xPtcomm[0],6*nbxPt[iproc],MPI_DOUBLE,iproc,0,parmesh->comm);
-
-      _MMG5_SAFE_FREE(targetpoint);
-      _MMG5_SAFE_FREE(tetracomm);
-      _MMG5_SAFE_FREE(pointcomm);
-      _MMG5_SAFE_FREE(xtcomm);
-      _MMG5_SAFE_FREE(xTetcomm);
-      _MMG5_SAFE_FREE(xpcomm);
-      _MMG5_SAFE_FREE(xPtcomm);
-    }
-
-    for ( k=1; k<=mesh->ne; k++) {
-      pt = &mesh->tetra[k];
-      if ( pt->mark!=0 ) _MMG3D_delElt(mesh,k);
-    }
-
-    /* create tetra adjacency */
-    if ( !MMG3D_hashTetra(mesh,1) ) {
-      fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-      return(0);
-    }
-
-    /* Pack the mesh */
-    if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) {
-      fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
-      return(0);
-    }
-    MMG3D_saveMesh(mesh,"proc0.mesh");
-
-  }
-  else {
-
-    /* Recieve number of points and xpoints */
-    MPI_Recv(&mesh->np,1,MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&mesh->xp,1,MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-
-    /* Recieve mesh data */
-    _MMG5_SAFE_CALLOC(tetracomm,5*nbTet[parmesh->myrank],int);
-    _MMG5_SAFE_CALLOC(xtcomm,nbxTet[parmesh->myrank],int);
-    _MMG5_SAFE_CALLOC(xTetcomm,10*nbxTet[parmesh->myrank],int);
-    _MMG5_SAFE_CALLOC(pointcomm,3*mesh->np,double);
-    _MMG5_SAFE_CALLOC(xpcomm,mesh->xp,int);
-    _MMG5_SAFE_CALLOC(xPtcomm,6*mesh->xp,double);
-
-    MPI_Recv(&tetracomm[0],5*nbTet[parmesh->myrank],MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&xtcomm[0],nbxTet[parmesh->myrank],MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&xTetcomm[0],10*nbxTet[parmesh->myrank],MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&pointcomm[0],3*mesh->np,MPI_DOUBLE,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&xpcomm[0],mesh->xp,MPI_INT,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-    MPI_Recv(&xPtcomm[0],6*mesh->xp,MPI_DOUBLE,0,0,parmesh->comm,MPI_STATUS_IGNORE);
-
-    /*MMG5_mesh creation*/
-    if ( MMG3D_Set_meshSize(mesh,mesh->np,nbTet[parmesh->myrank],0,0,0,0) != 1 )
-      return(0);
-
-    /* Points */
-    icurc = 0;
-    for ( k=1; k<=mesh->np; k++ ) {
-      ppt = &mesh->point[k];
-      for(i=0 ; i<3 ; i++) {
-        ppt->c[i] = pointcomm[icurc++];
+        pt->v[iploc] = ppt->tmp;
       }
     }
+    /* update the table of permutation for xTetra if needed */
+    if ( !pt->xt ) continue;
 
-    /* xPoints */
-    _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xp+1,MMG5_xPoint);
-    icurc = 0;
-    for ( k=1; k<=mesh->xp; ++k ) {
-      pxp = &mesh->xpoint[k];
-
-      for ( i=0; i<3; ++i )
-        pxp->n1[i] = xPtcomm[icurc++];
-
-      for ( i=0; i<3; ++i )
-        pxp->n2[i] = xPtcomm[icurc++];
-
-      mesh->point[xpcomm[k-1]+1].xp = k;
-    }
-
-    /* Tetra */
-    mesh->xt = nbxTet[parmesh->myrank];
-    _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xt+1,MMG5_xTetra);
-    icurc = 0;
-    for(k=1 ; k<=nbTet[parmesh->myrank] ; k++) {
-      pt = &mesh->tetra[k];
-      for(i=0 ; i<4 ; i++) {
-        pt->v[i] = tetracomm[icurc++]+1;
-      }
-      pt->ref = tetracomm[icurc++];
-    }
-
-    /* xTetra */
-    icurc = 0;
-    for ( k=1; k<=mesh->xt; ++k ) {
-      pxt = &mesh->xtetra[k];
-
-      for ( i=0; i<4; ++i )
-        pxt->ref[i] = xTetcomm[icurc++];
-
-      for ( i=0; i<6; ++i )
-        pxt->edg[i] = xTetcomm[icurc++];
-
-      mesh->tetra[xtcomm[k-1]].xt = k;
-    }
-
-    /* create tetra adjacency */
-    if ( !MMG3D_hashTetra(mesh,1) ) {
-      fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-      return(0);
-    }
-
-    /* Pack the mesh */
-    if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) {
-      fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
-      return(0);
-    }
-    MMG3D_saveMesh(mesh,"proc1.mesh");
-
-    _MMG5_SAFE_FREE(tetracomm);
-    _MMG5_SAFE_FREE(pointcomm);
-    _MMG5_SAFE_FREE(xtcomm);
-    _MMG5_SAFE_FREE(xTetcomm);
-    _MMG5_SAFE_FREE(xpcomm);
-    _MMG5_SAFE_FREE(xPtcomm);
+    pxt    = &mesh->xtetra[pt->xt];
+    xTetraPerm[pt->xt] = ++nxt;
+    pt->xt = nxt;
   }
 
-  _MMG5_SAFE_FREE(nbTet);
-  _MMG5_SAFE_FREE(nbPt);
-  _MMG5_SAFE_FREE(nbxTet);
-  _MMG5_SAFE_FREE(nbxPt);
+  /** Compact tetrahedra */
+  ne  = 0;
+  nbl = 1;
+  for ( k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+
+    if ( pt->mark!=rank ) continue;
+    ++ne;
+
+    if ( k!=nbl ) {
+      ptnew = &mesh->tetra[nbl];
+      memcpy(ptnew,pt,sizeof(MMG5_Tetra));
+    }
+    ++nbl;
+  }
+  mesh->ne = ne;
+
+  /** Compact xtetra: in place permutations */
+  for ( k=1; k<=mesh->xt; ++k ) {
+    while ( xTetraPerm[k] != k && xTetraPerm[k] )
+      PMMG_swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
+  }
+  mesh->xt = nxt;
+
+  /** Compact vertices: in place permutations */
+  for ( k=1; k<=mesh->np; ++k ) {
+    while ( pointPerm[k] != k && pointPerm[k] )
+      PMMG_swapPoint(mesh->point,pointPerm,k,pointPerm[k]);
+  }
+  mesh->np = np;
+
+  /** Compact xpoint: in place permutations */
+  for ( k=1; k<=mesh->xp; ++k ) {
+    while ( xPointPerm[k] != k && xPointPerm[k] )
+      PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
+  }
+  mesh->xp = nxp;
+
+  /** Tetra adjacency reconstruction */
+  _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja);
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
+    return(0);
+  }
+
+  /* Pack the mesh */
+  if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) {
+    fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
+    return(0);
+  }
+
+  sprintf(filename,"proc%d.mesh",rank);
+  MMG3D_saveMesh(mesh,filename);
+
+  _MMG5_SAFE_FREE(pointPerm);
+  _MMG5_SAFE_FREE(xPointPerm);
+  _MMG5_SAFE_FREE(xTetraPerm);
 
   return(1);
 }
