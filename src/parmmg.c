@@ -11,13 +11,13 @@
  *
  */
 int main(int argc,char *argv[]) {
-  PMMG_pParMesh    parmesh;
+  PMMG_pParMesh    parmesh=NULL;
   int              *part;
 
   if ( parmesh )  _MMG5_SAFE_FREE(parmesh);
   _MMG5_SAFE_CALLOC(parmesh,1,PMMG_ParMesh);
 
-  /* Init MPI*/
+  /** Init MPI */
   parmesh->comm = MPI_COMM_WORLD;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(parmesh->comm, &parmesh->nprocs);
@@ -32,32 +32,28 @@ int main(int argc,char *argv[]) {
     fprintf(stdout,"     %s %s\n",__DATE__,__TIME__);
   }
 
-  /* Read sequential mesh*/
+  /** Read sequential mesh*/
 #warning : for the moment, we only read a mesh named m.mesh
   if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
 
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
-  if ( !parmesh->myrank ) {
-    /* Call metis for partionning*/
-    if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
-  }
 
-  /* Send at each proc the graph */
-  MPI_Bcast(&part[0],(parmesh->listgrp[0].mesh)->ne,MPI_INT,0,parmesh->comm);
+  /** Call metis for partionning*/
+  if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
 
-
-  /* Mesh analysis: compute ridges, singularities, normals... and store the
-     triangles into the xTetra structure */
+  /** Mesh analysis: compute ridges, singularities, normals... and store the
+      triangles into the xTetra structure */
   if ( !_MMG3D_analys(parmesh->listgrp[0].mesh) ) return(PMMG_STRONGFAILURE);
 
-  /*send mesh partionning to other proc*/
+  /** Send mesh partionning to other proc*/
   if ( !PMMG_distributeMesh(parmesh,part) ) return(PMMG_STRONGFAILURE);
   _MMG5_SAFE_FREE(part);
 
+  /** Mesh adaptation */
 
-  /*perform mesh adaptation*/
 
-
+  /** Merge all the meshes on the proc 0 */
+  // if ( !PMMG_mergeMesh(parmesh) )  return(PMMG_STRONGFAILURE);
 
   if(!parmesh->myrank) {
     /*receive mesh*/

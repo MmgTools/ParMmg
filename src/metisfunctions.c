@@ -18,7 +18,7 @@
  * \return 0 if the file is not found, -1 if we detect mismatch parameters,
  * 1 otherwise.
  *
- * Call metis to part the mesh.
+ * Proc 0 call metis to part the mesh. Then broadcast the partition.
  *
  */
 int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
@@ -27,68 +27,73 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
   int        *xadj,*adjncy,*adja;
   int        j,k,iadr,jel,count,totCount,nelt,nproc,nbAdj,ncon,ier,objval;
 
-  grp = parmesh->listgrp;
-  mesh = grp[0].mesh;
+  if ( !parmesh->myrank ) {
+    grp = parmesh->listgrp;
+    mesh = grp[0].mesh;
 
-  /* create tetra adjacency */
-  if ( !MMG3D_hashTetra(mesh,1) ) {
-    fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-    return(0);
-  }
-
-  /*mesh -> graph*/
-  _MMG5_SAFE_CALLOC(xadj,mesh->ne + 1,int);
-
-  /*count neighboors*/
-  xadj[0]  = 0;
-  totCount = 0;
-  for(k=1 ; k<=mesh->ne ; k++) {
-    nbAdj = 0;
-    iadr = 4*(k-1) + 1;
-    adja = &mesh->adja[iadr];
-    for(j=0 ; j<4 ; j++) {
-      if(adja[j])   nbAdj++;
-    }
-    assert(nbAdj<=4);
-    totCount += nbAdj;
-    xadj[k] = totCount;
-  }
-
-
-  _MMG5_SAFE_CALLOC(adjncy,totCount + 1,int);
-
-  count = 0;
-  for(k=1 ; k<=mesh->ne ; k++) {
-    iadr = 4*(k-1) + 1;
-    adja = &mesh->adja[iadr];
-    for(j=0 ; j<4 ; j++) {
-      jel = adja[j]/4;
-
-      if ( !jel ) continue;
-
-      adjncy[count++] = jel-1;
+    /* create tetra adjacency */
+    if ( !MMG3D_hashTetra(mesh,1) ) {
+      fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
+      return(0);
     }
 
-    if(count!=xadj[k]) printf("count %d %d %d\n",k,count,xadj[k]);
-    assert(count==(xadj[k]));
+    /*mesh -> graph*/
+    _MMG5_SAFE_CALLOC(xadj,mesh->ne + 1,int);
+
+    /*count neighboors*/
+    xadj[0]  = 0;
+    totCount = 0;
+    for(k=1 ; k<=mesh->ne ; k++) {
+      nbAdj = 0;
+      iadr = 4*(k-1) + 1;
+      adja = &mesh->adja[iadr];
+      for(j=0 ; j<4 ; j++) {
+        if(adja[j])   nbAdj++;
+      }
+      assert(nbAdj<=4);
+      totCount += nbAdj;
+      xadj[k] = totCount;
+    }
+
+
+    _MMG5_SAFE_CALLOC(adjncy,totCount + 1,int);
+
+    count = 0;
+    for(k=1 ; k<=mesh->ne ; k++) {
+      iadr = 4*(k-1) + 1;
+      adja = &mesh->adja[iadr];
+      for(j=0 ; j<4 ; j++) {
+        jel = adja[j]/4;
+
+        if ( !jel ) continue;
+
+        adjncy[count++] = jel-1;
+      }
+
+      if(count!=xadj[k]) printf("count %d %d %d\n",k,count,xadj[k]);
+      assert(count==(xadj[k]));
+    }
+
+    /*call metis*/
+    ncon       = 1;/*number of balancing constraint*/
+    nelt       = mesh->ne;
+    nproc      = parmesh->nprocs;
+
+    ier =  METIS_PartGraphKway(&nelt,&ncon,xadj,adjncy,NULL/*vwgt*/,NULL/*vsize*/,
+                               NULL/*adjwgt*/,&nproc,NULL/*tpwgts*/,
+                               NULL/*ubvec*/,NULL/*options*/,&objval,part);
+    /* ier =  METIS_PartGraphRecursive(&nelt,&ncon,xadj,adjncy,NULL/\*vwgt*\/,NULL/\*vsize*\/, */
+    /*                         NULL/\*adjwgt*\/,&nproc,NULL/\*tpwgts*\/, */
+    /*                         NULL/\*ubvec*\/,NULL/\*options*\/,&objval,part); */
+
+    /**/
+
+    _MMG5_SAFE_FREE(xadj);
+    _MMG5_SAFE_FREE(adjncy);
   }
 
-  /*call metis*/
-  ncon       = 1;/*number of balancing constraint*/
-  nelt       = mesh->ne;
-  nproc      = parmesh->nprocs;
+  /* Send at each proc the graph */
+  MPI_Bcast(&part[0],(parmesh->listgrp[0].mesh)->ne,MPI_INT,0,parmesh->comm);
 
-  ier =  METIS_PartGraphKway(&nelt,&ncon,xadj,adjncy,NULL/*vwgt*/,NULL/*vsize*/,
-                             NULL/*adjwgt*/,&nproc,NULL/*tpwgts*/,
-                             NULL/*ubvec*/,NULL/*options*/,&objval,part);
-  /* ier =  METIS_PartGraphRecursive(&nelt,&ncon,xadj,adjncy,NULL/\*vwgt*\/,NULL/\*vsize*\/, */
-  /*                         NULL/\*adjwgt*\/,&nproc,NULL/\*tpwgts*\/, */
-  /*                         NULL/\*ubvec*\/,NULL/\*options*\/,&objval,part); */
-
-  /**/
-
-  _MMG5_SAFE_FREE(xadj);
-  _MMG5_SAFE_FREE(adjncy);
   return(1);
-
 }

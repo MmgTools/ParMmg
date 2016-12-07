@@ -99,40 +99,50 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
  *
  */
 int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
-  PMMG_pGrp    grp;
-  MMG5_pMesh   mesh;
+  PMMG_pGrp       grp;
+  MMG5_pMesh      mesh;
 #warning add solution/metric communication
-  MMG5_pSol    sol;
-  MMG5_pTetra  pt,ptnew;
-  MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt, pptnew;
-  MMG5_pxPoint pxp;
-  int          rank,np,ne,nbl,nxt,nxp;
-  int          *pointPerm,*xPointPerm,*xTetraPerm;
-  int          ip,iploc,ifac,j,k,kvois,rankVois;
-  char         filename[11];
+  MMG5_pSol       sol;
+  MMG5_pTetra     pt,ptnew;
+  MMG5_pxTetra    pxt;
+  MMG5_pPoint     ppt, pptnew;
+  MMG5_pxPoint    pxp;
+  PMMG_pext_comm  pext_comm;
+  int             nprocs,rank,np,ne,nbl,nxt,nxp;
+  int             *pointPerm,*xPointPerm,*xTetraPerm;
+  int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
+  int             *node2int_node_comm_index1,*node2int_node_comm_index2;
+  int             nitem_int_node_comm,next_node_comm,*seenRanks;
+  int             inIntComm;
+  char            filename[11];
+  int8_t          *pointRanks;
 
-  grp  = parmesh->listgrp;
-  mesh = grp[0].mesh;
-  rank = parmesh->myrank;
+  nprocs = parmesh->nprocs;
+  grp    = parmesh->listgrp;
+  mesh   = grp[0].mesh;
+  rank   = parmesh->myrank;
 
 #warning to trash
   printf( " je suis le proc %d\n", parmesh->myrank);
 
-  _MMG5_SAFE_CALLOC(pointPerm,mesh->np,int);
-  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xt,int);
-  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp,int);
+  _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
+  _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t);
+
+  _MMG5_SAFE_CALLOC(pointPerm,mesh->np+1,int);
+  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xt+1,int);
+  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp+1,int);
 
   nxp = 0;
   nxt = 0;
   np  = 0;
+  nitem_int_node_comm = 0;
 
-
-  /** Reset the tmp field of points */
+  /* Reset the tmp field of points */
   for ( k=1; k<=mesh->np; k++ )
     mesh->point[k].tmp = 0;
 
-  /** Count and mark mesh entities over the proc */
+  /** Mark mesh entities that will stay on the proc and count the number of
+   * point that must be communicate with the other procs  */
   for ( k=1; k<=mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
     pt->mark = part[k-1];
@@ -142,12 +152,24 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
 
     for ( ifac=0; ifac<4; ifac++ ) {
       kvois    = mesh->adja[4*k-3+ifac]/4;
-      rankVois = part[kvois-1];
+
+      if ( kvois )
+        rankVois = part[kvois-1];
+      else
+        rankVois = rank;
 
       for ( j=0; j<3; ++j ) {
         iploc = _MMG5_idir[ifac][j];
         ip    = pt->v[iploc];
         ppt   = &mesh->point[ip];
+
+        /* Count (and mark) each point that will be shared between me and the
+         * proc rankVois */
+
+        if ( rankVois != rank && !pointRanks[nprocs*(ip-1)+rankVois] ) {
+          pointRanks[nprocs*(ip-1)+rankVois] = 1;
+          ++seenRanks[rankVois];
+        }
 
         if ( !ppt->tmp ) {
           /* Mark the new point index and update the table of permutation */
@@ -161,9 +183,11 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
             ppt->xp             = nxp;
           }
         }
-        pt->v[iploc] = ppt->tmp;
       }
     }
+    for ( j=0; j<4; ++j )
+      pt->v[j] = mesh->point[pt->v[j]].tmp;
+
     /* update the table of permutation for xTetra if needed */
     if ( !pt->xt ) continue;
 
@@ -172,7 +196,78 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
     pt->xt = nxt;
   }
 
-  /** Compact tetrahedra */
+  /** Count the number of external node communicators and initialize it */
+  next_node_comm = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    if ( seenRanks[k] ) ++next_node_comm;
+  }
+
+  parmesh->next_node_comm = next_node_comm;
+  _MMG5_SAFE_CALLOC(parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm);
+
+  next_node_comm = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    if ( seenRanks[k] ) {
+      pext_comm = &parmesh->ext_node_comm[next_node_comm];
+      pext_comm->color_in  = rank;
+      pext_comm->color_out = k;
+      pext_comm->nitem     = seenRanks[k];
+      _MMG5_SAFE_CALLOC(pext_comm->int_comm_index,pext_comm->nitem,int);
+      /* Use seenRanks to store the idx of the external communicator me->k */
+      seenRanks[k] = next_node_comm++;
+    }
+  }
+
+  /** Initialize the internal node communicator */
+ nitem_int_node_comm = 0;
+ for ( k=1; k<=mesh->np; k++ ) {
+
+   if ( !mesh->point[k].tmp )  continue;
+
+   for ( j=0; j<nprocs; ++j ) {
+     if ( pointRanks[nprocs*(k-1)+j] ) {
+       ++nitem_int_node_comm;
+       break;
+     }
+   }
+ }
+
+  grp->nitem_int_node_comm = nitem_int_node_comm;
+  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index1,nitem_int_node_comm,int);
+  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index2,nitem_int_node_comm,int);
+
+  /** Travel through the mesh and fill the communicators */
+  i = 0;
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+  node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+
+  /* Idx is used to store the external communicator cursor */
+  _MMG5_SAFE_CALLOC(idx,parmesh->next_node_comm,int);
+
+  for ( k=1; k<=mesh->np; k++ ) {
+    if ( !mesh->point[k].tmp )  continue;
+
+    inIntComm = 0;
+    for ( j=0; j<nprocs; ++j ) {
+      pext_comm = &parmesh->ext_node_comm[seenRanks[j]];
+
+      if ( pointRanks[nprocs*(k-1)+j] == 1 ) {
+        /* Add point in external communicator */
+        pext_comm->int_comm_index[idx[seenRanks[j]]++] = i;
+
+        if ( !inIntComm ) {
+          /* Add point in internal communicator */
+          inIntComm = 1;
+          node2int_node_comm_index1[i] = mesh->point[k].tmp;
+          node2int_node_comm_index2[i] = i;
+        }
+      }
+    }
+    /* Increment internal comm cursor */
+    if ( inIntComm )  ++i;
+  }
+
+  /** Compact tetrahedra on the proc */
   ne  = 0;
   nbl = 1;
   for ( k=1; k<=mesh->ne; k++) {
@@ -189,26 +284,28 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   }
   mesh->ne = ne;
 
-  /** Compact xtetra: in place permutations */
+  /** Compact xtetra on the proc: in place permutations */
   for ( k=1; k<=mesh->xt; ++k ) {
     while ( xTetraPerm[k] != k && xTetraPerm[k] )
       PMMG_swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
   }
   mesh->xt = nxt;
 
-  /** Compact vertices: in place permutations */
+  /** Compact vertices on the proc: in place permutations */
   for ( k=1; k<=mesh->np; ++k ) {
     while ( pointPerm[k] != k && pointPerm[k] )
       PMMG_swapPoint(mesh->point,pointPerm,k,pointPerm[k]);
   }
   mesh->np = np;
 
-  /** Compact xpoint: in place permutations */
+  /** Compact xpoint on the proc: in place permutations */
   for ( k=1; k<=mesh->xp; ++k ) {
     while ( xPointPerm[k] != k && xPointPerm[k] )
       PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
   }
   mesh->xp = nxp;
+
+#warning Try to remove the adjacency reconstruction and packing (we need to adapt Mmg to allow to provide xTetra/points instead of Triangles)
 
   /** Tetra adjacency reconstruction */
   _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja);
@@ -225,6 +322,10 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
 
   sprintf(filename,"proc%d.mesh",rank);
   MMG3D_saveMesh(mesh,filename);
+
+  _MMG5_SAFE_FREE(seenRanks);
+  _MMG5_SAFE_FREE(pointRanks);
+  _MMG5_SAFE_FREE(idx);
 
   _MMG5_SAFE_FREE(pointPerm);
   _MMG5_SAFE_FREE(xPointPerm);
