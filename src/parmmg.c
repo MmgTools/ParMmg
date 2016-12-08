@@ -54,7 +54,7 @@ int main(int argc,char *argv[]) {
 
 
   /** Merge all the meshes on the proc 0 */
-  // if ( !PMMG_mergeMesh(parmesh) )  return(PMMG_STRONGFAILURE);
+  if ( !PMMG_mergeMesh(parmesh) )  return(PMMG_STRONGFAILURE);
 
   if(!parmesh->myrank) {
     /*receive mesh*/

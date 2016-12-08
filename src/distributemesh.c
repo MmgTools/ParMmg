@@ -162,7 +162,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
 
         /* Count (and mark) each point that will be shared between me and the
          * proc rankVois */
-
         if ( rankVois != rank && !pointRanks[nprocs*(ip-1)+rankVois] ) {
           pointRanks[nprocs*(ip-1)+rankVois] = 1;
           ++seenRanks[rankVois];

@@ -85,175 +85,178 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "MinSizeRel" "RelWithDebInfo")
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
- ############################################################################
-  #####
-  #####         MPI
-  #####
-  ############################################################################
-  # compile parallel version
-  OPTION ( USE_MPI "Compile parallel version" ON)
-  IF( USE_MPI )
-      FIND_PACKAGE(MPI REQUIRED)
 
-     SET(CMAKE_C_COMPILE_FLAGS ${CMAKE_C_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
-     SET(CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS})
-     INCLUDE_DIRECTORIES(MPI_INCLUDE_PATH)
+############################################################################
+#####
+#####         MPI
+#####
+############################################################################
+# compile parallel version
+OPTION ( USE_MPI "Compile parallel version" ON)
+IF( USE_MPI )
+  FIND_PACKAGE(MPI REQUIRED)
 
-      SET(CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}")
-      MESSAGE(STATUS
-        "Compilation with mpi")
-      SET( LIBRARIES ${MPI_LIBRARIES} ${LIBRARIES})
-      SET(CMAKE_C_COMPILER  ${MPI_C_COMPILER})
+  SET(CMAKE_C_COMPILE_FLAGS ${CMAKE_C_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS})
+  SET(CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS})
+  INCLUDE_DIRECTORIES(MPI_INCLUDE_PATH)
 
+  SET(CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}")
+  MESSAGE(STATUS
+    "Compilation with mpi")
+  SET( LIBRARIES ${MPI_LIBRARIES} ${LIBRARIES})
+  SET(CMAKE_C_COMPILER  ${MPI_C_COMPILER})
+
+ENDIF()
+
+############################################################################
+#####
+#####        MMG (for mesh data structure)
+#####
+############################################################################
+SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
+INCLUDE(cmake/modules/FindMmg.cmake)
+
+SET(CMAKE_REQUIRED_INCLUDES ${MMG_SRC_DIR})
+
+IF(NOT MMG_DIR)
+  MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
+    "(see https://github.com/MmgTools/mmg and  download the branch develop)."
+    "If you have already installed Mmg and want to use it, "
+    "please set the CMake variable or environment variable MMG_DIR "
+    "to your mmg directory.")
+ELSE()
+  # Set flags for building test program
+  INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIR})
+  INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
+  INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
+  INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+
+  #SET(CMAKE_REQUIRED_INCLUDES ${MMG_INCLUDE_DIR})
+
+  SET( LIBRARIES ${MMG_LIBRARY} ${LIBRARIES})
+
+
+ENDIF ( )
+
+############################################################################
+#####
+#####        Metis
+#####
+############################################################################
+# add metis library?
+SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
+INCLUDE(cmake/modules/FindMetis.cmake)
+
+IF(METIS_FOUND)
+  OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
+  IF( USE_METIS )
+    # Set flags for building test program
+    INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIR})
+
+    SET(CMAKE_REQUIRED_INCLUDES ${METIS_INCLUDE_DIR})
+    SET(CMAKE_REQUIRED_LIBRARIES ${METIS_LIBRARY})
+    # SET(CMAKE_REQUIRED_LIBRARIES ${PARMETIS_LIBRARY})
+
+    SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+    MESSAGE(STATUS
+      "Compilation with metis: ${METIS_LIBRARY}")
+    SET( LIBRARIES ${METIS_LINK_FLAGS} ${LIBRARIES})
+    # SET( LIBRARIES ${PARMETIS_LIBRARY} ${LIBRARIES})
+    SET( LIBRARIES ${METIS_LIBRARY} ${LIBRARIES})
   ENDIF()
+ELSE ( )
+  MESSAGE(STATUS ${METIS_INCLUDE_DIR} ${METIS_LIBRARY} )
 
- ############################################################################
-  #####
-  #####        MMG (for mesh data structure)
-  #####
-  ############################################################################
-  SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-  INCLUDE(cmake/modules/FindMmg.cmake)
+  MESSAGE ( ERROR " Metis library not found: "
+    "If you have already installed Metis and want to use it, "
+    "please set the CMake variable or environment variable METIS_DIR "
+    "to your metis directory.")
+ENDIF ( )
+############################################################################
+#####
+#####         Scotch
+#####
+############################################################################
+# add SCOTCH library?
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+INCLUDE(cmake/modules/FindScotch.cmake)
 
-  SET(CMAKE_REQUIRED_INCLUDES ${MMG_SRC_DIR})	
-  
-  IF(NOT MMG_DIR)
-     MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
-      "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-      "If you have already installed Mmg and want to use it, "
-      "please set the CMake variable or environment variable MMG_DIR "
-      "to your mmg directory.")
-  ELSE()
-      # Set flags for building test program
-      INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIR})
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+IF(SCOTCH_FOUND)
+  OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON)
+  IF( USE_SCOTCH )
+    # Set flags for building test program
+    INCLUDE_DIRECTORIES(${SCOTCH_INCLUDE_DIR})
 
-      #SET(CMAKE_REQUIRED_INCLUDES ${MMG_INCLUDE_DIR})
+    SET(CMAKE_REQUIRED_INCLUDES ${SCOTCH_INCLUDE_DIR})
+    SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCH_LIBRARY})
+    SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCHERR_LIBRARY})
 
-      SET( LIBRARIES ${MMG_LIBRARY} ${LIBRARIES})
- 
+    SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
+    SET(SCOTCH_LINK_FLAGS "-lpthread")
+    MESSAGE(STATUS
+      "Compilation with scotch: ${SCOTCH_LIBRARY}")
+    SET( LIBRARIES ${SCOTCH_LINK_FLAGS} ${LIBRARIES})
+    SET( LIBRARIES ${SCOTCHERR_LIBRARY} ${LIBRARIES})
+    SET( LIBRARIES ${SCOTCH_LIBRARY} ${LIBRARIES})
+  ENDIF()
+ELSE ( )
+  MESSAGE ( WARNING "Scotch library not found:"
+    "if you compile mmg platform without scotch, it is not a problem otherwise"
+    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
+    "If you have already installed Scotch and want to use it, "
+    "please set the CMake variable or environment variable SCOTCH_DIR "
+    "to your scotch directory.")
+ENDIF ( )
 
-  ENDIF ( )
+############################################################################
+#####
+#####         Elastic
+#####
+############################################################################
+# add SUscElas library?
+SET(SUSCELAS_DIR "" CACHE PATH "Installation directory for SUscElas")
+INCLUDE(cmake/modules/FindSUscElas.cmake)
 
- ############################################################################
-  #####
-  #####        Metis
-  #####
-  ############################################################################
-  # add metis library?
-  SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
-  INCLUDE(cmake/modules/FindMetis.cmake)
+IF(SUSCELAS_FOUND)
+  # Set flags for building test program
+  INCLUDE_DIRECTORIES(${SUSCELAS_INCLUDE_DIR})
 
-  IF(METIS_FOUND)
-    OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
-    IF( USE_METIS )
-      # Set flags for building test program
-      INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIR})
+  SET(CMAKE_REQUIRED_INCLUDES ${SUSCELAS_INCLUDE_DIR})
+  SET(CMAKE_REQUIRED_LIBRARIES ${SUSCELAS_LIBRARY})
 
-      SET(CMAKE_REQUIRED_INCLUDES ${METIS_INCLUDE_DIR})
-      SET(CMAKE_REQUIRED_LIBRARIES ${METIS_LIBRARY})
-      SET(CMAKE_REQUIRED_LIBRARIES ${PARMETIS_LIBRARY})
+  SET(CMAKE_C_FLAGS "-DUSE_SUSCELAS ${CMAKE_C_FLAGS}")
+  MESSAGE(STATUS
+    "Compilation with the Elas library: ${SUSCELAS_LIBRARY} ")
+  SET( LIBRARIES ${SUSCELAS_LINK_FLAGS} ${LIBRARIES})
+  SET( LIBRARIES ${SUSCELAS_LIBRARY} ${LIBRARIES})
+ELSE ( )
+  MESSAGE ( WARNING "SUscElas is a library to solve the linear elasticity "
+    "if you compile mmg platform without SUscElas, it is not a problem otherwise"
+    "problem (see https://github.com/SUscTools/SUscElas to download it). "
+    "This library is needed to use the lagrangian motion option. "
+    "If you have already installed SUscElas and want to use it, "
+    "please set the CMake variable or environment variable SUSCELAS_DIR "
+    "to your SUscElas directory.")
+ENDIF ( )
+############################################################################
+#####
+#####         Fortran header: libparmmgf.h
+#####
+############################################################################
 
-      SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
-      MESSAGE(STATUS
-        "Compilation with metis: ${METIS_LIBRARY}")
-      SET( LIBRARIES ${METIS_LINK_FLAGS} ${LIBRARIES})
-      SET( LIBRARIES ${PARMETIS_LIBRARY} ${LIBRARIES})
-      SET( LIBRARIES ${METIS_LIBRARY} ${LIBRARIES})
-    ENDIF()
-  ELSE ( )
-    MESSAGE ( WARNING "Metis library not found:"
-      "If you have already installed Metis and want to use it, "
-      "please set the CMake variable or environment variable METIS_DIR "
-      "to your metis directory.")
-  ENDIF ( )
- ############################################################################
-  #####
-  #####         Scotch
-  #####
-  ############################################################################
-  # add SCOTCH library?
-  SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-  INCLUDE(cmake/modules/FindScotch.cmake)
+IF (NOT WIN32)
 
-  IF(SCOTCH_FOUND)
-    OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON)
-    IF( USE_SCOTCH )
-      # Set flags for building test program
-      INCLUDE_DIRECTORIES(${SCOTCH_INCLUDE_DIR})
+  ADD_EXECUTABLE(genheader ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
 
-      SET(CMAKE_REQUIRED_INCLUDES ${SCOTCH_INCLUDE_DIR})
-      SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCH_LIBRARY})
-      SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCHERR_LIBRARY})
-
-      SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
-      SET(SCOTCH_LINK_FLAGS "-lpthread")
-      MESSAGE(STATUS
-        "Compilation with scotch: ${SCOTCH_LIBRARY}")
-      SET( LIBRARIES ${SCOTCH_LINK_FLAGS} ${LIBRARIES})
-      SET( LIBRARIES ${SCOTCHERR_LIBRARY} ${LIBRARIES})
-      SET( LIBRARIES ${SCOTCH_LIBRARY} ${LIBRARIES})
-    ENDIF()
-  ELSE ( )
-    MESSAGE ( WARNING "Scotch library not found:"
-      "if you compile mmg platform without scotch, it is not a problem otherwise"
-      "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-      "If you have already installed Scotch and want to use it, "
-      "please set the CMake variable or environment variable SCOTCH_DIR "
-      "to your scotch directory.")
-  ENDIF ( )
-
-  ############################################################################
-  #####
-  #####         Elastic
-  #####
-  ############################################################################
-  # add SUscElas library?
-  SET(SUSCELAS_DIR "" CACHE PATH "Installation directory for SUscElas")
-  INCLUDE(cmake/modules/FindSUscElas.cmake)
-
-  IF(SUSCELAS_FOUND)
-      # Set flags for building test program
-      INCLUDE_DIRECTORIES(${SUSCELAS_INCLUDE_DIR})
-
-      SET(CMAKE_REQUIRED_INCLUDES ${SUSCELAS_INCLUDE_DIR})
-      SET(CMAKE_REQUIRED_LIBRARIES ${SUSCELAS_LIBRARY})
-
-      SET(CMAKE_C_FLAGS "-DUSE_SUSCELAS ${CMAKE_C_FLAGS}")
-      MESSAGE(STATUS
-        "Compilation with the Elas library: ${SUSCELAS_LIBRARY} ")
-      SET( LIBRARIES ${SUSCELAS_LINK_FLAGS} ${LIBRARIES})
-      SET( LIBRARIES ${SUSCELAS_LIBRARY} ${LIBRARIES})
-  ELSE ( )
-    MESSAGE ( WARNING "SUscElas is a library to solve the linear elasticity "
-      "if you compile mmg platform without SUscElas, it is not a problem otherwise"
-      "problem (see https://github.com/SUscTools/SUscElas to download it). "
-      "This library is needed to use the lagrangian motion option. "
-      "If you have already installed SUscElas and want to use it, "
-      "please set the CMake variable or environment variable SUSCELAS_DIR "
-      "to your SUscElas directory.")
-  ENDIF ( )
- ############################################################################
-  #####
-  #####         Fortran header: libparmmgf.h
-  #####
-  ############################################################################
-
-  IF (NOT WIN32)
-
-        ADD_EXECUTABLE(genheader ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
-
-    	ADD_CUSTOM_COMMAND(OUTPUT ${PMMG_SOURCE_DIR}/libparmmgf.h
-     	 COMMAND genheader ${PMMG_SOURCE_DIR}/libparmmgf.h
-     	  ${PMMG_SOURCE_DIR}/libparmmg.h ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
-     	   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-     	    DEPENDS genheader ${PMMG_SOURCE_DIR}/libparmmg.h
-     	     ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
-     	      COMMENT "Generating Fortran header"
-      	      )
-  ENDIF ()
+  ADD_CUSTOM_COMMAND(OUTPUT ${PMMG_SOURCE_DIR}/libparmmgf.h
+    COMMAND genheader ${PMMG_SOURCE_DIR}/libparmmgf.h
+    ${PMMG_SOURCE_DIR}/libparmmg.h ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS genheader ${PMMG_SOURCE_DIR}/libparmmg.h
+    ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
+    COMMENT "Generating Fortran header"
+    )
+ENDIF ()
 
 ###############################################################################
 #####
@@ -277,7 +280,7 @@ FILE(
   ${PMMG_SOURCE_DIR}/parmmg.c
   ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.c
   ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.c
-   )
+  )
 FILE(
   GLOB
   lib_file
@@ -289,102 +292,102 @@ IF (NOT WIN32)
   SET( LIBRARIES ${LIBRARIES} ${M_LIB})
 ENDIF()
 
- ############################################################################
-  #####
-  #####Set the full RPATH to find libraries independently from LD_LIBRARY_PATH
-  #####
-  ############################################################################
-  SET(CMAKE_MACOSX_RPATH TRUE)
+############################################################################
+#####
+#####Set the full RPATH to find libraries independently from LD_LIBRARY_PATH
+#####
+############################################################################
+SET(CMAKE_MACOSX_RPATH TRUE)
 
-  # use, i.e. don't skip the full RPATH for the build tree
-  SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
+# use, i.e. don't skip the full RPATH for the build tree
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 
-  # when building, don't use the install RPATH already
-  # (but later on when installing)
-  SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# when building, don't use the install RPATH already
+# (but later on when installing)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
+SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
+# add the automatically determined parts of the RPATH
+# which point to directories outside the build tree to the install RPATH
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# the RPATH to be used when installing, but only if it's not a system
+# directory
+LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+  "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+IF("${isSystemDir}" STREQUAL "-1")
   SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+ENDIF("${isSystemDir}" STREQUAL "-1")
 
-  # add the automatically determined parts of the RPATH
-  # which point to directories outside the build tree to the install RPATH
-  SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+############################################################################
+#####
+#####         Compile parmmg libraries
+#####
+############################################################################
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
-  # the RPATH to be used when installing, but only if it's not a system
-  # directory
-  LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-    "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-  IF("${isSystemDir}" STREQUAL "-1")
-    SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-  ENDIF("${isSystemDir}" STREQUAL "-1")
-
-  ############################################################################
-  #####
-  #####         Compile parmmg libraries
-  #####
-  ############################################################################
-  SET(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
-
-  OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
-  IF ( LIBPARMMG_STATIC )
-    ADD_LIBRARY(${PROJECT_NAME}_a  STATIC
-      ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-      ${source_files} ${lib_file} )
-    SET_TARGET_PROPERTIES(${PROJECT_NAME}_a PROPERTIES OUTPUT_NAME
-      ${PROJECT_NAME})
-    TARGET_LINK_LIBRARIES(${PROJECT_NAME}_a ${LIBRARIES})
-    INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h DESTINATION
-      include)
-    INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h DESTINATION
-      include)
-    INSTALL(TARGETS ${PROJECT_NAME}_a
-      ARCHIVE DESTINATION lib
-      LIBRARY DESTINATION lib)
-  ENDIF()
-
-  # Compile shared library
-  OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
-  IF ( LIBPARMMG_SHARED )
-    ADD_LIBRARY(${PROJECT_NAME}_so SHARED
-      ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-      ${source_files} ${lib_file})
-    SET_TARGET_PROPERTIES(${PROJECT_NAME}_so PROPERTIES
-      OUTPUT_NAME ${PROJECT_NAME})
-    TARGET_LINK_LIBRARIES(${PROJECT_NAME}_so ${LIBRARIES})
-    INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-      DESTINATION include)
-    INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
-      DESTINATION include)
-    INSTALL(TARGETS ${PROJECT_NAME}_so
-      ARCHIVE DESTINATION
-      LIBRARY DESTINATION lib)
-  ENDIF()
-
-  ############################################################################
-  #####
-  #####         Compile program to test library
-  #####
-  ############################################################################
-
- ###############################################################################
-  #####
-  #####         Compile PMMG executable
-  #####
-  ###############################################################################
-  ADD_EXECUTABLE(${PROJECT_NAME}
+OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
+IF ( LIBPARMMG_STATIC )
+  ADD_LIBRARY(${PROJECT_NAME}_a  STATIC
     ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
- ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h	
-    ${source_files} ${main_file})
-  TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LIBRARIES})
-  INSTALL(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+    ${source_files} ${lib_file} )
+  SET_TARGET_PROPERTIES(${PROJECT_NAME}_a PROPERTIES OUTPUT_NAME
+    ${PROJECT_NAME})
+  TARGET_LINK_LIBRARIES(${PROJECT_NAME}_a ${LIBRARIES})
+  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h DESTINATION
+    include)
+  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h DESTINATION
+    include)
+  INSTALL(TARGETS ${PROJECT_NAME}_a
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib)
+ENDIF()
 
-  # in debug mode we name the executable parmmg_debug
-  SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX _debug)
-  # in Release mode we name the executable parmmg_O3
-  SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELEASE_POSTFIX _O3)
-  # in RelWithDebInfo mode we name the executable parmmg_d
-  SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _O)
-  # in MinSizeRel mode we name the executable parmmg_Os
-  SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES MINSIZEREL_POSTFIX _Os)
+# Compile shared library
+OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
+IF ( LIBPARMMG_SHARED )
+  ADD_LIBRARY(${PROJECT_NAME}_so SHARED
+    ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
+    ${source_files} ${lib_file})
+  SET_TARGET_PROPERTIES(${PROJECT_NAME}_so PROPERTIES
+    OUTPUT_NAME ${PROJECT_NAME})
+  TARGET_LINK_LIBRARIES(${PROJECT_NAME}_so ${LIBRARIES})
+  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
+    DESTINATION include)
+  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
+    DESTINATION include)
+  INSTALL(TARGETS ${PROJECT_NAME}_so
+    ARCHIVE DESTINATION
+    LIBRARY DESTINATION lib)
+ENDIF()
+
+############################################################################
+#####
+#####         Compile program to test library
+#####
+############################################################################
+
+###############################################################################
+#####
+#####         Compile PMMG executable
+#####
+###############################################################################
+ADD_EXECUTABLE(${PROJECT_NAME}
+  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
+  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
+  ${source_files} ${main_file})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LIBRARIES})
+INSTALL(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+
+# in debug mode we name the executable parmmg_debug
+SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX _debug)
+# in Release mode we name the executable parmmg_O3
+SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELEASE_POSTFIX _O3)
+# in RelWithDebInfo mode we name the executable parmmg_d
+SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _O)
+# in MinSizeRel mode we name the executable parmmg_Os
+SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES MINSIZEREL_POSTFIX _Os)
 
 ###############################################################################
 #####
@@ -394,7 +397,7 @@ ENDIF()
 FIND_PACKAGE(Doxygen)
 IF(DOXYGEN_FOUND)
 
-# PARMMG Documentation
+  # PARMMG Documentation
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
 
@@ -410,7 +413,7 @@ IF(DOXYGEN_FOUND)
     Open up the doc/doxygen/html/index.html file to see it." VERBATIM
     )
 
-ADD_CUSTOM_TARGET(doc
+  ADD_CUSTOM_TARGET(doc
     DEPENDS fmg_doc
     COMMENT "Generating PARMMG API documentation with Doxygen.
      Open up the doc/doxygen/html/index.html file to see it" VERBATIM
