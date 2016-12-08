@@ -34,6 +34,7 @@ int main(int argc,char *argv[]) {
 
   /** Read sequential mesh*/
 #warning : for the moment, we only read a mesh named m.mesh
+#warning Algiane: with lot of procs mpi process may fail to read the same file at the same time so maybe we will need to read the mesh over one unique proc and to broadcast it over the others...
   if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
 
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);

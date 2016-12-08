@@ -122,9 +122,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   mesh   = grp[0].mesh;
   rank   = parmesh->myrank;
 
-#warning to trash
-  printf( " je suis le proc %d\n", parmesh->myrank);
-
   _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
   _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t);
 
@@ -219,18 +216,18 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
   }
 
   /** Initialize the internal node communicator */
- nitem_int_node_comm = 0;
- for ( k=1; k<=mesh->np; k++ ) {
+  nitem_int_node_comm = 0;
+  for ( k=1; k<=mesh->np; k++ ) {
 
-   if ( !mesh->point[k].tmp )  continue;
+    if ( !mesh->point[k].tmp )  continue;
 
-   for ( j=0; j<nprocs; ++j ) {
-     if ( pointRanks[nprocs*(k-1)+j] ) {
-       ++nitem_int_node_comm;
-       break;
-     }
-   }
- }
+    for ( j=0; j<nprocs; ++j ) {
+      if ( pointRanks[nprocs*(k-1)+j] ) {
+        ++nitem_int_node_comm;
+        break;
+      }
+    }
+  }
 
   grp->nitem_int_node_comm = nitem_int_node_comm;
   _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index1,nitem_int_node_comm,int);
@@ -266,6 +263,9 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
     /* Increment internal comm cursor */
     if ( inIntComm )  ++i;
   }
+  _MMG5_SAFE_CALLOC(parmesh->int_node_comm,1,PMMG_int_comm);
+  /* We have 1 Grp per proc, thus : int_node_comm.nitem : nitem_int_node_comm */
+  parmesh->int_node_comm->nitem = nitem_int_node_comm;
 
   /** Compact tetrahedra on the proc */
   ne  = 0;
@@ -307,21 +307,21 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
 
 #warning Try to remove the adjacency reconstruction and packing (we need to adapt Mmg to allow to provide xTetra/points instead of Triangles)
 
-  /** Tetra adjacency reconstruction */
-  _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja);
-  if ( !MMG3D_hashTetra(mesh,1) ) {
-    fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-    return(0);
-  }
+  /* /\** Tetra adjacency reconstruction *\/ */
+  /* _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja); */
+  /* if ( !MMG3D_hashTetra(mesh,1) ) { */
+  /*   fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n"); */
+  /*   return(0); */
+  /* } */
 
-  /* Pack the mesh */
-  if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) {
-    fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
-    return(0);
-  }
+  /* /\* Pack the mesh *\/ */
+  /* if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) { */
+  /*   fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n"); */
+  /*   return(0); */
+  /* } */
 
-  sprintf(filename,"proc%d.mesh",rank);
-  MMG3D_saveMesh(mesh,filename);
+  /* sprintf(filename,"proc%d.mesh",rank); */
+  /* MMG3D_saveMesh(mesh,filename); */
 
   _MMG5_SAFE_FREE(seenRanks);
   _MMG5_SAFE_FREE(pointRanks);

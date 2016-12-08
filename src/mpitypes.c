@@ -13,6 +13,8 @@
 /**
  * \param parmesh pointer toward the parmesh we want to communicate
  * \param mpi_type_parmesh new MPI data type for parmesh
+ * \param mpi_type_int_comm new MPI data type for internal communicator
+ * \param mpi_type_ext_comm new MPI data type for external communicator
  * \param mpi_type_grp new MPI data type for groupe
  * \param mpi_type_mesh new MPI data type for mesh
  * \param mpi_type_point new MPI data type for point
@@ -25,21 +27,51 @@
  * choosen fields of a parmesh (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
+ *
+ * \remark we suppose that we have merged groups over each proc, thus we only
+ * have 1 group per proc.
  */
-#warning to end
 int PMMG_create_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmesh,
+                            MPI_Datatype *mpi_type_int_comm,MPI_Datatype *mpi_type_ext_comm,
                             MPI_Datatype *mpi_type_grp, MPI_Datatype *mpi_type_mesh,
                             MPI_Datatype *mpi_type_point,MPI_Datatype *mpi_type_xpoint,
                             MPI_Datatype *mpi_type_tetra,MPI_Datatype *mpi_type_xtetra) {
 
-  /* set up ?? blocks */
-  int          blockcounts[4] = {50, 1, 4, 2};
+  int          blck_lengths[4],i;
   MPI_Datatype types[4];
   MPI_Aint     displs[4];
 
+  if ( !PMMG_create_MPI_Int_Comm(parmesh->int_node_comm,mpi_type_int_comm) )
+    return(0);
 
+  if ( !PMMG_create_MPI_Ext_Comm(&parmesh->ext_node_comm[0],mpi_type_ext_comm) )
+    return(0);
 
-  MPI_Type_create_struct(4, blockcounts, displs, types, mpi_type_parmesh);
+  if ( !PMMG_create_MPI_Grp(&parmesh->listgrp[0],mpi_type_grp,mpi_type_mesh,
+                            mpi_type_point,mpi_type_xpoint,
+                            mpi_type_tetra,mpi_type_xtetra) )  return(0);
+
+  blck_lengths[0] = 1; // grp
+  blck_lengths[1] = 1; // int_comm
+  blck_lengths[2] = 1; // next_node_comm
+  blck_lengths[3] = parmesh->next_node_comm; // ext_node_comm
+
+  types[0] = *mpi_type_grp;
+  types[1] = *mpi_type_int_comm;
+  types[2] = MPI_INT;
+  types[3] = *mpi_type_ext_comm;
+
+  MPI_Get_address(&parmesh->listgrp[0],       &displs[0]);
+  MPI_Get_address(&parmesh->int_node_comm,    &displs[1]);
+  MPI_Get_address(&parmesh->next_node_comm,   &displs[2]);
+  MPI_Get_address(&parmesh->ext_node_comm,    &displs[3]);
+
+  /* Relative displacement from field 0 to field i */
+  for ( i=3 ; i>= 0; --i ) {
+    displs[i] -= displs[0];
+  }
+
+  MPI_Type_create_struct(4, blck_lengths,displs,types,mpi_type_parmesh);
 
   MPI_Type_commit(mpi_type_parmesh);
 
@@ -48,6 +80,8 @@ int PMMG_create_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmes
 
 /**
  * \param mpi_type_parmesh MPI data type to delete
+ * \param mpi_type_int_comm MPI data type to delete
+ * \param mpi_type_ext_comm MPI data type to delete
  * \param mpi_type_grp MPI data type to delete
  * \param mpi_type_mesh MPI data type to delete
  * \param mpi_type_point MPI data type to delete
@@ -58,13 +92,17 @@ int PMMG_create_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmes
  * Free the MPI data type named mpi_type_parmesh
  *
  */
-
-void PMMG_free_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmesh,
+void PMMG_free_MPI_ParMesh(MPI_Datatype *mpi_type_parmesh,
+                           MPI_Datatype *mpi_type_int_comm,MPI_Datatype *mpi_type_ext_comm,
                            MPI_Datatype *mpi_type_grp, MPI_Datatype *mpi_type_mesh,
                            MPI_Datatype *mpi_type_point,MPI_Datatype *mpi_type_xpoint,
                            MPI_Datatype *mpi_type_tetra,MPI_Datatype *mpi_type_xtetra ) {
 
    MPI_Type_free(mpi_type_parmesh);
+
+   PMMG_free_MPI_Int_Comm( mpi_type_int_comm );
+
+   PMMG_free_MPI_Ext_Comm( mpi_type_ext_comm );
 
    PMMG_free_MPI_Grp(mpi_type_grp,mpi_type_mesh,mpi_type_point,mpi_type_xpoint,
                      mpi_type_tetra,mpi_type_xtetra);

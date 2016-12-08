@@ -22,3 +22,6 @@ int PMMG_metispartitioning(PMMG_pParMesh ,int *);
 
 /*distributemesh*/
 int PMMG_distributeMesh(PMMG_pParMesh ,int *);
+
+/*mergeMesh*/
+int PMMG_mergeMesh(PMMG_pParMesh);

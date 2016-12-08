@@ -9,11 +9,13 @@
  */
 
 int PMMG_create_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmesh,
+                            MPI_Datatype *mpi_type_int_comm,MPI_Datatype *mpi_type_ext_comm,
                             MPI_Datatype *mpi_type_grp, MPI_Datatype *mpi_type_mesh,
                             MPI_Datatype *mpi_type_point,MPI_Datatype *mpi_type_xpoint,
                             MPI_Datatype *mpi_type_tetra,MPI_Datatype *mpi_type_xtetra);
 
-void PMMG_free_MPI_ParMesh(PMMG_pParMesh parmesh, MPI_Datatype *mpi_type_parmesh,
+void PMMG_free_MPI_ParMesh(MPI_Datatype *mpi_type_parmesh,
+                           MPI_Datatype *mpi_type_int_comm,MPI_Datatype *mpi_type_ext_comm,
                            MPI_Datatype *mpi_type_grp, MPI_Datatype *mpi_type_mesh,
                            MPI_Datatype *mpi_type_point,MPI_Datatype *mpi_type_xpoint,
                            MPI_Datatype *mpi_type_tetra,MPI_Datatype *mpi_type_xtetra );
