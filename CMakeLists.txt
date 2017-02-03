@@ -49,7 +49,7 @@ IF(CMAKE_COMPILER_IS_GNUCC)
     ADD_DEFINITIONS( -mmacosx-version-min=10.4 -arch x86_64)
 
     # To avoid pbs with binary files...
-    SET(CMAKE_EXE_LINKER_FLAGS "-arch x86_64 ${CMAKE_EXE_LINKER_FLAGS}")
+    SET(CMAKE_EXE_LINKER_FLAGS "-arch x86_64 ${CMAKE_EXE_LINKER_FLAGS} ")
 
     # Determine if the processor supports 64bit execution
     EXECUTE_PROCESS(
@@ -286,7 +286,7 @@ FILE(
   )
 IF (NOT WIN32)
   FIND_LIBRARY(M_LIB m)
-  SET( LIBRARIES ${M_LIB} ${LIBRARIES})
+  SET( LIBRARIES ${LIBRARIES} ${M_LIB})
 ENDIF()
 
  ############################################################################
