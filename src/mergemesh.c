@@ -223,7 +223,6 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   MMG5_pxPoint   rcv_xpoint,xpoint,pxp;
   MMG5_pTetra    rcv_tetra,tetra,pt;
   MMG5_pxTetra   rcv_xtetra,xtetra,pxt;
-#warning add solution/metric communication
   MMG5_pSol      sol;
   PMMG_pint_comm int_node_comm;
   PMMG_pext_comm ext_node_comm;
@@ -283,10 +282,11 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   mesh = grp->mesh;
   sol  = grp->sol;
 
-#warning for debug: to trash
-  sprintf(filename,"proc%d.mesh",rank);
-  MMG3D_saveMesh(mesh,filename);
-  MMG3D_saveSol(mesh,sol,filename);
+  if ( parmesh->ddebug ) {
+    sprintf(filename,"proc%d.mesh",rank);
+    MMG3D_saveMesh(mesh,filename);
+    MMG3D_saveSol(mesh,sol,filename);
+  }
 
   if ( !PMMG_create_MPI_Point (&mesh->point[1],  &mpi_type_point ) ) return(0);
   if ( !PMMG_create_MPI_xPoint(&mesh->xpoint[1], &mpi_type_xpoint) ) return(0);
@@ -615,10 +615,12 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
 
       for ( i=1; i<=rcv_np[k]; ++i ) {
         idx = point_1[i].tmp;
-        ppt = &mesh->point[idx];
 
         if ( !idx ) continue;
+        ppt = &mesh->point[idx];
 
+        if ( point_1[i].xp ) continue;
+ 
         pxp = &mesh->xpoint[++np];
         memcpy(pxp, &xpoint[point_1[i].xp],sizeof(MMG5_xPoint));
         ppt->xp = np;

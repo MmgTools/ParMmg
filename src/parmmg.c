@@ -17,15 +17,13 @@ int main(int argc,char *argv[]) {
   MMG5_pSol        sol;
   int              i,ier;
 
+  /** Init MPI */
+  MPI_Init(&argc, &argv);
+
   /** Assign default values */
   if ( !PMMG_Init_parMesh(PMMG_ARG_start,
                           PMMG_ARG_ppParMesh,&parmesh,
                           PMMG_ARG_end) ) return PMMG_STRONGFAILURE;
-
-  /** Init MPI */
-  MPI_Init(&argc, &argv);
-  MPI_Comm_size(parmesh->comm, &parmesh->nprocs);
-  MPI_Comm_rank(parmesh->comm, &parmesh->myrank);
 
   if ( !parmesh->myrank ) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
@@ -36,8 +34,10 @@ int main(int argc,char *argv[]) {
   /** Read sequential mesh */
 #warning : for the moment, we only read a mesh named m.mesh
 #warning Algiane: with lot of procs mpi process may fail to read the same file at the same time so maybe we will need to read the mesh over one unique proc and to broadcast it over the others...
-  if ( !PMMG_loadMesh(parmesh,"m.mesh") ) return(PMMG_STRONGFAILURE);
-  if ( PMMG_loadSol(parmesh,"m.sol") < 0 ) return(PMMG_STRONGFAILURE);
+  if ( !parmesh->myrank ) {
+    if ( !PMMG_loadMesh(parmesh,"m.mesh") ) return(PMMG_STRONGFAILURE);
+    if ( PMMG_loadSol(parmesh,"m.sol") < 0 ) return(PMMG_STRONGFAILURE);
+  }
 
   ier = PMMG_parmmglib(parmesh);
 

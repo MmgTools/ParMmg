@@ -23,8 +23,6 @@ int _PMMG_Init_parMesh_var( va_list argptr ) {
   comm         = MPI_COMM_WORLD;
   ngrps        = 1;
   parmeshCount = 0;
-  rank         = 0;
-  size         = 0;
 
   while ( (typArg = va_arg(argptr,int)) != PMMG_ARG_end )
   {
@@ -39,12 +37,6 @@ int _PMMG_Init_parMesh_var( va_list argptr ) {
       break;
     case(PMMG_ARG_comm):
       comm = va_arg(argptr,MPI_Comm);
-      break;
-    case(PMMG_ARG_mpiRank):
-      rank = va_arg(argptr,int);
-      break;
-    case(PMMG_ARG_mpiSize):
-      size = va_arg(argptr,int);
       break;
     default:
       fprintf(stderr,"  ## Error: PMMG_Init_parMesh:\n"
@@ -68,10 +60,13 @@ int _PMMG_Init_parMesh_var( va_list argptr ) {
   if ( *parmesh )  _MMG5_SAFE_FREE(*parmesh);
   _MMG5_SAFE_CALLOC(*parmesh,1,PMMG_ParMesh);
 
-  /* Init Communicator */
+#warning to remove when the program will run
+  (*parmesh)->ddebug = 1;
+
+  /* MPI Data */
   (*parmesh)->comm   = comm;
-  (*parmesh)->myrank = rank;
-  (*parmesh)->nprocs = size;
+  MPI_Comm_rank(comm,(*parmesh)->myrank);
+  MPI_Comm_size((comm,(*parmesh)->nprocs);
 
   /** Init Group */
   (*parmesh)->ngrp = ngrps;

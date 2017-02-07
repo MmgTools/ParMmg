@@ -77,24 +77,6 @@
  */
 #define PMMG_ARG_comm  4
 /**
- * \def PMMG_ARG_mpiRank
- *
- * rank of the calling process in the communicator
- *
- * \remark we cannot use an enum because used in
- * variadic functions).
- */
-#define PMMG_ARG_mpiRank  5
-/**
- * \def PMMG_ARG_mpiSize
- *
- * Number of process in the communicator
- *
- * \remark we cannot use an enum because used in
- * variadic functions).
- */
-#define PMMG_ARG_mpiSize  6
-/**
  * \def PMMG_ARG_end
  *
  * To end a list of variadic argument (mandatory last argument for all our
@@ -103,7 +85,7 @@
  * \remark we cannot use an enum because used in
  * variadic functions).
  */
-#define PMMG_ARG_end    7
+#define PMMG_ARG_end    5
 
 
 /**
@@ -198,6 +180,8 @@ typedef struct {
   int            next_edge_comm;    /*!< Number of external edge communicator */
   PMMG_pext_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
 
+  /* global variables */
+  int            ddebug;
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 
