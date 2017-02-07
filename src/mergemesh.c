@@ -246,9 +246,6 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   int            np,ne,xt_tot,np_tot,xp_tot;
   char           filename[13];
 
-#warning to trash
-  printf( " je suis le proc %d\n", parmesh->myrank);
-
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
   comm   = parmesh->comm;
@@ -285,8 +282,12 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
 
   mesh = grp->mesh;
   sol  = grp->sol;
-  //ajeter
-  printf("np=%d\n",mesh->np);
+
+#warning for debug: to trash
+  sprintf(filename,"proc%d.mesh",rank);
+  MMG3D_saveMesh(mesh,filename);
+  MMG3D_saveSol(mesh,sol,filename);
+
   if ( !PMMG_create_MPI_Point (&mesh->point[1],  &mpi_type_point ) ) return(0);
   if ( !PMMG_create_MPI_xPoint(&mesh->xpoint[1], &mpi_type_xpoint) ) return(0);
   if ( !PMMG_create_MPI_Tetra (&mesh->tetra[1],  &mpi_type_tetra ) ) return(0);
@@ -476,7 +477,7 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
 
       for ( i=0; i<rcv_next_node_comm[k]; ++i ) {
         cursor   = ext_comm_displs[k]+i;
-        nitems_1 = nitems_ext_idx[cursor];
+        nitems_1 = rcv_nitem_ext_tab[cursor];
         int_comm_index = &rcv_int_comm_index[idx];
         idx     += nitems_1;
 
@@ -487,7 +488,7 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
         assert( color_in==k );
         assert( color_in!=color_out );
 
-        if ( rcv_color_in_tab[cursor] < rcv_color_out_tab[cursor] ) {
+        if ( color_in < color_out ) {
           /* New point */
           for ( j=0; j<nitems_1; ++j ) {
             if ( !point_1[intvalues_1[int_comm_index[j]]].tmp ) {
@@ -502,13 +503,18 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
           idx_2 =  int_comm_index_displs[color_out];
           for ( j=0; j<rcv_next_node_comm[color_out]; ++j ) {
             cursor   = ext_comm_displs[color_out]+j;
-            nitems_2 = nitems_ext_idx[cursor];
+            nitems_2 = rcv_nitem_ext_tab[cursor];
             int_comm_index_2 = &rcv_int_comm_index[idx_2];
             idx_2   += nitems_2;
 
             if ( rcv_color_in_tab[cursor]  == color_out &&
                  rcv_color_out_tab[cursor] == color_in  )  break;
           }
+          //Ajeter
+          printf( "bug ici %d %d: %d %d \n",color_in, color_out, rcv_color_in_tab[cursor], rcv_color_out_tab[cursor]);
+          printf("j %d; cursor %d; idx_2 %d idx %d\n",j,cursor,idx_2,idx);
+          printf("nitems_1 %d nitems_2 %d\n",nitems_1, nitems_2);
+
           assert(j<rcv_next_node_comm[color_out]);
           assert(nitems_1 == nitems_2);
 
@@ -618,36 +624,9 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
         ppt->xp = np;
       }
     }
-
-    /** Tetra adjacency reconstruction */
-    _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja);
-    if ( !MMG3D_hashTetra(mesh,0) ) {
-      fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-      return(0);
-    }
-
-    /* Pack the mesh */
-    if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) {
-      fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
-      return(0);
-    }
-    MMG3D_saveMesh(mesh,"merged.mesh");
-  }
-  else {
-#warning create an API function to free a whole parmesh
-    MMG3D_Free_all(MMG5_ARG_start,
-                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&sol,
-                   MMG5_ARG_end);
-    _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
-    _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
-    _MMG5_SAFE_FREE(int_node_comm->intvalues);
-
-    for ( i=0; i<parmesh->next_node_comm; ++i ) {
-      _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
-    }
-    _MMG5_SAFE_FREE(parmesh->ext_node_comm);
   }
 
+  /* Free memory */
   MPI_Type_free(&mpi_type_point);
   MPI_Type_free(&mpi_type_xpoint);
   MPI_Type_free(&mpi_type_tetra);

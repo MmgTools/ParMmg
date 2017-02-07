@@ -12,19 +12,20 @@
  */
 int main(int argc,char *argv[]) {
   PMMG_pParMesh    parmesh=NULL;
-  int              *part;
+  PMMG_pGrp        grp;
+  MMG5_pMesh       mesh;
+  MMG5_pSol        sol;
+  int              i,ier;
 
-  if ( parmesh )  _MMG5_SAFE_FREE(parmesh);
-  _MMG5_SAFE_CALLOC(parmesh,1,PMMG_ParMesh);
+  /** Assign default values */
+  if ( !PMMG_Init_parMesh(PMMG_ARG_start,
+                          PMMG_ARG_ppParMesh,&parmesh,
+                          PMMG_ARG_end) ) return PMMG_STRONGFAILURE;
 
   /** Init MPI */
-  parmesh->comm = MPI_COMM_WORLD;
   MPI_Init(&argc, &argv);
   MPI_Comm_size(parmesh->comm, &parmesh->nprocs);
   MPI_Comm_rank(parmesh->comm, &parmesh->myrank);
-
-#warning CECILE : do we need a variadic Init for Parmmg ?
-  //???PMMG_Init(parmesh);
 
   if ( !parmesh->myrank ) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
@@ -32,44 +33,41 @@ int main(int argc,char *argv[]) {
     fprintf(stdout,"     %s %s\n",__DATE__,__TIME__);
   }
 
-  /** Read sequential mesh*/
+  /** Read sequential mesh */
 #warning : for the moment, we only read a mesh named m.mesh
 #warning Algiane: with lot of procs mpi process may fail to read the same file at the same time so maybe we will need to read the mesh over one unique proc and to broadcast it over the others...
-  if(!PMMG_loadMesh(parmesh,"m.mesh")) return(PMMG_STRONGFAILURE);
+  if ( !PMMG_loadMesh(parmesh,"m.mesh") ) return(PMMG_STRONGFAILURE);
+  if ( PMMG_loadSol(parmesh,"m.sol") < 0 ) return(PMMG_STRONGFAILURE);
 
-  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
+  ier = PMMG_parmmglib(parmesh);
 
-  /** Call metis for partionning*/
-  if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
-
-  /** Mesh analysis: compute ridges, singularities, normals... and store the
-      triangles into the xTetra structure */
-  if ( !_MMG3D_analys(parmesh->listgrp[0].mesh) ) return(PMMG_STRONGFAILURE);
-
-  /** Send mesh partionning to other proc*/
-  if ( !PMMG_distributeMesh(parmesh,part) ) return(PMMG_STRONGFAILURE);
-  _MMG5_SAFE_FREE(part);
-
-  /** Mesh adaptation */
-
-
-  /** Merge all the meshes on the proc 0 */
-  if ( !PMMG_mergeMesh(parmesh) )  return(PMMG_STRONGFAILURE);
-
-  if(!parmesh->myrank) {
-    /*receive mesh*/
-
+  if ( ier!= PMMG_STRONGFAILURE && !parmesh->myrank ) {
     /*write mesh*/
 #warning : for the moment, we only write a mesh named out.mesh
-    PMMG_saveMesh(parmesh,"out.mesh");
-  } else {
-    /*send mesh*/
+    if ( !PMMG_saveMesh(parmesh,"out.mesh") ) return(PMMG_STRONGFAILURE);
+    if ( !PMMG_saveSol(parmesh,"out.sol") ) return(PMMG_STRONGFAILURE);
   }
 
   /*free structures*/
+#warning create an API function to free a whole parmesh
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  sol  = grp->sol;
+
+  MMG3D_Free_all(MMG5_ARG_start,
+                 MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&sol,
+                 MMG5_ARG_end);
+  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
+  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
+  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
+
+  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+    _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
+  }
+  _MMG5_SAFE_FREE(parmesh->ext_node_comm);
 
   /*Finalize MPI*/
   MPI_Finalize();
 
-  return(PMMG_SUCCESS);
+  return(ier);
 }

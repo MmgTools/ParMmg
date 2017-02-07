@@ -10,6 +10,10 @@
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
+
+#ifndef _LIBPARMMGTYPES_H
+#define _LIBPARMMGTYPES_H
+
 /**
  * \def PMMG_SUCCESS
  *
@@ -33,6 +37,73 @@
  *
  */
 #define PMMG_STRONGFAILURE 2
+
+
+/**
+ * \def PMMG_ARG_start
+ *
+ * To begin a list of variadic arguments (mandatory first arg for all our
+ * variadic functions)
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_start  1
+/**
+ * \def PMMG_ARG_ppParMesh
+ *
+ * pointer toward a pointer toward a parMesh structure
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_ppParMesh  2
+/**
+ * \def PMMG_ARG_ngroups
+ *
+ * Number of groups per processor.
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_ngroups  3
+/**
+ * \def PMMG_ARG_comm
+ *
+ * MPI Communicator
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_comm  4
+/**
+ * \def PMMG_ARG_mpiRank
+ *
+ * rank of the calling process in the communicator
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_mpiRank  5
+/**
+ * \def PMMG_ARG_mpiSize
+ *
+ * Number of process in the communicator
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_mpiSize  6
+/**
+ * \def PMMG_ARG_end
+ *
+ * To end a list of variadic argument (mandatory last argument for all our
+ * variadic functions)
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_end    7
 
 
 /**
@@ -131,3 +202,4 @@ typedef struct {
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 
 
+#endif
