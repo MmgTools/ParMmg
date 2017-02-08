@@ -98,7 +98,7 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
  * Delete parts of the mesh not on the processor.
  *
  */
-int PMMG_distributeMesh(PMMG_pParMesh parmesh,int *part) {
+int PMMG_distributeMesh(PMMG_pParMesh parmesh,idx_t *part) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
 #warning add solution/metric communication

@@ -1,15 +1,5 @@
 #include "mmg/libmmgtypes.h"
-#include "mpi.h"
-#include <stdint.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
-#include <string.h>
-#include <signal.h>
-#include <ctype.h>
-#include <float.h>
-#include <math.h>
+#include <mpi.h>
 
 #ifndef _LIBPARMMGTYPES_H
 #define _LIBPARMMGTYPES_H

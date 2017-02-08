@@ -7,7 +7,7 @@
  *
  */
 
-#include "libparmmg.h"
+#include "parmmg.h"
 
 int _PMMG_Init_parMesh_var( va_list argptr ) {
   PMMG_pParMesh  *parmesh;
@@ -65,8 +65,8 @@ int _PMMG_Init_parMesh_var( va_list argptr ) {
 
   /* MPI Data */
   (*parmesh)->comm   = comm;
-  MPI_Comm_rank(comm,(*parmesh)->myrank);
-  MPI_Comm_size((comm,(*parmesh)->nprocs);
+  MPI_Comm_rank(comm,&(*parmesh)->myrank);
+  MPI_Comm_size(comm,&(*parmesh)->nprocs);
 
   /** Init Group */
   (*parmesh)->ngrp = ngrps;

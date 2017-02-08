@@ -1,15 +1,16 @@
-#include "libparmmg.h"
+#include "parmmg.h"
 
 
 int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
-  int              *part,it,i,ier,niter;
+  idx_t            *part;
+  int              it,i,ier,niter;
 
 #warning niter must be a param setted by the user
   niter = 1;
 
-  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,int);
+  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
 
   /** Call metis for partionning*/
   if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);

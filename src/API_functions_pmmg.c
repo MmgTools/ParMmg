@@ -7,7 +7,7 @@
  *
  */
 
-#include "libparmmg.h"
+#include "parmmg.h"
 
 int PMMG_Init_parMesh( const int starter,... ) {
   va_list argptr;

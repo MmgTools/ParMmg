@@ -9,8 +9,7 @@
  */
 
 
-#include "libparmmg.h"
-#include "metis.h"
+#include "parmmg.h"
 
 /**
  * \param parmesh pointer toward the mesh structure.
@@ -21,11 +20,13 @@
  * Proc 0 call metis to part the mesh. Then broadcast the partition.
  *
  */
-int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
+int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  int        *xadj,*adjncy,*adja;
-  int        j,k,iadr,jel,count,totCount,nelt,nproc,nbAdj,ncon,ier,objval;
+  idx_t      *xadj,*adjncy;
+  idx_t      nelt,ncon,nproc,objval;
+  int        *adja;
+  int        j,k,iadr,jel,count,totCount,nbAdj,ier;
 
   if ( !parmesh->myrank ) {
     grp = parmesh->listgrp;
@@ -38,7 +39,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
     }
 
     /*mesh -> graph*/
-    _MMG5_SAFE_CALLOC(xadj,mesh->ne + 1,int);
+    _MMG5_SAFE_CALLOC(xadj,mesh->ne + 1,idx_t);
 
     /*count neighboors*/
     xadj[0]  = 0;
@@ -56,7 +57,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,int *part) {
     }
 
 
-    _MMG5_SAFE_CALLOC(adjncy,totCount + 1,int);
+    _MMG5_SAFE_CALLOC(adjncy,totCount + 1,idx_t);
 
     count = 0;
     for(k=1 ; k<=mesh->ne ; k++) {

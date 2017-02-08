@@ -1,4 +1,4 @@
-#include "libparmmg.h"
+#include "parmmg.h"
 
 /**
  * \param argc number of command line arguments.

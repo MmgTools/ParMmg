@@ -8,7 +8,7 @@
  */
 
 
-#include "libparmmg.h"
+#include "parmmg.h"
 
 /**
  * \param parmesh pointer toward the ParMesh structure.
@@ -61,6 +61,8 @@ int PMMG_loadSol(PMMG_pParMesh parmesh, const char *filename) {
     return 0;
   }
   else if ( !parmesh->ngrp ) return 1;
+
+  grp = &parmesh->listgrp[0];
 
   if ( !MMG3D_Set_inputSolName(grp->mesh,grp->sol,filename) ) return(0);
 

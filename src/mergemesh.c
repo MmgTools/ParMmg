@@ -9,7 +9,7 @@
  */
 
 
-#include "libparmmg.h"
+#include "parmmg.h"
 
 
 /**

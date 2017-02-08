@@ -10,6 +10,17 @@
 #ifndef _PARMMG_H
 #define _PARMMG_H
 
+#include <stdint.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <limits.h>
+#include <string.h>
+#include <signal.h>
+#include <ctype.h>
+#include <float.h>
+#include <math.h>
+
 #include "libparmmg.h"
 
 #ifdef __cplusplus
