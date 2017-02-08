@@ -8,8 +8,8 @@
  *
  */
 
-
 #include "parmmg.h"
+#include "mpitypes.h"
 
 /**
  * \param parmesh pointer toward the mesh structure.
@@ -437,8 +437,9 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
     }
     int_comm_index_displs[k] =  int_comm_index_displs[k-1] + nitems_ext_idx[k-1];
   }
-  rcv_int_comm_index = (int*)malloc(int_comm_index_displs[nprocs-1]+
-                                    nitems_ext_idx[nprocs-1]*sizeof(int));
+
+  rcv_int_comm_index = (int*)malloc((int_comm_index_displs[nprocs-1]+
+                                     nitems_ext_idx[nprocs-1])*sizeof(int));
 
   MPI_Gatherv(int_comm_index,nitem_ext_tot,MPI_INT,
               rcv_int_comm_index,nitems_ext_idx,int_comm_index_displs,MPI_INT,
@@ -550,8 +551,9 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
     _MMG5_SAFE_FREE(mesh->xtetra);
 
     /* Tetra + xTetra */
-    _MMG5_SAFE_CALLOC(mesh->xtetra,xt_tot,MMG5_xTetra);
-    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->ne,MMG5_Tetra);
+    mesh->nemax = mesh->nenil = mesh->ne+1;
+    _MMG5_SAFE_CALLOC(mesh->xtetra,xt_tot+1,MMG5_xTetra);
+    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
     mesh->xt = xt_tot;
     ne = idx = 0;
     for ( k=0; k<nprocs; ++k ) {
@@ -575,13 +577,14 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
         }
       }
     }
-    mesh->nemax = mesh->nenil = mesh->ne+1;
 
     assert( xt_tot==ne );
 
     /* Points */
-    _MMG5_SAFE_CALLOC(mesh->point,np,MMG5_Point);
     mesh->np = np;
+    mesh->npmax = mesh->npnil = mesh->np+1;
+    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
+
     for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
 
     np = 0;
@@ -604,10 +607,9 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
         if ( point_1[i].xp ) ++np;
       }
     }
-    mesh->npmax = mesh->npnil = mesh->np+1;
 
     /* xPoints */
-    _MMG5_SAFE_CALLOC(mesh->xpoint,np,MMG5_xPoint);
+    _MMG5_SAFE_CALLOC(mesh->xpoint,np+1,MMG5_xPoint);
     np = 0;
     for ( k=0; k<nprocs; ++k ) {
       point_1     = &rcv_point[point_displs[k]];
