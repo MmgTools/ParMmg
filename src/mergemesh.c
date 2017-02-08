@@ -11,7 +11,6 @@
 
 #include "parmmg.h"
 
-
 /**
  * \param parmesh pointer toward the mesh structure.
  * \return 0 if fail, 1 otherwise.
@@ -261,6 +260,7 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
 
   grp = &parmesh->listgrp[0];
   assert(int_node_comm->nitem == grp->nitem_int_node_comm);
+
   for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
     idx = grp->node2int_node_comm_index2[k];
     int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
