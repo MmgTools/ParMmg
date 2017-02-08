@@ -66,7 +66,7 @@ int main(int argc,char *argv[]) {
     _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
   }
   _MMG5_SAFE_FREE(parmesh->ext_node_comm);
-  _MMG5_SAFE_FREE(&parmesh);
+  _MMG5_SAFE_FREE(parmesh);
 
   /*Finalize MPI*/
   MPI_Finalize();
