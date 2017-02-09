@@ -287,10 +287,10 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
     MMG3D_saveSol(mesh,sol,filename);
   }
 
-  if ( !PMMG_create_MPI_Point (&mesh->point,  &mpi_point ) ) return(0);
-  if ( !PMMG_create_MPI_xPoint(&mesh->xpoint, &mpi_xpoint) ) return(0);
-  if ( !PMMG_create_MPI_Tetra (&mesh->tetra,  &mpi_tetra ) ) return(0);
-  if ( !PMMG_create_MPI_xTetra(&mesh->xtetra, &mpi_xtetra) ) return(0);
+  if ( !PMMG_create_MPI_Point (mesh->point,  &mpi_point ) ) return(0);
+  if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) return(0);
+  if ( !PMMG_create_MPI_Tetra (mesh->tetra,  &mpi_tetra ) ) return(0);
+  if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) return(0);
 
   /* Gather parmesh size infos on proc 0 */
 #warning try to compare with non-blocking comms (Igather(v))
