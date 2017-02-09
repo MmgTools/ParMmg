@@ -23,23 +23,24 @@
  */
 
 int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_type_point) {
-  int          i,blck_lengths[5] = {3, 3, 1, 1, 1};
-  MPI_Aint     displs[5];
-  MPI_Datatype types[5] = {MPI_DOUBLE,MPI_DOUBLE,MPI_INT,MPI_INT,MPI_UB};
+  int          i,blck_lengths[6] = {3, 3, 1, 1, 1,1};
+  MPI_Aint     displs[6];
+  MPI_Datatype types[6] = {MPI_DOUBLE,MPI_DOUBLE,MPI_INT,MPI_INT,MPI_INT16_T,MPI_UB};
 
 
   MPI_Get_address(&point->c[0],       &displs[0]);
   MPI_Get_address(&point->n,          &displs[1]);
   MPI_Get_address(&point->ref,        &displs[2]);
   MPI_Get_address(&point->xp,         &displs[3]);
+  MPI_Get_address(&point->tag,        &displs[4]);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=3 ; i>= 0; --i ) {
+  for ( i=4 ; i>= 0; --i ) {
     displs[i] -= displs[0];
   }
-  displs[4] = sizeof(MMG5_Point);
+  displs[5] = sizeof(MMG5_Point);
 
-  MPI_Type_create_struct(5, blck_lengths, displs, types, mpi_type_point);
+  MPI_Type_create_struct(6, blck_lengths, displs, types, mpi_type_point);
 
   MPI_Type_commit(mpi_type_point);
 
@@ -136,7 +137,7 @@ int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_type_xtetra) {
   for ( i=1 ; i>= 0; --i ) {
     displs[i] -= displs[0];
   }
-  displs[2] = sizeof(MMG5_pxTetra);
+  displs[2] = sizeof(MMG5_xTetra);
 
   MPI_Type_create_struct(3, blck_lengths, displs, types, mpi_type_xtetra);
 

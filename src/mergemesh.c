@@ -511,11 +511,6 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
             if ( rcv_color_in_tab[cursor]  == color_out &&
                  rcv_color_out_tab[cursor] == color_in  )  break;
           }
-          //Ajeter
-          printf( "bug ici %d %d: %d %d \n",color_in, color_out, rcv_color_in_tab[cursor], rcv_color_out_tab[cursor]);
-          printf("j %d; cursor %d; idx_2 %d idx %d\n",j,cursor,idx_2,idx);
-          printf("nitems_1 %d nitems_2 %d\n",nitems_1, nitems_2);
-
           assert(j<rcv_next_node_comm[color_out]);
           assert(nitems_1 == nitems_2);
 
@@ -621,8 +616,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
         if ( !idx ) continue;
         ppt = &mesh->point[idx];
 
-        if ( point_1[i].xp ) continue;
- 
+        if ( !point_1[i].xp ) continue;
+
         pxp = &mesh->xpoint[++np];
         memcpy(pxp, &xpoint[point_1[i].xp],sizeof(MMG5_xPoint));
         ppt->xp = np;
