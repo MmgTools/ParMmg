@@ -29,16 +29,16 @@ int main(int argc,char *argv[]) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
     fprintf(stdout,"     %s %s\n",__DATE__,__TIME__);
-  }
 
-  /** Read sequential mesh */
+    /** Read sequential mesh */
 #warning : for the moment, we only read a mesh named m.mesh
-#warning Algiane: with lot of procs mpi process may fail to read the same file at the same time so maybe we will need to read the mesh over one unique proc and to broadcast it over the others...
 
-  //if ( !parmesh->myrank ) {
     if ( PMMG_loadMesh(parmesh,"m.mesh") < 1 ) return(PMMG_STRONGFAILURE);
     if ( PMMG_loadSol(parmesh,"m.sol") < 0 ) return(PMMG_STRONGFAILURE);
-    //}
+  }
+
+  /** Send mesh partionning to other proc*/
+  if ( !PMMG_distributeMesh(parmesh) ) return(PMMG_STRONGFAILURE);
 
   ier = PMMG_parmmglib(parmesh);
 
@@ -50,7 +50,7 @@ int main(int argc,char *argv[]) {
   }
 
   /*free structures*/
-#warning create an API function to free a whole parmesh
+#warning todo: create an API function to free a whole parmesh
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
   sol  = grp->sol;
@@ -68,7 +68,7 @@ int main(int argc,char *argv[]) {
   _MMG5_SAFE_FREE(parmesh->ext_node_comm);
   _MMG5_SAFE_FREE(parmesh);
 
-  /*Finalize MPI*/
+  /** Finalize MPI */
   MPI_Finalize();
 
   return(ier);

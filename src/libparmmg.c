@@ -4,24 +4,11 @@
 int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
-  idx_t            *part;
   int              it,i,ier,niter;
 
 #warning niter must be a param setted by the user
   niter = 1;
 
-  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
-
-  /** Call metis for partionning*/
-  if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
-
-  /** Mesh analysis: compute ridges, singularities, normals... and store the
-      triangles into the xTetra structure */
-  if ( !_MMG3D_analys(parmesh->listgrp[0].mesh) ) return(PMMG_STRONGFAILURE);
-
-  /** Send mesh partionning to other proc*/
-  if ( !PMMG_distributeMesh(parmesh,part) ) return(PMMG_STRONGFAILURE);
-  _MMG5_SAFE_FREE(part);
 
   /** Mesh adaptation */
   for ( it=0; it<niter; ++it ) {

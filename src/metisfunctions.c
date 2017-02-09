@@ -10,6 +10,7 @@
 
 
 #include "parmmg.h"
+#include "mpitypes.h"
 
 /**
  * \param parmesh pointer toward the mesh structure.

@@ -9,7 +9,8 @@
  */
 
 
-#include "libparmmg.h"
+#include "parmmg.h"
+#include "mpitypes.h"
 
 /**
  * \param xtetra pointer toward a table containing the xtetra structures.
@@ -98,30 +99,86 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
  * Delete parts of the mesh not on the processor.
  *
  */
-int PMMG_distributeMesh(PMMG_pParMesh parmesh,idx_t *part) {
+int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
-#warning add solution/metric communication
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
   MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt, pptnew;
   MMG5_pxPoint    pxp;
   PMMG_pext_comm  pext_comm;
+  MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
+  MPI_Comm        comm;
+  idx_t           *part;
   int             nprocs,rank,np,ne,nbl,nxt,nxp;
   int             *pointPerm,*xPointPerm,*xTetraPerm;
   int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             nitem_int_node_comm,next_node_comm,*seenRanks;
   int             inIntComm;
-  char            filename[11];
+  char            filename[30];
   int8_t          *pointRanks;
 
+  /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
-  grp    = parmesh->listgrp;
-  mesh   = grp[0].mesh;
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+  sol    = grp->sol;
   rank   = parmesh->myrank;
+  comm   = parmesh->comm;
 
+  MPI_Bcast( &mesh->np, 1, MPI_INT, 0, parmesh->comm);
+  MPI_Bcast( &mesh->ne, 1, MPI_INT, 0, parmesh->comm);
+  MPI_Bcast( &mesh->nt, 1, MPI_INT, 0, parmesh->comm);
+  MPI_Bcast( &mesh->na, 1, MPI_INT, 0, parmesh->comm);
+  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
+
+  mesh->nemax = mesh->ne;
+  mesh->nenil = 0;
+  mesh->npmax = mesh->np;
+  mesh->npnil = 0;
+  mesh->ntmax = mesh->nt;
+
+  if ( rank ) {
+    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
+    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
+    if ( mesh->nt ) _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
+    if ( mesh->na ) _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
+  }
+
+  if ( !PMMG_create_MPI_lightPoint (mesh->point,  &mpi_light_point ) ) return(0);
+  if ( !PMMG_create_MPI_lightTetra (mesh->tetra,  &mpi_light_tetra ) ) return(0);
+  if ( mesh->nt && !PMMG_create_MPI_Tria(mesh->tria,   &mpi_tria   ) ) return(0);
+  if ( mesh->na && !PMMG_create_MPI_Edge(mesh->edge,   &mpi_edge   ) ) return(0);
+
+  MPI_Bcast( mesh->point,  mesh->np+1,    mpi_light_point,  0, parmesh->comm);
+  MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);
+  if ( mesh->nt ) MPI_Bcast( mesh->tria, mesh->nt+1, mpi_tria, 0, parmesh->comm);
+  if ( mesh->na ) MPI_Bcast( mesh->edge, mesh->na+1, mpi_edge, 0, parmesh->comm);
+
+  MPI_Type_free(&mpi_light_point);
+  MPI_Type_free(&mpi_light_tetra);
+  if ( mesh->nt ) MPI_Type_free(&mpi_tria);
+  if ( mesh->na ) MPI_Type_free(&mpi_edge);
+
+  if ( parmesh->ddebug ) {
+    sprintf(filename,"After_Bcast_proc%d.mesh",rank);
+    MMG3D_saveMesh(mesh,filename);
+  }
+
+  /** Mesh analysis: compute ridges, singularities, normals... and store the
+      triangles into the xTetra structure */
+  #warning To move inside the PMMG_parmmglib function when Mmg will be ready
+  if ( !_MMG3D_analys(mesh) ) return(PMMG_STRONGFAILURE);
+
+  printf("mesh->xt %d %d\n",mesh->xt,mesh->xp);
+
+  /** Call metis for partionning*/
+  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
+  if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
+
+  /** Remove the part of the mesh that are not on the proc rank */
   _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
   _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t);
 
@@ -306,21 +363,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh,idx_t *part) {
 
 #warning Try to remove the adjacency reconstruction and packing (we need to adapt Mmg to allow to provide xTetra/points instead of Triangles)
 
-  /* /\** Tetra adjacency reconstruction *\/ */
-  /* _MMG5_SAFE_FREE(parmesh->listgrp[0].mesh->adja); */
-  /* if ( !MMG3D_hashTetra(mesh,1) ) { */
-  /*   fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n"); */
-  /*   return(0); */
-  /* } */
-
-  /* /\* Pack the mesh *\/ */
-  /* if ( !_MMG3D_packMesh(mesh,NULL,NULL ) ) { */
-  /*   fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n"); */
-  /*   return(0); */
-  /* } */
-
-  /* sprintf(filename,"proc%d.mesh",rank); */
-  /* MMG3D_saveMesh(mesh,filename); */
+  _MMG5_SAFE_FREE(part);
 
   _MMG5_SAFE_FREE(seenRanks);
   _MMG5_SAFE_FREE(pointRanks);

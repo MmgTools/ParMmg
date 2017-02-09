@@ -215,7 +215,6 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
  * \warning the meshes must be packed before calling this procedure.
  */
 int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
-  PMMG_pParMesh  parmesh2;
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pPoint    rcv_point,point_1, point_2,ppt;
@@ -226,7 +225,7 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   PMMG_pint_comm int_node_comm;
   PMMG_pext_comm ext_node_comm;
   MPI_Comm       comm;
-  MPI_Datatype   mpi_type_point,mpi_type_xpoint,mpi_type_tetra,mpi_type_xtetra;
+  MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
   int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
   int            *intval_displs,*rcv_intvalues,nitem_int_node_comm_tot;
@@ -242,7 +241,7 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   int            ext_comm_displs_tot,nitem_ext_tot,nitems_1,nitems_2;
   int            nprocs,rank,imsh,k,i,j,idx,idx_2,cursor,color_in,color_out;
   int            np,ne,xt_tot,np_tot,xp_tot;
-  char           filename[13];
+  char           filename[30];
 
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
@@ -283,15 +282,15 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   sol  = grp->sol;
 
   if ( parmesh->ddebug ) {
-    sprintf(filename,"proc%d.mesh",rank);
+    sprintf(filename,"Before_Gather_proc%d.mesh",rank);
     MMG3D_saveMesh(mesh,filename);
     MMG3D_saveSol(mesh,sol,filename);
   }
 
-  if ( !PMMG_create_MPI_Point (&mesh->point,  &mpi_type_point ) ) return(0);
-  if ( !PMMG_create_MPI_xPoint(&mesh->xpoint, &mpi_type_xpoint) ) return(0);
-  if ( !PMMG_create_MPI_Tetra (&mesh->tetra,  &mpi_type_tetra ) ) return(0);
-  if ( !PMMG_create_MPI_xTetra(&mesh->xtetra, &mpi_type_xtetra) ) return(0);
+  if ( !PMMG_create_MPI_Point (&mesh->point,  &mpi_point ) ) return(0);
+  if ( !PMMG_create_MPI_xPoint(&mesh->xpoint, &mpi_xpoint) ) return(0);
+  if ( !PMMG_create_MPI_Tetra (&mesh->tetra,  &mpi_tetra ) ) return(0);
+  if ( !PMMG_create_MPI_xTetra(&mesh->xtetra, &mpi_xtetra) ) return(0);
 
   /* Gather parmesh size infos on proc 0 */
 #warning try to compare with non-blocking comms (Igather(v))
@@ -315,8 +314,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   np_tot = point_displs[nprocs-1]+rcv_np[nprocs-1];
   rcv_point = (MMG5_pPoint)calloc(np_tot+1,sizeof(MMG5_Point));
 
-  MPI_Gatherv(&mesh->point[1],mesh->np,mpi_type_point,&rcv_point[1],
-               rcv_np,point_displs,mpi_type_point,0,comm);
+  MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&rcv_point[1],
+               rcv_np,point_displs,mpi_point,0,comm);
 
   /* Tetra */
   tetra_displs[0] = 0;
@@ -326,8 +325,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   ne        = mesh->ne;
   mesh->ne  = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
   rcv_tetra = (MMG5_pTetra)calloc(mesh->ne+1,sizeof(MMG5_Tetra));
-  MPI_Gatherv(&mesh->tetra[1],ne,mpi_type_tetra,&rcv_tetra[1],
-              rcv_ne,tetra_displs,mpi_type_tetra,0,comm);
+  MPI_Gatherv(&mesh->tetra[1],ne,mpi_tetra,&rcv_tetra[1],
+              rcv_ne,tetra_displs,mpi_tetra,0,comm);
 
   /* xPoints */
   xpoint_displs[0] = 0;
@@ -337,8 +336,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   xp_tot = xpoint_displs[nprocs-1]+rcv_xp[nprocs-1];
   rcv_xpoint = (MMG5_pxPoint)calloc(xp_tot+1,sizeof(MMG5_xPoint));
 
-  MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_type_xpoint,&rcv_xpoint[1],
-              rcv_xp,xpoint_displs,mpi_type_xpoint,0,comm);
+  MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&rcv_xpoint[1],
+              rcv_xp,xpoint_displs,mpi_xpoint,0,comm);
 
   /* xTetra */
   xtetra_displs[0] = 0;
@@ -348,8 +347,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   xt_tot = xtetra_displs[nprocs-1]+rcv_xt[nprocs-1];
   rcv_xtetra = (MMG5_pxTetra)calloc(xt_tot+1,sizeof(MMG5_xTetra));
 
-  MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_type_xtetra,&rcv_xtetra[1],
-              rcv_xt,xtetra_displs,mpi_type_xtetra,0,comm);
+  MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&rcv_xtetra[1],
+              rcv_xt,xtetra_displs,mpi_xtetra,0,comm);
 
 
   /* Internal communicator */
@@ -546,7 +545,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
     _MMG5_SAFE_FREE(mesh->xtetra);
 
     /* Tetra + xTetra */
-    mesh->nemax = mesh->nenil = mesh->ne+1;
+    mesh->nemax = mesh->ne;
+    mesh->nenil = 0;
     _MMG5_SAFE_CALLOC(mesh->xtetra,xt_tot+1,MMG5_xTetra);
     _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
     mesh->xt = xt_tot;
@@ -577,7 +577,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
 
     /* Points */
     mesh->np = np;
-    mesh->npmax = mesh->npnil = mesh->np+1;
+    mesh->npmax = mesh->np;
+    mesh->npnil = 0;
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
 
     for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
@@ -626,10 +627,10 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   }
 
   /* Free memory */
-  MPI_Type_free(&mpi_type_point);
-  MPI_Type_free(&mpi_type_xpoint);
-  MPI_Type_free(&mpi_type_tetra);
-  MPI_Type_free(&mpi_type_xtetra);
+  MPI_Type_free(&mpi_point);
+  MPI_Type_free(&mpi_xpoint);
+  MPI_Type_free(&mpi_tetra);
+  MPI_Type_free(&mpi_xtetra);
 
   _MMG5_SAFE_FREE(rcv_np);
   _MMG5_SAFE_FREE(rcv_ne);

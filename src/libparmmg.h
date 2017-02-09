@@ -14,10 +14,10 @@
 extern "C" {
 #endif
 
-#include "metis.h"
-
 #include "libparmmgtypes.h"
 #include "mmg3d.h"
+#include "metis.h"
+
 
 #define PMMG_VER   "1.0.0"
 #define PMMG_REL   "2016"
@@ -50,7 +50,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
 int PMMG_metispartitioning(PMMG_pParMesh ,idx_t *);
 
 /*distributemesh*/
-int PMMG_distributeMesh(PMMG_pParMesh ,idx_t *);
+int PMMG_distributeMesh(PMMG_pParMesh);
 
 /*mergeMesh*/
 int PMMG_mergeMesh(PMMG_pParMesh);
