@@ -41,7 +41,13 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   }
 
   /** Merge all the meshes on the proc 0 */
-  if ( !PMMG_mergeMesh(parmesh) )  return(PMMG_STRONGFAILURE);
+  if ( !PMMG_mergeParMesh(parmesh) )  return(PMMG_STRONGFAILURE);
 
+  _MMG3D_packMesh(parmesh->listgrp[0].mesh,parmesh->listgrp[0].sol,NULL);
+
+  if ( parmesh->ddebug &&  !parmesh->myrank ) {
+    MMG3D_saveMesh(parmesh->listgrp[0].mesh,"End_libparmmg.mesh");
+    MMG3D_saveSol(parmesh->listgrp[0].mesh,parmesh->listgrp[0].sol,"End_libparmmg.sol");
+  }
   return(PMMG_SUCCESS);
 }

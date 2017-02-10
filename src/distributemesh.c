@@ -102,6 +102,7 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
 int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
+  #warning TODO sol distribution
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
   MMG5_pxTetra    pxt;
@@ -134,11 +135,11 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   MPI_Bcast( &mesh->na, 1, MPI_INT, 0, parmesh->comm);
   MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
 
-  mesh->nemax = mesh->ne;
+  mesh->nemax = mesh->nei = mesh->ne;
   mesh->nenil = 0;
-  mesh->npmax = mesh->np;
+  mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
-  mesh->ntmax = mesh->nt;
+  mesh->ntmax = mesh->nti = mesh->nt;
 
   if ( rank ) {
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
@@ -162,17 +163,17 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   if ( mesh->nt ) MPI_Type_free(&mpi_tria);
   if ( mesh->na ) MPI_Type_free(&mpi_edge);
 
-  if ( parmesh->ddebug ) {
-    sprintf(filename,"After_Bcast_proc%d.mesh",rank);
-    MMG3D_saveMesh(mesh,filename);
-  }
-
   /** Mesh analysis: compute ridges, singularities, normals... and store the
       triangles into the xTetra structure */
   #warning To move inside the PMMG_parmmglib function when Mmg will be ready
+
   if ( !_MMG3D_analys(mesh) ) return(PMMG_STRONGFAILURE);
 
-  printf("mesh->xt %d %d\n",mesh->xt,mesh->xp);
+  if ( parmesh->ddebug ) {
+    //_MMG3D_packMesh(mesh,sol,NULL);
+    sprintf(filename,"Test0_proc%d.mesh",rank);
+    MMG3D_saveMesh(mesh,filename);
+  }
 
   /** Call metis for partionning*/
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
@@ -372,6 +373,12 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_FREE(pointPerm);
   _MMG5_SAFE_FREE(xPointPerm);
   _MMG5_SAFE_FREE(xTetraPerm);
+
+  if ( parmesh->ddebug ) {
+    _MMG3D_packMesh(mesh,sol,NULL);
+    sprintf(filename,"End_distributeMesh_proc%d.mesh",rank);
+    MMG3D_saveMesh(mesh,filename);
+  }
 
   return(1);
 }

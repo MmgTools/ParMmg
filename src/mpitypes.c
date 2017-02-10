@@ -250,11 +250,11 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria) {
   MPI_Datatype mpi_noextent;
   MPI_Datatype types[3] = {MPI_INT,MPI_INT,MPI_INT16_T};
 
-  MPI_Get_address(&(tria[0]),      &lb);
-  MPI_Get_address(&(tria[0].v[0]), &displs[0]);
-  MPI_Get_address(&(tria[0].ref),  &displs[1]);
-  MPI_Get_address(&(tria[0].tag),  &displs[2]);
-  MPI_Get_address(&(tria[1]),      &ub);
+  MPI_Get_address(&(tria[0]),       &lb);
+  MPI_Get_address(&(tria[0].v[0]),  &displs[0]);
+  MPI_Get_address(&(tria[0].ref),   &displs[1]);
+  MPI_Get_address(&(tria[0].tag[0]),&displs[2]);
+  MPI_Get_address(&(tria[1]),       &ub);
 
   /* Relative displacement from field 0 to field i */
   for ( i=2 ; i>= 0; --i ) {

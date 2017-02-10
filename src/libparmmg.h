@@ -53,7 +53,7 @@ int PMMG_metispartitioning(PMMG_pParMesh ,idx_t *);
 int PMMG_distributeMesh(PMMG_pParMesh);
 
 /*mergeMesh*/
-int PMMG_mergeMesh(PMMG_pParMesh);
+int PMMG_mergeParMesh(PMMG_pParMesh);
 
 #ifdef __cplusplus
 }

@@ -214,7 +214,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
  *
  * \warning the meshes must be packed before calling this procedure.
  */
-int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
+int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pPoint    rcv_point,point_1, point_2,ppt;
@@ -282,6 +282,8 @@ int PMMG_mergeMesh(PMMG_pParMesh parmesh) {
   sol  = grp->sol;
 
   if ( parmesh->ddebug ) {
+    // if mesh not packed => no bdry tria in the mesh
+    //_MMG3D_packMesh(mesh,sol,NULL);
     sprintf(filename,"Before_Gather_proc%d.mesh",rank);
     MMG3D_saveMesh(mesh,filename);
     MMG3D_saveSol(mesh,sol,filename);
