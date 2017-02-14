@@ -451,7 +451,6 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   /** Step 5: Proc 0 merges the meshes: We travel through the external
    * communicators to recover the numbering of the points shared with a lower
    * proc. The other points are concatenated with the proc 0. */
-#warning may be optimized if we know the number of non-renumbered points of each mesh
   _MMG5_SAFE_FREE(color_in_tab);
   _MMG5_SAFE_FREE(color_out_tab);
   _MMG5_SAFE_FREE(nitem_ext_tab);
