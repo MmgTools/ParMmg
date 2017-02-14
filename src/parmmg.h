@@ -27,7 +27,11 @@
 extern "C" {
 #endif
 
-int _PMMG_Init_parMesh_var( va_list argptr );
+  int _PMMG_Init_parMesh_var( va_list argptr );
+  int PMMG_mergeGrps(PMMG_pParMesh parmesh);
+  int PMMG_bdryStore( MMG5_pMesh mesh);
+
+  int _PMMG_parmmglib1(PMMG_pParMesh parmesh);
 
 #ifdef __cplusplus
 }

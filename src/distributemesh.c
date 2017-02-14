@@ -90,7 +90,6 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
   perm[ind1] = tmp;
 }
 
-
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward an array of int containing the partitions.
@@ -105,20 +104,19 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   #warning TODO sol distribution
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
-  MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt, pptnew;
   MMG5_pxPoint    pxp;
   PMMG_pext_comm  pext_comm;
   MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
   MPI_Comm        comm;
   idx_t           *part;
-  int             nprocs,rank,np,ne,nbl,nxt,nxp;
+  int             nprocs,rank,np,ne,nxt,nxp;
   int             *pointPerm,*xPointPerm,*xTetraPerm;
   int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             nitem_int_node_comm,next_node_comm,*seenRanks;
-  int             inIntComm;
-  char            filename[30];
+  int             inIntComm,nbl;
+  char            filename[32];
   int8_t          *pointRanks;
 
   /** Proc 0 send the mesh to the other procs */
@@ -129,17 +127,19 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
   comm   = parmesh->comm;
 
-  MPI_Bcast( &mesh->np, 1, MPI_INT, 0, parmesh->comm);
-  MPI_Bcast( &mesh->ne, 1, MPI_INT, 0, parmesh->comm);
-  MPI_Bcast( &mesh->nt, 1, MPI_INT, 0, parmesh->comm);
-  MPI_Bcast( &mesh->na, 1, MPI_INT, 0, parmesh->comm);
+  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm);
   MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
 
   mesh->nemax = mesh->nei = mesh->ne;
   mesh->nenil = 0;
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
-  mesh->ntmax = mesh->nti = mesh->nt;
+  mesh->nti   = mesh->nt;
+  mesh->xtmax = mesh->ntmax;
 
   if ( rank ) {
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
@@ -163,21 +163,15 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   if ( mesh->nt ) MPI_Type_free(&mpi_tria);
   if ( mesh->na ) MPI_Type_free(&mpi_edge);
 
-  /** Mesh analysis: compute ridges, singularities, normals... and store the
-      triangles into the xTetra structure */
-  #warning To move inside the PMMG_parmmglib function when Mmg will be ready
-
+  /** Store the boundary entities (normals, tria, edges, required...) into the
+   * xpoint and xtetra structures */
+  #warning may be replaced by a light analysis if too long
   if ( !_MMG3D_analys(mesh) ) return(PMMG_STRONGFAILURE);
-
-  if ( parmesh->ddebug ) {
-    //_MMG3D_packMesh(mesh,sol,NULL);
-    sprintf(filename,"Test0_proc%d.mesh",rank);
-    MMG3D_saveMesh(mesh,filename);
-  }
 
   /** Call metis for partionning*/
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
-  if(!PMMG_metispartitioning(parmesh,part)) return(PMMG_STRONGFAILURE);
+  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) )
+    return(PMMG_STRONGFAILURE);
 
   /** Remove the part of the mesh that are not on the proc rank */
   _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
@@ -190,6 +184,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   nxp = 0;
   nxt = 0;
   np  = 0;
+  ne  = 0;
   nitem_int_node_comm = 0;
 
   /* Reset the tmp field of points */
@@ -239,16 +234,18 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
         }
       }
     }
+
+    /* Update the table of permutation of the Tetra and the tetra vertices indices */
     for ( j=0; j<4; ++j )
       pt->v[j] = mesh->point[pt->v[j]].tmp;
 
     /* update the table of permutation for xTetra if needed */
     if ( !pt->xt ) continue;
 
-    pxt    = &mesh->xtetra[pt->xt];
     xTetraPerm[pt->xt] = ++nxt;
     pt->xt = nxt;
   }
+  _MMG5_SAFE_FREE(mesh->adja);
 
   /** Count the number of external node communicators and initialize it */
   next_node_comm = 0;
@@ -341,7 +338,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   }
   mesh->ne = ne;
 
-  /** Compact xtetra on the proc: in place permutations */
+  /** Compact xtetra on the proc */
   for ( k=1; k<=mesh->xt; ++k ) {
     while ( xTetraPerm[k] != k && xTetraPerm[k] )
       PMMG_swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
@@ -362,8 +359,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   }
   mesh->xp = nxp;
 
-#warning Try to remove the adjacency reconstruction and packing (we need to adapt Mmg to allow to provide xTetra/points instead of Triangles)
-
   _MMG5_SAFE_FREE(part);
 
   _MMG5_SAFE_FREE(seenRanks);
@@ -374,10 +369,13 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_FREE(xPointPerm);
   _MMG5_SAFE_FREE(xTetraPerm);
 
+  /** Adjacency reconstruction */
+  MMG3D_hashTetra(parmesh->listgrp[0].mesh,0);
+
   if ( parmesh->ddebug ) {
-    _MMG3D_packMesh(mesh,sol,NULL);
-    sprintf(filename,"End_distributeMesh_proc%d.mesh",rank);
-    MMG3D_saveMesh(mesh,filename);
+    /* sprintf(filename,"End_distributeMesh_proc%d.mesh",rank); */
+    /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
+    /* PMMG_saveMesh(parmesh,filename); */
   }
 
   return(1);

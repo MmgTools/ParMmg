@@ -97,21 +97,6 @@ int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
   mesh = grp->mesh;
   sol  = grp->sol;
 
-
-#warning I am not sur that we must hash the tetra and pack the mesh here...
-  /** Tetra adjacency reconstruction */
-  _MMG5_SAFE_FREE(mesh->adja);
-  if ( !MMG3D_hashTetra(mesh,0) ) {
-    fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
-    return(0);
-  }
-
-  /* Pack the mesh */
-  if ( !_MMG3D_packMesh(mesh,sol,0) ) {
-    fprintf(stderr,"  ## PMMG Packing problem (1). Exit program.\n");
-    return(0);
-  }
-
   if ( !MMG3D_saveMesh(mesh,filename) )  return(0);
 
   return(1);

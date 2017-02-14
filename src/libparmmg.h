@@ -35,7 +35,8 @@ int PMMG_saveSol(PMMG_pParMesh ,const char *);
 
 /* libparmmg.c */
 /**
- * \param parmesh pointer toward the parmesh structure.
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
  *
  * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
  * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
@@ -49,11 +50,11 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
 /* metisfunctions.c */
 int PMMG_metispartitioning(PMMG_pParMesh ,idx_t *);
 
-/*distributemesh*/
+/* distributemesh */
 int PMMG_distributeMesh(PMMG_pParMesh);
 
-/*mergeMesh*/
-int PMMG_mergeParMesh(PMMG_pParMesh);
+/* mergeMesh */
+  int PMMG_mergeParMesh(PMMG_pParMesh,int);
 
 #ifdef __cplusplus
 }

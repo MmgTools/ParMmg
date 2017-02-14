@@ -40,16 +40,25 @@ int main(int argc,char *argv[]) {
   /** Send mesh partionning to other proc*/
   if ( !PMMG_distributeMesh(parmesh) ) return(PMMG_STRONGFAILURE);
 
-  ier = PMMG_parmmglib(parmesh);
+  ier = _PMMG_parmmglib1(parmesh);
 
-  if ( ier!= PMMG_STRONGFAILURE && !parmesh->myrank ) {
-    /*write mesh*/
+  if ( ier!= PMMG_STRONGFAILURE ) {
+
+    /** Merge all the meshes on the proc 0 */
+    if ( !PMMG_mergeParMesh(parmesh,0) )  return PMMG_STRONGFAILURE;
+
+    if ( !parmesh->myrank ) {
+      if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh) < 0 )
+        return(PMMG_STRONGFAILURE);
+
+      /* Write mesh */
 #warning : for the moment, we only write a mesh named out.mesh
-    if ( !PMMG_saveMesh(parmesh,"out.mesh") ) return(PMMG_STRONGFAILURE);
-    if ( !PMMG_saveSol(parmesh,"out.sol") ) return(PMMG_STRONGFAILURE);
+      if ( !PMMG_saveMesh(parmesh,"out.mesh") ) return(PMMG_STRONGFAILURE);
+      if ( !PMMG_saveSol(parmesh,"out.sol") ) return(PMMG_STRONGFAILURE);
+    }
   }
 
-  /*free structures*/
+  /* Free structures*/
 #warning todo: create an API function to free a whole parmesh
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;

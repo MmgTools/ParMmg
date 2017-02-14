@@ -12,7 +12,7 @@
 #include "mpitypes.h"
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure.
  * \return 0 if fail, 1 otherwise.
  *
  * Merge the groups (mesh + internal communicators) on the processor.
@@ -206,7 +206,8 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
 
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure.
+ * \param merge 1 if the groups needs to be merged on the processor.
  * \return 0 if fail, 1 otherwise.
  *
  * Merge the mesh through the processors: The processors send their parmesh to
@@ -214,7 +215,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
  *
  * \warning the meshes must be packed before calling this procedure.
  */
-int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
+int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pPoint    rcv_point,point_1, point_2,ppt;
@@ -250,14 +251,18 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
   /** Step 1: merge the groups over each procs and return 1 group per proc.
    * This group contains a packed mesh where the triangle and edges are not
    * reconstructed (the mesh contains tetra and xtetra). */
-  if ( !PMMG_mergeGrps(parmesh) ) return(0);
+  if ( merge && !PMMG_mergeGrps(parmesh) ) return(0);
 
-  /** Step 2: Allocate internal and external communicators and fill its: the
+  /** Step 2: store the boundary entities into the xpoints and xtetra entities */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  sol  = grp->sol;
+
+  /** Step 3: Allocate internal and external communicators and fill its: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
   int_node_comm = parmesh->int_node_comm;
   _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int);
 
-  grp = &parmesh->listgrp[0];
   assert(int_node_comm->nitem == grp->nitem_int_node_comm);
 
   for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
@@ -265,7 +270,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
     int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
   }
 
-  /** Step 3: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
+  /** Step 4: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
   _MMG5_SAFE_CALLOC(rcv_np,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_ne,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_xp,nprocs,int);
@@ -278,15 +283,11 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_CALLOC(rcv_nitem_int_node_comm,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_next_node_comm,nprocs,int);
 
-  mesh = grp->mesh;
-  sol  = grp->sol;
-
   if ( parmesh->ddebug ) {
-    // if mesh not packed => no bdry tria in the mesh
-    //_MMG3D_packMesh(mesh,sol,NULL);
-    sprintf(filename,"Before_Gather_proc%d.mesh",rank);
-    MMG3D_saveMesh(mesh,filename);
-    MMG3D_saveSol(mesh,sol,filename);
+    /* sprintf(filename,"Before_Gather_proc%d.mesh",rank); */
+    /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
+    /* MMG3D_saveMesh(mesh,filename); */
+    /* MMG3D_saveSol(mesh,sol,filename); */
   }
 
   if ( !PMMG_create_MPI_Point (mesh->point,  &mpi_point ) ) return(0);
@@ -447,7 +448,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
               0,comm);
 
 
-  /** Step 4: Proc 0 merges the meshes: We travel through the external
+  /** Step 5: Proc 0 merges the meshes: We travel through the external
    * communicators to recover the numbering of the points shared with a lower
    * proc. The other points are concatenated with the proc 0. */
 #warning may be optimized if we know the number of non-renumbered points of each mesh
@@ -574,7 +575,6 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh) {
         }
       }
     }
-
     assert( xt_tot==ne );
 
     /* Points */

@@ -290,7 +290,7 @@ int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra) {
   MPI_Get_address(&(xTetra[0])       , &lb);
   MPI_Get_address(&(xTetra[0].ref[0]), &displs[0]);
   MPI_Get_address(&(xTetra[0].edg[0]), &displs[1]);
-  MPI_Get_address(&(xTetra[0])       , &ub);
+  MPI_Get_address(&(xTetra[1])       , &ub);
 
  /* Relative displacement from field 0 to field i */
   for ( i=1 ; i>= 0; --i ) {
