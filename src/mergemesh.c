@@ -230,7 +230,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   double         *rcv_sol,*sol_1;
   int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nsol;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
-  int            *sol_displs,nsol_tot;
+  int            *sol_displs,nsol_tot,ne_tot;
   int            *intval_displs,*rcv_intvalues,nitem_int_node_comm_tot;
   int            *rcv_node2int_node_comm_index1,*rcv_node2int_node_comm_index2;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
@@ -344,10 +344,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   for ( k=1; k<nprocs; ++k ) {
     tetra_displs[k] += tetra_displs[k-1] + rcv_ne[k-1];
   }
-  ne        = mesh->ne;
-  mesh->ne  = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
-  rcv_tetra = (MMG5_pTetra)calloc(mesh->ne+1,sizeof(MMG5_Tetra));
-  MPI_Gatherv(&mesh->tetra[1],ne,mpi_tetra,&rcv_tetra[1],
+  ne_tot    = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
+  rcv_tetra = (MMG5_pTetra)calloc(ne_tot+1,sizeof(MMG5_Tetra));
+  MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&rcv_tetra[1],
               rcv_ne,tetra_displs,mpi_tetra,0,comm);
 
   /* xPoints */
@@ -466,15 +465,30 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
               rcv_int_comm_index,nitems_ext_idx,int_comm_index_displs,MPI_INT,
               0,comm);
 
-
-  /** Step 5: Proc 0 merges the meshes: We travel through the external
-   * communicators to recover the numbering of the points shared with a lower
-   * proc. The other points are concatenated with the proc 0. */
+  /* Free structures */
   _MMG5_SAFE_FREE(color_in_tab);
   _MMG5_SAFE_FREE(color_out_tab);
   _MMG5_SAFE_FREE(nitem_ext_tab);
   _MMG5_SAFE_FREE(int_comm_index);
 
+  _MMG5_DEL_MEM(mesh,mesh->point,(mesh->npmax+1)*sizeof(MMG5_Point));
+  _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
+  _MMG5_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1)*sizeof(MMG5_xPoint));
+  _MMG5_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1)*sizeof(MMG5_Tetra));
+  _MMG5_DEL_MEM(mesh,sol->m,(sol->npmax+1)*sol->size*sizeof(double));
+
+  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
+  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
+  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
+
+  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+    _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
+  }
+  _MMG5_SAFE_FREE(parmesh->ext_node_comm);
+
+  /** Step 5: Proc 0 merges the meshes: We travel through the external
+   * communicators to recover the numbering of the points shared with a lower
+   * proc. The other points are concatenated with the proc 0. */
   if ( !rank ) {
     np = 0;
 
@@ -559,14 +573,8 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
       }
     }
 
-    /* Fill the mesh structure */
-    _MMG5_SAFE_FREE(mesh->point);
-    _MMG5_SAFE_FREE(mesh->xpoint);
-    _MMG5_SAFE_FREE(mesh->tetra);
-    _MMG5_SAFE_FREE(mesh->xtetra);
-
     /* Tetra + xTetra */
-    mesh->nemax = mesh->ne;
+    mesh->nemax = mesh->ne = ne_tot;
     mesh->nenil = 0;
     _MMG5_SAFE_CALLOC(mesh->xtetra,xt_tot+1,MMG5_xTetra);
     _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);

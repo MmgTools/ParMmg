@@ -58,8 +58,8 @@ int main(int argc,char *argv[]) {
     }
   }
 
-  /* Free structures*/
-#warning todo: create an API function to free a whole parmesh
+  /* Free structures */
+#warning todo: create an API function to free a whole parmesh?
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
   sol  = grp->sol;
@@ -67,14 +67,7 @@ int main(int argc,char *argv[]) {
   MMG3D_Free_all(MMG5_ARG_start,
                  MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&sol,
                  MMG5_ARG_end);
-  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
-  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
-  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
 
-  for ( i=0; i<parmesh->next_node_comm; ++i ) {
-    _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
-  }
-  _MMG5_SAFE_FREE(parmesh->ext_node_comm);
   _MMG5_SAFE_FREE(parmesh);
 
   /** Finalize MPI */
