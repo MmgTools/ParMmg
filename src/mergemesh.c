@@ -243,7 +243,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   int            *intvalues_1, *intvalues_2,*int_comm_index_2;
   int            ext_comm_displs_tot,nitem_ext_tot,nitems_1,nitems_2;
   int            nprocs,rank,imsh,k,i,j,idx,idx_2,cursor,color_in,color_out;
-  int            np,ne,xt_tot,np_tot,xp_tot;
+  int            np,ne,xt_tot,np_tot,xp_tot,nnpar,l;
   char           filename[30];
 
   rank   = parmesh->myrank;
@@ -595,13 +595,22 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
         memcpy(pt,&tetra[i],sizeof(MMG5_Tetra));
 
         if ( tetra[i].xt ) {
-          pxt = &mesh->xtetra[++ne];
-          memcpy(pxt,&xtetra[tetra[i].xt],sizeof(MMG5_xTetra));
-          pt->xt = ne;
+          nnpar = 0;
+          pxt = &xtetra[tetra[i].xt];
+          for ( l=0; l<4; ++l )
+            if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
+
+          if ( !nnpar ) {
+            pt->xt = 0;
+          }
+          else {
+            memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
+            pt->xt = ne;
+          }
         }
       }
     }
-    assert( xt_tot==ne );
+    mesh->xt=ne;
 
     /* Points and solutions */
     mesh->np = sol->np = np;

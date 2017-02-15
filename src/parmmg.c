@@ -48,6 +48,8 @@ int main(int argc,char *argv[]) {
     if ( !PMMG_mergeParMesh(parmesh,0) )  return PMMG_STRONGFAILURE;
 
     if ( !parmesh->myrank ) {
+      if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
+        return(PMMG_STRONGFAILURE);
       if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh) < 0 )
         return(PMMG_STRONGFAILURE);
 

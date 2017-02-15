@@ -116,6 +116,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   MMG5_pMesh      mesh;
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
+  MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt, pptnew;
   MMG5_pxPoint    pxp;
   PMMG_pext_comm  pext_comm;
@@ -163,12 +164,12 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   if ( rank ) {
     _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
                   fprintf(stderr,"  Exit program.\n");
-                  exit(EXIT_FAILURE));
+                  return(0));
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
 
     _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
                 fprintf(stderr,"  Exit program.\n");
-                exit(EXIT_FAILURE));
+                return(0));
     _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
 
     if ( mesh->nt ) {
@@ -185,7 +186,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
 
     _MMG5_ADD_MEM(mesh,(sol->size*(sol->npmax+1))*sizeof(double),"initial solution",
                   fprintf(stderr,"  Exit program.\n");
-                  exit(EXIT_FAILURE));
+                  return(0));
     _MMG5_SAFE_CALLOC(sol->m,(sol->size*(sol->npmax+1)),double);
   }
 
@@ -220,7 +221,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t);
 
   _MMG5_SAFE_CALLOC(pointPerm,mesh->np+1,int);
-  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xt+1,int);
+  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xtmax+1,int);
   _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp+1,int);
 
   nxp = 0;
@@ -249,6 +250,31 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
         rankVois = part[kvois-1];
       else
         rankVois = rank;
+
+      /* Mark the interfaces between two procs */
+      if ( rank != rankVois ) {
+        if ( !pt->xt ) {
+          ++mesh->xt;
+          if ( mesh->xt > mesh->xtmax ) {
+            /* realloc of xtetras table */
+            _MMG5_SAFE_RECALLOC(xTetraPerm,mesh->xtmax,(int)(0.2*mesh->xtmax)+1,
+                                int,"larger tetra permutation table");
+
+            _MMG5_TAB_RECALLOC(mesh,mesh->xtetra,mesh->xtmax,0.2,MMG5_xTetra,
+                               "larger xtetra table",
+                               mesh->xt--;
+                               fprintf(stderr,"  Exit program.\n");
+                               return(0));
+
+          }
+          pt->xt = mesh->xt;
+        }
+        pxt = &mesh->xtetra[pt->xt];
+        pxt->ftag[ifac] |= MG_PARBDY;
+
+        for ( j=0; j<3; ++j )
+          pxt->tag[_MMG5_iarf[ifac][j]] |= MG_PARBDY;
+      }
 
       for ( j=0; j<3; ++j ) {
         iploc = _MMG5_idir[ifac][j];
@@ -412,7 +438,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_FREE(xTetraPerm);
 
   /** Adjacency reconstruction */
-  MMG3D_hashTetra(parmesh->listgrp[0].mesh,0);
+  if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return(0);
 
   if ( parmesh->ddebug ) {
     /* sprintf(filename,"End_distributeMesh_proc%d.mesh",rank); */
