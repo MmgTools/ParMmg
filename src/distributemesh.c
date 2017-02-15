@@ -66,25 +66,38 @@ void PMMG_swapxPoint(MMG5_pxPoint xpoint, int* perm, int ind1, int ind2) {
 
 /**
  * \param point pointer toward a table containing the point structures.
+ * \param sol pointer toward a table containing the solution structures.
  * \param *perm pointer toward the permutation table (to perform in place
  * permutations).
  * \param ind1 index of the first xpoint to swap.
  * \param ind2 index of the second xpoint to swap.
+ * \param solsize size of the solution.
  *
  * Swap two points in the table of points.
  *
  */
 static inline
-void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
+void PMMG_swapPoint(MMG5_pPoint point,double* sol,int* perm,
+                    int ind1,int ind2,int solsiz) {
   MMG5_Point ppttmp;
-  int         tmp;
+  MMG5_Sol   soltmp;
+  int        tmp,addr2,addr1;
 
   /** 1- swap the xpoint */
   memcpy(&ppttmp      ,&point[ind2], sizeof(MMG5_Point));
   memcpy(&point[ind2] ,&point[ind1], sizeof(MMG5_Point));
   memcpy(&point[ind1] ,&ppttmp      ,sizeof(MMG5_Point));
 
-  /** 2- swap the permutation table */
+  /** 2- swap the sols */
+  if ( sol ) {
+    addr1 = ind1*solsiz;
+    addr2 = ind2*solsiz;
+    memcpy(&soltmp    ,&sol[addr2],solsiz*sizeof(double));
+    memcpy(&sol[addr2],&sol[addr1],solsiz*sizeof(double));
+    memcpy(&sol[addr1],&soltmp    ,solsiz*sizeof(double));
+  }
+
+  /** 3- swap the permutation table */
   tmp        = perm[ind2];
   perm[ind2] = perm[ind1];
   perm[ind1] = tmp;
@@ -101,7 +114,6 @@ void PMMG_swapPoint(MMG5_pPoint point, int* perm, int ind1, int ind2) {
 int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
-  #warning TODO sol distribution
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
   MMG5_pPoint     ppt, pptnew;
@@ -127,6 +139,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
   comm   = parmesh->comm;
 
+  /* Mesh */
   MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
   MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm);
   MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm);
@@ -141,11 +154,39 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   mesh->nti   = mesh->nt;
   mesh->xtmax = mesh->ntmax;
 
+  /* Solution */
+  MPI_Bcast( &sol->size,    1, MPI_INT,       0, parmesh->comm);
+  sol->npmax = sol->np = sol->npi = mesh->np;
+  sol->ver = mesh->ver;
+  sol->dim = mesh->dim;
+
   if ( rank ) {
+    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
+                  fprintf(stderr,"  Exit program.\n");
+                  exit(EXIT_FAILURE));
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
+
+    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
+                fprintf(stderr,"  Exit program.\n");
+                exit(EXIT_FAILURE));
     _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
-    if ( mesh->nt ) _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
-    if ( mesh->na ) _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
+
+    if ( mesh->nt ) {
+      _MMG5_ADD_MEM(mesh,(mesh->nt+1)*sizeof(MMG5_Tria),"initial triangles",
+                    return(0));
+      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
+    }
+
+    if ( mesh->na ) {
+      _MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"initial edges",
+                    return(0));
+      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
+    }
+
+    _MMG5_ADD_MEM(mesh,(sol->size*(sol->npmax+1))*sizeof(double),"initial solution",
+                  fprintf(stderr,"  Exit program.\n");
+                  exit(EXIT_FAILURE));
+    _MMG5_SAFE_CALLOC(sol->m,(sol->size*(sol->npmax+1)),double);
   }
 
   if ( !PMMG_create_MPI_lightPoint (mesh->point,  &mpi_light_point ) ) return(0);
@@ -157,6 +198,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);
   if ( mesh->nt ) MPI_Bcast( mesh->tria, mesh->nt+1, mpi_tria, 0, parmesh->comm);
   if ( mesh->na ) MPI_Bcast( mesh->edge, mesh->na+1, mpi_edge, 0, parmesh->comm);
+  MPI_Bcast( sol->m,sol->size*(sol->npmax+1),MPI_DOUBLE, 0, parmesh->comm);
 
   MPI_Type_free(&mpi_light_point);
   MPI_Type_free(&mpi_light_tetra);
@@ -348,7 +390,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   /** Compact vertices on the proc: in place permutations */
   for ( k=1; k<=mesh->np; ++k ) {
     while ( pointPerm[k] != k && pointPerm[k] )
-      PMMG_swapPoint(mesh->point,pointPerm,k,pointPerm[k]);
+      PMMG_swapPoint(mesh->point,sol->m,pointPerm,k,pointPerm[k],sol->size);
   }
   mesh->np = np;
 
@@ -376,6 +418,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
     /* sprintf(filename,"End_distributeMesh_proc%d.mesh",rank); */
     /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
     /* PMMG_saveMesh(parmesh,filename); */
+    /* PMMG_saveSol(parmesh,filename); */
   }
 
   return(1);
