@@ -105,6 +105,111 @@ void PMMG_swapPoint(MMG5_pPoint point,double* sol,int* perm,
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \return 0 if fail, 1 otherwise.
+ *
+ * Send the initial mesh from proc 0 toward the other procs.
+ *
+ */
+int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
+  PMMG_pGrp       grp;
+  MMG5_pMesh      mesh;
+  MMG5_pSol       sol;
+  MMG5_pTetra     pt,ptnew;
+  MMG5_pxTetra    pxt;
+  MMG5_pPoint     ppt, pptnew;
+  MMG5_pxPoint    pxp;
+  PMMG_pext_comm  pext_comm;
+  MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
+  MPI_Comm        comm;
+  idx_t           *part;
+  int             rank,np,ne,nxt,nxp;
+  int             *pointPerm,*xPointPerm,*xTetraPerm;
+  int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
+
+  /** Proc 0 send the mesh to the other procs */
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+  sol    = grp->sol;
+  rank   = parmesh->myrank;
+  comm   = parmesh->comm;
+
+  /* Mesh */
+  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
+
+  mesh->nemax = mesh->nei = mesh->ne;
+  mesh->nenil = 0;
+  mesh->npmax = mesh->npi = mesh->np;
+  mesh->npnil = 0;
+  mesh->nti   = mesh->nt;
+  mesh->xtmax = mesh->ntmax;
+
+  /* Solution */
+  MPI_Bcast( &sol->size,    1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &sol->npmax,   1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &sol->np,      1, MPI_INT,       0, parmesh->comm);
+
+  sol->npi = sol->np;
+  sol->ver = mesh->ver;
+  sol->dim = mesh->dim;
+
+  if ( rank ) {
+    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
+                  fprintf(stderr,"  Exit program.\n");
+                  return(0));
+    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
+
+    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
+                fprintf(stderr,"  Exit program.\n");
+                return(0));
+    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
+
+    if ( mesh->nt ) {
+      _MMG5_ADD_MEM(mesh,(mesh->nt+1)*sizeof(MMG5_Tria),"initial triangles",
+                    return(0));
+      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
+    }
+
+    if ( mesh->na ) {
+      _MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"initial edges",
+                    return(0));
+      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
+    }
+
+    if ( sol->npmax ) {
+      _MMG5_ADD_MEM(mesh,(sol->size*(sol->npmax+1))*sizeof(double),"initial solution",
+                    fprintf(stderr,"  Exit program.\n");
+                    return(0));
+      _MMG5_SAFE_CALLOC(sol->m,(sol->size*(sol->npmax+1)),double);
+    }
+  }
+
+  if ( !PMMG_create_MPI_lightPoint (mesh->point,  &mpi_light_point ) ) return(0);
+  if ( !PMMG_create_MPI_lightTetra (mesh->tetra,  &mpi_light_tetra ) ) return(0);
+  if ( mesh->nt && !PMMG_create_MPI_Tria(mesh->tria,   &mpi_tria   ) ) return(0);
+  if ( mesh->na && !PMMG_create_MPI_Edge(mesh->edge,   &mpi_edge   ) ) return(0);
+
+  MPI_Bcast( mesh->point,  mesh->np+1,    mpi_light_point,  0, parmesh->comm);
+  MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);
+  if ( mesh->nt ) MPI_Bcast( mesh->tria, mesh->nt+1, mpi_tria, 0, parmesh->comm);
+  if ( mesh->na ) MPI_Bcast( mesh->edge, mesh->na+1, mpi_edge, 0, parmesh->comm);
+  if ( sol->m )
+    MPI_Bcast( sol->m,sol->size*(sol->npmax+1),MPI_DOUBLE, 0, parmesh->comm);
+
+  MPI_Type_free(&mpi_light_point);
+  MPI_Type_free(&mpi_light_tetra);
+  if ( mesh->nt ) MPI_Type_free(&mpi_tria);
+  if ( mesh->na ) MPI_Type_free(&mpi_edge);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward an array of int containing the partitions.
  * \return 0 if fail, 1 otherwise.
  *
@@ -132,6 +237,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   char            filename[32];
   int8_t          *pointRanks;
 
+
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
   grp    = &parmesh->listgrp[0];
@@ -140,81 +246,10 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
   comm   = parmesh->comm;
 
-  /* Mesh */
-  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
-
-  mesh->nemax = mesh->nei = mesh->ne;
-  mesh->nenil = 0;
-  mesh->npmax = mesh->npi = mesh->np;
-  mesh->npnil = 0;
-  mesh->nti   = mesh->nt;
-  mesh->xtmax = mesh->ntmax;
-
-  /* Solution */
-  MPI_Bcast( &sol->size,    1, MPI_INT,       0, parmesh->comm);
-  sol->npmax = sol->np = sol->npi = mesh->np;
-  sol->ver = mesh->ver;
-  sol->dim = mesh->dim;
-
-  if ( rank ) {
-    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
-                  fprintf(stderr,"  Exit program.\n");
-                  return(0));
-    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
-
-    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
-                fprintf(stderr,"  Exit program.\n");
-                return(0));
-    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
-
-    if ( mesh->nt ) {
-      _MMG5_ADD_MEM(mesh,(mesh->nt+1)*sizeof(MMG5_Tria),"initial triangles",
-                    return(0));
-      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
-    }
-
-    if ( mesh->na ) {
-      _MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"initial edges",
-                    return(0));
-      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
-    }
-
-    _MMG5_ADD_MEM(mesh,(sol->size*(sol->npmax+1))*sizeof(double),"initial solution",
-                  fprintf(stderr,"  Exit program.\n");
-                  return(0));
-    _MMG5_SAFE_CALLOC(sol->m,(sol->size*(sol->npmax+1)),double);
-  }
-
-  if ( !PMMG_create_MPI_lightPoint (mesh->point,  &mpi_light_point ) ) return(0);
-  if ( !PMMG_create_MPI_lightTetra (mesh->tetra,  &mpi_light_tetra ) ) return(0);
-  if ( mesh->nt && !PMMG_create_MPI_Tria(mesh->tria,   &mpi_tria   ) ) return(0);
-  if ( mesh->na && !PMMG_create_MPI_Edge(mesh->edge,   &mpi_edge   ) ) return(0);
-
-  MPI_Bcast( mesh->point,  mesh->np+1,    mpi_light_point,  0, parmesh->comm);
-  MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);
-  if ( mesh->nt ) MPI_Bcast( mesh->tria, mesh->nt+1, mpi_tria, 0, parmesh->comm);
-  if ( mesh->na ) MPI_Bcast( mesh->edge, mesh->na+1, mpi_edge, 0, parmesh->comm);
-  MPI_Bcast( sol->m,sol->size*(sol->npmax+1),MPI_DOUBLE, 0, parmesh->comm);
-
-  MPI_Type_free(&mpi_light_point);
-  MPI_Type_free(&mpi_light_tetra);
-  if ( mesh->nt ) MPI_Type_free(&mpi_tria);
-  if ( mesh->na ) MPI_Type_free(&mpi_edge);
-
-  /** Store the boundary entities (normals, tria, edges, required...) into the
-   * xpoint and xtetra structures */
-  #warning may be replaced by a light analysis if too long
-  if ( !_MMG3D_analys(mesh) ) return(PMMG_STRONGFAILURE);
-
   /** Call metis for partionning*/
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
-  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) )
-    return(PMMG_STRONGFAILURE);
+
+  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) ) return 0;
 
   /** Remove the part of the mesh that are not on the proc rank */
   _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
@@ -270,10 +305,10 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
           pt->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[pt->xt];
-        pxt->ftag[ifac] |= MG_PARBDY;
+        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY);
 
         for ( j=0; j<3; ++j )
-          pxt->tag[_MMG5_iarf[ifac][j]] |= MG_PARBDY;
+          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY);
       }
 
       for ( j=0; j<3; ++j ) {
@@ -444,7 +479,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
     /* sprintf(filename,"End_distributeMesh_proc%d.mesh",rank); */
     /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
     /* PMMG_saveMesh(parmesh,filename); */
-    /* PMMG_saveSol(parmesh,filename); */
+    /* if ( sol ) PMMG_saveSol(parmesh,filename); */
   }
 
   return(1);
