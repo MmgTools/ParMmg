@@ -12,11 +12,9 @@
 int _PMMG_Init_parMesh_var( va_list argptr ) {
   PMMG_pParMesh  *parmesh;
   PMMG_pGrp      grp;
-  int            *argc;
   int            typArg;
-  int            parmeshCount,rank,size;
+  int            parmeshCount;
   int            ngrps,k;
-  char           ***argv;
   MPI_Comm       comm;
 
   parmesh      = NULL;

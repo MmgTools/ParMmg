@@ -242,9 +242,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   int            *rcv_int_comm_index;
   int            *intvalues_1, *intvalues_2,*int_comm_index_2;
   int            ext_comm_displs_tot,nitem_ext_tot,nitems_1,nitems_2;
-  int            nprocs,rank,imsh,k,i,j,idx,idx_2,cursor,color_in,color_out;
+  int            nprocs,rank,k,i,j,idx,idx_2,cursor,color_in,color_out;
   int            np,ne,xt_tot,np_tot,xp_tot,nnpar,l;
-  char           filename[30];
+  char           filename[32];
 
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;

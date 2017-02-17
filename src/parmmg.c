@@ -67,7 +67,7 @@ int main(int argc,char *argv[]) {
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
-  int              i,ier,rank;
+  int              ier,rank;
 
   /** Init MPI */
   MPI_Init(&argc, &argv);
@@ -90,6 +90,9 @@ int main(int argc,char *argv[]) {
   sol  = parmesh->listgrp[0].sol;
 
   if ( !parmesh->myrank ) {
+    if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,5) )
+      _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
+
     /** Read sequential mesh */
 #warning : for the moment, we only read a mesh named m.mesh
     if ( PMMG_loadMesh(parmesh,"m.mesh") < 1 )

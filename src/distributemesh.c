@@ -114,17 +114,9 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pSol       sol;
-  MMG5_pTetra     pt,ptnew;
-  MMG5_pxTetra    pxt;
-  MMG5_pPoint     ppt, pptnew;
-  MMG5_pxPoint    pxp;
-  PMMG_pext_comm  pext_comm;
   MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
   MPI_Comm        comm;
-  idx_t           *part;
-  int             rank,np,ne,nxt,nxp;
-  int             *pointPerm,*xPointPerm,*xTetraPerm;
-  int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
+  int             rank;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -222,10 +214,9 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   MMG5_pSol       sol;
   MMG5_pTetra     pt,ptnew;
   MMG5_pxTetra    pxt;
-  MMG5_pPoint     ppt, pptnew;
+  MMG5_pPoint     ppt;
   MMG5_pxPoint    pxp;
   PMMG_pext_comm  pext_comm;
-  MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
   MPI_Comm        comm;
   idx_t           *part;
   int             nprocs,rank,np,ne,nxt,nxp;
