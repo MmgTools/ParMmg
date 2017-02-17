@@ -97,6 +97,10 @@ int main(int argc,char *argv[]) {
     if ( PMMG_loadSol(parmesh,"m.sol") < 0 )
       _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
   }
+  else {
+    if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,0) )
+      _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
+  }
 
   /** Check input data */
   if ( !_PMMG_check_inputData(parmesh) )
@@ -134,7 +138,8 @@ int main(int argc,char *argv[]) {
 
   ier = _PMMG_parmmglib1(parmesh);
 
-  fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
+  if ( !parmesh->myrank && mesh->info.imprim )
+    fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
   if ( ier!= PMMG_STRONGFAILURE ) {
     /** Unscaling */

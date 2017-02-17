@@ -61,7 +61,7 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
     }
   }
   if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
-    fprintf(stdout,"\n  -- CHECK INPUT DATA COMPLETED\n");
+    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED\n");
 
   return 1;
 }
@@ -114,8 +114,6 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
           fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
           return PMMG_STRONGFAILURE;
         }
-
-        if ( !_MMG5_unscaleMesh(mesh,sol) )  return PMMG_STRONGFAILURE;
 
         if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
 

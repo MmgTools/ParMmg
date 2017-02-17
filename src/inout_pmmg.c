@@ -33,10 +33,6 @@ int PMMG_loadMesh(PMMG_pParMesh parmesh, const char *filename) {
 
   if ( !MMG3D_Set_inputMeshName(grp->mesh,filename) ) return(0);
 
-  if ( parmesh->myrank )
-    if ( !MMG3D_Set_iparameter(grp->mesh,grp->sol,MMG3D_IPARAM_verbose,0) )
-      return(0);
-
   if ( !MMG3D_loadMesh(grp->mesh,filename) )  return(0);
 
 
