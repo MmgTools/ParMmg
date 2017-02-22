@@ -96,14 +96,7 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
       mesh = parmesh->listgrp[i].mesh;
       sol  = parmesh->listgrp[i].sol;
 
-      if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_nosurf,1 ) )
-        return PMMG_STRONGFAILURE;
-
       if ( !_MMG5_mmg3d1_delone(mesh,sol) ) {
-        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
-          fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
-          return PMMG_STRONGFAILURE;
-        }
 
         if ( (!mesh->adja) && (!MMG3D_hashTetra(mesh,1)) ) {
           fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");

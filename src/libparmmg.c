@@ -61,6 +61,9 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     }
 
     /** Mesh analysis */
+    if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_nosurf,1 ) )
+      return PMMG_STRONGFAILURE;
+
     if ( !_MMG3D_analys(mesh) ) {
       if ( !_MMG5_unscaleMesh(mesh,sol) ) return PMMG_STRONGFAILURE;
       return PMMG_LOWFAILURE;

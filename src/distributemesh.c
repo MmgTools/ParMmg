@@ -296,10 +296,14 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
           pt->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[pt->xt];
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY);
+        /* Parallel face */
+        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ);
 
+        /* Parallel edges */
+#warning using the MG_REQ tag, we will loose the "true" required tags
         for ( j=0; j<3; ++j )
-          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY);
+          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+
       }
 
       for ( j=0; j<3; ++j ) {
@@ -312,6 +316,9 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
         if ( rankVois != rank && !pointRanks[nprocs*(ip-1)+rankVois] ) {
           pointRanks[nprocs*(ip-1)+rankVois] = 1;
           ++seenRanks[rankVois];
+
+          /* Mark parallel vertex */
+          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ);
         }
 
         if ( !ppt->tmp ) {

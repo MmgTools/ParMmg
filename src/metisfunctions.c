@@ -34,7 +34,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
     mesh = grp[0].mesh;
 
     /* create tetra adjacency */
-    if ( !MMG3D_hashTetra(mesh,1) ) {
+    if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
       fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
       return(0);
     }
