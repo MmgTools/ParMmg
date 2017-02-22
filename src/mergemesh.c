@@ -53,15 +53,15 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   np = mesh0->np;
 
   /* Reset the tmp field of points (grp 0) */
-  for ( k=1; k<=np; k++ ) {
+  for ( k=1; k<=np; k++ )
     mesh0->point[k].tmp = 0;
 
-    /* Travel through internal communicator to recover a unique numbering of
-     * points (grp 0) */
-    for ( k=0; k<nitem_int_node_comm0; ++k ) {
-      intvalues[node2int_node_comm0_index2[k]] = node2int_node_comm0_index1[k];
-    }
+  /* Travel through internal communicator to recover a unique numbering of
+   * points (grp 0) */
+  for ( k=0; k<nitem_int_node_comm0; ++k ) {
+    intvalues[node2int_node_comm0_index2[k]] = node2int_node_comm0_index1[k];
   }
+
 
   idx = nitem_int_node_comm;
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {

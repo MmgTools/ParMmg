@@ -126,12 +126,24 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
     }
   }
 
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = parmesh->listgrp[0].sol;
+
   /** Merge the groups over each procs */
   #warning to remove when mmg will be truely called (it will return a free adja pointer)
   if ( mesh->adja )
     _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
 
   if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
+
+#warning try to remove if mergeGrps OK
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
+    return PMMG_STRONGFAILURE;
+  }
+
+  if ( !_MMG3D_packMesh(mesh,sol,NULL) )
+    return PMMG_STRONGFAILURE;
 
   return(PMMG_SUCCESS);
 }
