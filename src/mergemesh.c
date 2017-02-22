@@ -36,13 +36,15 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            idx,idx1,idx2,np,imsh,k,i,ie,ip;
 
-  if ( parmesh->ngrp == 1 )  return(1);
+  // if ( parmesh->ngrp == 1 )  return(1);
 
   grp  = parmesh->listgrp;
 
   /** First step: Add all the interfaces points in grp 0 and update its internal
    * communicator */
   int_node_comm              = parmesh->int_node_comm;
+  _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int);
+
   intvalues                  = int_node_comm->intvalues;
 
   mesh0                      = grp[0].mesh;
@@ -124,7 +126,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   sol0  = grp[0].sol;
 #warning Do we need a smart fit of the mesh size?
   np = mesh0->np;
-  for ( imsh=0; imsh<parmesh->ngrp; ++imsh ) {
+  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = grp[imsh].mesh;
     sol  = grp[imsh].sol;
 
@@ -198,7 +200,9 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
                    MMG5_ARG_ppMesh,mesh,MMG5_ARG_ppMet,sol,
                    MMG5_ARG_end);
   }
-  _MMG5_SAFE_REALLOC(parmesh->listgrp,1,PMMG_Grp,"(mergeGrps) listgrp");
+  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
+
+  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp");
   parmesh->ngrp = 1;
 
   return(1);

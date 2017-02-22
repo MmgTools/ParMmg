@@ -99,21 +99,19 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
       if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_nosurf,1 ) )
         return PMMG_STRONGFAILURE;
 
-#warning for debugging purposes
-      if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_noinsert,1 ) )
-        return PMMG_STRONGFAILURE;
-
-      if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_noswap,1 ) )
-        return PMMG_STRONGFAILURE;
-
-      if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_nomove,1 ) )
-        return PMMG_STRONGFAILURE;
-
       if ( !_MMG5_mmg3d1_delone(mesh,sol) ) {
         if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
           fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
           return PMMG_STRONGFAILURE;
         }
+
+        if ( (!mesh->adja) && (!MMG3D_hashTetra(mesh,1)) ) {
+          fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
+          return PMMG_STRONGFAILURE;
+        }
+
+        if ( !_MMG3D_packMesh(mesh,sol,NULL) )
+          return PMMG_STRONGFAILURE;
 
         if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
 
@@ -126,24 +124,18 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
     }
   }
 
-  mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].sol;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+    sol  = parmesh->listgrp[i].sol;
 
-  /** Merge the groups over each procs */
-  #warning to remove when mmg will be truely called (it will return a free adja pointer)
-  if ( mesh->adja )
+    /** Merge the groups over each procs */
+    if ( !_MMG3D_packMesh(mesh,sol,NULL) )
+      return PMMG_STRONGFAILURE;
+
     _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
-
-  if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
-
-#warning try to remove if mergeGrps OK
-  if ( !MMG3D_hashTetra(mesh,1) ) {
-    fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
-    return PMMG_STRONGFAILURE;
   }
 
-  if ( !_MMG3D_packMesh(mesh,sol,NULL) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
 
   return(PMMG_SUCCESS);
 }
