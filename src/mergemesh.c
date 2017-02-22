@@ -36,7 +36,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            idx,idx1,idx2,np,imsh,k,i,ie,ip;
 
-  // if ( parmesh->ngrp == 1 )  return(1);
+  if ( parmesh->ngrp == 1 )  return(1);
 
   grp  = parmesh->listgrp;
 
