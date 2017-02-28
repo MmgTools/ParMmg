@@ -43,7 +43,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
 
     if ( !_MMG3D_tetraQual(mesh,sol) ) return PMMG_STRONGFAILURE;
 
-#warning todo: send the data to proc 0 and depending on the imprim value, print either the qualisty of each mesh or the reduced qualisty.
+#warning todo: send the data to proc 0 and depending on the imprim value, print either the quality of each mesh or the reduced qualisty.
     if ( abs(mesh->info.imprim) > 0 ) {
       if ( !_MMG3D_inqua(mesh,sol) ) {
         if ( !_MMG5_unscaleMesh(mesh,sol) ) return PMMG_STRONGFAILURE;

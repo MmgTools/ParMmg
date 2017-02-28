@@ -118,9 +118,10 @@ typedef PMMG_ext_comm  * PMMG_pext_comm;
  * \brief Grp mesh structure.
  */
 typedef struct {
-  MMG5_pMesh   mesh;  /*!<mesh definition : coordinates, tetra etc..*/
-  MMG5_pSol    sol;   /*!<physical solutions defined on each point of the mesh*/
-  MMG5_pSol    met;   /*!<metric*/
+  MMG5_pMesh   mesh;  /*!< mesh definition : coordinates, tetra etc.. */
+  MMG5_pSol    sol;   /*!< physical solutions defined on each point of the mesh */
+  MMG5_pSol    met;   /*!< metric */
+  MMG5_pSol    disp;  /*!< displacement */
 
   /*communicators*/
   int          nitem_int_node_comm;/*!< Nb nodes of this grp in internal communicator*/

@@ -13,6 +13,219 @@
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
+ * \return 1 if success, 0 if chkmsh fail or if we are unable to build
+ * triangles.
+ *
+ * Pack the sparse meshes of each group and create triangles and edges before
+ * getting out of library
+ *
+ */
+int PMMG_packParMesh(PMMG_pParMesh parmesh) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pSol   met;
+  MMG5_pSol   disp;
+  MMG5_pTetra pt,ptnew;
+  MMG5_pPrism pp;
+  MMG5_pQuad  pq;
+  MMG5_pPoint ppt,pptnew;
+  int         *node2int_node_comm_index1;
+  int         np,nc,nr, k,ne,nbl,imet,imetnew,i,igrp;
+  int         iadr,iadrnew,iadrv,*adjav,*adja,*adjanew,voy;
+
+  for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
+    grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    met                       = grp->sol;
+    node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+    disp                      = grp->disp;
+
+    /* compact vertices */
+    np = nc = 0;
+    for (k=1; k<=mesh->np; k++) {
+      ppt = &mesh->point[k];
+      if ( !MG_VOK(ppt) )  continue;
+      ppt->tmp = ++np;
+
+      if ( mesh->info.nosurf && (ppt->tag & MG_NOSURF) )
+        ppt->tag &= ~MG_REQ;
+
+      if ( ppt->tag & MG_CRN )  nc++;
+
+      ppt->ref = abs(ppt->ref);
+    }
+
+    /* node index update in internal communicator */
+    for (k=0; k<grp->nitem_int_node_comm; ++k) {
+      iadr = node2int_node_comm_index1[k];
+
+      ppt = &mesh->point[iadr];
+      assert ( MG_VOK(ppt) );
+
+      node2int_node_comm_index1[k] = ppt->tmp;
+    }
+
+    /* compact tetrahedra */
+    ne  = 0;
+    nbl = 1;
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) )  continue;
+
+      pt->v[0] = mesh->point[pt->v[0]].tmp;
+      pt->v[1] = mesh->point[pt->v[1]].tmp;
+      pt->v[2] = mesh->point[pt->v[2]].tmp;
+      pt->v[3] = mesh->point[pt->v[3]].tmp;
+      ne++;
+      if ( k!=nbl ) {
+        ptnew = &mesh->tetra[nbl];
+        memcpy(ptnew,pt,sizeof(MMG5_Tetra));
+
+        iadr = 4*(k-1) + 1;
+        adja = &mesh->adja[iadr];
+        iadrnew = 4*(nbl-1) + 1;
+        adjanew = &mesh->adja[iadrnew];
+        for(i=0 ; i<4 ; i++) {
+          adjanew[i] = adja[i];
+          if(!adja[i]) continue;
+          iadrv = 4*(adja[i]/4-1) +1;
+          adjav = &mesh->adja[iadrv];
+          voy = i;
+          adjav[adja[i]%4] = 4*nbl + voy;
+        }
+      }
+      nbl++;
+    }
+    mesh->ne = ne;
+
+    /* update prisms and quads vertex indices */
+    for (k=1; k<=mesh->nprism; k++) {
+      pp = &mesh->prism[k];
+      if ( !MG_EOK(pp) )  continue;
+
+      pp->v[0] = mesh->point[pp->v[0]].tmp;
+      pp->v[1] = mesh->point[pp->v[1]].tmp;
+      pp->v[2] = mesh->point[pp->v[2]].tmp;
+      pp->v[3] = mesh->point[pp->v[3]].tmp;
+      pp->v[4] = mesh->point[pp->v[4]].tmp;
+      pp->v[5] = mesh->point[pp->v[5]].tmp;
+    }
+    for (k=1; k<=mesh->nquad; k++) {
+      pq = &mesh->quad[k];
+      if ( !MG_EOK(pq) )  continue;
+
+      pq->v[0] = mesh->point[pq->v[0]].tmp;
+      pq->v[1] = mesh->point[pq->v[1]].tmp;
+      pq->v[2] = mesh->point[pq->v[2]].tmp;
+      pq->v[3] = mesh->point[pq->v[3]].tmp;
+    }
+
+    /* compact metric */
+    nbl = 1;
+    if ( met && met->m ) {
+      for (k=1; k<=mesh->np; k++) {
+        ppt = &mesh->point[k];
+        if ( !MG_VOK(ppt) )  continue;
+        imet    = k   * met->size;
+        imetnew = nbl * met->size;
+
+        for (i=0; i<met->size; i++)
+          met->m[imetnew + i] = met->m[imet + i];
+        ++nbl;
+      }
+    }
+
+    /* compact displacement */
+    nbl = 1;
+    if ( disp && disp->m ) {
+      for (k=1; k<=mesh->np; k++) {
+        ppt = &mesh->point[k];
+        if ( !MG_VOK(ppt) )  continue;
+        imet    = k   * disp->size;
+        imetnew = nbl * disp->size;
+
+        for (i=0; i<disp->size; i++)
+          disp->m[imetnew + i] = disp->m[imet + i];
+        ++nbl;
+      }
+    }
+
+    /* compact vertices */
+    np  = 0;
+    nbl = 1;
+    for (k=1; k<=mesh->np; k++) {
+      ppt = &mesh->point[k];
+      if ( !MG_VOK(ppt) )  continue;
+      np++;
+      if ( k!=nbl ) {
+        pptnew = &mesh->point[nbl];
+        memmove(pptnew,ppt,sizeof(MMG5_Point));
+        memset(ppt,0,sizeof(MMG5_Point));
+        ppt->tag    = MG_NUL;
+      }
+      nbl++;
+    }
+    mesh->np = np;
+    if ( met && met->m )
+      met->np  = np;
+    if ( disp && disp->m )
+      disp->np = np;
+
+    /* create prism adjacency */
+    if ( !MMG3D_hashPrism(mesh) ) {
+      fprintf(stderr,"  ## Prism hashing problem. Exit program.\n");
+      return(0);
+    }
+
+    /* Remove the MG_REQ tags added by the nosurf option */
+    if ( mesh->info.nosurf ) {
+      for (k=1; k<=mesh->ne; k++) {
+        pt   = &mesh->tetra[k];
+        if ( MG_EOK(pt) &&  pt->xt ) {
+
+          for (i=0; i<6; i++) {
+            if ( mesh->xtetra[pt->xt].tag[i] & MG_NOSURF ) {
+              mesh->xtetra[pt->xt].tag[i] &= ~MG_REQ;
+              mesh->xtetra[pt->xt].tag[i] &= ~MG_NOSURF;
+            }
+          }
+        }
+      }
+    }
+
+    if ( mesh->info.imprim ) {
+      fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
+      fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
+    }
+
+    nr = _MMG3D_bdryBuild(mesh);
+    if ( nr < 0 ) return 0;
+
+    for(k=1 ; k<=mesh->np ; k++)
+      mesh->point[k].tmp = 0;
+
+    mesh->npnil = mesh->np + 1;
+    for(k=mesh->npnil; k<mesh->npmax-1; k++)
+      mesh->point[k].tmp  = k+1;
+
+    mesh->nenil = mesh->ne + 1;
+    for(k=mesh->nenil; k<mesh->nemax-1; k++)
+      mesh->tetra[k].v[3] = k+1;
+
+    /* to could save the mesh, the adjacency have to be correct */
+    if ( mesh->info.ddebug && (!_MMG5_chkmsh(mesh,1,1) ) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return(0);
+    }
+  }
+
+  return(1);
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
  * \return 1 if success, 0 otherwise.
  *
  * Check the validity of the input mesh data (tetra orientation, solution
@@ -83,12 +296,18 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
   int              it,i,niter;
+  char filename[30];
 
 #warning niter must be a param setted by the user
   niter = 1;
 
   /** Groups creation */
   // if ( !PMMG_splitGrps(parmesh) ) return PMMG_STRONGFAILURE;
+
+  /* sprintf(filename,"Begin_libparmmg1_proc%d.mesh",parmesh->myrank); */
+  /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
+  /* PMMG_saveMesh(parmesh,filename); */
+  /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
 
   /** Mesh adaptation */
   for ( it=0; it<niter; ++it ) {

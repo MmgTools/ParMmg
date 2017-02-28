@@ -25,6 +25,7 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
   MMG3D_setfunc(mesh,sol);
 
   /** Mesh scaling and quality histogram */
+#warning Do we need to scale here (for the analysis step) ?
   if ( !_MMG5_scaleMesh(mesh,sol) ) return -1;
 
   if ( !_MMG3D_tetraQual(mesh,sol) ) return 0;
