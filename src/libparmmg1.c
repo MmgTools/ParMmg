@@ -13,8 +13,7 @@
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
- * \return 1 if success, 0 if chkmsh fail or if we are unable to build
- * triangles.
+ * \return 1 if success, 0 if chkmsh fail.
  *
  * Pack the sparse meshes of each group and create triangles and edges before
  * getting out of library
