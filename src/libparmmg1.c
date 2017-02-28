@@ -31,7 +31,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
   MMG5_pPoint ppt,pptnew;
   int         *node2int_node_comm_index1;
   int         np,nc,nr, k,ne,nbl,imet,imetnew,i,igrp;
-  int         iadr,iadrnew,iadrv,*adjav,*adja,*adjanew,voy;
+  int         iadr;//,iadrnew,iadrv,*adjav,*adja,*adjanew,voy;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
@@ -80,19 +80,19 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
       if ( k!=nbl ) {
         ptnew = &mesh->tetra[nbl];
         memcpy(ptnew,pt,sizeof(MMG5_Tetra));
-
-        iadr = 4*(k-1) + 1;
-        adja = &mesh->adja[iadr];
-        iadrnew = 4*(nbl-1) + 1;
-        adjanew = &mesh->adja[iadrnew];
-        for(i=0 ; i<4 ; i++) {
-          adjanew[i] = adja[i];
-          if(!adja[i]) continue;
-          iadrv = 4*(adja[i]/4-1) +1;
-          adjav = &mesh->adja[iadrv];
-          voy = i;
-          adjav[adja[i]%4] = 4*nbl + voy;
-        }
+#warning update adjacency table: to keep for when the adjacency update will be implemented in mergeGrp and mergeParmesh functions
+      /*   iadr = 4*(k-1) + 1; */
+      /*   adja = &mesh->adja[iadr]; */
+      /*   iadrnew = 4*(nbl-1) + 1; */
+      /*   adjanew = &mesh->adja[iadrnew]; */
+      /*   for(i=0 ; i<4 ; i++) { */
+      /*     adjanew[i] = adja[i]; */
+      /*     if(!adja[i]) continue; */
+      /*     iadrv = 4*(adja[i]/4-1) +1; */
+      /*     adjav = &mesh->adja[iadrv]; */
+      /*     voy = i; */
+      /*     adjav[adja[i]%4] = 4*nbl + voy; */
+      /*   } */
       }
       nbl++;
     }
@@ -197,9 +197,6 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
       fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
       fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
     }
-
-    nr = _MMG3D_bdryBuild(mesh);
-    if ( nr < 0 ) return 0;
 
     for(k=1 ; k<=mesh->np ; k++)
       mesh->point[k].tmp = 0;
@@ -315,20 +312,7 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
       mesh = parmesh->listgrp[i].mesh;
       sol  = parmesh->listgrp[i].sol;
 
-      if ( !_MMG5_mmg3d1_delone(mesh,sol) ) {
-
-        if ( (!mesh->adja) && (!MMG3D_hashTetra(mesh,1)) ) {
-          fprintf(stderr,"  ## Hashing problem. Invalid mesh.\n");
-          return PMMG_STRONGFAILURE;
-        }
-
-        if ( !_MMG3D_packMesh(mesh,sol,NULL) )
-          return PMMG_STRONGFAILURE;
-
-        if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
-
-        return PMMG_LOWFAILURE;
-      }
+      if ( !_MMG5_mmg3d1_delone(mesh,sol) ) goto failed;
 
 #warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
       /** load Balancing at group scale and communicators reconstruction */
@@ -336,18 +320,35 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
     }
   }
 
+#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     sol  = parmesh->listgrp[i].sol;
-
-    /** Merge the groups over each procs */
-    if ( !_MMG3D_packMesh(mesh,sol,NULL) )
-      return PMMG_STRONGFAILURE;
-
     _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
   }
+  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
   if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
 
+  /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
+  /* sprintf(filename,"End_libparmmg1_proc%d.mesh",parmesh->myrank); */
+  /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
+  /* PMMG_saveMesh(parmesh,filename); */
+
   return(PMMG_SUCCESS);
+
+  /** mmg3d1_delone failure */
+  failed:
+#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+    sol  = parmesh->listgrp[i].sol;
+    _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
+  }
+
+  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
+
+  if ( !PMMG_mergeGrps(parmesh) )   return PMMG_STRONGFAILURE;
+
+  return PMMG_LOWFAILURE;
 }

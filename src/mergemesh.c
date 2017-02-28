@@ -176,6 +176,8 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
       for ( i=0; i<4; ++i )
         pt0->v[i] = mesh->point[pt->v[i]].tmp;
 
+#warning add adjacency update
+
       /* Add xtetra if needed */
       if ( pt->xt ) {
 #warning add only the "true" xtetras (not those linked to the interfaces)
@@ -277,26 +279,26 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   }
 
   /** Step 4: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
-  _MMG5_SAFE_CALLOC(rcv_np,nprocs,int);
-  _MMG5_SAFE_CALLOC(rcv_ne,nprocs,int);
-  _MMG5_SAFE_CALLOC(rcv_xp,nprocs,int);
-  _MMG5_SAFE_CALLOC(rcv_xt,nprocs,int);
-  _MMG5_SAFE_CALLOC(rcv_nsol,nprocs,int);
-  _MMG5_SAFE_CALLOC(point_displs ,nprocs,int);
-  _MMG5_SAFE_CALLOC(xpoint_displs,nprocs,int);
-  _MMG5_SAFE_CALLOC(tetra_displs ,nprocs,int);
-  _MMG5_SAFE_CALLOC(xtetra_displs,nprocs,int);
-  _MMG5_SAFE_CALLOC(sol_displs,nprocs,int);
+  _MMG5_SAFE_CALLOC(rcv_np        ,nprocs,int);
+  _MMG5_SAFE_CALLOC(rcv_ne        ,nprocs,int);
+  _MMG5_SAFE_CALLOC(rcv_xp        ,nprocs,int);
+  _MMG5_SAFE_CALLOC(rcv_xt        ,nprocs,int);
+  _MMG5_SAFE_CALLOC(rcv_nsol      ,nprocs,int);
+  _MMG5_SAFE_CALLOC(point_displs  ,nprocs,int);
+  _MMG5_SAFE_CALLOC(xpoint_displs ,nprocs,int);
+  _MMG5_SAFE_CALLOC(tetra_displs  ,nprocs,int);
+  _MMG5_SAFE_CALLOC(xtetra_displs ,nprocs,int);
+  _MMG5_SAFE_CALLOC(sol_displs    ,nprocs,int);
 
   _MMG5_SAFE_CALLOC(rcv_nitem_int_node_comm,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_next_node_comm,nprocs,int);
 
-  if ( parmesh->ddebug ) {
-    /* sprintf(filename,"Before_Gather_proc%d.mesh",rank); */
-    /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-    /* MMG3D_saveMesh(mesh,filename); */
-    /* MMG3D_saveSol(mesh,sol,filename); */
-  }
+  /* if ( parmesh->ddebug ) { */
+  /*   sprintf(filename,"Before_Gather_proc%d.mesh",rank); */
+  /*   _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
+  /*   MMG3D_saveMesh(mesh,filename); */
+  /*   MMG3D_saveSol(mesh,sol,filename); */
+  /* } */
 
   if ( !PMMG_create_MPI_Point (mesh->point,  &mpi_point ) ) return(0);
   if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) return(0);
@@ -601,8 +603,12 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
         if ( tetra[i].xt ) {
           nnpar = 0;
           pxt = &xtetra[tetra[i].xt];
-          for ( l=0; l<4; ++l )
+          for ( l=0; l<4; ++l ) {
             if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
+#warning doing this we loose the truely required entities
+            if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
+              pxt->ftag[l] &= ~MG_REQ;
+          }
 
           if ( !nnpar ) {
             pt->xt = 0;
