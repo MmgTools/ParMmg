@@ -114,6 +114,8 @@ ENDIF()
 #####
 ############################################################################
 SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
+SET(MMG_BUILD_DIR "" CACHE PATH "Build directory for mmg")
+
 INCLUDE(cmake/modules/FindMmg.cmake)
 
 SET(CMAKE_REQUIRED_INCLUDES ${MMG_SRC_DIR})
@@ -265,6 +267,8 @@ ENDIF ()
 ###############################################################################
 # Header files
 INCLUDE_DIRECTORIES(${PMMG_SOURCE_DIR})
+INCLUDE_DIRECTORIES(${MMG_BUILD_DIR})
+
 # Source files
 FILE(
   GLOB
