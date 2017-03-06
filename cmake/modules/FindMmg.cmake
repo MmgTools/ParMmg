@@ -62,16 +62,14 @@ FIND_PATH(MMG_BUILD_DIR
   NAMES src/common/mmgcommon.h
   HINTS ${MMG_BUILD_DIR}
   $ENV{MMG_BUILD_DIR}
-  ${MMG_DIR}/build
-  $ENV{MMG_DIR}/build
+  ${MMG_DIR}/*
+  $ENV{MMG_DIR}/*
   DOC "The mmg build directory"
   )
 
-MESSAGE(WARNING ${MMG_BUILD_DIR})
-
 INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(MMG DEFAULT_MSG
-  MMG_INCLUDE_DIR MMG_LIBRARY)
+  MMG_INCLUDE_DIR MMG_LIBRARY MMG_BUILD_DIR)
 
 IF ( NOT MMG_FOUND )
    MESSAGE (WARNING "\nMMG not found: you can set the 'MMG_DIR' environment"

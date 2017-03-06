@@ -129,6 +129,7 @@ IF(NOT MMG_DIR)
 ELSE()
   # Set flags for building test program
   INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIR})
+  INCLUDE_DIRECTORIES(${MMG_BUILD_DIR}/src/common)
   INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
   INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
   INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
@@ -139,6 +140,7 @@ ELSE()
 
 
 ENDIF ( )
+
 
 ############################################################################
 #####
