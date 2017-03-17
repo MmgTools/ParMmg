@@ -11,7 +11,18 @@
 
 #include "parmmg.h"
 #include "mpitypes.h"
-
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param xadj idx_t pointer.
+ * \param adjncy idx_t pointer.
+ * \return 1,
+ *
+ * Allocate and fill the xadj and adjncy arrays using for metis calls
+ *
+ */
+int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy) {
+  return(1);
+}
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer of an array containing the partitions (at the end).
