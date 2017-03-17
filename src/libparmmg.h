@@ -48,8 +48,9 @@ int PMMG_saveSol(PMMG_pParMesh ,const char *);
 int PMMG_parmmglib(PMMG_pParMesh parmesh);
 
 /* metisfunctions.c */
-int PMMG_metispartitioning(PMMG_pParMesh ,idx_t *);
-
+  int PMMG_metispartitioning(PMMG_pParMesh ,idx_t *);
+  int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy);
+  
 /* distributemesh */
 int PMMG_distributeMesh(PMMG_pParMesh);
 
