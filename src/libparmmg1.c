@@ -297,8 +297,9 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
 #warning niter must be a param set by the user
   niter = 1;
 
-  /** Groups creation */
-  // if ( !PMMG_splitGrps(parmesh) ) return PMMG_STRONGFAILURE;
+	/** Groups creation */
+	if ( !PMMG_splitGrps( parmesh ) )
+		return PMMG_STRONGFAILURE;
 
   /* sprintf(filename,"Begin_libparmmg1_proc%d.mesh",parmesh->myrank); */
   /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
