@@ -294,7 +294,7 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   int              it,i,niter;
   char filename[30];
 
-#warning niter must be a param setted by the user
+#warning niter must be a param set by the user
   niter = 1;
 
   /** Groups creation */
