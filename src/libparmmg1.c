@@ -9,6 +9,7 @@
  */
 
 #include "parmmg.h"
+#include "grpsplit.h" //PMMG_splitGrps
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -29,7 +30,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
   MMG5_pQuad  pq;
   MMG5_pPoint ppt,pptnew;
   int         *node2int_node_comm_index1;
-  int         np,nc,nr, k,ne,nbl,imet,imetnew,i,igrp;
+  int         np,nc,k,ne,nbl,imet,imetnew,i,igrp;
   int         iadr;//,iadrnew,iadrv,*adjav,*adja,*adjanew,voy;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
@@ -292,7 +293,6 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
   int              it,i,niter;
-  char filename[30];
 
 #warning niter must be a param set by the user
   niter = 1;

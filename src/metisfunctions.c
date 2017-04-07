@@ -23,9 +23,8 @@
 int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  idx_t      nelt,ncon,nproc,objval;
   int        *adja;
-  int        j,k,iadr,jel,count,totCount,nbAdj,ier;
+  int        j,k,iadr,jel,count,totCount,nbAdj;
   
   grp = parmesh->listgrp;
   mesh = grp[0].mesh;
@@ -88,9 +87,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
   idx_t      *xadj,*adjncy;
-  idx_t      nelt,ncon,nproc,objval;
-  int        *adja;
-  int        j,k,iadr,jel,count,totCount,nbAdj,ier;
+  idx_t      nelt,ncon,nproc,objval, ier;
 
   if ( !parmesh->myrank ) {
     grp = parmesh->listgrp;
@@ -109,6 +106,21 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
     /* ier =  METIS_PartGraphRecursive(&nelt,&ncon,xadj,adjncy,NULL/\*vwgt*\/,NULL/\*vsize*\/, */
     /*                         NULL/\*adjwgt*\/,&nproc,NULL/\*tpwgts*\/, */
     /*                         NULL/\*ubvec*\/,NULL/\*options*\/,&objval,part); */
+	if ( ier != METIS_OK ) {
+		fprintf(stderr, "Metis returned error value: " );
+		switch ( ier ) {
+			case METIS_ERROR_INPUT:
+				fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" );
+			break;
+			case METIS_ERROR_MEMORY:
+				fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" );
+			break;
+			case METIS_ERROR:
+				fprintf(stderr, "METIS_ERROR: generic error\n" );
+			break;
+		}
+		exit( EXIT_FAILURE );
+	}
 
     /**/
 

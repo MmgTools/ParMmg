@@ -12,6 +12,7 @@
 #include "metis.h" // idx_t
 #include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 #include "libparmmg.h" // PMMG_mesh2metis
+#include "grpsplit.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher
 // work faster
@@ -77,6 +78,22 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 	//int ier =  METIS_PartGraphRecursive( &nelt, &ncon, xadj, adjncy, NULL/\*vwgt*\/, NULL/\*vsize*\/,
 	//                                     NULL/\*adjwgt*\/, &nproc, NULL/\*tpwgts*\/,
 	//                                     NULL/\*ubvec*\/, NULL/\*options*\/, &objval, part );
+	if ( ier != METIS_OK ) {
+		fprintf(stderr, "Metis returned error value: " );
+		switch ( ier ) {
+			case METIS_ERROR_INPUT:
+				fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" );
+			break;
+			case METIS_ERROR_MEMORY:
+				fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" );
+			break;
+			case METIS_ERROR:
+				fprintf(stderr, "METIS_ERROR: generic error\n" );
+			break;
+		}
+		exit( EXIT_FAILURE );
+	}
+
 	_MMG5_SAFE_FREE(xadj);
 	_MMG5_SAFE_FREE(adjncy);
 //NIKOS TODO: better error handling, esp memory deallocation

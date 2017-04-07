@@ -115,7 +115,6 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
   MMG5_pMesh      mesh;
   MMG5_pSol       sol;
   MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
-  MPI_Comm        comm;
   int             rank;
 
   /** Proc 0 send the mesh to the other procs */
@@ -123,7 +122,6 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
   mesh   = grp->mesh;
   sol    = grp->sol;
   rank   = parmesh->myrank;
-  comm   = parmesh->comm;
 
   /* Mesh */
   MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
@@ -215,9 +213,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   MMG5_pTetra     pt,ptnew;
   MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt;
-  MMG5_pxPoint    pxp;
   PMMG_pext_comm  pext_comm;
-  MPI_Comm        comm;
   idx_t           *part;
   int             nprocs,rank,np,ne,nxt,nxp;
   int             *pointPerm,*xPointPerm,*xTetraPerm;
@@ -225,7 +221,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             nitem_int_node_comm,next_node_comm,*seenRanks;
   int             inIntComm,nbl;
-  char            filename[32];
   int8_t          *pointRanks;
 
 
@@ -235,7 +230,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   mesh   = grp->mesh;
   sol    = grp->sol;
   rank   = parmesh->myrank;
-  comm   = parmesh->comm;
 
   /** Call metis for partionning*/
   _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
@@ -328,7 +322,6 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
 
           /* update the table of permutation for xPoint if needed */
           if ( ppt->xp ) {
-            pxp                 = &mesh->xpoint[ppt->xp];
             xPointPerm[ppt->xp] = ++nxp;
             ppt->xp             = nxp;
           }
