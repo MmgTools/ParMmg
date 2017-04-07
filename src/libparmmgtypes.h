@@ -152,7 +152,6 @@ typedef struct {
   MPI_Comm comm;
 
   /* grp */
-  int       neltpergrp; /*!< Average number of elements per group */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */
 
@@ -175,6 +174,4 @@ typedef struct {
   int            ddebug;
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
-
-
 #endif
