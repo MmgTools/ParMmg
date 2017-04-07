@@ -8,6 +8,10 @@
  * \copyright GNU Lesser General Public License.
  * \todo doxygen documentation.
  */
+#include "libparmmgtypes.h" // PMMG_pGrp
+#include "metis.h" // idx_t
+#include "mmgcommon.h" // _MMG5_SAFE_CALLOC
+#include "libparmmg.h" // PMMG_mesh2metis
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher
 // work faster
@@ -55,12 +59,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 	/* Call metis*/
 	idx_t *part = NULL;
 	/** Call metis for partionning*/
-#warning NIKOS TODO: there is some code duplication. eg this metis calling is also in the metisfunction.c
+//NIKOS TODO: there is some code duplication. eg this metis calling is also in the metisfunction.c
 	_MMG5_SAFE_CALLOC( part, mesh->ne, idx_t );
 {
 	idx_t *xadj = NULL;
 	idx_t *adjncy = NULL;
-#warning NIKOS TODO: experiment with the number of balancing constraints?
+//NIKOS TODO: experiment with the number of balancing constraints
 	idx_t ncon = 1;/*number of balancing constraint*/
 	idx_t nelt = mesh->ne;
 	idx_t objval;
@@ -75,7 +79,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 	//                                     NULL/\*ubvec*\/, NULL/\*options*\/, &objval, part );
 	_MMG5_SAFE_FREE(xadj);
 	_MMG5_SAFE_FREE(adjncy);
-#warning NIKOS TODO: better error handling, esp memory deallocation
+//NIKOS TODO: better error handling, esp memory deallocation
 	if ( ier != METIS_OK )
 		return (0);
 }
@@ -101,7 +105,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 		grp->disp = NULL;
 		MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grp->mesh,
 		                 MMG5_ARG_ppMet, &grp->sol, MMG5_ARG_end );
-#warning NIKOS TODO: allcate on your own, no need to use MMG3D_Set_meshSize
+//NIKOS TODO: allcate on your own, no need to use MMG3D_Set_meshSize
 		//_MMG5_SAFE_CALLOC( ptr, size, type );
 		//_MMG5_SAFE_REALLOC( ptr, size, type, message );
 		MMG3D_Set_meshSize( grp->mesh, countPerGrp[i], countPerGrp[i], 0, 0, 0, 0 );
@@ -120,10 +124,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 	}
 
 	/* Loop over tetras and copy them to the groups metis assigned them */
-#warning NIKOS: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
+//NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
 	for( int grpId = 0 ; grpId < ngrp ; grpId++ ) {
 
-#warning NIKOS: is this redundant given the mesh struct has just been allocated?
+//NIKOS TODO: is this redundant given the mesh struct has just been allocated?
 		/* Will use the field flag to assign local numbering in the newly created subgroups. Initialize to 0 */
 		//NIKOS PREPEI NA MIDENISEIS GIA NA TO XRISIMOPOIHSEIS OS flag FIELD
 		for ( int poi = 0; poi < mesh->np ; poi++ )
@@ -177,7 +181,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 		printf( "+++++NIKOS[%d/%d]:: added %d points in group with %d tetra out of %d tetras expected\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, curMesh->ne );
 	}
 
-#warning FREE ME PROPERLY!
+//NIKOS TODO: FREE ME PROPERLY!
 	//parmesh->ngrp = ngrp;
 	//free(parmesh->listgrp);
 	//parmesh->listgrp = listgrp;
