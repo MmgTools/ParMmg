@@ -16,7 +16,7 @@
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher
 // work faster
-static const int REMESHER_TARGET_MESH_SIZE = 2000;
+static const int REMESHER_TARGET_MESH_SIZE = 500;
 
 static int HowManyGroups ( const int nelem )
 {
@@ -70,7 +70,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 	idx_t nelt = mesh->ne;
 	idx_t objval;
 
-	PMMG_mesh2metis(parmesh, &xadj, &adjncy);
+	PMMG_mesh2metis( parmesh, &xadj, &adjncy );
 
 	int ier =  METIS_PartGraphKway( &nelt          , &ncon          , xadj , adjncy        , NULL/*vwgt*/ ,
 	                                NULL/*vsize*/  , NULL/*adjwgt*/ , &ngrp, NULL/*tpwgts*/, NULL/*ubvec*/,
@@ -147,24 +147,27 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 //NIKOS TODO: is this redundant given the mesh struct has just been allocated?
 		/* Will use the field flag to assign local numbering in the newly created subgroups. Initialize to 0 */
 		//NIKOS PREPEI NA MIDENISEIS GIA NA TO XRISIMOPOIHSEIS OS flag FIELD
-		for ( int poi = 0; poi < mesh->np ; poi++ )
+		for ( int poi = 1; poi < mesh->np + 1; poi++ )
 			mesh->point[poi].flag = 0;
 
 		MMG5_pMesh curMesh = listgrp[grpId].mesh;
 		int tetPerGrp = 0;
 		int poiPerGrp = 0;
-		for ( int tet = 0; tet < mesh->ne ; tet++ ) {
+int removeMe = 0; //!!!!!NIKOS this is used only to keep the last iteration number to print in debugging message.2be deleted
+		for ( int tet = 1; tet < mesh->ne + 1; tet++ ) {
 
 			/* Skip elements that are not included in the group being processed */
-			if ( grpId != part[tet] )
+			if ( grpId != part[tet-1] )
 				continue;
+removeMe = tet;
 
 			++tetPerGrp;
 			MMG5_pTetra curGrpTetra = curMesh->tetra + tetPerGrp;
 
 			/* Add tetrahedron to group */
 			//printf( "+++++NIKOS[%d/%d]:: copied %zd bytes from %p to %p\n", grpId+1, ngrp, sizeof(MMG5_Tetra), &mesh->tetra[tet], curGrpTetra );
-			printf( "+++++NIKOS[%d/%d]:: Adding tetra: from %d to %d\n", grpId+1, ngrp, tet, tetPerGrp );
+			if ( tetPerGrp == 1 )
+				printf( "+++++NIKOS[%d/%d]:: Adding tetra: from %d to %d\n", grpId+1, ngrp, tet, tetPerGrp );
 			memcpy( curGrpTetra, &mesh->tetra[tet], sizeof(MMG5_Tetra) );
 
 			/* Add tetrahedron vertices in points and adjust tetrahedron vertices indices */
@@ -195,6 +198,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 			//	printf( "poi %1d(%3d) - xp %3d ", poi, curGrpTetra->v[poi], curMesh->point[curGrpTetra->v[poi]].xp );
 			//printf( "\n" );
 		}
+		printf( "+++++NIKOS[%d/%d]:: Adding tetra: from %d to %d\n", grpId+1, ngrp, removeMe, tetPerGrp );
 		printf( "+++++NIKOS[%d/%d]:: added %d points in group with %d tetra out of %d tetras expected\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, curMesh->ne );
 	}
 
