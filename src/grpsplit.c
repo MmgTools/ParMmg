@@ -16,7 +16,7 @@
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher
 // work faster
-static const int REMESHER_TARGET_MESH_SIZE = 500;
+static const int REMESHER_TARGET_MESH_SIZE = 2000;
 
 static int HowManyGroups ( const int nelem )
 {
@@ -154,6 +154,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 		int tetPerGrp = 0;
 		int poiPerGrp = 0;
 int removeMe = 0; //!!!!!NIKOS this is used only to keep the last iteration number to print in debugging message.2be deleted
+int removeMe2 = 0; //!!!!!NIKOS this is used only to keep the number of already existing xtetras to print in debugging message.2be deleted
 		for ( int tet = 1; tet < mesh->ne + 1; tet++ ) {
 
 			/* Skip elements that are not included in the group being processed */
@@ -178,6 +179,10 @@ removeMe = tet;
 					++poiPerGrp;
 
 					//printf( "+++++NIKOS[%d/%d]:: copied %zd point bytes from %p to %p\n", grpId+1, ngrp, sizeof(MMG5_Point), &mesh->point[mesh->tetra[tet].v[poi]], curMesh->point + poiPerGrp );
+					//printf( "+++++NIKOS[%d/%d]:: point %d has xp %d\n", grpId+1, ngrp, mesh->tetra[tet].v[poi], mesh->point[mesh->tetra[tet].v[poi]].xp );
+					if ( mesh->point[mesh->tetra[tet].v[poi]].xp ) NEW POINT WAS ALREADY POINTING TO AN xp.
+++removeMe2;
+				if ( 0 == mesh->point[mesh->tetra[tet].v[poi]].flag ) {
 					memcpy( curMesh->point + poiPerGrp, &mesh->point[mesh->tetra[tet].v[poi]], sizeof(MMG5_Point) );
 
 					// "Remember" group local point id
@@ -193,15 +198,25 @@ removeMe = tet;
 			}
 
 			// Take care of the xtetra/xp now
+	xPoints/xTetras:
+		=> when mesh is split there are new boundary tetras on top of the already existing ones
+			=> xPoints/xTetras that were on the boundary before will continue to be so
+				=> Plus there will be new ones as well. which is the criterion? perhaps we can look for them after the groups are created?
 			//printf( "+++++NIKOS[%d/%d]:: Current tetra id: %4d, xt value: %4d ", grpId+1, ngrp, tetPerGrp, curGrpTetra->xt );
 			//for ( int poi = 0; poi < 4 ; poi++ )
 			//	printf( "poi %1d(%3d) - xp %3d ", poi, curGrpTetra->v[poi], curMesh->point[curGrpTetra->v[poi]].xp );
 			//printf( "\n" );
+//			if ( mesh->tetra[tet].xt ) {
+//++removeMe2;
+				//printf( "+++++NIKOS[%d/%d]:: tetra %d points to non zero xt %d\n", grpId+1, ngrp, tet, mesh->tetra[tet].xt );
+//				printf( "+++++NIKOS[%d/%d]:: tetra %d(%d) points to xt: %d\n", grpId+1, ngrp, tet, tetPerGrp,mesh->tetra[tet].xt );
+			}
 		}
 		printf( "+++++NIKOS[%d/%d]:: Adding tetra: from %d to %d\n", grpId+1, ngrp, removeMe, tetPerGrp );
-		printf( "+++++NIKOS[%d/%d]:: added %d points in group with %d tetra out of %d tetras expected\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, curMesh->ne );
+		printf( "+++++NIKOS[%d/%d]:: added %d points(%d xt ref found) in group with %d tetra out of %d tetras expected.\n", grpId+1, ngrp, poiPerGrp, removeMe2, tetPerGrp, curMesh->ne );
+		//printf( "+++++NIKOS[%d/%d]:: added %d points in group with %d tetra out of %d tetras expected.inherited %d xtetras\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, curMesh->ne, removeMe2 );
 	}
-
+#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION
 //NIKOS TODO: FREE ME PROPERLY!
 	//parmesh->ngrp = ngrp;
 	//free(parmesh->listgrp);
