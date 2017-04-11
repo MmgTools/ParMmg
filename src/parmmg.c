@@ -28,7 +28,7 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
 #warning Do we need to scale here (for the analysis step) ?
   if ( !_MMG5_scaleMesh(mesh,sol) ) return -1;
 
-  if ( !_MMG3D_tetraQual(mesh,sol) ) return 0;
+  if ( !_MMG3D_tetraQual( mesh, sol, 0 ) ) return 0;
 
   if ( (!parmesh->myrank) && abs(mesh->info.imprim) > 0 ) {
     if ( !_MMG3D_inqua(mesh,sol) ) return 0;
