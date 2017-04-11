@@ -41,7 +41,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     /** Mesh scaling and qualisty histogram */
     if ( !_MMG5_scaleMesh(mesh,sol) ) return PMMG_STRONGFAILURE;
 
-    if ( !_MMG3D_tetraQual(mesh,sol) ) return PMMG_STRONGFAILURE;
+    if ( !_MMG3D_tetraQual( mesh,sol, 0 ) ) return PMMG_STRONGFAILURE;
 
 #warning todo: send the data to proc 0 and depending on the imprim value, print either the quality of each mesh or the reduced qualisty.
     if ( abs(mesh->info.imprim) > 0 ) {
