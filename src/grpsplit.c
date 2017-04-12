@@ -15,7 +15,7 @@
 #include "grpsplit.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 2000;
+static const int REMESHER_TARGET_MESH_SIZE = 900;
 
 static int HowManyGroups ( const int nelem )
 {
@@ -46,6 +46,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh meshOld = grpsOld->mesh;
   MMG5_pMesh meshCur = NULL;
+  MMG5_pTetra tetraCur = NULL; // pointer to the tetra being processed in the subgroup mesh struct
   int *countPerGrp = NULL;
 
   idx_t ngrp = 1;
@@ -61,6 +62,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   /* counters for tetra, point, while constructing a subgroup */
   int tetPerGrp = 0;
   int poiPerGrp = 0;
+  int *adja = NULL;
+  int vindex = 0;
+  int adjidx = 0;
 
   // Loop counter vars
   int i, grpId, poi, tet;
@@ -68,6 +72,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements).",
         parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
+_MMG3D_bdryBuild( meshOld ); //note: no error checking
+MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
   ngrp = HowManyGroups( meshOld->ne );
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
@@ -143,9 +149,13 @@ for ( i = 0; i < ngrp ; i++ )
     meshCur->xpmax  = meshCur->npmax;
     _MMG5_ADD_MEM(meshCur, (meshCur->xpmax + 1) * sizeof(MMG5_xPoint), "boundary points", return(0) );
     _MMG5_SAFE_CALLOC(meshCur->xpoint, meshCur->xpmax + 1, MMG5_xPoint );
+    _MMG5_ADD_MEM( meshCur, ( 4 * meshCur->nemax + 5 ) * sizeof(int), "adjacency table",
+                   fprintf(stderr,"  Exit program.\n");
+                   exit(EXIT_FAILURE) );
+    _MMG5_SAFE_CALLOC( meshCur->adja, 4 * meshCur->nemax + 5, int );
   }
 
-//NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
+  //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
   for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
     meshCur = grpsNew[grpId].mesh;
 
@@ -157,7 +167,7 @@ for ( i = 0; i < ngrp ; i++ )
     tetPerGrp = 0;
     poiPerGrp = 0;
     for ( tet = 1; tet < meshOld->ne + 1; tet++ ) {
-      MMG5_pTetra tetraCur = NULL; // pointer to the tetra being processed in the subgroup mesh struct
+      meshOld->tetra[tet].flag = 0; //Flag used to update adjacency vector: local tetrahedron index
 
       /* Skip elements that do not belong in the group processed in this iteration */
       if ( grpId != part[tet-1] )
@@ -165,6 +175,7 @@ for ( i = 0; i < ngrp ; i++ )
 
       ++tetPerGrp;
       tetraCur = meshCur->tetra + tetPerGrp;
+      meshOld->tetra[tet].flag = tetPerGrp;
 
       /* add tetrahedron to subgroup (copy from original group) */
       memcpy( tetraCur, &meshOld->tetra[tet], sizeof(MMG5_Tetra) );
@@ -177,55 +188,74 @@ for ( i = 0; i < ngrp ; i++ )
         ++meshCur->xt;
         memcpy( meshCur->xtetra + meshCur->xt, &meshOld->xtetra[ meshOld->tetra[tet].xt], sizeof(MMG5_xTetra) );
         tetraCur->xt = meshCur->xt;
-      } else {
-        printf ("there may be more: new boundary between subgroups\n");
-      }
+        //    } else {
+        //      printf ("there may be more: new boundary between subgroups\n");
+    }
 
-//printf ( "+++++NIKOS[%d/%d]:: tetra %4d(%4d), mesh xt: %3d\n", grpId+1, ngrp, tet, tetPerGrp, meshOld->tetra[tet].xt);
-      /* Add tetrahedron vertices in points struct and adjust tetrahedron vertices indices */
-      for ( poi = 0; poi < 4 ; poi++ ) {
-        // if it is the first time this point is seen in this subgroup
-        if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) {
-
-          // Add point in subgroup point array
-          ++poiPerGrp;
-          memcpy( meshCur->point + poiPerGrp, &meshOld->point[ meshOld->tetra[tet].v[poi] ], sizeof(MMG5_Point) );
-
-          // update tetra vertex reference
-          tetraCur->v[poi] = poiPerGrp;
-
-          // "Remember" the assigned subgroup point id
-          meshOld->point[ meshOld->tetra[tet].v[poi] ].flag = poiPerGrp;
-
-          // Handle xPoints 
-          if ( meshCur->point[poiPerGrp].xp != 0 ) {
-            ++meshCur->xp;
-            memcpy( meshCur->xpoint + meshCur->xp, &meshOld->xpoint[ meshOld->point[ meshOld->tetra[tet].v[poi] ].xp ], sizeof(MMG5_xPoint) );
-            meshCur->point[poiPerGrp].xp = meshCur->xp;
-          } else {
-            printf( " some other more border cases, think about it \n" );
-          }
-
-        // point is already included in this subgroup
-        } else {
-          // update tetra vertex reference
-          tetraCur->v[poi] = meshOld->point[ meshOld->tetra[tet].v[poi] ].flag;
+    adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
+    memcpy( adja, &meshOld->adja[4 * ( tet - 1 ) + 1 ], 4 * sizeof(int) );
+    for ( i = 0; i < 4; i++ ) {
+      if ( adja[i] != 0 ) {
+        adjidx = adja[ i ] / 4;
+        vindex = adja[ i ] % 4;
+        // new boundary face, set to 0
+        if ( part[ adjidx ] != ngrp ) {
+          adja[ i ] = 0;
+          // if the adjacent number is already processed
+        } else if ( adjidx < tet ) { //NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
+          adja[i] =  4 * meshOld->tetra[adjidx].flag  + vindex;
+          // also update first element
+          meshCur->adja[ 4 * ( meshOld->tetra[adjidx].flag - 1) + 1 + vindex ] = 4 * tetPerGrp + i;
         }
-//        printf ( "adja: %5d, point[%4d-%4d-%d].xt: %d \n", meshOld->adja[ 4 * (tet - 1) + 1 + poi ], meshOld->tetra[tet].v[poi], tetPerGrp, poi, meshOld->point[ meshOld->tetra[tet].v[poi] ].xp);
       }
     }
+
+    //printf ( "+++++NIKOS[%d/%d]:: tetra %4d(%4d), mesh xt: %3d\n", grpId+1, ngrp, tet, tetPerGrp, meshOld->tetra[tet].xt);
+    /* Add tetrahedron vertices in points struct and adjust tetrahedron vertices indices */
+    for ( poi = 0; poi < 4 ; poi++ ) {
+      // if it is the first time this point is seen in this subgroup
+      if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) {
+
+        // Add point in subgroup point array
+        ++poiPerGrp;
+        memcpy( meshCur->point + poiPerGrp, &meshOld->point[ meshOld->tetra[tet].v[poi] ], sizeof(MMG5_Point) );
+
+        // update tetra vertex reference
+        tetraCur->v[poi] = poiPerGrp;
+
+        // "Remember" the assigned subgroup point id
+        meshOld->point[ meshOld->tetra[tet].v[poi] ].flag = poiPerGrp;
+
+        // Handle xPoints 
+        if ( meshCur->point[poiPerGrp].xp != 0 ) {
+          ++meshCur->xp;
+          memcpy( meshCur->xpoint + meshCur->xp, &meshOld->xpoint[ meshOld->point[ meshOld->tetra[tet].v[poi] ].xp ], sizeof(MMG5_xPoint) );
+          meshCur->point[poiPerGrp].xp = meshCur->xp;
+          //        } else {
+          //        printf( " some other more border cases, think about it \n" );
+      }
+
+      // point is already included in this subgroup
+      } else {
+        // update tetra vertex reference
+        tetraCur->v[poi] = meshOld->point[ meshOld->tetra[tet].v[poi] ].flag;
+      }
+      //        printf ( "adja: %5d, point[%4d-%4d-%d].xt: %d \n", meshOld->adja[ 4 * (tet - 1) + 1 + poi ], meshOld->tetra[tet].v[poi], tetPerGrp, poi, meshOld->point[ meshOld->tetra[tet].v[poi] ].xp);
+    }
+    }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
-    printf( "+++++NIKOS[%d/%d]:: added %d points in group with %d tetra out of %d tetras expected.\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, meshCur->ne );
+    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed.\n", grpId+1, ngrp, poiPerGrp, tetPerGrp, meshCur->ne );
   }
+  //NIKOS TODO: Handle adja array
 
   for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
     meshCur = grpsNew[grpId].mesh;
     //MMG5_saveMshMesh( meshCur, mesMMG5_pSol sol,const char *filename)
     char name[20];
-    sprintf(name, "mesh-%02d.mesh", grpId);
+    sprintf( name, "mesh-p%d-%02d.mesh", parmesh->myrank+1, grpId );
+    _MMG3D_bdryBuild(meshCur); //note: no error checking
     MMG3D_saveMesh( meshCur, name );
   }
-  //NIKOS TODO: Handle adja array
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
   //MMG3D_Free_all(MMG5_ARG_start,
