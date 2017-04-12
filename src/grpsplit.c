@@ -42,8 +42,10 @@ static int HowManyGroups ( const int nelem )
 int PMMG_splitGrps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp grpsOld = parmesh->listgrp;
-  MMG5_pMesh meshOld = grpsOld->mesh;
   PMMG_pGrp grpsNew = NULL;
+  PMMG_pGrp grpCur = NULL;
+  MMG5_pMesh meshOld = grpsOld->mesh;
+  MMG5_pMesh meshCur = NULL;
   int *countPerGrp = NULL;
 
   idx_t ngrp = 1;
@@ -120,8 +122,7 @@ for ( i = 0; i < ngrp ; i++ )
 
 //NIKOS TODO: do MMG3D_Init_mesh/MMG3D_Set_meshSize offer sth? otherwise allocate on your own
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    PMMG_pGrp grpCur = &grpsNew[grpId];
-    MMG5_pMesh meshCur = NULL;
+    grpCur = &grpsNew[grpId];
     grpCur->mesh = NULL;
     grpCur->sol  = NULL;
     grpCur->disp = NULL;
@@ -146,7 +147,7 @@ for ( i = 0; i < ngrp ; i++ )
 
 //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
   for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
-    MMG5_pMesh meshCur = grpsNew[grpId].mesh;
+    meshCur = grpsNew[grpId].mesh;
 
     // Will use the MMG5_Point.flag field to assign local numbering in the newly created subgroups.
     //NIKOS TODO: this could be replaced by a vector<bool> flag
@@ -218,7 +219,7 @@ for ( i = 0; i < ngrp ; i++ )
   }
 
   for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
-    MMG5_pMesh meshCur = grpsNew[grpId].mesh;
+    meshCur = grpsNew[grpId].mesh;
     //MMG5_saveMshMesh( meshCur, mesMMG5_pSol sol,const char *filename)
     char name[20];
     sprintf(name, "mesh-%02d.mesh", grpId);
