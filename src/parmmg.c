@@ -124,9 +124,8 @@ int main(int argc,char *argv[]) {
    * analysis and display length and quality histos. */
   ier = PMMG_preprocessMesh(parmesh) ;
   if ( ier <= 0 ) {
-    if ( ier==-1 || !(_MMG5_unscaleMesh(mesh,sol)) )
-      _PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      return PMMG_STRONGFAILURE;
+    if ( ( ier == -1 ) || !(_MMG5_unscaleMesh( mesh, sol )) )
+      _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     return PMMG_LOWFAILURE;
   }
 
