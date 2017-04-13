@@ -15,7 +15,7 @@
 #include "grpsplit.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 900;
+static const int REMESHER_TARGET_MESH_SIZE = 1800;
 
 static int HowManyGroups ( const int nelem )
 {
@@ -41,10 +41,10 @@ static int HowManyGroups ( const int nelem )
  */
 int PMMG_splitGrps( PMMG_pParMesh parmesh )
 {
-  PMMG_pGrp grpsOld = parmesh->listgrp;
+  PMMG_pGrp grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
   PMMG_pGrp grpCur = NULL;
-  MMG5_pMesh meshOld = grpsOld->mesh;
+  MMG5_pMesh meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
   MMG5_pTetra tetraCur = NULL; // pointer to the tetra being processed in the subgroup mesh struct
   int *countPerGrp = NULL;
@@ -69,11 +69,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // Loop counter vars
   int i, grpId, poi, tet;
 
-  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements).",
+  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
-  _MMG3D_bdryBuild( meshOld ); //note: no error checking
-  MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
+_MMG3D_bdryBuild( meshOld ); //note: no error checking
+MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
   ngrp = HowManyGroups( meshOld->ne );
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
@@ -83,8 +83,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     printf( "[%d-%d]: %d subgroups are needed, creating sub groups...\n", parmesh->myrank+1, parmesh->nprocs, ngrp );
   }
 
-  // use metis to partition the mesh into the computed number of groups needed
 
+
+  // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
   _MMG5_SAFE_CALLOC( part, meshOld->ne, idx_t );
 
@@ -115,6 +116,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     return (0);
   }
 
+
+
   /* count_per_grp: count elements per group */
   _MMG5_SAFE_CALLOC( countPerGrp, ngrp, int );
   for ( tet = 0; tet < meshOld->ne ; tet++ )
@@ -122,10 +125,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   for ( i = 0; i < ngrp ; i++ )
     printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n", parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
 
-  /* Create list of subgroups struct */
 
+
+  /* Allocate list of subgroups struct and allocate memory*/
   _MMG5_SAFE_CALLOC( grpsNew, ngrp, PMMG_Grp );
-
   //NIKOS TODO: do MMG3D_Init_mesh/MMG3D_Set_meshSize offer sth? otherwise allocate on your own
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
@@ -140,37 +143,49 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
     meshCur = grpCur->mesh;
     meshCur->xtmax = meshCur->ne / 2;
-    _MMG5_ADD_MEM( meshCur, (meshCur->xtmax + 1) * sizeof(MMG5_xTetra), "boundary tetrahedra",
-                   fprintf(stderr,"  Exit program.\n");
-                   exit(EXIT_FAILURE) );
+    _MMG5_ADD_MEM( meshCur, ( meshCur->xtmax + 1 ) * sizeof(MMG5_xTetra), "boundary tetrahedra",
+                   fprintf( stderr,"  Exit program.\n" );
+                   exit( EXIT_FAILURE ) );
     _MMG5_SAFE_CALLOC( meshCur->xtetra, meshCur->xtmax + 1, MMG5_xTetra );
 
     /* memory to store normals for boundary points */
     meshCur->xpmax  = meshCur->npmax;
-    _MMG5_ADD_MEM(meshCur, (meshCur->xpmax + 1) * sizeof(MMG5_xPoint), "boundary points", return(0) );
-    _MMG5_SAFE_CALLOC(meshCur->xpoint, meshCur->xpmax + 1, MMG5_xPoint );
+    _MMG5_ADD_MEM(meshCur, ( meshCur->xpmax + 1 ) * sizeof(MMG5_xPoint), "boundary points", return(0) );
+    _MMG5_SAFE_CALLOC( meshCur->xpoint, meshCur->xpmax + 1, MMG5_xPoint );
     _MMG5_ADD_MEM( meshCur, ( 4 * meshCur->nemax + 5 ) * sizeof(int), "adjacency table",
-                   fprintf(stderr,"  Exit program.\n");
-                   exit(EXIT_FAILURE) );
+                   fprintf( stderr,"  Exit program.\n" );
+                   exit( EXIT_FAILURE ) );
     _MMG5_SAFE_CALLOC( meshCur->adja, 4 * meshCur->nemax + 5, int );
   }
 
+
+
+
   //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE? it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
   for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
-    meshCur = grpsNew[grpId].mesh;
+    grpCur = grpsNew + grpId;
+    meshCur = grpCur->mesh;
 
-    // Will use the MMG5_Point.flag field to assign local numbering in the newly created subgroups.
+    // will use MMG5_Point.flag field to "remember" assigned local(ie in subgroup) numbering
     //NIKOS TODO: this could be replaced by a vector<bool> flag
     for ( poi = 1; poi < meshOld->np + 1; poi++ )
       meshOld->point[poi].flag = 0;
+    // Will use the MMG5_Point.tmp field to store the position of each vertex in 
+    // the node2index2 communicator buffer or -1.
+    for ( poi = 1; poi < meshOld->np + 1; poi++ )
+      meshOld->point[poi].tmp = -1;
+    for ( i = 0; i < grpCur->nitem_int_node_comm; i++ )
+      meshOld->point[ grpOld->node2int_node_comm_index1 [i ] ].tmp = grpOld->node2int_node_comm_index2[ i ];
 
     tetPerGrp = 0;
     poiPerGrp = 0;
     for ( tet = 1; tet < meshOld->ne + 1; tet++ ) {
-      meshOld->tetra[tet].flag = 0; //Flag used to update adjacency vector: local tetrahedron index
+      // MMG3D_Tetra.flag is used to update adjacency vector: 
+      //   if the tetra belongs to the group we store the local tetrahedron id in tet.flag
+      meshOld->tetra[tet].flag = 0; 
 
       /* Skip elements that do not belong in the group processed in this iteration */
-      if ( grpId != part[tet-1] )
+      if ( grpId != part[ tet - 1 ] )
         continue;
 
       ++tetPerGrp;
