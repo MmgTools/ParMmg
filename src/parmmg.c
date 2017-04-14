@@ -98,13 +98,19 @@ int main(int argc,char *argv[]) {
       _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
 
     /** Read sequential mesh */
-#warning : for the moment, we only read a mesh named m.mesh
-    if ( PMMG_loadMesh(parmesh,"m.mesh") < 1 )
-      _PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-    if ( PMMG_loadSol(parmesh,"m.sol") < 0 )
-      _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
-  }
-  else {
+    char fmesh[ 20 + 6 ] = "m";
+    char fsol[ 20 + 5 ] = "m";
+    if ( argc > 1 ) {
+      strncpy ( fmesh, argv[1], 20 );
+      strncpy ( fsol, argv[1], 20 );
+    }
+    strncat ( fmesh, ".mesh", 6 );
+    strncat ( fsol, ".sol", 5 );
+    if ( PMMG_loadMesh( parmesh, fmesh ) < 1 )
+      _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+    if ( PMMG_loadSol( parmesh, fsol ) < 0 )
+      _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  } else {
     if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,0) )
       _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
   }
