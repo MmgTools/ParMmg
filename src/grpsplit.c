@@ -73,8 +73,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
-_MMG3D_bdryBuild( meshOld ); //note: no error checking
-MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
+//NIKOS TODO _MMG3D_bdryBuild( meshOld ); //note: no error checking
+//NIKOS TODO MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
   ngrp = HowManyGroups( meshOld->ne );
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
@@ -320,14 +320,32 @@ MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
       grpId+1, ngrp, poiPerGrp, tetPerGrp, meshCur->ne, grpCur->nitem_int_node_comm );
   }
 
-  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
+
+
+
+
+//NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
+//NIKOS TODO    meshCur = grpsNew[grpId].mesh;
+//NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol sol,const char *filename)
+//NIKOS TODO    char name[20];
+//NIKOS TODO    sprintf( name, "mesh-p%d-%02d.mesh", parmesh->myrank+1, grpId );
+//NIKOS TODO    _MMG3D_bdryBuild(meshCur); //note: no error checking
+//NIKOS TODO    MMG3D_saveMesh( meshCur, name );
+//NIKOS TODO  }
+
+  typedef struct point { double c[3]; } point;
+  point *check = NULL;
+  int tot_index = 0;
+  for ( grpId = 0; grpId < ngrp; ++grpId )
+    tot_index += grpsNew[grpId].nitem_int_node_comm;
+  for ( grpId = 0; grpId < ngrp; ++grpId ) {
     meshCur = grpsNew[grpId].mesh;
-    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol sol,const char *filename)
-    char name[20];
-    sprintf( name, "mesh-p%d-%02d.mesh", parmesh->myrank+1, grpId );
-    _MMG3D_bdryBuild(meshCur); //note: no error checking
-    MMG3D_saveMesh( meshCur, name );
+    loop over nitem and add the positions in the global array
   }
+  printf( "allocating to check for tot_indices: %d \n",tot_index);
+  _MMG5_SAFE_CALLOC( check, tot_index, point );
+  _MMG5_SAFE_FREE( xadj );
+
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
   //MMG3D_Free_all(MMG5_ARG_start,
