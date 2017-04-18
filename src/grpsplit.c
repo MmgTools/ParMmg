@@ -340,7 +340,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     tot_index += grpsNew[grpId].nitem_int_node_comm;
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     meshCur = grpsNew[grpId].mesh;
-    loop over nitem and add the positions in the global array
+    /* loop over nitem and add the positions in the global array */
   }
   printf( "allocating to check for tot_indices: %d \n",tot_index);
   _MMG5_SAFE_CALLOC( check, tot_index, point );

@@ -111,7 +111,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
       pp->v[5] = mesh->point[pp->v[5]].tmp;
     }
     for (k=1; k<=mesh->nquad; k++) {
-      pq = &mesh->quad[k];
+      pq = &mesh->quadra[k];
       if ( !MG_EOK(pq) )  continue;
 
       pq->v[0] = mesh->point[pq->v[0]].tmp;
