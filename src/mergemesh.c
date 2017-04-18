@@ -249,7 +249,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   int            *intvalues_1, *intvalues_2,*int_comm_index_2;
   int            ext_comm_displs_tot,nitem_ext_tot,nitems_1,nitems_2;
   int            nprocs,rank,k,i,j,idx,idx_2,cursor,color_in,color_out;
-  int            np,ne,xt_tot,np_tot,xp_tot,nnpar,l;
+  int            np,ne,xt_tot,np_tot,xp_tot,nnpar,l,isSol;
   char           filename[32];
 
   rank   = parmesh->myrank;
@@ -262,10 +262,11 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   if ( merge && !PMMG_mergeGrps(parmesh) ) return(0);
 
   /** Step 2: store the boundary entities into the xpoints and xtetra entities */
-  grp = &parmesh->listgrp[0];
-  mesh = grp->mesh;
-  sol  = grp->sol;
-
+  grp  = &parmesh->listgrp[0];
+  mesh  = grp->mesh;
+  sol   = grp->sol;
+  isSol = (sol->m)? 1 : 0;
+  
   /** Step 3: Allocate internal and external communicators and fill its: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
   int_node_comm = parmesh->int_node_comm;
@@ -283,12 +284,14 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   _MMG5_SAFE_CALLOC(rcv_ne        ,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_xp        ,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_xt        ,nprocs,int);
-  _MMG5_SAFE_CALLOC(rcv_nsol      ,nprocs,int);
+  if(isSol)
+    _MMG5_SAFE_CALLOC(rcv_nsol      ,nprocs,int);
   _MMG5_SAFE_CALLOC(point_displs  ,nprocs,int);
   _MMG5_SAFE_CALLOC(xpoint_displs ,nprocs,int);
   _MMG5_SAFE_CALLOC(tetra_displs  ,nprocs,int);
   _MMG5_SAFE_CALLOC(xtetra_displs ,nprocs,int);
-  _MMG5_SAFE_CALLOC(sol_displs    ,nprocs,int);
+  if(isSol)
+    _MMG5_SAFE_CALLOC(sol_displs    ,nprocs,int);
 
   _MMG5_SAFE_CALLOC(rcv_nitem_int_node_comm,nprocs,int);
   _MMG5_SAFE_CALLOC(rcv_next_node_comm,nprocs,int);
@@ -331,20 +334,21 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
                rcv_np,point_displs,mpi_point,0,comm);
 
   /* Solutions */
-  for ( k=0; k<nprocs; ++k ) {
-    rcv_nsol[k] = sol->size*rcv_np[k];
+  if(isSol) {
+    for ( k=0; k<nprocs; ++k ) {
+      rcv_nsol[k] = sol->size*rcv_np[k];
+    }
+    
+    sol_displs[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      sol_displs[k] += sol_displs[k-1] + rcv_nsol[k-1];
+    }
+    nsol_tot = sol_displs[nprocs-1]+rcv_nsol[nprocs-1];
+    rcv_sol = (double*)calloc(nsol_tot+sol->size,sizeof(double));
+    
+    MPI_Gatherv(&sol->m[sol->size],mesh->np*sol->size,MPI_DOUBLE,&rcv_sol[sol->size],
+                rcv_nsol,sol_displs,MPI_DOUBLE,0,comm);
   }
-
-  sol_displs[0] = 0;
-  for ( k=1; k<nprocs; ++k ) {
-    sol_displs[k] += sol_displs[k-1] + rcv_nsol[k-1];
-  }
-  nsol_tot = sol_displs[nprocs-1]+rcv_nsol[nprocs-1];
-  rcv_sol = (double*)calloc(nsol_tot+sol->size,sizeof(double));
-
-  MPI_Gatherv(&sol->m[sol->size],mesh->np*sol->size,MPI_DOUBLE,&rcv_sol[sol->size],
-               rcv_nsol,sol_displs,MPI_DOUBLE,0,comm);
-
   /* Tetra */
   tetra_displs[0] = 0;
   for ( k=1; k<nprocs; ++k ) {
@@ -481,7 +485,8 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
   _MMG5_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1)*sizeof(MMG5_xPoint));
   _MMG5_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1)*sizeof(MMG5_Tetra));
-  _MMG5_DEL_MEM(mesh,sol->m,(sol->npmax+1)*sol->size*sizeof(double));
+  if(isSol)
+    _MMG5_DEL_MEM(mesh,sol->m,(sol->npmax+1)*sol->size*sizeof(double));
 
   _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
   _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
@@ -627,15 +632,17 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
     mesh->npmax = sol->npmax = mesh->np;
     mesh->npnil = 0;
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
-    _MMG5_SAFE_CALLOC(sol->m,(sol->npmax+1)*sol->size,double);
+    if(isSol)
+      _MMG5_SAFE_CALLOC(sol->m,(sol->npmax+1)*sol->size,double);
 
     for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
 
     np = 0;
     for ( k=0; k<nprocs; ++k ) {
       point_1     = &rcv_point[point_displs[k]];
-      sol_1       = &rcv_sol[sol_displs[k]];
-
+      if(isSol)
+        sol_1       = &rcv_sol[sol_displs[k]];
+      
       for ( i=1; i<=rcv_np[k]; ++i ) {
         idx = point_1[i].tmp;
         assert(idx);
@@ -649,7 +656,8 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
         memcpy(ppt,&point_1[i],sizeof(MMG5_Point));
         ppt->tmp = 0;
 
-        memcpy(&sol->m[idx*sol->size],&sol_1[i*sol->size],sol->size*sizeof(double));
+        if(isSol)
+          memcpy(&sol->m[idx*sol->size],&sol_1[i*sol->size],sol->size*sizeof(double));
 
         if ( point_1[i].xp ) ++np;
       }
@@ -687,20 +695,23 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   _MMG5_SAFE_FREE(rcv_ne);
   _MMG5_SAFE_FREE(rcv_xp);
   _MMG5_SAFE_FREE(rcv_xt);
-  _MMG5_SAFE_FREE(rcv_nsol);
+  if(isSol)
+    _MMG5_SAFE_FREE(rcv_nsol);
   _MMG5_SAFE_FREE(rcv_nitem_int_node_comm);
   _MMG5_SAFE_FREE(rcv_next_node_comm);
   _MMG5_SAFE_FREE(point_displs);
   _MMG5_SAFE_FREE(tetra_displs);
   _MMG5_SAFE_FREE(xpoint_displs);
   _MMG5_SAFE_FREE(xtetra_displs);
-  _MMG5_SAFE_FREE(sol_displs);
+  if(isSol)
+    _MMG5_SAFE_FREE(sol_displs);
   _MMG5_SAFE_FREE(intval_displs);
   _MMG5_SAFE_FREE(rcv_point);
   _MMG5_SAFE_FREE(rcv_tetra);
   _MMG5_SAFE_FREE(rcv_xpoint);
   _MMG5_SAFE_FREE(rcv_xtetra);
-  _MMG5_SAFE_FREE(rcv_sol);
+  if(isSol)
+    _MMG5_SAFE_FREE(rcv_sol);
   _MMG5_SAFE_FREE(rcv_intvalues);
   _MMG5_SAFE_FREE(rcv_node2int_node_comm_index1);
   _MMG5_SAFE_FREE(rcv_node2int_node_comm_index2);
