@@ -1,4 +1,4 @@
-#include "mmg/libmmgtypes.h"
+#include "mmg/mmg3d/libmmgtypes.h"
 #include <mpi.h>
 
 #ifndef _LIBPARMMGTYPES_H
