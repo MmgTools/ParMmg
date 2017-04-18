@@ -48,6 +48,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   MMG5_pMesh meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
   MMG5_pTetra tetraCur = NULL; // pointer to the tetra being processed in the subgroup mesh struct
+  MMG5_pxTetra pxt;
   int *countPerGrp = NULL;
 
   idx_t ngrp = 1;
@@ -58,7 +59,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   idx_t ncon = 1;/*number of balancing constraint*/
   idx_t nelt = meshOld->ne;
   idx_t objval;
-  int ier;
+  int ier,j;
 
   /* counters for tetra, point, while constructing a subgroup */
   int tetPerGrp = 0;
@@ -144,7 +145,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId], 0, 0, 0, 0 );
 
     meshCur = grpCur->mesh;
-    meshCur->xtmax = meshCur->ne / 2;
+    meshCur->xtmax = meshOld->xtmax;
     _MMG5_ADD_MEM( meshCur, ( meshCur->xtmax + 1 ) * sizeof(MMG5_xTetra), "boundary tetrahedra",
                    fprintf( stderr,"  Exit program.\n" );
                    exit( EXIT_FAILURE ) );
@@ -237,6 +238,13 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       // Handle xTetras
       if ( tetraCur->xt != 0 ) {
         ++meshCur->xt;
+        if ( meshCur->xt > meshCur->xtmax ) {
+          /* realloc of xtetra table */
+          _MMG5_TAB_RECALLOC(meshCur,meshCur->xtetra,meshCur->xtmax,0.2,MMG5_xTetra,
+                             "larger xtetra table",
+                             meshCur->xt--;
+                             return(0));
+        }
         memcpy( meshCur->xtetra + meshCur->xt, &meshOld->xtetra[ meshOld->tetra[tet].xt], sizeof(MMG5_xTetra) );
         tetraCur->xt = meshCur->xt;
         //    } else {
@@ -289,8 +297,30 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           adjidx = adja[ fac ] / 4;
           vindex = adja[ fac ] % 4;
           // new boundary face, set to 0
-          if ( part[ adjidx ] != ngrp ) {
+          if ( part[ adjidx - 1 ] != ngrp ) {
             adja[ fac ] = 0;
+
+            /*creation of the interface faces : ref 0 and tag MG_PARBDY*/
+            if( !meshCur->tetra[tet].xt ) {
+              /*create a new xt*/
+              ++meshCur->xt;
+              if ( meshCur->xt > meshCur->xtmax ) {
+                /* realloc of xtetra table */
+                _MMG5_TAB_RECALLOC(meshCur,meshCur->xtetra,meshCur->xtmax,0.2,MMG5_xTetra,
+                                   "larger xtetra table",
+                                   meshCur->xt--;
+                                   return(0));
+              }
+              memcpy( meshCur->xtetra + meshCur->xt, &meshOld->xtetra[ meshOld->tetra[tet].xt], sizeof(MMG5_xTetra) );
+              tetraCur->xt = meshCur->xt;
+            }
+            pxt = &meshCur->xtetra[tetraCur->xt];
+            pxt->ref[fac] = 0;
+            pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
+
+            for ( j=0; j<3; ++j )
+              pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+
             // if the adjacent number is already processed
           } else if ( adjidx < tet ) { //NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
             adja[i] =  4 * meshOld->tetra[adjidx].flag  + vindex;
@@ -302,7 +332,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
       for ( fac = 0; fac < 4; ++fac ) {
         adjidx = adja[ fac ] / 4;
-        if ( grpId != part[ adjidx - 1 ] ) {
+
+        if ( adjidx && grpId != part[ adjidx - 1 ] ) {
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
               grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] = tetraCur->v[ _MMG5_idir[fac][poi] ];
@@ -333,26 +364,27 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 //NIKOS TODO    MMG3D_saveMesh( meshCur, name );
 //NIKOS TODO  }
 
-  typedef struct point { double c[3]; } point;
-  point *check = NULL;
-  int tot_index = 0;
-  for ( grpId = 0; grpId < ngrp; ++grpId )
-    tot_index += grpsNew[grpId].nitem_int_node_comm;
-  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    meshCur = grpsNew[grpId].mesh;
-    /* loop over nitem and add the positions in the global array */
-  }
-  printf( "allocating to check for tot_indices: %d \n",tot_index);
-  _MMG5_SAFE_CALLOC( check, tot_index, point );
-  _MMG5_SAFE_FREE( xadj );
+/*   typedef struct point { double c[3]; } point; */
+/*   point *check = NULL; */
+/*   int tot_index = 0; */
+/*   for ( grpId = 0; grpId < ngrp; ++grpId ) */
+/*     tot_index += grpsNew[grpId].nitem_int_node_comm; */
+/*   for ( grpId = 0; grpId < ngrp; ++grpId ) { */
+/*     meshCur = grpsNew[grpId].mesh; */
+/* //    loop over nitem and add the positions in the global array */
+/*   } */
+/*   printf( "allocating to check for tot_indices: %d \n",tot_index); */
+  /* _MMG5_SAFE_CALLOC( check, tot_index, point ); */
+  /* _MMG5_SAFE_FREE( xadj ); */
 
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
-  //MMG3D_Free_all(MMG5_ARG_start,
-  //               MMG5_ARG_ppMesh, &meshOld, MMG5_ARG_ppMet, &grpsOld->met,
-  //               MMG5_ARG_end);
-  //grpsOld = grpsNew;
-  //parmesh->ngrp = ngrp;
+ MMG3D_Free_all(MMG5_ARG_start,
+                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->sol),
+                 MMG5_ARG_end);
+
+  parmesh->listgrp = grpsNew;
+  parmesh->ngrp = ngrp;
 
   _MMG5_SAFE_FREE( xadj );
   _MMG5_SAFE_FREE( adjncy );
