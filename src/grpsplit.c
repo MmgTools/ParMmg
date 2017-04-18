@@ -387,6 +387,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = grpsNew + grpId;
     meshCur = grpCur->mesh;
+    int numFailed = 0;
     for ( i = 0; i < grpCur->nitem_int_node_comm; ++i ) {
       int pos = grpCur->node2int_node_comm_index2[ i ];
       //printf( "+++++NIKOS[%d/%d]:: CIC: nitem_iterator=%d, n2i_n_idx2=%d, check[%d].c[0]=%f against element %d in local group with value %f\n", 
@@ -406,13 +407,16 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         // printf( "\t comparing %d: (%f,%f,%f) to (%f,%f,%f) \n", pos, check[ pos ].c[0], check[ pos ].c[1], check[ pos ].c[2], meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[0] , meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[1] , meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[2]  );
         for ( int j = 0; j < 3; ++j )
           if ( check[ pos ].c[j] != meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[j] ) {
+            ++numFailed;
             testError = 1;
-            printf( "+++++NIKOS[%d/%d]:: CHECKING INTERNAL COMMUNICATOR FAILED: check[%d].c[%d](=%f) != meshCur->point[ grpCur->node2int_node_comm_index1[ %d ] ].c[%d](=%d) \n",
-                    grpId + 1, ngrp,    pos, j, check[ pos ].c[j],    i, j, grpCur->node2int_node_comm_index2[ i ] );
+            printf( "+++++NIKOS[%d/%d]:: CHECKING INTERNAL COMMUNICATOR FAILED: check[%d].c[%d](=%f) != meshCur->point[ grpCur->node2int_node_comm_index1[ %d ](=%d) ].c[%d](=%f) \n",
+                    grpId + 1, ngrp,
+                    pos, j, check[ pos ].c[j],
+                    i, j, grpCur->node2int_node_comm_index1[ i ], meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[j] );
           }
       }
     }
-       printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED\n", grpId+1, ngrp );
+       printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED. NumFailed: %d \n", grpId+1, ngrp, numFailed / 3 );
   }
   if ( testError )
     printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR ERROR: SHOULD ABORT\n", grpId+1, ngrp );
@@ -420,11 +424,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 #endif
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
-  MMG3D_Free_all( MMG5_ARG_start,
-                  MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->sol),
-                  MMG5_ARG_end);
-  parmesh->listgrp = grpsNew;
-  parmesh->ngrp = ngrp;
+  //MMG3D_Free_all( MMG5_ARG_start,
+  //                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->sol),
+  //                MMG5_ARG_end);
+  //parmesh->listgrp = grpsNew;
+  //parmesh->ngrp = ngrp;
 
   _MMG5_SAFE_FREE( xadj );
   _MMG5_SAFE_FREE( adjncy );
