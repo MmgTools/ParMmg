@@ -17,7 +17,7 @@
 #include "chkmesh.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 1024 * 128;
+static const int REMESHER_TARGET_MESH_SIZE = 1024;// * 128;
 
 static int HowManyGroups ( const int nelem )
 {
