@@ -295,8 +295,9 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
 
         /* Parallel edges */
 #warning using the MG_REQ tag, we will loose the "true" required tags
-        for ( j=0; j<3; ++j )
+        for ( j=0; j<3; ++j ) {
           pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+        }
 
       }
 
@@ -462,6 +463,9 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   _MMG5_SAFE_FREE(pointPerm);
   _MMG5_SAFE_FREE(xPointPerm);
   _MMG5_SAFE_FREE(xTetraPerm);
+
+  /** Update xtetra edge tags */
+  if ( !PMMG_bdryUpdate(mesh) ) return 0;
 
   /** Adjacency reconstruction */
   if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return(0);

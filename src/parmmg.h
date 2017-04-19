@@ -53,13 +53,14 @@ extern "C" {
 
 
   int _PMMG_Init_parMesh_var( va_list argptr );
-  int _PMMG_check_inputData(PMMG_pParMesh parmesh);
+  int _PMMG_check_inputData ( PMMG_pParMesh parmesh );
 
-  int _PMMG_parmmglib1(PMMG_pParMesh parmesh);
+  int _PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
-  int  PMMG_mergeGrps(PMMG_pParMesh parmesh);
-  int  PMMG_bdryStore( MMG5_pMesh mesh);
-  int  PMMG_bcastMesh(PMMG_pParMesh parmesh);
+  int  PMMG_mergeGrps ( PMMG_pParMesh parmesh );
+  int  PMMG_bcastMesh ( PMMG_pParMesh parmesh );
+  int  PMMG_bdryStore ( MMG5_pMesh mesh );
+  int  PMMG_bdryUpdate( MMG5_pMesh mesh );
 
 #ifdef __cplusplus
 }
