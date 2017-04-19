@@ -297,7 +297,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           adjidx = adja[ fac ] / 4;
           vindex = adja[ fac ] % 4;
           // new boundary face, set to 0
-          if ( part[ adjidx - 1 ] != ngrp ) {
+          if ( part[ adjidx - 1 ] != grpId ) {
             adja[ fac ] = 0;
 
             /*creation of the interface faces : ref 0 and tag MG_PARBDY*/
@@ -337,10 +337,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
               grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] = tetraCur->v[ _MMG5_idir[fac][poi] ];
-              grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] = grpCur->nitem_int_node_comm + 1;
-              meshOld->point[ meshOld->tetra[tet].v[ _MMG5_idir[fac][poi]  ] ].tmp = grpCur->nitem_int_node_comm + 1;
-              meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp = grpCur->nitem_int_node_comm + 1;
+              grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] = parmesh->int_node_comm->nitem + 1;
+              meshOld->point[ meshOld->tetra[tet].v[ _MMG5_idir[fac][poi]  ] ].tmp = parmesh->int_node_comm->nitem + 1;
+              meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp = parmesh->int_node_comm->nitem + 1;
               ++grpCur->nitem_int_node_comm;
+              ++parmesh->int_node_comm->nitem;
             }
           }
         }
