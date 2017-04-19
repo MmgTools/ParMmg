@@ -14,6 +14,7 @@
 #include "mmg3d.h" //_MMG5_idir[4][3]
 #include "libparmmg.h" // PMMG_mesh2metis
 #include "grpsplit.h"
+#include "chkmesh.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 1024; // * 128;
@@ -42,10 +43,10 @@ static int HowManyGroups ( const int nelem )
  */
 int PMMG_splitGrps( PMMG_pParMesh parmesh )
 {
-  PMMG_pGrp grpOld = parmesh->listgrp;
+  PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
   PMMG_pGrp grpCur = NULL;
-  MMG5_pMesh meshOld = parmesh->listgrp->mesh;
+  MMG5_pMesh const meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
   MMG5_pTetra tetraCur = NULL; // pointer to the tetra being processed in the subgroup mesh struct
   MMG5_pxTetra pxt;
@@ -59,7 +60,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   idx_t ncon = 1;/*number of balancing constraint*/
   idx_t nelt = meshOld->ne;
   idx_t objval;
-  int ier,j;
+  int ier, j;
 
   /* counters for tetra, point, while constructing a subgroup */
   int tetPerGrp = 0;
@@ -366,62 +367,14 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 //NIKOS TODO  }
 
 #ifndef NDEBUG
-#warning NIKOS: move this to a unit test and find a nicer way to integrate this here
-  //! Communicator Test:
-  //    allocate an array of \SUM{nitem_int_node} elements, each being a struct point (ie three c[3])
-  //    initialize to 0
-  //    for each grp communicator
-  //      if array[indx2] is 0 => initialize to point's coordinates
-  //      else check that the existing point's coordinates match the coordinates of the
-  //                                  point that the group local communicator points to
-  // Will     detect mismatches between groups
-  // Will NOT detect errors in elements not shared between the subgroups 
-  // Will NOT detect if the same error happens in both groups, ie if the values match but are both wrong
-  struct point { double c[3]; int tmp; };
-  struct point *check = NULL;
-  int tot_index = 0;
-  int testError = 0;
-  for ( grpId = 0; grpId < ngrp; ++grpId )
-    tot_index += grpsNew[grpId].nitem_int_node_comm;
-  //  printf( "+++++NIKOS[%d/%d]:: allocating to check up to %d int node comm elements \n", grpId+1, ngrp, tot_index );
-  _MMG5_SAFE_CALLOC( check, tot_index + 1, struct point );
-  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    grpCur = grpsNew + grpId;
-    meshCur = grpCur->mesh;
-    int numFailed = 0;
-    for ( i = 0; i < grpCur->nitem_int_node_comm; ++i ) {
-      int pos = grpCur->node2int_node_comm_index2[ i ];
-      //printf( "+++++NIKOS[%d/%d]:: CIC: nitem_iterator=%d, n2i_n_idx2=%d, check[%d].c[0]=%f against element %d in local group with value %f\n", 
-      //        grpId + 1, ngrp,    i,    pos,   pos, check[ pos ].c[0],
-      //        grpCur->node2int_node_comm_index1[ i ], meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[0] );
-      //printf( "+++++NIKOS[%d/%d]:: CHECKING INTERNAL COMMUNICATOR: [%d/%d] :: idx2 = %d .",
-      //        grpId+1, ngrp, 
-      //        i, grpCur->nitem_int_node_comm, 
-      //        pos );
-      if ( check[ pos ].tmp == 0. ) {
-        check[ pos ].c[0] = meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[0];
-        check[ pos ].c[1] = meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[1];
-        check[ pos ].c[2] = meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[2];
-        check[ pos ].tmp = 1.;
-        //printf( "\t adding %d: (%f,%f,%f) \n", pos, check[ pos ].c[0], check[ pos ].c[1], check[ pos ].c[2] );
-      } else {
-        // printf( "\t comparing %d: (%f,%f,%f) to (%f,%f,%f) \n", pos, check[ pos ].c[0], check[ pos ].c[1], check[ pos ].c[2], meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[0] , meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[1] , meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[2]  );
-        for ( int j = 0; j < 3; ++j )
-          if ( check[ pos ].c[j] != meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[j] ) {
-            ++numFailed;
-            testError = 1;
-            printf( "+++++NIKOS[%d/%d]:: CHECKING INTERNAL COMMUNICATOR FAILED: check[%d].c[%d](=%f) != meshCur->point[ grpCur->node2int_node_comm_index1[ %d ](=%d) ].c[%d](=%f) \n",
-                    grpId + 1, ngrp,
-                    pos, j, check[ pos ].c[j],
-                    i, j, grpCur->node2int_node_comm_index1[ i ], meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[j] );
-          }
-      }
-    }
-       printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED. NumFailed: %d \n", grpId+1, ngrp, numFailed / 3 );
+  parmesh->listgrp = grpsNew;   //NIKOS TODO
+  parmesh->ngrp = ngrp;   //NIKOS TODO
+  if ( checkIntComm ( parmesh ) ) {
+    fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
+    return 0;
   }
-  if ( testError )
-    printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR ERROR: SHOULD ABORT\n", grpId+1, ngrp );
-  _MMG5_SAFE_FREE( xadj );
+  parmesh->listgrp = grpOld; //NIKOS TODO
+  parmesh->ngrp = 1; //NIKOS TODO
 #endif
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
