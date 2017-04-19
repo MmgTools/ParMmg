@@ -297,7 +297,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           adjidx = adja[ fac ] / 4;
           vindex = adja[ fac ] % 4;
           // new boundary face, set to 0
-          if ( part[ adjidx - 1 ] != ngrp ) {
+          if ( part[ adjidx - 1 ] != grpId ) {
             adja[ fac ] = 0;
 
             /*creation of the interface faces : ref 0 and tag MG_PARBDY*/
