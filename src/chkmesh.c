@@ -28,6 +28,10 @@ int checkIntComm( PMMG_pParMesh mesh )
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh meshCur = NULL;
   int commSizeGlo = mesh->int_node_comm->nitem;
+  int commIdx2 = 0;
+  int commIdx1 = 0;
+  int numFailed = 0;
+  int commSizeLoc = 0;
 
   // Loop counter(s)
   int commIdx, grpId;
@@ -38,13 +42,13 @@ int checkIntComm( PMMG_pParMesh mesh )
 
     grpCur = mesh->listgrp + grpId;
     meshCur = grpCur->mesh;
-    int numFailed = 0;
+    numFailed = 0;
 
-    int commSizeLoc = grpCur->nitem_int_node_comm;
+    commSizeLoc = grpCur->nitem_int_node_comm;
     for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {
 
-      int commIdx2 = grpCur->node2int_node_comm_index2[ commIdx ];
-      int commIdx1 = grpCur->node2int_node_comm_index1[ commIdx ];
+      commIdx2 = grpCur->node2int_node_comm_index2[ commIdx ];
+      commIdx1 = grpCur->node2int_node_comm_index1[ commIdx ];
 //      printf( "+++++NIKOS[%d/%d]+++:: CIC: commSizeGlo = %d, i = %d, n2i_idx2(check position) = %d ",
 //              grpId + 1, ngrp, commSizeGlo, commIdx, commIdx2);
       if ( check[ commIdx2 ].tmp == 0. ) {
