@@ -1,16 +1,24 @@
 #include "chkmesh.h"
 #include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 
-//! Internal Communicator Test:
-//    allocate an array of \SUM{nitem_int_node} elements, each being a struct point (ie three c[3])
-//    initialize to 0
-//    for each grp communicator
-//      if array[indx2] is 0 => initialize to point's coordinates
-//      else check that the existing point's coordinates match the coordinates of the
-//                                  point that the group local communicator points to
-// Will     detect mismatches between groups
-// Will NOT detect errors in elements not shared between the subgroups 
-// Will NOT detect if the same error happens in both groups, ie if the values match but are both wrong
+//! Check Internal Communicator for each group:
+//
+//    First test:
+//      allocate an array of int_node_comm->item_int_node struct point (ie three c[3]) elements (initialized to 0)
+//      for each grp communicator
+//        if array[indx2] is empty => initialize to current group's point's coordinates
+//        else check that the existing point's coordinates match the  current group's point's coordinates
+//    Will detect mismatches between groups but will NOT detect:
+//      errors in elements not shared between the subgroups
+//      if the same error happens in both groups, ie if the values match but are both wrong
+//
+//    Second test:
+//NIKOS TODO: ADD CHECK: elements should appear one and only one per mesh local communicator
+//
+//    Third test:
+//NIKOS TODO: ADD CHECK: all elements in commSizeGlo
+//                         a) should appear in per mesh local communicators at least once
+//                         b) should have no "gaps"
 int checkIntComm( PMMG_pParMesh mesh )
 {
   struct point { double c[3]; int tmp; };
@@ -35,35 +43,43 @@ int checkIntComm( PMMG_pParMesh mesh )
     int commSizeLoc = grpCur->nitem_int_node_comm;
     for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {
 
-      int comm1Idx = grpCur->node2int_node_comm_index2[ commIdx ];
-      printf( "+++++NIKOS[%d/%d]+++:: CIC: commSizeGlo = %d, i = %d, n2i_idx2(check position) = %d \n",
-              grpId + 1, ngrp, commSizeGlo, commIdx, comm1Idx );
-      if ( check[ comm1Idx ].tmp == 0. ) {
-        //check[ comm1Idx ].c[0] = meshCur->point[ grpCur->node2int_node_comm_index1[ commIdx ] ].c[0];
-        //check[ comm1Idx ].c[1] = meshCur->point[ grpCur->node2int_node_comm_index1[ commIdx ] ].c[1];
-        //check[ comm1Idx ].c[2] = meshCur->point[ grpCur->node2int_node_comm_index1[ commIdx ] ].c[2];
-        check[ comm1Idx ].tmp = 1.;
+      int commIdx2 = grpCur->node2int_node_comm_index2[ commIdx ];
+      int commIdx1 = grpCur->node2int_node_comm_index1[ commIdx ];
+//      printf( "+++++NIKOS[%d/%d]+++:: CIC: commSizeGlo = %d, i = %d, n2i_idx2(check position) = %d ",
+//              grpId + 1, ngrp, commSizeGlo, commIdx, commIdx2);
+      if ( check[ commIdx2 ].tmp == 0. ) {
+//        printf( "+++adding (%f,%f,%f) to (%f,%f,%f) \n",
+//                meshCur->point[ commIdx1 ].c[0],
+//                meshCur->point[ commIdx1 ].c[1],
+//                meshCur->point[ commIdx1 ].c[2],
+//                check[ commIdx2 ].c[0], check[ commIdx2 ].c[1], check[ commIdx2 ].c[2] );
+        check[ commIdx2 ].c[0] = meshCur->point[ commIdx1 ].c[0];
+        check[ commIdx2 ].c[1] = meshCur->point[ commIdx1 ].c[1];
+        check[ commIdx2 ].c[2] = meshCur->point[ commIdx1 ].c[2];
+        check[ commIdx2 ].tmp = 1.;
       } else {
-        //for ( int j = 0; j < 3; ++j )
-        //  if ( check[ pos ].c[j] != meshCur->point[ grpCur->node2int_node_comm_index1[ i ] ].c[j] ) {
-        //    ++numFailed;
-        //    testError = 1;
-        //}
+//        printf( "---checking (%f,%f,%f) to (%f,%f,%f) \n",
+//                meshCur->point[ commIdx1 ].c[0],
+//                meshCur->point[ commIdx1 ].c[1],
+//                meshCur->point[ commIdx1 ].c[2],
+//                check[ commIdx2 ].c[0], check[ commIdx2 ].c[1], check[ commIdx2 ].c[2] );
+        for ( int j = 0; j < 3; ++j )
+          if ( check[ commIdx2 ].c[j] != meshCur->point[ commIdx1 ].c[j] ) {
+            ++numFailed;
+            testError = 1;
+        }
       }
     }
-    printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED. NumFailed: %d \n", grpId+1, ngrp, numFailed / 3 );
+    printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED. NumFailed: %d \n", ngrp, grpId+1, numFailed / 3 );
   }
-  if ( testError )
-    printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR ERROR: SHOULD ABORT\n", grpId+1, ngrp );
 
   _MMG5_SAFE_FREE( check );
 
-  return 1;
+  return testError;
 }
 
 
-int  checkExtComm( void ) 
+int  checkExtComm( void )
 {
   return 1;
 }
-

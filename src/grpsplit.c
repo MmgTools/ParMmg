@@ -17,7 +17,7 @@
 #include "chkmesh.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 1024; // * 128;
+static const int REMESHER_TARGET_MESH_SIZE = 1024 * 128;
 
 static int HowManyGroups ( const int nelem )
 {
@@ -217,9 +217,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     tetPerGrp = 0;
     poiPerGrp = 0;
     for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
-      // MMG3D_Tetra.flag is used to update adjacency vector: 
+      // MMG3D_Tetra.flag is used to update adjacency vector:
       //   if the tetra belongs to the group we store the local tetrahedron id in tet.flag
-      meshOld->tetra[tet].flag = 0; 
+      meshOld->tetra[tet].flag = 0;
 
       // Skip elements that do not belong in the group processed in this iteration
       if ( grpId != part[ tet - 1 ] )
@@ -257,17 +257,17 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       for ( poi = 0; poi < 4 ; ++poi ) {
         // if it is the first time this point is seen in this subgroup
         if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) {
-  
+
           // Add point in subgroup point array
           ++poiPerGrp;
           memcpy( meshCur->point + poiPerGrp, &meshOld->point[ meshOld->tetra[tet].v[poi] ], sizeof(MMG5_Point) );
-  
+
           // update tetra vertex reference
           tetraCur->v[poi] = poiPerGrp;
-  
+
           // "Remember" the assigned subgroup point id
           meshOld->point[ meshOld->tetra[tet].v[poi] ].flag = poiPerGrp;
-  
+
           // Add point in subgroup's communicator if it already was in group's communicator
           if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
             grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] = poiPerGrp;
@@ -350,10 +350,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
     printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed.%d nitem in int communicator\n",
-      grpId+1, ngrp, poiPerGrp, tetPerGrp, meshCur->ne, grpCur->nitem_int_node_comm );
+            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne, grpCur->nitem_int_node_comm );
   }
-
-
 
 
 
