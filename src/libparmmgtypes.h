@@ -153,6 +153,8 @@ typedef struct {
 
   /* mem info */
   int       mem;
+  long long memMax; /*!< Maximum memory available */
+  long long memCur; /*!< Current memory used */
 
   /* grp */
   int       ngrp;       /*!< Number of grp */

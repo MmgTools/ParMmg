@@ -84,6 +84,19 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ *
+ * Initialization of the input parameters (stored in the Info structure).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >   END SUBROUTINE\n
+ *
+ */
+void  PMMG_Init_parameters(PMMG_pParMesh parmesh);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param iparam integer parameter to set (see \a MMG3D_Param structure).
  * \param val value for the parameter.
  * \return 0 if failed, 1 otherwise.

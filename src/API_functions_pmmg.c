@@ -22,6 +22,30 @@ int PMMG_Init_parMesh( const int starter,... ) {
   return ier;
 }
 
+void PMMG_Init_parameters(PMMG_pParMesh parmesh) {
+  MMG5_pMesh mesh;
+  long long  million = 1048576L;
+  int        k;
+
+  parmesh->memMax = _MMG5_memSize();
+  if ( mesh->memMax )
+    /* maximal memory = 50% of total physical memory */
+    parmesh->memMax = parmesh->memMax*50/100;
+  else {
+    /* default value = 800 Mo */
+    printf("  Maximum memory set to default value: %d Mo.\n",_MMG5_MEMMAX);
+    parmesh->memMax = _MMG5_MEMMAX << 20;
+  }
+
+#warning add a memory reservation for the parmesh structures (other than mesh)
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    MMG3D_Init_parameters(mesh);
+    /* Set a suitable value for the maximal memory usable by each mesh */
+    PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mem,(int)(parmesh->memMax/million));
+  }
+}
+
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
