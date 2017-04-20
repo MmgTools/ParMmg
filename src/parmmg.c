@@ -66,12 +66,13 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
  * Main program for PARMMG executable: perform parallel mesh adaptation.
  *
  */
-int main(int argc,char *argv[]) {
-  PMMG_pParMesh    parmesh=NULL;
+int main( int argc, char *argv[] )
+{
+  PMMG_pParMesh    parmesh = NULL;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        sol;
-  int              ier,rank;
+  int              ier, rank;
 
   /** Init MPI */
   MPI_Init(&argc, &argv);
@@ -85,30 +86,25 @@ int main(int argc,char *argv[]) {
   }
 
   /** Assign default values */
-  if ( !PMMG_Init_parMesh(PMMG_ARG_start,
-                          PMMG_ARG_ppParMesh,&parmesh,
-                          PMMG_ARG_end) )
+  if ( !PMMG_Init_parMesh( PMMG_ARG_start,
+                           PMMG_ARG_ppParMesh, &parmesh,
+                           PMMG_ARG_end) )
     _PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
 
   mesh = parmesh->listgrp[0].mesh;
   sol  = parmesh->listgrp[0].sol;
+
+  if ( PMMG_parsar( argc, argv, parmesh ) )
+    _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank ) {
     if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,5) )
       _PMMG_RETURN_AND_FREE(parmesh, PMMG_STRONGFAILURE);
 
     /** Read sequential mesh */
-    char fmesh[ 20 + 6 ] = "m";
-    char fsol[ 20 + 5 ] = "m";
-    if ( argc > 1 ) {
-      strncpy ( fmesh, argv[1], 20 );
-      strncpy ( fsol, argv[1], 20 );
-    }
-    strncat ( fmesh, ".mesh", 6 );
-    strncat ( fsol, ".sol", 5 );
-    if ( PMMG_loadMesh( parmesh, fmesh ) != 1 )
+    if ( PMMG_loadMesh( parmesh, mesh->namein ) != 1 )
       _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
-    if ( PMMG_loadSol( parmesh, fsol ) == -1 )
+    if ( PMMG_loadSol( parmesh, sol->namein ) == -1 )
       _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
   } else {
     if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,0) )

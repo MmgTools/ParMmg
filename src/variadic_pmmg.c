@@ -9,7 +9,8 @@
 
 #include "parmmg.h"
 
-int _PMMG_Init_parMesh_var( va_list argptr ) {
+int _PMMG_Init_parMesh_var( va_list argptr )
+{
   PMMG_pParMesh  *parmesh;
   PMMG_pGrp      grp;
   int            typArg;
