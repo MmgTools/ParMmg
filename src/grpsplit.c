@@ -142,6 +142,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     //_MMG5_SAFE_REALLOC( ptr, size, type, message );
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
                      MMG5_ARG_ppMet, &grpCur->sol, MMG5_ARG_end );
+#warning How to deal properly with the memory : we need a special management in PMMG
     //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId], 0, 0, 0, 0 );
 

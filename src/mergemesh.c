@@ -48,6 +48,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   intvalues                  = int_node_comm->intvalues;
 
   mesh0                      = grp[0].mesh;
+  sol0                       = grp[0].sol;
   nitem_int_node_comm0       = grp[0].nitem_int_node_comm;
   node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
   node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
