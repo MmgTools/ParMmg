@@ -136,6 +136,21 @@ ELSE()
 
 ENDIF ( )
 
+############################################################################
+#####
+#####        Mmg PATTERN?
+#####
+############################################################################
+
+FILE(READ ${MMG_BUILD_DIR}/CMakeFiles/libmmg_a.dir/flags.make TMPTXT)
+STRING(FIND "${TMPTXT}" "PATTERN" matchres)
+
+IF(${matchres} EQUAL -1)
+  SET ( PATTERN OFF )
+ELSE ( )
+  SET ( PATTERN ON )
+  SET(CMAKE_C_FLAGS "-DPATTERN ${CMAKE_C_FLAGS}")
+ENDIF()
 
 ############################################################################
 #####

@@ -151,6 +151,9 @@ typedef struct {
   int      myrank;
   MPI_Comm comm;
 
+  /* mem info */
+  int       mem;
+
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */

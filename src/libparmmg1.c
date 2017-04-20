@@ -312,7 +312,11 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
       mesh = parmesh->listgrp[i].mesh;
       met  = parmesh->listgrp[i].met;
 
+#ifdef PATTERN
+      if ( !_MMG5_mmg3d1_pattern(mesh,met) ) goto failed;
+#else
       if ( !_MMG5_mmg3d1_delone(mesh,met) ) goto failed;
+#endif
 
 #warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
       /** load Balancing at group scale and communicators reconstruction */
