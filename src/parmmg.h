@@ -35,11 +35,11 @@ extern "C" {
   for ( k=0; k<parmesh->ngrp; ++k ) {                         \
     grp  = &parmesh->listgrp[k];                              \
     mesh = grp->mesh;                                         \
-    sol  = grp->sol;                                          \
+    met  = grp->met;                                          \
                                                               \
     MMG3D_Free_all(MMG5_ARG_start,                            \
                    MMG5_ARG_ppMesh,&parmesh->listgrp[k].mesh,  \
-                   MMG5_ARG_ppMet,&parmesh->listgrp[k].sol,    \
+                   MMG5_ARG_ppMet,&parmesh->listgrp[k].met,    \
                    MMG5_ARG_end);                             \
   }                                                           \
                                                               \

@@ -36,7 +36,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
-    met                       = grp->sol;
+    met                       = grp->met;
     node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     disp                      = grp->disp;
 
@@ -231,7 +231,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
  */
 int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
   MMG5_pMesh mesh;
-  MMG5_pSol  sol;
+  MMG5_pSol  met;
   int        k;
 
   if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
@@ -239,7 +239,7 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    sol  = parmesh->listgrp[k].sol;
+    met  = parmesh->listgrp[k].met;
 
     /* Check options */
     if ( mesh->info.lag > -1 ) {
@@ -251,7 +251,7 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
               " (MMG3D_IPARAM_iso):\n");
       return 0;
     }
-    else if ( mesh->info.optimLES && sol->size==6 ) {
+    else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
       return 0;
@@ -260,12 +260,12 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
     /* load data */
     _MMG5_warnOrientation(mesh);
 
-    if ( sol->np && (sol->np != mesh->np) ) {
-      fprintf(stdout,"  ## WARNING: WRONG SOLUTION NUMBER. IGNORED\n");
-      _MMG5_DEL_MEM(mesh,sol->m,(sol->size*(sol->npmax+1))*sizeof(double));
-      sol->np = 0;
+    if ( met->np && (met->np != mesh->np) ) {
+      fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
+      _MMG5_DEL_MEM(mesh,met->m,(met->size*(met->npmax+1))*sizeof(double));
+      met->np = 0;
     }
-    else if ( sol->size!=1 && sol->size!=6 ) {
+    else if ( met->size!=1 && met->size!=6 ) {
       fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
       return 0;
     }
@@ -291,7 +291,7 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
  */
 int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
-  MMG5_pSol        sol;
+  MMG5_pSol        met;
   int              it,i,niter;
 
 #warning niter must be a param set by the user
@@ -310,9 +310,9 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   for ( it=0; it<niter; ++it ) {
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh = parmesh->listgrp[i].mesh;
-      sol  = parmesh->listgrp[i].sol;
+      met  = parmesh->listgrp[i].met;
 
-      if ( !_MMG5_mmg3d1_delone(mesh,sol) ) goto failed;
+      if ( !_MMG5_mmg3d1_delone(mesh,met) ) goto failed;
 
 #warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
       /** load Balancing at group scale and communicators reconstruction */
@@ -323,7 +323,7 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
 #warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
-    sol  = parmesh->listgrp[i].sol;
+    met  = parmesh->listgrp[i].met;
     _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
   }
   if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
@@ -342,7 +342,7 @@ int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
 #warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
-    sol  = parmesh->listgrp[i].sol;
+    met  = parmesh->listgrp[i].met;
     _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
   }
 

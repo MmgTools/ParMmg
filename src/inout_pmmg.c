@@ -60,9 +60,9 @@ int PMMG_loadSol(PMMG_pParMesh parmesh, const char *filename) {
 
   grp = &parmesh->listgrp[0];
 
-  if ( !MMG3D_Set_inputSolName(grp->mesh,grp->sol,filename) ) return(0);
+  if ( !MMG3D_Set_inputSolName(grp->mesh,grp->met,filename) ) return(0);
 
-  if ( !MMG3D_loadSol(grp->mesh,grp->sol,filename) )  return(0);
+  if ( !MMG3D_loadSol(grp->mesh,grp->met,filename) )  return(0);
 
 
   return(1);
@@ -80,7 +80,7 @@ int PMMG_loadSol(PMMG_pParMesh parmesh, const char *filename) {
 int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-//  MMG5_pSol  sol;
+//  MMG5_pSol  met;
 
   if ( parmesh->ngrp > 1 ) {
     printf("  ## Error: Groups must have been merged (PMMG_mergeGrps function)"
@@ -91,7 +91,7 @@ int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
 
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
-//  sol  = grp->sol;
+//  met  = grp->met;
 
   if ( !MMG3D_saveMesh(mesh,filename) )  return(0);
 
@@ -117,6 +117,6 @@ int PMMG_saveSol(PMMG_pParMesh parmesh, const char *filename) {
   else if ( !parmesh->ngrp ) return 1;
 
   return MMG3D_saveSol(parmesh->listgrp[0].mesh,
-                       parmesh->listgrp[0].sol,
+                       parmesh->listgrp[0].met,
                        filename);
 }

@@ -136,12 +136,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
     grpCur->mesh = NULL;
-    grpCur->sol  = NULL;
+    grpCur->met  = NULL;
     grpCur->disp = NULL;
     //_MMG5_SAFE_CALLOC( ptr, size, type );
     //_MMG5_SAFE_REALLOC( ptr, size, type, message );
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
-                     MMG5_ARG_ppMet, &grpCur->sol, MMG5_ARG_end );
+                     MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
 #warning How to deal properly with the memory : we need a special management in PMMG
     //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId], 0, 0, 0, 0 );
@@ -358,7 +358,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 //NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
 //NIKOS TODO    meshCur = grpsNew[grpId].mesh;
-//NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol sol,const char *filename)
+//NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol met,const char *filename)
 //NIKOS TODO    char name[20];
 //NIKOS TODO    sprintf( name, "mesh-p%d-%02d.mesh", parmesh->myrank+1, grpId );
 //NIKOS TODO    _MMG3D_bdryBuild(meshCur); //note: no error checking
@@ -378,7 +378,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
   //MMG3D_Free_all( MMG5_ARG_start,
-  //                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->sol),
+  //                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->met),
   //                MMG5_ARG_end);
   //parmesh->listgrp = grpsNew;
   //parmesh->ngrp = ngrp;

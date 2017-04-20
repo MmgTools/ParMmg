@@ -74,11 +74,11 @@ int _PMMG_Init_parMesh_var( va_list argptr ) {
     grp = &(*parmesh)->listgrp[k];
 
     grp->mesh = NULL;
-    grp->sol  = NULL;
+    grp->met  = NULL;
     grp->disp = NULL;
 
     MMG3D_Init_mesh(MMG5_ARG_start,MMG5_ARG_ppMesh,&grp->mesh,
-                    MMG5_ARG_ppMet,&grp->sol,
+                    MMG5_ARG_ppMet,&grp->met,
                     MMG5_ARG_end);
 
   }
