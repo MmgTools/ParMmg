@@ -106,9 +106,9 @@ int main(int argc,char *argv[]) {
     }
     strncat ( fmesh, ".mesh", 6 );
     strncat ( fsol, ".sol", 5 );
-    if ( PMMG_loadMesh( parmesh, fmesh ) < 1 )
+    if ( PMMG_loadMesh( parmesh, fmesh ) != 1 )
       _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
-    if ( PMMG_loadSol( parmesh, fsol ) < 0 )
+    if ( PMMG_loadSol( parmesh, fsol ) == -1 )
       _PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
   } else {
     if ( !MMG3D_Set_iparameter(mesh,sol,MMG3D_IPARAM_verbose,0) )

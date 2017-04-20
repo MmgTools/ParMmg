@@ -52,15 +52,29 @@ extern "C" {
   }while(0)
 
 
-  int _PMMG_Init_parMesh_var( va_list argptr );
-  int _PMMG_check_inputData ( PMMG_pParMesh parmesh );
+int _PMMG_Init_parMesh_var( va_list argptr );
+int _PMMG_check_inputData ( PMMG_pParMesh parmesh );
 
-  int _PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
+int _PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
-  int  PMMG_mergeGrps ( PMMG_pParMesh parmesh );
-  int  PMMG_bcastMesh ( PMMG_pParMesh parmesh );
-  int  PMMG_bdryStore ( MMG5_pMesh mesh );
-  int  PMMG_bdryUpdate( MMG5_pMesh mesh );
+int  PMMG_mergeGrps ( PMMG_pParMesh parmesh );
+int  PMMG_bcastMesh ( PMMG_pParMesh parmesh );
+int  PMMG_bdryStore ( MMG5_pMesh mesh );
+int  PMMG_bdryUpdate( MMG5_pMesh mesh );
+
+/**
+ * \param argc number of command line arguments.
+ * \param argv command line arguments.
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the sol structure.
+ * \return 1.
+ *
+ * Store command line arguments.
+ *
+ * \remark no matching fortran function.
+ *
+ */
+int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 
 #ifdef __cplusplus
 }

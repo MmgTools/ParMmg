@@ -13,59 +13,51 @@
 /**
  * \param parmesh pointer toward the ParMesh structure.
  * \param filename name of file.
- * \return 0 if the file is not found, -1 if we detect mismatch parameters,
- * 1 otherwise.
+ * \return 0 if the file is not found
+ *        -1 if we detect mismatched parameters are detected
+ *         1 for success
  *
  * Read mesh data.
  *
  */
-int PMMG_loadMesh(PMMG_pParMesh parmesh, const char *filename) {
-  PMMG_pGrp  grp;
+int PMMG_loadMesh( PMMG_pParMesh parmesh, const char *filename )
+{
+  PMMG_pGrp grp = &parmesh->listgrp[0];
 
-  if ( parmesh->ngrp > 1 ) {
-    printf("  ## Error: Can not call the PMMG_loadMesh function with more"
-           " than 1 group per processor.\n Exit Programm.\n");
-    return 0;
+  if ( parmesh->ngrp != 1 ) {
+    printf("  ## ERROR: PMMG_loadMesh function can only be called with"
+           " 1 group per processor.\n Exiting Program.\n");
+    return ( -1 );
   }
-  else if ( !parmesh->ngrp ) return 1;
 
-  grp = &parmesh->listgrp[0];
+  MMG3D_Set_inputMeshName( grp->mesh, filename );
 
-  if ( !MMG3D_Set_inputMeshName(grp->mesh,filename) ) return(0);
-
-  if ( !MMG3D_loadMesh(grp->mesh,filename) )  return(0);
-
-
-  return(1);
+  return ( MMG3D_loadMesh( grp->mesh, filename ) );
 }
 
 /**
  * \param parmesh pointer toward the ParMesh structure.
  * \param filename name of file.
- * \return 0 if the file is not found, -1 if we detect mismatch parameters,
- * 1 otherwise.
+ * \return  0 if the file is not found
+ *         -1 if parameters mismatch is detected
+ *          1 for success
  *
  * Read mesh data.
  *
  */
-int PMMG_loadSol(PMMG_pParMesh parmesh, const char *filename) {
-  PMMG_pGrp  grp;
+int PMMG_loadSol( PMMG_pParMesh parmesh, const char *filename )
+{
+  PMMG_pGrp grp = &parmesh->listgrp[0];
 
-  if ( parmesh->ngrp > 1 ) {
-    printf("  ## Error: Can not call the PMMG_loadSol function with more"
-           " than 1 group per processor.\n Exit Programm.\n");
-    return 0;
+  if ( parmesh->ngrp != 1 ) {
+    printf("  ## ERROR: PMMG_loadSol function can only be called with"
+           " 1 group per processor.\n Exiting Program.\n");
+    return ( -1 );
   }
-  else if ( !parmesh->ngrp ) return 1;
 
-  grp = &parmesh->listgrp[0];
+  MMG3D_Set_inputSolName( grp->mesh, grp->sol, filename );
 
-  if ( !MMG3D_Set_inputSolName(grp->mesh,grp->sol,filename) ) return(0);
-
-  if ( !MMG3D_loadSol(grp->mesh,grp->sol,filename) )  return(0);
-
-
-  return(1);
+  return ( MMG3D_loadSol( grp->mesh, grp->met, filename ) );
 }
 
 /**
