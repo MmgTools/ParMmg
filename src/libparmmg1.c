@@ -9,7 +9,7 @@
  */
 
 #include "parmmg.h"
-#include "grpsplit.h" //PMMG_splitGrps
+#include "grpsplit_pmmg.h" //PMMG_splitGrps
 
 /**
  * \param parmesh pointer toward the parmesh structure.

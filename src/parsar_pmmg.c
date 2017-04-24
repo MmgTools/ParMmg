@@ -31,7 +31,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   if ( mmgArgc >= allocated ) {
     allocated *= 2;
-    _MMG5_SAFE_REALLOC( mmgArgv, allocated, char* );
+    _MMG5_SAFE_REALLOC( mmgArgv, allocated, char*, "increasing argv array" );
   }
 //  strncpy( mmgArgv[mmgArgc], argv[mmgArgc], strlen( argv[mmgArgc] ) + 1 );
 //  ++mmgArgc;

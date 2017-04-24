@@ -13,8 +13,8 @@
 #include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 #include "mmg3d.h" //_MMG5_idir[4][3]
 #include "libparmmg.h" // PMMG_mesh2metis
-#include "grpsplit.h"
-#include "chkmesh.h"
+#include "grpsplit_pmmg.h"
+#include "chkmesh_pmmg.h"
 
 // Subgroups target size. It is chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 1024;// * 128;

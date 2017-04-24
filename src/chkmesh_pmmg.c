@@ -1,4 +1,4 @@
-#include "chkmesh.h"
+#include "chkmesh_pmmg.h"
 #include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 
 //! Check Internal Communicator for each group. 
