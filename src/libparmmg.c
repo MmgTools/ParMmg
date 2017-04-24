@@ -23,7 +23,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   }
 
   /** Check input data */
-  if ( !_PMMG_check_inputData(parmesh) ) return PMMG_STRONGFAILURE;
+  if ( !PMMG_check_inputData(parmesh) ) return PMMG_STRONGFAILURE;
 
   if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
@@ -82,7 +82,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n  -- PHASE 2 : %s MESHING\n",
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
 
-  ier = _PMMG_parmmglib1(parmesh);
+  ier = PMMG_parmmglib1(parmesh);
   fprintf(stdout,"  -- PHASE 2 COMPLETED.\n");
 
   if ( ier == MMG5_STRONGFAILURE ) return PMMG_STRONGFAILURE;

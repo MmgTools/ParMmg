@@ -15,7 +15,7 @@ int PMMG_Init_parMesh( const int starter,... ) {
 
   va_start(argptr, starter);
 
-  ier = _PMMG_Init_parMesh_var(argptr);
+  ier = PMMG_Init_parMesh_var(argptr);
 
   va_end(argptr);
 

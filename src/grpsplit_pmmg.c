@@ -368,7 +368,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 #ifndef NDEBUG
   parmesh->listgrp = grpsNew;   //NIKOS TODO
   parmesh->ngrp = ngrp;   //NIKOS TODO
-  if ( checkIntComm ( parmesh ) ) {
+  if ( PMMG_checkIntComm ( parmesh ) ) {
     fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
     return 0;
   }

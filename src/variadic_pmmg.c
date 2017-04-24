@@ -25,7 +25,7 @@ void PMMG_Init_parameters( PMMG_pParMesh parmesh )
 // return:
 //   0 on error: Incorrect arguments passed
 //   1 on success
-int _PMMG_Init_parMesh_var( va_list argptr )
+int PMMG_Init_parMesh_var( va_list argptr )
 {
   PMMG_pParMesh *parmesh = NULL;
   PMMG_pGrp     grp = NULL;

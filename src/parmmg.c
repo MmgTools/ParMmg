@@ -113,7 +113,7 @@ int main( int argc, char *argv[] )
   }
 
   /** Check input data */
-  if ( !_PMMG_check_inputData(parmesh) )
+  if ( !PMMG_check_inputData(parmesh) )
     _PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
 
   if ( !parmesh->myrank && mesh->info.imprim )
@@ -145,7 +145,7 @@ int main( int argc, char *argv[] )
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"\n  -- PHASE 3 : %s MESHING\n",met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
 
-  ier = _PMMG_parmmglib1(parmesh);
+  ier = PMMG_parmmglib1(parmesh);
 
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");

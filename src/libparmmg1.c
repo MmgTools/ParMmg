@@ -229,7 +229,7 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
  * compatibility with respect to the provided mesh, Mmg options).
  *
  */
-int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
+int PMMG_check_inputData(PMMG_pParMesh parmesh) {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        k;
@@ -289,7 +289,7 @@ int _PMMG_check_inputData(PMMG_pParMesh parmesh) {
  * PMMG_LOWFAILURE if fail but we can save the mesh, PMMG_SUCCESS if success.
  *
  */
-int _PMMG_parmmglib1(PMMG_pParMesh parmesh) {
+int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   int              it,i,niter;

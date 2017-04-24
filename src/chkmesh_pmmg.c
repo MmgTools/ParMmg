@@ -3,7 +3,7 @@
 
 //! Check Internal Communicator for each group. 
 //    3 checks are implemented, see inside the function for specifics
-int checkIntComm( PMMG_pParMesh mesh )
+int PMMG_checkIntComm( PMMG_pParMesh mesh )
 {
   //NIKOS TODO: could try using std::vector<bool> and std::map in these tests to speed up things
   //NIKOS TODO: BOUND CHECK ARRAY ACCESSES: can't rely that the contents of the communicators are valid
@@ -124,7 +124,7 @@ int checkIntComm( PMMG_pParMesh mesh )
 }
 
 
-int  checkExtComm( void )
+int PMMG_checkExtComm( void )
 {
   return 1;
 }
