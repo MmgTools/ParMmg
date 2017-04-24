@@ -11,13 +11,14 @@
 #include "parmmg.h"
 
 /**
- * \param parmesh pointer toward the ParMesh structure.
- * \param filename name of file.
- * \return 0 if the file is not found
- *        -1 if we detect mismatched parameters are detected
- *         1 for success
+ * \param parmesh pointer to working ParMesh structure.
+ * \param filename name of mesh file to read from.
+ * \return 0 file not found
+ *        -1 parameters mismatch detected
+ *         1 success
+ *         2 future error
  *
- * Read mesh data.
+ * Read mesh data from file in to the parmesh structure.
  *
  */
 int PMMG_loadMesh( PMMG_pParMesh parmesh, const char *filename )
@@ -30,19 +31,21 @@ int PMMG_loadMesh( PMMG_pParMesh parmesh, const char *filename )
     return ( -1 );
   }
 
-  MMG3D_Set_inputMeshName( grp->mesh, filename );
+ if ( MMG3D_Set_inputMeshName( grp->mesh, filename ) != 1 )
+   return ( 2 );
 
   return ( MMG3D_loadMesh( grp->mesh, filename ) );
 }
 
 /**
- * \param parmesh pointer toward the ParMesh structure.
- * \param filename name of file.
- * \return  0 if the file is not found
- *         -1 if parameters mismatch is detected
- *          1 for success
+ * \param parmesh pointer to working ParMesh structure.
+ * \param filename name of sol file to read from.
+ * \return  0 file not found
+ *         -1 parameters mismatch detected
+ *          1 success
+ *          2 future error
  *
- * Read mesh data.
+ * Read Sol data from file in to the parmesh structure.
  *
  */
 int PMMG_loadSol( PMMG_pParMesh parmesh, const char *filename )
@@ -55,7 +58,8 @@ int PMMG_loadSol( PMMG_pParMesh parmesh, const char *filename )
     return ( -1 );
   }
 
-  MMG3D_Set_inputSolName( grp->mesh, grp->sol, filename );
+  if ( MMG3D_Set_inputSolName( grp->mesh, grp->met, filename ) != 1 )
+   return ( 2 );
 
   return ( MMG3D_loadSol( grp->mesh, grp->met, filename ) );
 }
@@ -72,7 +76,7 @@ int PMMG_loadSol( PMMG_pParMesh parmesh, const char *filename )
 int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-//  MMG5_pSol  sol;
+//  MMG5_pSol  met;
 
   if ( parmesh->ngrp > 1 ) {
     printf("  ## Error: Groups must have been merged (PMMG_mergeGrps function)"
@@ -83,7 +87,7 @@ int PMMG_saveMesh(PMMG_pParMesh parmesh, const char *filename) {
 
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
-//  sol  = grp->sol;
+//  met  = grp->met;
 
   if ( !MMG3D_saveMesh(mesh,filename) )  return(0);
 
@@ -109,6 +113,6 @@ int PMMG_saveSol(PMMG_pParMesh parmesh, const char *filename) {
   else if ( !parmesh->ngrp ) return 1;
 
   return MMG3D_saveSol(parmesh->listgrp[0].mesh,
-                       parmesh->listgrp[0].sol,
+                       parmesh->listgrp[0].met,
                        filename);
 }

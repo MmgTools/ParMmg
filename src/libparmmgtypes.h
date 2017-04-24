@@ -151,6 +151,11 @@ typedef struct {
   int      myrank;
   MPI_Comm comm;
 
+  /* mem info */
+  int       mem;
+  long long memMax; /*!< Maximum memory allowed to allocate */
+  long long memCur; /*!< Currently allocated memory */
+
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */

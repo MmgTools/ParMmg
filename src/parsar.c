@@ -15,24 +15,35 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
   int count = 0;
-  int mmgArgc = 1;
+  int mmgArgc = 0;
+  int allocated = argc;
   char ** mmgArgv = NULL;
   
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
       PMMG_defaultValues( parmesh );
 
-//NIKOS DOING: Now, handle the -h option by printing the pmmg specifics and then the mmg as usual 
+//NIKOS DOING: 
+//     handle the -h option by printing the pmmg specifics and then the mmg -h option
+//     handle parmmg specific options and do not add them in the mmgargc/argv list
+//     handle common parmmg/mmg options and add them to the mmgArgc/argv list
+  _MMG5_SAFE_CALLOC( mmgArgv, allocated, char* );
 
-  _MMG5_SAFE_CALLOC( mmgArgv, argc, char* );
+  if ( mmgArgc >= allocated ) {
+    allocated *= 2;
+    _MMG5_SAFE_REALLOC( mmgArgv, allocated, char* );
+  }
+//  strncpy( mmgArgv[mmgArgc], argv[mmgArgc], strlen( argv[mmgArgc] ) + 1 );
+//  ++mmgArgc;
+//     pass the created list to mmg3d_parsar
+
   _MMG5_SAFE_CALLOC( mmgArgv[0], strlen( argv[0] ) + 1, char );
   strncpy( mmgArgv[0], argv[0], strlen( argv[0] ) + 1 );
   mmgArgv[0][strlen( argv[0] )]='\0';
-//NIKOS DOING: Parse the arguments: 
-//               if matching argument is found, do what you have to do
-//               else add it to mmgArgv/mmgArgc
 
-  MMG3D_parsar( mmgArgc, mmgArgv, parmesh->listgrp[0].mesh, parmesh->listgrp[0].sol );
+  //MMG3D_parsar( mmgArgc, mmgArgv, parmesh->listgrp[0].mesh, parmesh->listgrp[0].met );
+  MMG3D_parsar( argc, argv, parmesh->listgrp[0].mesh, parmesh->listgrp[0].met );
 
+  _MMG5_SAFE_FREE( mmgArgv );
   return EXIT_SUCCESS;
 }

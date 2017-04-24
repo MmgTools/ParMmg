@@ -28,29 +28,42 @@ extern "C" {
 #endif
 
   /** Free allocated pointers of parmesh, call MPI_Finalize and return value val */
-#define _PMMG_RETURN_AND_FREE(parmesh,val)do                  \
-  {                                                           \
-  int k;                                                      \
-                                                              \
-  for ( k=0; k<parmesh->ngrp; ++k ) {                         \
-    grp  = &parmesh->listgrp[k];                              \
-    mesh = grp->mesh;                                         \
-    sol  = grp->sol;                                          \
-                                                              \
-    MMG3D_Free_all(MMG5_ARG_start,                            \
+#define _PMMG_RETURN_AND_FREE(parmesh,val)do                   \
+  {                                                            \
+  int k;                                                       \
+                                                               \
+  for ( k=0; k<parmesh->ngrp; ++k ) {                          \
+    grp  = &parmesh->listgrp[k];                               \
+    mesh = grp->mesh;                                          \
+    met  = grp->met;                                           \
+                                                               \
+    MMG3D_Free_all(MMG5_ARG_start,                             \
                    MMG5_ARG_ppMesh,&parmesh->listgrp[k].mesh,  \
-                   MMG5_ARG_ppMet,&parmesh->listgrp[k].sol,    \
-                   MMG5_ARG_end);                             \
-  }                                                           \
-                                                              \
-  _MMG5_SAFE_FREE(parmesh);                                   \
-                                                              \
-  MPI_Finalize();                                             \
-                                                              \
-  return(val);                                                \
-                                                              \
+                   MMG5_ARG_ppMet,&parmesh->listgrp[k].met,    \
+                   MMG5_ARG_end);                              \
+  }                                                            \
+                                                               \
+  _MMG5_SAFE_FREE(parmesh);                                    \
+                                                               \
+  MPI_Finalize();                                              \
+                                                               \
+  return(val);                                                 \
+                                                               \
   }while(0)
 
+
+#define PMMG_CALLOC ( ptr, size, type, mesh, law ) do { \
+  _MMG5_ADD_MEM( mesh, size, message, law );            \
+  _MMG5_SAFE_CALLOC( ptr, size, type );                 \
+  } while(0)
+
+#define PMMG_FREE ( mesh, ptr, size ) do { _MMG5_DEL_MEM( mesh, ptr, size ); } while(0)
+
+#define PMMG_MALLOC ( mesh, ptr, size ) do { assert( 0==1 && "ADD ME" } while(0)
+
+#define PMMG_REALLOC ( mesh, ptr, size ) do { assert( 0==1 && "ADD ME" } while(0)
+
+void PMMG_Init_parameters( PMMG_pParMesh mesh );
 
 int _PMMG_Init_parMesh_var( va_list argptr );
 int _PMMG_check_inputData ( PMMG_pParMesh parmesh );
