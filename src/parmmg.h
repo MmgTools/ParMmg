@@ -44,67 +44,50 @@ extern "C" {
   return(val);                                                 \
   } while(0)
 
-#define PMMG_MEM_ERRORMSG  do {                                                \
-    fprintf( stderr,                                                           \
-          " Exceeded max memory allowed or tried to free more than allocated. "\
-          "function: %s, file: %s, line: %d \n", __func__, __FILE__, __LINE__);\
-    return ( PMMG_STRONGFAILURE );                                             \
-  } while ( 0 )
+#define PMMG_MEM_ERRORMSG( message ) fprintf( stderr, message                  \
+  "Exceeded max memory allowed or tried to free more mem than allocated. "     \
+  "function: %s, file: %s, line: %d \n", __func__, __FILE__, __LINE__);
 
-#define PMMG_FREE ( mesh, ptr, size, type, message ) do {                    \
-    int status = 1;                                                          \
-    (mesh)->memCur -= (long long)( size * sizeof(type) );                    \
-    _MMG5_CHK_MEM ( mesh, size, message, status = 0 );                       \
-    if ( status ) {                                                          \
-      _MMG5_SAFE_FREE( ptr );                                                \
-    } else {                                                                 \
-      (mesh)->memCur += (long long)( size );                                 \
-      MMG_MEM_ERRORMSG;                                                      \
-    }                                                                        \
+#define PMMG_MEM_CHK_AVAIL ( parmesh, bytes, message, stat ) do {              \
+  if (   ( (parmesh)->memCur + bytes > (parmesh)->memMax )                     \
+      || ( (parmesh)->memCur + bytes < 0 ) ) {                                 \
+    PMMG_MEM_ERRORMSG( message ) ;                                             \
+    stat = 0;                                                                  \
+  } } while ( 0 )
+
+#define PMMG_FREE ( parmesh, ptr, bytes, message ) do {                        \
+ int stat = 1;                                                                 \
+ PMMG_MEM_CHK_AVAIL ( parmesh, -bytes, message, stat );                        \
+ if ( stat ) {                                                                 \
+   (parmesh)->memCur -= todelete;                                              \
+   free( ptr );                                                                \
+   ptr = NULL;                                                                 \
+ } } while( 0 )
+
+#define PMMG_MALLOC ( parmesh, ptr, bytes, message ) do {                      \
+ int stat = 1;                                                                 \
+ PMMG_MEM_CHK_AVAIL ( parmesh, bytes, message, stat );                         \
+ if ( stat ) {                                                                 \
+   ptr = malloc( bytes );                                                      \
+   if ( ptr == NULL )                                                          \
+     PMMG_MEM_ERRORMSG( message );                                             \
+ } } while( 0 )
+
+#define PMMG_CALLOC ( parmesh, ptr, size, type, message ) do {                 \
+  int stat = 1;                                                                \
+  PMMG_MEM_CHK_AVAIL ( parmesh, size * sizeof(type), message, stat );          \
+  if ( stat ) {                                                                \
+   ptr = calloc( size, sizeof(type) );                                         \
+   if ( ptr == NULL )                                                          \
+     PMMG_MEM_ERRORMSG( message );                                             \
+  } } while( 0 )
+
+#define PMMG_REALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {      \
+    puts("ADD ME"; exit(EXIT_FAILURE);                                        \
   } while( 0 )
 
-#define PMMG_MALLOC ( mesh, ptr, size, type, message ) do {                  \
-    int status = 1;                                                          \
-    _MMG5_ADD_MEM ( mesh, size * sizeof(type), message, status = 0 )         \
-    if ( status ) {                                                          \
-      _MMG5_SAFE_MALLOC( ptr, size, type );                                  \
-    } else {                                                                 \
-      MMG_MEM_ERRORMSG;                                                      \
-    }                                                                        \
-  } while( 0 )
-
-#define PMMG_CALLOC ( mesh, ptr, size, type, message ) do {                  \
-    int status = 1;                                                          \
-    _MMG5_ADD_MEM( mesh, size * sizeof(type), message, status = 0 );         \
-    if ( status ) {                                                          \
-      _MMG5_SAFE_CALLOC( ptr, size, type );                                  \
-    } else {                                                                 \
-      MMG_MEM_ERRORMSG;                                                      \
-    }                                                                        \
-  } while( 0 )
-
-#define PMMG_REALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {     \
-    int status = 1;                                                          \
-    _MMG5_ADD_MEM( mesh, newsize * sizeof(type), message, status = 0 );      \
-    if ( status ) {                                                          \
-      _MMG5_SAFE_REALLOC( ptr, newsize, type, message );                     \
-      (mesh)->memCur -= (long long)( oldsize * sizeof(type) );               \
-    } else {                                                                 \
-      MMG_MEM_ERRORMSG;                                                      \
-    }                                                                        \
-  } while( 0 )
-
-#define PMMG_RECALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {    \
-    int status = 1;                                                          \
-    _MMG5_ADD_MEM( mesh, newsize * sizeof(type), message, status = 0 );      \
-    if ( status ) {                                                          \
-      PMMG_REALLOC( ptr, newsize, type, message );                           \
-      (mesh)->memCur -= (long long)( oldsize * sizeof(type) );               \
-      if ( oldsize < newsize )                                               \
-        memset( ptr + oldsize, 0, (newSize - oldsize) * sizeof(type) );      \
-    } else {                                                                 \
-      MMG_MEM_ERRORMSG;                                                      \
-    }                                                                        \
+#define PMMG_RECALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {     \
+    puts("ADD ME"; exit(EXIT_FAILURE);                                        \
   } while( 0 )
 
 
