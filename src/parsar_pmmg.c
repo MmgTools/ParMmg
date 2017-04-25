@@ -1,6 +1,6 @@
 #include "parmmg.h"
 
-void PMMG_defaultValues( PMMG_pParMesh parmesh )
+static void defaultValues( const PMMG_pParMesh parmesh )
 {
   fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
   fprintf( stdout, "Number of groups = 1\n");
@@ -21,7 +21,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
-      PMMG_defaultValues( parmesh );
+      defaultValues( parmesh );
 
 //NIKOS DOING: 
 //     handle the -h option by printing the pmmg specifics and then the mmg -h option

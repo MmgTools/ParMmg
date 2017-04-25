@@ -44,50 +44,51 @@ extern "C" {
   return(val);                                                 \
   } while(0)
 
-#define PMMG_MEM_ERRORMSG( message ) fprintf( stderr, message                  \
-  "Exceeded max memory allowed or tried to free more mem than allocated. "     \
-  "function: %s, file: %s, line: %d \n", __func__, __FILE__, __LINE__);
+#define PMMG_ERRORMSG(message1, message2) fprintf( stderr, message1 message2   \
+  "function: %s, file: %s, line: %d \n", __func__, __FILE__, __LINE__)
 
-#define PMMG_MEM_CHK_AVAIL ( parmesh, bytes, message, stat ) do {              \
-  if (   ( (parmesh)->memCur + bytes > (parmesh)->memMax )                     \
-      || ( (parmesh)->memCur + bytes < 0 ) ) {                                 \
-    PMMG_MEM_ERRORMSG( message ) ;                                             \
-    stat = 0;                                                                  \
+#define PMMG_MEM_CHK_AVAIL(parmesh,bytes,message,stat) do {                                           \
+  if (   ( (parmesh)->memCur + (bytes) > (parmesh)->memMax )                                          \
+      || ( (parmesh)->memCur + (bytes) < 0 ) ) {                                                      \
+    PMMG_ERRORMSG(message, " Exceeded max memory allowed or tried to free more mem than allocated: ");\
+    stat = 0;                                                                                         \
   } } while ( 0 )
 
-#define PMMG_FREE ( parmesh, ptr, bytes, message ) do {                        \
- int stat = 1;                                                                 \
- PMMG_MEM_CHK_AVAIL ( parmesh, -bytes, message, stat );                        \
- if ( stat ) {                                                                 \
-   (parmesh)->memCur -= todelete;                                              \
-   free( ptr );                                                                \
-   ptr = NULL;                                                                 \
+#define PMMG_FREE(parmesh,ptr,bytes,message) do {   \
+ int stat = 1;                                      \
+ PMMG_MEM_CHK_AVAIL(parmesh,-(bytes),message,stat );\
+ if ( stat ) {                                      \
+   (parmesh)->memCur -= (bytes);                    \
+   free( ptr );                                     \
+   ptr = NULL;                                      \
  } } while( 0 )
 
-#define PMMG_MALLOC ( parmesh, ptr, bytes, message ) do {                      \
- int stat = 1;                                                                 \
- PMMG_MEM_CHK_AVAIL ( parmesh, bytes, message, stat );                         \
- if ( stat ) {                                                                 \
-   ptr = malloc( bytes );                                                      \
-   if ( ptr == NULL )                                                          \
-     PMMG_MEM_ERRORMSG( message );                                             \
- } } while( 0 )
+#define PMMG_MALLOC(parmesh,ptr,bytes,message) do { \
+ int stat = 1;                                      \
+ PMMG_MEM_CHK_AVAIL(parmesh,(bytes),message,stat);  \
+ if ( stat ) {                                      \
+   ptr = malloc( (bytes) );                         \
+   if ( ptr == NULL ) {                             \
+     PMMG_ERRORMSG(message, " Malloc failed: ");    \
+     return ( 0 );                                  \
+   } } } while( 0 )
 
-#define PMMG_CALLOC ( parmesh, ptr, size, type, message ) do {                 \
-  int stat = 1;                                                                \
-  PMMG_MEM_CHK_AVAIL ( parmesh, size * sizeof(type), message, stat );          \
-  if ( stat ) {                                                                \
-   ptr = calloc( size, sizeof(type) );                                         \
-   if ( ptr == NULL )                                                          \
-     PMMG_MEM_ERRORMSG( message );                                             \
-  } } while( 0 )
+#define PMMG_CALLOC(parmesh,ptr,size,type,message) do {         \
+  int stat = 1;                                                 \
+  PMMG_MEM_CHK_AVAIL(parmesh,(size)*sizeof(type),message,stat); \
+  if ( stat ) {                                                 \
+   ptr = calloc( (size), sizeof(type) );                        \
+   if ( ptr == NULL ) {                                         \
+     PMMG_ERRORMSG(message, " calloc failed: ");                \
+     return ( 0 );                                              \
+   } } } while( 0 )
 
-#define PMMG_REALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {      \
-    puts("ADD ME"; exit(EXIT_FAILURE);                                        \
+#define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,message) do { \
+    puts("ADD ME"; exit(EXIT_FAILURE);                           \
   } while( 0 )
 
-#define PMMG_RECALLOC ( mesh, ptr, newsize, oldsize, type, message ) do {     \
-    puts("ADD ME"; exit(EXIT_FAILURE);                                        \
+#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,message) do { \
+    puts("ADD ME"; exit(EXIT_FAILURE);                            \
   } while( 0 )
 
 

@@ -9,8 +9,8 @@
  * \todo doxygen documentation.
  */
 #include "libparmmgtypes.h" // PMMG_pGrp
+#include "parmmg.h"
 #include "metis.h" // idx_t
-#include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 #include "mmg3d.h" //_MMG5_idir[4][3]
 #include "libparmmg.h" // PMMG_mesh2metis
 #include "grpsplit_pmmg.h"
@@ -90,7 +90,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
-  _MMG5_SAFE_CALLOC( part, meshOld->ne, idx_t );
+  PMMG_CALLOC( parmesh, part, meshOld->ne, idx_t, "metis buffer " );
 
   PMMG_mesh2metis( parmesh, &xadj, &adjncy );
 
@@ -122,7 +122,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 
   /* count_per_grp: count elements per group */
-  _MMG5_SAFE_CALLOC( countPerGrp, ngrp, int );
+  PMMG_CALLOC( parmesh, countPerGrp, ngrp, int, "counter buffer " );
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
   for ( i = 0; i < ngrp ; i++ )
@@ -131,7 +131,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 
   /* Allocate list of subgroups struct and allocate memory*/
-  _MMG5_SAFE_CALLOC( grpsNew, ngrp, PMMG_Grp );
+  PMMG_CALLOC( parmesh, grpsNew, ngrp, PMMG_Grp, "subgourp list " );
   //NIKOS TODO: do MMG3D_Init_mesh/MMG3D_Set_meshSize offer sth? otherwise allocate on your own
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
@@ -142,28 +142,21 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     //_MMG5_SAFE_REALLOC( ptr, size, type, message );
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
                      MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
-#warning How to deal properly with the memory : we need a special management in PMMG
     //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId], 0, 0, 0, 0 );
 
     meshCur = grpCur->mesh;
     meshCur->xtmax = meshOld->xtmax;
-    _MMG5_ADD_MEM( meshCur, ( meshCur->xtmax + 1 ) * sizeof(MMG5_xTetra), "boundary tetrahedra",
-                   fprintf( stderr,"  Exit program.\n" );
-                   exit( EXIT_FAILURE ) );
-    _MMG5_SAFE_CALLOC( meshCur->xtetra, meshCur->xtmax + 1, MMG5_xTetra );
+    PMMG_CALLOC( parmesh, meshCur, meshCur->xtmax + 1, MMG5_xTetra, "boundary tetrahedra " );
 
     /* memory to store normals for boundary points */
+#warning Overallocating memory, we can do better
     meshCur->xpmax  = meshCur->npmax;
-    _MMG5_ADD_MEM(meshCur, ( meshCur->xpmax + 1 ) * sizeof(MMG5_xPoint), "boundary points", return(0) );
-    _MMG5_SAFE_CALLOC( meshCur->xpoint, meshCur->xpmax + 1, MMG5_xPoint );
-    _MMG5_ADD_MEM( meshCur, ( 4 * meshCur->nemax + 5 ) * sizeof(int), "adjacency table",
-                   fprintf( stderr,"  Exit program.\n" );
-                   exit( EXIT_FAILURE ) );
-    _MMG5_SAFE_CALLOC( meshCur->adja, 4 * meshCur->nemax + 5, int );
+    PMMG_CALLOC( parmesh, meshCur->xpoint, meshCur->xpmax + 1, MMG5_xPoint, "boundary points " );
+    PMMG_CALLOC( parmesh, meshCur->adja, 4 * meshCur->nemax + 5, int, "adjacency table " );
 
-    _MMG5_SAFE_CALLOC( grpCur->node2int_node_comm_index1, meshCur->ne / 3, int );
-    _MMG5_SAFE_CALLOC( grpCur->node2int_node_comm_index2, meshCur->ne / 3, int );
+    PMMG_CALLOC( parmesh, grpCur->node2int_node_comm_index1, meshCur->ne / 3, int, "subgroup internal1 communicator " );
+    PMMG_CALLOC( parmesh, grpCur->node2int_node_comm_index2, meshCur->ne / 3, int, "subgroup internal2 communicator " );
   }
 
 
@@ -386,6 +379,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   _MMG5_SAFE_FREE( xadj );
   _MMG5_SAFE_FREE( adjncy );
   _MMG5_SAFE_FREE( part );
-  _MMG5_SAFE_FREE( countPerGrp );
+  PMMG_FREE( parmesh, countPerGrp, ngrp * sizeof(int), "counter buffer " );
   return( 1 );
 }

@@ -9,19 +9,6 @@
 
 #include "parmmg.h"
 
-void PMMG_Init_parameters( PMMG_pParMesh parmesh )
-{
-  parmesh->memMax = _MMG5_memSize();
-  /* If total physical memory is known, use 50% of it.
-   * Otherwise try to use a default value of 800 Mo */
-  if ( parmesh->memMax ) {
-    parmesh->memMax = parmesh->memMax*50/100;
-  } else {
-    printf("  Maximum memory arbitrarily set to default value: %d Mo.\n",_MMG5_MEMMAX);
-    parmesh->memMax = _MMG5_MEMMAX << 20;
-  }
-}
-
 // return:
 //   0 on error: Incorrect arguments passed
 //   1 on success
@@ -39,7 +26,7 @@ int PMMG_Init_parMesh_var( va_list argptr )
       parmesh = va_arg( argptr, PMMG_pParMesh* );
       ++parmeshCount;
       break;
-//NIKOS TODO: if this option is available we have to also handle communicators creation/initialization
+//NIKOS TODO: for this option to be enabled, we will have to (somehow) handle communicators creation/initialization here
 //    case(PMMG_ARG_ngroups):
 //      ngrps = va_arg(argptr,int);
 //      break;
@@ -61,12 +48,12 @@ int PMMG_Init_parMesh_var( va_list argptr )
   }
 
   /* ParMesh allocation */
-  if ( *parmesh )
-    _MMG5_SAFE_FREE( *parmesh );
-  _MMG5_SAFE_CALLOC( *parmesh, 1, PMMG_ParMesh );
+  //if ( *parmesh )  _MMG5_SAFE_FREE(*parmesh);
+  assert ( (*parmesh == NULL) && "parmesh given is already initialized. This case is not handled yet: deep free" );
+  *parmesh = calloc ( 1, sizeof(PMMG_ParMesh) );
   PMMG_Init_parameters( *parmesh );
+  (*parmesh)->memCur = sizeof(PMMG_ParMesh);
 
-  _MMG5_ADD_MEM( parmesh, sizeof( PMMG_ParMesh ), "This will never be printed...", return( 0 ) );
 #warning remove when the program will run
   (*parmesh)->ddebug = 1;
 
@@ -77,7 +64,7 @@ int PMMG_Init_parMesh_var( va_list argptr )
 
   /** Init Group */
   (*parmesh)->ngrp = 1;
-  PMMG_CALLOC ( (*parmesh)->listgrp, (*parmesh)->ngrp, PMMG_Grp, parmesh, return( 0 ) );
+  PMMG_CALLOC ( *parmesh, (*parmesh)->listgrp, (*parmesh)->ngrp, PMMG_Grp, "allocating groups container" );
 
   grp = &(*parmesh)->listgrp[0];
   grp->mesh = NULL;

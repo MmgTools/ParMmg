@@ -22,27 +22,28 @@ int PMMG_Init_parMesh( const int starter,... ) {
   return ier;
 }
 
-void PMMG_Init_parameters(PMMG_pParMesh parmesh) {
-  MMG5_pMesh mesh;
-  long long  million = 1048576L;
-  int        k;
+void PMMG_Init_parameters( PMMG_pParMesh parmesh )
+{
+  const int million = 1024 * 1024;
+  int k;
 
+#warning Initialize all fields...
   parmesh->memMax = _MMG5_memSize();
-  if ( mesh->memMax )
-    /* maximal memory = 50% of total physical memory */
-    parmesh->memMax = parmesh->memMax*50/100;
-  else {
-    /* default value = 800 Mo */
-    printf("  Maximum memory set to default value: %d Mo.\n",_MMG5_MEMMAX);
+  /* If total physical memory is known, use 50% of it.
+   * Otherwise try to use a default value of 800 Mo */
+  if ( parmesh->memMax ) {
+    parmesh->memMax = parmesh->memMax * 50 / 100;
+  } else {
+    printf("Maximum memory set to default value: %d Mo.\n", _MMG5_MEMMAX );
     parmesh->memMax = _MMG5_MEMMAX << 20;
   }
 
 #warning add a memory reservation for the parmesh structures (other than mesh)
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
-    MMG3D_Init_parameters(mesh);
+#warning NIKOS: i do not know what the previous warning means.
+  for ( k = 0; k < parmesh->ngrp; ++k ) {
+    MMG3D_Init_parameters( parmesh->listgrp[k].mesh );
     /* Set a suitable value for the maximal memory usable by each mesh */
-    PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mem,(int)(parmesh->memMax/million));
+    PMMG_Set_iparameter( parmesh, PMMG_IPARAM_mem, parmesh->memMax/million );
   }
 }
 

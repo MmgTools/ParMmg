@@ -1,5 +1,5 @@
+#include "parmmg.h"
 #include "chkmesh_pmmg.h"
-#include "mmgcommon.h" // _MMG5_SAFE_CALLOC
 
 //! Check Internal Communicator for each group. 
 //    3 checks are implemented, see inside the function for specifics
@@ -30,7 +30,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
   // Will detect mismatches between groups but will NOT detect:
   //   errors in elements not shared between the subgroups
   //   if the same error happens in both groups, ie if the values match but are both wrong
-  _MMG5_SAFE_CALLOC( check, commSizeGlo + 1, struct point );
+  PMMG_CALLOC( mesh, check, commSizeGlo + 1, struct point, "Allocating check space: " );
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
 
@@ -120,6 +120,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
 
   // NIKOS TODO: CHECK THE idx1/idx2 pairs ?
 
+  PMMG_FREE( mesh, check, (commSizeGlo + 1) * sizeof(struct point), "Deallocating check space:" );
   return testFailed;
 }
 
