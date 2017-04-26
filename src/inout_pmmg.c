@@ -12,29 +12,24 @@
 
 /**
  * \param parmesh pointer to working ParMesh structure.
- * \param filename name of mesh file to read from.
  * \return 0 file not found
  *        -1 parameters mismatch detected
  *         1 success
- *         2 future error
  *
  * Read mesh data from file in to the parmesh structure.
  *
  */
-int PMMG_loadMesh( PMMG_pParMesh parmesh, const char *filename )
+int PMMG_loadMesh( PMMG_pParMesh parmesh )
 {
+  assert ( parmesh && "please provide a non empty parmesh" );
+  assert ( ( parmesh->listgrp ) && ( parmesh->ngrp != 0 ) && "please provide a none empty mesh" );
   PMMG_pGrp grp = &parmesh->listgrp[0];
 
-  if ( parmesh->ngrp != 1 ) {
-    printf("  ## ERROR: PMMG_loadMesh function can only be called with"
-           " 1 group per processor.\n Exiting Program.\n");
-    return ( -1 );
-  }
+  if ( parmesh->ngrp != 1 )
+    printf("  ## WARNING: PMMG_loadMesh will only load the file specified in "
+           "the FIRST mesh of the processor's group of meshes.\n");
 
- if ( MMG3D_Set_inputMeshName( grp->mesh, filename ) != 1 )
-   return ( 2 );
-
-  return ( MMG3D_loadMesh( grp->mesh, filename ) );
+  return ( MMG3D_loadMesh( grp->mesh, grp->mesh->namein ) );
 }
 
 /**
@@ -43,25 +38,21 @@ int PMMG_loadMesh( PMMG_pParMesh parmesh, const char *filename )
  * \return  0 file not found
  *         -1 parameters mismatch detected
  *          1 success
- *          2 future error
  *
  * Read Sol data from file in to the parmesh structure.
  *
  */
-int PMMG_loadSol( PMMG_pParMesh parmesh, const char *filename )
+int PMMG_loadSol( PMMG_pParMesh parmesh )
 {
+  assert ( parmesh && "please provide a non empty parmesh" );
+  assert ( ( parmesh->listgrp ) && ( parmesh->ngrp != 0 ) && "please provide a none empty mesh" );
   PMMG_pGrp grp = &parmesh->listgrp[0];
 
-  if ( parmesh->ngrp != 1 ) {
-    printf("  ## ERROR: PMMG_loadSol function can only be called with"
-           " 1 group per processor.\n Exiting Program.\n");
-    return ( -1 );
-  }
+  if ( parmesh->ngrp != 1 )
+    printf("  ## WARNING: PMMG_loadSol will only load the file specified in "
+           "the FIRST mesh of the processor's group of meshes.\n");
 
-  if ( MMG3D_Set_inputSolName( grp->mesh, grp->met, filename ) != 1 )
-   return ( 2 );
-
-  return ( MMG3D_loadSol( grp->mesh, grp->met, filename ) );
+  return ( MMG3D_loadSol( grp->mesh, grp->met, grp->met->namein ) );
 }
 
 /**

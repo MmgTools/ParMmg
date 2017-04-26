@@ -63,9 +63,9 @@ enum PMMG_Param {
 int PMMG_Init_parMesh( const int starter, ... );
 
 /* inout_3d.c */
-int PMMG_loadMesh( PMMG_pParMesh, const char * );
+int PMMG_loadMesh( PMMG_pParMesh );
 int PMMG_saveMesh( PMMG_pParMesh, const char * );
-int PMMG_loadSol( PMMG_pParMesh, const char * );
+int PMMG_loadSol( PMMG_pParMesh );
 int PMMG_saveSol( PMMG_pParMesh, const char * );
 
 /* libparmmg.c */

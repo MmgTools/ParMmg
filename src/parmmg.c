@@ -103,9 +103,9 @@ int main( int argc, char *argv[] )
       PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
 
     /** Read sequential mesh */
-    if ( PMMG_loadMesh( parmesh, mesh->namein ) != 1 )
+    if ( PMMG_loadMesh( parmesh ) != 1 )
       PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
-    if ( PMMG_loadSol( parmesh, met->namein ) == -1 )
+    if ( PMMG_loadSol( parmesh ) == -1 )
       PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
   } else {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,0) )
