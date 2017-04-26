@@ -147,7 +147,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
     meshCur = grpCur->mesh;
     meshCur->xtmax = meshOld->xtmax;
-    PMMG_CALLOC( parmesh, meshCur, meshCur->xtmax + 1, MMG5_xTetra, "boundary tetrahedra " );
+    PMMG_CALLOC( parmesh, meshCur->xtetra, meshCur->xtmax + 1, MMG5_xTetra, "boundary tetrahedra " );
 
     /* memory to store normals for boundary points */
 #warning Overallocating memory, we can do better
@@ -157,6 +157,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
     PMMG_CALLOC( parmesh, grpCur->node2int_node_comm_index1, meshCur->ne / 3, int, "subgroup internal1 communicator " );
     PMMG_CALLOC( parmesh, grpCur->node2int_node_comm_index2, meshCur->ne / 3, int, "subgroup internal2 communicator " );
+  printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
+          parmesh->myrank + 1, parmesh->nprocs,
+          meshCur, meshCur->xtmax, meshCur->xtetra,
+          meshCur->xpmax, meshCur->xpoint,
+          meshCur->nemax, meshCur->adja,
+          meshCur->ne, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
 
 
