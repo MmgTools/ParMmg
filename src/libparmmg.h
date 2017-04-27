@@ -116,7 +116,7 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
 /* metisfunctions.c */
 int PMMG_metispartitioning( PMMG_pParMesh, idx_t * );
 int PMMG_mesh2metis( PMMG_pParMesh parmesh, idx_t **xadj, idx_t **adjncy );
-  
+
 /* distributemesh */
 int PMMG_distributeMesh(PMMG_pParMesh);
 

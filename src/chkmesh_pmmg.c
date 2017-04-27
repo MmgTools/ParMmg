@@ -1,7 +1,7 @@
 #include "parmmg.h"
 #include "chkmesh_pmmg.h"
 
-//! Check Internal Communicator for each group. 
+//! Check Internal Communicator for each group.
 //    3 checks are implemented, see inside the function for specifics
 int PMMG_checkIntComm( PMMG_pParMesh mesh )
 {
@@ -114,7 +114,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
 //THINK AGAIN ABOUT IT AND FINISH IT  // Skip non zero elements
 //THINK AGAIN ABOUT IT AND FINISH IT  while ( check[ ++commIdx ].tmp != 0 )
 //THINK AGAIN ABOUT IT AND FINISH IT    ;
-//THINK AGAIN ABOUT IT AND FINISH IT  if ( commIdx != mesh->int_node_comm->nitem ) 
+//THINK AGAIN ABOUT IT AND FINISH IT  if ( commIdx != mesh->int_node_comm->nitem )
 //THINK AGAIN ABOUT IT AND FINISH IT    testFailed = 1;
 //THINK AGAIN ABOUT IT AND FINISH IT  printf( "+++++NIKOS[%d/%d]:: commIdx= %d, nitem= %d \n", ngrp, grpId+1, commIdx, mesh->int_node_comm->nitem );
 

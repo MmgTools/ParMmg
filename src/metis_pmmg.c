@@ -26,19 +26,19 @@ int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy) {
   MMG5_pMesh mesh;
   int        *adja;
   int        j,k,iadr,jel,count,totCount,nbAdj;
-  
+
   grp = parmesh->listgrp;
   mesh = grp[0].mesh;
-  
+
   /* create tetra adjacency */
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"  ## PMMG Hashing problem (1). Exit program.\n");
     return(0);
   }
-  
+
   /*mesh -> graph*/
   _MMG5_SAFE_CALLOC(*xadj,mesh->ne + 1,idx_t);
-  
+
   /*count neighboors*/
   (*xadj)[0]  = 0;
   totCount = 0;
@@ -53,26 +53,26 @@ int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy) {
     totCount += nbAdj;
     (*xadj)[k] = totCount;
   }
-  
-  
+
+
   _MMG5_SAFE_CALLOC(*adjncy,totCount + 1,idx_t);
-  
+
   count = 0;
   for(k=1 ; k<=mesh->ne ; k++) {
     iadr = 4*(k-1) + 1;
     adja = &mesh->adja[iadr];
     for(j=0 ; j<4 ; j++) {
       jel = adja[j]/4;
-      
+
       if ( !jel ) continue;
-      
+
       (*adjncy)[count++] = jel-1;
     }
-    
+
     if(count!=(*xadj)[k]) printf("count %d %d %d\n",k,count,(*xadj)[k]);
     assert(count==((*xadj)[k]));
   }
-  
+
   return(1);
 }
 /**
@@ -95,7 +95,7 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
     mesh = grp[0].mesh;
 
     PMMG_mesh2metis(parmesh,&xadj,&adjncy);
- 
+
     /*call metis*/
     ncon       = 1;/*number of balancing constraint*/
     nelt       = mesh->ne;

@@ -11,19 +11,19 @@ static void defaultValues( const PMMG_pParMesh parmesh )
   exit( EXIT_SUCCESS );
 }
 
-int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh ) 
+int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
 
   int mmgAlloced = argc;
   int mmgArgc = 0;
   char** mmgArgv = NULL;
-  
+
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
       defaultValues( parmesh );
 
-//NIKOS DOING: 
+//NIKOS DOING:
 //     handle the -h option by printing the pmmg specifics and then the mmg -h option
 //     handle parmmg specific options and do not add them in the mmgargc/argv list
 //     handle common parmmg/mmg options and add them to the mmgArgc/argv list
