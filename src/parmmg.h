@@ -71,7 +71,9 @@ extern "C" {
    if ( ptr == NULL ) {                             \
      PMMG_ERRORMSG(message, " Malloc failed: ");    \
      return ( 0 );                                  \
-   } } } while( 0 )
+   } else {                                         \
+    (parmesh)->memCur += (bytes);                   \
+ } } } while( 0 )
 
 #define PMMG_CALLOC(parmesh,ptr,size,type,message) do {         \
   int stat = 1;                                                 \
@@ -81,6 +83,8 @@ extern "C" {
    if ( ptr == NULL ) {                                         \
      PMMG_ERRORMSG(message, " calloc failed: ");                \
      return ( 0 );                                              \
+   } else {                                                     \
+    (parmesh)->memCur += (size) * sizeof(type);                 \
    } } } while( 0 )
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,message) do { \
