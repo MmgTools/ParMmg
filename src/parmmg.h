@@ -29,7 +29,7 @@ extern "C" {
 
 
 /** Free allocated pointers of parmesh, call MPI_Finalize and return value val */
-#define PMMG_FREE_AND_RETURN( parmesh, val ) do { int k;       \
+#define PMMG_RETURN_AND_FREE( parmesh, val ) do { int k;       \
   for ( k = 0; k < parmesh->ngrp; ++k ) {                      \
     grp  = &parmesh->listgrp[k];                               \
     mesh = grp->mesh;                                          \

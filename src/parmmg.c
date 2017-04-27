@@ -90,53 +90,53 @@ int main( int argc, char *argv[] )
   if ( !PMMG_Init_parMesh( PMMG_ARG_start,
                            PMMG_ARG_ppParMesh, &parmesh,
                            PMMG_ARG_end) )
-    PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
   if ( PMMG_parsar( argc, argv, parmesh ) )
-    PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank ) {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
     /** Read sequential mesh */
     if ( PMMG_loadMesh( parmesh ) != 1 )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     if ( PMMG_loadSol( parmesh ) == -1 )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
   } else {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,0) )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
   }
 
   /** Check input data */
   if ( !PMMG_check_inputData(parmesh) )
-    PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 1 : MESH DISTRIBUTION\n");
 
   /** Send mesh to other procs */
   if ( !PMMG_bcastMesh(parmesh) )
-    PMMG_FREE_AND_RETURN( parmesh,PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
   ier = PMMG_preprocessMesh(parmesh) ;
   if ( ier <= 0 ) {
     if ( ( ier == -1 ) || !(_MMG5_unscaleMesh( mesh, met )) )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     return PMMG_LOWFAILURE;
   }
 
   /** Send mesh partionning to other procs */
   if ( !PMMG_distributeMesh(parmesh) ) {
     if ( !_MMG5_unscaleMesh(mesh,met) )
-      PMMG_FREE_AND_RETURN( parmesh,PMMG_STRONGFAILURE );
-    PMMG_FREE_AND_RETURN( parmesh,PMMG_LOWFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh,PMMG_LOWFAILURE );
   }
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 1 COMPLETED.\n");
@@ -153,14 +153,14 @@ int main( int argc, char *argv[] )
   if ( ier!= PMMG_STRONGFAILURE ) {
     /** Unscaling */
     if ( !_MMG5_unscaleMesh(mesh,met) )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
     /** Merge all the meshes on the proc 0 */
     if ( !parmesh->myrank && mesh->info.imprim )
       fprintf(stdout,"\n   -- PHASE 4 : MERGE MESH\n");
 
     if ( !PMMG_mergeParMesh(parmesh,0) )
-      PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     if ( !parmesh->myrank && mesh->info.imprim )
       fprintf(stdout,"   -- PHASE 4 COMPLETED.\n");
 
@@ -169,21 +169,21 @@ int main( int argc, char *argv[] )
         fprintf(stdout,"\n   -- PHASE 5 : MESH PACKED UP\n");
 
       if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
-            PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+            PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
       if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh) < 0 )
-        PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+        PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
       if (  mesh->info.imprim )
         fprintf(stdout,"   -- PHASE 5 COMPLETED.\n");
 
       /* Write mesh */
       if ( !PMMG_saveMesh( parmesh, mesh->nameout ) )
-            PMMG_FREE_AND_RETURN( parmesh, PMMG_STRONGFAILURE );
+            PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
       if ( !PMMG_saveSol ( parmesh, met->nameout ) )
-        PMMG_FREE_AND_RETURN( parmesh, PMMG_LOWFAILURE );
+        PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
     }
   }
 
-  PMMG_FREE_AND_RETURN( parmesh, ier );
+  PMMG_RETURN_AND_FREE( parmesh, ier );
 }
