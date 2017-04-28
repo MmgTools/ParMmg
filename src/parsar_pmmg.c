@@ -88,17 +88,20 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       break;
 
       default:
-        APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc," adding to mmgArgv for mmg: ");
+        APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
+                    " adding to mmgArgv for mmg: ");
       break;
       }
     } else {
-      APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc," adding to mmgArgv for mmg: ");
+      APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
+                  " adding to mmgArgv for mmg: ");
     }
     ++i;
   }
 
   // parmmg finished parsing arguments, the rest will e handled by mmg3d
-  MMG3D_parsar( mmgArgc, mmgArgv, parmesh->listgrp[0].mesh, parmesh->listgrp[0].met );
+  MMG3D_parsar( mmgArgc, mmgArgv, parmesh->listgrp[0].mesh,
+                parmesh->listgrp[0].met );
 
   // Free allocations and return
   for ( i = 0; i < mmgArgc; ++i )

@@ -57,16 +57,17 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   case PMMG_IPARAM_verbose :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_verbose,val) ) return 0;
+      if ( !MMG3D_Set_iparameter( mesh, NULL, MMG3D_IPARAM_verbose, val ) )
+        return 0;
     }
     break;
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
-      fprintf(stdout,"  ## Warning: maximal memory authorized must be strictly positive.\n");
+      fprintf( stdout,
+        "  ## Warning: maximal memory authorized must be strictly positive.\n");
       fprintf(stdout,"  Reset to default value.\n");
-    }
-    else
-      parmesh->mem      = val;
+    } else
+      parmesh->mem = val;
 
     mem = (int)(val/parmesh->ngrp);
 

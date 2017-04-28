@@ -116,7 +116,7 @@ extern "C" {
  } } } while( 0 )
 
 #define PMMG_RECALLOC(parmesh,ptr,newsize,oldsize,type,message) do {      \
-  PMMG_REALLOC(pamesh,ptr,newsize,oldsize,type,"via RECALLOC: " message); \
+  PMMG_REALLOC(parmesh,ptr,newsize,oldsize,type,"via RECALLOC: " message); \
   if ( newsize > oldsize )                                                \
     memset( ptr + oldsize, 0, ( (newsize) - (oldsize) ) * sizeof(type) ); \
   } while( 0 )

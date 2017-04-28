@@ -178,10 +178,10 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
     }
   }
 
-  if ( !PMMG_create_MPI_lightPoint (mesh->point,  &mpi_light_point ) ) return(0);
-  if ( !PMMG_create_MPI_lightTetra (mesh->tetra,  &mpi_light_tetra ) ) return(0);
-  if ( mesh->nt && !PMMG_create_MPI_Tria(mesh->tria,   &mpi_tria   ) ) return(0);
-  if ( mesh->na && !PMMG_create_MPI_Edge(mesh->edge,   &mpi_edge   ) ) return(0);
+  if ( !PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point ) ) return(0);
+  if ( !PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra ) ) return(0);
+  if ( mesh->nt && !PMMG_create_MPI_Tria( mesh->tria, &mpi_tria ) ) return(0);
+  if ( mesh->na && !PMMG_create_MPI_Edge( mesh->edge, &mpi_edge ) ) return(0);
 
   MPI_Bcast( mesh->point,  mesh->np+1,    mpi_light_point,  0, parmesh->comm);
   MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);

@@ -243,7 +243,8 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh) {
 
     /* Check options */
     if ( mesh->info.lag > -1 ) {
-      fprintf(stderr,"  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
+      fprintf(stderr,
+              "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return 0;
     }
     else if ( mesh->info.iso ) {

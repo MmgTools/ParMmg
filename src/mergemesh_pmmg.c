@@ -392,9 +392,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   nitem_int_node_comm_tot = intval_displs[nprocs-1]
     + rcv_nitem_int_node_comm[nprocs-1];
 
-  rcv_intvalues                 = (int*)malloc(nitem_int_node_comm_tot*sizeof(int));
-  rcv_node2int_node_comm_index1 = (int*)malloc(nitem_int_node_comm_tot*sizeof(int));
-  rcv_node2int_node_comm_index2 = (int*)malloc(nitem_int_node_comm_tot*sizeof(int));
+  rcv_intvalues                 = malloc(nitem_int_node_comm_tot*sizeof(int));
+  rcv_node2int_node_comm_index1 = malloc(nitem_int_node_comm_tot*sizeof(int));
+  rcv_node2int_node_comm_index2 = malloc(nitem_int_node_comm_tot*sizeof(int));
 
   MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
                rcv_intvalues,rcv_nitem_int_node_comm,intval_displs,MPI_INT,
@@ -466,7 +466,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
     for ( i=0; i<rcv_next_node_comm[k]; ++i ) {
       nitems_ext_idx[k] += rcv_nitem_ext_tab[idx++];
     }
-    int_comm_index_displs[k] =  int_comm_index_displs[k-1] + nitems_ext_idx[k-1];
+    int_comm_index_displs[k] = int_comm_index_displs[k-1] + nitems_ext_idx[k-1];
   }
 
   rcv_int_comm_index = (int*)malloc((int_comm_index_displs[nprocs-1]+
@@ -658,7 +658,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
         ppt->tmp = 0;
 
         if(isMet)
-          memcpy(&met->m[idx*met->size],&met_1[i*met->size],met->size*sizeof(double));
+          memcpy( &met->m[idx*met->size],
+                  &met_1[i*met->size],
+                  met->size*sizeof(double) );
 
         if ( point_1[i].xp ) ++np;
       }

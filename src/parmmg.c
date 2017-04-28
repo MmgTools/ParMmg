@@ -143,7 +143,9 @@ int main( int argc, char *argv[] )
 
   /** Remeshing */
   if ( !parmesh->myrank && mesh->info.imprim )
-    fprintf(stdout,"\n  -- PHASE 3 : %s MESHING\n",met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
+    fprintf( stdout,
+             "\n  -- PHASE 3 : %s MESHING\n",
+             met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
 
   ier = PMMG_parmmglib1(parmesh);
 

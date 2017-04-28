@@ -22,7 +22,8 @@
  * \warning to fill when we need to communicate additional things
  */
 
-int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point) {
+int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
+{
   int          i,blck_lengths[4] = {3, 3, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -135,7 +136,8 @@ int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint) {
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra) {
+int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
+{
   int          i,blck_lengths[3] = {4, 1, 1};
   MPI_Aint     displs[3],lb,ub;
   MPI_Datatype mpi_noextent;

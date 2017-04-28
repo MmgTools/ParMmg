@@ -101,9 +101,10 @@ int PMMG_metispartitioning(PMMG_pParMesh parmesh,idx_t *part) {
     nelt       = mesh->ne;
     nproc      = parmesh->nprocs;
 
-    ier =  METIS_PartGraphKway(&nelt,&ncon,xadj,adjncy,NULL/*vwgt*/,NULL/*vsize*/,
-                               NULL/*adjwgt*/,&nproc,NULL/*tpwgts*/,
-                               NULL/*ubvec*/,NULL/*options*/,&objval,part);
+    ier = METIS_PartGraphKway( &nelt, &ncon, xadj, adjncy, NULL/*vwgt*/,
+                               NULL/*vsize*/, NULL/*adjwgt*/, &nproc,
+                               NULL/*tpwgts*/, NULL/*ubvec*/, NULL/*options*/,
+                               &objval, part );
     /* ier =  METIS_PartGraphRecursive(&nelt,&ncon,xadj,adjncy,NULL/\*vwgt*\/,NULL/\*vsize*\/, */
     /*                         NULL/\*adjwgt*\/,&nproc,NULL/\*tpwgts*\/, */
     /*                         NULL/\*ubvec*\/,NULL/\*options*\/,&objval,part); */

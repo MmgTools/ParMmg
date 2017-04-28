@@ -22,7 +22,8 @@
 int PMMG_loadMesh( PMMG_pParMesh parmesh )
 {
   assert ( parmesh && "please provide a non empty parmesh" );
-  assert ( ( parmesh->listgrp ) && ( parmesh->ngrp != 0 ) && "please provide a none empty mesh" );
+  assert (   ( parmesh->listgrp ) && ( parmesh->ngrp != 0 )
+          && "please provide a none empty mesh" );
   PMMG_pGrp grp = &parmesh->listgrp[0];
 
   if ( parmesh->ngrp != 1 )
@@ -45,7 +46,8 @@ int PMMG_loadMesh( PMMG_pParMesh parmesh )
 int PMMG_loadSol( PMMG_pParMesh parmesh )
 {
   assert ( parmesh && "please provide a non empty parmesh" );
-  assert ( ( parmesh->listgrp ) && ( parmesh->ngrp != 0 ) && "please provide a none empty mesh" );
+  assert (   ( parmesh->listgrp ) && ( parmesh->ngrp != 0 )
+          && "please provide a none empty mesh" );
   PMMG_pGrp grp = &parmesh->listgrp[0];
 
   if ( parmesh->ngrp != 1 )

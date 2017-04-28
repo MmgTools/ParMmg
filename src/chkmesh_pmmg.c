@@ -1,8 +1,32 @@
 #include "parmmg.h"
 #include "chkmesh_pmmg.h"
 
-//! Check Internal Communicator for each group.
-//    3 checks are implemented, see inside the function for specifics
+/**
+ * \param mesh pointer to current parmesh stucture
+ *
+ * \return 0 if tests succeeded
+ *         1 if some test failed
+ *
+ *  This function does some checks on the internal communicator for each group
+ *
+ *    First test:
+ *        allocate an array of int_node_comm->item_int_node struct point
+ *            (ie three c[3]) elements (initialized to 0)
+ *        for each grp communicator
+ *            if array[indx2] is empty
+ *                initialize to current group's point's coordinates
+ *            else
+ *                check that the existing point's coordinates match the current
+ *                group's point's coordinates
+ *      This test will detect mismatches between groups but will NOT detect:
+ *          errors in elements that are not shared between the subgroups, ie
+ *            elements interfacing groups on other processors
+ *          if the same error happens in both groups, ie if the values in
+ *            both groups match still they are are both wrong
+ *
+ *    Second test:
+ *        elements should appear once and only once per mesh local communicator
+ */
 int PMMG_checkIntComm( PMMG_pParMesh mesh )
 {
   //NIKOS TODO: could try using std::vector<bool> and std::map in these tests to speed up things
@@ -23,14 +47,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
   int commIdx, grpId;
 
   // FIRST TEST:
-  //   allocate an array of int_node_comm->item_int_node struct point (ie three c[3]) elements (initialized to 0)
-  //   for each grp communicator
-  //     if array[indx2] is empty => initialize to current group's point's coordinates
-  //     else check that the existing point's coordinates match the  current group's point's coordinates
-  // Will detect mismatches between groups but will NOT detect:
-  //   errors in elements not shared between the subgroups
-  //   if the same error happens in both groups, ie if the values match but are both wrong
-  PMMG_CALLOC( mesh, check, commSizeGlo + 1, struct point, "Allocating check space: " );
+  PMMG_CALLOC(mesh,check,commSizeGlo+1,struct point,"Allocating check space: ");
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
 
@@ -72,9 +89,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
   }
 
 
-
   // SECOND TEST:
-  //   elements should appear once and only once per mesh local communicator
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = mesh->listgrp + grpId;
     meshCur = grpCur->mesh;
@@ -120,7 +135,8 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
 
   // NIKOS TODO: CHECK THE idx1/idx2 pairs ?
 
-  PMMG_FREE( mesh, check, (commSizeGlo + 1) * sizeof(struct point), "Deallocating check space:" );
+  PMMG_FREE(mesh,check,(commSizeGlo+1)*sizeof(struct point),
+    "Deallocating check space:");
   return testFailed;
 }
 

@@ -34,22 +34,28 @@ int PMMG_Init_parMesh_var( va_list argptr )
       comm = va_arg( argptr, MPI_Comm );
       break;
     default:
-      fprintf(stderr, "  ## Error: PMMG_Init_parMesh:\n unexpected argument type: %d\n", typArg );
-      fprintf(stderr, " Argument type must be one of the PMMG_ARG* preprocessor variable:"
-                      " PMMG_ARG_ppParMesh, PMMG5_ARG_comm\n" );
+      fprintf( stderr,
+               "  ## Error: PMMG_Init_parMesh:\n unexpected argument type: %d\n",
+               typArg );
+      fprintf( stderr,
+               " Argument type must be one of the PMMG_ARG* preprocessor variable:"
+               " PMMG_ARG_ppParMesh, PMMG5_ARG_comm\n" );
       return ( 0 );
     }
   }
 
   if ( parmeshCount != 1 ) {
-    fprintf( stderr, "  ## Error: PMMG_Init_parMesh:\n you have to provide exactly one"
-                     " parmesh structure to be initialized and hold the mesh.\n" );
+    fprintf( stderr,
+             "  ## Error: PMMG_Init_parMesh:\n you have to provide exactly one"
+             " parmesh structure to be initialized and hold the mesh.\n" );
     return ( 0 );
   }
 
   /* ParMesh allocation */
   //if ( *parmesh )  _MMG5_SAFE_FREE(*parmesh);
-  assert ( (*parmesh == NULL) && "parmesh given is already initialized. This case is not handled yet: deep free" );
+  assert (   (*parmesh == NULL)
+          && "parmesh given is already initialized."
+             " This case is not handled yet: deep free" );
   *parmesh = calloc ( 1, sizeof(PMMG_ParMesh) );
   PMMG_Init_parameters( *parmesh );
   (*parmesh)->memCur = sizeof(PMMG_ParMesh);
@@ -64,7 +70,8 @@ int PMMG_Init_parMesh_var( va_list argptr )
 
   /** Init Group */
   (*parmesh)->ngrp = 1;
-  PMMG_CALLOC ( *parmesh, (*parmesh)->listgrp, (*parmesh)->ngrp, PMMG_Grp, "allocating groups container" );
+  PMMG_CALLOC(*parmesh,(*parmesh)->listgrp,(*parmesh)->ngrp, PMMG_Grp,
+              "allocating groups container");
 
   grp = &(*parmesh)->listgrp[0];
   grp->mesh = NULL;
