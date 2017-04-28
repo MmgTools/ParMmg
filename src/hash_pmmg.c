@@ -32,7 +32,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh ) {
 
   na = (int)(mesh->np*0.2); // Euler-Poincare
 
-  if ( !_MMG5_hNew(mesh,&hash,na,3*na,0) ) return 0;
+  if ( !_MMG5_hNew(mesh,&hash,na,3*na) ) return 0;
 
   /** Store parallel edges */
   for (k=1; k<=mesh->ne; ++k) {

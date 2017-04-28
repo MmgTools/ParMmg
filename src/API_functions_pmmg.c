@@ -43,6 +43,8 @@ void PMMG_Init_parameters( PMMG_pParMesh parmesh )
   for ( k = 0; k < parmesh->ngrp; ++k ) {
     MMG3D_Init_parameters( parmesh->listgrp[k].mesh );
     /* Set a suitable value for the maximal memory usable by each mesh */
+
+#warning add call to _MMG5_safeLL2ICast(parmesh->memMax/million) when it will be puhed in Mmg
     PMMG_Set_iparameter( parmesh, PMMG_IPARAM_mem, parmesh->memMax/million );
   }
 }
