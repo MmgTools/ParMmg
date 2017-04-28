@@ -151,30 +151,30 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
     _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
                   fprintf(stderr,"  Exit program.\n");
                   return(0));
-    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point);
+    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
 
     _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
                 fprintf(stderr,"  Exit program.\n");
                 return(0));
-    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra);
+    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
 
     if ( mesh->nt ) {
       _MMG5_ADD_MEM(mesh,(mesh->nt+1)*sizeof(MMG5_Tria),"initial triangles",
                     return(0));
-      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria);
+      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria,0);
     }
 
     if ( mesh->na ) {
       _MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"initial edges",
                     return(0));
-      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge);
+      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge,0);
     }
 
     if ( met->npmax ) {
       _MMG5_ADD_MEM(mesh,(met->size*(met->npmax+1))*sizeof(double),"initial metric",
                     fprintf(stderr,"  Exit program.\n");
                     return(0));
-      _MMG5_SAFE_CALLOC(met->m,(met->size*(met->npmax+1)),double);
+      _MMG5_SAFE_CALLOC(met->m,(met->size*(met->npmax+1)),double,0);
     }
   }
 
@@ -232,17 +232,17 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
 
   /** Call metis for partionning*/
-  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t);
+  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t,0);
 
   if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) ) return 0;
 
   /** Remove the part of the mesh that are not on the proc rank */
-  _MMG5_SAFE_CALLOC(seenRanks,nprocs,int);
-  _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t);
+  _MMG5_SAFE_CALLOC(seenRanks,nprocs,int,0);
+  _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t,0);
 
-  _MMG5_SAFE_CALLOC(pointPerm,mesh->np+1,int);
-  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xtmax+1,int);
-  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp+1,int);
+  _MMG5_SAFE_CALLOC(pointPerm,mesh->np+1,int,0);
+  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xtmax+1,int,0);
+  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp+1,int,0);
 
   nxp = 0;
   nxt = 0;
@@ -278,13 +278,13 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
           if ( mesh->xt > mesh->xtmax ) {
             /* realloc of xtetras table */
             _MMG5_SAFE_RECALLOC(xTetraPerm,mesh->xtmax,(int)(0.2*mesh->xtmax)+1,
-                                int,"larger tetra permutation table");
+                                int,"larger tetra permutation table",0);
 
             _MMG5_TAB_RECALLOC(mesh,mesh->xtetra,mesh->xtmax,0.2,MMG5_xTetra,
                                "larger xtetra table",
                                mesh->xt--;
                                fprintf(stderr,"  Exit program.\n");
-                               return(0));
+                               return(0),0);
 
           }
           pt->xt = mesh->xt;
@@ -349,7 +349,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   }
 
   parmesh->next_node_comm = next_node_comm;
-  _MMG5_SAFE_CALLOC(parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm);
+  _MMG5_SAFE_CALLOC(parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,0);
 
   next_node_comm = 0;
   for ( k=0; k<nprocs; ++k ) {
@@ -358,7 +358,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
       pext_comm->color_in  = rank;
       pext_comm->color_out = k;
       pext_comm->nitem     = seenRanks[k];
-      _MMG5_SAFE_CALLOC(pext_comm->int_comm_index,pext_comm->nitem,int);
+      _MMG5_SAFE_CALLOC(pext_comm->int_comm_index,pext_comm->nitem,int,0);
       /* Use seenRanks to store the idx of the external communicator me->k */
       seenRanks[k] = next_node_comm++;
     }
@@ -379,8 +379,8 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   }
 
   grp->nitem_int_node_comm = nitem_int_node_comm;
-  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index1,nitem_int_node_comm,int);
-  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index2,nitem_int_node_comm,int);
+  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index1,nitem_int_node_comm,int,0);
+  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index2,nitem_int_node_comm,int,0);
 
   /** Travel through the mesh and fill the communicators */
   i = 0;
@@ -388,7 +388,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
 
   /* Idx is used to store the external communicator cursor */
-  _MMG5_SAFE_CALLOC(idx,parmesh->next_node_comm,int);
+  _MMG5_SAFE_CALLOC(idx,parmesh->next_node_comm,int,0);
 
   for ( k=1; k<=mesh->np; k++ ) {
     if ( !mesh->point[k].tmp )  continue;
@@ -412,7 +412,7 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
     /* Increment internal comm cursor */
     if ( inIntComm )  ++i;
   }
-  _MMG5_SAFE_CALLOC(parmesh->int_node_comm,1,PMMG_int_comm);
+  _MMG5_SAFE_CALLOC(parmesh->int_node_comm,1,PMMG_int_comm,0);
   /* We have 1 Grp per proc, thus : int_node_comm.nitem : nitem_int_node_comm */
   parmesh->int_node_comm->nitem = nitem_int_node_comm;
 

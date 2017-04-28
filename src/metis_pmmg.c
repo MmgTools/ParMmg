@@ -16,7 +16,7 @@
  * \param parmesh pointer toward the parmesh structure.
  * \param xadj idx_t pointer.
  * \param adjncy idx_t pointer.
- * \return 1,
+ * \return 1 if success, 0 if fail
  *
  * Allocate and fill the xadj and adjncy arrays using for metis calls
  *
@@ -37,7 +37,7 @@ int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy) {
   }
 
   /*mesh -> graph*/
-  _MMG5_SAFE_CALLOC(*xadj,mesh->ne + 1,idx_t);
+  _MMG5_SAFE_CALLOC(*xadj,mesh->ne + 1,idx_t,0);
 
   /*count neighboors*/
   (*xadj)[0]  = 0;
@@ -55,7 +55,7 @@ int PMMG_mesh2metis(PMMG_pParMesh parmesh,idx_t **xadj,idx_t **adjncy) {
   }
 
 
-  _MMG5_SAFE_CALLOC(*adjncy,totCount + 1,idx_t);
+  _MMG5_SAFE_CALLOC(*adjncy,totCount + 1,idx_t,0);
 
   count = 0;
   for(k=1 ; k<=mesh->ne ; k++) {

@@ -138,8 +138,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     grpCur->mesh = NULL;
     grpCur->met  = NULL;
     grpCur->disp = NULL;
-    //_MMG5_SAFE_CALLOC( ptr, size, type );
-    //_MMG5_SAFE_REALLOC( ptr, size, type, message );
+    //_MMG5_SAFE_CALLOC( ptr, size, type,0 );
+    //_MMG5_SAFE_REALLOC( ptr, size, type, message,0 );
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
                      MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
     //grpCur->mesh->info.mem = 300;
@@ -244,7 +244,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           _MMG5_TAB_RECALLOC(meshCur,meshCur->xtetra,meshCur->xtmax,0.2,MMG5_xTetra,
                              "larger xtetra table",
                              meshCur->xt--;
-                             return(0));
+                             return(0),0);
         }
         memcpy( meshCur->xtetra + meshCur->xt, &meshOld->xtetra[ meshOld->tetra[tet].xt], sizeof(MMG5_xTetra) );
         tetraCur->xt = meshCur->xt;
@@ -310,7 +310,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
                 _MMG5_TAB_RECALLOC(meshCur,meshCur->xtetra,meshCur->xtmax,0.2,MMG5_xTetra,
                                    "larger xtetra table",
                                    meshCur->xt--;
-                                   return(0));
+                                   return(0),0);
               }
               memcpy( meshCur->xtetra + meshCur->xt, &meshOld->xtetra[ meshOld->tetra[tet].xt], sizeof(MMG5_xTetra) );
               tetraCur->xt = meshCur->xt;
