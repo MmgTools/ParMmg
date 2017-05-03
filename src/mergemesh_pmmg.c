@@ -30,6 +30,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   MMG5_pxTetra   pxt0,pxt;
   MMG5_pPoint    ppt0,ppt;
   MMG5_pxPoint   pxp0,pxp;
+  PMMG_pext_comm ext_node_comm;
   PMMG_pint_comm int_node_comm;
   int            nitem_int_node_comm,nitem_int_node_comm0,*intvalues;
   int            *node2int_node_comm_index1,*node2int_node_comm0_index1;
@@ -109,6 +110,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
           assert(met->m);
           memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
         }
+#warning useless, try to remove
         node2int_node_comm0_index1[++idx] = ip;
         node2int_node_comm0_index2[  idx] = idx2;
         intvalues[idx2]                   = ip;
@@ -200,9 +202,70 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
 
     /* Free the mesh */
     MMG3D_Free_all(MMG5_ARG_start,
-                   MMG5_ARG_ppMesh,mesh,MMG5_ARG_ppMet,met,
+                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
                    MMG5_ARG_end);
   }
+
+  /** Update the communicators */
+  /* Reset the tmp field of the point: it will be used to store the position of
+   * a point in the internal communicator */
+  for ( k=1; k<=np; k++ )
+    mesh0->point[k].tmp = 0;
+
+  /* Travel through the external communicators and udpate all the communicators */
+  idx1 = idx2 = 0;
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx = ext_node_comm->int_comm_index[i];
+      ip  = intvalues[idx];
+      ppt = &mesh0->point[ip];
+
+      if ( !ppt->tmp ) {
+        /* New point in the internal communicator */
+        node2int_node_comm0_index1[idx1]     = ip;
+        node2int_node_comm0_index2[idx1]     = idx1;
+        ext_node_comm->int_comm_index[idx2++]= idx1;
+        ppt->tmp                             = idx1 + (k-1)*mesh0->np;
+        idx1++;
+      }
+      else {
+        /* The point has a position in the internal comm */
+        if ( ppt->tmp < (k-1) * mesh0->np ) {
+          /* The point has been stored in the internal comm by another external
+           * comm: update its position in our external comm */
+          ext_node_comm->int_comm_index[idx2++] = ppt->tmp;
+        }
+      }
+    }
+    assert(idx2 !=0 ); // otherwise we have now an empty communicator
+    ext_node_comm->nitem = idx2;
+    _MMG5_SAFE_REALLOC(ext_node_comm->int_comm_index,idx2,int,
+                       "(mergeGrps) ext_node_comm",0);
+
+  }
+
+  if ( !idx1 ) {
+    PMMG_FREE(parmesh,grp[0].node2int_node_comm_index1,
+              grp[0].nitem_int_node_comm*sizeof(int),
+              " (mergeGrps) node2int_node_comm_index1");
+    PMMG_FREE(parmesh,grp[0].node2int_node_comm_index2,
+              grp[0].nitem_int_node_comm*sizeof(int),
+              " (mergeGrps) node2int_node_comm_index2");
+  }
+  else {
+    PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,idx1,
+                 grp[0].nitem_int_node_comm,int,
+                 "(mergeGrps) node2int_node_comm_index1");
+    PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,idx1,
+                 grp[0].nitem_int_node_comm,int,
+                 "(mergeGrps) node2int_node_comm_index2");
+  }
+  int_node_comm->nitem              = idx1;
+  grp[0].nitem_int_node_comm        = idx1;
+  parmesh->int_node_comm->nitem       = idx1;
+
   _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
 
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
@@ -271,6 +334,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   /** Step 3: Allocate internal and external communicators and fill its: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
   int_node_comm = parmesh->int_node_comm;
+
+  if ( !int_node_comm->nitem ) return 1;
+
   _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int,0);
 
   assert(int_node_comm->nitem == grp->nitem_int_node_comm);

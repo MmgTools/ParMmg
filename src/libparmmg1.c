@@ -298,9 +298,9 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
 #warning niter must be a param set by the user
   niter = 1;
 
-	/** Groups creation */
-	if ( !PMMG_splitGrps( parmesh ) )
-		return PMMG_STRONGFAILURE;
+  /** Groups creation */
+  if ( !PMMG_splitGrps( parmesh ) )
+    return PMMG_STRONGFAILURE;
 
   /* sprintf(filename,"Begin_libparmmg1_proc%d.mesh",parmesh->myrank); */
   /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
@@ -336,6 +336,7 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
 
   /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
+  /* char filename[200]; */
   /* sprintf(filename,"End_libparmmg1_proc%d.mesh",parmesh->myrank); */
   /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
   /* PMMG_saveMesh(parmesh,filename); */

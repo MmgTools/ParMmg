@@ -167,15 +167,21 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
     meshCur->xtmax = meshOld->xtmax;
-    PMMG_CALLOC(parmesh,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
-                "boundary tetrahedra ");
+    _MMG5_ADD_MEM(meshCur,(meshCur->xtmax+1)*sizeof(MMG5_xTetra),"boundary tetra",
+                  return(0));
+    _MMG5_SAFE_CALLOC(meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,0);
 
     /* memory to store normals for boundary points */
 #warning Overallocating memory, we can do better
     meshCur->xpmax  = meshCur->npmax;
-    PMMG_CALLOC(parmesh,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
-                "boundary points ");
-    PMMG_CALLOC(parmesh,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table ");
+    _MMG5_ADD_MEM(meshCur,(meshCur->xpmax+1)*sizeof(MMG5_xPoint),"boundary points",
+                  return(0));
+    _MMG5_SAFE_CALLOC(meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,0);
+
+    _MMG5_ADD_MEM(meshCur,(4*meshCur->nemax+5)*sizeof(int),"adjacency table",
+                  fprintf(stderr,"  Exit program.\n");
+                  return 0);
+    _MMG5_SAFE_CALLOC(meshCur->adja,4*meshCur->nemax+5,int,0);
 
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,
                 "subgroup internal1 communicator ");

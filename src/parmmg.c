@@ -149,6 +149,9 @@ int main( int argc, char *argv[] )
 
   ier = PMMG_parmmglib1(parmesh);
 
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
@@ -163,6 +166,7 @@ int main( int argc, char *argv[] )
 
     if ( !PMMG_mergeParMesh(parmesh,0) )
       PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+
     if ( !parmesh->myrank && mesh->info.imprim )
       fprintf(stdout,"   -- PHASE 4 COMPLETED.\n");
 
