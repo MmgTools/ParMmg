@@ -144,13 +144,28 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     grpCur->disp = NULL;
     //_MMG5_SAFE_CALLOC( ptr, size, type,0 );
     //_MMG5_SAFE_REALLOC( ptr, size, type, message,0 );
+
+#warning check if we really want to do an initmesh here: maybe it is easier to have a special parmmg function/macro that copies the mesh and creates new pointers for the needed infos (points/xpoints...). Thus, we can avoid the copy of the info structure, the meshones, etc...
+
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
                      MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
+
+    meshCur = grpCur->mesh;
+
+    /* Copy the mesh filenames */
+    if ( !MMG5_Set_inputMeshName(meshCur,meshOld->namein) ) return 0;
+    // if ( !MMG5_Set_inputSolName(meshCur,metCur,metOld->namein) ) return 0;
+    if ( !MMG5_Set_outputMeshName(meshCur,meshOld->nameout) ) return 0;
+    //if ( !MMG5_Set_outputSolName(meshCur,metCur,metOld->nameout) ) return 0;
+
     //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId],
                         0, 0, 0, 0 );
 
-    meshCur = grpCur->mesh;
+    /* Copy the info structure of the initial mesh: it contains the remeshing
+     * options */
+    memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
+
     meshCur->xtmax = meshOld->xtmax;
     PMMG_CALLOC(parmesh,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
                 "boundary tetrahedra ");
@@ -392,15 +407,14 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 //NIKOS TODO    MMG3D_saveMesh( meshCur, name );
 //NIKOS TODO  }
 
-#ifndef NDEBUG
   parmesh->listgrp = grpsNew;   //NIKOS TODO
   parmesh->ngrp = ngrp;   //NIKOS TODO
+
+#ifndef NDEBUG
   if ( PMMG_checkIntComm ( parmesh ) ) {
     fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
     return 0;
   }
-  parmesh->listgrp = grpOld; //NIKOS TODO
-  parmesh->ngrp = 1; //NIKOS TODO
 #endif
 
   //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
@@ -414,5 +428,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   _MMG5_SAFE_FREE( adjncy );
   _MMG5_SAFE_FREE( part );
   PMMG_FREE( parmesh, countPerGrp, ngrp * sizeof(int), "counter buffer " );
+
   return( 1 );
 }
