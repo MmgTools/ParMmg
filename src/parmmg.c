@@ -105,6 +105,14 @@ int main( int argc, char *argv[] )
   if ( PMMG_parsar( argc, argv, parmesh ) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
+  MPI_Comm shmcomm;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &shmcomm);
+  int shmrank;
+  int shmsize;
+  MPI_Comm_rank(shmcomm, &shmrank);
+  MPI_Comm_size(shmcomm, &shmsize);
+  printf(" ++++NIKOS: %d/%d shared memory rank %d out of %d \n\n", parmesh->nprocs, parmesh->myrank, shmrank, shmsize);
+
   if ( !parmesh->myrank ) {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
       PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
