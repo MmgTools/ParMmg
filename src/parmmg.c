@@ -95,6 +95,13 @@ int main( int argc, char *argv[] )
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
+  /* reset default values for file names */
+  if ( !MMG3D_Free_names(MMG5_ARG_start,
+                         MMG5_ARG_ppMesh,&mesh,
+                         MMG5_ARG_ppMet,&met,
+                         MMG5_ARG_end) )
+    return(MMG5_STRONGFAILURE);
+
   if ( PMMG_parsar( argc, argv, parmesh ) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
