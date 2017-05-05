@@ -3,6 +3,7 @@
 // Helper macro used only in this file:
 //   copies the contents of fromV[fromC] (which are argv[argc]) to
 //   toV[toC] and update toC
+//+++++NIKOS TODO: returning without freeing is a memory leak here
 #define APPEND_ARGV(parmesh,fromV,toV,fromC,toC,message) do {                  \
     PMMG_MALLOC( parmesh, toV[(toC)],                                          \
                  (strlen( fromV[(fromC)] ) + 1 ) * sizeof(char), message );    \
@@ -27,7 +28,7 @@ static void usage( char *progname )
   fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
 
   fprintf( stdout, "\n\n\tMMG");
-  MMG3D_usage( progname );
+  exit( MMG3D_usage( progname ) );
 }
 
 /**
@@ -53,11 +54,16 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   int mmgArgc = 0;
   char** mmgArgv = NULL;
 
-  for ( i = 1; i < argc; ++i )
-    if ( !strcmp( argv[ i ],"-val" ) )
-      defaultValues( parmesh );
-    else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-      usage( argv[0] );
+  if ( parmesh->myrank == 0 ) {
+    for ( i = 1; i < argc; ++i )
+      if ( !strcmp( argv[ i ],"-val" ) )
+        defaultValues( parmesh );
+      else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
+        usage( argv[0] );
+  } else {
+    MPI_Finalize();
+    exit(EXIT_SUCCESS);
+  }
 
   // create a new set of argc/argv variables adding only the the cl options
   // intended for mmg
