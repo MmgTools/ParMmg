@@ -74,6 +74,11 @@ int main( int argc, char *argv[] )
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   int              ier, rank;
+  // Shared memory communicator: processes that are on the same node, sharing
+  //    local memory and can potentially communicate without using the network
+  MPI_Comm comm_shm = 0;
+  int rank_shm = 0;
+  int size_shm = 1;
 
   /** Init MPI */
   MPI_Init(&argc, &argv);
@@ -105,13 +110,12 @@ int main( int argc, char *argv[] )
   if ( PMMG_parsar( argc, argv, parmesh ) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
-  MPI_Comm shmcomm;
-  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &shmcomm);
-  int shmrank;
-  int shmsize;
-  MPI_Comm_rank(shmcomm, &shmrank);
-  MPI_Comm_size(shmcomm, &shmsize);
-  printf(" ++++NIKOS: %d/%d shared memory rank %d out of %d \n\n", parmesh->nprocs, parmesh->myrank, shmrank, shmsize);
+  MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+    &comm_shm );
+  MPI_Comm_rank( comm_shm, &rank_shm );
+  MPI_Comm_size( comm_shm, &size_shm );
+  printf(" ++++NIKOS: %d/%d shared memory rank %d out of %d \n\n",
+    parmesh->nprocs, parmesh->myrank, rank_shm, size_shm );
 
   if ( !parmesh->myrank ) {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
