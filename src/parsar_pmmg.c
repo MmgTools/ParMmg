@@ -13,22 +13,26 @@
   }while(0)
 
 
-static void defaultValues( const PMMG_pParMesh parmesh )
+static void defaultValues( const MMG5_pMesh mesh, const int rank )
 {
-  fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
-
-  fprintf( stdout, "\n\n\tMMG");
-  _MMG5_mmgDefaultValues( parmesh->listgrp[0].mesh );
-
+  if ( rank == 0 ) {
+    fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
+    fprintf( stdout, "\n\n\tMMG");
+    _MMG5_mmgDefaultValues( mesh );
+  }
+  MPI_Finalize();
   exit( EXIT_SUCCESS );
 }
 
-static void usage( char *progname )
+static void usage( char * const progname, const int rank )
 {
-  fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
-
-  fprintf( stdout, "\n\n\tMMG");
-  exit( MMG3D_usage( progname ) );
+  if ( rank == 0 ) {
+    fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
+    fprintf( stdout, "\n\n\tMMG");
+    MMG3D_usage( progname );
+  }
+  MPI_Finalize();
+  exit( EXIT_SUCCESS );
 }
 
 /**
@@ -54,16 +58,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   int mmgArgc = 0;
   char** mmgArgv = NULL;
 
-  if ( parmesh->myrank == 0 ) {
-    for ( i = 1; i < argc; ++i )
-      if ( !strcmp( argv[ i ],"-val" ) )
-        defaultValues( parmesh );
-      else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-        usage( argv[0] );
-  } else {
-    MPI_Finalize();
-    exit(EXIT_SUCCESS);
-  }
+  for ( i = 1; i < argc; ++i )
+    if ( !strcmp( argv[ i ],"-val" ) )
+      defaultValues( parmesh->listgrp[0].mesh, parmesh->myrank );
+    else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
+      usage( argv[0], parmesh->myrank );
 
   // create a new set of argc/argv variables adding only the the cl options
   // intended for mmg
@@ -89,7 +88,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             parmesh->memMax = atoi(argv[i]);
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-          usage( argv[0] );
+          usage( argv[0], parmesh->myrank );
         }
       break;
 
