@@ -22,24 +22,28 @@ int PMMG_Init_parMesh( const int starter,... ) {
   return ier;
 }
 
+//!!!!!NIKOS TODO: ALL parmesh fields should be initialized here
 void PMMG_Init_parameters( PMMG_pParMesh parmesh )
 {
+  MPI_Comm comm_shm = 0;
+  int size_shm = 1;
   const int million = 1024 * 1024;
   int k;
 
-#warning Initialize all fields...
-  parmesh->memMax = _MMG5_memSize();
+  MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+    &comm_shm );
+  MPI_Comm_size( comm_shm, &size_shm );
+
+  parmesh->memMax = _MMG5_memSize() / size_shm;
   /* If total physical memory is known, use 50% of it.
    * Otherwise try to use a default value of 800 Mo */
   if ( parmesh->memMax ) {
     parmesh->memMax = parmesh->memMax * 50 / 100;
   } else {
     printf("Maximum memory set to default value: %d Mo.\n", _MMG5_MEMMAX );
-    parmesh->memMax = _MMG5_MEMMAX << 20;
+    parmesh->memMax = ( _MMG5_MEMMAX << 20 ) / size_shm;
   }
 
-#warning add a memory reservation for the parmesh structures (other than mesh)
-#warning NIKOS: i do not know what the previous warning means.
   for ( k = 0; k < parmesh->ngrp; ++k ) {
     MMG3D_Init_parameters( parmesh->listgrp[k].mesh );
     /* Set a suitable value for the maximal memory usable by each mesh */
@@ -65,6 +69,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     break;
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
+//!!!!!NIKOS TODO: DOES IT ACTUALLY RESET TO DEFAULT VALUE? I do not see it here
       fprintf( stdout,
         "  ## Warning: maximal memory authorized must be strictly positive.\n");
       fprintf(stdout,"  Reset to default value.\n");
@@ -72,8 +77,6 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
       parmesh->mem = val;
 
     mem = (int)(val/parmesh->ngrp);
-
-#warning add a count of the memory needed by the parmesh additionnally to the mesh
 
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;

@@ -3,6 +3,7 @@
 // Helper macro used only in this file:
 //   copies the contents of fromV[fromC] (which are argv[argc]) to
 //   toV[toC] and update toC
+//+++++NIKOS TODO: I DO NOT LIKE THIS APPROACH USING THIS MACRO, PLEASE REVISE
 //+++++NIKOS TODO: returning without freeing is a memory leak here
 #define APPEND_ARGV(parmesh,fromV,toV,fromC,toC,message) do {                  \
     PMMG_MALLOC( parmesh, toV[(toC)],                                          \
@@ -54,6 +55,7 @@ static void usage( char * const progname, const int rank )
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
+  const long int million = 1048576L;
 
   int mmgArgc = 0;
   char** mmgArgv = NULL;
@@ -85,13 +87,33 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                      "Erroneous mem size requested, using default: %lld\n",
                      parmesh->memMax );
           else
-            parmesh->memMax = atoi(argv[i]);
+            parmesh->memMax = atoi(argv[i]) * million;
+          if ( !MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
+            parmesh->listgrp[0].met, MMG3D_IPARAM_mem,atoi(argv[i])) )
+            return 1; //!!!!!NIKOS TODO
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
           usage( argv[0], parmesh->myrank );
         }
       break;
 
+      case 'n':  // number of adaptation iterations
+        if ( (0 == strncmp( argv[i], "-niter", 5 )) && ((i+1) < argc) ) {
+          ++i;
+          if ( isdigit( argv[i][0] ) && (atoi( argv[i] ) > 0) ) {
+            parmesh->niter = atoi( argv[i] );
+            printf( "\t\t\t\t +++++++++++++ASD : adding: %d \n\n\n\n",  atoi( argv[i] ) );
+          } else {
+            parmesh->niter = 1;
+            fprintf( stderr,
+                     "Erroneous adaptation iterations requested, using default: %d\n",
+                     parmesh->niter );
+          }
+        } else {
+          printf( "\t\t\t\t +++++++++++++ASD : den etairiaksene: %s \n\n\n\n",  argv[i] );
+          APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
+                      " adding to mmgArgv for mmg: ");
+        }
       default:
         APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
                     " adding to mmgArgv for mmg: ");

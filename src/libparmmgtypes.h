@@ -176,7 +176,8 @@ typedef struct {
   PMMG_pext_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
 
   /* global variables */
-  int            ddebug;
+  int            ddebug; //! Debug level
+  int            niter;  //! Number of adaptation iterations
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 #endif

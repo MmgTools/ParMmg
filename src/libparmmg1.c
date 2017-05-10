@@ -293,10 +293,8 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh) {
 int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  int              it,i,niter;
+  int              it,i;
 
-#warning niter must be a param set by the user
-  niter = 1;
 
   /** Groups creation */
   if ( !PMMG_splitGrps( parmesh ) )
@@ -308,7 +306,7 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
 
   /** Mesh adaptation */
-  for ( it=0; it<niter; ++it ) {
+  for ( it = 0; it < parmesh->niter; ++it ) {
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh = parmesh->listgrp[i].mesh;
       met  = parmesh->listgrp[i].met;
