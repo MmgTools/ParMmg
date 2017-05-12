@@ -18,6 +18,7 @@ static void defaultValues( const MMG5_pMesh mesh, const int rank )
 {
   if ( rank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
+    fprintf( stdout,"# of remeshing iterations (-niter)  : 1\n");
     fprintf( stdout, "\n\n\tMMG");
     _MMG5_mmgDefaultValues( mesh );
   }
@@ -29,6 +30,7 @@ static void usage( char * const progname, const int rank )
 {
   if ( rank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
+    fprintf( stdout, "-niter n  Number of remeshing iterations\n");
     fprintf( stdout, "\n\n\tMMG");
     MMG3D_usage( progname );
   }
