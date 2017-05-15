@@ -104,7 +104,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           ++i;
           if ( isdigit( argv[i][0] ) && (atoi( argv[i] ) > 0) ) {
             parmesh->niter = atoi( argv[i] );
-            printf( "\t\t\t\t +++++++++++++ASD : adding: %d \n\n\n\n",  atoi( argv[i] ) );
           } else {
             parmesh->niter = 1;
             fprintf( stderr,
@@ -112,10 +111,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                      parmesh->niter );
           }
         } else {
-          printf( "\t\t\t\t +++++++++++++ASD : den etairiaksene: %s \n\n\n\n",  argv[i] );
           APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
                       " adding to mmgArgv for mmg: ");
         }
+      break;
       default:
         APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
                     " adding to mmgArgv for mmg: ");
