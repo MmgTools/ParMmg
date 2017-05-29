@@ -23,7 +23,8 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   }
 
   /** Check input data */
-  if ( !PMMG_check_inputData(parmesh) ) return PMMG_STRONGFAILURE;
+  if ( !PMMG_check_inputData(parmesh) )
+    return PMMG_STRONGFAILURE;
 
   if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
@@ -39,14 +40,17 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     MMG3D_setfunc(mesh,met);
 
     /** Mesh scaling and qualisty histogram */
-    if ( !_MMG5_scaleMesh(mesh,met) ) return PMMG_STRONGFAILURE;
+    if ( !_MMG5_scaleMesh(mesh,met) )
+      return PMMG_STRONGFAILURE;
 
-    if ( !_MMG3D_tetraQual( mesh,met, 0 ) ) return PMMG_STRONGFAILURE;
+    if ( !_MMG3D_tetraQual( mesh,met, 0 ) )
+      return PMMG_STRONGFAILURE;
 
 #warning todo: send the data to proc 0 and depending on the imprim value, print either the quality of each mesh or the reduced qualisty.
     if ( abs(mesh->info.imprim) > 0 ) {
       if ( !_MMG3D_inqua(mesh,met) ) {
-        if ( !_MMG5_unscaleMesh(mesh,met) ) return PMMG_STRONGFAILURE;
+        if ( !_MMG5_unscaleMesh(mesh,met) )
+          return PMMG_STRONGFAILURE;
         return PMMG_LOWFAILURE;
       }
     }
@@ -54,7 +58,8 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     /* specific meshing */
     if ( mesh->info.optim && !met->np ) {
       if ( !MMG3D_doSol(mesh,met) ) {
-        if ( !_MMG5_unscaleMesh(mesh,met) )  return PMMG_STRONGFAILURE;
+        if ( !_MMG5_unscaleMesh(mesh,met) )
+          return PMMG_STRONGFAILURE;
         return PMMG_LOWFAILURE;
       }
       _MMG3D_scalarSolTruncature(mesh,met);
@@ -70,8 +75,8 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     }
 
 #warning todo: send the data over the proc 0 and print the lengths of each mesh or the global lengths (reduced)
-    if ( mesh->info.imprim > 1 && met->m ) _MMG3D_prilen(mesh,met,0);
-
+    if ( mesh->info.imprim > 1 && met->m )
+      _MMG3D_prilen(mesh,met,0);
   }
 
   if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
@@ -85,18 +90,21 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   ier = PMMG_parmmglib1(parmesh);
   fprintf(stdout,"  -- PHASE 2 COMPLETED.\n");
 
-  if ( ier == MMG5_STRONGFAILURE ) return PMMG_STRONGFAILURE;
+  if ( ier == MMG5_STRONGFAILURE )
+    return PMMG_STRONGFAILURE;
 
   /** Boundaries reconstruction */
   if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
-  if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE;
+  if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
+    return PMMG_STRONGFAILURE;
   if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;
-      if ( !_MMG5_unscaleMesh(mesh,met) )  return PMMG_STRONGFAILURE;
+      if ( !_MMG5_unscaleMesh(mesh,met) )
+        return PMMG_STRONGFAILURE;
     }
     return PMMG_LOWFAILURE;
   }
@@ -108,7 +116,8 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     met  = parmesh->listgrp[k].met;
-    if ( !_MMG5_unscaleMesh(mesh,met) )  return PMMG_STRONGFAILURE;
+    if ( !_MMG5_unscaleMesh(mesh,met) )
+      return PMMG_STRONGFAILURE;
   }
 
   return(ier);

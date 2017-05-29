@@ -1,23 +1,45 @@
 #include "parmmg.h"
 
+void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val )
+{
+  int k = 0;
+  PMMG_pGrp  grp  = NULL;
+  MMG5_pMesh mesh = NULL;
+  MMG5_pSol  met  = NULL;
+#warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?
+  for ( k = 0; k < parmesh->ngrp; ++k ) {
+    PMMG_pGrp  grp  = &parmesh->listgrp[k];
+    MMG5_pMesh mesh = grp->mesh;
+    MMG5_pSol  met  = grp->met;
+    MMG3D_Free_all( MMG5_ARG_start,
+                    MMG5_ARG_ppMesh, &parmesh->listgrp[k].mesh,
+                    MMG5_ARG_ppMet, &parmesh->listgrp[k].met,
+                    MMG5_ARG_end );
+  }
+#warning NIKOS: add deallocation of communicators: parmesh->ext_node_comm
+  PMMG_FREE(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
+  MPI_Finalize();
+  exit( val );
+}
+
+
 /**
- * \param parmesh pointer toward the mesh structure.
- * \return -1 if fail before mesh scaling, 0 if fail after mesh scaling,
- * 1 if success.
+ * \param  mesh pointer toward the mesh structure
+ * \param  met
+ * \param  rank MPI process rank
+ *
+ * \return PMMG_LOWFAILURE    if fail before mesh scaling
+ *         PMMG_STRONGFAILURE if fail after mesh scaling,
+ *         PMMG_SUCCESS
  *
  * Mesh preprocessing: set function pointers, scale mesh, perform mesh
  * analysis and display length and quality histos.
- *
  */
-static inline
-int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
-  MMG5_pMesh      mesh;
-  MMG5_pSol       met;
+static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
+{
+  assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
-  mesh   = parmesh->listgrp[0].mesh;
-  met    = parmesh->listgrp[0].met;
-
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !rank && mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 2 : ANALYSIS\n");
 
   /** Function setters (must be assigned before quality computation) */
@@ -26,17 +48,20 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
 
   /** Mesh scaling and quality histogram */
 #warning Do we need to scale here (for the analysis step) ?
-  if ( !_MMG5_scaleMesh(mesh,met) ) return -1;
+  if ( !_MMG5_scaleMesh(mesh,met) )
+    return PMMG_LOWFAILURE;
 
-  if ( !_MMG3D_tetraQual( mesh, met, 0 ) ) return 0;
+  if ( !_MMG3D_tetraQual( mesh, met, 0 ) )
+    return PMMG_STRONGFAILURE;
 
-  if ( (!parmesh->myrank) && abs(mesh->info.imprim) > 0 ) {
-    if ( !_MMG3D_inqua(mesh,met) ) return 0;
-  }
+  if ( (!rank) && abs(mesh->info.imprim) > 0 )
+    if ( !_MMG3D_inqua(mesh,met) )
+      return PMMG_STRONGFAILURE;
 
   /** specific meshing */
   if ( mesh->info.optim && !met->np ) {
-    if ( !MMG3D_doSol(mesh,met) ) return 0;
+    if ( !MMG3D_doSol(mesh,met) )
+      return PMMG_STRONGFAILURE;
 
     _MMG3D_scalarSolTruncature(mesh,met);
   }
@@ -46,15 +71,17 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
   if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nosurf,0 ) )
     return PMMG_STRONGFAILURE;
 
-  if ( !_MMG3D_analys(mesh) ) return 0;
+  if ( !_MMG3D_analys(mesh) )
+    return PMMG_STRONGFAILURE;
 
-  if ( !parmesh->myrank )
-    if ( mesh->info.imprim > 1 && met->m ) _MMG3D_prilen(mesh,met,0);
+  if ( !rank )
+    if ( mesh->info.imprim > 1 && met->m )
+      _MMG3D_prilen(mesh,met,0);
 
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !rank && mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 2 COMPLETED.\n");
 
-  return 1;
+  return PMMG_SUCCESS;
 }
 
 /**
@@ -69,11 +96,13 @@ int PMMG_preprocessMesh(PMMG_pParMesh parmesh) {
  */
 int main( int argc, char *argv[] )
 {
-  PMMG_pParMesh    parmesh = NULL;
-  PMMG_pGrp        grp;
-  MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  int              ier, rank;
+  PMMG_pParMesh parmesh = NULL;
+  PMMG_pGrp     grp = NULL;
+  MMG5_pMesh    mesh = NULL;
+  MMG5_pSol     met = NULL;
+  int           rank = 0;
+  int           ier = 0;
+
   // Shared memory communicator: processes that are on the same node, sharing
   //    local memory and can potentially communicate without using the network
   MPI_Comm comm_shm = 0;
@@ -81,8 +110,8 @@ int main( int argc, char *argv[] )
   int size_shm = 1;
 
   /** Init MPI */
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+  MPI_Init( &argc, &argv );
+  MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
   if ( !rank ) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
@@ -91,64 +120,74 @@ int main( int argc, char *argv[] )
     fprintf(stdout,"     %s %s\n",__DATE__,__TIME__);
   }
 
-  /** Assign default values */
-  if ( !PMMG_Init_parMesh( PMMG_ARG_start,
-                           PMMG_ARG_ppParMesh, &parmesh,
-                           PMMG_ARG_end) )
-    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
-
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-
-  if ( PMMG_parsar( argc, argv, parmesh ) )
-    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  /* Allocate the main pmmg struct and assign default values */
+  if ( PMMG_SUCCESS != PMMG_Init_parMesh( &parmesh ) ) {
+    MPI_Finalize();
+    return PMMG_FAILURE;
+  }
+  parmesh->ddebug = 1;
+  parmesh->niter = 1;
+  parmesh->comm = MPI_COMM_WORLD;
+  parmesh->myrank = rank;
+  MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
+  PMMG_PMesh_SetMaxMem( &parmesh->memMax, 0 );
 
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
     &comm_shm );
   MPI_Comm_rank( comm_shm, &rank_shm );
   MPI_Comm_size( comm_shm, &size_shm );
-  printf(" ++++NIKOS: %d/%d shared memory rank %d out of %d \n\n",
+  printf(" ++++NIKOS: %d/%d shared memory rank %d of %d \n\n",
     parmesh->nprocs, parmesh->myrank, rank_shm, size_shm );
 
-  if ( !parmesh->myrank ) {
-    if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
 
-    /** Read sequential mesh */
-    if ( PMMG_loadMesh( parmesh ) != 1 )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
-    if ( PMMG_loadSol( parmesh ) == -1 )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  if ( PMMG_SUCCESS != PMMG_parsar( argc, argv, parmesh ) )
+    PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+
+  if ( !parmesh->myrank && mesh->info.imprim )
+    fprintf(stdout,"\n   -- PHASE 0 : LOADING MESH ON rank 0\n");
+
+  if ( !parmesh->myrank ) {
+    if ( 1 != MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+
+    if ( MMG3D_loadMesh( mesh, mesh->namein ) != 1 )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+
+    if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
   } else {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,0) )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
   }
 
   /** Check input data */
-  if ( !PMMG_check_inputData(parmesh) )
-    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  if ( PMMG_SUCCESS != PMMG_check_inputData( parmesh ) )
+    PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && mesh->info.imprim )
-    fprintf(stdout,"\n   -- PHASE 1 : MESH DISTRIBUTION\n");
+    fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
 
   /** Send mesh to other procs */
-  if ( !PMMG_bcastMesh(parmesh) )
-    PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
+  if ( PMMG_SUCCESS != PMMG_bcastMesh( parmesh ) )
+    PMMG_return_and_free( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  ier = PMMG_preprocessMesh(parmesh) ;
-  if ( ier <= 0 ) {
-    if ( ( ier == -1 ) || !(_MMG5_unscaleMesh( mesh, met )) )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+#warning NIKOS: I think I have messed up this error handling
+  ier = preprocessMesh( mesh, met, parmesh->myrank );
+  if ( ier != PMMG_SUCCESS ) {
+    if ( ( ier == PMMG_LOWFAILURE ) || !(_MMG5_unscaleMesh( mesh, met )) )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
     return PMMG_LOWFAILURE;
   }
 
   /** Send mesh partionning to other procs */
-  if ( !PMMG_distributeMesh(parmesh) ) {
-    if ( !_MMG5_unscaleMesh(mesh,met) )
-      PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
-    PMMG_RETURN_AND_FREE( parmesh,PMMG_LOWFAILURE );
+  if ( PMMG_SUCCESS != PMMG_distributeMesh( parmesh ) ) {
+    if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_return_and_free( parmesh, PMMG_LOWFAILURE );
   }
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 1 COMPLETED.\n");
@@ -169,15 +208,16 @@ int main( int argc, char *argv[] )
 
   if ( ier!= PMMG_STRONGFAILURE ) {
     /** Unscaling */
-    if ( !_MMG5_unscaleMesh(mesh,met) )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+    if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
     /** Merge all the meshes on the proc 0 */
     if ( !parmesh->myrank && mesh->info.imprim )
       fprintf(stdout,"\n   -- PHASE 4 : MERGE MESH\n");
 
-    if ( !PMMG_mergeParMesh(parmesh,0) )
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+#warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
+    if ( !PMMG_mergeParMesh( parmesh, 0 ) )
+      PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
     if ( !parmesh->myrank && mesh->info.imprim )
       fprintf(stdout,"   -- PHASE 4 COMPLETED.\n");
@@ -186,22 +226,22 @@ int main( int argc, char *argv[] )
       if (  mesh->info.imprim )
         fprintf(stdout,"\n   -- PHASE 5 : MESH PACKED UP\n");
 
-      if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
-            PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+      if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
+            PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
-      if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh) < 0 )
-        PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+      if ( -1 == _MMG3D_bdryBuild( mesh ) )
+        PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
       if (  mesh->info.imprim )
         fprintf(stdout,"   -- PHASE 5 COMPLETED.\n");
 
       /* Write mesh */
-      if ( !PMMG_saveMesh( parmesh, mesh->nameout ) )
-            PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
-      if ( !PMMG_saveSol ( parmesh, met->nameout ) )
-        PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
+      if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
+        PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+      if ( 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
+        PMMG_return_and_free( parmesh, PMMG_LOWFAILURE );
     }
   }
 
-  PMMG_RETURN_AND_FREE( parmesh, ier );
+  PMMG_return_and_free( parmesh, ier );
 }

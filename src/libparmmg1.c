@@ -14,13 +14,15 @@
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
- * \return 1 if success, 0 if chkmsh fail.
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
  *
  * Pack the sparse meshes of each group and create triangles and edges before
  * getting out of library
  *
  */
-int PMMG_packParMesh(PMMG_pParMesh parmesh) {
+int PMMG_packParMesh( PMMG_pParMesh parmesh )
+{
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
@@ -44,13 +46,15 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     np = nc = 0;
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )  continue;
+      if ( !MG_VOK(ppt) )
+        continue;
       ppt->tmp = ++np;
 
       if ( mesh->info.nosurf && (ppt->tag & MG_NOSURF) )
         ppt->tag &= ~MG_REQ;
 
-      if ( ppt->tag & MG_CRN )  nc++;
+      if ( ppt->tag & MG_CRN )
+        nc++;
 
       ppt->ref = abs(ppt->ref);
     }
@@ -70,7 +74,8 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     nbl = 1;
     for (k=1; k<=mesh->ne; k++) {
       pt = &mesh->tetra[k];
-      if ( !MG_EOK(pt) )  continue;
+      if ( !MG_EOK(pt) )
+        continue;
 
       pt->v[0] = mesh->point[pt->v[0]].tmp;
       pt->v[1] = mesh->point[pt->v[1]].tmp;
@@ -101,7 +106,8 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     /* update prisms and quads vertex indices */
     for (k=1; k<=mesh->nprism; k++) {
       pp = &mesh->prism[k];
-      if ( !MG_EOK(pp) )  continue;
+      if ( !MG_EOK(pp) )
+        continue;
 
       pp->v[0] = mesh->point[pp->v[0]].tmp;
       pp->v[1] = mesh->point[pp->v[1]].tmp;
@@ -112,7 +118,8 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     }
     for (k=1; k<=mesh->nquad; k++) {
       pq = &mesh->quadra[k];
-      if ( !MG_EOK(pq) )  continue;
+      if ( !MG_EOK(pq) )
+        continue;
 
       pq->v[0] = mesh->point[pq->v[0]].tmp;
       pq->v[1] = mesh->point[pq->v[1]].tmp;
@@ -125,7 +132,8 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     if ( met && met->m ) {
       for (k=1; k<=mesh->np; k++) {
         ppt = &mesh->point[k];
-        if ( !MG_VOK(ppt) )  continue;
+        if ( !MG_VOK(ppt) )
+          continue;
         imet    = k   * met->size;
         imetnew = nbl * met->size;
 
@@ -140,7 +148,8 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     if ( disp && disp->m ) {
       for (k=1; k<=mesh->np; k++) {
         ppt = &mesh->point[k];
-        if ( !MG_VOK(ppt) )  continue;
+        if ( !MG_VOK(ppt) )
+          continue;
         imet    = k   * disp->size;
         imetnew = nbl * disp->size;
 
@@ -155,13 +164,14 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     nbl = 1;
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )  continue;
+      if ( !MG_VOK(ppt) )
+        continue;
       np++;
       if ( k!=nbl ) {
         pptnew = &mesh->point[nbl];
         memmove(pptnew,ppt,sizeof(MMG5_Point));
         memset(ppt,0,sizeof(MMG5_Point));
-        ppt->tag    = MG_NUL;
+        ppt->tag = MG_NUL;
       }
       nbl++;
     }
@@ -174,13 +184,13 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     /* create prism adjacency */
     if ( !MMG3D_hashPrism(mesh) ) {
       fprintf(stderr,"  ## Prism hashing problem. Exit program.\n");
-      return(0);
+      return PMMG_FAILURE;
     }
 
     /* Remove the MG_REQ tags added by the nosurf option */
     if ( mesh->info.nosurf ) {
       for (k=1; k<=mesh->ne; k++) {
-        pt   = &mesh->tetra[k];
+        pt = &mesh->tetra[k];
         if ( MG_EOK(pt) &&  pt->xt ) {
 
           for (i=0; i<6; i++) {
@@ -212,24 +222,27 @@ int PMMG_packParMesh(PMMG_pParMesh parmesh) {
     /* to could save the mesh, the adjacency have to be correct */
     if ( mesh->info.ddebug && (!_MMG5_chkmsh(mesh,1,1) ) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
-      return(0);
+      return PMMG_FAILURE;
     }
   }
 
-  return(1);
+  return PMMG_SUCCESS;
 }
 
 
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
- * \return 1 if success, 0 otherwise.
+ * \return PMMG_SUCCESS
+ *         PMMG_FAILURE
  *
  * Check the validity of the input mesh data (tetra orientation, solution
  * compatibility with respect to the provided mesh, Mmg options).
  *
  */
-int PMMG_check_inputData(PMMG_pParMesh parmesh) {
+#warning NIKOS: more appropriate name: PMMG_CHECK_MESHES
+int PMMG_check_inputData(PMMG_pParMesh parmesh)
+{
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        k;
@@ -245,17 +258,17 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh) {
     if ( mesh->info.lag > -1 ) {
       fprintf(stderr,
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
-      return 0;
+      return PMMG_FAILURE;
     }
     else if ( mesh->info.iso ) {
       fprintf(stderr,"  ## Error: level-set discretisation unavailable"
               " (MMG3D_IPARAM_iso):\n");
-      return 0;
+      return PMMG_FAILURE;
     }
     else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
-      return 0;
+      return PMMG_FAILURE;
     }
 
     /* load data */
@@ -268,13 +281,13 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh) {
     }
     else if ( met->size!=1 && met->size!=6 ) {
       fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
-      return 0;
+      return PMMG_FAILURE;
     }
   }
   if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED\n");
 
-  return 1;
+  return PMMG_SUCCESS;
 }
 
 /**
@@ -286,18 +299,18 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh) {
  * (with moving of the proc boundaries between two iterations) and last, merge
  * the groups over each proc.
  *
- * \return PMMG_STRONGFAILURE if fail and we can't save the mesh (non-conform),
- * PMMG_LOWFAILURE if fail but we can save the mesh, PMMG_SUCCESS if success.
- *
+ * \return PMMG_STRONGFAILURE if  we can't save the mesh (non-conform),
+ *         PMMG_LOWFAILURE    if  we can save the mesh
+ *         PMMG_SUCCESS
  */
-int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
-  MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  int              it,i;
-
+int PMMG_parmmglib1( PMMG_pParMesh parmesh )
+{
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        it, i;
 
   /** Groups creation */
-  if ( !PMMG_splitGrps( parmesh ) )
+  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh ) )
     return PMMG_STRONGFAILURE;
 
   /* sprintf(filename,"Begin_libparmmg1_proc%d.mesh",parmesh->myrank); */
@@ -312,9 +325,11 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
       met  = parmesh->listgrp[i].met;
 
 #ifdef PATTERN
-      if ( !_MMG5_mmg3d1_pattern(mesh,met) ) goto failed;
+      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) )
+        goto failed;
 #else
-      if ( !_MMG5_mmg3d1_delone(mesh,met) ) goto failed;
+      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) )
+        goto failed;
 #endif
 
 #warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
@@ -324,14 +339,17 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   }
 
 #warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+#warning NIKOS: I am not sure what is happening here. Finish error handling
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
-    _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
+    PMMG_FREE(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
-  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
+  if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
+    return PMMG_STRONGFAILURE;
 
-  if ( !PMMG_mergeGrps(parmesh) ) return PMMG_STRONGFAILURE;
+  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
+    return PMMG_STRONGFAILURE;
 
   /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
   /* char filename[200]; */
@@ -339,20 +357,23 @@ int PMMG_parmmglib1(PMMG_pParMesh parmesh) {
   /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
   /* PMMG_saveMesh(parmesh,filename); */
 
-  return(PMMG_SUCCESS);
+  return PMMG_SUCCESS;
 
   /** mmg3d1_delone failure */
-  failed:
+#warning NIKOS: These lines are exactly the same as in 334-344, handle ret_val correctly and remove code duplication
+failed:
 #warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
-    _MMG5_DEL_MEM(mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
+    PMMG_FREE(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
 
-  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
+  if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
+    return PMMG_STRONGFAILURE;
 
-  if ( !PMMG_mergeGrps(parmesh) )   return PMMG_STRONGFAILURE;
+  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
+    return PMMG_STRONGFAILURE;
 
   return PMMG_LOWFAILURE;
 }

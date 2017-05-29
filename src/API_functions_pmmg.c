@@ -9,49 +9,79 @@
 
 #include "parmmg.h"
 
-int PMMG_Init_parMesh( const int starter,... ) {
-  va_list argptr;
-  int     ier;
+// return:
+//   PMMG_SUCCESS
+//   PMMG_FAILURE Failed to allocate structs
+int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
+{
+  PMMG_pGrp grp = NULL;
 
-  va_start(argptr, starter);
+  /* ParMesh allocation */
+  assert ( (*parmesh == NULL) && "trying to initialize non empty parmesh" );
+  *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
+  if ( *parmesh == NULL )
+    goto fail_pmesh;
+  (*parmesh)->memMax = 4 * 1024L * 1024L; // Assign a number to begin with
+  (*parmesh)->memCur = sizeof(PMMG_ParMesh); // Update memory usage
 
-  ier = PMMG_Init_parMesh_var(argptr);
+  /** Init Group */
+  (*parmesh)->ngrp = 1;
+  PMMG_CALLOC(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
+              "allocating groups container", goto fail_grplst );
+  grp = &(*parmesh)->listgrp[0];
+  grp->mesh = NULL;
+  grp->met  = NULL;
+  grp->disp = NULL;
+  if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
+                             MMG5_ARG_ppMesh, &grp->mesh,
+                             MMG5_ARG_ppMet, &grp->met,
+                             MMG5_ARG_end ) )
+    goto fail_mesh;
 
-  va_end(argptr);
+  return PMMG_SUCCESS;
 
-  return ier;
+fail_mesh:
+    PMMG_FREE(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,"deallocating groups container");
+fail_grplst:
+  (*parmesh)->ngrp = 0;
+  (*parmesh)->memMax = 0;
+  (*parmesh)->memCur = 0;
+   free( *parmesh );
+   *parmesh = NULL;
+fail_pmesh:
+  return PMMG_FAILURE;
 }
 
-//!!!!!NIKOS TODO: ALL parmesh fields should be initialized here
-void PMMG_Init_parameters( PMMG_pParMesh parmesh )
+void PMMG_PMesh_SetMaxMem( long long int *memMax, long long memReq )
 {
+  long long int maxAvail = 0;
   MPI_Comm comm_shm = 0;
   int size_shm = 1;
   const int million = 1024 * 1024;
-  int k;
 
+  assert ( (memMax != NULL) && "Trying to set NULL memMax" );
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-    &comm_shm );
+                       &comm_shm );
   MPI_Comm_size( comm_shm, &size_shm );
 
-  parmesh->memMax = _MMG5_memSize() / size_shm;
-  /* If total physical memory is known, use 50% of it.
-   * Otherwise try to use a default value of 800 Mo */
-  if ( parmesh->memMax ) {
-    parmesh->memMax = parmesh->memMax * 50 / 100;
-  } else {
-    printf("Maximum memory set to default value: %d Mo.\n", _MMG5_MEMMAX );
-    parmesh->memMax = ( _MMG5_MEMMAX << 20 ) / size_shm;
-  }
+  // If total physical memory is known, use 50% of it.
+  // Otherwise try use a default value of _MMG5_MEMMAX Mo
+  // Since multiple MPI jobs may be running on the same node, adjust by size_shm
+  maxAvail = _MMG5_memSize() / size_shm;
+  maxAvail = maxAvail * 50 / 100;
+  if ( maxAvail == 0 )
+    maxAvail = ( _MMG5_MEMMAX << 20 ) / size_shm;
 
-  for ( k = 0; k < parmesh->ngrp; ++k ) {
-    MMG3D_Init_parameters( parmesh->listgrp[k].mesh );
-    /* Set a suitable value for the maximal memory usable by each mesh */
+  if ( memReq > 0 && memReq < maxAvail )
+    *memMax = memReq / size_shm;
+  else
+    *memMax = maxAvail;
 
-#warning add call to _MMG5_safeLL2ICast(parmesh->memMax/million) when it will be puhed in Mmg
-    PMMG_Set_iparameter( parmesh, PMMG_IPARAM_mem, parmesh->memMax/million );
-  }
+  fprintf ( stdout,
+            "Requested %lld Mb max memory usage. Max memory limit set to %lld \n",
+            memReq, *memMax );
 }
+
 
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
@@ -74,7 +104,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
         "  ## Warning: maximal memory authorized must be strictly positive.\n");
       fprintf(stdout,"  Reset to default value.\n");
     } else
-      parmesh->mem = val;
+      parmesh->memMax = val;
 
     mem = (int)(val/parmesh->ngrp);
 

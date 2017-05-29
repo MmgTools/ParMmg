@@ -1,41 +1,48 @@
 #include "parmmg.h"
 
-// Helper macro used only in this file:
-//   copies the contents of fromV[fromC] (which are argv[argc]) to
-//   toV[toC] and update toC
-//+++++NIKOS TODO: I DO NOT LIKE THIS APPROACH USING THIS MACRO, PLEASE REVISE
-//+++++NIKOS TODO: returning without freeing is a memory leak here
-#define APPEND_ARGV(parmesh,fromV,toV,fromC,toC,message) do {                  \
-    PMMG_MALLOC( parmesh, toV[(toC)],                                          \
-                 (strlen( fromV[(fromC)] ) + 1 ) * sizeof(char), message );    \
-    strncpy( toV[toC], fromV[fromC], strlen( fromV[fromC] ) + 1 );             \
-    toV[toC][strlen( fromV[fromC] )]='\0';                                     \
-    ++toC;                                                                     \
-  }while(0)
+// Helper macro. Used only in this file. On success:
+//   copies the contents of fromV[fromC] (which are argv[argc]) to toV[toC]
+//   updates toC
+#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
+  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
+              on_failure);                                                   \
+  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
+  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
+  ++toC;                                                                     \
+}while(0)
 
+// Free custom argv allocations
+static void
+argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
+{
+  int i;
+  for ( i = 0; i < mmgArgc; ++i )
+    PMMG_FREE(parmesh, mmgArgv[i], strlen( mmgArgv[i] ), char, "Deallocating mmgargv[i]: " );
+  PMMG_FREE(parmesh, mmgArgv, argc, char*, "Deallocating mmgargv: " );
+}
 
-static void defaultValues( const MMG5_pMesh mesh, const int rank )
+static void
+defaultValues( PMMG_pParMesh parmesh, const int rank )
 {
   if ( rank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
     fprintf( stdout,"# of remeshing iterations (-niter)  : 1\n");
     fprintf( stdout, "\n\n\tMMG");
-    _MMG5_mmgDefaultValues( mesh );
+    _MMG5_mmgDefaultValues( parmesh->listgrp[0].mesh );
   }
-  MPI_Finalize();
-  exit( EXIT_SUCCESS );
+  PMMG_return_and_free( parmesh, PMMG_SUCCESS );
 }
 
-static void usage( char * const progname, const int rank )
+static void
+usage( PMMG_pParMesh parmesh, char * const progname )
 {
-  if ( rank == 0 ) {
+  if ( parmesh->myrank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
     fprintf( stdout, "-niter n  Number of remeshing iterations\n");
     fprintf( stdout, "\n\n\tMMG");
     MMG3D_usage( progname );
   }
-  MPI_Finalize();
-  exit( EXIT_SUCCESS );
+  PMMG_return_and_free( parmesh, PMMG_SUCCESS );
 }
 
 /**
@@ -43,8 +50,8 @@ static void usage( char * const progname, const int rank )
 * \param argv the argument values parameter from main
 * \param parmesh pointer to active parmesh
 *
-* \return 0 on success
-*         1 on failure
+* \return PMMG_SUCCESS
+*         PMMG_FAILURE
 * PARSe ARguments from the command line function
 * it works on top of the MMG3D_parsar function, ie:
 *   arguments exclusively for PMMG_parsar are handled here and not added in the
@@ -57,52 +64,56 @@ static void usage( char * const progname, const int rank )
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
-  const long int million = 1048576L;
+  const long int million = 1024L * 1024L;
 
   int mmgArgc = 0;
   char** mmgArgv = NULL;
 
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
-      defaultValues( parmesh->listgrp[0].mesh, parmesh->myrank );
+      defaultValues( parmesh, parmesh->myrank );
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-      usage( argv[0], parmesh->myrank );
+      usage( parmesh, argv[0] );
 
-  // create a new set of argc/argv variables adding only the the cl options
-  // intended for mmg
-  // overallocating as there will never be more than argc.
-  // not worth the trouble to try and decrease it as it is less than a kb anyway
-  PMMG_MALLOC(parmesh,mmgArgv,argc * sizeof(char*), " copy of argv for mmg: ");
+  // Create a new set of argc/argv variables adding only the the cl options that
+  // mmg has to process
+  // Overallocating as they are at most argc. Trying to avoid the overallocation
+  // is not worth any effort, these are ~kb
+  PMMG_MALLOC(parmesh, mmgArgv, argc, char*, " copy of argv for mmg: ",
+              goto fail_mmgargv);
 
   // First argument is always argv[0] ie prog name
   i = 0;
-  APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc," mmgArgv[0] for mmg: ");
+  ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc, " mmgArgv[0] for mmg: ",
+              goto fail_proc);
 
   i = 1;
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
-      switch(argv[i][1]) {
+      switch( argv[i][1] ) {
       case 'm':  /* memory */
         if ( ++i < argc && isdigit( argv[i][0] ) ) {
-          if ( (atoi(argv[ i ]) > _MMG5_memSize()) || (atoi(argv[ i ]) < 0) )
+          if ( ( atoi(argv[ i ]) > _MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
             fprintf( stderr,
                      "Erroneous mem size requested, using default: %lld\n",
                      parmesh->memMax );
           else
-            parmesh->memMax = atoi(argv[i]) * million;
-          if ( !MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
-            parmesh->listgrp[0].met, MMG3D_IPARAM_mem,atoi(argv[i])) )
-            return 1; //!!!!!NIKOS TODO
+            parmesh->memMax = atoi( argv[i] ) * million;
+          if ( 1 == MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
+                                          parmesh->listgrp[0].met,
+                                          MMG3D_IPARAM_mem,
+                                          atoi( argv[i] ) ) )
+            goto fail_proc;
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-          usage( argv[0], parmesh->myrank );
+          usage( parmesh, argv[0] );
         }
       break;
 
       case 'n':  // number of adaptation iterations
-        if ( (0 == strncmp( argv[i], "-niter", 5 )) && ((i+1) < argc) ) {
+        if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
           ++i;
-          if ( isdigit( argv[i][0] ) && (atoi( argv[i] ) > 0) ) {
+          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
             parmesh->niter = atoi( argv[i] );
           } else {
             parmesh->niter = 1;
@@ -111,32 +122,39 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                      parmesh->niter );
           }
         } else {
-          APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
-                      " adding to mmgArgv for mmg: ");
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      goto fail_proc );
         }
       break;
       default:
-        APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
-                    " adding to mmgArgv for mmg: ");
+        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                    " adding to mmgArgv for mmg: ",
+                    goto fail_proc);
+
       break;
       }
     } else {
-      APPEND_ARGV(parmesh,argv,mmgArgv,i,mmgArgc,
-                  " adding to mmgArgv for mmg: ");
+      ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                  " adding to mmgArgv for mmg: ",
+                  goto fail_proc);
     }
     ++i;
   }
 
   // parmmg finished parsing arguments, the rest will e handled by mmg3d
-  MMG3D_parsar( mmgArgc, mmgArgv, parmesh->listgrp[0].mesh,
-                parmesh->listgrp[0].met );
+  if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
+                          parmesh->listgrp[0].mesh,
+                          parmesh->listgrp[0].met ) )
+    goto fail_proc;
 
-  // Free allocations and return
-  for ( i = 0; i < mmgArgc; ++i )
-    PMMG_FREE(parmesh,mmgArgv[i],strlen(mmgArgv[i]),"Deallocating mmgargv[i]: ");
-  PMMG_FREE(parmesh,mmgArgv,argc * sizeof(char*),"Deallocating mmgargv: ");
+  argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
+  return PMMG_SUCCESS;
 
-  return 0;
+fail_proc:
+  argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
+fail_mmgargv:
+  return PMMG_FAILURE;
 }
 
-#undef APPEND_ARGV
+#undef ARGV_APPEND

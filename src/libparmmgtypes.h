@@ -4,11 +4,11 @@
 #ifndef _LIBPARMMGTYPES_H
 #define _LIBPARMMGTYPES_H
 
+
 /**
  * \def PMMG_SUCCESS
  *
  * Return value for success.
- *
  */
 #define PMMG_SUCCESS       0
 /**
@@ -16,7 +16,6 @@
  *
  * Return value if the remesh process failed but we can save a conform
  * mesh.
- *
  */
 #define PMMG_LOWFAILURE    1
 /**
@@ -24,9 +23,15 @@
  *
  * Return value if the remesh process failed and the mesh is
  * non-conform.
- *
  */
 #define PMMG_STRONGFAILURE 2
+/**
+ * \def PMMG_FAILURE
+ *
+ * Return value of failure, caller is to decide how to proceed further,
+ * ie whether remesh process failed and/or the mesh is non-conformant
+ */
+#define PMMG_FAILURE  4
 
 
 /**
@@ -147,12 +152,11 @@ typedef PMMG_Grp  * PMMG_pGrp;
 typedef struct {
 
   /* mpi info*/
-  int      nprocs;
-  int      myrank;
-  MPI_Comm comm;
+  MPI_Comm comm;   /*!< Global communicator of all parmmg processes */
+  int      nprocs; /*!< Number of processes in global communicator */
+  int      myrank; /*!< Rank in global communicator */
 
   /* mem info */
-  int       mem;
   long long memMax; /*!< Maximum memory allowed to allocate */
   long long memCur; /*!< Currently allocated memory */
 

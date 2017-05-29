@@ -9,11 +9,11 @@
  */
 
 #include "parmmg.h"
+#include "mpitypes_pmmg.h"
 
 /**
  * \param point pointer toward the point we want to communicate
  * \param mpi_light_point new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a point (only those who needs to be communicated) when the
@@ -21,8 +21,7 @@
  *
  * \warning to fill when we need to communicate additional things
  */
-
-int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
+void PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
 {
   int          i,blck_lengths[4] = {3, 3, 1, 1};
   MPI_Aint     displs[4],lb,ub;
@@ -37,31 +36,27 @@ int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
   MPI_Get_address(&(point[1]),       &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=3 ; i>= 0; --i ) {
+  for ( i=3 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(4, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_light_point);
 
   MPI_Type_commit(mpi_light_point);
-
-  return(1);
 }
 
 /**
  * \param point pointer toward the point we want to communicate
  * \param mpi_point new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type named mpi_point to allow the communication of
  * choosen fields of a point (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
  */
-
-int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point) {
+void PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point)
+{
   int          i,blck_lengths[5] = {3, 3, 1, 1, 1};
   MPI_Aint     displs[5],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -76,31 +71,27 @@ int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point) {
   MPI_Get_address(&(point[1]),       &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=4 ; i>= 0; --i ) {
+  for ( i=4 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(5, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_point);
 
   MPI_Type_commit(mpi_point);
-
-  return(1);
 }
 
 /**
  * \param xPoint pointer toward the xPoint we want to communicate
  * \param mpi_xpoint new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type named mpi_xpoint to allow the communication of
  * choosen fields of a xPoint (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
  */
-
-int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint) {
+void PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint)
+{
   int          i,blck_lengths[2] = {3,3};
   MPI_Aint     displs[2],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -112,23 +103,19 @@ int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint) {
   MPI_Get_address(&(xPoint[1]),       &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=1 ; i>= 0; --i ) {
+  for ( i=1 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(2, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_xpoint);
 
   MPI_Type_commit(mpi_xpoint);
-
-  return(1);
 }
 
 /**
  * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_light_tetra new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tetra (only those who needs to be communicated) when the
@@ -136,7 +123,7 @@ int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint) {
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
+void PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
 {
   int          i,blck_lengths[3] = {4, 1, 1};
   MPI_Aint     displs[3],lb,ub;
@@ -150,29 +137,27 @@ int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
   MPI_Get_address(&(tetra[1]),      &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=2 ; i>= 0; --i ) {
+  for ( i=2 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(3, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_light_tetra);
 
   MPI_Type_commit(mpi_light_tetra);
-
-  return(1);
 }
+
 /**
  * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_tetra new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tetra (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra) {
+void PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra)
+{
   int          i,blck_lengths[4] = {4, 1, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -186,30 +171,27 @@ int PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra) {
   MPI_Get_address(&(tetra[1]),      &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=3 ; i>= 0; --i ) {
+  for ( i=3 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(4, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_tetra);
 
   MPI_Type_commit(mpi_tetra);
-
-  return(1);
 }
 
 /**
  * \param edge pointer toward the edge we want to communicate
  * \param mpi_edge new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a edge (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge) {
+void PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge)
+{
   int          i,blck_lengths[4] = {1, 1, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -232,21 +214,19 @@ int PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge) {
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_edge);
 
   MPI_Type_commit(mpi_edge);
-
-  return(1);
 }
 
 /**
  * \param tria pointer toward the tria we want to communicate
  * \param mpi_tria new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tria (only those who needs to be communicated).
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria) {
+void PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria)
+{
   int          i,blck_lengths[3] = {3, 1, 3};
   MPI_Aint     displs[3],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -259,23 +239,19 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria) {
   MPI_Get_address(&(tria[1]),       &ub);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=2 ; i>= 0; --i ) {
+  for ( i=2 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(3, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_tria);
 
   MPI_Type_commit(mpi_tria);
-
-  return(1);
 }
 
 /**
  * \param xTetra pointer toward the xTetra we want to communicate
  * \param mpi_xtetra new MPI data type
- * \return 0 if fail, 1 otherwise.
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a xTetra (only those who needs to be communicated).
@@ -283,7 +259,8 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria) {
  * \warning to fill when we need to communicate additional things
  */
 
-int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra) {
+void PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra)
+{
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
   MPI_Datatype types[4] = {MPI_INT,MPI_INT,MPI_INT16_T,MPI_INT16_T};
@@ -297,15 +274,12 @@ int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra) {
   MPI_Get_address(&(xTetra[1])       ,  &ub);
 
  /* Relative displacement from field 0 to field i */
-  for ( i=3 ; i>= 0; --i ) {
+  for ( i=3 ; i>= 0; --i )
     displs[i] -= lb;
-  }
 
   MPI_Type_create_struct(4, blck_lengths, displs, types, &mpi_noextent);
 
   MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_xtetra);
 
   MPI_Type_commit(mpi_xtetra);
-
-  return(1);
 }

@@ -7,8 +7,7 @@
  * \copyright GNU Lesser General Public License.
  * \todo doxygen documentation.
  */
-
-
+#include <mpi.h>
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
 
@@ -20,10 +19,9 @@
  * \param ind2 index of the second xtetra to swap.
  *
  * Swap two xtetra in the table of xtetrahedras.
- *
  */
-static inline
-void PMMG_swapxTetra(MMG5_pxTetra xtetra, int* perm, int ind1, int ind2) {
+static void swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 )
+{
   MMG5_xTetra pxttmp;
   int         tmp;
 
@@ -46,10 +44,9 @@ void PMMG_swapxTetra(MMG5_pxTetra xtetra, int* perm, int ind1, int ind2) {
  * \param ind2 index of the second xpoint to swap.
  *
  * Swap two xpoint in the table of xpoints.
- *
  */
-static inline
-void PMMG_swapxPoint(MMG5_pxPoint xpoint, int* perm, int ind1, int ind2) {
+static void swapxPoint( MMG5_pxPoint xpoint, int* perm, int ind1, int ind2 )
+{
   MMG5_xPoint pxptmp;
   int         tmp;
 
@@ -74,11 +71,10 @@ void PMMG_swapxPoint(MMG5_pxPoint xpoint, int* perm, int ind1, int ind2) {
  * \param metsize size of the metric (1=iso,6=aniso).
  *
  * Swap two points in the table of points.
- *
  */
-static inline
-void PMMG_swapPoint(MMG5_pPoint point,double* met,int* perm,
-                    int ind1,int ind2,int metsiz) {
+static void swapPoint( MMG5_pPoint point, double* met,int* perm,
+                       int ind1, int ind2, int metsiz )
+{
   MMG5_Point ppttmp;
   MMG5_Sol   mettmp;
   int        tmp,addr2,addr1;
@@ -105,17 +101,19 @@ void PMMG_swapPoint(MMG5_pPoint point,double* met,int* perm,
 
 /**
  * \param parmesh pointer toward the mesh structure.
- * \return 0 if fail, 1 otherwise.
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
  *
  * Send the initial mesh from proc 0 toward the other procs.
- *
  */
-int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
-  PMMG_pGrp       grp;
-  MMG5_pMesh      mesh;
-  MMG5_pSol       met;
-  MPI_Datatype    mpi_light_point,mpi_light_tetra,mpi_tria,mpi_edge;
-  int             rank;
+int PMMG_bcastMesh( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pSol    met;
+  MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
+  int          rank;
+  int          ret = PMMG_SUCCESS;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -124,12 +122,12 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
 
   /* Mesh */
-  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm);
+  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm );
+  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm );
+  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm );
+  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm );
+  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm );
+  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm );
 
   mesh->nemax = mesh->nei = mesh->ne;
   mesh->nenil = 0;
@@ -139,90 +137,88 @@ int PMMG_bcastMesh(PMMG_pParMesh parmesh) {
   mesh->xtmax = mesh->ntmax;
 
   /* Metric */
-  MPI_Bcast( &met->size,    1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &met->npmax,   1, MPI_INT,       0, parmesh->comm);
-  MPI_Bcast( &met->np,      1, MPI_INT,       0, parmesh->comm);
+  MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm );
+  MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm );
+  MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm );
 
   met->npi = met->np;
   met->ver = mesh->ver;
   met->dim = mesh->dim;
 
   if ( rank ) {
-    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"initial vertices",
-                  fprintf(stderr,"  Exit program.\n");
-                  return(0));
-    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
+#warning NIKOS: DO WE NEED TO CLEANUP mesh member allocations or are they handled in mesh deallocation?
+    PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices", return PMMG_FAILURE);
 
-    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"initial tetrahedra",
-                fprintf(stderr,"  Exit program.\n");
-                return(0));
-    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
+    PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",return PMMG_FAILURE);
 
-    if ( mesh->nt ) {
-      _MMG5_ADD_MEM(mesh,(mesh->nt+1)*sizeof(MMG5_Tria),"initial triangles",
-                    return(0));
-      _MMG5_SAFE_CALLOC(mesh->tria,mesh->nt+1,MMG5_Tria,0);
-    }
+    if ( mesh->nt )
+      PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,"initial triangles",return PMMG_SUCCESS);
 
-    if ( mesh->na ) {
-      _MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"initial edges",
-                    return(0));
-      _MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge,0);
-    }
+    if ( mesh->na )
+      PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges",return PMMG_FAILURE);
 
-    if ( met->npmax ) {
-      _MMG5_ADD_MEM(mesh,(met->size*(met->npmax+1))*sizeof(double),"initial metric",
-                    fprintf(stderr,"  Exit program.\n");
-                    return(0));
-      _MMG5_SAFE_CALLOC(met->m,(met->size*(met->npmax+1)),double,0);
-    }
+    if ( met->npmax )
+      PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges",return PMMG_FAILURE);
   }
 
-  if ( !PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point ) ) return(0);
-  if ( !PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra ) ) return(0);
-  if ( mesh->nt && !PMMG_create_MPI_Tria( mesh->tria, &mpi_tria ) ) return(0);
-  if ( mesh->na && !PMMG_create_MPI_Edge( mesh->edge, &mpi_edge ) ) return(0);
+  PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point );
+  PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra );
+  if ( mesh->nt )
+    PMMG_create_MPI_Tria( mesh->tria, &mpi_tria );
+  if ( mesh->na )
+  PMMG_create_MPI_Edge( mesh->edge, &mpi_edge );
 
-  MPI_Bcast( mesh->point,  mesh->np+1,    mpi_light_point,  0, parmesh->comm);
-  MPI_Bcast( mesh->tetra,  mesh->ne+1,    mpi_light_tetra,  0, parmesh->comm);
-  if ( mesh->nt ) MPI_Bcast( mesh->tria, mesh->nt+1, mpi_tria, 0, parmesh->comm);
-  if ( mesh->na ) MPI_Bcast( mesh->edge, mesh->na+1, mpi_edge, 0, parmesh->comm);
+  MPI_Bcast( mesh->point, mesh->np + 1, mpi_light_point, 0, parmesh->comm );
+  MPI_Bcast( mesh->tetra, mesh->ne + 1, mpi_light_tetra, 0, parmesh->comm );
+  if ( mesh->nt )
+    MPI_Bcast( mesh->tria, mesh->nt + 1, mpi_tria, 0, parmesh->comm );
+  if ( mesh->na )
+    MPI_Bcast( mesh->edge, mesh->na + 1, mpi_edge, 0, parmesh->comm );
   if ( met->m )
-    MPI_Bcast( met->m,met->size*(met->npmax+1),MPI_DOUBLE, 0, parmesh->comm);
+    MPI_Bcast( met->m, met->size * (met->npmax + 1), MPI_DOUBLE, 0, parmesh->comm );
 
-  MPI_Type_free(&mpi_light_point);
-  MPI_Type_free(&mpi_light_tetra);
-  if ( mesh->nt ) MPI_Type_free(&mpi_tria);
-  if ( mesh->na ) MPI_Type_free(&mpi_edge);
+  MPI_Type_free( &mpi_light_point );
+  MPI_Type_free( &mpi_light_tetra );
+  if ( mesh->nt )
+    MPI_Type_free( &mpi_tria );
+  if ( mesh->na )
+    MPI_Type_free( &mpi_edge );
 
-  return 1;
+  return PMMG_SUCCESS;
 }
 
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward an array of int containing the partitions.
- * \return 0 if fail, 1 otherwise.
+ *
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
  *
  * Delete parts of the mesh not on the processor.
- *
  */
-int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
-  PMMG_pGrp       grp;
-  MMG5_pMesh      mesh;
-  MMG5_pSol       met;
-  MMG5_pTetra     pt,ptnew;
-  MMG5_pxTetra    pxt;
-  MMG5_pPoint     ppt;
-  PMMG_pext_comm  pext_comm;
-  idx_t           *part;
-  int             nprocs,rank,np,ne,nxt,nxp;
-  int             *pointPerm,*xPointPerm,*xTetraPerm;
-  int             ip,iploc,ifac,i,j,k,*idx,kvois,rankVois;
-  int             *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int             nitem_int_node_comm,next_node_comm,*seenRanks;
-  int             inIntComm,nbl;
-  int8_t          *pointRanks;
-
+#warning NIKOS TODO: When do we have what? (conformant or non conformant mesh
+int PMMG_distributeMesh( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp      grp = NULL;
+  MMG5_pMesh     mesh = NULL;
+  MMG5_pSol      met = NULL;
+  MMG5_pTetra    pt = NULL, ptnew = NULL;
+  MMG5_pxTetra   pxt = NULL;
+  MMG5_pPoint    ppt = NULL;
+  PMMG_pext_comm pext_comm = NULL;
+  idx_t          *part = NULL;
+  int            nprocs = 0 ,rank = 0, np = 0, ne = 0, nxt = 0, nxp = 0;
+  int            ip = 0, iploc = 0, ifac = 0, i = 0, j = 0, k = 0, *idx = NULL;
+  int            kvois = 0, rankVois =0;
+  int            *node2int_node_comm_index1 = NULL;
+  int            *node2int_node_comm_index2 = NULL;
+  int            nitem_int_node_comm = 0, next_node_comm = 0;
+  int            inIntComm = 0, nbl = 0;
+  int            *seenRanks = NULL;
+  int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
+  int8_t         *pointRanks = NULL;
+  int            ret_val = PMMG_SUCCESS;
+  int            old_val = 0;
 
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
@@ -232,17 +228,27 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   rank   = parmesh->myrank;
 
   /** Call metis for partionning*/
-  _MMG5_SAFE_CALLOC(part,(parmesh->listgrp[0].mesh)->ne,idx_t,0);
+  PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
+              ret_val = PMMG_FAILURE;goto fail_alloc0);
 
-  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) ) return 0;
+#warning mesh->adja is allocated somewhere in this call and there was a free which I am not sure I am consistently handling in the error handling
+  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) ) {
+    ret_val = PMMG_FAILURE;
+    goto fail_alloc1;
+  }
 
   /** Remove the part of the mesh that are not on the proc rank */
-  _MMG5_SAFE_CALLOC(seenRanks,nprocs,int,0);
-  _MMG5_SAFE_CALLOC(pointRanks,nprocs*mesh->np,int8_t,0);
-
-  _MMG5_SAFE_CALLOC(pointPerm,mesh->np+1,int,0);
-  _MMG5_SAFE_CALLOC(xTetraPerm,mesh->xtmax+1,int,0);
-  _MMG5_SAFE_CALLOC(xPointPerm,mesh->xp+1,int,0);
+#warning NIKOS: NOT SURE I AM ACCOUNTING ON THE CORRECT memMax/memCur
+  PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
+              ret_val = PMMG_FAILURE;goto fail_alloc1);
+  PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
+              ret_val = PMMG_FAILURE; goto fail_alloc2);
+  PMMG_CALLOC(parmesh,pointPerm,mesh->np+1,int,"dist mesh buffer2",
+              ret_val = PMMG_FAILURE;goto fail_alloc3);
+  PMMG_CALLOC(parmesh,xTetraPerm,mesh->xtmax+1,int,"dist mesh buffer3",
+              ret_val = PMMG_FAILURE; goto fail_alloc4);
+  PMMG_CALLOC(parmesh,xPointPerm,mesh->xp+1,int,"dist mesh buffer4",
+              ret_val = PMMG_FAILURE;goto fail_alloc5);
 
   nxp = 0;
   nxt = 0;
@@ -277,15 +283,13 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
           ++mesh->xt;
           if ( mesh->xt > mesh->xtmax ) {
             /* realloc of xtetras table */
-            _MMG5_SAFE_RECALLOC(xTetraPerm,mesh->xtmax,(int)(0.2*mesh->xtmax)+1,
-                                int,"larger tetra permutation table",0);
-
-            _MMG5_TAB_RECALLOC(mesh,mesh->xtetra,mesh->xtmax,0.2,MMG5_xTetra,
-                               "larger xtetra table",
-                               mesh->xt--;
-                               fprintf(stderr,"  Exit program.\n");
-                               return(0),0);
-
+            PMMG_RECALLOC(mesh,mesh->xtetra,1.2*mesh->xtmax+1,mesh->xtmax+1,int,
+                          "larger xtetra ",
+                          mesh->xt--;ret_val = PMMG_FAILURE;goto fail_alloc6);
+            PMMG_RECALLOC(parmesh,xTetraPerm,1.2*mesh->xtmax+1,mesh->xtmax+1,
+                          int,"larger tetra permutation table ",
+                          mesh->xt--; ret_val = PMMG_FAILURE; goto fail_alloc6);
+            mesh->xtmax = 1.2 * mesh->xtmax;
           }
           pt->xt = mesh->xt;
         }
@@ -295,10 +299,8 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
 
         /* Parallel edges */
 #warning using the MG_REQ tag, we will loose the "true" required tags
-        for ( j=0; j<3; ++j ) {
+        for ( j=0; j<3; ++j )
           pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
-        }
-
       }
 
       for ( j=0; j<3; ++j ) {
@@ -335,21 +337,25 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
       pt->v[j] = mesh->point[pt->v[j]].tmp;
 
     /* update the table of permutation for xTetra if needed */
-    if ( !pt->xt ) continue;
+    if ( !pt->xt )
+      continue;
 
     xTetraPerm[pt->xt] = ++nxt;
     pt->xt = nxt;
   }
-  _MMG5_SAFE_FREE(mesh->adja);
+  PMMG_FREE(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
 
   /** Count the number of external node communicators and initialize it */
   next_node_comm = 0;
-  for ( k=0; k<nprocs; ++k ) {
-    if ( seenRanks[k] ) ++next_node_comm;
-  }
+  for ( k=0; k<nprocs; ++k )
+    if ( seenRanks[k] )
+      ++next_node_comm;
 
+  old_val = parmesh->next_node_comm;
   parmesh->next_node_comm = next_node_comm;
-  _MMG5_SAFE_CALLOC(parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,0);
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
+              "allocate node comm ",
+              parmesh->next_node_comm = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
 
   next_node_comm = 0;
   for ( k=0; k<nprocs; ++k ) {
@@ -357,8 +363,11 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
       pext_comm = &parmesh->ext_node_comm[next_node_comm];
       pext_comm->color_in  = rank;
       pext_comm->color_out = k;
+      old_val              = pext_comm->nitem;
       pext_comm->nitem     = seenRanks[k];
-      _MMG5_SAFE_CALLOC(pext_comm->int_comm_index,pext_comm->nitem,int,0);
+      PMMG_CALLOC(parmesh,pext_comm->int_comm_index,pext_comm->nitem,int,
+                  "allocate comm idx",
+                  pext_comm->nitem = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
       /* Use seenRanks to store the idx of the external communicator me->k */
       seenRanks[k] = next_node_comm++;
     }
@@ -368,7 +377,8 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   nitem_int_node_comm = 0;
   for ( k=1; k<=mesh->np; k++ ) {
 
-    if ( !mesh->point[k].tmp )  continue;
+    if ( !mesh->point[k].tmp )
+      continue;
 
     for ( j=0; j<nprocs; ++j ) {
       if ( pointRanks[nprocs*(k-1)+j] ) {
@@ -378,9 +388,21 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
     }
   }
 
+  old_val = grp->nitem_int_node_comm;
   grp->nitem_int_node_comm = nitem_int_node_comm;
-  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index1,nitem_int_node_comm,int,0);
-  _MMG5_SAFE_CALLOC(grp->node2int_node_comm_index2,nitem_int_node_comm,int,0);
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,
+              "alloc n2i_n_c_idx1 ",
+              grp->nitem_int_node_comm = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
+    // For the error handling to be complete at this point we have to:
+    //   1) reverse the reallocation of n2i_n_c_idx1
+    //   2) reset nitem_int_node_comm, set ret_val, etc
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
+              "alloc n2i_n_c_idx2 ",
+              PMMG_REALLOC(parmesh,grp->node2int_node_comm_index1,old_val,nitem_int_node_comm,
+                           int, "realloc n2i_n_c_idx1 ", );
+              grp->nitem_int_node_comm = old_val;
+              ret_val = PMMG_FAILURE;
+              goto fail_alloc6);
 
   /** Travel through the mesh and fill the communicators */
   i = 0;
@@ -388,10 +410,12 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
 
   /* Idx is used to store the external communicator cursor */
-  _MMG5_SAFE_CALLOC(idx,parmesh->next_node_comm,int,0);
+  PMMG_CALLOC(parmesh,idx,parmesh->next_node_comm,int,"allocating idx",
+              ret_val = PMMG_FAILURE; goto fail_alloc6);
 
   for ( k=1; k<=mesh->np; k++ ) {
-    if ( !mesh->point[k].tmp )  continue;
+    if ( !mesh->point[k].tmp )
+      continue;
 
     inIntComm = 0;
     for ( j=0; j<nprocs; ++j ) {
@@ -410,9 +434,12 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
       }
     }
     /* Increment internal comm cursor */
-    if ( inIntComm )  ++i;
+    if ( inIntComm )
+      ++i;
   }
-  _MMG5_SAFE_CALLOC(parmesh->int_node_comm,1,PMMG_int_comm,0);
+#warning NIKOS: I need some help with managing error handling here: am I consistently managing the communicator deallocations? are they in a consistent state if an error happens and this returns?
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,"allocating idx",
+              ret_val = PMMG_FAILURE; goto fail_alloc7);
   /* We have 1 Grp per proc, thus : int_node_comm.nitem : nitem_int_node_comm */
   parmesh->int_node_comm->nitem = nitem_int_node_comm;
 
@@ -422,7 +449,8 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   for ( k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
 
-    if ( pt->mark!=rank ) continue;
+    if ( pt->mark != rank )
+      continue;
     ++ne;
 
     if ( k!=nbl ) {
@@ -434,48 +462,62 @@ int PMMG_distributeMesh(PMMG_pParMesh parmesh) {
   mesh->ne = ne;
 
   /** Compact xtetra on the proc */
-  for ( k=1; k<=mesh->xt; ++k ) {
+  for ( k=1; k<=mesh->xt; ++k )
     while ( xTetraPerm[k] != k && xTetraPerm[k] )
-      PMMG_swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
-  }
+      swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
   mesh->xt = nxt;
 
   /** Compact vertices on the proc: in place permutations */
-  for ( k=1; k<=mesh->np; ++k ) {
+  for ( k=1; k<=mesh->np; ++k )
     while ( pointPerm[k] != k && pointPerm[k] )
-      PMMG_swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
-  }
+      swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
   mesh->np = np;
 
   /** Compact xpoint on the proc: in place permutations */
-  for ( k=1; k<=mesh->xp; ++k ) {
+  for ( k=1; k<=mesh->xp; ++k )
     while ( xPointPerm[k] != k && xPointPerm[k] )
-      PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
-  }
+      swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
   mesh->xp = nxp;
 
-  _MMG5_SAFE_FREE(part);
-
-  _MMG5_SAFE_FREE(seenRanks);
-  _MMG5_SAFE_FREE(pointRanks);
-  _MMG5_SAFE_FREE(idx);
-
-  _MMG5_SAFE_FREE(pointPerm);
-  _MMG5_SAFE_FREE(xPointPerm);
-  _MMG5_SAFE_FREE(xTetraPerm);
-
   /** Update xtetra edge tags */
-  if ( !PMMG_bdryUpdate(mesh) ) return 0;
-
-  /** Adjacency reconstruction */
-  if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return(0);
-
-  if ( parmesh->ddebug ) {
-    /* sprintf(filename,"End_distributeMesh_proc%d.mesh",rank); */
-    /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-    /* PMMG_saveMesh(parmesh,filename); */
-    /* if ( met ) PMMG_saveSol(parmesh,filename); */
+  if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
+    ret_val = PMMG_FAILURE;
+    goto fail_alloc7;
   }
 
-  return(1);
+
+  /** Adjacency reconstruction */
+  if ( 1 != MMG3D_hashTetra( parmesh->listgrp[0].mesh, 0 ) ) {
+    ret_val = PMMG_FAILURE;
+    goto fail_alloc7;
+  }
+
+//  if ( parmesh->ddebug ) {
+//    sprintf( filename, "End_distributeMesh_proc%d.mesh", rank );
+//    _MMG3D_bdryBuild( parmesh->listgrp[0].mesh );
+//    PMMG_saveMesh( parmesh, filename );
+//    if ( met )
+//      PMMG_saveSol( parmesh, filename );
+//  }
+
+fail_alloc7:
+  PMMG_FREE(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
+fail_alloc6:
+  PMMG_FREE(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
+fail_alloc5:
+  PMMG_FREE(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate metis buffer4");
+fail_alloc4:
+  PMMG_FREE(parmesh,pointPerm,mesh->np+1,int,"deallocate metis buffer3");
+fail_alloc3:
+  PMMG_FREE(parmesh,pointRanks,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
+fail_alloc2:
+  PMMG_FREE(parmesh,seenRanks,nprocs,int,"deallocate metis buffer1");
+fail_alloc1:
+#warning NIKOS: I would have added this deallocation if it werent for line 566
+//!!!!!NIKOS  if ( mesh->adja != NULL )
+//!!!!!NIKOS    PMMG_FREE( mesh->adja, 4 * mesh->nemax + 5, sizeof(int), &mesh->memMax,
+//!!!!!NIKOS               &mesh->memCur, "dealloc mesh adja" );
+  PMMG_FREE(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
+fail_alloc0:
+  return ret_val;
 }

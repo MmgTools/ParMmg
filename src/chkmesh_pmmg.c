@@ -4,8 +4,8 @@
 /**
  * \param mesh pointer to current parmesh stucture
  *
- * \return 0 if tests succeeded
- *         1 if some test failed
+ * \return PMMG_SUCCESS if tests succeeded
+ *         PMMG_FAILURE if some test failed
  *
  *  This function does some checks on the internal communicator for each group
  *
@@ -27,13 +27,14 @@
  *    Second test:
  *        elements should appear once and only once per mesh local communicator
  */
+
 int PMMG_checkIntComm( PMMG_pParMesh mesh )
 {
   //NIKOS TODO: could try using std::vector<bool> and std::map in these tests to speed up things
   //NIKOS TODO: BOUND CHECK ARRAY ACCESSES: can't rely that the contents of the communicators are valid
   struct point { double c[3]; int tmp; };
   struct point *check = NULL;
-  int testFailed = 0;
+  int ret_val = PMMG_SUCCESS;
   int ngrp = mesh->ngrp;
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh meshCur = NULL;
@@ -47,7 +48,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
   int commIdx, grpId;
 
   // FIRST TEST:
-  PMMG_CALLOC(mesh,check,commSizeGlo+1,struct point,"Allocating check space: ");
+  PMMG_CALLOC(mesh,check,commSizeGlo+1,struct point,"Allocating check space: ", return PMMG_FAILURE);
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
 
@@ -81,7 +82,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
         for ( int j = 0; j < 3; ++j )
           if ( check[ commIdx2 ].c[j] != meshCur->point[ commIdx1 ].c[j] ) {
             ++numFailed;
-            testFailed = 1;
+            ret_val = PMMG_FAILURE;
         }
       }
     }
@@ -103,7 +104,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
       if ( check[ commIdx2 ].tmp == 0. )
         check[ commIdx2 ].tmp = 1.;
       else
-        testFailed = 1;
+        ret_val = PMMG_FAILURE;
     }
   }
 
@@ -130,18 +131,17 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
 //THINK AGAIN ABOUT IT AND FINISH IT  while ( check[ ++commIdx ].tmp != 0 )
 //THINK AGAIN ABOUT IT AND FINISH IT    ;
 //THINK AGAIN ABOUT IT AND FINISH IT  if ( commIdx != mesh->int_node_comm->nitem )
-//THINK AGAIN ABOUT IT AND FINISH IT    testFailed = 1;
+//THINK AGAIN ABOUT IT AND FINISH IT    ret_val = PMMG_FAILURE;
 //THINK AGAIN ABOUT IT AND FINISH IT  printf( "+++++NIKOS[%d/%d]:: commIdx= %d, nitem= %d \n", ngrp, grpId+1, commIdx, mesh->int_node_comm->nitem );
 
   // NIKOS TODO: CHECK THE idx1/idx2 pairs ?
 
-  PMMG_FREE(mesh,check,(commSizeGlo+1)*sizeof(struct point),
-    "Deallocating check space:");
-  return testFailed;
+  PMMG_FREE(mesh,check,commSizeGlo+1,struct point,"Deallocating check space:");
+  return ret_val;
 }
 
 
 int PMMG_checkExtComm( void )
 {
-  return 1;
+  return PMMG_SUCCESS;
 }

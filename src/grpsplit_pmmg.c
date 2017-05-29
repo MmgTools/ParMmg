@@ -8,8 +8,9 @@
  * \copyright GNU Lesser General Public License.
  * \todo doxygen documentation.
  */
-#include "libparmmgtypes.h" // PMMG_pGrp
 #include "parmmg.h"
+#include "metis_pmmg.h"
+#include "libparmmgtypes.h" // PMMG_pGrp
 #include "metis.h" // idx_t
 #include "mmg3d.h" //_MMG5_idir[4][3]
 #include "libparmmg.h" // PMMG_mesh2metis
@@ -17,9 +18,9 @@
 #include "chkmesh_pmmg.h"
 
 // Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 1024;// * 128;
+static const int REMESHER_TARGET_MESH_SIZE = 128 * 1024;
 
-static int HowManyGroups ( const int nelem )
+static int howManyGroups ( const int nelem )
 {
   int ngrp = nelem / REMESHER_TARGET_MESH_SIZE;
 
@@ -32,11 +33,12 @@ static int HowManyGroups ( const int nelem )
 }
 
 
-//NIKOS TODO: there is some code duplication. eg this metis calling is also in the metisfunction.c
+#warning NIKOS TODO: is there any code duplication here and in distributegrp?
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \return 0 if fail, 1 otherwise.
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
  *
  * Split one group into several groups.
  *
@@ -51,12 +53,15 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   MMG5_pTetra tetraCur = NULL;
   MMG5_pxTetra pxt;
   int *countPerGrp = NULL;
+  int ret_val = PMMG_SUCCESS; // returned value. unless set otherwise: SUCCESS
 
   idx_t ngrp = 1;
   idx_t *part = NULL;
   idx_t *xadj = NULL;
   idx_t *adjncy = NULL;
-  //NIKOS TODO: experiment with the number of balancing constraints
+  int adjsize = 0; // Remember these for deallocation
+  int xadjsize = 0; // Remember these for deallocation
+#warning NIKOS TODO: experiment with the number of balancing constraints
   idx_t ncon = 1; /* number of balancing constraint */
   idx_t nelt = meshOld->ne;
   idx_t objval;
@@ -77,13 +82,13 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 //NIKOS TODO _MMG3D_bdryBuild( meshOld ); //note: no error checking
 //NIKOS TODO MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
-  ngrp = HowManyGroups( meshOld->ne );
-  /* Does the group need to be further subdivided to subgroups or not? */
+  ngrp = howManyGroups( meshOld->ne );
+  // Does the group need to be further subdivided to subgroups or not?
   if ( ngrp == 1 )  {
     fprintf( stdout,
             "[%d-%d]: %d group is enough, no need to create sub groups.\n",
             parmesh->myrank+1, parmesh->nprocs, ngrp );
-    return 1;
+    return PMMG_SUCCESS;
   } else {
     fprintf( stdout,
              "[%d-%d]: %d groups required, splitting into sub groups...\n",
@@ -93,40 +98,25 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
-  PMMG_CALLOC( parmesh, part, meshOld->ne, idx_t, "metis buffer " );
+  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
 
-  PMMG_mesh2metis( parmesh, &xadj, &adjncy );
+  if (   PMMG_mesh2metis( parmesh, &xadj, &adjncy, &adjsize )
+      != PMMG_SUCCESS ) {
+    ret_val = PMMG_FAILURE;
+    goto fail_part;
+  }
+  xadjsize = meshOld->ne + 1; // remember size of xadj to correctly free it
 
-  ier = METIS_PartGraphKway( &nelt, &ncon, xadj, adjncy, NULL/*vwgt*/,
-                             NULL/*vsize*/, NULL/*adjwgt*/, &ngrp,
-                             NULL/*tpwgts*/, NULL/*ubvec*/, NULL/*options*/,
-                             &objval, part );
-  //ier =  METIS_PartGraphRecursive( &nelt, &ncon, xadj, adjncy, NULL/\*vwgt*\/, NULL/\*vsize*\/,
-  //                                 NULL/\*adjwgt*\/, &nproc, NULL/\*tpwgts*\/,
-  //                                 NULL/\*ubvec*\/, NULL/\*options*\/, &objval, part );
-  if ( ier != METIS_OK ) {
-    fprintf(stderr, "Metis returned error value: " );
-    switch ( ier ) {
-      case METIS_ERROR_INPUT:
-        fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" );
-        break;
-      case METIS_ERROR_MEMORY:
-        fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" );
-        break;
-      case METIS_ERROR:
-        fprintf(stderr, "METIS_ERROR: generic error\n" );
-        break;
-    }
-    _MMG5_SAFE_FREE( xadj );
-    _MMG5_SAFE_FREE( adjncy );
-    _MMG5_SAFE_FREE( part );
-    return (0);
+  if (   PMMG_metis_wrapper( &nelt, &ncon, xadj, adjncy, &ngrp, &objval, part )
+      != PMMG_SUCCESS ) {
+    ret_val = PMMG_FAILURE;
+    goto fail_metis;
   }
 
 
-
   /* count_per_grp: count elements per group */
-  PMMG_CALLOC( parmesh, countPerGrp, ngrp, int, "counter buffer " );
+  PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
+              ret_val = PMMG_FAILURE;goto fail_metis);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
   for ( i = 0; i < ngrp ; i++ )
@@ -135,7 +125,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 
   /* Allocate list of subgroups struct and allocate memory*/
-  PMMG_CALLOC( parmesh, grpsNew, ngrp, PMMG_Grp, "subgourp list " );
+  PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
+              ret_val = PMMG_FAILURE; goto fail_counters);
   //NIKOS TODO: do MMG3D_Init_mesh/MMG3D_Set_meshSize offer sth? otherwise allocate on your own
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
@@ -153,10 +144,22 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     meshCur = grpCur->mesh;
 
     /* Copy the mesh filenames */
-    if ( !MMG5_Set_inputMeshName(meshCur,meshOld->namein) ) return 0;
-    // if ( !MMG5_Set_inputSolName(meshCur,metCur,metOld->namein) ) return 0;
-    if ( !MMG5_Set_outputMeshName(meshCur,meshOld->nameout) ) return 0;
-    //if ( !MMG5_Set_outputSolName(meshCur,metCur,metOld->nameout) ) return 0;
+    if ( !MMG5_Set_inputMeshName( meshCur, meshOld->namein ) ) {
+      ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
+    }
+    //if ( !MMG5_Set_inputSolName( meshCur, metCur, metOld->namein ) ) {
+    //  ret_val = PMMG_FAILURE;
+    //  goto fail_sgrp;
+    //}
+    if ( !MMG5_Set_outputMeshName( meshCur, meshOld->nameout ) ) {
+      ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
+    }
+    //if ( !MMG5_Set_outputSolName( meshCur, metCur, metOld->nameout ) )
+    //  ret_val = PMMG_FAILURE;
+    //  goto fail_sgrp;
+    //}
 
     //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId],
@@ -167,26 +170,22 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
     meshCur->xtmax = meshOld->xtmax;
-    _MMG5_ADD_MEM(meshCur,(meshCur->xtmax+1)*sizeof(MMG5_xTetra),"boundary tetra",
-                  return(0));
-    _MMG5_SAFE_CALLOC(meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,0);
+    PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
+                "msh boundary xtetra", goto fail_sgrp; ret_val = PMMG_FAILURE);
 
     /* memory to store normals for boundary points */
-#warning Overallocating memory, we can do better
+#warning Overallocating memory, we can do better: Start small and gradually increase
     meshCur->xpmax  = meshCur->npmax;
-    _MMG5_ADD_MEM(meshCur,(meshCur->xpmax+1)*sizeof(MMG5_xPoint),"boundary points",
-                  return(0));
-    _MMG5_SAFE_CALLOC(meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,0);
+    PMMG_CALLOC(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
+                "boundary points", goto fail_sgrp; ret_val = PMMG_FAILURE);
 
-    _MMG5_ADD_MEM(meshCur,(4*meshCur->nemax+5)*sizeof(int),"adjacency table",
-                  fprintf(stderr,"  Exit program.\n");
-                  return 0);
-    _MMG5_SAFE_CALLOC(meshCur->adja,4*meshCur->nemax+5,int,0);
+    PMMG_CALLOC(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table",
+                goto fail_sgrp; ret_val = PMMG_FAILURE);
 
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,
-                "subgroup internal1 communicator ");
+                "subgroup internal1 communicator ", goto fail_sgrp; ret_val = PMMG_FAILURE);
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,
-                "subgroup internal2 communicator ");
+                "subgroup internal2 communicator ", goto fail_sgrp; ret_val = PMMG_FAILURE);
   printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
           parmesh->myrank + 1, parmesh->nprocs,
           meshCur, meshCur->xtmax, meshCur->xtetra,
@@ -274,9 +273,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         ++meshCur->xt;
         if ( meshCur->xt > meshCur->xtmax ) {
           /* realloc of xtetra table */
-          PMMG_RECALLOC(parmesh,meshCur->xtetra,
-                        meshCur->xtmax,(int)(1.2*meshCur->xtmax),MMG5_xTetra,
-                        "larger xtetra table" );
+          PMMG_RECALLOC(meshCur,meshCur->xtetra,1.2*meshCur->xtmax+1,
+                        meshCur->xtmax+1,MMG5_xTetra,"larger xtetra table",
+                        goto fail_sgrp; ret_val = PMMG_FAILURE);
+          meshCur->xtmax = 1.2 * meshCur->xtmax;
         }
         memcpy( meshCur->xtetra + meshCur->xt,
                 &meshOld->xtetra[ meshOld->tetra[tet].xt],
@@ -349,9 +349,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
               ++meshCur->xt;
               if ( meshCur->xt > meshCur->xtmax ) {
                 /* realloc of xtetra table */
-                PMMG_RECALLOC(parmesh,meshCur->xtetra,
-                              meshCur->xtmax,(int)(1.2*meshCur->xtmax),
-                              MMG5_xTetra,"larger xtetra table" );
+                PMMG_RECALLOC(meshCur,meshCur->xtetra,1.2*meshCur->xtmax+1,
+                              meshCur->xtmax+1,MMG5_xTetra,"larger xtetra table",
+                              goto fail_sgrp; ret_val = PMMG_FAILURE);
+                meshCur->xtmax = 1.2 * meshCur->xtmax;
               }
               memcpy( meshCur->xtetra + meshCur->xt,
                       &meshOld->xtetra[ meshOld->tetra[tet].xt],
@@ -419,21 +420,46 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 #ifndef NDEBUG
   if ( PMMG_checkIntComm ( parmesh ) ) {
     fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
-    return 0;
+    ret_val = PMMG_FAILURE;
+    goto fail_sgrp;
   }
 #endif
 
-  //#error NIKOS: CHANGE THE MEMORY ALLOCATIONS WITH PROPER ALLOCATION+REALLOCATION ??
   //MMG3D_Free_all( MMG5_ARG_start,
   //                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->met),
   //                MMG5_ARG_end);
   //parmesh->listgrp = grpsNew;
   //parmesh->ngrp = ngrp;
 
-  _MMG5_SAFE_FREE( xadj );
-  _MMG5_SAFE_FREE( adjncy );
-  _MMG5_SAFE_FREE( part );
-  PMMG_FREE( parmesh, countPerGrp, ngrp * sizeof(int), "counter buffer " );
+  // No error so far, skip deallocation of lstgrps
+  goto fail_counters;
 
-  return( 1 );
+// fail_sgrp deallocates any mesh that has been allocated in listgroup.
+// Should be executed only if an error has occured
+fail_sgrp:
+  for ( grpId = 0; grpId < ngrp; ++grpId ) {
+    meshCur = grpsNew[grpId].mesh;
+    if ( grpCur->node2int_node_comm_index2 != NULL )
+      PMMG_FREE(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,"subgroup internal2 communicator ");
+    if ( grpCur->node2int_node_comm_index1 != NULL )
+      PMMG_FREE(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,"subgroup internal1 communicator ");
+    if ( meshCur->adja != NULL )
+      PMMG_FREE(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
+    if ( meshCur->xpoint != NULL )
+      PMMG_FREE(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
+    if ( meshCur->xtetra != NULL )
+      PMMG_FREE(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
+#warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
+  }
+  PMMG_FREE(parmesh,countPerGrp,ngrp,int,"counter buffer ");
+// these labels should be executed as part of normal code execution before
+// returning as well as error handling
+fail_counters:
+  PMMG_FREE(parmesh,countPerGrp,ngrp,int,"counter buffer ");
+fail_metis:
+  PMMG_FREE(parmesh,adjncy,adjsize,idx_t,"deallocate adjncy");
+  PMMG_FREE(parmesh,xadj,xadjsize,idx_t,"deallocate xadj");
+fail_part:
+  PMMG_FREE(parmesh,part,meshOld->ne,idx_t,"free metis buffer ");
+  return ret_val;
 }

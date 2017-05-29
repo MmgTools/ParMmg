@@ -60,13 +60,7 @@ enum PMMG_Param {
 
 
 /* API_functions_pmmg.c */
-int PMMG_Init_parMesh( const int starter, ... );
-
-/* inout_3d.c */
-int PMMG_loadMesh( PMMG_pParMesh );
-int PMMG_saveMesh( PMMG_pParMesh, const char * );
-int PMMG_loadSol( PMMG_pParMesh );
-int PMMG_saveSol( PMMG_pParMesh, const char * );
+int PMMG_Init_parMesh( PMMG_pParMesh *parmesh );
 
 /* libparmmg.c */
 /**
@@ -112,10 +106,6 @@ void  PMMG_Init_parameters(PMMG_pParMesh parmesh);
  *
  */
 int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
-
-/* metisfunctions.c */
-int PMMG_metispartitioning( PMMG_pParMesh, idx_t * );
-int PMMG_mesh2metis( PMMG_pParMesh parmesh, idx_t **xadj, idx_t **adjncy );
 
 /* distributemesh */
 int PMMG_distributeMesh(PMMG_pParMesh);

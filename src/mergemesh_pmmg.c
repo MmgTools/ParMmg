@@ -13,16 +13,18 @@
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \return 0 if fail, 1 otherwise.
+ * \return
+ *         PMMG_FAILURE
+ *         PMMG_SUCCESS
  *
  * Merge the groups (mesh + internal communicators) on the processor.
  *
  * \remark not yet tested
  *
  * \warning the groups meshes must be packed.
- *
  */
-int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
+int PMMG_mergeGrps( PMMG_pParMesh parmesh )
+{
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0,mesh;
   MMG5_pSol      met0,met;
@@ -36,15 +38,18 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
   int            *node2int_node_comm_index1,*node2int_node_comm0_index1;
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            idx,idx1,idx2,np,imsh,k,i,ie,ip;
+  int            ret_val = PMMG_SUCCESS;
 
-  if ( parmesh->ngrp == 1 )  return(1);
+  if ( parmesh->ngrp == 1 )
+    return PMMG_SUCCESS;
 
   grp  = parmesh->listgrp;
 
   /** First step: Add all the interfaces points in grp 0 and update its internal
    * communicator */
   int_node_comm              = parmesh->int_node_comm;
-  _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int,0);
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
+              "node communicator",return PMMG_FAILURE);
 
   intvalues                  = int_node_comm->intvalues;
 
@@ -62,9 +67,8 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
 
   /* Travel through internal communicator to recover a unique numbering of
    * points (grp 0) */
-  for ( k=0; k<nitem_int_node_comm0; ++k ) {
+  for ( k=0; k<nitem_int_node_comm0; ++k )
     intvalues[node2int_node_comm0_index2[k]] = node2int_node_comm0_index1[k];
-  }
 
 
   idx = nitem_int_node_comm;
@@ -92,11 +96,12 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
           _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
                               printf("  ## Error: unable to merge group points\n");
                               _MMG5_INCREASE_MEM_MESSAGE();
                               return(0);
-                              ,ppt->c,ppt->tag,0);
+                              ,ppt->c,ppt->tag,PMMG_FAILURE);
         }
         ppt->tmp = ip;
         /* Add xpoint if needed */
@@ -141,11 +146,12 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
           _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
                               printf("  ## Error: unable to merge group points\n");
                               _MMG5_INCREASE_MEM_MESSAGE();
                               return(0);
-                              ,ppt->c,ppt->tag,0);
+                              ,ppt->c,ppt->tag,PMMG_FAILURE);
         }
         ppt->tmp = ip;
         /* Add xpoint if needed */
@@ -169,10 +175,11 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
       ie  = _MMG3D_newElt(mesh0);
       if ( !ie ) {
          /* reallocation of tetra table */
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
         _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
                             fprintf(stderr,"  ## Error: unable to merge group elts.\n");
                             _MMG5_INCREASE_MEM_MESSAGE();
-                            return(0);,0);
+                            return(0);,PMMG_FAILURE);
       }
       pt0 = &mesh0->tetra[ie];
 
@@ -189,10 +196,10 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
         mesh0->xt++;
         if ( mesh0->xt > mesh0->xtmax ) {
           /* realloc of xtetra table */
-          _MMG5_TAB_RECALLOC(mesh0,mesh0->xtetra,mesh0->xtmax,0.2,MMG5_xTetra,
-                             "larger xtetra table",
-                             mesh0->xt--;
-                             return(0),0);
+          PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
+                        mesh0->xtmax + 1, MMG5_xTetra,
+                        "larger xtetra table", mesh0->xt--; goto fail_ncomm);
+          mesh0->xtmax = 1.2 * mesh0->xtmax;
         }
         pt0->xt = mesh0->xt;
         pxt0 = &mesh0->xtetra[pt0->xt];
@@ -229,8 +236,7 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
         ext_node_comm->int_comm_index[idx2++]= idx1;
         ppt->tmp                             = idx1 + (k-1)*mesh0->np;
         idx1++;
-      }
-      else {
+      } else {
         /* The point has a position in the internal comm */
         if ( ppt->tmp < (k-1) * mesh0->np ) {
           /* The point has been stored in the internal comm by another external
@@ -240,38 +246,33 @@ int PMMG_mergeGrps(PMMG_pParMesh parmesh) {
       }
     }
     assert(idx2 !=0 ); // otherwise we have now an empty communicator
-    ext_node_comm->nitem = idx2;
-    _MMG5_SAFE_REALLOC(ext_node_comm->int_comm_index,idx2,int,
-                       "(mergeGrps) ext_node_comm",0);
-
+#warning NIKOS: This shouldnt fail and even if it does, we could still use the previous nitem/ext_node_comm instead of failing
+    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,ext_node_comm->nitem,
+                 idx2,int,"(mergeGrps) ext_node_comm",
+                 goto fail_ncomm;ext_node_comm->nitem = idx2);
   }
 
-  if ( !idx1 ) {
-    PMMG_FREE(parmesh,grp[0].node2int_node_comm_index1,
-              grp[0].nitem_int_node_comm*sizeof(int),
-              " (mergeGrps) node2int_node_comm_index1");
-    PMMG_FREE(parmesh,grp[0].node2int_node_comm_index2,
-              grp[0].nitem_int_node_comm*sizeof(int),
-              " (mergeGrps) node2int_node_comm_index2");
-  }
-  else {
-    PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,idx1,
-                 grp[0].nitem_int_node_comm,int,
-                 "(mergeGrps) node2int_node_comm_index1");
-    PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,idx1,
-                 grp[0].nitem_int_node_comm,int,
-                 "(mergeGrps) node2int_node_comm_index2");
-  }
-  int_node_comm->nitem              = idx1;
-  grp[0].nitem_int_node_comm        = idx1;
-  parmesh->int_node_comm->nitem       = idx1;
+#warning NIKOS: Again here: These shouldnt fail and even if they do, we could still use the previous nitem/ext_node_comm instead of failing, no?
+  PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,idx1,
+               grp[0].nitem_int_node_comm,int,"(mergeGrps) node2int_node_comm_index1",
+               goto fail_ncomm);
+  PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,idx1,
+               grp[0].nitem_int_node_comm,int,"(mergeGrps) node2int_node_comm_index2",
+               goto fail_ncomm);
+  int_node_comm->nitem       = idx1;
+  grp[0].nitem_int_node_comm = idx1;
+  PMMG_FREE(parmesh,parmesh->int_node_comm->intvalues,parmesh->int_node_comm->nitem,
+            int,"release int_n_comm intvalues");
+  parmesh->int_node_comm->nitem = idx1;
 
-  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
-
+#warning NIKOS: REPLACE THIS WITH PMMG
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->ngrp = 1;
+  return PMMG_SUCCESS;
 
-  return(1);
+fail_ncomm:
+  PMMG_FREE(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"node communicator");
+  return PMMG_FAILURE;
 }
 
 
@@ -370,10 +371,10 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   /*   MMG3D_saveSol(mesh,met,filename); */
   /* } */
 
-  if ( !PMMG_create_MPI_Point (mesh->point,  &mpi_point ) ) return(0);
-  if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) return(0);
-  if ( !PMMG_create_MPI_Tetra (mesh->tetra,  &mpi_tetra ) ) return(0);
-  if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) return(0);
+  PMMG_create_MPI_Point (mesh->point,  &mpi_point );
+  PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint);
+  PMMG_create_MPI_Tetra (mesh->tetra,  &mpi_tetra );
+  PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra);
 
   /* Gather parmesh size infos on proc 0 */
 #warning try to compare with non-blocking comms (Igather(v))
