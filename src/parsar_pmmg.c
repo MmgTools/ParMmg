@@ -65,6 +65,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
   const long int million = 1024L * 1024L;
+  int ret_val = PMMG_SUCCESS;
 
   int mmgArgc = 0;
   char** mmgArgv = NULL;
@@ -80,12 +81,12 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   // Overallocating as they are at most argc. Trying to avoid the overallocation
   // is not worth any effort, these are ~kb
   PMMG_MALLOC(parmesh, mmgArgv, argc, char*, " copy of argv for mmg: ",
-              goto fail_mmgargv);
+              ret_val = PMMG_FAILURE; goto fail_mmgargv);
 
   // First argument is always argv[0] ie prog name
   i = 0;
   ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc, " mmgArgv[0] for mmg: ",
-              goto fail_proc);
+              ret_val = PMMG_FAILURE; goto fail_proc);
 
   i = 1;
   while ( i < argc ) {
@@ -102,8 +103,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           if ( 1 == MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
                                           parmesh->listgrp[0].met,
                                           MMG3D_IPARAM_mem,
-                                          atoi( argv[i] ) ) )
+                                          atoi( argv[i] ) ) ) {
+            ret_val = PMMG_FAILURE;
             goto fail_proc;
+          }
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
           usage( parmesh, argv[0] );
@@ -124,20 +127,20 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
-                      goto fail_proc );
+                      ret_val = PMMG_FAILURE; goto fail_proc );
         }
       break;
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                     " adding to mmgArgv for mmg: ",
-                    goto fail_proc);
+                    ret_val = PMMG_FAILURE; goto fail_proc);
 
       break;
       }
     } else {
       ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                   " adding to mmgArgv for mmg: ",
-                  goto fail_proc);
+                  ret_val = PMMG_FAILURE; goto fail_proc);
     }
     ++i;
   }
@@ -145,16 +148,15 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   // parmmg finished parsing arguments, the rest will e handled by mmg3d
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
-                          parmesh->listgrp[0].met ) )
+                          parmesh->listgrp[0].met ) ) {
+    ret_val = PMMG_FAILURE;
     goto fail_proc;
-
-  argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
-  return PMMG_SUCCESS;
+  }
 
 fail_proc:
   argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
 fail_mmgargv:
-  return PMMG_FAILURE;
+  return ret_val;
 }
 
 #undef ARGV_APPEND
