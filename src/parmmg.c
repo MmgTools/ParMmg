@@ -3,14 +3,8 @@
 void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val )
 {
   int k = 0;
-  PMMG_pGrp  grp  = NULL;
-  MMG5_pMesh mesh = NULL;
-  MMG5_pSol  met  = NULL;
 #warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?
   for ( k = 0; k < parmesh->ngrp; ++k ) {
-    PMMG_pGrp  grp  = &parmesh->listgrp[k];
-    MMG5_pMesh mesh = grp->mesh;
-    MMG5_pSol  met  = grp->met;
     MMG3D_Free_all( MMG5_ARG_start,
                     MMG5_ARG_ppMesh, &parmesh->listgrp[k].mesh,
                     MMG5_ARG_ppMet, &parmesh->listgrp[k].met,
