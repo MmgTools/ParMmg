@@ -232,7 +232,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
 #warning mesh->adja is allocated somewhere in this call and there was a free which I am not sure I am consistently handling in the error handling
-  if ( nprocs > 1 && !PMMG_metispartitioning(parmesh,part) ) {
+  if (    nprocs > 1
+      &&  PMMG_SUCCESS != PMMG_metispartitioning(parmesh,part) ) {
     ret_val = PMMG_FAILURE;
     goto fail_alloc1;
   }

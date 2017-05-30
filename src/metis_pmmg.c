@@ -131,9 +131,9 @@ int PMMG_metispartitioning( PMMG_pParMesh parmesh, idx_t* part )
   idx_t      nelt,ncon,nproc,objval;
   int adjsize = 0;
 
+  grp = parmesh->listgrp;
+  mesh = grp[0].mesh;
   if ( !parmesh->myrank ) {
-    grp = parmesh->listgrp;
-    mesh = grp[0].mesh;
 
     if ( PMMG_SUCCESS != PMMG_mesh2metis( parmesh, &xadj, &adjncy, &adjsize ) )
       return PMMG_FAILURE;
