@@ -113,7 +113,6 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
   int          rank;
-  int          ret = PMMG_SUCCESS;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
