@@ -38,12 +38,28 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
 
   /** Function setters (must be assigned before quality computation) */
   _MMG3D_Set_commonFunc();
-  MMG3D_setfunc(mesh,met);
 
   /** Mesh scaling and quality histogram */
 #warning Do we need to scale here (for the analysis step) ?
   if ( !_MMG5_scaleMesh(mesh,met) )
     return PMMG_LOWFAILURE;
+
+  /** specific meshing */
+  if ( mesh->info.optim && !met->np ) {
+    if ( !MMG3D_doSol(mesh,met) )
+      return PMMG_STRONGFAILURE;
+
+    _MMG3D_solTruncatureForOptim(mesh,met);
+  }
+  if ( mesh->info.hsiz > 0. ) {
+    if ( !MMG3D_Set_constantSize(mesh,met) ) {
+     if ( !_MMG5_unscaleMesh(mesh,met) )
+       return PMMG_STRONGFAILURE;
+     return PMMG_STRONGFAILURE;
+    }
+  }
+
+  MMG3D_setfunc(mesh,met);
 
   if ( !_MMG3D_tetraQual( mesh, met, 0 ) )
     return PMMG_STRONGFAILURE;
@@ -52,16 +68,7 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
     if ( !_MMG3D_inqua(mesh,met) )
       return PMMG_STRONGFAILURE;
 
-  /** specific meshing */
-  if ( mesh->info.optim && !met->np ) {
-    if ( !MMG3D_doSol(mesh,met) )
-      return PMMG_STRONGFAILURE;
-
-    _MMG3D_scalarSolTruncature(mesh,met);
-  }
-
   /** Mesh analysis */
-  mesh->info.hausd = 0.002;
   if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nosurf,0 ) )
     return PMMG_STRONGFAILURE;
 

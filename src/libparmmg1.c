@@ -270,6 +270,26 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
       return PMMG_FAILURE;
     }
+    /* specific meshing */
+    if ( met->np ) {
+      if ( mesh->info.optim ) {
+        printf("\n  ## ERROR: MISMATCH OPTIONS: OPTIM OPTION CAN NOT BE USED"
+               " WITH AN INPUT METRIC.\n");
+        return PMMG_FAILURE;
+      }
+
+      if ( mesh->info.hsiz>0. ) {
+        printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ OPTION CAN NOT BE USED"
+               " WITH AN INPUT METRIC.\n");
+        return PMMG_FAILURE;
+      }
+    }
+
+    if ( mesh->info.optim &&  mesh->info.hsiz>0. ) {
+      printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ AND OPTIM OPTIONS CAN NOT BE USED"
+             " TOGETHER.\n");
+      return PMMG_FAILURE;
+    }
 
     /* load data */
     _MMG5_warnOrientation(mesh);
