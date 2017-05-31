@@ -89,10 +89,10 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
  *  except thy memCur of the particular parmesh or mesh struct of which memMax
  *  we are updating
  */
-int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur )
+long long int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur )
 {
   int i = 0;
-  unsigned long long int total = 0;
+  long long int total = 0;
 
   // Total mem usage of all meshes in listgrp
   for ( i = 0; i < parmesh->ngrp; ++i )
