@@ -39,9 +39,9 @@ extern "C" {
       || ((mesh)->memCur + (bytes) < 0 ) ) {          \
     ERROR_AT(msg," Exceeded max memory allowed or tried to free more mem than allocated: " );\
     stat = PMMG_FAILURE;                              \
-  }                                                   \
-  stat = PMMG_SUCCESS;                                \
-  } while(0)
+  } else {                                            \
+    stat = PMMG_SUCCESS;                              \
+  } } while(0)
 
 #define PMMG_FREE(mesh,ptr,size,type,msg) do {  \
   int stat = PMMG_SUCCESS;                      \
