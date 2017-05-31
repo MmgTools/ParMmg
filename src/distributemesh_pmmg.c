@@ -146,6 +146,7 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 
   if ( rank ) {
 #warning NIKOS: DO WE NEED TO CLEANUP mesh member allocations or are they handled in mesh deallocation?
+    mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
     PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices", return PMMG_FAILURE);
 
     PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",return PMMG_FAILURE);
@@ -227,6 +228,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   rank   = parmesh->myrank;
 
   /** Call metis for partionning*/
+  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
@@ -239,6 +241,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   /** Remove the part of the mesh that are not on the proc rank */
 #warning NIKOS: NOT SURE I AM ACCOUNTING ON THE CORRECT memMax/memCur
+  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
               ret_val = PMMG_FAILURE;goto fail_alloc1);
   PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
@@ -257,6 +260,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   nitem_int_node_comm = 0;
 
   /* Reset the tmp field of points */
+  mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
   for ( k=1; k<=mesh->np; k++ )
     mesh->point[k].tmp = 0;
 
@@ -353,6 +357,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   old_val = parmesh->next_node_comm;
   parmesh->next_node_comm = next_node_comm;
+  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
               "allocate node comm ",
               parmesh->next_node_comm = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
@@ -393,9 +398,9 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,
               "alloc n2i_n_c_idx1 ",
               grp->nitem_int_node_comm = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
-    // For the error handling to be complete at this point we have to:
-    //   1) reverse the reallocation of n2i_n_c_idx1
-    //   2) reset nitem_int_node_comm, set ret_val, etc
+  // For the error handling to be complete at this point we have to:
+  //   1) reverse the reallocation of n2i_n_c_idx1
+  //   2) reset nitem_int_node_comm, set ret_val, etc
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
               "alloc n2i_n_c_idx2 ",
               PMMG_REALLOC(parmesh,grp->node2int_node_comm_index1,old_val,nitem_int_node_comm,
@@ -480,6 +485,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   mesh->xp = nxp;
 
   /** Update xtetra edge tags */
+  mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
   if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
     ret_val = PMMG_FAILURE;
     goto fail_alloc7;

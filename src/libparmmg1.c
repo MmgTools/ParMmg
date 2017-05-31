@@ -41,6 +41,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     met                       = grp->met;
     node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     disp                      = grp->disp;
+    mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
 
     /* compact vertices */
     np = nc = 0;
@@ -259,13 +260,11 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       fprintf(stderr,
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return PMMG_FAILURE;
-    }
-    else if ( mesh->info.iso ) {
+    } else if ( mesh->info.iso ) {
       fprintf(stderr,"  ## Error: level-set discretisation unavailable"
               " (MMG3D_IPARAM_iso):\n");
       return PMMG_FAILURE;
-    }
-    else if ( mesh->info.optimLES && met->size==6 ) {
+    } else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
       return PMMG_FAILURE;
@@ -278,8 +277,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
       _MMG5_DEL_MEM(mesh,met->m,(met->size*(met->npmax+1))*sizeof(double));
       met->np = 0;
-    }
-    else if ( met->size!=1 && met->size!=6 ) {
+    } else if ( met->size!=1 && met->size!=6 ) {
       fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
       return PMMG_FAILURE;
     }
@@ -321,8 +319,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
     for ( i=0; i<parmesh->ngrp; ++i ) {
-      mesh = parmesh->listgrp[i].mesh;
-      met  = parmesh->listgrp[i].met;
+      mesh         = parmesh->listgrp[i].mesh;
+      met          = parmesh->listgrp[i].met;
+      mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
 
 #ifdef PATTERN
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) )

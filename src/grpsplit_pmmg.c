@@ -98,6 +98,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
+  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
 
   if (   PMMG_mesh2metis( parmesh, &xadj, &adjncy, &adjsize )
@@ -142,6 +143,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
                      MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
 
     meshCur = grpCur->mesh;
+    meshCur->memMax = PMMG_PMesh_SetMemMax( parmesh, meshCur->memCur );
 
     /* Copy the mesh filenames */
     if ( !MMG5_Set_inputMeshName( meshCur, meshOld->namein ) ) {
@@ -237,10 +239,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   for ( i = 0; i < grpOld->nitem_int_node_comm; i++ )
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp = grpOld->node2int_node_comm_index2[ i ];
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
-    grpCur = grpsNew + grpId;
+    grpCur = &grpsNew[grpId];
     meshCur = grpCur->mesh;
+    meshCur->memMax = PMMG_PMesh_SetMemMax( parmesh, meshCur->memCur );
 
-    //NIKOS TODO: this could be replaced by a vector<bool> flag
     // use point[].flag field to "remember" assigned local(in subgroup) numbering
     for ( poi = 1; poi < meshOld->np + 1; ++poi )
       meshOld->point[poi].flag = 0;

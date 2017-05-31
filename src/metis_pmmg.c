@@ -33,12 +33,14 @@ PMMG_mesh2metis( PMMG_pParMesh parmesh, idx_t** xadj, idx_t** adjncy, int *adjsi
   mesh = grp[0].mesh;
 
   /* create tetra adjacency */
+  mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"  ## PMMG Hashing problem (1).\n");
     return PMMG_FAILURE;
   }
 
   /*mesh -> graph*/
+  parmesh->memMax = PMMG_PMesh_SetMemMax(parmesh, parmesh->memCur);
   PMMG_CALLOC(parmesh, *xadj, mesh->ne + 1, idx_t,
               "allocate xadj", return PMMG_FAILURE);
 

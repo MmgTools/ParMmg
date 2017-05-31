@@ -148,6 +148,7 @@ int main( int argc, char *argv[] )
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 0 : LOADING MESH ON rank 0\n");
 
+  mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
   if ( !parmesh->myrank ) {
     if ( 1 != MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
       PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
@@ -206,7 +207,7 @@ int main( int argc, char *argv[] )
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
-  if ( ier!= PMMG_STRONGFAILURE ) {
+  if ( ier != PMMG_STRONGFAILURE ) {
     /** Unscaling */
     if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
       PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
@@ -226,6 +227,7 @@ int main( int argc, char *argv[] )
       if (  mesh->info.imprim )
         fprintf(stdout,"\n   -- PHASE 5 : MESH PACKED UP\n");
 
+      mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
       if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
             PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
 
