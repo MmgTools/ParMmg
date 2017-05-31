@@ -97,9 +97,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           if ( ( atoi(argv[ i ]) > _MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
             fprintf( stderr,
                      "Erroneous mem size requested, using default: %lld\n",
-                     parmesh->memMax );
+                     parmesh->memGloMax );
           else
-            parmesh->memMax = atoi( argv[i] ) * million;
+            PMMG_PMesh_SetMemGloMax( parmesh, atoi( argv[i] ) * million);
           if ( 1 == MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
                                           parmesh->listgrp[0].met,
                                           MMG3D_IPARAM_mem,

@@ -6,7 +6,6 @@
  * C API for PARMMG library.
  *
  */
-
 #include "parmmg.h"
 
 // return:
@@ -21,6 +20,7 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
   *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
   if ( *parmesh == NULL )
     goto fail_pmesh;
+  (*parmesh)->memGloMax = 4 * 1024L * 1024L; // Assign a number to begin with
   (*parmesh)->memMax = 4 * 1024L * 1024L; // Assign a number to begin with
   (*parmesh)->memCur = sizeof(PMMG_ParMesh); // Update memory usage
 
@@ -52,14 +52,15 @@ fail_pmesh:
   return PMMG_FAILURE;
 }
 
-void PMMG_PMesh_SetMaxMem( long long int *memMax, long long memReq )
+
+void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 {
   long long int maxAvail = 0;
   MPI_Comm comm_shm = 0;
   int size_shm = 1;
   const int million = 1024 * 1024;
 
-  assert ( (memMax != NULL) && "Trying to set NULL memMax" );
+  assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                        &comm_shm );
   MPI_Comm_size( comm_shm, &size_shm );
@@ -73,13 +74,36 @@ void PMMG_PMesh_SetMaxMem( long long int *memMax, long long memReq )
     maxAvail = ( _MMG5_MEMMAX << 20 ) / size_shm;
 
   if ( memReq > 0 && memReq < maxAvail )
-    *memMax = memReq / size_shm;
+    parmesh->memGloMax = memReq / size_shm;
   else
-    *memMax = maxAvail;
+    parmesh->memGloMax = maxAvail;
 
   fprintf ( stdout,
             "Requested %lld Mb max memory usage. Max memory limit set to %lld \n",
-            memReq, *memMax );
+            memReq, parmesh->memGloMax );
+}
+
+
+/** Calculate the maximum available memory a parmesh or a mesh can use.
+ *  This is equal to the global max memory minus the sum of parmesh/mesh's memCur
+ *  except thy memCur of the particular parmesh or mesh struct of which memMax
+ *  we are updating
+ */
+int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur )
+{
+  int i = 0;
+  unsigned long long int total = 0;
+
+  // Total mem usage of all meshes in listgrp
+  for ( i = 0; i < parmesh->ngrp; ++i )
+    total += parmesh->listgrp[i].mesh->memCur;
+
+  total += parmesh->memCur;
+
+  // Minus the current struct's current mem usage
+  total -= memCur;
+
+  return parmesh->memGloMax - total;
 }
 
 
@@ -99,7 +123,6 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     break;
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
-//!!!!!NIKOS TODO: DOES IT ACTUALLY RESET TO DEFAULT VALUE? I do not see it here
       fprintf( stdout,
         "  ## Warning: maximal memory authorized must be strictly positive.\n");
       fprintf(stdout,"  Reset to default value.\n");

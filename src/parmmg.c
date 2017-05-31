@@ -16,7 +16,6 @@ void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
-
 /**
  * \param  mesh pointer toward the mesh structure
  * \param  met
@@ -124,13 +123,14 @@ int main( int argc, char *argv[] )
   parmesh->comm = MPI_COMM_WORLD;
   parmesh->myrank = rank;
   MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
-  PMMG_PMesh_SetMaxMem( &parmesh->memMax, 0 );
+  PMMG_PMesh_SetMemGloMax( parmesh, 0 );
   /* reset default values for file names */
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
     PMMG_return_and_free( parmesh, PMMG_STRONGFAILURE );
+  parmesh->memMax = PMMG_PMesh_SetMemMax(parmesh, parmesh->memCur);
 
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
     &comm_shm );

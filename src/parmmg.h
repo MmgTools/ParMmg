@@ -29,10 +29,9 @@ extern "C" {
 #endif
 
 
-#define ERROR_AT(msg1,msg2) do {                                     \
+#define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
-           __func__, __FILE__, __LINE__ );                           \
-  }while(0)
+           __func__, __FILE__, __LINE__ )
 
 #define MEM_CHK_AVAIL(mesh,bytes,msg) do {            \
   if (   ((mesh)->memCur + (bytes) > (mesh)->memMax ) \
@@ -121,7 +120,8 @@ extern "C" {
 
 
 
-void PMMG_PMesh_SetMaxMem( long long int *memmax, long long int memReq );
+int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur );
+void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 

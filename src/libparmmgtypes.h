@@ -157,7 +157,8 @@ typedef struct {
   int      myrank; /*!< Rank in global communicator */
 
   /* mem info */
-  long long memMax; /*!< Maximum memory allowed to allocate */
+  long long memGloMax; /*!< Maximum memory available to all structs */
+  long long memMax; /*!< Maximum memory parmesh is allowed to allocate */
   long long memCur; /*!< Currently allocated memory */
 
   /* grp */
