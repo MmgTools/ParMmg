@@ -35,25 +35,12 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     mesh = parmesh->listgrp[k].mesh;
     met  = parmesh->listgrp[k].met;
 
-    /** Function setters (must be assigned before qualisty computation) */
+    /** Function setters (must be assigned before quality computation) */
     _MMG3D_Set_commonFunc();
-    MMG3D_setfunc(mesh,met);
 
     /** Mesh scaling and qualisty histogram */
     if ( !_MMG5_scaleMesh(mesh,met) )
       return PMMG_STRONGFAILURE;
-
-    if ( !_MMG3D_tetraQual( mesh,met, 0 ) )
-      return PMMG_STRONGFAILURE;
-
-#warning todo: send the data to proc 0 and depending on the imprim value, print either the quality of each mesh or the reduced qualisty.
-    if ( abs(mesh->info.imprim) > 0 ) {
-      if ( !_MMG3D_inqua(mesh,met) ) {
-        if ( !_MMG5_unscaleMesh(mesh,met) )
-          return PMMG_STRONGFAILURE;
-        return PMMG_LOWFAILURE;
-      }
-    }
 
     /* specific meshing */
     if ( mesh->info.optim && !met->np ) {
@@ -62,7 +49,27 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
           return PMMG_STRONGFAILURE;
         return PMMG_LOWFAILURE;
       }
-      _MMG3D_scalarSolTruncature(mesh,met);
+      _MMG3D_solTruncatureForOptim(mesh,met);
+    }
+    if ( mesh->info.hsiz > 0. ) {
+      if ( !MMG3D_Set_constantSize(mesh,met) ) {
+        if ( !_MMG5_unscaleMesh(mesh,met) )
+          return PMMG_STRONGFAILURE;
+        return PMMG_LOWFAILURE;
+      }
+    }
+
+    MMG3D_setfunc(mesh,met);
+    if ( !_MMG3D_tetraQual( mesh,met, 0 ) )
+      return PMMG_STRONGFAILURE;
+
+#warning todo: send the data to proc 0 and depending on the imprim value, print either the quality of each mesh or the reduced quality.
+    if ( abs(mesh->info.imprim) > 0 ) {
+      if ( !_MMG3D_inqua(mesh,met) ) {
+        if ( !_MMG5_unscaleMesh(mesh,met) )
+          return PMMG_STRONGFAILURE;
+        return PMMG_LOWFAILURE;
+      }
     }
 
     /** Mesh analysis */
