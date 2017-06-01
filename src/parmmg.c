@@ -1,23 +1,7 @@
 #include "parmmg.h"
 
-void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val )
-{
-  int k = 0;
-#warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?
-  for ( k = 0; k < parmesh->ngrp; ++k ) {
-    MMG3D_Free_all( MMG5_ARG_start,
-                    MMG5_ARG_ppMesh, &parmesh->listgrp[k].mesh,
-                    MMG5_ARG_ppMet, &parmesh->listgrp[k].met,
-                    MMG5_ARG_end );
-  }
-#warning NIKOS: add deallocation of communicators: parmesh->ext_node_comm
-  PMMG_FREE(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
-  MPI_Finalize();
-  exit( val );
-}
-
 /**
- * \param  mesh pointer toward the mesh structure
+ * \param  mesh pointer to mesh structure
  * \param  met
  * \param  rank MPI process rank
  *
