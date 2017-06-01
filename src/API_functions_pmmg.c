@@ -8,9 +8,58 @@
  */
 #include "parmmg.h"
 
-void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
+
+#warning NIKOS: on NULL input should it fail or simply return?
+static void pmesh_int_comm_free( PMMG_pParMesh pmesh, PMMG_pint_comm comm )
+{
+  if ( comm == NULL )
+    return;
+
+  if ( NULL != comm->intvalues ) {
+    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
+    PMMG_FREE(pmesh,comm->intvalues,comm->nitem,int,"int comm int array");
+  }
+  if ( NULL != comm->doublevalues ) {
+    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
+    PMMG_FREE(pmesh,comm->doublevalues,comm->nitem,double,"int comm double array");
+  }
+}
+
+static void pmesh_ext_comm_free( PMMG_pParMesh pmesh, PMMG_pext_comm comm, int ncomm )
+{
+  int i = 0;
+
+  if ( comm == NULL )
+    return;
+
+  for( i = 0; i < ncomm; ++i ) {
+    if ( NULL != comm->int_comm_index ) {
+      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
+      PMMG_FREE(pmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
+    }
+    if ( NULL != comm->itosend ) {
+      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
+      PMMG_FREE(pmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
+    }
+    if ( NULL != comm->itorecv ) {
+      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
+      PMMG_FREE(pmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
+    }
+    if ( NULL != comm->rtosend ) {
+      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
+      PMMG_FREE(pmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
+    }
+    if ( NULL != comm->rtorecv ) {
+      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
+      PMMG_FREE(pmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
+    }
+  }
+}
+
+void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 {
   int k = 0;
+
 #warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?
   for ( k = 0; k < parmesh->ngrp; ++k ) {
     MMG3D_Free_all( MMG5_ARG_start,
@@ -18,8 +67,26 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
                     MMG5_ARG_ppMet, &parmesh->listgrp[k].met,
                     MMG5_ARG_end );
   }
-#warning NIKOS: add deallocation of communicators: parmesh->ext_node_comm
+
+  pmesh_int_comm_free( parmesh, parmesh->int_node_comm );
+  pmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
+  pmesh_int_comm_free( parmesh, parmesh->int_face_comm );
+
+  pmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
+  PMMG_FREE(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
+            PMMG_ext_comm, "ext node comm");
+  pmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
+  PMMG_FREE(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
+            PMMG_ext_comm, "ext edge comm");
+  pmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
+  PMMG_FREE(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
+            PMMG_ext_comm, "ext face comm");
   PMMG_FREE(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
+}
+
+void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
+{
+  PMMG_PMesh_Free( parmesh );
   MPI_Finalize();
   exit( val );
 }
