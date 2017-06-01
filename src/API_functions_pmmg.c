@@ -8,7 +8,7 @@
  */
 #include "parmmg.h"
 
-void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val )
+void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
   int k = 0;
 #warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?

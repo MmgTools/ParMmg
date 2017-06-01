@@ -146,7 +146,7 @@ int  PMMG_bdryUpdate( MMG5_pMesh mesh );
  */
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 
-void PMMG_return_and_free( PMMG_pParMesh parmesh, const int val );
+void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus
 }
 #endif

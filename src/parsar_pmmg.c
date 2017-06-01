@@ -30,7 +30,7 @@ defaultValues( PMMG_pParMesh parmesh, const int rank )
     fprintf( stdout, "\n\n\tMMG");
     _MMG5_mmgDefaultValues( parmesh->listgrp[0].mesh );
   }
-  PMMG_return_and_free( parmesh, PMMG_SUCCESS );
+  PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
 static void
@@ -42,7 +42,7 @@ usage( PMMG_pParMesh parmesh, char * const progname )
     fprintf( stdout, "\n\n\tMMG");
     MMG3D_usage( progname );
   }
-  PMMG_return_and_free( parmesh, PMMG_SUCCESS );
+  PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
 /**
