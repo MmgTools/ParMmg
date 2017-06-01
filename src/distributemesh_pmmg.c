@@ -10,6 +10,7 @@
 #include <mpi.h>
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
+#include "metis_pmmg.h"
 
 /**
  * \param xtetra pointer toward a table containing the xtetra structures.
