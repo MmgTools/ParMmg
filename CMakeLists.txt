@@ -113,8 +113,6 @@ SET(MMG_BUILD_DIR "" CACHE PATH "Build directory for mmg")
 
 INCLUDE(cmake/modules/FindMmg.cmake)
 
-SET(CMAKE_REQUIRED_INCLUDES ${MMG_SRC_DIR})
-
 IF(NOT MMG_DIR)
   MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
     "(see https://github.com/MmgTools/mmg and  download the branch develop)."
