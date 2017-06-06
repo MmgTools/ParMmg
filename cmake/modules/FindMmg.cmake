@@ -37,13 +37,22 @@
 #NIKOS   SET ( MMG_BUILD_DIR MMG_BUILD_DIR-NOTFOUND )
 #NIKOS ENDIF()
 
+FIND_PATH(MMG_BUILD_DIR
+  NAMES src/common/mmgcommon.h
+  HINTS ${MMG_BUILD_DIR}
+  $ENV{MMG_BUILD_DIR}
+  ${MMG_DIR}/*
+  $ENV{MMG_DIR}/*
+  DOC "The mmg build directory"
+  )
+
 FIND_PATH(MMG_INCLUDE_DIR
   NAMES mmg/libmmg.h
   HINTS ${MMG_INCLUDE_DIR}
   $ENV{MMG_INCLUDE_DIR}
   $ENV{HOME}/include/
-  ${MMG_DIR}/include/
-  $ENV{MMG_DIR}/include/
+  ${MMG_BUILD_DIR}/include/
+  $ENV{MMG_BUILD_DIR}/include/
   PATH_SUFFIXES
   DOC "Directory of mmg Headers")
 
@@ -53,18 +62,9 @@ FIND_LIBRARY(MMG_LIBRARY
   HINTS ${MMG_LIBRARY}
   $ENV{MMG_LIBRARY}
   $ENV{HOME}/lib
-  ${MMG_DIR}/lib
-  $ENV{MMG_DIR}/lib
+  ${MMG_BUILD_DIR}/lib
+  $ENV{MMG_BUILD_DIR}/lib
   DOC "The mmg library"
-  )
-
-FIND_PATH(MMG_BUILD_DIR
-  NAMES src/common/mmgcommon.h
-  HINTS ${MMG_BUILD_DIR}
-  $ENV{MMG_BUILD_DIR}
-  ${MMG_DIR}/*
-  $ENV{MMG_DIR}/*
-  DOC "The mmg build directory"
   )
 
 INCLUDE(FindPackageHandleStandardArgs)
