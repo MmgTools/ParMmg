@@ -11,9 +11,7 @@
 #include "parmmg.h"
 #include "metis_pmmg.h"
 #include "libparmmgtypes.h" // PMMG_pGrp
-#include "metis.h" // idx_t
 #include "mmg3d.h" //_MMG5_idir[4][3]
-#include "libparmmg.h" // PMMG_mesh2metis
 #include "grpsplit_pmmg.h"
 #include "chkmesh_pmmg.h"
 
@@ -57,14 +55,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
   idx_t ngrp = 1;
   idx_t *part = NULL;
-  idx_t *xadj = NULL;
-  idx_t *adjncy = NULL;
-  int adjsize = 0; // Remember these for deallocation
-  int xadjsize = 0; // Remember these for deallocation
-#warning NIKOS TODO: experiment with the number of balancing constraints
-  idx_t ncon = 1; /* number of balancing constraint */
-  idx_t nelt = meshOld->ne;
-  idx_t objval;
   int ier, j;
 
   // counters for tetra, point, while constructing a subgroup
@@ -101,23 +91,16 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
 
-  if (   PMMG_mesh2metis( parmesh, &xadj, &adjncy, &adjsize )
+  if (    PMMG_partition_metis( parmesh, part, ngrp )
       != PMMG_SUCCESS ) {
     ret_val = PMMG_FAILURE;
     goto fail_part;
-  }
-  xadjsize = meshOld->ne + 1; // remember size of xadj to correctly free it
-
-  if (   PMMG_metis_wrapper( &nelt, &ncon, xadj, adjncy, &ngrp, &objval, part )
-      != PMMG_SUCCESS ) {
-    ret_val = PMMG_FAILURE;
-    goto fail_metis;
   }
 
 
   /* count_per_grp: count elements per group */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
-              ret_val = PMMG_FAILURE;goto fail_metis);
+              ret_val = PMMG_FAILURE;goto fail_part);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
   for ( i = 0; i < ngrp ; i++ )
@@ -458,9 +441,6 @@ fail_sgrp:
 // returning as well as error handling
 fail_counters:
   PMMG_FREE(parmesh,countPerGrp,ngrp,int,"counter buffer ");
-fail_metis:
-  PMMG_FREE(parmesh,adjncy,adjsize,idx_t,"deallocate adjncy");
-  PMMG_FREE(parmesh,xadj,xadjsize,idx_t,"deallocate xadj");
 fail_part:
   PMMG_FREE(parmesh,part,meshOld->ne,idx_t,"free metis buffer ");
   return ret_val;

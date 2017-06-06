@@ -228,17 +228,24 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   met    = grp->met;
   rank   = parmesh->myrank;
 
+  // This function shouldnt be called when nprocs == 1. Deal with it anyway
+  if ( nprocs == 1 )
+    return PMMG_SUCCESS;
+
   /** Call metis for partionning*/
   parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
-#warning mesh->adja is allocated somewhere in this call and there was a free which I am not sure I am consistently handling in the error handling
-  if (    nprocs > 1
-      &&  PMMG_SUCCESS != PMMG_metispartitioning(parmesh,part) ) {
-    ret_val = PMMG_FAILURE;
-    goto fail_alloc1;
+#warning Perhaps I could change this 0 to be user configurable (via PMMG_distributeMesh function argument)
+  if ( 0 == parmesh->myrank ) {
+    if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
+         != PMMG_SUCCESS ) {
+      ret_val = PMMG_FAILURE;
+      goto fail_alloc1;
+    }
   }
+  MPI_Bcast( &part[0], mesh->ne, MPI_INT, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
 #warning NIKOS: NOT SURE I AM ACCOUNTING ON THE CORRECT memMax/memCur
@@ -520,10 +527,6 @@ fail_alloc3:
 fail_alloc2:
   PMMG_FREE(parmesh,seenRanks,nprocs,int,"deallocate metis buffer1");
 fail_alloc1:
-#warning NIKOS: I would have added this deallocation if it werent for line 566
-//!!!!!NIKOS  if ( mesh->adja != NULL )
-//!!!!!NIKOS    PMMG_FREE( mesh->adja, 4 * mesh->nemax + 5, sizeof(int), &mesh->memMax,
-//!!!!!NIKOS               &mesh->memCur, "dealloc mesh adja" );
   PMMG_FREE(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
 fail_alloc0:
   return ret_val;
