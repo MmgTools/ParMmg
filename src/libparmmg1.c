@@ -362,7 +362,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
-    PMMG_FREE(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
+    PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
     return PMMG_STRONGFAILURE;
@@ -385,7 +385,7 @@ failed:
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
-    PMMG_FREE(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
+    PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
 
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )

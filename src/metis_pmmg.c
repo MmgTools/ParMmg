@@ -110,16 +110,16 @@ int PMMG_partition_metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     goto end_adjncy;
   }
 
-  PMMG_FREE(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
-  PMMG_FREE(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
   return PMMG_SUCCESS;
 
 end_adjncy:
-  PMMG_FREE(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
 #warning IS MESH->ADJA DEALLOCATION CORRECT? IF I CAN REMOVE IT, THEN MULTIPLE RETURN PATHS ARE NOT REQUIRED
 end_mesh_adja:
-  PMMG_FREE(mesh, mesh->adja, 4*mesh->nemax + 5, int, "deallocate mesh->adja"); 
+  PMMG_DEL_MEM(mesh, mesh->adja, 4*mesh->nemax + 5, int, "deallocate mesh->adja"); 
 end_xadj:
-  PMMG_FREE(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
   return PMMG_FAILURE;
 }

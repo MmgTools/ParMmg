@@ -265,7 +265,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
                goto fail_ncomm);
   int_node_comm->nitem       = idx1;
   grp[0].nitem_int_node_comm = idx1;
-  PMMG_FREE(parmesh,parmesh->int_node_comm->intvalues,parmesh->int_node_comm->nitem,
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,parmesh->int_node_comm->nitem,
             int,"release int_n_comm intvalues");
   parmesh->int_node_comm->nitem = idx1;
 
@@ -275,7 +275,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 
 fail_ncomm:
-  PMMG_FREE(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"node communicator");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"node communicator");
   return PMMG_FAILURE;
 }
 

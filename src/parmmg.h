@@ -42,7 +42,7 @@ extern "C" {
     stat = PMMG_SUCCESS;                              \
   } } while(0)
 
-#define PMMG_FREE(mesh,ptr,size,type,msg) do {  \
+#define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {  \
   int stat = PMMG_SUCCESS;                      \
   MEM_CHK_AVAIL(mesh,-(size)*sizeof(type),msg); \
   if ( stat == PMMG_SUCCESS )                   \
@@ -88,7 +88,7 @@ extern "C" {
     assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?"); \
     PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);                      \
   } else if ((newsize)==0) {                                                  \
-      PMMG_FREE(mesh,ptr,(oldsize),type,msg);                                 \
+      PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                                 \
   } else if ((newsize) < (oldsize)) {                                         \
     ptr = realloc( ptr, (newsize) * sizeof(type));                            \
     if ( ptr == NULL ) {                                                      \

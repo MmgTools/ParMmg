@@ -17,11 +17,11 @@ static void pmesh_int_comm_free( PMMG_pParMesh pmesh, PMMG_pint_comm comm )
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_FREE(pmesh,comm->intvalues,comm->nitem,int,"int comm int array");
+    PMMG_DEL_MEM(pmesh,comm->intvalues,comm->nitem,int,"int comm int array");
   }
   if ( NULL != comm->doublevalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_FREE(pmesh,comm->doublevalues,comm->nitem,double,"int comm double array");
+    PMMG_DEL_MEM(pmesh,comm->doublevalues,comm->nitem,double,"int comm double array");
   }
 }
 
@@ -35,23 +35,23 @@ static void pmesh_ext_comm_free( PMMG_pParMesh pmesh, PMMG_pext_comm comm, int n
   for( i = 0; i < ncomm; ++i ) {
     if ( NULL != comm->int_comm_index ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_FREE(pmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
+      PMMG_DEL_MEM(pmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
     }
     if ( NULL != comm->itosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_FREE(pmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
+      PMMG_DEL_MEM(pmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
     }
     if ( NULL != comm->itorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_FREE(pmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
+      PMMG_DEL_MEM(pmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
     }
     if ( NULL != comm->rtosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_FREE(pmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
+      PMMG_DEL_MEM(pmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
     }
     if ( NULL != comm->rtorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_FREE(pmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
+      PMMG_DEL_MEM(pmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
     }
   }
 }
@@ -73,15 +73,15 @@ void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
   pmesh_int_comm_free( parmesh, parmesh->int_face_comm );
 
   pmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
-  PMMG_FREE(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
+  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
             PMMG_ext_comm, "ext node comm");
   pmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
-  PMMG_FREE(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
+  PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
             PMMG_ext_comm, "ext edge comm");
   pmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
-  PMMG_FREE(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
+  PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
             PMMG_ext_comm, "ext face comm");
-  PMMG_FREE(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
+  PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
 }
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
@@ -124,7 +124,7 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
   return PMMG_SUCCESS;
 
 fail_mesh:
-    PMMG_FREE(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,"deallocating groups container");
+    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,"deallocating groups container");
 fail_grplst:
   (*parmesh)->ngrp = 0;
   (*parmesh)->memMax = 0;

@@ -425,23 +425,23 @@ fail_sgrp:
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     meshCur = grpsNew[grpId].mesh;
     if ( grpCur->node2int_node_comm_index2 != NULL )
-      PMMG_FREE(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,"subgroup internal2 communicator ");
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,"subgroup internal2 communicator ");
     if ( grpCur->node2int_node_comm_index1 != NULL )
-      PMMG_FREE(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,"subgroup internal1 communicator ");
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,"subgroup internal1 communicator ");
     if ( meshCur->adja != NULL )
-      PMMG_FREE(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
+      PMMG_DEL_MEM(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
     if ( meshCur->xpoint != NULL )
-      PMMG_FREE(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
+      PMMG_DEL_MEM(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
     if ( meshCur->xtetra != NULL )
-      PMMG_FREE(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
+      PMMG_DEL_MEM(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
 #warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
-  PMMG_FREE(parmesh,countPerGrp,ngrp,int,"counter buffer ");
+  PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 // these labels should be executed as part of normal code execution before
 // returning as well as error handling
 fail_counters:
-  PMMG_FREE(parmesh,countPerGrp,ngrp,int,"counter buffer ");
+  PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 fail_part:
-  PMMG_FREE(parmesh,part,meshOld->ne,idx_t,"free metis buffer ");
+  PMMG_DEL_MEM(parmesh,part,meshOld->ne,idx_t,"free metis buffer ");
   return ret_val;
 }

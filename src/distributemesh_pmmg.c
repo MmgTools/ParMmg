@@ -355,7 +355,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     xTetraPerm[pt->xt] = ++nxt;
     pt->xt = nxt;
   }
-  PMMG_FREE(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
+  PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
 
   /** Count the number of external node communicators and initialize it */
   next_node_comm = 0;
@@ -515,19 +515,19 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 //  }
 
 fail_alloc7:
-  PMMG_FREE(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
+  PMMG_DEL_MEM(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
 fail_alloc6:
-  PMMG_FREE(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
+  PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
 fail_alloc5:
-  PMMG_FREE(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate metis buffer4");
+  PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate metis buffer4");
 fail_alloc4:
-  PMMG_FREE(parmesh,pointPerm,mesh->np+1,int,"deallocate metis buffer3");
+  PMMG_DEL_MEM(parmesh,pointPerm,mesh->np+1,int,"deallocate metis buffer3");
 fail_alloc3:
-  PMMG_FREE(parmesh,pointRanks,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
+  PMMG_DEL_MEM(parmesh,pointRanks,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
 fail_alloc2:
-  PMMG_FREE(parmesh,seenRanks,nprocs,int,"deallocate metis buffer1");
+  PMMG_DEL_MEM(parmesh,seenRanks,nprocs,int,"deallocate metis buffer1");
 fail_alloc1:
-  PMMG_FREE(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
+  PMMG_DEL_MEM(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
 fail_alloc0:
   return ret_val;
 }
