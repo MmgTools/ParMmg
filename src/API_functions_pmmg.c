@@ -165,7 +165,7 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
   // Multiple MPI jobs may be running on the same node => distribute equally
   maxAvail = _MMG5_memSize() * 50 / 100;
   if ( maxAvail == 0 )
-    maxAvail = ( _MMG5_MEMMAX << 20 );
+    maxAvail =  _MMG5_MEMMAX << 20;
 
   if ( (memReq > 0) && ((memReq * million) < maxAvail) )
     parmesh->memGloMax = (memReq * million) / size_shm;
