@@ -114,7 +114,6 @@ int main( int argc, char *argv[] )
   parmesh->comm = MPI_COMM_WORLD;
   parmesh->myrank = rank;
   MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
-  PMMG_PMesh_SetMemGloMax( parmesh, 0 );
   /* reset default values for file names */
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,

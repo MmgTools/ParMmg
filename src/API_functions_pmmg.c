@@ -91,9 +91,9 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
-// return:
+//! return:
 //   PMMG_SUCCESS
-//   PMMG_FAILURE Failed to allocate structs
+//   PMMG_FAILURE Failed to allocate pmmg struct or initialize mesh/sol
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 {
   PMMG_pGrp grp = NULL;
@@ -120,6 +120,9 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
                              MMG5_ARG_ppMet, &grp->met,
                              MMG5_ARG_end ) )
     goto fail_mesh;
+
+  PMMG_PMesh_SetMemGloMax( *parmesh, 0 );
+
 
   return PMMG_SUCCESS;
 
