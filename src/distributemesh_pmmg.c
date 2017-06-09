@@ -228,17 +228,13 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   met    = grp->met;
   rank   = parmesh->myrank;
 
-  // This function shouldnt be called when nprocs == 1. Deal with it anyway
-  if ( nprocs == 1 )
-    return PMMG_SUCCESS;
-
   /** Call metis for partionning*/
   parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
 #warning Perhaps I could change this 0 to be user configurable (via PMMG_distributeMesh function argument)
-  if ( 0 == parmesh->myrank ) {
+  if ( 0 == parmesh->myrank && nprocs > 1 ) {
     if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
          != PMMG_SUCCESS ) {
       ret_val = PMMG_FAILURE;
