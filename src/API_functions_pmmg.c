@@ -160,21 +160,20 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
                        &comm_shm );
   MPI_Comm_size( comm_shm, &size_shm );
 
-  // If total physical memory is known, use 50% of it.
-  // Otherwise try use a default value of _MMG5_MEMMAX Mo
-  // Multiple MPI jobs may be running on the same node => distribute equally
-  maxAvail = _MMG5_memSize() * 50 / 100;
+  maxAvail = _MMG5_memSize();
+  // if detection failed => default value of _MMG5_MEMMAX Mo
   if ( maxAvail == 0 )
-    maxAvail =  _MMG5_MEMMAX << 20;
+    maxAvail = _MMG5_MEMMAX << 20;
 
+  // Multiple MPI processes may be running on the same node => distribute equally
   if ( (memReq > 0) && ((memReq * million) < maxAvail) )
     parmesh->memGloMax = (memReq * million) / size_shm;
   else
-    parmesh->memGloMax = maxAvail / size_shm;
+    parmesh->memGloMax = (maxAvail * 50) / (size_shm * 100);
 
   fprintf ( stdout,
-            "Requested %lld Mb max memory usage. Max memory limit set to %lld \n",
-            memReq, parmesh->memGloMax );
+            "Requested %lld Mb max memory usage. Max memory limit set to %lld Mb\n",
+            memReq, parmesh->memGloMax/million );
 }
 
 

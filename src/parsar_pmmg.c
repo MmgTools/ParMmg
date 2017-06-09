@@ -64,8 +64,8 @@ usage( PMMG_pParMesh parmesh, char * const progname )
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
-  const long int million = 1024L * 1024L;
   int ret_val = PMMG_SUCCESS;
+  const long int million = 1024L * 1024L;
 
   int mmgArgc = 0;
   char** mmgArgv = NULL;
@@ -99,14 +99,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                      "Erroneous mem size requested, using default: %lld\n",
                      parmesh->memGloMax );
           else
-            PMMG_PMesh_SetMemGloMax( parmesh, atoi( argv[i] ) * million);
-          if ( 1 == MMG3D_Set_iparameter( parmesh->listgrp[0].mesh,
-                                          parmesh->listgrp[0].met,
-                                          MMG3D_IPARAM_mem,
-                                          atoi( argv[i] ) ) ) {
-            ret_val = PMMG_FAILURE;
-            goto fail_proc;
-          }
+            PMMG_PMesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
+          PMMG_PMesh_SetMemMax( parmesh, 20 );
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
           usage( parmesh, argv[0] );
