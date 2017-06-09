@@ -139,6 +139,16 @@ fail_pmesh:
 }
 
 
+/** return:
+ *
+ *  Sets the maximum amount of memory that is available to a parmmg process to
+ *  memReq Mb.
+ *  If memReq is zero then it is set to half of the available memory physically
+ *  available on the machine. On multicore machines the available memory is
+ *  shared equally to pmmg processes. If memReq is negative or more than the
+ *  detected available memory, then again it is set to the detected available
+ *  memory
+ */
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 {
   long long int maxAvail = 0;
@@ -153,16 +163,15 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 
   // If total physical memory is known, use 50% of it.
   // Otherwise try use a default value of _MMG5_MEMMAX Mo
-  // Since multiple MPI jobs may be running on the same node, adjust by size_shm
-  maxAvail = _MMG5_memSize() / size_shm;
-  maxAvail = maxAvail * 50 / 100;
+  // Multiple MPI jobs may be running on the same node => distribute equally
+  maxAvail = _MMG5_memSize() * 50 / 100;
   if ( maxAvail == 0 )
-    maxAvail = ( _MMG5_MEMMAX << 20 ) / size_shm;
+    maxAvail = ( _MMG5_MEMMAX << 20 );
 
-  if ( memReq > 0 && memReq < maxAvail )
-    parmesh->memGloMax = memReq / size_shm;
+  if ( (memReq > 0) && ((memReq * million) < maxAvail) )
+    parmesh->memGloMax = (memReq * million) / size_shm;
   else
-    parmesh->memGloMax = maxAvail;
+    parmesh->memGloMax = maxAvail / size_shm;
 
   fprintf ( stdout,
             "Requested %lld Mb max memory usage. Max memory limit set to %lld \n",
