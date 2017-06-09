@@ -41,7 +41,6 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     met                       = grp->met;
     node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     disp                      = grp->disp;
-    mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
 
     /* compact vertices */
     np = nc = 0;
@@ -341,7 +340,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
-      mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
 
 #ifdef PATTERN
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) )

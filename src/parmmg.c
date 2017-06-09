@@ -114,13 +114,15 @@ int main( int argc, char *argv[] )
   parmesh->comm = MPI_COMM_WORLD;
   parmesh->myrank = rank;
   MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
+
   /* reset default values for file names */
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-  parmesh->memMax = PMMG_PMesh_SetMemMax(parmesh, parmesh->memCur);
+  // Init memMax sizes. Only one mesh for now => pmmg structs do not need much
+  PMMG_PMesh_SetMemMax(parmesh, 20);
 
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
     &comm_shm );
@@ -138,7 +140,6 @@ int main( int argc, char *argv[] )
   if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 0 : LOADING MESH ON rank 0\n");
 
-  mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
   if ( !parmesh->myrank ) {
     if ( 1 != MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
@@ -217,7 +218,6 @@ int main( int argc, char *argv[] )
       if (  mesh->info.imprim )
         fprintf(stdout,"\n   -- PHASE 5 : MESH PACKED UP\n");
 
-      mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
       if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
             PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 

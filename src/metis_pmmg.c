@@ -29,12 +29,12 @@ int PMMG_partition_metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   idx_t      ncon = 1; // number of balancing constraint
   idx_t      objval = 0;
   int        adjsize = 0;
+  int        ier = 0;
   int        j, k, iadr, jel, count, totCount, nbAdj;
 
 
   // Create the adjacency vectors that the call to metis requires
 
-//  mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
   if ( (!mesh->adja) && (1 != MMG3D_hashTetra( mesh, 1 )) ) {
     fprintf( stderr,"  ## PMMG Hashing problem (1).\n" );
     return PMMG_FAILURE;
@@ -83,7 +83,6 @@ int PMMG_partition_metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 
 
   // Adjacency vectors are ready, call metis
-  idx_t ier = 0;
   ier = METIS_PartGraphKway( &nelt, &ncon, xadj, adjncy, NULL/*vwgt*/,
                              NULL/*vsize*/, NULL/*adjwgt*/, &nproc,
                              NULL/*tpwgts*/, NULL/*ubvec*/, NULL/*options*/,

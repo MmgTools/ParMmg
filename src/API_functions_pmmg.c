@@ -123,7 +123,6 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 
   PMMG_PMesh_SetMemGloMax( *parmesh, 0 );
 
-
   return PMMG_SUCCESS;
 
 fail_mesh:
@@ -179,26 +178,34 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 }
 
 
-/** Calculate the maximum available memory a parmesh or a mesh can use.
- *  This is equal to the global max memory minus the sum of parmesh/mesh's memCur
- *  except thy memCur of the particular parmesh or mesh struct of which memMax
- *  we are updating
+/**
+ * \param parmesh parmesh structure to adjust
+ * \param percent integer value bewtween 0 and 100
+ *
+ * Set the maximum memory parmesh and the meshes in listgrp can use.
+ * The total memory available is split between the parmesh structure and the
+ * listgrp structures according to the percentage specified by the percent
+ * input variable:
+ *   percent % of the available mem is assigned to pmesh.memMax
+ *   ((100-percent)/100) / # groups is assigned to all mesh[i].memMax
  */
-long long int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur )
+void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
   int i = 0;
-  long long int total = 0;
 
+  assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
+
+  //!!!!NIKOS TODO: It might be better to use this in setting memMax
+  //long long int usage = 0;
   // Total mem usage of all meshes in listgrp
+  //for ( i = 0; i < parmesh->ngrp; ++i )
+  //  usage += parmesh->listgrp[i].mesh->memCur;
+  //usage += parmesh->memCur;
+
+  parmesh->memMax = parmesh->memGloMax * percent / 100;
   for ( i = 0; i < parmesh->ngrp; ++i )
-    total += parmesh->listgrp[i].mesh->memCur;
-
-  total += parmesh->memCur;
-
-  // Minus the current struct's current mem usage
-  total -= memCur;
-
-  return parmesh->memGloMax - total;
+    parmesh->listgrp[i].mesh->memMax =  ( parmesh->memGloMax - parmesh->memMax )
+                                      / parmesh->ngrp;
 }
 
 

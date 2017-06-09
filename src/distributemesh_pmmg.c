@@ -107,6 +107,8 @@ static void swapPoint( MMG5_pPoint point, double* met,int* perm,
  *
  * Send the initial mesh from proc 0 toward the other procs.
  */
+#warning NIKOS TODO: could add a parameter in PMMG_bcastMesh to select which node broadcasts the mesh
+#warning NIKOS TODO: perhaps change to: int PMMG_bcastMesh(MMG5_pMesh msh, int myid, int comm, int source);
 int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp    grp;
@@ -147,7 +149,6 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 
   if ( rank ) {
 #warning NIKOS: DO WE NEED TO CLEANUP mesh member allocations or are they handled in mesh deallocation?
-    mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
     PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices", return PMMG_FAILURE);
 
     PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",return PMMG_FAILURE);
@@ -229,7 +230,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   rank   = parmesh->myrank;
 
   /** Call metis for partionning*/
-  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
@@ -245,7 +245,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   /** Remove the part of the mesh that are not on the proc rank */
 #warning NIKOS: NOT SURE I AM ACCOUNTING ON THE CORRECT memMax/memCur
-  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
               ret_val = PMMG_FAILURE;goto fail_alloc1);
   PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
@@ -264,12 +263,11 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   nitem_int_node_comm = 0;
 
   /* Reset the tmp field of points */
-  mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
   for ( k=1; k<=mesh->np; k++ )
     mesh->point[k].tmp = 0;
 
   /** Mark mesh entities that will stay on the proc and count the number of
-   * point that must be communicate with the other procs  */
+   * point that must be communicated to the other procs  */
   for ( k=1; k<=mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
     pt->mark = part[k-1];
@@ -361,7 +359,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   old_val = parmesh->next_node_comm;
   parmesh->next_node_comm = next_node_comm;
-  parmesh->memMax = PMMG_PMesh_SetMemMax( parmesh, parmesh->memCur );
   PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
               "allocate node comm ",
               parmesh->next_node_comm = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
@@ -489,7 +486,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   mesh->xp = nxp;
 
   /** Update xtetra edge tags */
-  mesh->memMax = PMMG_PMesh_SetMemMax( parmesh, mesh->memCur );
   if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
     ret_val = PMMG_FAILURE;
     goto fail_alloc7;

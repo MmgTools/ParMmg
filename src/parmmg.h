@@ -120,7 +120,7 @@ extern "C" {
 
 
 
-long long int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, long long int memCur );
+void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );

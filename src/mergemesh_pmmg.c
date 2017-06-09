@@ -48,7 +48,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   /** First step: Add all the interfaces points in grp 0 and update its internal
    * communicator */
   int_node_comm              = parmesh->int_node_comm;
-  parmesh->memMax = PMMG_PMesh_SetMemMax(parmesh, parmesh->memCur);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
               "node communicator",return PMMG_FAILURE);
 
@@ -78,7 +77,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
     node2int_node_comm_index1 = grp[imsh].node2int_node_comm_index1;
     node2int_node_comm_index2 = grp[imsh].node2int_node_comm_index2;
-    mesh->memMax              = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
 
     /* Reset the tmp field of points */
     for ( k=1; k<=mesh->np; k++ )
@@ -139,7 +137,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh         = grp[imsh].mesh;
     met          = grp[imsh].met;
-    mesh->memMax = PMMG_PMesh_SetMemMax(parmesh, mesh->memCur);
 
     /* Add the new points to our mesh */
     for ( k=1; k<=mesh->np; k++ ) {
@@ -224,7 +221,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
   /* Travel through the external communicators and udpate all the communicators */
   idx1 = idx2 = 0;
-  parmesh->memMax = PMMG_PMesh_SetMemMax(parmesh, parmesh->memCur);
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
 
