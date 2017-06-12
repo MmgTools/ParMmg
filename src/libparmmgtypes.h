@@ -129,7 +129,8 @@ typedef struct {
   MMG5_pSol    disp;  /*!< displacement */
 
   /*communicators*/
-  int          nitem_int_node_comm;/*!< Nb nodes of this grp in internal communicator*/
+  int          n2inc_max;                 /*!< Max Nb nodes of this grp in internal communicator*/
+  int          nitem_int_node_comm;       /*!< Nb nodes of this grp in internal communicator*/
   int*         node2int_node_comm_index1; /*!< List of interface nodes (local index)*/
   int*         node2int_node_comm_index2; /*!< List of index in internal communicator (where put the interface nodes)*/
 

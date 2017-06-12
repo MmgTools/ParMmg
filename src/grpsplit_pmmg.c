@@ -31,15 +31,89 @@ static int howManyGroups ( const int nelem )
 }
 
 
-#warning NIKOS TODO: is there any code duplication here and in distributegrp?
+/**
+ * \param to       mesh to copy xtetra item to
+ * \param from     mesh to copy xtetra item from
+ * \param location location of xtetra to copy in original mesh
+ *
+ *  Append a tetraedron to the mesh, increasing the array if the allocated
+ *  array is not big enough.
+ */
+static int xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
+{
+  // Adjust the value of scale to reallocate memory more or less agressively
+  const float scale = 2.f;
+  if ( (to->xt + 1) > to->xtmax ) {
+    PMMG_RECALLOC(to, to->xtetra, scale*to->xtmax+1, to->xtmax+1,MMG5_xTetra,
+                  "larger xtetra table",return PMMG_FAILURE);
+    to->xtmax = scale * to->xtmax;
+  }
+  ++to->xt;
+  memcpy( &to->xtetra[ to->xt ],
+          &from->xtetra[ from->tetra[ location ].xt ], sizeof(MMG5_xTetra) );
+  return PMMG_SUCCESS;
+}
+/**
+ * \param to       mesh to copy xpoint item to
+ * \param from     mesh to copy xpoint item from
+ * \param location location of xpoint to copy in original mesh
+ * \param point    xpoint's number in tetrahedron
+ *
+ *  Append a point in the point list, increasing the array if the allocated
+ *  array is not big enough.
+ */
+static int xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int point )
+{
+  // Adjust the value of scale to reallocate memory more or less agressively
+  const float scale = 2.f;
+  if ( (to->xp + 1) > to->xpmax + 1 ) {
+    PMMG_RECALLOC(to, to->xpoint, scale*to->xpmax+1, to->xpmax+1,MMG5_xPoint,
+                  "larger xpoint table",return PMMG_FAILURE);
+    to->xpmax = scale * to->xpmax;
+  }
+  ++to->xp;
+  memcpy( &to->xpoint[ to->xp ],
+          &from->xpoint[ from->point[ from->tetra[tetrahedron].v[point] ].xp ],
+          sizeof(MMG5_xPoint) );
+  return PMMG_SUCCESS;
+}
+/**
+ * \param parmesh parmmg struct pointer
+ * \param grp     working group pointer
+ * \param idx1    index1 value
+ * \param idx2    index2 value
+ *
+ *  Append new values in  group's internal communitor, resizing the buffers if
+ *  required
+ */
+static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int idx1, int idx2 )
+{
+  // Adjust the value of scale to reallocate memory more or less agressively
+  const float scale = 2.f;
+  if ( grp->nitem_int_node_comm + 1 < grp->n2inc_max ) {
+    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1,
+                  scale * grp->n2inc_max, grp->n2inc_max, int,
+                  "increasing n2inc_idx1",return PMMG_FAILURE);
+    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index2,
+                  scale * grp->n2inc_max, grp->n2inc_max, int,
+                  "increasing n2inc_idx1",return PMMG_FAILURE);
+    grp->n2inc_max  = grp->n2inc_max * scale;
+  }
+  grp->node2int_node_comm_index1[ grp->nitem_int_node_comm ] = idx1;
+  grp->node2int_node_comm_index2[ grp->nitem_int_node_comm ] = idx2;
+  ++grp->nitem_int_node_comm;
+  return PMMG_SUCCESS;
+}
+
+#warning NIKOS TODO: there is at least code duplication here and in distributegrp, eg the xpoint/xtetra reallocs
 
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Split one group into several groups.
- *
+ * if the existing group of only one mesh is too big, split it into into several
+ * meshes.
  */
 int PMMG_splitGrps( PMMG_pParMesh parmesh )
 {
@@ -51,7 +125,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   MMG5_pTetra tetraCur = NULL;
   MMG5_pxTetra pxt;
   int *countPerGrp = NULL;
-  int ret_val = PMMG_SUCCESS; // returned value. unless set otherwise: SUCCESS
+  int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   long long int memMeshTotal = 0;
 
   idx_t ngrp = 1;
@@ -68,11 +142,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // Loop counter vars
   int i, grpId, poi, tet, fac;
 
+  assert ( (parmesh->ngrp == 1) && " splitGrps can not split m to n groups");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
-//NIKOS TODO _MMG3D_bdryBuild( meshOld ); //note: no error checking
-//NIKOS TODO MMG3D_saveMesh( meshOld, "mesh-ORIG.mesh" );
   ngrp = howManyGroups( meshOld->ne );
   // Does the group need to be further subdivided to subgroups or not?
   if ( ngrp == 1 )  {
@@ -88,9 +161,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 
   // Check if there is enough free memory to allocate the new group
-  for ( int i = 0; i < parmesh->ngrp; ++i )
-    memMeshTotal += parmesh->listgrp[i].mesh->memCur;
-  if ( parmesh->memGloMax < 2 * memMeshTotal + parmesh->memCur ) {
+#warning NIKOS TODO: it lacks an estimate of the internal communicator sizes
+  if (  parmesh->memCur + 2 * parmesh->listgrp[0].mesh->memCur
+      > parmesh->memMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
     return PMMG_FAILURE;
   }
@@ -99,7 +172,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // part array contains the groupID computed by metis for each tetra
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
 
-  if (    PMMG_partition_metis( parmesh, part, ngrp )
+  if (   PMMG_partition_metis( parmesh, part, ngrp )
       != PMMG_SUCCESS ) {
     ret_val = PMMG_FAILURE;
     goto fail_part;
@@ -119,16 +192,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   /* Allocate list of subgroups struct and allocate memory*/
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
               ret_val = PMMG_FAILURE; goto fail_counters);
-  //NIKOS TODO: do MMG3D_Init_mesh/MMG3D_Set_meshSize offer sth? otherwise allocate on your own
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
     grpCur->mesh = NULL;
     grpCur->met  = NULL;
     grpCur->disp = NULL;
-    //_MMG5_SAFE_CALLOC( ptr, size, type,0 );
-    //_MMG5_SAFE_REALLOC( ptr, size, type, message,0 );
-
-#warning check if we really want to do an initmesh here: maybe it is easier to have a special parmmg function/macro that copies the mesh and creates new pointers for the needed infos (points/xpoints...). Thus, we can avoid the copy of the info structure, the meshones, etc...
 
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
                      MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
@@ -140,7 +208,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-    //if ( !MMG5_Set_inputSolName( meshCur, metCur, metOld->namein ) ) {
+#warning NIKOS: Why are these commented out? Enable or delete?
+    //if ( !MMG5_Set_inputSolName( meshCur, grpCur->met, grpOld->met->namein ) ) {
     //  ret_val = PMMG_FAILURE;
     //  goto fail_sgrp;
     //}
@@ -148,12 +217,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-    //if ( !MMG5_Set_outputSolName( meshCur, metCur, metOld->nameout ) )
+    //if ( !MMG5_Set_outputSolName( meshCur, grpCur->met, grpOld->met->nameout ) ) {
     //  ret_val = PMMG_FAILURE;
     //  goto fail_sgrp;
     //}
 
-    //grpCur->mesh->info.mem = 300;
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId],
                         0, 0, 0, 0 );
 
@@ -161,29 +229,29 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
      * options */
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
-    meshCur->xtmax = meshOld->xtmax;
+    meshCur->xtmax = 128;
     PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
                 "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
     /* memory to store normals for boundary points */
-#warning Overallocating memory, we can do better: Start small and gradually increase
-    meshCur->xpmax  = meshCur->npmax;
+    meshCur->xpmax  = 128;
     PMMG_CALLOC(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
                 "boundary points", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
     PMMG_CALLOC(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table",
                 ret_val = PMMG_FAILURE;goto fail_sgrp);
 
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,
+    grpCur->n2inc_max = 128;
+    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,grpCur->n2inc_max,int,
                 "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,
-                "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
-  printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
-          parmesh->myrank + 1, parmesh->nprocs,
-          meshCur, meshCur->xtmax, meshCur->xtetra,
-          meshCur->xpmax, meshCur->xpoint,
-          meshCur->nemax, meshCur->adja,
-          meshCur->ne, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
+    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,grpCur->n2inc_max,int,
+               "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
+    printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
+            parmesh->myrank + 1, parmesh->nprocs,
+            meshCur, meshCur->xtmax, meshCur->xtetra,
+            meshCur->xpmax, meshCur->xpoint,
+            meshCur->nemax, meshCur->adja,
+            grpCur->n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
 
 
@@ -236,6 +304,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     for ( poi = 1; poi < meshOld->np + 1; ++poi )
       meshOld->point[poi].flag = 0;
 
+    // Loop over tetras and choose the ones to add in the submesh being constructed
     tetPerGrp = 0;
     poiPerGrp = 0;
     for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
@@ -249,6 +318,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         continue;
 
       ++tetPerGrp;
+      assert( ( tetPerGrp < meshCur->nemax ) && "overflowing tetra array?" );
       tetraCur = meshCur->tetra + tetPerGrp;
       meshOld->tetra[tet].flag = tetPerGrp;
 
@@ -257,35 +327,27 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       tetraCur->base = 0;
       tetraCur->mark = 0;
       tetraCur->flag = 0;
-      //NIKOS TODO: there are also cases where we have to update existing boundaries,
-      //            eg when boundary tetras are also interfaced with new groups
-      // Handle xTetras
+#warning NIKOS TODO: there are also cases where we have to update existing boundaries, eg when boundary tetras are also interfaced with new groups
+      // xTetra: this element was already an xtetra (in meshOld)
       if ( tetraCur->xt != 0 ) {
-        ++meshCur->xt;
-        if ( meshCur->xt > meshCur->xtmax ) {
-          /* realloc of xtetra table */
-          PMMG_RECALLOC(meshCur,meshCur->xtetra,1.2*meshCur->xtmax+1,
-                        meshCur->xtmax+1,MMG5_xTetra,"larger xtetra table",
-                        ret_val = PMMG_FAILURE;goto fail_sgrp);
-          meshCur->xtmax = 1.2 * meshCur->xtmax;
+        if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
+          ret_val = PMMG_FAILURE;
+          goto fail_sgrp;
         }
-        memcpy( meshCur->xtetra + meshCur->xt,
-                &meshOld->xtetra[ meshOld->tetra[tet].xt],
-                sizeof(MMG5_xTetra) );
         tetraCur->xt = meshCur->xt;
-        //    } else {
-        //      printf ("there may be more: new boundary between subgroups\n");
       }
+#warning NIKOS TODO: are there or should these be just deleted?
+      //else
+      //  printf ("there may be more: new boundary between subgroups\n");
 
-      //printf ( "+++++NIKOS[%d/%d]:: tetra %4d(%4d), mesh xt: %3d\n", grpId+1, ngrp, tet, tetPerGrp, meshOld->tetra[tet].xt);
       // Add tetrahedron vertices in points struct and
       // adjust tetrahedron vertices indices
       for ( poi = 0; poi < 4 ; ++poi ) {
-        // if it is the first time this point is seen in this subgroup
-        if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) {
+        if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) { // 1st time that this point is seen in this subgroup
 
           // Add point in subgroup point array
           ++poiPerGrp;
+          assert( (poiPerGrp < meshCur->npmax) && "overflowing mesh points" );
           memcpy( meshCur->point + poiPerGrp,
                   &meshOld->point[ meshOld->tetra[tet].v[poi] ],
                   sizeof(MMG5_Point) );
@@ -299,29 +361,27 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           // Add point in subgroup's communicator if it already was in group's
           // communicator
           if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
-            grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] =
-                poiPerGrp;
-            grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] =
-                meshCur->point[ poiPerGrp ].tmp;
-            ++grpCur->nitem_int_node_comm;
+            if (  n2incAppend( parmesh, grpCur, poiPerGrp,
+                               meshCur->point[ poiPerGrp ].tmp )
+                != PMMG_SUCCESS ) {
+              ret_val = PMMG_FAILURE;
+              goto fail_sgrp;
+            }
           }
-
-          // Handle xPoints
+          // xPoints: this was already a boundary point
           if ( meshCur->point[poiPerGrp].xp != 0 ) {
-            ++meshCur->xp;
-            memcpy( meshCur->xpoint + meshCur->xp,
-                    &meshOld->xpoint[ meshOld->point[ meshOld->tetra[tet].v[poi] ].xp ],
-                    sizeof(MMG5_xPoint) );
+            if ( PMMG_SUCCESS != xpointAppend( meshCur, meshOld, tet, poi ) ) {
+              ret_val = PMMG_FAILURE;
+              goto fail_sgrp;
+            }
             meshCur->point[poiPerGrp].xp = meshCur->xp;
-            //        } else {
-            //        printf( " some other more border cases, think about it \n" );
           }
-        // point is already included in this subgroup
-        } else {
-          // update tetra vertex reference
+#warning NIKOS: are there other border cases or simply delete these?
+          //else
+          //  printf( " some other more border cases, think about it \n" );
+        } else { // point is already included in this subgroup, update current tetra vertex reference
           tetraCur->v[poi] = meshOld->point[ meshOld->tetra[tet].v[poi] ].flag;
         }
-        //printf ( "adja: %5d, point[%4d-%4d-%d].xt: %d \n", meshOld->adja[ 4 * (tet - 1) + 1 + poi ], meshOld->tetra[tet].v[poi], tetPerGrp, poi, meshOld->point[ meshOld->tetra[tet].v[poi] ].xp);
       }
 
       adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
@@ -334,20 +394,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           if ( part[ adjidx - 1 ] != grpId ) {
             adja[ fac ] = 0;
 
-            /*creation of the interface faces : ref 0 and tag MG_PARBDY*/
+            /* creation of the interface faces : ref 0 and tag MG_PARBDY */
             if( !meshCur->tetra[tet].xt ) {
-              /*create a new xt*/
-              ++meshCur->xt;
-              if ( meshCur->xt > meshCur->xtmax ) {
-                /* realloc of xtetra table */
-                PMMG_RECALLOC(meshCur,meshCur->xtetra,1.2*meshCur->xtmax+1,
-                              meshCur->xtmax+1,MMG5_xTetra,"larger xtetra table",
-                              ret_val = PMMG_FAILURE;goto fail_sgrp);
-                meshCur->xtmax = 1.2 * meshCur->xtmax;
+              if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
+                ret_val = PMMG_FAILURE;
+                goto fail_sgrp;
               }
-              memcpy( meshCur->xtetra + meshCur->xt,
-                      &meshOld->xtetra[ meshOld->tetra[tet].xt],
-                      sizeof(MMG5_xTetra) );
               tetraCur->xt = meshCur->xt;
             }
             pxt = &meshCur->xtetra[tetraCur->xt];
@@ -362,8 +414,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             adja[i] =  4 * meshOld->tetra[adjidx].flag  + vindex;
             // Now that we know the local gr_idx for both tetra we should also
             // update the adjacency entry for the adjacent face
+            assert(  (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ) < (4 * meshCur->nemax+5)
+                &&"adja overflow" );
             meshCur->adja[ 4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ] =
-                4 * tetPerGrp + fac;
+              4 * tetPerGrp + fac;
           }
         }
       }
@@ -374,14 +428,15 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         if ( adjidx && grpId != part[ adjidx - 1 ] ) {
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
+              assert ( grpCur->nitem_int_node_comm < grpCur->n2inc_max && "if increasing the internal comm size is correct, add call to n2incAppend here");
               grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] =
-                  tetraCur->v[ _MMG5_idir[fac][poi] ];
+                tetraCur->v[ _MMG5_idir[fac][poi] ];
               grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] =
-                  parmesh->int_node_comm->nitem + 1;
+                parmesh->int_node_comm->nitem + 1;
               meshOld->point[ meshOld->tetra[tet].v[ _MMG5_idir[fac][poi]  ] ].tmp =
-                  parmesh->int_node_comm->nitem + 1;
+                parmesh->int_node_comm->nitem + 1;
               meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp =
-                  parmesh->int_node_comm->nitem + 1;
+                parmesh->int_node_comm->nitem + 1;
               ++grpCur->nitem_int_node_comm;
               ++parmesh->int_node_comm->nitem;
             }
@@ -398,6 +453,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 //NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
 //NIKOS TODO    meshCur = grpsNew[grpId].mesh;
+//NIKOS TODO    Is there an additional call to MMG missing (to compact meshes or sth?)
 //NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol met,const char *filename)
 //NIKOS TODO    char name[20];
 //NIKOS TODO    sprintf( name, "mesh-p%d-%02d.mesh", parmesh->myrank+1, grpId );
@@ -428,8 +484,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // No error so far, skip deallocation of lstgrps
   goto fail_counters;
 
-// fail_sgrp deallocates any mesh that has been allocated in listgroup.
-// Should be executed only if an error has occured
+  // fail_sgrp deallocates any mesh that has been allocated in listgroup.
+  // Should be executed only if an error has occured
 fail_sgrp:
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     meshCur = grpsNew[grpId].mesh;
@@ -446,8 +502,8 @@ fail_sgrp:
 #warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
   PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
-// these labels should be executed as part of normal code execution before
-// returning as well as error handling
+  // these labels should be executed as part of normal code execution before
+  // returning as well as error handling
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 fail_part:

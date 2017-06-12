@@ -198,7 +198,8 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
  *
  * Delete parts of the mesh not on the processor.
  */
-#warning NIKOS TODO: When do we have what? (conformant or non conformant mesh
+#warning NIKOS TODO: When do we have what? (conformant or non conformant mesh)
+#warning NIKOS TODO: rename function to sth more descriptive
 int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
@@ -276,7 +277,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
       continue;
 
     for ( ifac=0; ifac<4; ifac++ ) {
-      kvois    = mesh->adja[4*k-3+ifac]/4;
+      kvois = mesh->adja[4*k-3+ifac]/4;
 
       if ( kvois )
         rankVois = part[kvois-1];
@@ -286,17 +287,17 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
       /* Mark the interfaces between two procs */
       if ( rank != rankVois ) {
         if ( !pt->xt ) {
-          ++mesh->xt;
-          if ( mesh->xt > mesh->xtmax ) {
+          if ( (mesh->xt + 1) > mesh->xtmax ) {
             /* realloc of xtetras table */
             PMMG_RECALLOC(mesh,mesh->xtetra,1.2*mesh->xtmax+1,mesh->xtmax+1,int,
                           "larger xtetra ",
-                          mesh->xt--;ret_val = PMMG_FAILURE;goto fail_alloc6);
+                          ret_val = PMMG_FAILURE;goto fail_alloc6);
             PMMG_RECALLOC(parmesh,xTetraPerm,1.2*mesh->xtmax+1,mesh->xtmax+1,
                           int,"larger tetra permutation table ",
-                          mesh->xt--; ret_val = PMMG_FAILURE; goto fail_alloc6);
+                          ret_val = PMMG_FAILURE; goto fail_alloc6);
             mesh->xtmax = 1.2 * mesh->xtmax;
           }
+          ++mesh->xt;
           pt->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[pt->xt];
