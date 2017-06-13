@@ -43,8 +43,8 @@ static int xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
 {
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
-  if ( (to->xt + 1) > to->xtmax ) {
-    PMMG_RECALLOC(to, to->xtetra, scale*to->xtmax+1, to->xtmax+1,MMG5_xTetra,
+  if ( (to->xt + 1) >= to->xtmax ) {
+    PMMG_REALLOC(to, to->xtetra, scale*to->xtmax+1, to->xtmax+1,MMG5_xTetra,
                   "larger xtetra table",return PMMG_FAILURE);
     to->xtmax = scale * to->xtmax;
   }
@@ -66,7 +66,7 @@ static int xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int po
 {
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
-  if ( (to->xp + 1) > to->xpmax + 1 ) {
+  if ( (to->xp + 1) >= to->xpmax + 1 ) {
     PMMG_RECALLOC(to, to->xpoint, scale*to->xpmax+1, to->xpmax+1,MMG5_xPoint,
                   "larger xpoint table",return PMMG_FAILURE);
     to->xpmax = scale * to->xpmax;
@@ -90,7 +90,7 @@ static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int idx1, int idx2
 {
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
-  if ( grp->nitem_int_node_comm + 1 < grp->n2inc_max ) {
+  if ( (grp->nitem_int_node_comm + 1) >= grp->n2inc_max ) {
     PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1,
                   scale * grp->n2inc_max, grp->n2inc_max, int,
                   "increasing n2inc_idx1",return PMMG_FAILURE);
