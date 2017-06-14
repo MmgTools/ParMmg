@@ -321,10 +321,6 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   nprocs = parmesh->nprocs;
   comm   = parmesh->comm;
 
-#warning NIKOS: IS THIS CORRECT? PERHAPS WE SHOULD MANAGE THIS BETTER
-  if ( nprocs == 1 )
-    return 1;
-
 
   /** Step 1: merge the groups over each procs and return 1 group per proc.
    * This group contains a packed mesh where the triangle and edges are not
