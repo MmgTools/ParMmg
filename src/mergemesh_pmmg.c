@@ -71,7 +71,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     intvalues[node2int_node_comm0_index2[k]] = node2int_node_comm0_index1[k];
 
 
-  idx = nitem_int_node_comm;
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh                      = grp[imsh].mesh;
     nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
@@ -115,10 +114,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
           assert(met->m);
           memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
         }
-#warning useless, try to remove
-        node2int_node_comm0_index1[++idx] = ip;
-        node2int_node_comm0_index2[  idx] = idx2;
-        intvalues[idx2]                   = ip;
+        intvalues[idx2] = ip;
       }
       else {
         /* The point exists: store its index in grp 0 */
