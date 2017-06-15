@@ -163,7 +163,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // Check if there is enough free memory to allocate the new group
 #warning NIKOS TODO: it lacks an estimate of the internal communicator sizes
   if (  parmesh->memCur + 2 * parmesh->listgrp[0].mesh->memCur
-      > parmesh->memMax ) {
+      > parmesh->memGloMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
     return PMMG_FAILURE;
   }
