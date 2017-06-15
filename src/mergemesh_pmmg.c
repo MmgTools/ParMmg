@@ -178,6 +178,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
       for ( i=0; i<4; ++i )
         pt0->v[i] = mesh->point[pt->v[i]].tmp;
+      pt0->ref = pt->ref;
 
 #warning add adjacency update
 
