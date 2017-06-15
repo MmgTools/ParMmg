@@ -115,11 +115,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
           memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
         }
         intvalues[idx2] = ip;
-      }
-      else {
-        /* The point exists: store its index in grp 0 */
-        ppt      = &mesh0->point[intvalues[idx2]];
-        ppt->tmp = intvalues[idx2];
+      } else {
+        mesh->point[intvalues[idx2]].tmp = intvalues[idx2];
       }
     }
   }
