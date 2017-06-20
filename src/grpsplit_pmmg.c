@@ -224,12 +224,14 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
     MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId],
                         0, 0, 0, 0 );
+    grpCur->mesh->np = 0;
+    grpCur->mesh->npi = 0;
 
     /* Copy the info structure of the initial mesh: it contains the remeshing
      * options */
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
-    meshCur->xtmax = 128;
+    meshCur->xtmax = 256;
     PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
                 "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
@@ -444,9 +446,20 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         }
       }
     }
+    meshCur->np = poiPerGrp;
+    meshCur->npi = poiPerGrp;
+    meshCur->npnil = poiPerGrp + 1;
+    for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
+      meshCur->point[poi].n[0] = 0;
+      meshCur->point[poi].n[1] = 0;
+      meshCur->point[poi].n[2] = 0;
+      meshCur->point[poi].tmp  = poi + 1;
+    }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
-    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed.%d nitem in int communicator\n",
-            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne, grpCur->nitem_int_node_comm );
+    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
+            "%d nitem in int communicator.np=%d,npi=%d\n",
+            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
+            grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
   }
 
 
