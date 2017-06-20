@@ -11,76 +11,17 @@
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
 
-void writemsh( char *name, PMMG_pGrp grp, int ngrp )
-{
-  FILE *fp = fopen( name, "w" );
-  if ( NULL == fp )
-    abort();
-  for ( int imsh = 0; imsh < ngrp; ++imsh ) {
-    fprintf( fp, "Points in mesh %d\n", imsh );
-    for ( int k = 1; k <= grp[imsh].mesh->np; k++ ) {
-      fprintf( fp, "\t id#\t%d\tcoords:\t(%f,%f,%f)\tnormals:\t(%f,%f,%f)\tref:\t%d\t\txp\t%d\ttmp\t%d\ttag\t%d\n",
-               k,
-               grp[imsh].mesh->point[k].c[0],
-               grp[imsh].mesh->point[k].c[1],
-               grp[imsh].mesh->point[k].c[2],
-               grp[imsh].mesh->point[k].n[0],
-               grp[imsh].mesh->point[k].n[1],
-               grp[imsh].mesh->point[k].n[2],
-               grp[imsh].mesh->point[k].ref,
-               grp[imsh].mesh->point[k].xp,
-               grp[imsh].mesh->point[k].tmp,
-               grp[imsh].mesh->point[k].tag);
-    }
-  }
-  fclose(fp);
-}
-void writetetra( char *name, MMG5_pMesh mesh, int num )
-{
-  FILE *fp = fopen( name, "w" );
-  if ( NULL == fp )
-    abort();
-  fprintf( fp, "Tetras in  mesh %d.ne: %d, nei:%d\n", num, mesh->ne, mesh->nei );
-  for ( int k = 1; k <= mesh->ne; ++k ) {
-    for ( int i = 0; i < 4; ++i )
-      fprintf( fp, "%d ", mesh->tetra->v[i]);
-    fprintf( fp, "\n");
-  }
-  fclose(fp);
-}
-
-void checkTetraForReferencingNullPoints( char *name, PMMG_pGrp grp, int nmsh )
-{
-  FILE *fp = fopen( name, "w" );
-  if ( fp == NULL )
-    abort();
-  for ( int imsh = 0; imsh < nmsh; ++imsh ) {
-    for ( int tet = 0; tet < grp[imsh].mesh->ne; ++tet ) {
-      int check = 0;
-      for ( int k = 0; k < 4; ++k )
-        if ( 0 == grp[imsh].mesh->tetra[tet].v[k] )
-          ++check;
-      if ( 3 == check ) 
-        fprintf(fp, " mesh %d references point %d with all zero coordinates \n",imsh, tet );
-      check = 0;
-    }
-  }
-  fclose(fp);
-}
-
-
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \return
  *         PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Merge all meshes (mesh elements + internal communicator) of a group into the
- * first mesh of the group
+ * Merge the groups (mesh + internal communicators) on the processor.
  *
  * \remark not yet tested
  *
- * \warning the group's meshes must be packed.
+ * \warning the groups meshes must be packed.
  */
 int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 {
@@ -104,8 +45,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
   grp  = parmesh->listgrp;
 
-  /* Use parmesh communicator buffer (intvalues) to remember the location in the
-   * merged mesh of all the interface points */
+  /** First step: Add all the interfaces points in grp 0 and update its internal
+   * communicator */
   int_node_comm              = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
               "node communicator",return PMMG_FAILURE);
@@ -118,129 +59,68 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
   node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
 
-writemsh("points-on-entry.csv", grp, parmesh->ngrp);
-//  checkTetraForReferencingNullPoints( "tetra-refs-on-entry.csv", grp, parmesh->ngrp );
-  // First step: Merge interface points from all meshes into mesh0->points
+  np = mesh0->np;
 
-  /* Use the tmp field of points in meshes to indicate whether the point
-   * has already been added to the merged mesh0 or not */
-  for ( imsh = 1; imsh < parmesh->ngrp; ++imsh )
-    for ( k = 1; k <= grp[imsh].mesh->np; ++k )
-      grp[imsh].mesh->point[k].tmp = 0;
+  /* Reset the tmp field of points (grp 0) */
+  for ( k=1; k<=np; k++ )
+    mesh0->point[k].tmp = 0;
 
-  /* mesh0's points are already in mesh0, add a reference of their location in
-   * mesh0(ie n2i_n_c0_idx1) to the merging buffer(ie intvalues) and in the
-   * point's tmp field */
-  for ( k = 0; k < grp[0].nitem_int_node_comm; ++k ) {
+  /* Travel through internal communicator to recover a unique numbering of
+   * points (grp 0) */
+  for ( k=0; k<nitem_int_node_comm0; ++k )
+    intvalues[node2int_node_comm0_index2[k]] = node2int_node_comm0_index1[k];
 
-    int poi_id_int =  grp[0].node2int_node_comm_index1[k];
-    int poi_id_glo = grp[0].node2int_node_comm_index2[k];
 
-    intvalues[ poi_id_glo ] = poi_id_int;
-    mesh0->point[ poi_id_int ].tmp = poi_id_int;
-  }
-writemsh("points-merged-msh0-interfaces.csv", grp, parmesh->ngrp);
-
-  /* Add the points referenced by the rest of the groups meshes' internal
-   * communicators to the merging mesh (mesh0) */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    for ( k = 0; k < grp[imsh].nitem_int_node_comm; ++k ) {
-      int poi_id_glo = grp[imsh].node2int_node_comm_index2[k];
+    mesh                      = grp[imsh].mesh;
+    nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
+    node2int_node_comm_index1 = grp[imsh].node2int_node_comm_index1;
+    node2int_node_comm_index2 = grp[imsh].node2int_node_comm_index2;
 
-      if ( !intvalues[ poi_id_glo ] ) { // point not in merging group, add it
-        ppt = &grp[ imsh ].mesh->point[ grp[ imsh ].node2int_node_comm_index1[ k ] ];
+    /* Reset the tmp field of points */
+    for ( k=1; k<=mesh->np; k++ )
+      mesh->point[k].tmp = 0;
 
-        /* Add ppt to merged mesh */
+    /* Travel through internal communicators to recover a unique numbering of
+     * points: add the new interface points in grp 0, update the internal
+     * communicator and save the new point idx in the tmp field of point */
+    for ( k=0; k<nitem_int_node_comm; ++k ) {
+      idx2 = node2int_node_comm_index2[k];
+
+      if ( !intvalues[idx2] ) {
+        idx1 = node2int_node_comm_index1[k];
+        ppt = &mesh->point[idx1];
+
+        /* Add the point ppt to the group 0 */
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
-#warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
-//                              PMMG_DEL_MEM(parmesh,
-//                                           intvalues,int_node_comm->nitem,int,
-//                                           "freeing temp buffer",
-//                                           return PMMG_FAILURE),
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
           _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
                               printf("  ## Error: unable to merge group points\n");
                               _MMG5_INCREASE_MEM_MESSAGE();
-                              return PMMG_FAILURE;,
-                              ppt->c,ppt->tag,PMMG_FAILURE);
-
+                              return(0);
+                              ,ppt->c,ppt->tag,PMMG_FAILURE);
         }
         ppt->tmp = ip;
-#warning NIKOS: the following line may be redundant
-        grp[ 0 ].mesh->point[ ip ].tmp = ip;
-        intvalues[ poi_id_glo ] = ip;
-
         /* Add xpoint if needed */
         if ( ppt->xp ) {
-          pxp  = &grp[ imsh ].mesh->xpoint[ ppt->xp ];
-          ppt0 = &mesh0->point[ ip ];
-          pxp0 = &mesh0->xpoint[ ppt0->xp ];
-          memcpy( pxp0, pxp, sizeof(MMG5_xPoint) );
+          pxp  = &mesh->xpoint[ppt->xp];
+          ppt0 = &mesh0->point[ip];
+          pxp0 = &mesh0->xpoint[ppt0->xp];
+          memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
         }
         if ( met0->m ) {
-          assert( met->m );
-          memcpy( &met0->m[ met0->size*ip ], &met->m[ met->size * k ], met->size *sizeof(double) );
+          assert(met->m);
+          memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
         }
-      } else { // point already is in mesh0. copy its mesh0 index in its tmp field
-        grp[ imsh ].mesh->point[ grp[ imsh ].node2int_node_comm_index1[ k ] ].tmp = intvalues[ poi_id_glo ];
+        intvalues[idx2] = ip;
+      } else {
+        mesh->point[intvalues[idx2]].tmp = intvalues[idx2];
       }
     }
   }
 
-//  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-//    mesh                      = grp[imsh].mesh;
-//    nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
-//    node2int_node_comm_index1 = grp[imsh].node2int_node_comm_index1;
-//    node2int_node_comm_index2 = grp[imsh].node2int_node_comm_index2;
-//
-//    /* Iterate over the rest of the group's meshes' internal communicators and
-//     * add points that do not exist in mesh0 to mesh0 updating the merging buffer */
-//    for ( k=0; k<nitem_int_node_comm; ++k ) {
-//      idx2 = node2int_node_comm_index2[k];
-//
-//      if ( !intvalues[idx2] ) { // point does not exist in mesh0: add it in mesh0
-//        idx1 = node2int_node_comm_index1[k];
-//        ppt = &mesh->point[idx1];
-//
-//        /* Add the point ppt to the group 0 */
-//        ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
-//        if ( !ip ) {
-//          /* reallocation of point table */
-//#warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
-////                              PMMG_DEL_MEM(parmesh,
-////                                           intvalues,int_node_comm->nitem,int,
-////                                           "freeing temp buffer",
-////                                           return PMMG_FAILURE),
-//          _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
-//                              printf("  ## Error: unable to merge group points\n");
-//                              _MMG5_INCREASE_MEM_MESSAGE();
-//                              return PMMG_FAILURE;,
-//                              ppt->c,ppt->tag,PMMG_FAILURE);
-//
-//        }
-//        ppt->tmp = ip;
-//        /* Add xpoint if needed */
-//        if ( ppt->xp ) {
-//          pxp  = &mesh->xpoint[ppt->xp];
-//          ppt0 = &mesh0->point[ip];
-//          pxp0 = &mesh0->xpoint[ppt0->xp];
-//          memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
-//        }
-//        if ( met0->m ) {
-//          assert(met->m);
-//          memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
-//        }
-//        intvalues[idx2] = ip;
-//      } else { // point already included in mesh0. copy its index in mesh0 in tmp field
-//#warning NIKOS: I think that this else clause can be moved together with the point insertion code: in the previous loop iterating over nitem_int_node_comm0 and in the if clause
-//        mesh->point[intvalues[idx2]].tmp = intvalues[idx2];
-//      }
-//    }
-//  }
-
-writemsh("points-merged-interfaces.csv", grp, parmesh->ngrp);
-//  checkTetraForReferencingNullPoints( "tetra-refs-on-interface-merging.csv", grp, parmesh->ngrp );
 
   /** Second step: merge the meshes inside grp[0]->mesh */
   mesh0 = grp[0].mesh;
@@ -248,8 +128,8 @@ writemsh("points-merged-interfaces.csv", grp, parmesh->ngrp);
 #warning Do we need a smart fit of the mesh size?
   np = mesh0->np;
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    mesh = grp[imsh].mesh;
-    met  = grp[imsh].met;
+    mesh         = grp[imsh].mesh;
+    met          = grp[imsh].met;
 
     /* Add the new points to our mesh */
     for ( k=1; k<=mesh->np; k++ ) {
@@ -259,17 +139,12 @@ writemsh("points-merged-interfaces.csv", grp, parmesh->ngrp);
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
-#warning NIKOS: CODE DUPLICATION
-#warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
-//                              PMMG_DEL_MEM(parmesh,
-//                                           intvalues,int_node_comm->nitem,int,
-//                                           "freeing temp buffer",
-//                                           return PMMG_FAILURE),
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
           _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
                               printf("  ## Error: unable to merge group points\n");
                               _MMG5_INCREASE_MEM_MESSAGE();
-                              return PMMG_FAILURE;,
-                              ppt->c,ppt->tag,PMMG_FAILURE);
+                              return(0);
+                              ,ppt->c,ppt->tag,PMMG_FAILURE);
         }
         ppt->tmp = ip;
         /* Add xpoint if needed */
@@ -293,16 +168,11 @@ writemsh("points-merged-interfaces.csv", grp, parmesh->ngrp);
       ie  = _MMG3D_newElt(mesh0);
       if ( !ie ) {
          /* reallocation of tetra table */
-#warning NIKOS: The correct law to pass to _MMG5_TETRA_REALLOC is the commented code:
-//                            PMMG_DEL_MEM(parmesh,
-//                                         intvalues,int_node_comm->nitem,int,
-//                                         "freeing temp buffer",
-//                                         return PMMG_FAILURE),
+#warning NIKOS: THE FOLLOWING RETURNS WITHOUT DEALLOCATING THE BUFFER. perhaps replace it with PMMG_Realloc(mesh0,met0,ip,mesh0->gap,) ?
         _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
                             fprintf(stderr,"  ## Error: unable to merge group elts.\n");
                             _MMG5_INCREASE_MEM_MESSAGE();
-                            return PMMG_SUCCESS;,
-                            PMMG_FAILURE);
+                            return(0);,PMMG_FAILURE);
       }
       pt0 = &mesh0->tetra[ie];
 
@@ -332,13 +202,10 @@ writemsh("points-merged-interfaces.csv", grp, parmesh->ngrp);
     }
 
     /* Free the mesh */
-//!!!!!    MMG3D_Free_all(MMG5_ARG_start,
-//!!!!!                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
-//!!!!!                   MMG5_ARG_end);
+    MMG3D_Free_all(MMG5_ARG_start,
+                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
+                   MMG5_ARG_end);
   }
-  writemsh("points-before-comm-update.csv", grp, parmesh->ngrp);
-//  writetetra("all-tetra-final.csv", grp->mesh, 0);
-//  checkTetraForReferencingNullPoints( "tetra-refs-before-comm-update.csv", grp, parmesh->ngrp );
 
   /** Update the communicators */
   /* Reset the tmp field of the point: it will be used to store the position of
@@ -449,10 +316,6 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   comm   = parmesh->comm;
 
 
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTchar name[20];
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTsprintf( name, "mesh-p%d.mesh", parmesh->myrank+1 );
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXIST_MMG3D_bdryBuild( parmesh->listgrp[0].mesh ); //note: no error checking
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTMMG3D_saveMesh( parmesh->listgrp[0].mesh, name );
   /** Step 1: merge the groups over each procs and return 1 group per proc.
    * This group contains a packed mesh where the triangle and edges are not
    * reconstructed (the mesh contains tetra and xtetra). */
