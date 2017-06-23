@@ -399,39 +399,44 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       /* Update element's adjuceny to elements in the new mesh */
       for ( fac = 0; fac < 4; ++fac ) {
 
-        if ( adja[ fac ] != 0 ) {
-          adjidx = adja[ fac ] / 4;
-          vindex = adja[ fac ] % 4;
-          // new boundary face, set to 0
-          assert( ((adjidx - 1) < meshOld->ne ) && "part[adjaidx] would overflow" );
-          if ( part[ adjidx - 1 ] != grpId ) {
-            adja[ fac ] = 0;
+        if ( adja[ fac ] == 0 )
+          continue;
 
-            /* creation of the interface faces : ref 0 and tag MG_PARBDY */
-            if( !meshCur->tetra[tet].xt ) {
-              if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
-                ret_val = PMMG_FAILURE;
-                goto fail_sgrp;
-              }
-              tetraCur->xt = meshCur->xt;
+        adjidx = adja[ fac ] / 4;
+        vindex = adja[ fac ] % 4;
+
+        // new boundary face: set to 0, add xtetra and set tags
+        assert( ((adjidx - 1) < meshOld->ne ) && "part[adjaidx] would overflow" );
+        if ( part[ adjidx - 1 ] != grpId ) {
+          adja[ fac ] = 0;
+
+          /* creation of the interface faces : ref 0 and tag MG_PARBDY */
+          if( !meshCur->tetra[tet].xt ) {
+            if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
+              ret_val = PMMG_FAILURE;
+              goto fail_sgrp;
             }
-            pxt = &meshCur->xtetra[tetraCur->xt];
-            pxt->ref[fac] = 0;
-            pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
-
-            for ( j=0; j<3; ++j )
-              pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
-
-            // if the adjacent number is already processed
-          } else if ( adjidx < tet ) { //NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
-            adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vindex;
-            // Now that we know the local gr_idx for both tetra we should also
-            // update the adjacency entry for the adjacent face
-            assert(  (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ) < (4 * meshCur->nemax+5)
-                &&"adja overflow" );
-            meshCur->adja[ 4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ] =
-              4 * tetPerGrp + fac;
+            tetraCur->xt = meshCur->xt;
           }
+          pxt = &meshCur->xtetra[tetraCur->xt];
+          pxt->ref[fac] = 0;
+          pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
+
+          for ( j=0; j<3; ++j )
+            pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+
+        // if the adjacent number is already processed
+#warning NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
+#warning NIKOS: I do not understand why this if and if there are other clauses
+        } else if ( adjidx < tet ) {
+          adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vindex;
+          // Now that we know the local gr_idx for both tetra we should also
+          // update the adjacency entry for the adjacent face
+          assert(     (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex )
+                    < (4 * (meshCur->ne -1 ) + 1 + 4)
+                 && "adja overflow" );
+          meshCur->adja[ 4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ] =
+            4 * tetPerGrp + fac;
         }
       }
       adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
@@ -495,12 +500,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     ret_val = PMMG_FAILURE;
     goto fail_sgrp;
   }
-//  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-//    meshCur = grpsNew[grpId].mesh;
-//    if ( 1 != _MMG5_mmg3dChkmsh(meshCur,1,0) ) {
-//      printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
-//    }
-//  }
+  for ( grpId = 0; grpId < ngrp; ++grpId ) {
+    meshCur = grpsNew[grpId].mesh;
+    if ( 1 != _MMG5_mmg3dChkmsh(meshCur,1,0) ) {
+      printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
+    }
+  }
 
 #endif
 
