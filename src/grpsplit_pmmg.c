@@ -411,7 +411,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           adja[ fac ] = 0;
 
           /* creation of the interface faces : ref 0 and tag MG_PARBDY */
-          if( !meshCur->tetra[tet].xt ) {
+          if( !meshCur->tetra[tetPerGrp].xt ) {
             if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
