@@ -90,7 +90,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
     for ( k=0; k<nitem_int_node_comm; ++k ) {
       poi_id_glo = node2int_node_comm_index2[ k ];
-      assert ( ( 0 < poi_id_glo ) && ( poi_id_glo < int_node_comm->nitem+1 ) && "weird..." );
+      assert ( ( 0 <= poi_id_glo ) && ( poi_id_glo < int_node_comm->nitem+1 ) && "weird..." );
 
       // location in currently working mesh where point data actually are
       assert ( node2int_node_comm_index1[ k ] < mesh->npmax );
