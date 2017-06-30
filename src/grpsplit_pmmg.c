@@ -124,6 +124,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   MMG5_pMesh meshCur = NULL;
   MMG5_pTetra tetraCur = NULL;
   MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   long long int memMeshTotal = 0;
@@ -140,7 +141,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   int adjidx = 0;
 
   // Loop counter vars
-  int i, grpId, poi, tet, fac;
+  int i, grpId, poi, tet, fac, ie;
 
   assert ( (parmesh->ngrp == 1) && " splitGrps does not split m to n groups");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
@@ -422,8 +423,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           pxt->ref[fac] = 0;
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
 
-          for ( j=0; j<3; ++j )
+          for ( j=0; j<3; ++j ) {
+            /* Update the face and face vertices tags */
             pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+            ppt = &meshCur->point[tetraCur->v[_MMG5_idir[fac][j]]];
+            ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ);
+          }
 
         // if the adjacent number is already processed
 #warning NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
@@ -477,6 +482,26 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             "%d nitem in int communicator.np=%d,npi=%d\n",
             ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
             grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
+
+    /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
+     * shell of an edge, it is possible that one of the xtetra has set the edge
+     * as MG_PARBDY. In this case, this tag must be reported in the second
+     * xtetra) */
+    for ( tet = 1; tet < meshCur->ne +1; ++tet ) {
+      tetraCur = &meshCur->tetra[tet];
+
+      if ( !MG_EOK(tetraCur) ) continue;
+      if ( !tetraCur->xt )     continue;
+
+      pxt = &meshCur->xtetra[tetraCur->xt];
+
+      for ( ie=0; ie<6; ++ie ) {
+        if ( !(pxt->tag[ie] & MG_PARBDY ) )  continue;
+// Algiane: if this step is too long, try to hash the updated edges to not
+// update twice the same shell.
+        _MMG5_settag(meshCur,tet,ie,pxt->tag[ie],pxt->edg[ie]);
+      }
+    }
   }
 
 //NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
