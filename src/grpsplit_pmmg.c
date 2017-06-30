@@ -475,8 +475,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 //NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
 //NIKOS TODO    meshCur = grpsNew[grpId].mesh;
 //NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol met,const char *filename)
-//NIKOS TODO    char name[20];
-//NIKOS TODO    sprintf( name, "lala-p%d-%02d.mesh", parmesh->myrank+1, grpId );
+//NIKOS TODO    char name[27];
+//NIKOS TODO    sprintf( name, "AfterSplitGrp-p%d-%02d.mesh", parmesh->myrank+1, grpId );
 //NIKOS TODO    _MMG3D_bdryBuild(meshCur); //note: no error checking
 //NIKOS TODO    MMG3D_saveMesh( meshCur, name );
 //NIKOS TODO  }
