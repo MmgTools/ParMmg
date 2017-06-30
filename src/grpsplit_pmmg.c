@@ -259,38 +259,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             grpCur->n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
 
-
-
-/////////////////// algean algo /////////////////////////////
-//  // Initialize flag/tmp/etc vars
-//  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-//    meshOld->point[poi].flag = 0;
-//  // Will use the MMG5_Point.tmp field to store the position of each vertex in
-//  // the node2index2 communicator buffer or -1.
-//  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-//    meshOld->point[poi].tmp = -1;
-//  for ( i = 0; i < grpCur->nitem_int_node_comm; ++i )
-//    meshOld->point[ grpOld->node2int_node_comm_index1 [i ] ].tmp = grpOld->node2int_node_comm_index2[ i ];
-//
-//  // Process tetrahedrons
-//  for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
-//    int gr_idx = part[ tet - 1 ];
-//    MMG5_pTetra pt = &meshOld->tetra[ tet ];
-//
-//    for ( int fac = 0 ; fac < 4 ; ++fac ) {
-//
-//      int adja_gr_idx = part[ meshOld->adja[ 4 * ( tet - 1 ) + 1 + fac] - 1 ];
-//      if ( adja_gr_idx != gr_idx ) {
-//        for ( int ver = 0; ver < 3; ++ver ) {
-//          ip_loc =
-//          ip =
-//          ppt = &meshOld->point[ip];
-//        }
-//      }
-//    }
-//  }
-/////////////////// algean algo /////////////////////////////
-
   //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE?
   //            it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
   // use point[].tmp field to "remember" index in internal communicator of
