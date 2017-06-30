@@ -84,6 +84,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
    * communicators to the merging mesh (mesh0) and in intvalues */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh                      = grp[imsh].mesh;
+    met                       = grp[imsh].met;
     nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
     node2int_node_comm_index1 = grp[imsh].node2int_node_comm_index1;
     node2int_node_comm_index2 = grp[imsh].node2int_node_comm_index2;
