@@ -190,7 +190,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
           pxp  = &mesh->xpoint[ppt->xp];
           ppt0 = &mesh0->point[ip];
           pxp0 = &mesh0->xpoint[ppt0->xp];
-          memcpy(pxp0,ppt0,sizeof(MMG5_xPoint));
+          memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
         }
         if ( met0->m ) {
           assert(met->m);
