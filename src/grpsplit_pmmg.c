@@ -124,6 +124,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   MMG5_pMesh meshCur = NULL;
   MMG5_pTetra tetraCur = NULL;
   MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   long long int memMeshTotal = 0;
@@ -140,7 +141,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   int adjidx = 0;
 
   // Loop counter vars
-  int i, grpId, poi, tet, fac;
+  int i, grpId, poi, tet, fac, ie;
 
   assert ( (parmesh->ngrp == 1) && " splitGrps does not split m to n groups");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
@@ -257,38 +258,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             meshCur->nemax, meshCur->adja,
             grpCur->n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
-
-
-
-/////////////////// algean algo /////////////////////////////
-//  // Initialize flag/tmp/etc vars
-//  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-//    meshOld->point[poi].flag = 0;
-//  // Will use the MMG5_Point.tmp field to store the position of each vertex in
-//  // the node2index2 communicator buffer or -1.
-//  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-//    meshOld->point[poi].tmp = -1;
-//  for ( i = 0; i < grpCur->nitem_int_node_comm; ++i )
-//    meshOld->point[ grpOld->node2int_node_comm_index1 [i ] ].tmp = grpOld->node2int_node_comm_index2[ i ];
-//
-//  // Process tetrahedrons
-//  for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
-//    int gr_idx = part[ tet - 1 ];
-//    MMG5_pTetra pt = &meshOld->tetra[ tet ];
-//
-//    for ( int fac = 0 ; fac < 4 ; ++fac ) {
-//
-//      int adja_gr_idx = part[ meshOld->adja[ 4 * ( tet - 1 ) + 1 + fac] - 1 ];
-//      if ( adja_gr_idx != gr_idx ) {
-//        for ( int ver = 0; ver < 3; ++ver ) {
-//          ip_loc =
-//          ip =
-//          ppt = &meshOld->point[ip];
-//        }
-//      }
-//    }
-//  }
-/////////////////// algean algo /////////////////////////////
 
   //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE?
   //            it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
@@ -411,7 +380,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           adja[ fac ] = 0;
 
           /* creation of the interface faces : ref 0 and tag MG_PARBDY */
-          if( !meshCur->tetra[tet].xt ) {
+          if( !meshCur->tetra[tetPerGrp].xt ) {
             if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
@@ -422,8 +391,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           pxt->ref[fac] = 0;
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
 
-          for ( j=0; j<3; ++j )
+          for ( j=0; j<3; ++j ) {
+            /* Update the face and face vertices tags */
             pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+            ppt = &meshCur->point[tetraCur->v[_MMG5_idir[fac][j]]];
+            ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ);
+          }
 
         // if the adjacent number is already processed
 #warning NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
@@ -477,13 +450,33 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             "%d nitem in int communicator.np=%d,npi=%d\n",
             ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
             grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
+
+    /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
+     * shell of an edge, it is possible that one of the xtetra has set the edge
+     * as MG_PARBDY. In this case, this tag must be reported in the second
+     * xtetra) */
+    for ( tet = 1; tet < meshCur->ne +1; ++tet ) {
+      tetraCur = &meshCur->tetra[tet];
+
+      if ( !MG_EOK(tetraCur) ) continue;
+      if ( !tetraCur->xt )     continue;
+
+      pxt = &meshCur->xtetra[tetraCur->xt];
+
+      for ( ie=0; ie<6; ++ie ) {
+        if ( !(pxt->tag[ie] & MG_PARBDY ) )  continue;
+// Algiane: if this step is too long, try to hash the updated edges to not
+// update twice the same shell.
+        _MMG5_settag(meshCur,tet,ie,pxt->tag[ie],pxt->edg[ie]);
+      }
+    }
   }
 
 //NIKOS TODO  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
 //NIKOS TODO    meshCur = grpsNew[grpId].mesh;
 //NIKOS TODO    //MMG5_saveMshMesh( meshCur, mesMMG5_pSol met,const char *filename)
-//NIKOS TODO    char name[20];
-//NIKOS TODO    sprintf( name, "lala-p%d-%02d.mesh", parmesh->myrank+1, grpId );
+//NIKOS TODO    char name[27];
+//NIKOS TODO    sprintf( name, "AfterSplitGrp-p%d-%02d.mesh", parmesh->myrank+1, grpId );
 //NIKOS TODO    _MMG3D_bdryBuild(meshCur); //note: no error checking
 //NIKOS TODO    MMG3D_saveMesh( meshCur, name );
 //NIKOS TODO  }

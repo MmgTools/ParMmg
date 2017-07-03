@@ -59,7 +59,17 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
   node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
 
-  // First step: Merge interface points from all meshes into mesh0->points
+  // For debugging purposes
+//  for ( int grpId = 0 ; grpId < parmesh->ngrp ; grpId++ ) {
+//    mesh = grp[grpId].mesh;
+//    char name[29];
+//    sprintf( name, "BeforeMergeGrp-p%d-%02d.mesh", parmesh->myrank+1, grpId );
+//    MMG3D_hashTetra(mesh,1);
+//    _MMG3D_bdryBuild(mesh);
+//    MMG3D_saveMesh( mesh, name );
+//  }
+
+  /** First step: Merge interface points from all meshes into mesh0->points */
 
   /* Use the tmp field of points in meshes to remember the id in the merged mesh
    * of points that have already been added to the merged mesh or 0 if they
@@ -84,6 +94,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
    * communicators to the merging mesh (mesh0) and in intvalues */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh                      = grp[imsh].mesh;
+    met                       = grp[imsh].met;
     nitem_int_node_comm       = grp[imsh].nitem_int_node_comm;
     node2int_node_comm_index1 = grp[imsh].node2int_node_comm_index1;
     node2int_node_comm_index2 = grp[imsh].node2int_node_comm_index2;
