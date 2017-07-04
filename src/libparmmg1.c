@@ -10,6 +10,7 @@
 
 #include "parmmg.h"
 #include "grpsplit_pmmg.h" //PMMG_splitGrps
+//#include "debug_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -365,6 +366,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
     return PMMG_STRONGFAILURE;
 
+//DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
   if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
     return PMMG_STRONGFAILURE;
 

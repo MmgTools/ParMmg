@@ -9,6 +9,7 @@
  */
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
+//#include "debug_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -59,15 +60,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
   node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
 
-  // For debugging purposes
-//  for ( int grpId = 0 ; grpId < parmesh->ngrp ; grpId++ ) {
-//    mesh = grp[grpId].mesh;
-//    char name[29];
-//    sprintf( name, "BeforeMergeGrp-p%d-%02d.mesh", parmesh->myrank+1, grpId );
-//    MMG3D_hashTetra(mesh,1);
-//    _MMG3D_bdryBuild(mesh);
-//    MMG3D_saveMesh( mesh, name );
-//  }
+//DEBUGGING: saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "BeforeMergeGrp" );
 
   /** First step: Merge interface points from all meshes into mesh0->points */
 
