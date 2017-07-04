@@ -78,16 +78,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     for ( k = 1; k <= grp[imsh].mesh->np; ++k )
       grp[imsh].mesh->point[k].tmp = 0;
 
-  /* mesh0's points are already in mesh0. Add a reference of their location in
-   * mesh0(ie n2i_n_c0_idx1) from the merging communicator buffer(ie intvalues)
-   * and from the point's tmp field */
+  /* mesh0's points are already in mesh0. Add a reference to their location in
+   * mesh0(ie n2i_n_c0_idx1) from the merging communicator buffer(ie intvalues) */
   for ( k = 0; k < grp[0].nitem_int_node_comm; ++k ) {
     poi_id_int = grp[0].node2int_node_comm_index1[k];
     poi_id_glo = grp[0].node2int_node_comm_index2[k];
 
     intvalues[ poi_id_glo ] = poi_id_int;
-#warning NIKOS: the following line may be redundant
-    mesh0->point[ poi_id_int ].tmp = poi_id_int;
   }
 
   /* Add points referenced by the rest of the groups meshes' internal
@@ -101,7 +98,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
     for ( k=0; k<nitem_int_node_comm; ++k ) {
       poi_id_glo = node2int_node_comm_index2[ k ];
-      assert ( ( 0 <= poi_id_glo ) && ( poi_id_glo < int_node_comm->nitem+1 ) && "weird..." );
+      assert ( ( 0 <= poi_id_glo ) && ( poi_id_glo < (int_node_comm->nitem+1) ) && "weird..." );
 
       // location in currently working mesh where point data actually are
       assert ( node2int_node_comm_index1[ k ] < mesh->npmax );
@@ -127,8 +124,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         assert( (ip < grp[ 0 ].mesh->npmax) && "run out of points" );
         //NIKOS TODO: Remember location in merged mesh in mesh, mesh0 and communicator tmp fields
         ppt->tmp = ip;
-#warning NIKOS: the following line may be redundant
-        mesh0->point[ ip ].tmp = ip;
         intvalues[ poi_id_glo ] = ip;
 
         /* Add xpoint if needed */
@@ -154,16 +149,15 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   }
 
 
-  /** Second step: merge the meshes inside grp[0]->mesh */
-  mesh0 = grp[0].mesh;
-  met0  = grp[0].met;
+  /* Second step: merge internal points and tetras of all meshes into mesh0 */
 #warning Do we need a smart fit of the mesh size?
   np = mesh0->np;
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = grp[imsh].mesh;
     met  = grp[imsh].met;
 
-    /* Add the new points to our mesh */
+    /* Loop over points and add the ones that are not already in the merdeg
+     * mesh (mesh0) */
     for ( k=1; k<=mesh->np; k++ ) {
       ppt = &mesh->point[k];
 
@@ -171,7 +165,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
-#warning NIKOS: CODE DUPLICATION
+#warning NIKOS: CODE DUPLICATION adding point and xtetras is the same here as above.Now here are also missing the asserts I added above
 #warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
 //                              PMMG_DEL_MEM(parmesh,
 //                                           intvalues,int_node_comm->nitem+1,int,
@@ -199,12 +193,11 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
       }
     }
 
-    /* Add the new tetra to our mesh */
+    /* Add current meshs' tetras to the merged mesh (mesh0) */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt  = &mesh->tetra[k];
       ie  = _MMG3D_newElt(mesh0);
       if ( !ie ) {
-         /* reallocation of tetra table */
 #warning NIKOS: The correct law to pass to _MMG5_TETRA_REALLOC is the commented code:
 //                            PMMG_DEL_MEM(parmesh,
 //                                         intvalues,int_node_comm->nitem,int,
@@ -231,7 +224,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
         mesh0->xt++;
         if ( mesh0->xt > mesh0->xtmax ) {
-          /* realloc of xtetra table */
           PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
                         mesh0->xtmax + 1, MMG5_xTetra,
                         "larger xtetra table", mesh0->xt--; goto fail_ncomm);
@@ -252,7 +244,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   /** Update the communicators */
   /* Reset the tmp field of the point: it will be used to store the position of
    * a point in the internal communicator */
-  for ( k=1; k<=np; k++ )
+  for ( k=1; k<=mesh0->np; k++ )
     mesh0->point[k].tmp = 0;
 
   /* Travel through the external communicators and udpate all the communicators */
@@ -266,15 +258,15 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
       ip  = intvalues[idx];
       ppt = &mesh0->point[ip];
 
+      /* New point in the internal communicator */
       if ( !ppt->tmp ) {
-        /* New point in the internal communicator */
         node2int_node_comm0_index1[ poi_id_int ]     = ip;
         node2int_node_comm0_index2[ poi_id_int ]     = poi_id_int;
         ext_node_comm->int_comm_index[ poi_id_glo++ ]= poi_id_int;
         ppt->tmp                                     = poi_id_int + (k-1)*mesh0->np;
         poi_id_int++;
+      /* The point already has a position in the internal comm */
       } else {
-        /* The point has a position in the internal comm */
         if ( ppt->tmp < (k-1) * mesh0->np ) {
           /* The point has been stored in the internal comm by another external
            * comm: update its position in our external comm */
@@ -282,14 +274,12 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         }
       }
     }
-    assert( poi_id_glo !=0 ); // otherwise we have now an empty communicator
-#warning NIKOS: This shouldnt fail and even if it does, we could still use the previous nitem/ext_node_comm instead of failing
+    assert( (poi_id_glo != 0)  && "empty communicator?????" );
     PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,ext_node_comm->nitem,
                  poi_id_glo,int,"(mergeGrps) ext_node_comm",
                  goto fail_ncomm;ext_node_comm->nitem = poi_id_glo);
   }
 
-#warning NIKOS: Again here: These shouldnt fail and even if they do, we could still use the previous nitem/ext_node_comm instead of failing, no?
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
                grp[0].nitem_int_node_comm,int,"(mergeGrps) node2int_node_comm_index1",
                goto fail_ncomm);
