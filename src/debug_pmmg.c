@@ -6,7 +6,7 @@ static FILE* my_fopen( char *name, char *status )
 {
    FILE *fp = fopen( name, status );
    if ( NULL == fp ) {
-     fprintf( stderr, "error opening: %s. File: %s, line: %d \n"name, __FILE__, __LINE__);
+     fprintf( stderr, "error opening: %s. File: %s, line: %d \n", name, __FILE__, __LINE__);
      abort();
    }
    return fp;
