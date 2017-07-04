@@ -342,10 +342,8 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   comm   = parmesh->comm;
 
 
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTchar name[20];
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTsprintf( name, "mesh-p%d.mesh", parmesh->myrank+1 );
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXIST_MMG3D_bdryBuild( parmesh->listgrp[0].mesh ); //note: no error checking
-  // THIS APPARENTLY DOES NOT WORK BECAUSE mesh->adja DOES NOT EXISTMMG3D_saveMesh( parmesh->listgrp[0].mesh, name );
+//DEBUGGING: saveGrpsToMeshes( PMMG_pGrp listgrp, 0, parmesh->myrank, "mesh" );
+
   /** Step 1: merge the groups over each procs and return 1 group per proc.
    * This group contains a packed mesh where the triangle and edges are not
    * reconstructed (the mesh contains tetra and xtetra). */
