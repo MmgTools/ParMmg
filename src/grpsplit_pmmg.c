@@ -240,7 +240,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
                 "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
     /* memory to store normals for boundary points */
-    meshCur->xpmax  = 128;
+    meshCur->xpmax  = 1024;
     PMMG_CALLOC(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
                 "boundary points", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
