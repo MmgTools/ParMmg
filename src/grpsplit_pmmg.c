@@ -144,7 +144,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
 
-  assert ( (parmesh->ngrp == 1) && " splitGrps does not split m to n groups");
+  assert ( (parmesh->ngrp == 1) && " splitGrps cas not split m groups to n");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
@@ -191,7 +191,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 
 
-  /* Allocate list of subgroups struct and initialize them */
+  /* Allocate list of subgroups struct and allocate memory */
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
               ret_val = PMMG_FAILURE; goto fail_counters);
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
