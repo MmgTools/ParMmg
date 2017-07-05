@@ -96,7 +96,6 @@ extern "C" {
       on_failure;                                                             \
     } else {                                                                  \
       (mesh)->memCur += ((newsize)-(oldsize)) * sizeof(type);                 \
-      on_failure;                                                             \
     }                                                                         \
   } else {                                                                    \
     MEM_CHK_AVAIL(mesh,((newsize)-(oldsize))*sizeof(type),msg);               \
