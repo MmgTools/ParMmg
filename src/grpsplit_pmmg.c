@@ -479,7 +479,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
-  PMMG_PMesh_SetMemMax(parmesh, 50);
+  PMMG_PMesh_SetMemMax(parmesh, 5);
 
 #ifndef NDEBUG
   if ( PMMG_checkIntComm ( parmesh ) ) {
