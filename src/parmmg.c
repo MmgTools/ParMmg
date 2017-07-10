@@ -193,48 +193,46 @@ int main( int argc, char *argv[] )
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
 
   ier = PMMG_parmmglib1(parmesh);
-
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( ier == PMMG_STRONGFAILURE )
+    PMMG_exit_and_free( parmesh, ier );
+  else if ( !parmesh->myrank && mesh->info.imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
-  if ( ier != PMMG_STRONGFAILURE ) {
-    /** Unscaling */
-    if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+  /** Unscaling */
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+  if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
+    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-    /** Merge all the meshes on the proc 0 */
-    if ( !parmesh->myrank && mesh->info.imprim )
-      fprintf(stdout,"\n   -- PHASE 4 : MERGE MESH\n");
+  /** Merge all the meshes on the proc 0 */
+  if ( !parmesh->myrank && mesh->info.imprim )
+    fprintf( stdout,"\n   -- PHASE 4 : MERGE MESH\n" );
 
 #warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
-    if ( !PMMG_mergeParMesh( parmesh, 0 ) )
+  if ( !PMMG_mergeParMesh( parmesh, 0 ) )
+    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+
+  if ( !parmesh->myrank && mesh->info.imprim )
+    fprintf( stdout,"   -- PHASE 4 COMPLETED.\n" );
+
+  if ( !parmesh->myrank ) {
+    if (  mesh->info.imprim )
+      fprintf( stdout,"\n   -- PHASE 5 : MESH PACKED UP\n" );
+
+    if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-    if ( !parmesh->myrank && mesh->info.imprim )
-      fprintf(stdout,"   -- PHASE 4 COMPLETED.\n");
+    if ( -1 == _MMG3D_bdryBuild( mesh ) )
+      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-    if ( !parmesh->myrank ) {
-      if (  mesh->info.imprim )
-        fprintf(stdout,"\n   -- PHASE 5 : MESH PACKED UP\n");
+    if (  mesh->info.imprim )
+      fprintf( stdout,"   -- PHASE 5 COMPLETED.\n" );
 
-      if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
-            PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-
-      if ( -1 == _MMG3D_bdryBuild( mesh ) )
-        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-
-      if (  mesh->info.imprim )
-        fprintf(stdout,"   -- PHASE 5 COMPLETED.\n");
-
-      /* Write mesh */
-      if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
-        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-      if ( 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
-        PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
-    }
+    /* Write mesh */
+    if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
+      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    if ( 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
+      PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
   }
 
   PMMG_exit_and_free( parmesh, ier );
