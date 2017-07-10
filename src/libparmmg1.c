@@ -7,10 +7,8 @@
  * \copyright
  *
  */
-
 #include "parmmg.h"
 #include "grpsplit_pmmg.h" //PMMG_splitGrps
-//#include "debug_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -331,9 +329,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh ) )
     return PMMG_STRONGFAILURE;
 
-  /* sprintf(filename,"Begin_libparmmg1_proc%d.mesh",parmesh->myrank); */
-  /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-  /* PMMG_saveMesh(parmesh,filename); */
+//DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
   /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
 
   /** Mesh adaptation */

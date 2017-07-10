@@ -14,7 +14,6 @@
 #include "mmg3d.h" //_MMG5_idir[4][3]
 #include "grpsplit_pmmg.h"
 #include "chkmesh_pmmg.h"
-//#include "debug_pmmg.h"
 
 // Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 180;//10 * 1024;

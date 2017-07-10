@@ -9,7 +9,6 @@
  */
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
-//#include "debug_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
