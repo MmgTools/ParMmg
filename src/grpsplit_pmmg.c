@@ -389,13 +389,13 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           }
           pxt = &meshCur->xtetra[tetraCur->xt];
           pxt->ref[fac] = 0;
-          pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ);
+          pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
           for ( j=0; j<3; ++j ) {
             /* Update the face and face vertices tags */
-            pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ);
+            pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
             ppt = &meshCur->point[tetraCur->v[_MMG5_idir[fac][j]]];
-            ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ);
+            ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
           }
 
         // if the adjacent number is already processed
