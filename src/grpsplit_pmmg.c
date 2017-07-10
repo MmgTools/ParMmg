@@ -223,9 +223,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     //  goto fail_sgrp;
     //}
 
-    // #points is set to the #elements: the #elements is known from metis
-    // the #points is (probably) an overstimation (definitelly not known)
-    MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId], countPerGrp[grpId],
+    // the #elements is known from metis
+    // the #points is not, start with an estimate: half the #elements
+    MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId]/2, countPerGrp[grpId],
                         0, 0, 0, 0 );
     grpCur->mesh->np = 0;
     grpCur->mesh->npi = 0;
