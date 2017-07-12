@@ -131,6 +131,8 @@ int  PMMG_bcastMesh ( PMMG_pParMesh parmesh );
 int  PMMG_bdryStore ( MMG5_pMesh mesh );
 int  PMMG_bdryUpdate( MMG5_pMesh mesh );
 
+void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
+
 /**
  * \param argc number of command line arguments.
  * \param argv command line arguments.

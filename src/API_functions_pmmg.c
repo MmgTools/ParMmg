@@ -56,17 +56,41 @@ static void pmesh_ext_comm_free( PMMG_pParMesh pmesh, PMMG_pext_comm comm, int n
   }
 }
 
-void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
+static void pmesh_grp_comm_free( PMMG_pParMesh parmesh, int *idx1, int *idx2, int *n )
+{
+  PMMG_DEL_MEM(parmesh,idx1,*n,int,"group communicator");
+  PMMG_DEL_MEM(parmesh,idx2,*n,int,"group communicator");
+  *n = 0;
+}
+
+void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 {
   int k = 0;
-
-#warning NIKOS: does this deallocate mesh->point,mesh->tetra,mesh->tria,esh->edge?
-  for ( k = 0; k < parmesh->ngrp; ++k ) {
+  for ( k = 0; k < ngrp; ++k ) {
+    pmesh_grp_comm_free( parmesh,
+        (*listgrp)[k].node2int_node_comm_index1,
+        (*listgrp)[k].node2int_node_comm_index2,
+        &(*listgrp)[k].nitem_int_node_comm);
+    pmesh_grp_comm_free( parmesh,
+        (*listgrp)[k].node2int_edge_comm_index1,
+        (*listgrp)[k].node2int_edge_comm_index2,
+        &(*listgrp)[k].nitem_int_edge_comm);
+    pmesh_grp_comm_free( parmesh,
+        (*listgrp)[k].node2int_face_comm_index1,
+        (*listgrp)[k].node2int_face_comm_index2,
+        &(*listgrp)[k].nitem_int_face_comm);
+#warning NIKOS: MET AND DISP FIELDS ARE NOT DEALLOCATED
     MMG3D_Free_all( MMG5_ARG_start,
-                    MMG5_ARG_ppMesh, &parmesh->listgrp[k].mesh,
-                    MMG5_ARG_ppMet, &parmesh->listgrp[k].met,
+                    MMG5_ARG_ppMesh, &(*listgrp)[k].mesh,
+                    MMG5_ARG_ppMet, &(*listgrp)[k].met,
                     MMG5_ARG_end );
   }
+  PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
+}
+
+void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
+{
+  PMMG_grp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
 
   pmesh_int_comm_free( parmesh, parmesh->int_node_comm );
   pmesh_int_comm_free( parmesh, parmesh->int_edge_comm );

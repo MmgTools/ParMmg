@@ -130,6 +130,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   long long int memMeshTotal = 0;
+  /** remember meshOld->ne to correctly free the metis buffer */
+  int meshOld_ne = 0;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
    *  actual node2int_node_comm */
   int n2inc_max = 0;
@@ -176,6 +178,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
+  meshOld_ne = meshOld->ne;
   if (   PMMG_partition_metis( parmesh, part, ngrp )
       != PMMG_SUCCESS ) {
     ret_val = PMMG_FAILURE;
@@ -488,15 +491,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
 
-  MMG3D_Free_all(MMG5_ARG_start,
-      MMG5_ARG_ppMesh,&grpOld->mesh,MMG5_ARG_ppMet,&grpOld->met,
-      MMG5_ARG_end);
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"Deallocating listgrp container");
-  parmesh->listgrp = grpsNew;
-  parmesh->ngrp = ngrp;
-
-  PMMG_PMesh_SetMemMax(parmesh, 5);
-
 #ifndef NDEBUG
   if ( PMMG_checkIntComm ( parmesh ) ) {
     fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
@@ -511,6 +505,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   }
 #endif
 
+  PMMG_grp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
+  parmesh->listgrp = grpsNew;
+  parmesh->ngrp = ngrp;
+
+  PMMG_PMesh_SetMemMax(parmesh, 5);
 
   // No error so far, skip deallocation of lstgrps
   goto fail_counters;
@@ -538,6 +537,6 @@ fail_sgrp:
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 fail_part:
-  PMMG_DEL_MEM(parmesh,part,meshOld->ne,idx_t,"free metis buffer ");
+  PMMG_DEL_MEM(parmesh,part,meshOld_ne,idx_t,"free metis buffer ");
   return ret_val;
 }
