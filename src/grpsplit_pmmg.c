@@ -17,6 +17,7 @@
 
 // Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 180;//10 * 1024;
+static const int ARRAY_INITIAL_SIZE = 256;
 
 static int howManyGroups ( const int nelem )
 {
@@ -235,19 +236,19 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
      * options */
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
-    meshCur->xtmax = 128;
+    meshCur->xtmax = ARRAY_INITIAL_SIZE;
     PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
                 "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
     /* memory to store normals for boundary points */
-    meshCur->xpmax  = 1024;
+    meshCur->xpmax  = ARRAY_INITIAL_SIZE;
     PMMG_CALLOC(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
                 "boundary points", ret_val = PMMG_FAILURE;goto fail_sgrp);
 
     PMMG_CALLOC(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table",
                 ret_val = PMMG_FAILURE;goto fail_sgrp);
 
-    n2inc_max = 256;
+    n2inc_max = ARRAY_INITIAL_SIZE;
     assert( (grpCur->nitem_int_node_comm == 0 ) && "non empty comm" );
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
                 "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
@@ -276,7 +277,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     // Reinitialize to the value that n2i_n_c arrays are initially allocated
     // Otherwise grp #1,2,etc will incorrectly use the values that the previous
     // grps assigned to n2inc_max
-    n2inc_max = 256;
+    n2inc_max = ARRAY_INITIAL_SIZE;
 
     // use point[].flag field to "remember" assigned local(in subgroup) numbering
     for ( poi = 1; poi < meshOld->np + 1; ++poi )
