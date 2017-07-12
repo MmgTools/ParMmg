@@ -469,7 +469,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
 
-#warning NIKOS: DEALLOCATE OLD STRUCTS  ---->  MEM LEAKING HERE
+  MMG3D_Free_all(MMG5_ARG_start,
+      MMG5_ARG_ppMesh,&grpOld->mesh,MMG5_ARG_ppMet,&grpOld->met,
+      MMG5_ARG_end);
+  PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"Deallocating listgrp container");
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
