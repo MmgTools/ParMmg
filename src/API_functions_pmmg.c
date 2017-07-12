@@ -91,9 +91,13 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
-//! return:
-//   PMMG_SUCCESS
-//   PMMG_FAILURE Failed to allocate pmmg struct or initialize mesh/sol
+/** return:
+ *   PMMG_SUCCESS
+ *   PMMG_FAILURE Failed to allocate pmmg struct or initialize mesh/sol
+ *
+ *   Allocate the main pmmg struct with a listgrp of one mesh and initialize
+ *   maximum available memory
+ */
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 {
   PMMG_pGrp grp = NULL;
@@ -103,9 +107,11 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
   *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
   if ( *parmesh == NULL )
     goto fail_pmesh;
-  (*parmesh)->memGloMax = 4 * 1024L * 1024L; // Assign a number to begin with
-  (*parmesh)->memMax = 4 * 1024L * 1024L; // Assign a number to begin with
-  (*parmesh)->memCur = sizeof(PMMG_ParMesh); // Update memory usage
+
+  /* Assign some values to memory related fields to begin working with */
+  (*parmesh)->memGloMax = 4 * 1024L * 1024L;
+  (*parmesh)->memMax = 4 * 1024L * 1024L;
+  (*parmesh)->memCur = sizeof(PMMG_ParMesh);
 
   /** Init Group */
   (*parmesh)->ngrp = 1;
