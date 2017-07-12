@@ -161,8 +161,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   }
 
 
-  // Check if there is enough free memory to allocate the new group
-#warning NIKOS TODO: it lacks an estimate of the internal communicator sizes
+  // Crude check whether there is enough free memory to allocate the new group
   if (  parmesh->memCur + 2 * parmesh->listgrp[0].mesh->memCur
       > parmesh->memGloMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
@@ -172,7 +171,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
-
   if (   PMMG_partition_metis( parmesh, part, ngrp )
       != PMMG_SUCCESS ) {
     ret_val = PMMG_FAILURE;
@@ -180,14 +178,13 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   }
 
 
-  /* count_per_grp: count elements per group */
+  /* count_per_grp: how many elements per group are there? */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
               ret_val = PMMG_FAILURE;goto fail_part);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
   for ( i = 0; i < ngrp ; i++ )
     printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n", parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
-
 
 
   /* Allocate list of subgroups struct and allocate memory */
@@ -259,8 +256,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
             grpCur->n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
 
-  //NIKOS TODO: LOOP OVER part ngrp TIMES or USE A tmp[NGROUPS][NP] ARRAY AND LOOP ONLY ONCE?
-  //            it wastes memory (eg 10 groups x 100k tetra = 4Mb of ints) but only loops over part once
   // use point[].tmp field to "remember" index in internal communicator of
   // vertices. specifically:
   //   place a copy of vertices' node2index2 position at point[].tmp field
