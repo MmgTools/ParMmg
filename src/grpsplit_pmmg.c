@@ -86,18 +86,19 @@ static int xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int po
  *  Append new values in  group's internal communitor, resizing the buffers if
  *  required
  */
-static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int idx1, int idx2 )
+static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1, int idx2 )
 {
+  assert( (max != 0) && "null pointer passed" );
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
-  if ( (grp->nitem_int_node_comm + 1) >= grp->n2inc_max ) {
+  if ( (grp->nitem_int_node_comm + 1) >= *max ) {
     PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1,
-                  scale * grp->n2inc_max, grp->n2inc_max, int,
+                  scale * *max, *max, int,
                   "increasing n2inc_idx1",return PMMG_FAILURE);
     PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index2,
-                  scale * grp->n2inc_max, grp->n2inc_max, int,
+                  scale * *max, *max, int,
                   "increasing n2inc_idx1",return PMMG_FAILURE);
-    grp->n2inc_max  = grp->n2inc_max * scale;
+    *max  = *max * scale;
   }
   grp->node2int_node_comm_index1[ grp->nitem_int_node_comm ] = idx1;
   grp->node2int_node_comm_index2[ grp->nitem_int_node_comm ] = idx2;
@@ -128,6 +129,9 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   long long int memMeshTotal = 0;
+  /** size of allocated node2int_node_comm_idx. when comm is ready trim to
+   *  actual node2int_node_comm */
+  int n2inc_max = 0;
 
   idx_t ngrp = 1;
   idx_t *part = NULL;
@@ -243,17 +247,18 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     PMMG_CALLOC(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table",
                 ret_val = PMMG_FAILURE;goto fail_sgrp);
 
-    grpCur->n2inc_max = 256;
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,grpCur->n2inc_max,int,
+    n2inc_max = 256;
+    assert( (grpCur->nitem_int_node_comm == 0 ) && "non empty comm" );
+    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
                 "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,grpCur->n2inc_max,int,
+    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,n2inc_max,int,
                "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
     printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
             parmesh->myrank + 1, parmesh->nprocs,
             meshCur, meshCur->xtmax, meshCur->xtetra,
             meshCur->xpmax, meshCur->xpoint,
             meshCur->nemax, meshCur->adja,
-            grpCur->n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
+            n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
   }
 
   // use point[].tmp field to "remember" index in internal communicator of
@@ -267,6 +272,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
     grpCur = &grpsNew[grpId];
     meshCur = grpCur->mesh;
+
+    // Reinitialize to the value that n2i_n_c arrays are initially allocated
+    // Otherwise grp #1,2,etc will incorrectly use the values that the previous
+    // grps assigned to n2inc_max
+    n2inc_max = 256;
 
     // use point[].flag field to "remember" assigned local(in subgroup) numbering
     for ( poi = 1; poi < meshOld->np + 1; ++poi )
@@ -329,8 +339,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           // Add point in subgroup's communicator if it already was in group's
           // communicator
           if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
-            if (  n2incAppend( parmesh, grpCur, poiPerGrp,
-                               meshCur->point[ poiPerGrp ].tmp )
+            if (  n2incAppend( parmesh, grpCur, &n2inc_max,
+                               poiPerGrp, meshCur->point[ poiPerGrp ].tmp )
                 != PMMG_SUCCESS ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
@@ -414,7 +424,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         if ( adjidx && grpId != part[ adjidx - 1 ] ) {
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
-              assert ( grpCur->nitem_int_node_comm < grpCur->n2inc_max && "if increasing the internal comm size is correct, add call to n2incAppend here");
+              assert ( grpCur->nitem_int_node_comm < n2inc_max && "if increasing the internal comm size is correct, add call to n2incAppend here");
               grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] =
                 tetraCur->v[ _MMG5_idir[fac][poi] ];
               grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] =
@@ -430,6 +440,14 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         }
       }
     }
+    PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
+                  grpCur->nitem_int_node_comm, n2inc_max, int,
+                  "subgroup internal1 communicator ",
+                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+    PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index2,
+                  grpCur->nitem_int_node_comm, n2inc_max, int,
+                  "subgroup internal2 communicator ",
+                  ret_val = PMMG_FAILURE;goto fail_sgrp );
     // Update the empty points' values as per the convention used in MMG3D
     meshCur->np = poiPerGrp;
     meshCur->npi = poiPerGrp;
@@ -490,14 +508,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
     }
   }
-
 #endif
 
-  //MMG3D_Free_all( MMG5_ARG_start,
-  //                MMG5_ARG_ppMesh, &(parmesh->listgrp->mesh), MMG5_ARG_ppMet, &(parmesh->listgrp->met),
-  //                MMG5_ARG_end);
-  //parmesh->listgrp = grpsNew;
-  //parmesh->ngrp = ngrp;
 
   // No error so far, skip deallocation of lstgrps
   goto fail_counters;
