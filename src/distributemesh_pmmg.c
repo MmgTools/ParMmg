@@ -499,9 +499,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   }
 
 //  if ( parmesh->ddebug ) {
-//    sprintf( filename, "End_distributeMesh_proc%d.mesh", rank );
-//    _MMG3D_bdryBuild( parmesh->listgrp[0].mesh );
-//    PMMG_saveMesh( parmesh, filename );
+//    grplst_meshes_to_saveMesh( parmesh->listgrp, 1, parmesh->myrank, "End_distributeMesh_proc");
 //    if ( met )
 //      PMMG_saveSol( parmesh, filename );
 //  }
