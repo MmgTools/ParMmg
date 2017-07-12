@@ -269,7 +269,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     assert( (poi_id_glo != 0)  && "empty communicator?????" );
     PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,ext_node_comm->nitem,
                  poi_id_glo,int,"(mergeGrps) ext_node_comm",
-                 goto fail_ncomm;ext_node_comm->nitem = poi_id_glo);
+                 ext_node_comm->nitem = poi_id_glo;goto fail_ncomm);
   }
 
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
