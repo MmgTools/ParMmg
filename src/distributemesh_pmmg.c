@@ -245,7 +245,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MPI_Bcast( &part[0], mesh->ne, MPI_INT, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
-#warning NIKOS: NOT SURE I AM ACCOUNTING ON THE CORRECT memMax/memCur
   PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
               ret_val = PMMG_FAILURE;goto fail_alloc1);
   PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
