@@ -1,6 +1,7 @@
 #include "debug_pmmg.h"
 #include <stdio.h> // fopen, fclose, fprintf
 #include <stdlib.h> // abort
+#include <malloc.h> // mallinfo
 
 static FILE* my_fopen( char *name, char *status )
 {
@@ -126,4 +127,35 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
     _MMG3D_bdryBuild( listgrp[ grpId ].mesh ); //note: no error checking
     MMG3D_saveMesh( listgrp[ grpId ].mesh, name );
   }
+}
+
+void dump_malloc_allocator_info( char *msg, int id )
+{
+#ifdef   __GLIBC__
+  const int mb = 1024 * 1024;
+  char name[ 16 ];
+  struct mallinfo me = mallinfo();
+
+  sprintf(name,"mem_info-%02d.txt", id );
+  FILE *fp = my_fopen( name, "a" );
+
+  fprintf( fp, "%s \n", msg );
+  fprintf( fp, "** MALLOC ALLOCATOR INFO ***************************\n" );
+  fprintf( fp, "* %4d \tNon-mmapped space allocated (mbytes)       *\n", me.arena / mb );
+  fprintf( fp, "* %4d \tNumber of free chunks                      *\n", me.ordblks );
+  fprintf( fp, "* %4d \tNumber of free fastbin blocks              *\n", me.smblks );
+  fprintf( fp, "* %4d \tNumber of mmapped regions                  *\n", me.hblks );
+  fprintf( fp, "* %4d \tSpace allocated in mmapped regions (mbytes)*\n", me.hblkhd / mb );
+  fprintf( fp, "* %4d \tMaximum total allocated space (mbytes)     *\n", me.usmblks / mb );
+  fprintf( fp, "* %4d \tSpace in freed fastbin blocks (mbytes)     *\n", me.fsmblks / mb );
+  fprintf( fp, "* %4d \tTotal allocated space (mbytes)             *\n", me.uordblks / mb );
+  fprintf( fp, "* %4d \tTotal free space (mbytes)                  *\n", me.fordblks / mb );
+  fprintf( fp, "* %4d \tTop-most, releasable space (mbytes)        *\n", me.keepcost / mb );
+  fprintf( fp, "****************************************************\n\n" );
+
+  fclose(fp);
+#else
+  printf( "It is good to know what actually happened, no?" );
+  printf( " This is currently only available when using glibc." );
+#endif
 }

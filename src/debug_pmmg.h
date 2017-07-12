@@ -10,4 +10,5 @@ void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num );
 void find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int nmsh );
 void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp );
 void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *basename );
+void dump_malloc_allocator_info( char *msg, int id );
 #endif
