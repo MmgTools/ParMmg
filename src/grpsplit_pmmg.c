@@ -17,7 +17,7 @@
 
 // Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 180;//10 * 1024;
-static const int ARRAY_INITIAL_SIZE = 256;
+static const int ARRAY_INITIAL_SIZE = 10*1024;
 
 static int howManyGroups ( const int nelem )
 {
