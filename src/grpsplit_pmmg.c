@@ -428,16 +428,20 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
         if ( adjidx && grpId != part[ adjidx - 1 ] ) {
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
-              assert ( grpCur->nitem_int_node_comm < n2inc_max && "if increasing the internal comm size is correct, add call to n2incAppend here");
-              grpCur->node2int_node_comm_index1[ grpCur->nitem_int_node_comm ] =
-                tetraCur->v[ _MMG5_idir[fac][poi] ];
-              grpCur->node2int_node_comm_index2[ grpCur->nitem_int_node_comm ] =
-                parmesh->int_node_comm->nitem + 1;
+
+              if (   n2incAppend( parmesh, grpCur, &n2inc_max,
+                                  tetraCur->v[ _MMG5_idir[fac][poi] ],
+                                  parmesh->int_node_comm->nitem + 1 )
+                  != PMMG_SUCCESS ) {
+                ret_val = PMMG_FAILURE;
+                goto fail_sgrp;
+              }
+
               meshOld->point[ meshOld->tetra[tet].v[ _MMG5_idir[fac][poi]  ] ].tmp =
                 parmesh->int_node_comm->nitem + 1;
               meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp =
                 parmesh->int_node_comm->nitem + 1;
-              ++grpCur->nitem_int_node_comm;
+
               ++parmesh->int_node_comm->nitem;
             }
           }
