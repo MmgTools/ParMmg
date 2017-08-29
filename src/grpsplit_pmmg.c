@@ -214,19 +214,18 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-#warning NIKOS: Why are these commented out? Enable or delete?
-    //if ( !MMG5_Set_inputSolName( meshCur, grpCur->met, grpOld->met->namein ) ) {
-    //  ret_val = PMMG_FAILURE;
-    //  goto fail_sgrp;
-    //}
+    if ( !MMG5_Set_inputSolName( meshCur, grpCur->met, grpOld->met->namein ) ) {
+      ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
+    }
     if ( !MMG5_Set_outputMeshName( meshCur, meshOld->nameout ) ) {
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-    //if ( !MMG5_Set_outputSolName( meshCur, grpCur->met, grpOld->met->nameout ) ) {
-    //  ret_val = PMMG_FAILURE;
-    //  goto fail_sgrp;
-    //}
+    if ( !MMG5_Set_outputSolName( meshCur, grpCur->met, grpOld->met->nameout ) ) {
+      ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
+    }
 
     // the #elements is known from metis
     // the #points is not, start with an estimate: half the #elements
