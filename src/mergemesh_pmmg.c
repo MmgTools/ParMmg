@@ -267,7 +267,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
           grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
           node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
           node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
-          printf("REALLOC");
         }
         node2int_node_comm0_index1[ poi_id_int ]     = ip;
         node2int_node_comm0_index2[ poi_id_int ]     = poi_id_int;
