@@ -183,11 +183,11 @@ int main( int argc, char *argv[] )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
     PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
   }
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 1 COMPLETED.\n");
 
   /** Remeshing */
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
     fprintf( stdout,
              "\n  -- PHASE 3 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
@@ -195,7 +195,7 @@ int main( int argc, char *argv[] )
   ier = PMMG_parmmglib1(parmesh);
   if ( ier == PMMG_STRONGFAILURE )
     PMMG_exit_and_free( parmesh, ier );
-  else if ( !parmesh->myrank && mesh->info.imprim )
+  else if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
   /** Unscaling */
