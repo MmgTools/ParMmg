@@ -38,7 +38,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   int            *node2int_node_comm_index1,*node2int_node_comm0_index1;
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            poi_id_int, poi_id_glo, idx, np,imsh,k,i,ie,ip;
-  int            ret_val = PMMG_SUCCESS;
+  int            new_nitem_int_node_comm,ret_val = PMMG_SUCCESS;
 
   if ( parmesh->ngrp == 1 )
     return PMMG_SUCCESS;
@@ -252,6 +252,23 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 
       /* New point in the internal communicator */
       if ( !ppt->tmp ) {
+        if ( poi_id_int == grp[0].nitem_int_node_comm ) {
+          new_nitem_int_node_comm = (int)(1.2* grp[0].nitem_int_node_comm);
+          PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,
+                       new_nitem_int_node_comm,
+                       grp[0].nitem_int_node_comm,int,
+                       "(mergeGrps) node2int_node_comm_index1",
+                       goto fail_ncomm);
+          PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,
+                       new_nitem_int_node_comm,
+                       grp[0].nitem_int_node_comm,int,
+                       "(mergeGrps) node2int_node_comm_index2",
+                       goto fail_ncomm);
+          grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
+          node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
+          node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
+          printf("REALLOC");
+        }
         node2int_node_comm0_index1[ poi_id_int ]     = ip;
         node2int_node_comm0_index2[ poi_id_int ]     = poi_id_int;
         ext_node_comm->int_comm_index[ poi_id_glo++ ]= poi_id_int;
@@ -280,12 +297,15 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
                goto fail_ncomm);
   int_node_comm->nitem       = poi_id_int;
   grp[0].nitem_int_node_comm = poi_id_int;
+
   PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,parmesh->int_node_comm->nitem,
             int,"release int_n_comm intvalues");
+
   parmesh->int_node_comm->nitem = poi_id_int;
 
 #warning NIKOS: REPLACE THIS WITH PMMG. THIS CAUSES A VALGRIND ERROR THAT I HAVNET YET UNDERSTOOD. I GUESS IT WILL BE FIXED BY REWRITTING THE ALLOCATIONS IN MERGEMESH/SPLITGRP
 //  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
+
   parmesh->ngrp = 1;
   return PMMG_SUCCESS;
 
