@@ -1,7 +1,9 @@
 #include "debug_pmmg.h"
 #include <stdio.h> // fopen, fclose, fprintf
 #include <stdlib.h> // abort
+#ifdef __linux__
 #include <malloc.h> // mallinfo
+#endif
 
 static FILE* my_fopen( char *name, char *status )
 {
@@ -131,7 +133,7 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
 
 void dump_malloc_allocator_info( char *msg, int id )
 {
-#ifdef   __GLIBC__
+#ifdef __linux__
   const int mb = 1024 * 1024;
   char name[ 16 ];
   struct mallinfo me = mallinfo();
@@ -155,7 +157,7 @@ void dump_malloc_allocator_info( char *msg, int id )
 
   fclose(fp);
 #else
-  printf( "It is good to know what actually happened, no?" );
-  printf( " This is currently only available when using glibc." );
+  fprintf( fp, "Extended information read directly from the malloc allocator is"
+      "currently only implemented on linux\n" );
 #endif
 }
