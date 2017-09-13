@@ -198,8 +198,6 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
  *
  * Delete parts of the mesh not on the processor.
  */
-#warning NIKOS TODO: When do we have what? (conformant or non conformant mesh)
-#warning NIKOS TODO: rename function to sth more descriptive
 int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
