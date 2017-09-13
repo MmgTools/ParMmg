@@ -107,8 +107,6 @@ static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1
   return PMMG_SUCCESS;
 }
 
-#warning NIKOS TODO: there is at least code duplication here and in distributegrp, eg the xpoint/xtetra reallocs
-
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \return PMMG_FAILURE
