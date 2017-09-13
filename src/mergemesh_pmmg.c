@@ -38,8 +38,10 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   int            *node2int_node_comm_index1,*node2int_node_comm0_index1;
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            poi_id_int, poi_id_glo, idx, np,imsh,k,i,ie,ip;
-  int            new_nitem_int_node_comm,ret_val = PMMG_SUCCESS;
-  int            new_ext_node_comm_nitem;
+  int            new_nitem_int_node_comm,new_ext_node_comm_nitem;
+  int            ret_val;
+
+  ret_val = PMMG_SUCCESS;
 
   if ( parmesh->ngrp == 1 )
     return PMMG_SUCCESS;
@@ -158,7 +160,6 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
         if ( !ip ) {
           /* reallocation of point table */
-#warning NIKOS: CODE DUPLICATION adding point and xtetras is the same here as above.Now here are also missing the asserts I added above
 #warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
 //                              PMMG_DEL_MEM(parmesh,
 //                                           intvalues,int_node_comm->nitem+1,int,
@@ -247,7 +248,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     // currently working external communicator
     ext_node_comm = &parmesh->ext_node_comm[k];
 
-    // initialize new_ext_node_comm_nitem that is used for increasing comm size
+    // initialize new_ext_node_comm_nitem: used when increasing comm size
     new_ext_node_comm_nitem = ext_node_comm->nitem;
 
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
