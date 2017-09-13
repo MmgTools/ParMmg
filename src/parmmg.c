@@ -146,7 +146,7 @@ int main( int argc, char *argv[] )
 
     if ( MMG3D_loadMesh( mesh, mesh->namein ) != 1 )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-#warning NIKOS: I use this here because loadMesh overwrites memMax
+    // SetMemMax is used again here because loadMesh overwrites memMax
     PMMG_PMesh_SetMemMax(parmesh, 20);
 
     if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 )
