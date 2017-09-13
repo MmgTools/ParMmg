@@ -150,7 +150,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
 
-  assert ( (parmesh->ngrp == 1) && " splitGrps cas not split m groups to n");
+  assert ( (parmesh->ngrp == 1) && " splitGrps can not split m groups to n");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
@@ -488,7 +488,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
     }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
     printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
-            "%d nitem in int communicator.np=%d,npi=%d\n",
+            " %d nitem in int communicator.np=%d,npi=%d\n",
             ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
             grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
 
