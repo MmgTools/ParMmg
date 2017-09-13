@@ -229,10 +229,21 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
 
     // the #elements is known from metis
     // the #points is not, start with an estimate: half the #elements
-    MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[grpId]/2, countPerGrp[grpId],
-                        0, 0, 0, 0 );
+    if ( 1 != MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[ grpId ] / 2,
+          countPerGrp[ grpId ], 0, 0, 0, 0 ) )
+      goto fail_sgrp;
     grpCur->mesh->np = 0;
     grpCur->mesh->npi = 0;
+    if ( grpOld->met->m ) {
+      if ( grpOld->met->size == 1 )
+        grpCur->met->type = MMG5_Scalar;
+      else if ( grpOld->met->size == 6 )
+        grpCur->met->type = MMG5_Tensor;
+
+      if ( 1 != MMG3D_Set_solSize( grpCur->mesh, grpCur->met, MMG5_Vertex, 1,
+            grpCur->met->type ) )
+        goto fail_sgrp;
+    }
 
     /* Copy the info structure of the initial mesh: it contains the remeshing
      * options */
@@ -332,6 +343,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
           memcpy( meshCur->point + poiPerGrp,
                   &meshOld->point[ meshOld->tetra[tet].v[poi] ],
                   sizeof(MMG5_Point) );
+           if ( grpCur->met->m ) {
+             assert( (poiPerGrp < grpCur->met->npmax) && "overflowing sol points" );
+             memcpy( &grpCur->met->m[ poiPerGrp * grpCur->met->size ],
+                 &grpOld->met->m[meshOld->tetra[tet].v[poi] * grpCur->met->size],
+                 grpCur->met->size * sizeof( double ) );
+           }
 
           // update tetra vertex reference
           tetraCur->v[poi] = poiPerGrp;
@@ -464,6 +481,10 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       meshCur->point[poi].n[1] = 0;
       meshCur->point[poi].n[2] = 0;
       meshCur->point[poi].tmp  = poi + 1;
+    }
+    if ( grpOld->met->m ) {
+      grpCur->met->np = poiPerGrp;
+      grpCur->met->npi = poiPerGrp;
     }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
     printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."

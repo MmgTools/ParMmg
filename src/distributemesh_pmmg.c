@@ -478,6 +478,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     while ( pointPerm[k] != k && pointPerm[k] )
       swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
   mesh->np = np;
+  met->np = np;
 
   /** Compact xpoint on the proc: in place permutations */
   for ( k=1; k<=mesh->xp; ++k )
