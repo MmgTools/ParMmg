@@ -38,10 +38,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   int            *node2int_node_comm_index1,*node2int_node_comm0_index1;
   int            *node2int_node_comm_index2,*node2int_node_comm0_index2;
   int            poi_id_int, poi_id_glo, idx, np,imsh,k,i,ie,ip;
-  int            new_nitem_int_node_comm,new_ext_node_comm_nitem;
-  int            ret_val;
-
-  ret_val = PMMG_SUCCESS;
+  int            new_nitem_int_node_comm,new_nitem_ext_node_comm;
+  int            ret_val = PMMG_SUCCESS;
 
   if ( parmesh->ngrp == 1 )
     return PMMG_SUCCESS;
@@ -248,8 +246,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     // currently working external communicator
     ext_node_comm = &parmesh->ext_node_comm[k];
 
-    // initialize new_ext_node_comm_nitem: used when increasing comm size
-    new_ext_node_comm_nitem = ext_node_comm->nitem;
+    // initialize new_nitem: used when increasing comm size
+    new_nitem_ext_node_comm = ext_node_comm->nitem;
 
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
       idx = ext_node_comm->int_comm_index[i];
@@ -278,12 +276,12 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         }
         node2int_node_comm0_index1[ poi_id_int ]     = ip;
         node2int_node_comm0_index2[ poi_id_int ]     = poi_id_int;
-        if ( poi_id_glo  == new_ext_node_comm_nitem -1 ) {
-          new_ext_node_comm_nitem *= 1.2;
-          PMMG_REALLOC(parmesh, ext_node_comm->int_comm_index,
-                       new_ext_node_comm_nitem,
-                       ext_node_comm->nitem,int,
-                       "(mergeGrps) ext_node_comm->int_comm_index",
+
+        if ( poi_id_glo >= new_nitem_ext_node_comm ) {
+          new_nitem_ext_node_comm *= 1.2;
+          PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
+                       new_nitem_ext_node_comm,
+                       ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
                        goto fail_ncomm);
         }
         ext_node_comm->int_comm_index[ poi_id_glo++ ]= poi_id_int;
@@ -294,23 +292,23 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
         if ( ppt->tmp < k * mesh0->np ) {
           /* The point has been stored in the internal comm by another external
            * comm: update its position in our external comm */
-          if ( poi_id_glo  == new_ext_node_comm_nitem -1 ) {
-            new_ext_node_comm_nitem *= 1.2;
-            PMMG_REALLOC(parmesh, ext_node_comm->int_comm_index,
-                         new_ext_node_comm_nitem,
-                         ext_node_comm->nitem,int,
-                         "(mergeGrps) ext_node_comm->int_comm_index",
+          if ( poi_id_glo >= new_nitem_ext_node_comm ) {
+
+            new_nitem_ext_node_comm *= 1.2;
+            PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
+                         new_nitem_ext_node_comm,
+                         ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
                          goto fail_ncomm);
           }
           ext_node_comm->int_comm_index[ poi_id_glo++] = ppt->tmp;
         }
       }
     }
-    ext_node_comm->nitem = new_ext_node_comm_nitem;
     assert( (poi_id_glo != 0)  && "empty communicator?????" );
-    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,ext_node_comm->nitem,
-                 poi_id_glo,int,"(mergeGrps) ext_node_comm",
+    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index, poi_id_glo,
+                 new_nitem_ext_node_comm,int,"(mergeGrps) ext_node_comm",
                  ext_node_comm->nitem = poi_id_glo;goto fail_ncomm);
+    ext_node_comm->nitem = poi_id_glo;
   }
 
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
