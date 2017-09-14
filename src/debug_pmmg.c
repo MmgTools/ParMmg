@@ -137,13 +137,15 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
 
 void dump_malloc_allocator_info( char *msg, int id )
 {
+  char name[ 16 ];
+  FILE *fp = my_fopen( name, "a" );
+
 #ifdef __linux__
   const int mb = 1024 * 1024;
-  char name[ 16 ];
   struct mallinfo me = mallinfo();
 
   sprintf(name,"mem_info-%02d.txt", id );
-  FILE *fp = my_fopen( name, "a" );
+
 
   fprintf( fp, "%s \n", msg );
   fprintf( fp, "** MALLOC ALLOCATOR INFO ***************************\n" );
