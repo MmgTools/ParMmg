@@ -259,16 +259,18 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
       /* New point in the internal communicator */
       if ( !ppt->tmp ) {
         if ( poi_id_int == grp[0].nitem_int_node_comm ) {
-          new_nitem_int_node_comm = (int)(1.2* grp[0].nitem_int_node_comm);
+          new_nitem_int_node_comm = (int)(1.2*grp[0].nitem_int_node_comm);
           PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,
                        new_nitem_int_node_comm,
                        grp[0].nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index1",
+                       grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
                        goto fail_ncomm);
           PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,
                        new_nitem_int_node_comm,
                        grp[0].nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index2",
+                       grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
                        goto fail_ncomm);
           grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
           node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
