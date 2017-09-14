@@ -82,33 +82,34 @@ extern "C" {
     on_failure;                                             \
   } } while(0)
 
-#define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do {       \
-  int stat = PMMG_SUCCESS;                                                    \
-  if ( ptr == NULL ) {                                                        \
-    assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?"); \
-    PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);                      \
-  } else if ((newsize)==0) {                                                  \
-      PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                                 \
-  } else if ((newsize) < (oldsize)) {                                         \
-    ptr = realloc( ptr, (newsize) * sizeof(type));                            \
-    if ( ptr == NULL ) {                                                      \
-      ERROR_AT(msg," Realloc failed: ");                                      \
-      on_failure;                                                             \
-    } else {                                                                  \
-      (mesh)->memCur += ((newsize)-(oldsize)) * sizeof(type);                 \
-    }                                                                         \
-  } else {                                                                    \
-    MEM_CHK_AVAIL(mesh,((newsize)-(oldsize))*sizeof(type),msg);               \
-    if ( stat == PMMG_SUCCESS ) {                                             \
-      ptr = realloc(ptr, (newsize) * sizeof(type));                           \
-      if ( ptr == NULL ) {                                                    \
-        ERROR_AT(msg, " Realloc failed: " );                                  \
-        on_failure;                                                           \
-      } else {                                                                \
-        (mesh)->memCur += ( ((newsize)-(oldsize))*sizeof(type));              \
-      }                                                                       \
-    }                                                                         \
-  } } while(0)
+#define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
+    int stat = PMMG_SUCCESS;                                            \
+    if ( ptr == NULL ) {                                                \
+      assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?"); \
+      PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);              \
+    } else if ((newsize)==0) {                                          \
+      PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
+    } else if ((newsize) < (oldsize)) {                                 \
+      ptr = realloc( ptr, (newsize) * sizeof(type));                    \
+      if ( ptr == NULL ) {                                              \
+        ERROR_AT(msg," Realloc failed: ");                              \
+        on_failure;                                                     \
+      } else {                                                          \
+        (mesh)->memCur += ((newsize)-(oldsize)) * sizeof(type);         \
+      }                                                                 \
+    } else if ((newsize) > (oldsize)) {                                 \
+      MEM_CHK_AVAIL(mesh,((newsize)-(oldsize))*sizeof(type),msg);       \
+      if ( stat == PMMG_SUCCESS ) {                                     \
+        ptr = realloc(ptr, (newsize) * sizeof(type));                   \
+        if ( ptr == NULL ) {                                            \
+          ERROR_AT(msg, " Realloc failed: " );                          \
+          on_failure;                                                   \
+        } else {                                                        \
+          (mesh)->memCur += ( ((newsize)-(oldsize))*sizeof(type));      \
+        }                                                               \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
 
 #define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
   int my_stat = PMMG_SUCCESS;                                            \
