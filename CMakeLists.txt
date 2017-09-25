@@ -192,17 +192,17 @@ ENDIF ( )
 #!!!!!NIKOS # add SCOTCH library?
 #!!!!!NIKOS SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
 #!!!!!NIKOS INCLUDE(cmake/modules/FindScotch.cmake)
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS IF(SCOTCH_FOUND)
 #!!!!!NIKOS   OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON)
 #!!!!!NIKOS   IF( USE_SCOTCH )
 #!!!!!NIKOS     # Set flags for building test program
 #!!!!!NIKOS     INCLUDE_DIRECTORIES(${SCOTCH_INCLUDE_DIR})
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS     SET(CMAKE_REQUIRED_INCLUDES ${SCOTCH_INCLUDE_DIR})
 #!!!!!NIKOS     SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCH_LIBRARY})
 #!!!!!NIKOS     SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCHERR_LIBRARY})
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS     SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
 #!!!!!NIKOS     SET(SCOTCH_LINK_FLAGS "-lpthread")
 #!!!!!NIKOS     MESSAGE(STATUS
@@ -219,7 +219,7 @@ ENDIF ( )
 #!!!!!NIKOS     "please set the CMake variable or environment variable SCOTCH_DIR "
 #!!!!!NIKOS     "to your scotch directory.")
 #!!!!!NIKOS ENDIF ( )
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS ############################################################################
 #!!!!!NIKOS #####
 #!!!!!NIKOS #####         Elastic
@@ -228,14 +228,14 @@ ENDIF ( )
 #!!!!!NIKOS # add SUscElas library?
 #!!!!!NIKOS SET(SUSCELAS_DIR "" CACHE PATH "Installation directory for SUscElas")
 #!!!!!NIKOS INCLUDE(cmake/modules/FindSUscElas.cmake)
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS IF(SUSCELAS_FOUND)
 #!!!!!NIKOS   # Set flags for building test program
 #!!!!!NIKOS   INCLUDE_DIRECTORIES(${SUSCELAS_INCLUDE_DIR})
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS   SET(CMAKE_REQUIRED_INCLUDES ${SUSCELAS_INCLUDE_DIR})
 #!!!!!NIKOS   SET(CMAKE_REQUIRED_LIBRARIES ${SUSCELAS_LIBRARY})
-#!!!!!NIKOS 
+#!!!!!NIKOS
 #!!!!!NIKOS   SET(CMAKE_C_FLAGS "-DUSE_SUSCELAS ${CMAKE_C_FLAGS}")
 #!!!!!NIKOS   MESSAGE(STATUS
 #!!!!!NIKOS     "Compilation with the Elas library: ${SUSCELAS_LIBRARY} ")
