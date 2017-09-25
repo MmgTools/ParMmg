@@ -424,13 +424,13 @@ IF(DOXYGEN_FOUND)
     # ${CMAKE_CURRENT_SOURCE_DIR}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/
     COMMENT "Generating PARMMG API documentation with Doxygen.
-    Open up the doc/doxygen/html/index.html file to see it." VERBATIM
+    Open the doc/doxygen/html/index.html file to see it." VERBATIM
     )
 
   ADD_CUSTOM_TARGET(doc
     DEPENDS fmg_doc
     COMMENT "Generating PARMMG API documentation with Doxygen.
-     Open up the doc/doxygen/html/index.html file to see it" VERBATIM
+     Open the doc/doxygen/html/index.html file to see it" VERBATIM
     )
 ENDIF ( DOXYGEN_FOUND )
 
