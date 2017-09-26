@@ -7,10 +7,6 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
 
   #NIKOS #include( CTest )
-  #  add_test(NAME <name> [CONFIGURATIONS [Debug|Release|...]]
-  #            [WORKING_DIRECTORY dir]
-  #            COMMAND <command> [arg1 [arg2 ...]])
-    #              ${CMAKE_BINARY_DIR dir}
     add_test( NAME Cube_HalfSmall_halfBig-2P
       COMMAND ${MPIEXEC} -np 2 $<TARGET_FILE:${PROJECT_NAME}>
                        ../../TestParMmg/Cube/cube_unit-dual_density.mesh
