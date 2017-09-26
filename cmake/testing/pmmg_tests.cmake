@@ -5,18 +5,15 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR} )
   set( CI_DIR_RESULTS  ${CI_DIR}/output )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
+  set( CI_DIR_INPUTS  ../../TestParMmg )
 
   #NIKOS #include( CTest )
-  add_test( NAME Cube_HalfSmall_halfBig-2P
-            COMMAND ${MPIEXEC} -np 2 $<TARGET_FILE:${PROJECT_NAME}>
-                      ../../TestParMmg/Cube/cube_unit-dual_density.mesh
-                      -out ${CI_DIR_RESULTS}/cube_unit-dual_density-out2P.mesh )
-  add_test( NAME Cube_HalfSmall_halfBig-4P
-            COMMAND ${MPIEXEC} -np 4 $<TARGET_FILE:${PROJECT_NAME}>
-                      ../../TestParMmg/Cube/cube_unit-dual_density.mesh
-                      -out ${CI_DIR_RESULTS}/cube_unit-dual_density-out4P.mesh )
-  add_test( NAME Cube_HalfSmall_halfBig-8P
-            COMMAND ${MPIEXEC} -np 8 $<TARGET_FILE:${PROJECT_NAME}>
-                      ../../TestParMmg/Cube/cube_unit-dual_density.mesh
-                      -out ${CI_DIR_RESULTS}/cube_unit-dual_density-out8P.mesh )
+  foreach( MESH cube_unit-dual_density cube_unit-int_sphere )
+    foreach( NP 1 2 4 6 8 )
+      add_test( NAME ${MESH}-${NP}
+                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+                ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
+                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
+    endforeach()
+  endforeach()
 ENDIF()
