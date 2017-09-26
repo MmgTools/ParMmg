@@ -1,5 +1,5 @@
 IF( BUILD_TESTING )
-  enable_testing()
+  include( CTest )
 
   set( CI_DIR  ${CMAKE_BINARY_DIR}/Tests )
   file( MAKE_DIRECTORY ${CI_DIR} )
@@ -7,7 +7,6 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   set( CI_DIR_INPUTS  ../../TestParMmg )
 
-  #NIKOS #include( CTest )
   foreach( MESH cube_unit-dual_density cube_unit-int_sphere )
     foreach( NP 1 2 4 6 8 )
       add_test( NAME ${MESH}-${NP}
