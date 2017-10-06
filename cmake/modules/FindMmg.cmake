@@ -33,32 +33,33 @@
 FIND_PATH(MMG_BUILD_DIR
   NAMES src/common/mmgcommon.h
   HINTS ${MMG_BUILD_DIR}
-  $ENV{MMG_BUILD_DIR}
-  ${MMG_DIR}
-  $ENV{MMG_DIR}
+        $ENV{MMG_BUILD_DIR}
+        ${MMG_DIR}
+        $ENV{MMG_DIR}
   PATH_SUFFIXES build Build BUILD builds Builds BUILDS
   DOC "The mmg build directory"
-  )
+)
 
 FIND_PATH(MMG_INCLUDE_DIR
   NAMES mmg/libmmg.h
   HINTS ${MMG_INCLUDE_DIR}
-  $ENV{MMG_INCLUDE_DIR}
-  $ENV{HOME}/include/
-  ${MMG_BUILD_DIR}/include/
-  $ENV{MMG_BUILD_DIR}/include/
-  DOC "Directory of mmg Headers")
+        $ENV{MMG_INCLUDE_DIR}
+        $ENV{HOME}/include/
+        ${MMG_BUILD_DIR}/include/
+        $ENV{MMG_BUILD_DIR}/include/
+  DOC "Directory of mmg Headers"
+)
 
 # Check for mmg library
 FIND_LIBRARY(MMG_LIBRARY
   NAMES mmg mmg${MMG_LIB_SUFFIX}
   HINTS ${MMG_LIBRARY}
-  $ENV{MMG_LIBRARY}
-  $ENV{HOME}/lib
-  ${MMG_BUILD_DIR}/lib
-  $ENV{MMG_BUILD_DIR}/lib
+        $ENV{MMG_LIBRARY}
+        $ENV{HOME}/lib
+        ${MMG_BUILD_DIR}/lib
+        $ENV{MMG_BUILD_DIR}/lib
   DOC "The mmg library"
-  )
+)
 
 INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(MMG DEFAULT_MSG
