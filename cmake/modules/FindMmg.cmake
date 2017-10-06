@@ -40,26 +40,31 @@ FIND_PATH(MMG_BUILD_DIR
   DOC "The mmg build directory"
 )
 
-FIND_PATH(MMG_INCLUDE_DIR
-  NAMES mmg/libmmg.h
-  HINTS ${MMG_INCLUDE_DIR}
-        $ENV{MMG_INCLUDE_DIR}
-        $ENV{HOME}/include/
-        ${MMG_BUILD_DIR}/include/
-        $ENV{MMG_BUILD_DIR}/include/
-  DOC "Directory of mmg Headers"
-)
+# Try to detect MMG_INCLUDE_DIR and MMG_LIBRARY only if MMG_BUILD_DIR
+# has already been found to avoid the possibility of detecting a different
+# version of MMG than we are compiling against in PMMG
+IF ( MMG_BUILD_DIR )
+  FIND_PATH(MMG_INCLUDE_DIR
+    NAMES mmg/libmmg.h
+    HINTS ${MMG_INCLUDE_DIR}
+          $ENV{MMG_INCLUDE_DIR}
+          $ENV{HOME}/include/
+          ${MMG_BUILD_DIR}/include/
+          $ENV{MMG_BUILD_DIR}/include/
+    DOC "Directory of mmg Headers"
+  )
 
-# Check for mmg library
-FIND_LIBRARY(MMG_LIBRARY
-  NAMES mmg mmg${MMG_LIB_SUFFIX}
-  HINTS ${MMG_LIBRARY}
-        $ENV{MMG_LIBRARY}
-        $ENV{HOME}/lib
-        ${MMG_BUILD_DIR}/lib
-        $ENV{MMG_BUILD_DIR}/lib
-  DOC "The mmg library"
-)
+  # Check for mmg library
+  FIND_LIBRARY(MMG_LIBRARY
+    NAMES mmg mmg${MMG_LIB_SUFFIX}
+    HINTS ${MMG_LIBRARY}
+          $ENV{MMG_LIBRARY}
+          $ENV{HOME}/lib
+          ${MMG_BUILD_DIR}/lib
+          $ENV{MMG_BUILD_DIR}/lib
+    DOC "The mmg library"
+  )
+ENDIF()
 
 INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(MMG DEFAULT_MSG
