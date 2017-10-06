@@ -109,11 +109,10 @@ SET( CMAKE_C_COMPILER  ${MPI_C_COMPILER} )
 #####
 ############################################################################
 SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-SET(MMG_BUILD_DIR "" CACHE PATH "Build directory for mmg")
 
 INCLUDE(cmake/modules/FindMmg.cmake)
 
-IF(NOT MMG_DIR)
+IF(NOT MMG_DIR OR NOT MMG_FOUND )
   MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
     "(see https://github.com/MmgTools/mmg and  download the branch develop)."
     "If you have already installed Mmg and want to use it, "

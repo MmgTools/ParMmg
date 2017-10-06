@@ -34,8 +34,9 @@ FIND_PATH(MMG_BUILD_DIR
   NAMES src/common/mmgcommon.h
   HINTS ${MMG_BUILD_DIR}
   $ENV{MMG_BUILD_DIR}
-  ${MMG_DIR}/*
-  $ENV{MMG_DIR}/*
+  ${MMG_DIR}
+  $ENV{MMG_DIR}
+  PATH_SUFFIXES build Build BUILD builds Builds BUILDS
   DOC "The mmg build directory"
   )
 
