@@ -30,13 +30,6 @@
 #
 # TARGET_LINK_LIBRARIES( ${YOUR_TARGET} ${MMG_LIBRARY})
 
-
-#NIKOS IF ((NOT WIN32) AND (NOT WIN64))
-#NIKOS   SET ( MMG_INCLUDE_DIR MMG_INCLUDE_DIR-NOTFOUND )
-#NIKOS   SET ( MMG_LIBRARY MMG_LIBRARY-NOTFOUND )
-#NIKOS   SET ( MMG_BUILD_DIR MMG_BUILD_DIR-NOTFOUND )
-#NIKOS ENDIF()
-
 FIND_PATH(MMG_BUILD_DIR
   NAMES src/common/mmgcommon.h
   HINTS ${MMG_BUILD_DIR}
@@ -53,7 +46,6 @@ FIND_PATH(MMG_INCLUDE_DIR
   $ENV{HOME}/include/
   ${MMG_BUILD_DIR}/include/
   $ENV{MMG_BUILD_DIR}/include/
-  PATH_SUFFIXES
   DOC "Directory of mmg Headers")
 
 # Check for mmg library
@@ -70,9 +62,3 @@ FIND_LIBRARY(MMG_LIBRARY
 INCLUDE(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(MMG DEFAULT_MSG
   MMG_INCLUDE_DIR MMG_LIBRARY MMG_BUILD_DIR)
-
-IF ( NOT MMG_FOUND )
-   MESSAGE (WARNING "\nMMG not found: you can set the 'MMG_DIR' environment"
-   " variable or the 'MMG_DIR' CMake variable to your MMG directory path"
-   " to help us to fill the MMG library paths.\n" )
-ENDIF ()
