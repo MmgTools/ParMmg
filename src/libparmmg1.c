@@ -8,7 +8,6 @@
  *
  */
 #include "parmmg.h"
-#include "grpsplit_pmmg.h" //PMMG_splitGrps
 
 // Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
 static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;

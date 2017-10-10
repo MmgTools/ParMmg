@@ -127,6 +127,8 @@ int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 
 int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
+int  PMMG_splitGrps( PMMG_pParMesh,int,int );
+
 int  PMMG_mergeGrps ( PMMG_pParMesh parmesh );
 int  PMMG_bcastMesh ( PMMG_pParMesh parmesh );
 int  PMMG_bdryStore ( MMG5_pMesh mesh );

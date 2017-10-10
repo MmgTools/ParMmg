@@ -12,7 +12,6 @@
 #include "metis_pmmg.h"
 #include "libparmmgtypes.h" // PMMG_pGrp
 #include "mmg3d.h" //_MMG5_idir[4][3]
-#include "grpsplit_pmmg.h"
 #include "chkmesh_pmmg.h"
 
 
