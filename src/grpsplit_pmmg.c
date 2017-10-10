@@ -225,13 +225,15 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
       goto fail_sgrp;
     }
 
-    // the #elements is known from metis
-    // the #points is not, start with an estimate: half the #elements
-    if ( 1 != MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[ grpId ] / 2,
+    /* Uses the Euler-poincare formulae to estimate the number of points from
+     * the number of elements per group: np = ne/6 */
+    if ( 1 != MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[ grpId ] / 6,
           countPerGrp[ grpId ], 0, 0, 0, 0 ) )
       goto fail_sgrp;
+
     grpCur->mesh->np = 0;
     grpCur->mesh->npi = 0;
+
     if ( grpOld->met->m ) {
       if ( grpOld->met->size == 1 )
         grpCur->met->type = MMG5_Scalar;
@@ -247,6 +249,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
      * options */
     memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
+#warning Algiane: Euler-poincare xtmax ~ mesh->ne/3
     meshCur->xtmax = ARRAY_INITIAL_SIZE;
     PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
                 "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
