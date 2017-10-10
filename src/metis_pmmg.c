@@ -54,7 +54,7 @@ int PMMG_partition_metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     for( j = 0; j < 4; j++ )
       if( adja[j] )
         nbAdj++;
-    assert( nbAdj <= 4 );
+
     totCount += nbAdj;
     xadj[k] = totCount;
   }
