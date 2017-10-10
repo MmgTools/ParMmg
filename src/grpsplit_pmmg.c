@@ -15,17 +15,24 @@
 #include "grpsplit_pmmg.h"
 #include "chkmesh_pmmg.h"
 
-// Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
-static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
-static const int ARRAY_INITIAL_SIZE = 10*1024;
 
-static int howManyGroups ( const int nelem )
+/**
+ * \param nelem number of elements in the initial group
+ * \param target_mesh_size wanted number of elements per group
+ *
+ * \return the needed number of groups
+ *
+ *  Compute the needed number of groups to create groups of \a target_mesh_size
+ *  elements from a group of nelem elements.
+ *
+ */
+static int howManyGroups ( const int nelem, const int target_mesh_size )
 {
-  int ngrp = nelem / REMESHER_TARGET_MESH_SIZE;
+  int ngrp = nelem / target_mesh_size;
 
   if ( ngrp == 0 )
     return ( 1 );
-  else if ( ngrp * REMESHER_TARGET_MESH_SIZE < nelem )
+  else if ( ngrp * target_mesh_size < nelem )
     return ( ngrp + 1 );
 
   return ( ngrp );
@@ -109,13 +116,16 @@ static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param target_mesh_size wanted number of elements per group
+ * \param buildFacecomm build face communicator if 1
+ *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
  * if the existing group of only one mesh is too big, split it into into several
  * meshes.
  */
-int PMMG_splitGrps( PMMG_pParMesh parmesh )
+int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm)
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -152,7 +162,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh )
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
-  ngrp = howManyGroups( meshOld->ne );
+  ngrp = howManyGroups( meshOld->ne,target_mesh_size );
   // Does the group need to be further subdivided to subgroups or not?
   if ( ngrp == 1 )  {
     fprintf( stdout,

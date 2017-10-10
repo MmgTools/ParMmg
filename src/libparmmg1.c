@@ -10,6 +10,9 @@
 #include "parmmg.h"
 #include "grpsplit_pmmg.h" //PMMG_splitGrps
 
+// Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
+static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
@@ -326,7 +329,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        it, i;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh ) )
+  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh,REMESHER_TARGET_MESH_SIZE,0 ) )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
