@@ -140,6 +140,7 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 
   /* Metric */
   MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm );
+  MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm );
   MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm );
   MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm );
 
