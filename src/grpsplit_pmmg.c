@@ -572,8 +572,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
 
       for ( ie=0; ie<6; ++ie ) {
         if ( !(pxt->tag[ie] & MG_PARBDY ) )  continue;
-// Algiane: if this step is too long, try to hash the updated edges to not
-// update twice the same shell.
+        // Algiane: if this step is too long, try to hash the updated edges to not
+        // update twice the same shell (PMMG_bdryUpdate function).
         _MMG5_settag(meshCur,tet,ie,pxt->tag[ie],pxt->edg[ie]);
       }
     }

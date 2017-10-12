@@ -169,7 +169,7 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
   if ( mesh->nt )
     PMMG_create_MPI_Tria( mesh->tria, &mpi_tria );
   if ( mesh->na )
-  PMMG_create_MPI_Edge( mesh->edge, &mpi_edge );
+    PMMG_create_MPI_Edge( mesh->edge, &mpi_edge );
 
   MPI_Bcast( mesh->point, mesh->np + 1, mpi_light_point, 0, parmesh->comm );
   MPI_Bcast( mesh->tetra, mesh->ne + 1, mpi_light_tetra, 0, parmesh->comm );
@@ -235,7 +235,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
 #warning Perhaps I could change this 0 to be user configurable (via PMMG_distributeMesh function argument)
-  if ( 0 == parmesh->myrank && nprocs > 1 ) {
+  if ( (!parmesh->myrank) && nprocs > 1 ) {
     if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
          != PMMG_SUCCESS ) {
       ret_val = PMMG_FAILURE;
@@ -246,6 +246,12 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     metis_dt = MPI_INT32_T;
   else if ( IDXTYPEWIDTH == 64 )
     metis_dt = MPI_INT64_T;
+  else {
+    printf("  ## Error: %s: unable to detect the metis integer width (%d).\n",
+           __func__,IDXTYPEWIDTH);
+    goto fail_alloc1;
+  }
+
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
@@ -308,7 +314,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
         pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Parallel edges */
-#warning using the MG_REQ tag, we will loose the "true" required tags
         for ( j=0; j<3; ++j )
           pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
       }
