@@ -207,7 +207,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MMG5_pTetra    pt = NULL, ptnew = NULL;
   MMG5_pxTetra   pxt = NULL;
   MMG5_pPoint    ppt = NULL;
-  PMMG_pext_comm pext_node_comm = NULL;
+  PMMG_pext_comm pext_node_comm,pext_face_comm;
   idx_t          *part = NULL;
   int            nprocs = 0 ,rank = 0, np = 0, ne = 0, nxt = 0, nxp = 0;
   int            ip = 0, iploc = 0, ifac = 0, i = 0, j = 0, k = 0, *idx = NULL;
@@ -218,7 +218,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   int            inIntComm = 0, nbl = 0;
   int            *shared_pt = NULL;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
-  int8_t         *pointRanks = NULL;
+  int8_t         *seen_shared_pt = NULL;
   int            ret_val = PMMG_SUCCESS;
   int            old_val = 0;
   MPI_Datatype   metis_dt;
@@ -255,9 +255,9 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
-  PMMG_CALLOC(parmesh,shared_pt,nprocs,int,"dist Mesh buffer0 ",
+  PMMG_CALLOC(parmesh,shared_pt,nprocs,int,"shared_pt array",
               ret_val = PMMG_FAILURE;goto fail_alloc1);
-  PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
+  PMMG_CALLOC(parmesh,seen_shared_pt,nprocs*mesh->np,int8_t,"seen_shared_pt array",
               ret_val = PMMG_FAILURE; goto fail_alloc2);
   PMMG_CALLOC(parmesh,pointPerm,mesh->np+1,int,"dist mesh buffer2",
               ret_val = PMMG_FAILURE;goto fail_alloc3);
@@ -325,8 +325,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
         /* Count (and mark) each point that will be shared between me and the
          * proc rankVois */
-        if ( rankVois != rank && !pointRanks[nprocs*(ip-1)+rankVois] ) {
-          pointRanks[nprocs*(ip-1)+rankVois] = 1;
+        if ( rankVois != rank && !seen_shared_pt[nprocs*(ip-1)+rankVois] ) {
+          seen_shared_pt[nprocs*(ip-1)+rankVois] = 1;
           ++shared_pt[rankVois];
 
           /* Mark parallel vertex */
@@ -396,7 +396,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
       continue;
 
     for ( j=0; j<nprocs; ++j ) {
-      if ( pointRanks[nprocs*(k-1)+j] ) {
+      if ( seen_shared_pt[nprocs*(k-1)+j] ) {
         ++nitem_int_node_comm;
         break;
       }
@@ -436,7 +436,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     for ( j=0; j<nprocs; ++j ) {
       pext_node_comm = &parmesh->ext_node_comm[shared_pt[j]];
 
-      if ( pointRanks[nprocs*(k-1)+j] == 1 ) {
+      if ( seen_shared_pt[nprocs*(k-1)+j] == 1 ) {
         /* Add point in external communicator */
         pext_node_comm->int_comm_index[idx[shared_pt[j]]++] = i;
 
@@ -523,7 +523,7 @@ fail_alloc5:
 fail_alloc4:
   PMMG_DEL_MEM(parmesh,pointPerm,mesh->np+1,int,"deallocate metis buffer3");
 fail_alloc3:
-  PMMG_DEL_MEM(parmesh,pointRanks,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
+  PMMG_DEL_MEM(parmesh,seen_shared_pt,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
 fail_alloc2:
   PMMG_DEL_MEM(parmesh,shared_pt,nprocs,int,"deallocate metis buffer1");
 fail_alloc1:
