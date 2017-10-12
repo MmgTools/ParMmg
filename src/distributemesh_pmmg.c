@@ -216,7 +216,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   int            *node2int_node_comm_index2 = NULL;
   int            nitem_int_node_comm = 0, next_node_comm = 0;
   int            inIntComm = 0, nbl = 0;
-  int            *seenRanks = NULL;
+  int            *shared_pt = NULL;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *pointRanks = NULL;
   int            ret_val = PMMG_SUCCESS;
@@ -255,7 +255,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
-  PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
+  PMMG_CALLOC(parmesh,shared_pt,nprocs,int,"dist Mesh buffer0 ",
               ret_val = PMMG_FAILURE;goto fail_alloc1);
   PMMG_CALLOC(parmesh,pointRanks,nprocs*mesh->np,int8_t,"dist mesh buffer1",
               ret_val = PMMG_FAILURE; goto fail_alloc2);
@@ -327,7 +327,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
          * proc rankVois */
         if ( rankVois != rank && !pointRanks[nprocs*(ip-1)+rankVois] ) {
           pointRanks[nprocs*(ip-1)+rankVois] = 1;
-          ++seenRanks[rankVois];
+          ++shared_pt[rankVois];
 
           /* Mark parallel vertex */
           ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
@@ -363,7 +363,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   /** Count the number of external node communicators and initialize it */
   next_node_comm = 0;
   for ( k=0; k<nprocs; ++k )
-    if ( seenRanks[k] )
+    if ( shared_pt[k] )
       ++next_node_comm;
 
   old_val = parmesh->next_node_comm;
@@ -374,17 +374,17 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   next_node_comm = 0;
   for ( k=0; k<nprocs; ++k ) {
-    if ( seenRanks[k] ) {
+    if ( shared_pt[k] ) {
       pext_comm = &parmesh->ext_node_comm[next_node_comm];
       pext_comm->color_in  = rank;
       pext_comm->color_out = k;
       old_val              = pext_comm->nitem;
-      pext_comm->nitem     = seenRanks[k];
+      pext_comm->nitem     = shared_pt[k];
       PMMG_CALLOC(parmesh,pext_comm->int_comm_index,pext_comm->nitem,int,
                   "allocate comm idx",
                   pext_comm->nitem = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
-      /* Use seenRanks to store the idx of the external communicator me->k */
-      seenRanks[k] = next_node_comm++;
+      /* Use shared_pt to store the idx of the external communicator me->k */
+      shared_pt[k] = next_node_comm++;
     }
   }
 
@@ -434,11 +434,11 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
     inIntComm = 0;
     for ( j=0; j<nprocs; ++j ) {
-      pext_comm = &parmesh->ext_node_comm[seenRanks[j]];
+      pext_comm = &parmesh->ext_node_comm[shared_pt[j]];
 
       if ( pointRanks[nprocs*(k-1)+j] == 1 ) {
         /* Add point in external communicator */
-        pext_comm->int_comm_index[idx[seenRanks[j]]++] = i;
+        pext_comm->int_comm_index[idx[shared_pt[j]]++] = i;
 
         if ( !inIntComm ) {
           /* Add point in internal communicator */
@@ -525,7 +525,7 @@ fail_alloc4:
 fail_alloc3:
   PMMG_DEL_MEM(parmesh,pointRanks,nprocs*mesh->np,int8_t,"deallocate metis buffer2");
 fail_alloc2:
-  PMMG_DEL_MEM(parmesh,seenRanks,nprocs,int,"deallocate metis buffer1");
+  PMMG_DEL_MEM(parmesh,shared_pt,nprocs,int,"deallocate metis buffer1");
 fail_alloc1:
   PMMG_DEL_MEM(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
 fail_alloc0:
