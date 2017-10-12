@@ -207,7 +207,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MMG5_pTetra    pt = NULL, ptnew = NULL;
   MMG5_pxTetra   pxt = NULL;
   MMG5_pPoint    ppt = NULL;
-  PMMG_pext_comm pext_comm = NULL;
+  PMMG_pext_comm pext_node_comm = NULL;
   idx_t          *part = NULL;
   int            nprocs = 0 ,rank = 0, np = 0, ne = 0, nxt = 0, nxp = 0;
   int            ip = 0, iploc = 0, ifac = 0, i = 0, j = 0, k = 0, *idx = NULL;
@@ -375,14 +375,14 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   next_node_comm = 0;
   for ( k=0; k<nprocs; ++k ) {
     if ( shared_pt[k] ) {
-      pext_comm = &parmesh->ext_node_comm[next_node_comm];
-      pext_comm->color_in  = rank;
-      pext_comm->color_out = k;
-      old_val              = pext_comm->nitem;
-      pext_comm->nitem     = shared_pt[k];
-      PMMG_CALLOC(parmesh,pext_comm->int_comm_index,pext_comm->nitem,int,
+      pext_node_comm = &parmesh->ext_node_comm[next_node_comm];
+      pext_node_comm->color_in  = rank;
+      pext_node_comm->color_out = k;
+      old_val              = pext_node_comm->nitem;
+      pext_node_comm->nitem     = shared_pt[k];
+      PMMG_CALLOC(parmesh,pext_node_comm->int_comm_index,pext_node_comm->nitem,int,
                   "allocate comm idx",
-                  pext_comm->nitem = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
+                  pext_node_comm->nitem = old_val; ret_val = PMMG_FAILURE; goto fail_alloc6);
       /* Use shared_pt to store the idx of the external communicator me->k */
       shared_pt[k] = next_node_comm++;
     }
@@ -434,11 +434,11 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
     inIntComm = 0;
     for ( j=0; j<nprocs; ++j ) {
-      pext_comm = &parmesh->ext_node_comm[shared_pt[j]];
+      pext_node_comm = &parmesh->ext_node_comm[shared_pt[j]];
 
       if ( pointRanks[nprocs*(k-1)+j] == 1 ) {
         /* Add point in external communicator */
-        pext_comm->int_comm_index[idx[shared_pt[j]]++] = i;
+        pext_node_comm->int_comm_index[idx[shared_pt[j]]++] = i;
 
         if ( !inIntComm ) {
           /* Add point in internal communicator */
