@@ -140,6 +140,7 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 
   /* Metric */
   MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm );
+  MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm );
   MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm );
   MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm );
 
@@ -220,6 +221,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   int8_t         *pointRanks = NULL;
   int            ret_val = PMMG_SUCCESS;
   int            old_val = 0;
+  MPI_Datatype   metis_dt;
 
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
@@ -240,7 +242,11 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
       goto fail_alloc1;
     }
   }
-  MPI_Bcast( &part[0], mesh->ne, MPI_INT, 0, parmesh->comm );
+  if ( IDXTYPEWIDTH == 32 )
+    metis_dt = MPI_INT32_T;
+  else if ( IDXTYPEWIDTH == 64 )
+    metis_dt = MPI_INT64_T;
+  MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Remove the part of the mesh that are not on the proc rank */
   PMMG_CALLOC(parmesh,seenRanks,nprocs,int,"dist Mesh buffer0 ",
