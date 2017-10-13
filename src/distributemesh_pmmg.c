@@ -676,6 +676,52 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 }
 
 /**
+ * \param mesh pointer toward a MMG5 mesh structure
+ * \param met pointer toward a MMG5 solution structure
+ * \param rank rank of the MPI process
+ * \param np number of points of the local mesh
+ * \param nxp number of xpoints in the local mesh
+ * \param nxt number of local xtetra in the local mesh
+ * \param pointPerm array of new point positions
+ * \param xPointPerm array of new xPoint positions
+ * \param xTetraPerm array of new xTetra positions
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Create the mesh that will stay on the processor rank.
+ *
+ */
+static inline
+int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
+                          int nxt,int *pointPerm,int *xPointPerm,int*xTetraPerm) {
+
+  /** Compact tetrahedra on the proc */
+  if ( !PMMG_packTetra(mesh,rank) ) return 0;
+
+  /** Mesh permutations */
+  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
+    return 0;
+
+  mesh->np = np;
+  met->np  = np;
+  mesh->xp = nxp;
+  mesh->xt = nxt;
+
+  /** Update xtetra edge tags */
+  if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) return 0;
+
+  /** Adjacency reconstruction */
+  if ( !MMG3D_hashTetra( mesh, 0 ) ) return 0;
+
+//  if ( parmesh->ddebug ) {
+//    grplst_meshes_to_saveMesh( parmesh->listgrp, 1, parmesh->myrank, "End_distributeMesh_proc");
+//    if ( met )
+//      PMMG_saveSol( parmesh, filename );
+//  }
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward the metis array containing the partitions.
  *
@@ -717,6 +763,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
       goto fail_alloc1;
     }
   }
+
+  /** Send the partition data to the other procs */
   if ( IDXTYPEWIDTH == 32 )
     metis_dt = MPI_INT32_T;
   else if ( IDXTYPEWIDTH == 64 )
@@ -727,7 +775,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     goto fail_alloc1;
   }
 
-  /** Send the partition data to the other procs */
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
@@ -740,36 +787,9 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
     goto fail_alloc2;
 
-  /** Compact tetrahedra on the proc */
-  if ( !PMMG_packTetra(mesh,rank) )
+  /** Local mesh creation */
+  if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;
-
-  /** Mesh permutations */
-  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
-    goto fail_alloc2;
-
-  mesh->np = np;
-  met->np  = np;
-  mesh->xp = nxp;
-  mesh->xt = nxt;
-
-  /** Update xtetra edge tags */
-  if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
-    ret_val = PMMG_FAILURE;
-    goto fail_alloc2;
-  }
-
-  /** Adjacency reconstruction */
-  if ( !MMG3D_hashTetra( mesh, 0 ) ) {
-    ret_val = PMMG_FAILURE;
-    goto fail_alloc2;
-  }
-
-//  if ( parmesh->ddebug ) {
-//    grplst_meshes_to_saveMesh( parmesh->listgrp, 1, parmesh->myrank, "End_distributeMesh_proc");
-//    if ( met )
-//      PMMG_saveSol( parmesh, filename );
-//  }
 
 fail_alloc2:
   PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
