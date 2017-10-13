@@ -269,7 +269,238 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
 
 /**
  * \param parmesh pointer toward the mesh structure.
- * \param part pointer toward an array of int containing the partitions.
+ * \param part pointer toward the metis array containing the partitions.
+ * \param shared_pt pointer toward the array of the number of points shared
+ * with each other procs.
+ * \param shared_face pointer toward the array of the number of faces shared
+ * \param seen_shared_pt pointer toward a binary array that contains 1 if a
+ * point is shared with a given proc
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Delete parts of the mesh not on the processor.
+ */
+static inline
+int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
+                             int *shared_face,int8_t *seen_shared_pt) {
+  PMMG_pGrp       grp;
+  MMG5_pMesh      mesh;
+  MMG5_pTetra     pt;
+  PMMG_pext_comm  pext_node_comm,pext_face_comm;
+  int             rank,nprocs,rankCur,rankVois;
+  int             next_node_comm,next_face_comm;
+  int             nitem_int_node_comm,nitem_int_face_comm;
+  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
+  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int             inIntComm;
+  int            *idx,kvois,k,i,j;
+  int8_t          ifac,ifacVois;
+
+  rank   = parmesh->myrank;
+  nprocs = parmesh->nprocs;
+
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+
+  /** Count the number of external node/face communicators and initialize it */
+  next_node_comm = next_face_comm = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    if ( shared_pt[k] ) {
+      ++next_node_comm;
+    }
+    if ( shared_face[k] ) {
+      ++next_face_comm;
+    }
+  }
+
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
+              "allocate ext_node_comm ",return 0);
+  parmesh->next_node_comm = next_node_comm;
+
+  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_ext_comm,
+              "allocate ext_face_comm ",return 0);
+  parmesh->next_face_comm = next_face_comm;
+
+  /** Count internal communicators items before erasing the shared_face array */
+  /* Internal node comm */
+  nitem_int_node_comm = 0;
+  for ( k=1; k<=mesh->np; k++ ) {
+
+    if ( !mesh->point[k].tmp )
+      continue;
+
+    for ( j=0; j<nprocs; ++j ) {
+      if ( seen_shared_pt[nprocs*(k-1)+j] ) {
+        ++nitem_int_node_comm;
+        break;
+      }
+    }
+  }
+
+  /* Internal face comm */
+  nitem_int_face_comm = 0;
+  for ( k=0; k<parmesh->nprocs; k++ ) {
+    nitem_int_face_comm += shared_face[k];
+  }
+
+  /** External communicators allocation */
+  next_node_comm = next_face_comm = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    /* Node ext comm */
+    if ( shared_pt[k] ) {
+      pext_node_comm = &parmesh->ext_node_comm[next_node_comm];
+      pext_node_comm->color_in  = rank;
+      pext_node_comm->color_out = k;
+      PMMG_CALLOC(parmesh,pext_node_comm->int_comm_index,shared_pt[k],int,
+                  "allocate comm idx",return 0);
+      pext_node_comm->nitem     = shared_pt[k];
+      /* Use shared_pt to store the idx of the external communicator me->k */
+      shared_pt[k] = next_node_comm++;
+    }
+
+    /* Face ext comm */
+    if ( shared_face[k] ) {
+      pext_face_comm            = &parmesh->ext_face_comm[next_face_comm];
+      pext_face_comm->color_in  = rank;
+      pext_face_comm->color_out = k;
+      PMMG_CALLOC(parmesh,pext_face_comm->int_comm_index,shared_face[k],int,
+                  "allocate comm idx",return 0);
+      pext_face_comm->nitem     = shared_face[k];
+      /* Use shared_pt to store the idx of the external communicator me->k */
+      shared_face[k] = next_face_comm++;
+    }
+  }
+
+  /** Internal communicators allocation */
+  /* Internal node comm */
+  assert ( !grp->nitem_int_node_comm );
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,
+              "node2int_node_comm_index1 ",return 0);
+  grp->nitem_int_node_comm = nitem_int_node_comm;
+
+  // For the error handling to be complete at this point we have to:
+  //   1) free n2i_n_c_idx1
+  //   2) reset nitem_int_node_comm
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
+              "alloc node2int_node_comm_index2 ",
+              PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,
+                           nitem_int_node_comm,int,
+                           "free node2int_node_comm_index1 ");
+              grp->nitem_int_node_comm=0; return 0);
+
+  /* Internal face comm */
+  assert ( !grp->nitem_int_face_comm );
+  grp->nitem_int_face_comm = nitem_int_face_comm;
+  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index1,nitem_int_face_comm,int,
+              "alloc node2int_face_comm_index1 ",return 0);
+  // For the error handling to be complete at this point we have to:
+  //   1) reverse the reallocation of n2i_n_c_idx1
+  //   2) reset nitem_int_face_comm
+  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index2,nitem_int_face_comm,int,
+              "alloc node2int_face_comm_index2 ",
+              PMMG_DEL_MEM(parmesh,grp->node2int_face_comm_index1,
+                           nitem_int_face_comm,int,
+                           "free node2int_face_comm_index1 ");
+              grp->nitem_int_face_comm = 0;return 0);
+
+  /** Travel through the mesh and fill the communicators */
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+  node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
+  node2int_face_comm_index2 = grp->node2int_face_comm_index2;
+
+  /* Node Communicators */
+  /* Idx is used to store the external communicator cursor */
+  PMMG_CALLOC(parmesh,idx,parmesh->next_node_comm,int,"allocating idx",return 0);
+
+  i = 0;
+  for ( k=1; k<=mesh->np; k++ ) {
+    if ( !mesh->point[k].tmp )
+      continue;
+
+    inIntComm = 0;
+    for ( j=0; j<nprocs; ++j ) {
+      pext_node_comm = &parmesh->ext_node_comm[shared_pt[j]];
+
+      if ( seen_shared_pt[nprocs*(k-1)+j] == 1 ) {
+        /* Add point in external communicator */
+        pext_node_comm->int_comm_index[idx[shared_pt[j]]++] = i;
+
+        if ( !inIntComm ) {
+          /* Add point in internal communicator */
+          inIntComm = 1;
+          node2int_node_comm_index1[i] = mesh->point[k].tmp;
+          node2int_node_comm_index2[i] = i;
+        }
+      }
+    }
+    /* Increment internal comm cursor */
+    if ( inIntComm )
+      ++i;
+  }
+  PMMG_DEL_MEM(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
+
+  /* Face Communicators */
+  /* Idx is used to store the external communicator cursor */
+  PMMG_CALLOC(parmesh,idx,parmesh->next_face_comm,int,"allocating idx",return 0);
+
+  i = 0;
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
+    rankCur = pt->mark;
+
+    for ( ifac=0; ifac<4; ifac++ ) {
+      kvois = mesh->adja[4*k-3+ifac]/4;
+
+      if ( (!kvois) || k>kvois ) continue;
+
+      rankVois = part[kvois-1];
+      if ( rankCur == rankVois ) continue;
+        ifacVois = mesh->adja[4*k-3+ifac]%4;
+
+      if ( rankCur == rank ) {
+        /* Add the elt k to communicators */
+        pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
+        pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
+
+        node2int_face_comm_index1[i] = 4*(pt->base-1) + ifac;
+        node2int_face_comm_index2[i] = i;
+        ++i;
+      }
+      else if ( rankVois == rank ) {
+        /* Add the elt kvois to communicators */
+        ifacVois = mesh->adja[4*k-3+ifac]%4;
+
+        pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
+        pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
+
+        node2int_face_comm_index1[i] = 4*(mesh->tetra[kvois].base-1)+ifacVois;
+        node2int_face_comm_index2[i] = i;
+        ++i;
+      }
+    }
+  }
+  PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
+  PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
+
+#warning NIKOS: I need some help with managing error handling here: am I consistently managing the communicator deallocations? are they in a consistent state if an error happens and this returns?
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,
+              "allocating int_node_comm",return 0);
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_int_comm,
+              "allocating int_face_comm",return 0);
+
+  /* We have 1 Grp per proc, thus : int_*_comm->nitem : nitem_int_*_comm */
+  parmesh->int_node_comm->nitem = nitem_int_node_comm;
+  parmesh->int_face_comm->nitem = nitem_int_face_comm;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
  *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
@@ -284,29 +515,24 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   MMG5_pTetra    pt = NULL;
   MMG5_pxTetra   pxt = NULL;
   MMG5_pPoint    ppt = NULL;
-  PMMG_pext_comm pext_node_comm,pext_face_comm;
   idx_t          *part = NULL;
   int            nprocs = 0 ,rank = 0, np = 0, nxt = 0, nxp = 0;
-  int            ip = 0, iploc = 0, ifac = 0, i = 0, j = 0, k = 0, *idx = NULL;
-  int            kvois = 0, rankCur,rankVois,ifacVois;
-  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
-  int            nitem_int_node_comm,nitem_int_face_comm;
-  int            next_node_comm,next_face_comm;
-  int            inIntComm = 0;
+  int            ip = 0, iploc = 0, ifac = 0,j = 0, k = 0;
+  int            kvois = 0, rankVois;
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
   int            ret_val = PMMG_SUCCESS;
-  int            old_val = 0;
   MPI_Datatype   metis_dt;
 
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
+  rank   = parmesh->myrank;
+
+  assert(parmesh->ngrp == 1);
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
   met    = grp->met;
-  rank   = parmesh->myrank;
 
   /** Call metis for partionning*/
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
@@ -350,7 +576,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   nxp = 0;
   nxt = 0;
   np  = 0;
-  nitem_int_node_comm = 0;
 
   /* Reset the tmp field of points (it will be used to store the local index of
    * the point on each proc) */
@@ -448,210 +673,13 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     pt->xt = nxt;
   }
 
-  /** Count the number of external node/face communicators and initialize it */
-  next_node_comm = next_face_comm = 0;
-  for ( k=0; k<nprocs; ++k ) {
-    if ( shared_pt[k] ) {
-      ++next_node_comm;
-    }
-    if ( shared_face[k] ) {
-      ++next_face_comm;
-    }
-  }
-
-  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
-              "allocate ext_node_comm ",ret_val=PMMG_FAILURE; goto fail_alloc7);
-  parmesh->next_node_comm = next_node_comm;
-
-  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_ext_comm,
-              "allocate ext_face_comm ",ret_val=PMMG_FAILURE; goto fail_alloc7);
-  parmesh->next_face_comm = next_face_comm;
-
-  /** Count internal communicators items before erasing the shared_face array */
-  /* Internal node comm */
-  nitem_int_node_comm = 0;
-  for ( k=1; k<=mesh->np; k++ ) {
-
-    if ( !mesh->point[k].tmp )
-      continue;
-
-    for ( j=0; j<nprocs; ++j ) {
-      if ( seen_shared_pt[nprocs*(k-1)+j] ) {
-        ++nitem_int_node_comm;
-        break;
-      }
-    }
-  }
-
-  /* Internal face comm */
-  nitem_int_face_comm = 0;
-  for ( k=0; k<parmesh->nprocs; k++ ) {
-    nitem_int_face_comm += shared_face[k];
-  }
-
-
-  /** External communicators allocation */
-  next_node_comm = next_face_comm = 0;
-  for ( k=0; k<nprocs; ++k ) {
-    /* Node ext comm */
-    if ( shared_pt[k] ) {
-      pext_node_comm = &parmesh->ext_node_comm[next_node_comm];
-      pext_node_comm->color_in  = rank;
-      pext_node_comm->color_out = k;
-      PMMG_CALLOC(parmesh,pext_node_comm->int_comm_index,shared_pt[k],int,
-                  "allocate comm idx",ret_val = PMMG_FAILURE; goto fail_alloc7);
-      pext_node_comm->nitem     = shared_pt[k];
-      /* Use shared_pt to store the idx of the external communicator me->k */
-      shared_pt[k] = next_node_comm++;
-    }
-
-    /* Face ext comm */
-    if ( shared_face[k] ) {
-      pext_face_comm            = &parmesh->ext_face_comm[next_face_comm];
-      pext_face_comm->color_in  = rank;
-      pext_face_comm->color_out = k;
-      PMMG_CALLOC(parmesh,pext_face_comm->int_comm_index,shared_face[k],int,
-                  "allocate comm idx",ret_val = PMMG_FAILURE; goto fail_alloc7);
-      pext_face_comm->nitem     = shared_face[k];
-      /* Use shared_pt to store the idx of the external communicator me->k */
-      shared_face[k] = next_face_comm++;
-    }
-  }
-
-  /** Internal communicators allocation */
-  /* Internal node comm */
-  assert ( !grp->nitem_int_node_comm );
-  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,
-              "node2int_node_comm_index1 ",ret_val = PMMG_FAILURE;
-              goto fail_alloc7);
-  grp->nitem_int_node_comm = nitem_int_node_comm;
-
-  // For the error handling to be complete at this point we have to:
-  //   1) free n2i_n_c_idx1
-  //   2) reset nitem_int_node_comm, set ret_val, etc
-  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
-              "alloc node2int_node_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,
-                           nitem_int_node_comm,int,
-                           "free node2int_node_comm_index1 ");
-              grp->nitem_int_node_comm=0;
-              ret_val = PMMG_FAILURE;
-              goto fail_alloc7);
-
-  /* Internal face comm */
-  assert ( !grp->nitem_int_face_comm );
-  grp->nitem_int_face_comm = nitem_int_face_comm;
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index1,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index1 ",ret_val = PMMG_FAILURE;
-              goto fail_alloc7);
-  // For the error handling to be complete at this point we have to:
-  //   1) reverse the reallocation of n2i_n_c_idx1
-  //   2) reset nitem_int_face_comm, set ret_val, etc
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index2,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->node2int_face_comm_index1,
-                           nitem_int_face_comm,int,
-                           "free node2int_face_comm_index1 ");
-              grp->nitem_int_face_comm = 0;
-              ret_val = PMMG_FAILURE;
-              goto fail_alloc7);
-
-  /** Travel through the mesh and fill the communicators */
-  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
-  node2int_node_comm_index2 = grp->node2int_node_comm_index2;
-  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
-  node2int_face_comm_index2 = grp->node2int_face_comm_index2;
-
-  /* Node Communicators */
-  /* Idx is used to store the external communicator cursor */
-  PMMG_CALLOC(parmesh,idx,parmesh->next_node_comm,int,"allocating idx",
-              ret_val = PMMG_FAILURE; goto fail_alloc7);
-
-  i = 0;
-  for ( k=1; k<=mesh->np; k++ ) {
-    if ( !mesh->point[k].tmp )
-      continue;
-
-    inIntComm = 0;
-    for ( j=0; j<nprocs; ++j ) {
-      pext_node_comm = &parmesh->ext_node_comm[shared_pt[j]];
-
-      if ( seen_shared_pt[nprocs*(k-1)+j] == 1 ) {
-        /* Add point in external communicator */
-        pext_node_comm->int_comm_index[idx[shared_pt[j]]++] = i;
-
-        if ( !inIntComm ) {
-          /* Add point in internal communicator */
-          inIntComm = 1;
-          node2int_node_comm_index1[i] = mesh->point[k].tmp;
-          node2int_node_comm_index2[i] = i;
-        }
-      }
-    }
-    /* Increment internal comm cursor */
-    if ( inIntComm )
-      ++i;
-  }
-  PMMG_DEL_MEM(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
-
-  /* Face Communicators */
-  /* Idx is used to store the external communicator cursor */
-  PMMG_CALLOC(parmesh,idx,parmesh->next_face_comm,int,"allocating idx",
-              ret_val = PMMG_FAILURE; goto fail_alloc7);
-
-  i = 0;
-  for ( k=1; k<=mesh->ne; k++ ) {
-    pt = &mesh->tetra[k];
-    if ( !MG_EOK(pt) ) continue;
-
-    rankCur = pt->mark;
-
-    for ( ifac=0; ifac<4; ifac++ ) {
-      kvois = mesh->adja[4*k-3+ifac]/4;
-
-      if ( (!kvois) || k>kvois ) continue;
-
-      rankVois = part[kvois-1];
-      if ( rankCur == rankVois ) continue;
-        ifacVois = mesh->adja[4*k-3+ifac]%4;
-
-      if ( rankCur == rank ) {
-        /* Add the elt k to communicators */
-        pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
-        pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
-
-        node2int_face_comm_index1[i] = 4*(pt->base-1) + ifac;
-        node2int_face_comm_index2[i] = i;
-        ++i;
-      }
-      else if ( rankVois == rank ) {
-        /* Add the elt kvois to communicators */
-        ifacVois = mesh->adja[4*k-3+ifac]%4;
-
-        pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
-        pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
-
-        node2int_face_comm_index1[i] = 4*(mesh->tetra[kvois].base-1)+ifacVois;
-        node2int_face_comm_index2[i] = i;
-        ++i;
-      }
-    }
-  }
-  PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
-  PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
-
-#warning NIKOS: I need some help with managing error handling here: am I consistently managing the communicator deallocations? are they in a consistent state if an error happens and this returns?
-  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,
-              "allocating int_node_comm",ret_val=PMMG_FAILURE;goto fail_alloc7);
-  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_int_comm,
-              "allocating int_face_comm",ret_val=PMMG_FAILURE;goto fail_alloc7);
-
-  /* We have 1 Grp per proc, thus : int_*_comm->nitem : nitem_int_*_comm */
-  parmesh->int_node_comm->nitem = nitem_int_node_comm;
-  parmesh->int_face_comm->nitem = nitem_int_face_comm;
+  /** Communicators creation */
+  if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
+    goto fail_alloc7;
 
   /** Compact tetrahedra on the proc */
-  if ( !PMMG_packTetra(mesh,rank) ) goto fail_alloc7;
+  if ( !PMMG_packTetra(mesh,rank) )
+    goto fail_alloc7;
 
   /** Mesh permutations */
   if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
