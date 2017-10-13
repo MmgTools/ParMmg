@@ -270,6 +270,179 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward the metis array containing the partitions.
+ * \param mesh pointer a MMG5 mesh structure.
+ * \param np  number of point inside the local mesh.
+ * \param nxp number of boundary points inside the local mesh.
+ * \param nxt number of boundary tetra inside the local mesh.
+ * \param pointPerm array of new point positions.
+ * \param xPointPerm array of new xPoint positions.
+ * \param xTetraPerm array of new xTetra positions.
+ * \param shared_pt  array of the number of points shared with each other procs.
+ * \param shared_face array of the number of faces shared with other procs.
+ * \param seen_shared_pt binary array that contains 1 if a point is shared with
+ * a given proc
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Mark the mesh entities that will stay on the processor, numbered it and
+ * create the permutation arrays to obtain the final mesh. Count and mark the
+ * nodes and faces shared with other processors.
+ *
+ */
+static inline
+int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
+                        int *np,int *nxp,int *nxt,
+                        int **pointPerm,int **xPointPerm,int **xTetraPerm,
+                        int **shared_pt,int **shared_face,
+                        int8_t **seen_shared_pt) {
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc;
+  int8_t       ifac;
+
+  ret_val = 1;
+
+  rank   = parmesh->myrank;
+  nprocs = parmesh->nprocs;
+
+  /** Remove the part of the mesh that are not on the proc rank */
+  (*shared_pt) = (*shared_face) = NULL;
+  PMMG_CALLOC(parmesh,(*shared_pt),nprocs,int,"shared_pt array",
+              ret_val = 0;goto fail_alloc1);
+  PMMG_CALLOC(parmesh,(*seen_shared_pt),nprocs*mesh->np,int8_t,"seen_shared_pt array",
+              ret_val = 0; goto fail_alloc2);
+  PMMG_CALLOC(parmesh,(*shared_face),nprocs,int,"shared_face array",
+              ret_val = PMMG_FAILURE;goto fail_alloc3);
+  PMMG_CALLOC(parmesh,(*pointPerm),mesh->np+1,int,"pointPerm",
+              ret_val = 0;goto fail_alloc4);
+  PMMG_CALLOC(parmesh,(*xTetraPerm),mesh->xtmax+1,int,"xTetraPerm",
+              ret_val = 0; goto fail_alloc5);
+  PMMG_CALLOC(parmesh,(*xPointPerm),mesh->xp+1,int,"xPointPerm",
+              ret_val = 0;goto fail_alloc6);
+
+  (*nxp) = 0;
+  (*nxt) = 0;
+  (*np)  = 0;
+
+  /* Reset the tmp field of points (it will be used to store the local index of
+   * the point on each proc) */
+  for ( k=1; k<=mesh->np; k++ )
+    mesh->point[k].tmp = 0;
+
+  /* Reset the base field of tetras (it will be used to store the local index of
+   * the tetra on each proc) */
+  mesh->base = 0;
+  for ( k=1; k<=mesh->ne; k++ )
+    mesh->tetra[k].base = 0;
+
+  /** Mark mesh entities that will stay on the proc and count the number of
+   * point that must be communicated to the other procs  */
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
+    pt->mark = part[k-1];
+
+    if ( pt->mark != rank )
+      continue;
+
+    pt->base = ++mesh->base;
+
+    for ( ifac=0; ifac<4; ifac++ ) {
+      kvois = mesh->adja[4*k-3+ifac]/4;
+
+      if ( kvois )
+        rankVois = part[kvois-1];
+      else
+        rankVois = rank;
+
+      /* Mark the interfaces between two procs */
+      if ( rank != rankVois ) {
+        ++(*shared_face)[rankVois];
+
+        if ( !pt->xt ) {
+          if ( (mesh->xt + 1) > mesh->xtmax ) {
+            /* realloc of xtetras table */
+            PMMG_RECALLOC(mesh,mesh->xtetra,1.2*mesh->xtmax+1,mesh->xtmax+1,int,
+                          "larger xtetra ",
+                          ret_val = 0;goto fail_alloc7);
+            PMMG_RECALLOC(parmesh,(*xTetraPerm),1.2*mesh->xtmax+1,mesh->xtmax+1,
+                          int,"larger tetra permutation table ",
+                          ret_val = 0; goto fail_alloc7);
+            mesh->xtmax = 1.2 * mesh->xtmax;
+          }
+          ++mesh->xt;
+          pt->xt = mesh->xt;
+        }
+        pxt = &mesh->xtetra[pt->xt];
+        /* Parallel face */
+        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+
+        /* Parallel edges */
+        for ( j=0; j<3; ++j )
+          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+      }
+
+      for ( j=0; j<3; ++j ) {
+        iploc = _MMG5_idir[ifac][j];
+        ip    = pt->v[iploc];
+        ppt   = &mesh->point[ip];
+
+        /* Count (and mark) each point that will be shared between me and the
+         * proc rankVois */
+        if ( rankVois != rank && !(*seen_shared_pt)[nprocs*(ip-1)+rankVois] ) {
+          (*seen_shared_pt)[nprocs*(ip-1)+rankVois] = 1;
+          ++(*shared_pt)[rankVois];
+
+          /* Mark parallel vertex */
+          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        }
+
+        if ( !ppt->tmp ) {
+          /* Mark the new point index and update the table of permutation */
+          ppt->tmp         = ++(*np);
+          (*pointPerm)[ip] = (*np);
+
+          /* update the table of permutation for xPoint if needed */
+          if ( ppt->xp ) {
+            (*xPointPerm)[ppt->xp] = ++(*nxp);
+            ppt->xp                = (*nxp);
+          }
+        }
+      }
+    }
+
+    /* update the table of permutation for xTetra if needed */
+    if ( !pt->xt )
+      continue;
+
+    (*xTetraPerm)[pt->xt] = ++(*nxt);
+    pt->xt = (*nxt);
+  }
+
+fail_alloc1:
+  return ret_val;
+
+fail_alloc7:
+  PMMG_DEL_MEM(parmesh,*xPointPerm,mesh->xp+1,int,"deallocate xPointPerm");
+fail_alloc6:
+  PMMG_DEL_MEM(parmesh,*xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
+fail_alloc5:
+  PMMG_DEL_MEM(parmesh,*pointPerm,mesh->np+1,int,"deallocate pointPerm");
+fail_alloc4:
+  PMMG_DEL_MEM(parmesh,*shared_face,nprocs,int,"deallocate shared_face");
+fail_alloc3:
+  PMMG_DEL_MEM(parmesh,*seen_shared_pt,nprocs*mesh->np,int8_t,
+               "deallocate seen_shared_pt");
+fail_alloc2:
+  PMMG_DEL_MEM(parmesh,*shared_pt,nprocs,int,"deallocate shared_pt");
+  return ret_val;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
  * \param shared_pt pointer toward the array of the number of points shared
  * with each other procs.
  * \param shared_face pointer toward the array of the number of faces shared
@@ -278,7 +451,11 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
  *
  * \return 0 if fail, 1 if success
  *
- * Delete parts of the mesh not on the processor.
+ * Create the face and node communicators when distributing a mesh over multiple
+ * processors
+ *
+ * \warning the parmesh structure must contains only 1 group.
+ *
  */
 static inline
 int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
@@ -512,13 +689,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
   MMG5_pSol      met = NULL;
-  MMG5_pTetra    pt = NULL;
-  MMG5_pxTetra   pxt = NULL;
-  MMG5_pPoint    ppt = NULL;
   idx_t          *part = NULL;
-  int            nprocs = 0 ,rank = 0, np = 0, nxt = 0, nxp = 0;
-  int            ip = 0, iploc = 0, ifac = 0,j = 0, k = 0;
-  int            kvois = 0, rankVois;
+  int            nprocs,rank,np,nxt,nxp;
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
@@ -538,7 +710,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
 
-#warning Perhaps I could change this 0 to be user configurable (via PMMG_distributeMesh function argument)
   if ( (!parmesh->myrank) && nprocs > 1 ) {
     if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
          != PMMG_SUCCESS ) {
@@ -556,134 +727,26 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     goto fail_alloc1;
   }
 
+  /** Send the partition data to the other procs */
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
-  /** Remove the part of the mesh that are not on the proc rank */
-  shared_pt = shared_face = NULL;
-  PMMG_CALLOC(parmesh,shared_pt,nprocs,int,"shared_pt array",
-              ret_val = PMMG_FAILURE;goto fail_alloc1);
-  PMMG_CALLOC(parmesh,seen_shared_pt,nprocs*mesh->np,int8_t,"seen_shared_pt array",
-              ret_val = PMMG_FAILURE; goto fail_alloc2);
-  PMMG_CALLOC(parmesh,shared_face,nprocs,int,"shared_face array",
-              ret_val = PMMG_FAILURE;goto fail_alloc3);
-  PMMG_CALLOC(parmesh,pointPerm,mesh->np+1,int,"dist mesh buffer2",
-              ret_val = PMMG_FAILURE;goto fail_alloc4);
-  PMMG_CALLOC(parmesh,xTetraPerm,mesh->xtmax+1,int,"dist mesh buffer3",
-              ret_val = PMMG_FAILURE; goto fail_alloc5);
-  PMMG_CALLOC(parmesh,xPointPerm,mesh->xp+1,int,"dist mesh buffer4",
-              ret_val = PMMG_FAILURE;goto fail_alloc6);
-
-  nxp = 0;
-  nxt = 0;
-  np  = 0;
-
-  /* Reset the tmp field of points (it will be used to store the local index of
-   * the point on each proc) */
-  for ( k=1; k<=mesh->np; k++ )
-    mesh->point[k].tmp = 0;
-
-  /* Reset the base field of tetras (it will be used to store the local index of
-   * the tetra on each proc) */
-  mesh->base = 0;
-  for ( k=1; k<=mesh->ne; k++ )
-    mesh->tetra[k].base = 0;
-
-  /** Mark mesh entities that will stay on the proc and count the number of
-   * point that must be communicated to the other procs  */
-  for ( k=1; k<=mesh->ne; k++ ) {
-    pt = &mesh->tetra[k];
-    if ( !MG_EOK(pt) ) continue;
-
-    pt->mark = part[k-1];
-
-    if ( pt->mark != rank )
-      continue;
-
-    pt->base = ++mesh->base;
-
-    for ( ifac=0; ifac<4; ifac++ ) {
-      kvois = mesh->adja[4*k-3+ifac]/4;
-
-      if ( kvois )
-        rankVois = part[kvois-1];
-      else
-        rankVois = rank;
-
-      /* Mark the interfaces between two procs */
-      if ( rank != rankVois ) {
-        ++shared_face[rankVois];
-
-        if ( !pt->xt ) {
-          if ( (mesh->xt + 1) > mesh->xtmax ) {
-            /* realloc of xtetras table */
-            PMMG_RECALLOC(mesh,mesh->xtetra,1.2*mesh->xtmax+1,mesh->xtmax+1,int,
-                          "larger xtetra ",
-                          ret_val = PMMG_FAILURE;goto fail_alloc7);
-            PMMG_RECALLOC(parmesh,xTetraPerm,1.2*mesh->xtmax+1,mesh->xtmax+1,
-                          int,"larger tetra permutation table ",
-                          ret_val = PMMG_FAILURE; goto fail_alloc7);
-            mesh->xtmax = 1.2 * mesh->xtmax;
-          }
-          ++mesh->xt;
-          pt->xt = mesh->xt;
-        }
-        pxt = &mesh->xtetra[pt->xt];
-        /* Parallel face */
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-
-        /* Parallel edges */
-        for ( j=0; j<3; ++j )
-          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-      }
-
-      for ( j=0; j<3; ++j ) {
-        iploc = _MMG5_idir[ifac][j];
-        ip    = pt->v[iploc];
-        ppt   = &mesh->point[ip];
-
-        /* Count (and mark) each point that will be shared between me and the
-         * proc rankVois */
-        if ( rankVois != rank && !seen_shared_pt[nprocs*(ip-1)+rankVois] ) {
-          seen_shared_pt[nprocs*(ip-1)+rankVois] = 1;
-          ++shared_pt[rankVois];
-
-          /* Mark parallel vertex */
-          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-        }
-
-        if ( !ppt->tmp ) {
-          /* Mark the new point index and update the table of permutation */
-          ppt->tmp = ++np;
-          pointPerm[ip] = np;
-
-          /* update the table of permutation for xPoint if needed */
-          if ( ppt->xp ) {
-            xPointPerm[ppt->xp] = ++nxp;
-            ppt->xp             = nxp;
-          }
-        }
-      }
-    }
-
-    /* update the table of permutation for xTetra if needed */
-    if ( !pt->xt )
-      continue;
-
-    xTetraPerm[pt->xt] = ++nxt;
-    pt->xt = nxt;
-  }
+  /** Mark the mesh to detect entities that will stay on the proc as well as
+   * shared entites with the other procs */
+  if ( !PMMG_mark_localMesh(parmesh,part,mesh,&np,&nxp,&nxt,&pointPerm,
+                            &xPointPerm,&xTetraPerm,&shared_pt,&shared_face,
+                            &seen_shared_pt) ) goto fail_alloc2;
 
   /** Communicators creation */
   if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
-    goto fail_alloc7;
+    goto fail_alloc2;
 
   /** Compact tetrahedra on the proc */
   if ( !PMMG_packTetra(mesh,rank) )
-    goto fail_alloc7;
+    goto fail_alloc2;
 
   /** Mesh permutations */
   if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
-    goto fail_alloc7;
+    goto fail_alloc2;
 
   mesh->np = np;
   met->np  = np;
@@ -693,13 +756,13 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   /** Update xtetra edge tags */
   if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
     ret_val = PMMG_FAILURE;
-    goto fail_alloc7;
+    goto fail_alloc2;
   }
 
   /** Adjacency reconstruction */
-  if ( !MMG3D_hashTetra( parmesh->listgrp[0].mesh, 0 ) ) {
+  if ( !MMG3D_hashTetra( mesh, 0 ) ) {
     ret_val = PMMG_FAILURE;
-    goto fail_alloc7;
+    goto fail_alloc2;
   }
 
 //  if ( parmesh->ddebug ) {
@@ -708,21 +771,16 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 //      PMMG_saveSol( parmesh, filename );
 //  }
 
-fail_alloc7:
+fail_alloc2:
   PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
-fail_alloc6:
-  PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate metis buffer4");
-fail_alloc5:
-  PMMG_DEL_MEM(parmesh,pointPerm,mesh->np+1,int,"deallocate metis buffer3");
-fail_alloc4:
+  PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
+  PMMG_DEL_MEM(parmesh,pointPerm,mesh->np+1,int,"deallocate pointPerm");
   PMMG_DEL_MEM(parmesh,shared_face,nprocs,int,"deallocate shared_face");
-fail_alloc3:
   PMMG_DEL_MEM(parmesh,seen_shared_pt,nprocs*mesh->np,int8_t,
                "deallocate seen_shared_pt");
-fail_alloc2:
   PMMG_DEL_MEM(parmesh,shared_pt,nprocs,int,"deallocate shared_pt");
 fail_alloc1:
-  PMMG_DEL_MEM(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer0");
+  PMMG_DEL_MEM(parmesh,part,mesh->ne,idx_t,"deallocate metis buffer");
 fail_alloc0:
   return ret_val;
 }
