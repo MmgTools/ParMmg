@@ -169,7 +169,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
   MMG5_pPoint  ppt;
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
-  long long int memMeshTotal = 0;
   /** remember meshOld->ne to correctly free the metis buffer */
   int meshOld_ne = 0;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
@@ -178,7 +177,6 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
 
   idx_t ngrp = 1;
   idx_t *part = NULL;
-  int ier, j;
 
   // counters for tetra, point, while constructing a subgroup
   int tetPerGrp = 0;
@@ -186,6 +184,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
   int *adja = NULL;
   int vindex = 0;
   int adjidx = 0;
+  int j;
 
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;

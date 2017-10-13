@@ -210,8 +210,7 @@ int PMMG_packTetra(MMG5_pMesh mesh, int rank) {
   for ( k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
 
-    if ( (!MG_EOK(pt)) || (pt->mark != rank) )
-      continue;
+    if ( (!MG_EOK(pt)) || (pt->mark != rank) ) continue;
 
     pt->v[0] = mesh->point[pt->v[0]].tmp;
     pt->v[1] = mesh->point[pt->v[1]].tmp;
@@ -343,15 +342,12 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
     if ( !MG_EOK(pt) ) continue;
 
     pt->mark = part[k-1];
-
-    if ( pt->mark != rank )
-      continue;
+    if ( pt->mark != rank ) continue;
 
     pt->base = ++mesh->base;
 
     for ( ifac=0; ifac<4; ifac++ ) {
       kvois = mesh->adja[4*k-3+ifac]/4;
-
       if ( kvois )
         rankVois = part[kvois-1];
       else
@@ -360,7 +356,6 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
       /* Mark the interfaces between two procs */
       if ( rank != rankVois ) {
         ++(*shared_face)[rankVois];
-
         if ( !pt->xt ) {
           if ( (mesh->xt + 1) > mesh->xtmax ) {
             /* realloc of xtetras table */
@@ -414,8 +409,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
     }
 
     /* update the table of permutation for xTetra if needed */
-    if ( !pt->xt )
-      continue;
+    if ( !pt->xt ) continue;
 
     (*xTetraPerm)[pt->xt] = ++(*nxt);
     pt->xt = (*nxt);
@@ -475,25 +469,19 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
-
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
 
   /** Count the number of external node/face communicators and initialize it */
   next_node_comm = next_face_comm = 0;
   for ( k=0; k<nprocs; ++k ) {
-    if ( shared_pt[k] ) {
-      ++next_node_comm;
-    }
-    if ( shared_face[k] ) {
-      ++next_face_comm;
-    }
+    if ( shared_pt[k] )   ++next_node_comm;
+    if ( shared_face[k] ) ++next_face_comm;
   }
 
   PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
               "allocate ext_node_comm ",return 0);
   parmesh->next_node_comm = next_node_comm;
-
   PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_ext_comm,
               "allocate ext_face_comm ",return 0);
   parmesh->next_face_comm = next_face_comm;
@@ -502,9 +490,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   /* Internal node comm */
   nitem_int_node_comm = 0;
   for ( k=1; k<=mesh->np; k++ ) {
-
-    if ( !mesh->point[k].tmp )
-      continue;
+    if ( !mesh->point[k].tmp )  continue;
 
     for ( j=0; j<nprocs; ++j ) {
       if ( seen_shared_pt[nprocs*(k-1)+j] ) {
@@ -513,7 +499,6 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
       }
     }
   }
-
   /* Internal face comm */
   nitem_int_face_comm = 0;
   for ( k=0; k<parmesh->nprocs; k++ ) {
@@ -592,8 +577,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
   i = 0;
   for ( k=1; k<=mesh->np; k++ ) {
-    if ( !mesh->point[k].tmp )
-      continue;
+    if ( !mesh->point[k].tmp ) continue;
 
     inIntComm = 0;
     for ( j=0; j<nprocs; ++j ) {
@@ -630,12 +614,10 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
     for ( ifac=0; ifac<4; ifac++ ) {
       kvois = mesh->adja[4*k-3+ifac]/4;
-
       if ( (!kvois) || k>kvois ) continue;
 
       rankVois = part[kvois-1];
       if ( rankCur == rankVois ) continue;
-        ifacVois = mesh->adja[4*k-3+ifac]%4;
 
       if ( rankCur == rank ) {
         /* Add the elt k to communicators */
@@ -662,7 +644,6 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
   PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
 
-#warning NIKOS: I need some help with managing error handling here: am I consistently managing the communicator deallocations? are they in a consistent state if an error happens and this returns?
   PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,
               "allocating int_node_comm",return 0);
   PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_int_comm,
@@ -755,7 +736,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   /** Call metis for partionning*/
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val = PMMG_FAILURE;goto fail_alloc0);
-
   if ( (!parmesh->myrank) && nprocs > 1 ) {
     if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
          != PMMG_SUCCESS ) {
@@ -774,7 +754,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
            __func__,IDXTYPEWIDTH);
     goto fail_alloc1;
   }
-
   MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
