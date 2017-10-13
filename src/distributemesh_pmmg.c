@@ -201,7 +201,7 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
  *
  */
 static inline
-PMMG_packTetra(MMG5_pMesh mesh, int rank) {
+int PMMG_packTetra(MMG5_pMesh mesh, int rank) {
   MMG5_pTetra pt,ptnew;
   int         ne,nbl,k;
 
@@ -227,6 +227,42 @@ PMMG_packTetra(MMG5_pMesh mesh, int rank) {
     ++nbl;
   }
   mesh->ne = ne;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward a MMG5 mesh structure
+ * \param met pointer toward a MMG5 solution structure
+ * \param pointPerm array of new point positions
+ * \param xPointPerm array of new xPoint positions
+ * \param xTetraPerm array of new xTetra positions
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Permute the point and boundary entities with respect to the provided
+ * permutation arrays
+ *
+ */
+static inline
+int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
+                     int *pointPerm,int *xPointPerm,int *xTetraPerm) {
+  int k;
+
+  /** Compact xtetra on the proc: in place permutations */
+  for ( k=1; k<=mesh->xt; ++k )
+    while ( xTetraPerm[k] != k && xTetraPerm[k] )
+      swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
+
+  /** Compact vertices on the proc: in place permutations */
+  for ( k=1; k<=mesh->np; ++k )
+    while ( pointPerm[k] != k && pointPerm[k] )
+      swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
+
+  /** Compact xpoint on the proc: in place permutations */
+  for ( k=1; k<=mesh->xp; ++k )
+    while ( xPointPerm[k] != k && xPointPerm[k] )
+      swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
 
   return 1;
 }
@@ -617,24 +653,14 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   /** Compact tetrahedra on the proc */
   if ( !PMMG_packTetra(mesh,rank) ) goto fail_alloc7;
 
-  /** Compact xtetra on the proc: in place permutations */
-  for ( k=1; k<=mesh->xt; ++k )
-    while ( xTetraPerm[k] != k && xTetraPerm[k] )
-      swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
-  mesh->xt = nxt;
+  /** Mesh permutations */
+  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
+    goto fail_alloc7;
 
-  /** Compact vertices on the proc: in place permutations */
-  for ( k=1; k<=mesh->np; ++k )
-    while ( pointPerm[k] != k && pointPerm[k] )
-      swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
   mesh->np = np;
-  met->np = np;
-
-  /** Compact xpoint on the proc: in place permutations */
-  for ( k=1; k<=mesh->xp; ++k )
-    while ( xPointPerm[k] != k && xPointPerm[k] )
-      swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
+  met->np  = np;
   mesh->xp = nxp;
+  mesh->xt = nxt;
 
   /** Update xtetra edge tags */
   if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) {
@@ -642,9 +668,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
     goto fail_alloc7;
   }
 
-
   /** Adjacency reconstruction */
-  if ( 1 != MMG3D_hashTetra( parmesh->listgrp[0].mesh, 0 ) ) {
+  if ( !MMG3D_hashTetra( parmesh->listgrp[0].mesh, 0 ) ) {
     ret_val = PMMG_FAILURE;
     goto fail_alloc7;
   }
