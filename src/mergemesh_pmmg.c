@@ -35,52 +35,42 @@ int PMMG_merge_mesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
     mesh = parmesh->listgrp[imsh].mesh;
     met  = parmesh->listgrp[imsh].met;
 
-    /* Loop over points and add the ones that are not already in the merdeg
+    /** Loop over points and add the ones that are not already in the merdeg
      * mesh (mesh0) */
     for ( k=1; k<=mesh->np; k++ ) {
       ppt = &mesh->point[k];
+      if ( ppt->tmp ) continue;
 
-      if ( !ppt->tmp ) {
-        ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
-        if ( !ip ) {
-          /* reallocation of point table */
-#warning NIKOS: The correct law to pass to _MMG5_POINT_REALLOC is the commented code:
-//                              PMMG_DEL_MEM(parmesh,
-//                                           intvalues,int_node_comm->nitem+1,int,
-//                                           "freeing temp buffer",
-//                                           return PMMG_FAILURE),
-          _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
-                              printf("  ## Error: unable to merge group points\n");
-                              _MMG5_INCREASE_MEM_MESSAGE();
-                              return 0;,
-                              ppt->c,ppt->tag,0);
-        }
-        ppt->tmp = ip;
-        /* Add xpoint if needed */
-        if ( ppt->xp ) {
-#warning add only the "true" xtetras (not those linked to the interfaces)
-          pxp  = &mesh->xpoint[ppt->xp];
-          ppt0 = &mesh0->point[ip];
-          pxp0 = &mesh0->xpoint[ppt0->xp];
-          memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
-        }
-        if ( met0->m ) {
-          assert(met->m);
-          memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
-        }
+      ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
+      if ( !ip ) {
+        /* reallocation of point table */
+        _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
+                            printf("  ## Error: unable to merge group points\n");
+                            _MMG5_INCREASE_MEM_MESSAGE();
+                            return 0;,
+                            ppt->c,ppt->tag,0);
+      }
+      ppt->tmp = ip;
+
+      /* Add xpoint if needed */
+      if ( ppt->xp ) {
+#warning add only the "true" xpoints (not those linked to the interfaces)
+        pxp  = &mesh->xpoint[ppt->xp];
+        ppt0 = &mesh0->point[ip];
+        pxp0 = &mesh0->xpoint[ppt0->xp];
+        memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
+      }
+      if ( met0->m ) {
+        assert(met->m);
+        memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
       }
     }
 
-    /* Add current meshs' tetras to the merged mesh (mesh0) */
+    /** Add current meshs' tetras to the merged mesh (mesh0) */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt  = &mesh->tetra[k];
       ie  = _MMG3D_newElt(mesh0);
       if ( !ie ) {
-#warning NIKOS: The correct law to pass to _MMG5_TETRA_REALLOC is the commented code:
-//                            PMMG_DEL_MEM(parmesh,
-//                                         intvalues,int_node_comm->nitem,int,
-//                                         "freeing temp buffer",
-//                                         return PMMG_FAILURE),
         _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
                             fprintf(stderr,"  ## Error: unable to merge group elts.\n");
                             _MMG5_INCREASE_MEM_MESSAGE();
@@ -89,11 +79,10 @@ int PMMG_merge_mesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
       }
       pt0 = &mesh0->tetra[ie];
 
-      for ( i=0; i<4; ++i )
-        pt0->v[i] = mesh->point[pt->v[i]].tmp;
+      for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
       pt0->ref = pt->ref;
 
-#warning add adjacency update
+#warning need to update the adjacents?
 
       /* Add xtetra if needed */
       if ( pt->xt ) {
