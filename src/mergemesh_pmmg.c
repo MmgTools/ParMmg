@@ -358,8 +358,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   /** Update the communicators */
   if ( !PMMG_merge_communicators(parmesh) ) goto fail_ncomm;
 
-#warning NIKOS: REPLACE THIS WITH PMMG. THIS CAUSES A VALGRIND ERROR THAT I HAVNET YET UNDERSTOOD. I GUESS IT WILL BE FIXED BY REWRITTING THE ALLOCATIONS IN MERGEMESH/SPLITGRP
-  //  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
+  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
+  parmesh->listgrp = grp;
 
   parmesh->ngrp = 1;
   return PMMG_SUCCESS;
