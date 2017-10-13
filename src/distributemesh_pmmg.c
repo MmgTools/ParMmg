@@ -453,7 +453,7 @@ fail_alloc2:
  */
 static inline
 int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
-                             int *shared_face,int8_t *seen_shared_pt) {
+                              int *shared_face,int8_t *seen_shared_pt) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;

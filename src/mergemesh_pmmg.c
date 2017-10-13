@@ -134,6 +134,8 @@ int PMMG_merge_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0)
   MMG5_pxPoint   pxp0,pxp;
   int            np,ip,ie,imsh,k,i;
 
+  /** Use the internal communicator buffer (intvalues) to remember the
+   * location in the merged mesh of all the interface points */
   np = mesh0->np;
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = parmesh->listgrp[imsh].mesh;
@@ -214,21 +216,8 @@ int PMMG_merge_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0)
   return 1;
 }
 
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \return
- *         PMMG_FAILURE
- *         PMMG_SUCCESS
- *
- * Merge all meshes (mesh elements + internal communicator) of a group into the
- * first mesh of the group
- *
- * \remark not yet tested
- *
- * \warning the groups meshes must be packed.
- */
-int PMMG_mergeGrps( PMMG_pParMesh parmesh )
-{
+static inline
+int PMMG_merge_communicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0;
   MMG5_pSol      met0;
@@ -241,43 +230,26 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   int            poi_id_int,poi_id_glo,idx,k,i,ip;
   int            new_nitem_int_node_comm;
 
-  if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
-
   grp  = parmesh->listgrp;
 
-  /* Use parmesh internal communicator buffer (intvalues) to remember the
-   * location in the merged mesh of all the interface points */
   int_node_comm              = parmesh->int_node_comm;
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem + 1,int,
-              "node communicator",return PMMG_FAILURE);
-
   intvalues                  = int_node_comm->intvalues;
-
   mesh0                      = grp[0].mesh;
   met0                       = grp[0].met;
   nitem_int_node_comm0       = grp[0].nitem_int_node_comm;
   node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
   node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
 
-//DEBUGGING: saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "BeforeMergeGrp" );
-
-  /** First step: Merge interface points from all meshes into mesh0->points */
-  if ( !PMMG_merge_sharedPoints(parmesh,mesh0,met0) ) goto fail_ncomm;
-
-  /* Second step: merge internal points and tetras of all meshes into mesh0 */
-  if ( !PMMG_merge_insideMesh(parmesh,mesh0,met0) ) goto fail_ncomm;
-
-  /** Update the communicators */
-  /* Reset the tmp field of the point: it will be used to store the position of
+  /** Reset the tmp field of the point: it will be used to store the position of
    * a point in the internal communicator */
   for ( k=1; k<=mesh0->np; k++ )
     mesh0->point[k].tmp = 0;
 
-  /* Travel through the external communicators and udpate all the communicators */
+  /** Travel through the external communicators and udpate all the communicators */
   poi_id_int = 0;
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
 
-    // currently working external communicator
+    /* currently working external communicator */
     ext_node_comm = &parmesh->ext_node_comm[k];
 
     poi_id_glo = 0;
@@ -295,13 +267,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
                        grp[0].nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index1",
                        grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
-                       goto fail_ncomm);
+                       return 0);
           PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,
                        new_nitem_int_node_comm,
                        grp[0].nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index2",
                        grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
-                       goto fail_ncomm);
+                       return 0);
           grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
           node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
           node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
@@ -325,26 +297,69 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
     assert(poi_id_glo==ext_node_comm->nitem);
     PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index, poi_id_glo,
                  ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
-                 ext_node_comm->nitem = poi_id_glo;goto fail_ncomm);
+                 ext_node_comm->nitem = poi_id_glo;return 0);
     ext_node_comm->nitem = poi_id_glo;
   }
 
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
-               grp[0].nitem_int_node_comm,int,"(mergeGrps) node2int_node_comm_index1",
-               goto fail_ncomm);
+               grp[0].nitem_int_node_comm,int,
+               "(mergeGrps) node2int_node_comm_index1",return 0);
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,poi_id_int,
-               grp[0].nitem_int_node_comm,int,"(mergeGrps) node2int_node_comm_index2",
-               goto fail_ncomm);
-  int_node_comm->nitem       = poi_id_int;
+               grp[0].nitem_int_node_comm,int,
+               "(mergeGrps) node2int_node_comm_index2",return 0);
   grp[0].nitem_int_node_comm = poi_id_int;
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+               "free int_node_comm intvalues");
+  int_node_comm->nitem       = poi_id_int;
 
-  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,parmesh->int_node_comm->nitem,
-            int,"release int_n_comm intvalues");
+  return 1;
+}
 
-  parmesh->int_node_comm->nitem = poi_id_int;
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return
+ *         PMMG_FAILURE
+ *         PMMG_SUCCESS
+ *
+ * Merge all meshes (mesh elements + internal communicator) of a group into the
+ * first mesh of the group
+ *
+ * \remark not yet tested
+ *
+ * \warning the groups meshes must be packed.
+ */
+int PMMG_mergeGrps( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh0;
+  MMG5_pSol      met0;
+  PMMG_pint_comm int_node_comm;
+
+  if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
+
+  grp  = parmesh->listgrp;
+
+  int_node_comm              = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+              "node communicator",return PMMG_FAILURE);
+
+  mesh0                      = grp[0].mesh;
+  met0                       = grp[0].met;
+
+  //DEBUGGING:
+  //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
+
+  /** First step: Merge interface points from all meshes into mesh0->points */
+  if ( !PMMG_merge_sharedPoints(parmesh,mesh0,met0) ) goto fail_ncomm;
+
+  /** Second step: merge internal points and tetras of all meshes into mesh0 */
+  if ( !PMMG_merge_insideMesh(parmesh,mesh0,met0) ) goto fail_ncomm;
+
+  /** Update the communicators */
+  if ( !PMMG_merge_communicators(parmesh) ) goto fail_ncomm;
 
 #warning NIKOS: REPLACE THIS WITH PMMG. THIS CAUSES A VALGRIND ERROR THAT I HAVNET YET UNDERSTOOD. I GUESS IT WILL BE FIXED BY REWRITTING THE ALLOCATIONS IN MERGEMESH/SPLITGRP
-//  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
+  //  _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
 
   parmesh->ngrp = 1;
   return PMMG_SUCCESS;
