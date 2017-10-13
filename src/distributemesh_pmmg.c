@@ -191,6 +191,47 @@ int PMMG_bcastMesh( PMMG_pParMesh parmesh )
 }
 
 /**
+ * \param mesh pointer toward a MMG5 mesh structure
+ * \param rank MPI rank
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Pack the tetrahedra and remove those ones that are not on the processor (the
+ * proc index is stored in pt->mark).
+ *
+ */
+static inline
+PMMG_packTetra(MMG5_pMesh mesh, int rank) {
+  MMG5_pTetra pt,ptnew;
+  int         ne,nbl,k;
+
+  ne  = 0;
+  nbl = 1;
+  for ( k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+
+    if ( (!MG_EOK(pt)) || (pt->mark != rank) )
+      continue;
+
+    pt->v[0] = mesh->point[pt->v[0]].tmp;
+    pt->v[1] = mesh->point[pt->v[1]].tmp;
+    pt->v[2] = mesh->point[pt->v[2]].tmp;
+    pt->v[3] = mesh->point[pt->v[3]].tmp;
+
+    ++ne;
+
+    if ( k!=nbl ) {
+      ptnew = &mesh->tetra[nbl];
+      memcpy(ptnew,pt,sizeof(MMG5_Tetra));
+    }
+    ++nbl;
+  }
+  mesh->ne = ne;
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward an array of int containing the partitions.
  *
@@ -204,19 +245,19 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
   MMG5_pSol      met = NULL;
-  MMG5_pTetra    pt = NULL, ptnew = NULL;
+  MMG5_pTetra    pt = NULL;
   MMG5_pxTetra   pxt = NULL;
   MMG5_pPoint    ppt = NULL;
   PMMG_pext_comm pext_node_comm,pext_face_comm;
   idx_t          *part = NULL;
-  int            nprocs = 0 ,rank = 0, np = 0, ne = 0, nxt = 0, nxp = 0;
+  int            nprocs = 0 ,rank = 0, np = 0, nxt = 0, nxp = 0;
   int            ip = 0, iploc = 0, ifac = 0, i = 0, j = 0, k = 0, *idx = NULL;
   int            kvois = 0, rankCur,rankVois,ifacVois;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
   int            *node2int_face_comm_index1,*node2int_face_comm_index2;
   int            nitem_int_node_comm,nitem_int_face_comm;
   int            next_node_comm,next_face_comm;
-  int            inIntComm = 0, nbl = 0;
+  int            inIntComm = 0;
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
@@ -273,7 +314,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   nxp = 0;
   nxt = 0;
   np  = 0;
-  ne  = 0;
   nitem_int_node_comm = 0;
 
   /* Reset the tmp field of points (it will be used to store the local index of
@@ -291,6 +331,8 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
    * point that must be communicated to the other procs  */
   for ( k=1; k<=mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
     pt->mark = part[k-1];
 
     if ( pt->mark != rank )
@@ -361,10 +403,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
         }
       }
     }
-
-    /* Update the table of permutation of the Tetra and the tetra vertices indices */
-    for ( j=0; j<4; ++j )
-      pt->v[j] = mesh->point[pt->v[j]].tmp;
 
     /* update the table of permutation for xTetra if needed */
     if ( !pt->xt )
@@ -528,7 +566,6 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   i = 0;
   for ( k=1; k<=mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
-
     if ( !MG_EOK(pt) ) continue;
 
     rankCur = pt->mark;
@@ -578,24 +615,9 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   parmesh->int_face_comm->nitem = nitem_int_face_comm;
 
   /** Compact tetrahedra on the proc */
-  ne  = 0;
-  nbl = 1;
-  for ( k=1; k<=mesh->ne; k++) {
-    pt = &mesh->tetra[k];
+  if ( !PMMG_packTetra(mesh,rank) ) goto fail_alloc7;
 
-    if ( pt->mark != rank )
-      continue;
-    ++ne;
-
-    if ( k!=nbl ) {
-      ptnew = &mesh->tetra[nbl];
-      memcpy(ptnew,pt,sizeof(MMG5_Tetra));
-    }
-    ++nbl;
-  }
-  mesh->ne = ne;
-
-  /** Compact xtetra on the proc */
+  /** Compact xtetra on the proc: in place permutations */
   for ( k=1; k<=mesh->xt; ++k )
     while ( xTetraPerm[k] != k && xTetraPerm[k] )
       swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
