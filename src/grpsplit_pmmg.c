@@ -475,8 +475,8 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
 
           if ( buildFaceComm ) {
             /* Build the internal communicator for the boundary faces */
-            if ( n2incAppend( parmesh, grpCur, &n2ifc_max,4*(tet-1)+fac,
-                               grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
+            if ( n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*(tet-1)+fac,
+                              grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
