@@ -328,7 +328,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        it, i;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh,REMESHER_TARGET_MESH_SIZE,1 ) )
+  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");

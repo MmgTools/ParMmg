@@ -24,7 +24,7 @@
  *  elements from a group of nelem elements.
  *
  */
-static int howManyGroups ( const int nelem, const int target_mesh_size )
+static int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
 {
   int ngrp = nelem / target_mesh_size;
 
@@ -45,7 +45,7 @@ static int howManyGroups ( const int nelem, const int target_mesh_size )
  *  Append a tetraedron to the mesh, increasing the array if the allocated
  *  array is not big enough.
  */
-static int xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
+static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
 {
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
@@ -59,6 +59,7 @@ static int xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
           &from->xtetra[ from->tetra[ location ].xt ], sizeof(MMG5_xTetra) );
   return PMMG_SUCCESS;
 }
+
 /**
  * \param to       mesh to copy xpoint item to
  * \param from     mesh to copy xpoint item from
@@ -68,7 +69,7 @@ static int xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
  *  Append a point in the point list, increasing the array if the allocated
  *  array is not big enough.
  */
-static int xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int point )
+static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int point )
 {
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
@@ -92,7 +93,7 @@ static int xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int po
  *  Append new values in  group's internal communitor, resizing the buffers if
  *  required
  */
-static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1, int idx2 )
+static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1, int idx2 )
 {
   assert( (max != 0) && "null pointer passed" );
   // Adjust the value of scale to reallocate memory more or less agressively
@@ -121,7 +122,7 @@ static int n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1
  *  Append new values in face internal communitor, resizing the buffers if
  *  required
  */
-static int n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
+static int PMMG_n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                         int idx1, int idx2 )
 {
   assert( (max != 0) && "null pointer passed" );
@@ -149,7 +150,6 @@ static int n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param target_mesh_size wanted number of elements per group
- * \param buildFacecomm build face communicator if 1
  *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
@@ -157,7 +157,7 @@ static int n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * if the existing group of only one mesh is too big, split it into into several
  * meshes.
  */
-int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm)
+int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -195,7 +195,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
-  ngrp = howManyGroups( meshOld->ne,target_mesh_size );
+  ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
   // Does the group need to be further subdivided to subgroups or not?
   if ( ngrp == 1 )  {
     fprintf( stdout,
@@ -319,15 +319,13 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
             meshCur->nemax, meshCur->adja,
             n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
 
-    if ( buildFaceComm ){
-      n2ifc_max = meshCur->xtmax;
-      PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index1,n2ifc_max,int,
-                  "node2int_face_comm_index1 communicator",ret_val = PMMG_FAILURE;
-                  goto fail_sgrp);
-      PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index2,n2ifc_max,int,
-                  "node2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
-                  goto fail_sgrp);
-    }
+    n2ifc_max = meshCur->xtmax;
+    PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index1,n2ifc_max,int,
+                "node2int_face_comm_index1 communicator",ret_val = PMMG_FAILURE;
+                goto fail_sgrp);
+    PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index2,n2ifc_max,int,
+                "node2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
+                goto fail_sgrp);
   }
 
   // use point[].tmp field to "remember" index in internal communicator of
@@ -378,7 +376,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
 #warning NIKOS TODO: there are also cases where we have to update existing boundaries, eg when boundary tetras are also interfaced with new groups
       // xTetra: this element was already an xtetra (in meshOld)
       if ( tetraCur->xt != 0 ) {
-        if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
+        if ( PMMG_SUCCESS != PMMG_xtetraAppend( meshCur, meshOld, tet ) ) {
           ret_val = PMMG_FAILURE;
           goto fail_sgrp;
         }
@@ -415,7 +413,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
           // Add point in subgroup's communicator if it already was in group's
           // communicator
           if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
-            if (  n2incAppend( parmesh, grpCur, &n2inc_max,
+            if (  PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
                                poiPerGrp, meshCur->point[ poiPerGrp ].tmp )
                 != PMMG_SUCCESS ) {
               ret_val = PMMG_FAILURE;
@@ -424,7 +422,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
           }
           // xPoints: this was already a boundary point
           if ( meshCur->point[poiPerGrp].xp != 0 ) {
-            if ( PMMG_SUCCESS != xpointAppend( meshCur, meshOld, tet, poi ) ) {
+            if ( PMMG_SUCCESS != PMMG_xpointAppend( meshCur, meshOld, tet, poi ) ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
@@ -462,7 +460,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
 
           /* creation of the interface faces : ref 0 and tag MG_PARBDY */
           if( !meshCur->tetra[tetPerGrp].xt ) {
-            if ( PMMG_SUCCESS != xtetraAppend( meshCur, meshOld, tet ) ) {
+            if ( PMMG_SUCCESS != PMMG_xtetraAppend( meshCur, meshOld, tet ) ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
@@ -472,13 +470,11 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
           pxt->ref[fac] = 0;
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
-          if ( buildFaceComm ) {
-            /* Build the internal communicator for the boundary faces */
-            if ( n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*(tet-1)+fac,
-                              grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
+          /* Build the internal communicator for the boundary faces */
+          if ( PMMG_n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*(tet-1)+fac,
+                                 grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
+            ret_val = PMMG_FAILURE;
+            goto fail_sgrp;
           }
 
           for ( j=0; j<3; ++j ) {
@@ -510,7 +506,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size,int buildFaceComm
           for ( poi = 0; poi < 3; ++poi ) {
             if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
 
-              if (   n2incAppend( parmesh, grpCur, &n2inc_max,
+              if (   PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
                                   tetraCur->v[ _MMG5_idir[fac][poi] ],
                                   parmesh->int_node_comm->nitem + 1 )
                   != PMMG_SUCCESS ) {
