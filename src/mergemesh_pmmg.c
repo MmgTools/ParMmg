@@ -22,7 +22,8 @@ static inline
  * communicator) into the mesh0 mesh.
  *
  */
-int PMMG_merge_sharedPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
+int PMMG_mergeGrps_sharedPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
+                                MMG5_pSol met0) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
@@ -125,7 +126,7 @@ int PMMG_merge_sharedPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met
  *
  */
 static inline
-int PMMG_merge_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
+int PMMG_mergeGrps_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
   MMG5_pTetra    pt0,pt;
@@ -217,7 +218,7 @@ int PMMG_merge_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0)
 }
 
 static inline
-int PMMG_merge_communicators(PMMG_pParMesh parmesh) {
+int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0;
   MMG5_pSol      met0;
@@ -350,13 +351,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
   /** First step: Merge interface points from all meshes into mesh0->points */
-  if ( !PMMG_merge_sharedPoints(parmesh,mesh0,met0) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_sharedPoints(parmesh,mesh0,met0) ) goto fail_ncomm;
 
   /** Second step: merge internal points and tetras of all meshes into mesh0 */
-  if ( !PMMG_merge_insideMesh(parmesh,mesh0,met0) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_insideMesh(parmesh,mesh0,met0) ) goto fail_ncomm;
 
   /** Update the communicators */
-  if ( !PMMG_merge_communicators(parmesh) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_ncomm;
 
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->listgrp = grp;
@@ -371,7 +372,7 @@ fail_ncomm:
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param rcv_point Buffer to gahter points
+ * \param rcv_point Buffer to gather points
  * \param rcv_xpoint Buffer to gather xPoints
  * \param rcv_tetra Buffer to gather tetra
  * \param rcv_xtetra Buffer to gather xtetra
@@ -396,7 +397,7 @@ fail_ncomm:
  * \param rcv_xp Buffer to gather the number of xPoints
  * \param rcv_ne Buffer to gather the number of tetra
  * \param rcv_xt Buffer to gather the number of xtetra
- * \param rcv_nmet Buffer to gahter the number of metrics
+ * \param rcv_nmet Buffer to gather the number of metrics
  * \param rcv_int_comm_index Buffer to gather the internal comm sizes
  * \param rcv_next_node_comm Buffer to gather the numbers of external comm
  * \param rcv_nitem_int_node_comm Buffer to gather the node2int_node_comm arrays
@@ -544,6 +545,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
               (*rcv_xt),(*xtetra_displs),mpi_xtetra,0,comm);
 
   /* Solutions */
+  *rcv_met = NULL;
   if(isMet) {
     for ( k=0; k<nprocs; ++k ) {
       (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
@@ -686,96 +688,83 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   return 1;
 }
 
+
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param merge 1 if the groups needs to be merged on the processor.
- * \return 0 if fail, 1 otherwise.
+ * \param rcv_point Buffer that gathers points
+ * \param rcv_xpoint Buffer that gathers xPoints
+ * \param rcv_tetra Buffer that gathers tetra
+ * \param rcv_xtetra Buffer that gathers xtetra
+ * \param rcv_met buffer that gathers metric
+ * \param rcv_intvalues Buffer that gathers the intvalue array of the internal comm
+ * \param rcv_nitem_ext_tab Buffer that gathers the number of item in the ext comm
+ * \param rcv_color_in_tab Buffer that gathers the color_in field of the ext comm
+ * \param rcv_color_out_tab Buffer that gathers the color_out field of the ext comm
+ * \param rcv_node2int_node_comm_index1 Buffer that gathers node2int_node_comm_index1
+ * \param rcv_node2int_node_comm_index2 Buffer that gathers node2int_node_comm_index2
+ * \param point_displs Position of the 1st point of each mesh in rcv_point
+ * \param xpoint_displs Position of the 1st xpoint of each mesh in rcv_xpoint
+ * \param tetra_displs Position of the 1st tetra of each mesh in rcv_tetra
+ * \param xtetra_displs Position of the 1st xtetra of each mesh in rcv_xtetra
+ * \param met_displs Position of the 1st metric of each mesh in rcv_met
+ * \param intval_displs Position of the 1st data of each internal comm in rcv_intvalues
+ * \param ext_comm_displs Position of the 1st data of each external comm in arrays
+ * related to external comm
+ * \param int_comm_index_displs Position of the 1st data of each internal comm in
+ * the rcv_node2int_node_comm_index arrays
+ * \param rcv_np Buffer that gathers the number of points
+ * \param rcv_xp Buffer that gathers the number of xPoints
+ * \param rcv_ne Buffer that gathers the number of tetra
+ * \param rcv_xt Buffer that gathers the number of xtetra
+ * \param rcv_nmet Buffer that gathers the number of metrics
+ * \param rcv_int_comm_index Buffer that gathers the internal comm sizes
+ * \param rcv_next_node_comm Buffer that gathers the numbers of external comm
+ * \param rcv_nitem_int_node_comm Buffer that gathers the node2int_node_comm arrays
+ * sizes
  *
- * Merge the mesh through the processors: The processors send their parmesh to
- * proc 0 that merge all the parmeshes.
+ * \return 0 if fail, 1 otherwise
  *
- * \warning the meshes must be packed before calling this procedure.
+ * Merge the parmeshes data contained in the rcv_* arrays into 1 parmesh with 1
+ * group.
+ *
  */
-int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
-  PMMG_pGrp      grp;
+static inline
+int PMMG_mergeParMesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
+                         MMG5_pxPoint rcv_xpoint,MMG5_pTetra rcv_tetra,
+                         MMG5_pxTetra rcv_xtetra,double *rcv_met,
+                         int *rcv_intvalues,int *rcv_nitem_ext_tab,
+                         int *rcv_color_in_tab,int *rcv_color_out_tab,
+                         int *rcv_node2int_node_comm_index1,
+                         int *rcv_node2int_node_comm_index2,int *point_displs,
+                         int *xpoint_displs,int *tetra_displs,
+                         int *xtetra_displs,int *met_displs,
+                         int *intval_displs,int *ext_comm_displs,
+                         int *int_comm_index_displs,int *rcv_np,int *rcv_xp,
+                         int *rcv_ne,int *rcv_xt,int *rcv_nmet,
+                         int *rcv_int_comm_index,int* rcv_next_node_comm,
+                         int *rcv_nitem_int_node_comm  ) {
   MMG5_pMesh     mesh;
-  MMG5_pPoint    rcv_point,point_1, point_2,ppt;
-  MMG5_pxPoint   rcv_xpoint,xpoint,pxp;
-  MMG5_pTetra    rcv_tetra,tetra,pt;
-  MMG5_pxTetra   rcv_xtetra,xtetra,pxt;
+  MMG5_pPoint    point_1,point_2,ppt;
+  MMG5_pxPoint   xpoint,pxp;
+  MMG5_pTetra    tetra,pt;
+  MMG5_pxTetra   xtetra,pxt;
   MMG5_pSol      met;
-  PMMG_pint_comm int_node_comm;
-  MPI_Comm       comm;
-  double         *rcv_met,*met_1;
-  int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nmet;
-  int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
-  int            *met_displs;
-  int            *intval_displs,*rcv_intvalues;
-  int            *rcv_node2int_node_comm_index1,*rcv_node2int_node_comm_index2;
-  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
+  double         *met_1;
+  int            *node2int_node_comm_index1  ,*node2int_node_comm_index2;
   int            *node2int_node_comm_index1_2,*node2int_node_comm_index2_2;
-  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm;
-  int            *ext_comm_displs;
-  int            *rcv_color_in_tab,*rcv_color_out_tab,*rcv_nitem_ext_tab;
-  int            *int_comm_index_displs,*int_comm_index;
-  int            *rcv_int_comm_index;
-  int            *intvalues_1, *intvalues_2,*int_comm_index_2;
-  int            nitems_1,nitems_2;
-  int            nprocs,rank,k,i,j,idx,idx_2,cursor,color_in,color_out;
-  int            np,ne,ne_tot,xt_tot,nnpar,l,isMet;
+  int            *int_comm_index,*int_comm_index_2;
+  int            *intvalues_1,*intvalues_2,nitems_1,nitems_2;
+  int            nprocs,k,i,j,idx,idx_2,cursor,color_in,color_out;
+  int            np,ne,ne_tot,xt_tot,nnpar,l;
 
-  rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
-  comm   = parmesh->comm;
+  mesh   = parmesh->listgrp[0].mesh;
+  met    = parmesh->listgrp[0].met;
 
-  //DEBUGGING:
-  // saveGrpsToMeshes( PMMG_pGrp listgrp, 0, parmesh->myrank, "mesh" );
-
-  /** Step 1: merge the groups over each procs and return 1 group per proc.
-   * This group contains a packed mesh where the triangle and edges are not
-   * reconstructed (the mesh contains tetra and xtetra). */
-  if ( merge && !PMMG_mergeGrps(parmesh) ) return(0);
-
-  grp  = &parmesh->listgrp[0];
-  mesh  = grp->mesh;
-  met   = grp->met;
-  isMet = (met->m)? 1 : 0;
-
-  /** Step 2: Allocate internal communicator buffer and fill it: the
-   *  intvalues array contains the indices of the matching nodes on the proc. */
-  int_node_comm = parmesh->int_node_comm;
-
-  if ( !int_node_comm->nitem ) return 1;
-
-  _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int,0);
-
-  assert(int_node_comm->nitem == grp->nitem_int_node_comm);
-
-  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
-    idx = grp->node2int_node_comm_index2[k];
-    int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
-  }
-
-  /** Step 3: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
-  if ( !PMMG_gather_parmesh(parmesh,&rcv_point,&rcv_xpoint,&rcv_tetra,
-                            &rcv_xtetra,&rcv_met,&rcv_intvalues,&rcv_nitem_ext_tab,
-                            &rcv_color_in_tab,&rcv_color_out_tab,
-                            &rcv_node2int_node_comm_index1,
-                            &rcv_node2int_node_comm_index2,&point_displs,
-                            &xpoint_displs,&tetra_displs,&xtetra_displs,
-                            &met_displs,&intval_displs,&ext_comm_displs,
-                            &int_comm_index_displs,&rcv_np,&rcv_xp,&rcv_ne,
-                            &rcv_xt,&rcv_nmet,&rcv_int_comm_index,
-                            &rcv_next_node_comm,&rcv_nitem_int_node_comm) )
-    return 0;
-
-  /** Step 4: Proc 0 merges the meshes: We travel through the external
-   * communicators to recover the numbering of the points shared with a lower
-   * proc. The other points are concatenated with the proc 0. */
-  if ( !rank ) {
+  if ( !parmesh->myrank ) {
     np = 0;
 
-    /* Mesh renumbering to have the same indices at points shared by multiple
+    /** Mesh renumbering to have the same indices at points shared by multiple
      * processors; The new indices are stored in the tmp field of the MMG5_Point
      * structure. */
     for ( k=0; k<nprocs; ++k ) {
@@ -856,7 +845,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
       }
     }
 
-    /* Tetra + xTetra */
+    /** Tetra + xTetra */
     ne_tot       = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
     xt_tot       = xtetra_displs[nprocs-1]+rcv_xt[nprocs-1];
 
@@ -886,7 +875,6 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
           pxt = &xtetra[tetra[i].xt];
           for ( l=0; l<4; ++l ) {
             if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
-#warning doing this we loose the truely required entities
             if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
               pxt->ftag[l] &= ~MG_REQ;
           }
@@ -903,12 +891,12 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
     }
     mesh->xt=ne;
 
-    /* Points and solutions */
+    /** Points and solutions */
     mesh->np = met->np = np;
     mesh->npmax = met->npmax = mesh->np;
     mesh->npnil = 0;
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
-    if(isMet)
+    if ( rcv_met )
       _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
 
     for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
@@ -916,7 +904,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
     np = 0;
     for ( k=0; k<nprocs; ++k ) {
       point_1     = &rcv_point[point_displs[k]];
-      if(isMet)
+      if ( rcv_met )
         met_1       = &rcv_met[met_displs[k]];
 
       for ( i=1; i<=rcv_np[k]; ++i ) {
@@ -932,7 +920,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
         memcpy(ppt,&point_1[i],sizeof(MMG5_Point));
         ppt->tmp = 0;
 
-        if(isMet)
+        if ( rcv_met )
           memcpy( &met->m[idx*met->size],
                   &met_1[i*met->size],
                   met->size*sizeof(double) );
@@ -941,7 +929,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
       }
     }
 
-    /* xPoints */
+    /** xPoints */
     _MMG5_SAFE_CALLOC(mesh->xpoint,np+1,MMG5_xPoint,0);
     np = 0;
     for ( k=0; k<nprocs; ++k ) {
@@ -963,6 +951,94 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
     }
   }
 
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param merge 1 if the groups needs to be merged on the processor.
+ * \return 0 if fail, 1 otherwise.
+ *
+ * Merge the mesh through the processors: The processors send their parmesh to
+ * proc 0 that merge all the parmeshes.
+ *
+ * \warning the meshes must be packed before calling this procedure.
+ */
+int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
+  PMMG_pGrp      grp;
+  MMG5_pPoint    rcv_point;
+  MMG5_pxPoint   rcv_xpoint;
+  MMG5_pTetra    rcv_tetra;
+  MMG5_pxTetra   rcv_xtetra;
+  PMMG_pint_comm int_node_comm;
+  double         *rcv_met;
+  int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nmet;
+  int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
+  int            *met_displs,*intval_displs,*ext_comm_displs;
+  int            *int_comm_index_displs;
+  int            *rcv_intvalues,*rcv_int_comm_index;
+  int            *rcv_node2int_node_comm_index1,*rcv_node2int_node_comm_index2;
+  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm;
+  int            *rcv_color_in_tab,*rcv_color_out_tab,*rcv_nitem_ext_tab;
+  int            k,idx,ier;
+
+  ier = 1;
+  grp = &parmesh->listgrp[0];
+
+  //DEBUGGING:
+  // saveGrpsToMeshes( PMMG_pGrp listgrp, 0, parmesh->myrank, "mesh" );
+
+  /** Step 1: merge the groups over each procs and return 1 group per proc.
+   * This group contains a packed mesh where the triangle and edges are not
+   * reconstructed (the mesh contains tetra and xtetra). */
+  if ( merge && !PMMG_mergeGrps(parmesh) ) return 0;
+
+  /** Step 2: Allocate internal communicator buffer and fill it: the
+   *  intvalues array contains the indices of the matching nodes on the proc. */
+  int_node_comm = parmesh->int_node_comm;
+
+  if ( !int_node_comm->nitem ) return 1;
+
+  _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int,0);
+  assert(int_node_comm->nitem == grp->nitem_int_node_comm);
+
+  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+    idx = grp->node2int_node_comm_index2[k];
+    int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
+  }
+
+  /** Step 3: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
+  if ( !PMMG_gather_parmesh(parmesh,&rcv_point,&rcv_xpoint,&rcv_tetra,
+                            &rcv_xtetra,&rcv_met,&rcv_intvalues,&rcv_nitem_ext_tab,
+                            &rcv_color_in_tab,&rcv_color_out_tab,
+                            &rcv_node2int_node_comm_index1,
+                            &rcv_node2int_node_comm_index2,&point_displs,
+                            &xpoint_displs,&tetra_displs,&xtetra_displs,
+                            &met_displs,&intval_displs,&ext_comm_displs,
+                            &int_comm_index_displs,&rcv_np,&rcv_xp,&rcv_ne,
+                            &rcv_xt,&rcv_nmet,&rcv_int_comm_index,
+                            &rcv_next_node_comm,&rcv_nitem_int_node_comm) ) {
+    ier = 0;
+    goto fail;
+  }
+
+  /** Step 4: Proc 0 merges the meshes: We travel through the external
+   * communicators to recover the numbering of the points shared with a lower
+   * proc. The other points are concatenated with the proc 0. */
+  if ( !PMMG_mergeParMesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
+                            rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
+                            rcv_color_in_tab,rcv_color_out_tab,
+                            rcv_node2int_node_comm_index1,
+                            rcv_node2int_node_comm_index2,point_displs,
+                            xpoint_displs,tetra_displs,xtetra_displs,
+                            met_displs,intval_displs,ext_comm_displs,
+                            int_comm_index_displs,rcv_np,rcv_xp,rcv_ne,
+                            rcv_xt,rcv_nmet,rcv_int_comm_index,
+                            rcv_next_node_comm,rcv_nitem_int_node_comm) ) {
+    ier = 0;
+  }
+
+  fail:
   /* Free memory */
   /* 1: Mesh data */
   _MMG5_SAFE_FREE(rcv_np);
@@ -981,11 +1057,9 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   _MMG5_SAFE_FREE(rcv_xtetra);
   _MMG5_SAFE_FREE(xtetra_displs);
 
-  if(isMet) {
-    _MMG5_SAFE_FREE(rcv_nmet);
-    _MMG5_SAFE_FREE(rcv_met);
-    _MMG5_SAFE_FREE(met_displs);
-  }
+  _MMG5_SAFE_FREE(rcv_nmet);
+  _MMG5_SAFE_FREE(rcv_met);
+  _MMG5_SAFE_FREE(met_displs);
 
   /* 2: communicators data */
   _MMG5_SAFE_FREE(rcv_int_comm_index);
@@ -1003,5 +1077,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   _MMG5_SAFE_FREE(rcv_node2int_node_comm_index2);
   _MMG5_SAFE_FREE(int_comm_index_displs);
 
-  return(1);
+  _MMG5_SAFE_FREE(int_node_comm->intvalues);
+
+  return(ier);
 }
