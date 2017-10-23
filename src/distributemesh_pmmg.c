@@ -392,6 +392,28 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
 
           /* Mark parallel vertex */
           ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+
+#warning TRY TO NOT ADD XPOINTS OVER NOSURF BDY INSIDE MMG. If OK: REMOVE THIS
+// TO REMOVE WHEN MMG WILL BE READY
+          if ( !ppt->xp ) {
+            if ( (mesh->xp+1) > mesh->xpmax ) {
+              /* realloc of xtetras table */
+              PMMG_RECALLOC(mesh,mesh->xpoint,1.2*mesh->xpmax+1,mesh->xpmax+1,int,
+                            "larger xpoint ",
+                            ret_val = 0;goto fail_alloc7);
+              PMMG_RECALLOC(parmesh,(*xPointPerm),1.2*mesh->xpmax+1,mesh->xpmax+1,
+                            int,"larger xpoint permutation table ",
+                            ret_val = 0; goto fail_alloc7);
+              mesh->xpmax = 1.2 * mesh->xpmax;
+            }
+            ++mesh->xp;
+            ppt->xp = mesh->xp;
+            if ( ppt->tmp ) {
+              (*xPointPerm)[ppt->xp] = ++(*nxp);
+              ppt->xp                = (*nxp);
+            }
+          }
+// END TO REMOVE WHEN MMG WILL BE READY
         }
 
         if ( !ppt->tmp ) {
