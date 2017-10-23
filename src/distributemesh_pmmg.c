@@ -317,7 +317,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
               ret_val = 0;goto fail_alloc4);
   PMMG_CALLOC(parmesh,(*xTetraPerm),mesh->xtmax+1,int,"xTetraPerm",
               ret_val = 0; goto fail_alloc5);
-  PMMG_CALLOC(parmesh,(*xPointPerm),mesh->xp+1,int,"xPointPerm",
+  PMMG_CALLOC(parmesh,(*xPointPerm),mesh->xpmax+1,int,"xPointPerm",
               ret_val = 0;goto fail_alloc6);
 
   (*nxp) = 0;
@@ -363,7 +363,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
                           "larger xtetra ",
                           ret_val = 0;goto fail_alloc7);
             PMMG_RECALLOC(parmesh,(*xTetraPerm),1.2*mesh->xtmax+1,mesh->xtmax+1,
-                          int,"larger tetra permutation table ",
+                          int,"larger xtetra permutation table ",
                           ret_val = 0; goto fail_alloc7);
             mesh->xtmax = 1.2 * mesh->xtmax;
           }
@@ -419,7 +419,7 @@ fail_alloc1:
   return ret_val;
 
 fail_alloc7:
-  PMMG_DEL_MEM(parmesh,*xPointPerm,mesh->xp+1,int,"deallocate xPointPerm");
+  PMMG_DEL_MEM(parmesh,*xPointPerm,mesh->xpmax+1,int,"deallocate xPointPerm");
 fail_alloc6:
   PMMG_DEL_MEM(parmesh,*xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
 fail_alloc5:
