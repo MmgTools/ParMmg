@@ -52,9 +52,6 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
       return PMMG_STRONGFAILURE;
 
   /** Mesh analysis */
-  if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nosurf,0 ) )
-    return PMMG_STRONGFAILURE;
-
   if ( !_MMG3D_analys(mesh) )
     return PMMG_STRONGFAILURE;
 
