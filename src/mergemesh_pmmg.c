@@ -310,10 +310,12 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
     }
     assert( (poi_id_glo != 0)  && "empty communicator?????" );
     assert(poi_id_glo==ext_node_comm->nitem);
-    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index, poi_id_glo,
-                 ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
-                 ext_node_comm->nitem = poi_id_glo;return 0);
-    ext_node_comm->nitem = poi_id_glo;
+
+    // To remove if the assertion is always true.
+    // PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index, poi_id_glo,
+    //              ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
+    //              ext_node_comm->nitem = poi_id_glo;return 0);
+    // ext_node_comm->nitem = poi_id_glo;
   }
 
   PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
