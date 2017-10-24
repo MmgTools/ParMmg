@@ -116,108 +116,110 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 }
 
 /**
- * \param parmesh pointer toward the parmesh structure.
  * \param mesh0 pointer toward a MMG5 mesh structure.
+ * \param mesh pointer toward a MMG5 mesh structure.
  * \param met0 pointer toward a MMG5 solution structure.
+ * \param met pointer toward a MMG5 solution structure.
  *
  * \return 0 if fail, 1 otherwise
  *
- * Merge the meshes listed in listgrp into 1 the mesh0 mesh.
+ * Merge the non interface nodes of the mesh mesh into the mesh0 mesh.
  *
  */
 static inline
-int PMMG_mergeGrps_internalMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
-                                MMG5_pSol met0) {
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
-  MMG5_pTetra    pt0,pt;
-  MMG5_pxTetra   pxt0,pxt;
+int PMMG_mergeGrps_internalPoints(MMG5_pMesh mesh0,MMG5_pMesh mesh,
+                                  MMG5_pSol met0,MMG5_pSol met) {
+
   MMG5_pPoint    ppt0,ppt;
   MMG5_pxPoint   pxp0,pxp;
-  int            np,ip,ie,imsh,k,i;
+  int            np,ip,k;
 
-  /** Use the internal communicator buffer (intvalues) to remember the
-   * location in the merged mesh of all the interface points */
   np = mesh0->np;
 
-  /** Merge the internal nodes and the tetra of the groups and store the indices
-   * of the interface faces into the internal communicator */
-  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    mesh = parmesh->listgrp[imsh].mesh;
-    met  = parmesh->listgrp[imsh].met;
+  /** Loop over points and add the ones that are not already in the merged
+   * mesh (mesh0) */
+  for ( k=1; k<=mesh->np; k++ ) {
+    ppt = &mesh->point[k];
+    if ( ppt->tmp ) continue;
 
-    /** Loop over points and add the ones that are not already in the merged
-     * mesh (mesh0) */
-    for ( k=1; k<=mesh->np; k++ ) {
-      ppt = &mesh->point[k];
-      if ( ppt->tmp ) continue;
-
-      ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
-      if ( !ip ) {
-        /* reallocation of point table */
-        _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
-                            printf("  ## Error: unable to merge group points\n");
-                            _MMG5_INCREASE_MEM_MESSAGE();
-                            return 0;,
-                            ppt->c,ppt->tag,0);
-      }
-      ppt->tmp = ip;
-
-      /* Add xpoint if needed */
-      if ( ppt->xp ) {
-#warning add only the "true" xpoints (not those linked to the interfaces)
-        pxp  = &mesh->xpoint[ppt->xp];
-        ppt0 = &mesh0->point[ip];
-        pxp0 = &mesh0->xpoint[ppt0->xp];
-        memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
-      }
-      if ( met0->m ) {
-        assert(met->m);
-        memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
-      }
+    ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
+    if ( !ip ) {
+      /* reallocation of point table */
+      _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
+                          printf("  ## Error: unable to merge group points\n");
+                          _MMG5_INCREASE_MEM_MESSAGE();
+                          return 0;,
+                          ppt->c,ppt->tag,0);
     }
+    ppt->tmp = ip;
 
-    /** Add current meshs' tetras to the merged mesh (mesh0) */
-    for ( k=1; k<=mesh->ne; k++ ) {
-      pt  = &mesh->tetra[k];
-      ie  = _MMG3D_newElt(mesh0);
-      if ( !ie ) {
-        _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
-                            fprintf(stderr,"  ## Error: unable to merge group elts.\n");
-                            _MMG5_INCREASE_MEM_MESSAGE();
-                            return 0;,
-                            0);
-      }
-      pt0 = &mesh0->tetra[ie];
+    /* Add xpoint if needed */
+    if ( ppt->xp ) {
+#warning add only the "true" xpoints (not those linked to the interfaces)
+      pxp  = &mesh->xpoint[ppt->xp];
+      ppt0 = &mesh0->point[ip];
+      pxp0 = &mesh0->xpoint[ppt0->xp];
+      memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
+    }
+    if ( met0->m ) {
+      assert(met->m);
+      memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
+    }
+  }
+  return 1;
+}
 
-      for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
-      pt0->ref = pt->ref;
+/**
+ * \param mesh0 pointer toward a MMG5 mesh structure.
+ * \param mesh pointer toward a MMG5 mesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Merge the tetra of the mesh mesh into the mesh0 mesh.
+ *
+ */
+static inline
+int PMMG_mergeGrps_tetra( MMG5_pMesh mesh, MMG5_pMesh mesh0) {
+  MMG5_pTetra    pt0,pt;
+  MMG5_pxTetra   pxt0,pxt;
+  int            k,ie,i;
+
+  /** Add current meshs' tetras to the merged mesh (mesh0) */
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt  = &mesh->tetra[k];
+    ie  = _MMG3D_newElt(mesh0);
+    if ( !ie ) {
+      _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
+                          fprintf(stderr,"  ## Error: unable to merge group elts.\n");
+                          _MMG5_INCREASE_MEM_MESSAGE();
+                          return 0;,
+                          0);
+    }
+    pt0 = &mesh0->tetra[ie];
+
+    for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
+    pt0->ref = pt->ref;
 
 #warning need to update the adjacents?
 
-      /** Add xtetra if needed */
-      if ( pt->xt ) {
+    /** Add xtetra if needed */
+    if ( pt->xt ) {
 #warning add only the "true" xtetras (not those linked to the interfaces)
-        pxt = &mesh->xtetra[pt->xt];
+      pxt = &mesh->xtetra[pt->xt];
 
-        mesh0->xt++;
-        if ( mesh0->xt > mesh0->xtmax ) {
-          PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
-                        mesh0->xtmax + 1, MMG5_xTetra,
-                        "larger xtetra table", mesh0->xt--; goto fail_ncomm);
-          mesh0->xtmax = 1.2 * mesh0->xtmax;
-        }
-        pt0->xt = mesh0->xt;
-        pxt0 = &mesh0->xtetra[pt0->xt];
-        memcpy(pxt0,pxt,sizeof(MMG5_xTetra));
+      mesh0->xt++;
+      if ( mesh0->xt > mesh0->xtmax ) {
+        PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
+                      mesh0->xtmax + 1, MMG5_xTetra,
+                      "larger xtetra table", mesh0->xt--; goto fail_ncomm);
+        mesh0->xtmax = 1.2 * mesh0->xtmax;
       }
+      pt0->xt = mesh0->xt;
+      pxt0 = &mesh0->xtetra[pt0->xt];
+      memcpy(pxt0,pxt,sizeof(MMG5_xTetra));
     }
-
-    /** Free the mesh of listgrp that is useless now */
-    MMG3D_Free_all(MMG5_ARG_start,
-                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
-                   MMG5_ARG_end);
   }
+
   return 1;
 }
 
@@ -367,9 +369,10 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 int PMMG_mergeGrps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp;
-  MMG5_pMesh     mesh0;
-  MMG5_pSol      met0;
+  MMG5_pMesh     mesh0,mesh;
+  MMG5_pSol      met0,met;
   PMMG_pint_comm int_node_comm,int_face_comm;
+  int            imsh;
 
   if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
 
@@ -391,13 +394,27 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   //DEBUGGING:
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
-  /** First step: Merge interface points from all meshes into mesh0->points */
+  /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
-  /** Second step: merge internal points and tetras of all meshes into mesh0 */
-  if ( !PMMG_mergeGrps_internalMesh(parmesh,mesh0,met0) ) goto fail_comms;
+  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+    mesh = parmesh->listgrp[imsh].mesh;
+    met  = parmesh->listgrp[imsh].met;
 
-  /** Update the communicators */
+    /** Step 2: Merge the internal points of the mesh mesh into the mesh0
+     * mesh */
+    if ( !PMMG_mergeGrps_internalPoints(mesh0,mesh,met0,met) ) goto fail_comms;
+
+    /** Step 3: Merge the tetras of the mesh mesh into the mesh0 mesh */
+    if ( !PMMG_mergeGrps_tetra(mesh0,mesh) ) goto fail_comms;
+
+    /** Free the mesh of listgrp that is useless now */
+    MMG3D_Free_all(MMG5_ARG_start,
+                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
+                   MMG5_ARG_end);
+  }
+
+  /** Step 4: Update the communicators */
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
