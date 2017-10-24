@@ -65,8 +65,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
   int ret_val = PMMG_SUCCESS;
-  const long int million = 1024L * 1024L;
-
   int mmgArgc = 0;
   char** mmgArgv = NULL;
 

@@ -27,7 +27,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
   MMG5_HGeom   hash;
   int          k,edg,na;
   int16_t      tag;
-  char         i,i1,i2;
+  int8_t       i,i1,i2;
 
   /** Allocation of hash table to store parallel edges */
   assert ( !mesh->htab.geom );

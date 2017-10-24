@@ -78,7 +78,6 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
 int main( int argc, char *argv[] )
 {
   PMMG_pParMesh parmesh = NULL;
-  PMMG_pGrp     grp = NULL;
   MMG5_pMesh    mesh = NULL;
   MMG5_pSol     met = NULL;
   int           rank = 0;
