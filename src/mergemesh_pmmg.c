@@ -10,7 +10,6 @@
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
 
-static inline
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh0 pointer toward a MMG5 mesh structure.
@@ -222,8 +221,17 @@ int PMMG_mergeGrps_internalMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the node communicators when merging the groups of listgroups into 1
+ * group.
+ *
+ */
 static inline
-int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
+int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0;
   MMG5_pSol      met0;
@@ -291,8 +299,8 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
         ext_node_comm->int_comm_index[ poi_id_glo++ ]= poi_id_int;
         ppt->tmp                                     = poi_id_int + k*mesh0->np;
         poi_id_int++;
-      /* The point already has a position in the internal comm */
       } else {
+        /* The point has already a position in the internal comm */
         if ( ppt->tmp < k * mesh0->np ) {
           /* The point has been stored in the internal comm by another external
            * comm: update its position in our external comm */
@@ -327,6 +335,22 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the communicators when merging the groups of listgroups into 1 group.
+ *
+ */
+static inline
+int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
+
+  if ( !PMMG_mergeGrps_nodeCommunicators(parmesh) ) return 0;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \return
  *         PMMG_FAILURE
  *         PMMG_SUCCESS
@@ -350,6 +374,7 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   grp  = parmesh->listgrp;
 
   /** Use the internal communicators to store the interface entities indices */
+#warning why do we need to allocate at nitem+1 size and not nitem? (I think that nitem is false...)
   int_node_comm              = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
               "node communicator",return PMMG_FAILURE);
