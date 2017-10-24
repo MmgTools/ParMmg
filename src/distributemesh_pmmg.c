@@ -297,7 +297,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
-  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc;
+  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc,ne;
   int8_t       ifac;
 
   ret_val = 1;
@@ -329,11 +329,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
   for ( k=1; k<=mesh->np; k++ )
     mesh->point[k].tmp = 0;
 
-  /* Reset the base field of tetras (it will be used to store the local index of
+  /* Reset the flag field of tetras (it will be used to store the local index of
    * the tetra on each proc) */
-  mesh->base = 0;
+  ne = 0;
   for ( k=1; k<=mesh->ne; k++ )
-    mesh->tetra[k].base = 0;
+    mesh->tetra[k].flag = 0;
 
   /** Mark mesh entities that will stay on the proc and count the number of
    * point that must be communicated to the other procs  */
@@ -344,7 +344,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
     pt->mark = part[k-1];
     if ( pt->mark != rank ) continue;
 
-    pt->base = ++mesh->base;
+    pt->flag = ++ne;
 
     for ( ifac=0; ifac<4; ifac++ ) {
       kvois = mesh->adja[4*k-3+ifac]/4;
@@ -646,7 +646,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*(pt->base-1) + ifac;
+        node2int_face_comm_index1[i] = 4*(pt->flag-1) + ifac;
         node2int_face_comm_index2[i] = i;
         ++i;
       }
@@ -657,7 +657,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*(mesh->tetra[kvois].base-1)+ifacVois;
+        node2int_face_comm_index1[i] = 4*(mesh->tetra[kvois].flag-1)+ifacVois;
         node2int_face_comm_index2[i] = i;
         ++i;
       }

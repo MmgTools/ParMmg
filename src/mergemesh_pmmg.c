@@ -22,8 +22,9 @@ static inline
  * communicator) into the mesh0 mesh.
  *
  */
-int PMMG_mergeGrps_sharedPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
-                                MMG5_pSol met0) {
+static inline
+int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
+                                   MMG5_pSol met0) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
@@ -126,7 +127,8 @@ int PMMG_mergeGrps_sharedPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
  *
  */
 static inline
-int PMMG_mergeGrps_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol met0) {
+int PMMG_mergeGrps_internalMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
+                                MMG5_pSol met0) {
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
   MMG5_pTetra    pt0,pt;
@@ -138,6 +140,9 @@ int PMMG_mergeGrps_insideMesh(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,MMG5_pSol m
   /** Use the internal communicator buffer (intvalues) to remember the
    * location in the merged mesh of all the interface points */
   np = mesh0->np;
+
+  /** Merge the internal nodes and the tetra of the groups and store the indices
+   * of the interface faces into the internal communicator */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = parmesh->listgrp[imsh].mesh;
     met  = parmesh->listgrp[imsh].met;
@@ -224,7 +229,7 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
   MMG5_pSol      met0;
   MMG5_pPoint    ppt;
   PMMG_pext_comm ext_node_comm;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pint_comm int_node_comm,int_face_comm;
   int            nitem_int_node_comm0,*intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
@@ -235,6 +240,7 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
   int_node_comm              = parmesh->int_node_comm;
   intvalues                  = int_node_comm->intvalues;
+  int_face_comm              = parmesh->int_face_comm;
   mesh0                      = grp[0].mesh;
   met0                       = grp[0].met;
   nitem_int_node_comm0       = grp[0].nitem_int_node_comm;
@@ -313,6 +319,9 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
                "free int_node_comm intvalues");
   int_node_comm->nitem       = poi_id_int;
 
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+               "free int_face_comm intvalues");
+
   return 1;
 }
 
@@ -334,15 +343,20 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0;
   MMG5_pSol      met0;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pint_comm int_node_comm,int_face_comm;
 
   if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
 
   grp  = parmesh->listgrp;
 
+  /** Use the internal communicators to store the interface entities indices */
   int_node_comm              = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
               "node communicator",return PMMG_FAILURE);
+
+  int_face_comm              = parmesh->int_face_comm;
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+              "face communicator",goto fail_ncomm);
 
   mesh0                      = grp[0].mesh;
   met0                       = grp[0].met;
@@ -351,13 +365,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
   /** First step: Merge interface points from all meshes into mesh0->points */
-  if ( !PMMG_mergeGrps_sharedPoints(parmesh,mesh0,met0) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
   /** Second step: merge internal points and tetras of all meshes into mesh0 */
-  if ( !PMMG_mergeGrps_insideMesh(parmesh,mesh0,met0) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_internalMesh(parmesh,mesh0,met0) ) goto fail_comms;
 
   /** Update the communicators */
-  if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_ncomm;
+  if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->listgrp = grp;
@@ -365,8 +379,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   parmesh->ngrp = 1;
   return PMMG_SUCCESS;
 
+fail_comms:
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,"face communicator");
+
 fail_ncomm:
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,"node communicator");
+
+
   return PMMG_FAILURE;
 }
 
