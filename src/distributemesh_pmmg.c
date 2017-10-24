@@ -562,9 +562,6 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
               "node2int_node_comm_index1 ",return 0);
   grp->nitem_int_node_comm = nitem_int_node_comm;
 
-  // For the error handling to be complete at this point we have to:
-  //   1) free n2i_n_c_idx1
-  //   2) reset nitem_int_node_comm
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
               "alloc node2int_node_comm_index2 ",
               PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,
@@ -577,9 +574,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   grp->nitem_int_face_comm = nitem_int_face_comm;
   PMMG_CALLOC(parmesh,grp->node2int_face_comm_index1,nitem_int_face_comm,int,
               "alloc node2int_face_comm_index1 ",return 0);
-  // For the error handling to be complete at this point we have to:
-  //   1) reverse the reallocation of n2i_n_c_idx1
-  //   2) reset nitem_int_face_comm
+
   PMMG_CALLOC(parmesh,grp->node2int_face_comm_index2,nitem_int_face_comm,int,
               "alloc node2int_face_comm_index2 ",
               PMMG_DEL_MEM(parmesh,grp->node2int_face_comm_index1,
@@ -646,7 +641,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*(pt->flag-1) + ifac;
+        node2int_face_comm_index1[i] = 4*pt->flag + ifac;
         node2int_face_comm_index2[i] = i;
         ++i;
       }
@@ -657,7 +652,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*(mesh->tetra[kvois].flag-1)+ifacVois;
+        node2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
         node2int_face_comm_index2[i] = i;
         ++i;
       }

@@ -29,9 +29,9 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
   MMG5_pSol      met;
   MMG5_pPoint    ppt0,ppt;
   MMG5_pxPoint   pxp0,pxp;
-  int            nitem_int_node_comm,*intvalues;
-  int            *node2int_node_comm_index1;
-  int            *node2int_node_comm_index2;
+  int            nitem_int_node_comm;
+  int            *intvalues;
+  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
   int            size,poi_id_int,poi_id_glo,imsh,k,ip;
 
   grp       = parmesh->listgrp;
@@ -44,8 +44,8 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
     for ( k = 1; k <= grp[imsh].mesh->np; ++k )
       grp[imsh].mesh->point[k].tmp = 0;
 
-  /** mesh0's points are already in mesh0. Add a reference to their location in
-   * mesh0(ie n2i_n_c0_idx1) from the merging communicator buffer(ie intvalues) */
+  /** Step 1: store the indices of the interface entities of mesh0 into the
+   * internal communicators */
   for ( k = 0; k < grp[0].nitem_int_node_comm; ++k ) {
     poi_id_int = grp[0].node2int_node_comm_index1[k];
     poi_id_glo = grp[0].node2int_node_comm_index2[k];
@@ -53,7 +53,7 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
     intvalues[ poi_id_glo ] = poi_id_int;
   }
 
-  /** Add points referenced by the rest of the groups meshes' internal
+  /** Step 2: add points referenced by the rest of the groups meshes' internal
    * communicators to the merging mesh (mesh0) and in intvalues */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh                      = grp[imsh].mesh;
@@ -68,7 +68,7 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
       assert(poi_id_glo < (parmesh->int_node_comm->nitem+1));
 
       // location in currently working mesh where point data actually are
-      assert ( node2int_node_comm_index1[ k ] < mesh->npmax );
+      assert ( node2int_node_comm_index1[ k ] < mesh->np );
       ppt = &mesh->point[ node2int_node_comm_index1[ k ] ];
 
       /* point ppt is not found in the merged mesh. add it */
@@ -116,20 +116,22 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 }
 
 /**
+ * \param parmesh pointer toward a parmmg parmesh mesh structure.
  * \param mesh0 pointer toward a MMG5 mesh structure.
- * \param mesh pointer toward a MMG5 mesh structure.
  * \param met0 pointer toward a MMG5 solution structure.
- * \param met pointer toward a MMG5 solution structure.
+ * \param imsh index in listgrp of the group that we want to merge into mesh0
  *
  * \return 0 if fail, 1 otherwise
  *
- * Merge the non interface nodes of the mesh mesh into the mesh0 mesh.
+ * Merge the non internal nodes of the lisgrp[imsh].mesh mesh into the mesh0
+ * mesh.
  *
  */
 static inline
-int PMMG_mergeGrps_internalPoints(MMG5_pMesh mesh0,MMG5_pMesh mesh,
-                                  MMG5_pSol met0,MMG5_pSol met) {
-
+int PMMG_mergeGrps_internalPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
+                                  MMG5_pSol met0,int imsh) {
+  MMG5_pMesh     mesh;
+  MMG5_pSol      met;
   MMG5_pPoint    ppt0,ppt;
   MMG5_pxPoint   pxp0,pxp;
   int            np,ip,k;
@@ -138,6 +140,9 @@ int PMMG_mergeGrps_internalPoints(MMG5_pMesh mesh0,MMG5_pMesh mesh,
 
   /** Loop over points and add the ones that are not already in the merged
    * mesh (mesh0) */
+  mesh = parmesh->listgrp[imsh].mesh;
+  met   = parmesh->listgrp[imsh].met;
+
   for ( k=1; k<=mesh->np; k++ ) {
     ppt = &mesh->point[k];
     if ( ppt->tmp ) continue;
@@ -170,23 +175,113 @@ int PMMG_mergeGrps_internalPoints(MMG5_pMesh mesh0,MMG5_pMesh mesh,
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
  * \param mesh0 pointer toward a MMG5 mesh structure.
- * \param mesh pointer toward a MMG5 mesh structure.
+ * \param imsh index in listgrp of the group that we want to merge
  *
  * \return 0 if fail, 1 otherwise
  *
- * Merge the tetra of the mesh mesh into the mesh0 mesh.
+ * Merge the interfaces tetra of the lisgrp[imsh].mesh mesh into the mesh0
+ * mesh. An interface tetra is a tetra that has at least 1 interface triangle.
  *
  */
 static inline
-int PMMG_mergeGrps_tetra( MMG5_pMesh mesh, MMG5_pMesh mesh0) {
+int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int imsh) {
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt0,pt;
+  MMG5_pxTetra   pxt0,pxt;
+  int            nitem_int_face_comm;
+  int            *intvalues;
+  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            face_id_glo;
+  int            k,iel,ie,ifac,i;
+
+  grp       = parmesh->listgrp;
+  intvalues = parmesh->int_face_comm->intvalues;
+
+
+  /** Add the interfaces tetra to the mesh0 mesh */
+  mesh                      = grp[imsh].mesh;
+  nitem_int_face_comm       = grp[imsh].nitem_int_face_comm;
+  node2int_face_comm_index1 = grp[imsh].node2int_face_comm_index1;
+  node2int_face_comm_index2 = grp[imsh].node2int_face_comm_index2;
+
+  ++mesh->base;
+  for ( k=0; k<nitem_int_face_comm; ++k ) {
+    face_id_glo = node2int_face_comm_index2[k];
+    assert( 0 <= face_id_glo );
+    assert(face_id_glo < (parmesh->int_face_comm->nitem+1));
+
+    /* Index of the interface tetra in the mesh */
+    iel  = node2int_face_comm_index1[k]/4;
+    ifac = node2int_face_comm_index1[k]%4;
+    assert ( iel < mesh->ne );
+    pt       = &mesh->tetra[iel];
+    pt->base = mesh->base;
+
+    /* Add the tetra iel to mesh0 */
+    ie = _MMG3D_newElt(mesh0);
+    if ( !ie ) {
+      _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
+                          fprintf(stderr,"  ## Error: unable to merge group elts.\n");
+                          _MMG5_INCREASE_MEM_MESSAGE();
+                          return 0;,
+                          0);
+    }
+    pt0 = &mesh0->tetra[ie];
+
+    for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
+    pt0->ref = pt->ref;
+
+    intvalues[ face_id_glo ] = 4*(ie-1)+ifac;
+
+    /** Add xtetra if needed */
+    if ( pt->xt ) {
+#warning add only the "true" xtetras (not those linked to the interfaces)
+      pxt = &mesh->xtetra[pt->xt];
+      mesh0->xt++;
+      if ( mesh0->xt > mesh0->xtmax ) {
+        PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
+                      mesh0->xtmax + 1, MMG5_xTetra,
+                      "larger xtetra table", mesh0->xt--; goto fail_ncomm);
+        mesh0->xtmax = 1.2 * mesh0->xtmax;
+      }
+      pt0->xt = mesh0->xt;
+      pxt0 = &mesh0->xtetra[pt0->xt];
+      memcpy(pxt0,pxt,sizeof(MMG5_xTetra));
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a PMMG parmesh structure.
+ * \param mesh0 pointer toward a MMG5 mesh structure.
+ * \param imsh index in listgrp of the group that we want to merge into mesh0
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Merge the tetra of the lisgrp[imsh].mesh mesh into the mesh0 mesh.
+ *
+ */
+static inline
+int PMMG_mergeGrps_internalTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int imsh) {
+  MMG5_pMesh     mesh;
   MMG5_pTetra    pt0,pt;
   MMG5_pxTetra   pxt0,pxt;
   int            k,ie,i;
 
   /** Add current meshs' tetras to the merged mesh (mesh0) */
+  mesh = parmesh->listgrp[imsh].mesh;
   for ( k=1; k<=mesh->ne; k++ ) {
     pt  = &mesh->tetra[k];
+
+    if ( (!MG_EOK(pt)) || pt->base==mesh->base ) continue;
+
+    pt->base = mesh->base;
+
     ie  = _MMG3D_newElt(mesh0);
     if ( !ie ) {
       _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
@@ -372,7 +467,8 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   MMG5_pMesh     mesh0,mesh;
   MMG5_pSol      met0,met;
   PMMG_pint_comm int_node_comm,int_face_comm;
-  int            imsh;
+  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            imsh,k,iel;
 
   if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
 
@@ -398,23 +494,36 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    mesh = parmesh->listgrp[imsh].mesh;
-    met  = parmesh->listgrp[imsh].met;
 
-    /** Step 2: Merge the internal points of the mesh mesh into the mesh0
-     * mesh */
-    if ( !PMMG_mergeGrps_internalPoints(mesh0,mesh,met0,met) ) goto fail_comms;
+    /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
+    if ( !PMMG_mergeGrps_internalPoints(parmesh,mesh0,met0,imsh) )
+      goto fail_comms;
 
-    /** Step 3: Merge the tetras of the mesh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrps_tetra(mesh0,mesh) ) goto fail_comms;
+    /** Step 3: Merge interfaces tetras of the imsh mesh into the mesh0 mesh */
+    /* 1) Store the indices of the interface faces of mesh0 into the internal
+     * face communicator */
+    node2int_face_comm_index1 = parmesh->listgrp[0].node2int_face_comm_index1;
+    node2int_face_comm_index2 = parmesh->listgrp[0].node2int_face_comm_index2;
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      iel = node2int_face_comm_index1[k];
+      parmesh->int_face_comm->intvalues[node2int_face_comm_index2[k]] = iel;
+    }
+
+    /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
+    if ( !PMMG_mergeGrps_interfaceTetra(parmesh,mesh0,imsh) ) goto fail_comms;
+
+    /** Step 4: Merge internal tetras of the mesh mesh into the mesh0 mesh */
+    if ( !PMMG_mergeGrps_internalTetra(parmesh,mesh0,imsh) ) goto fail_comms;
 
     /** Free the mesh of listgrp that is useless now */
+    mesh = parmesh->listgrp[imsh].mesh;
+    met  = parmesh->listgrp[imsh].met;
     MMG3D_Free_all(MMG5_ARG_start,
                    MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
                    MMG5_ARG_end);
   }
 
-  /** Step 4: Update the communicators */
+  /** Step 5: Update the communicators */
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
   _MMG5_SAFE_REALLOC(grp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
@@ -424,11 +533,12 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 
 fail_comms:
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,"face communicator");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+               "face communicator");
 
 fail_ncomm:
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,"node communicator");
-
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+               "node communicator");
 
   return PMMG_FAILURE;
 }

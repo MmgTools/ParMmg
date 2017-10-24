@@ -471,11 +471,12 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
           /* Build the internal communicator for the boundary faces */
-          if ( PMMG_n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*(tet-1)+fac,
+          if ( PMMG_n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*tetPerGrp+fac,
                                  grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
             ret_val = PMMG_FAILURE;
             goto fail_sgrp;
           }
+          ++parmesh->int_face_comm->nitem;
 
           for ( j=0; j<3; ++j ) {
             /* Update the face and face vertices tags */

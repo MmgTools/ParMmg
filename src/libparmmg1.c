@@ -9,7 +9,7 @@
  */
 #include "parmmg.h"
 
-// Subgroups target size. Chosen arbitrarily to help assist the remesher work faster
+/**< Subgroups target size: Chosen to keep the remeshing step fast */
 static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
 
 /**
