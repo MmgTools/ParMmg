@@ -332,7 +332,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
-  /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
+
+  /** Reset the boundary fields between the old mesh size and the new one (Mmg
+   * uses this fields assiming they are setted to 0)/ */
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh         = parmesh->listgrp[i].mesh;
+    memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
+    memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
+
+    /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
+  }
+
 
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
