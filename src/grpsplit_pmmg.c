@@ -1,5 +1,5 @@
 /**
- * \file grpsplit.c
+ * \file grpsplit_pmmg.c
  * \brief Split groups into sub groups.
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
@@ -10,7 +10,6 @@
  */
 #include "parmmg.h"
 #include "metis_pmmg.h"
-#include "mmg3d.h" //_MMG5_idir[4][3]
 #include "chkmesh_pmmg.h"
 
 
