@@ -369,8 +369,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
-  if ( PMMG_SUCCESS != PMMG_merge_grps(parmesh) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
   /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
   /* char filename[200]; */
@@ -393,8 +392,7 @@ failed:
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
     return PMMG_STRONGFAILURE;
 
-  if ( PMMG_SUCCESS != PMMG_merge_grps(parmesh) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
   return PMMG_LOWFAILURE;
 }

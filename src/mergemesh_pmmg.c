@@ -533,9 +533,7 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \return
- *         PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return 0 if fail, 1 if success
  *
  * Merge all meshes (mesh elements + internal communicator) of a group into the
  * first mesh of the group
@@ -553,7 +551,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   int            *node2int_face_comm_index1,*node2int_face_comm_index2;
   int            imsh,k,iel;
 
-  if ( parmesh->ngrp == 1 ) return PMMG_SUCCESS;
+  if ( parmesh->ngrp == 1 ) return 1;
 
   grp  = parmesh->listgrp;
 
@@ -561,7 +559,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   int_node_comm              = parmesh->int_node_comm;
 #warning TO DEBUG: it should be nitem here, not nitem+1
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
-              "node communicator",return PMMG_FAILURE);
+              "node communicator",return 0);
 
   int_face_comm              = parmesh->int_face_comm;
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
@@ -613,7 +611,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   parmesh->listgrp = grp;
 
   parmesh->ngrp = 1;
-  return PMMG_SUCCESS;
+  return 1;
 
 fail_comms:
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
@@ -624,7 +622,7 @@ fail_ncomm:
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
                "node communicator");
 
-  return PMMG_FAILURE;
+  return 0;
 }
 
 /**
