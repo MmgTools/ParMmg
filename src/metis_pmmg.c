@@ -85,6 +85,38 @@ end_xadj:
 }
 
 /**
+ * \param parmesh pointer toward the PMMG parmesh structure
+ * \param vtxdist pointer toward the description of the node distribution
+ * \param xadj pointer toward the position of the elt adjacents in adjncy
+ * \param adjncy pointer toward the list of the adjacent of each elt
+ * \param nadjncy number of data in adjncy array
+ * \param vwgt pointer toward the metis node weights
+ * \param wgtflag how to apply the metis weights
+ * \param numflag numbering style (C versus frotran)
+ * \param ncon number of of weights per metis node
+ * \param nproc number of partitions asked
+ * \param tpwgt pointer toward the fraction of weight to send to each domain
+ * \param ubvec imbalance tolerance for each vertex weight
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Build the metis graph with the mesh elements as metis nodes.
+ *
+ */
+int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
+                                     idx_t **xadj,idx_t **adjncy,idx_t *nadjncy,
+                                     idx_t **vwgt,idx_t *wgtflag,idx_t *numflag,
+                                     idx_t *ncon,idx_t nproc,real_t **tpwgts,
+                                     real_t **ubvec) {
+
+  *wgtflag = 2; /* Weights applies on vertices */
+  *numflag = 0; /* C-style numbering */
+  *ncon    = 1; /* number of weight per metis node */
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
  * \param nproc number of partitions asked
@@ -92,6 +124,7 @@ end_xadj:
  * \return  1 if success, 0 if fail
  *
  * Use metis to partition the first mesh in the list of meshes into nproc groups
+ *
  */
 int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 {
@@ -100,7 +133,6 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   idx_t      *xadj = NULL;
   idx_t      *adjncy = NULL;
   idx_t      nelt = mesh->ne;
-#warning NIKOS TODO: experiment with number of balancing constraints
   idx_t      ncon = 1; // number of balancing constraint
   idx_t      objval = 0;
   int        adjsize;
@@ -109,11 +141,9 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize,nproc) )
     return 0;
 
-  // Adjacency vectors are ready, call metis
-  ier = METIS_PartGraphKway( &nelt, &ncon, xadj, adjncy, NULL/*vwgt*/,
-                             NULL/*vsize*/, NULL/*adjwgt*/, &nproc,
-                             NULL/*tpwgts*/, NULL/*ubvec*/, NULL/*options*/,
-                             &objval, part );
+  /** Call metis and get the partition array */
+  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,NULL,NULL,NULL,&nproc,
+                             NULL,NULL,NULL,&objval, part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
       case METIS_ERROR_INPUT:
@@ -144,4 +174,65 @@ end_adjncy:
   PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
 
   return 0;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param part pointer of an array containing the partitions (at the end)
+ * \param nproc number of partitions asked
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Use metis to partition the first mesh in the list of meshes into nproc groups
+ *
+ */
+int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
+{
+  real_t     *tpwgts,*ubvec;
+  idx_t      *xadj,*adjncy,*vwgt,*vtxdist,adjsize;
+  idx_t      wgtflag,numflag,ncon;
+  int        ier;
+
+  /** Build the parmetis graph */
+  xadj   = adjncy = vwgt = vtxdist = NULL;
+  tpwgts = ubvec  =  NULL;
+  if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
+                                        &vwgt,&wgtflag,&numflag,&ncon,
+                                        nproc,&tpwgts,&ubvec) )
+    return 0;
+
+  /** Call parmetis and get the partition array */
+  /* ier = ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,&ncon, */
+  /*                             &nproc,tpwgts,ubvec,NULL,NULL,part,parmesh->comm); */
+  /* if ( ier != METIS_OK ) { */
+  /*   switch ( ier ) { */
+  /*     case METIS_ERROR_INPUT: */
+  /*       fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" ); */
+  /*       break; */
+  /*     case METIS_ERROR_MEMORY: */
+  /*       fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" ); */
+  /*       break; */
+  /*     case METIS_ERROR: */
+  /*       fprintf(stderr, "METIS_ERROR: generic error\n" ); */
+  /*       break; */
+  /*     default: */
+  /*       fprintf(stderr, "METIS_ERROR: update your METIS error handling\n" ); */
+  /*       break; */
+  /*   } */
+  /*   goto end_adjncy; */
+  /* } */
+
+  /* PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" ); */
+  /* PMMG_DEL_MEM(parmesh, xadj, ngrps+1, idx_t, "deallocate xadj" ); */
+  /* PMMG_DEL_MEM(parmesh, vwgt, ngrps+1, idx_t, "deallocate vwgt" ); */
+  /* PMMG_DEL_MEM(parmesh, adjwgt, mesh->ne + 1, idx_t, "deallocate adjwgt" ); */
+  /* PMMG_DEL_MEM(parmesh, vtxdist, nproc+1, idx_t, "deallocate adjwgt" ); */
+
+  return 1;
+
+/* end_adjncy: */
+/*   PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" ); */
+/*   PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" ); */
+
+/*   return 0; */
 }

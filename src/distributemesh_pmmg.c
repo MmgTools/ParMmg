@@ -749,7 +749,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   mesh   = grp->mesh;
   met    = grp->met;
 
-  /** Call metis for partionning*/
+  /** Call metis for partionning */
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
               ret_val=0;goto fail_alloc0);
   if ( (!parmesh->myrank) && nprocs > 1 ) {
