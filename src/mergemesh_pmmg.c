@@ -65,6 +65,7 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
     for ( k=0; k<nitem_int_node_comm; ++k ) {
       poi_id_glo = node2int_node_comm_index2[k];
       assert( 0 <= poi_id_glo );
+#warning TO DEBUG: it should be nitem here, not nitem+1
       assert(poi_id_glo < (parmesh->int_node_comm->nitem+1));
 
       // location in currently working mesh where point data actually are
@@ -211,7 +212,7 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
   for ( k=0; k<nitem_int_face_comm; ++k ) {
     face_id_glo = node2int_face_comm_index2[k];
     assert( 0 <= face_id_glo );
-    assert(face_id_glo < (parmesh->int_face_comm->nitem+1));
+    assert(face_id_glo < (parmesh->int_face_comm->nitem));
 
     /* Index of the interface tetra in the mesh */
     iel  = node2int_face_comm_index1[k]/4;
@@ -334,7 +335,7 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
   MMG5_pSol      met0;
   MMG5_pPoint    ppt;
   PMMG_pext_comm ext_node_comm;
-  PMMG_pint_comm int_node_comm,int_face_comm;
+  PMMG_pint_comm int_node_comm;
   int            nitem_int_node_comm0,*intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
@@ -345,7 +346,6 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
 
   int_node_comm              = parmesh->int_node_comm;
   intvalues                  = int_node_comm->intvalues;
-  int_face_comm              = parmesh->int_face_comm;
   mesh0                      = grp[0].mesh;
   met0                       = grp[0].met;
   nitem_int_node_comm0       = grp[0].nitem_int_node_comm;
@@ -422,12 +422,93 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
                grp[0].nitem_int_node_comm,int,
                "(mergeGrps) node2int_node_comm_index2",return 0);
   grp[0].nitem_int_node_comm = poi_id_int;
+#warning TO DEBUG: it should be nitem here, not nitem+1
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
                "free int_node_comm intvalues");
   int_node_comm->nitem       = poi_id_int;
 
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the face communicators when merging the groups of listgroups into 1
+ * group.
+ *
+ */
+static inline
+int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh0;
+  MMG5_pSol      met0;
+  PMMG_pext_comm ext_face_comm;
+  PMMG_pint_comm int_face_comm;
+  int            nitem_int_face_comm0,*intvalues;
+  int           *node2int_face_comm0_index1;
+  int           *node2int_face_comm0_index2;
+  int            face_id_int,idx,k,i,iel;
+  int            new_nitem_int_face_comm;
+
+  grp  = parmesh->listgrp;
+
+  int_face_comm              = parmesh->int_face_comm;
+  intvalues                  = int_face_comm->intvalues;
+  mesh0                      = grp[0].mesh;
+  met0                       = grp[0].met;
+  nitem_int_face_comm0       = grp[0].nitem_int_face_comm;
+  node2int_face_comm0_index1 = grp[0].node2int_face_comm_index1;
+  node2int_face_comm0_index2 = grp[0].node2int_face_comm_index2;
+
+  /** Travel through the external communicators and udpate all the communicators */
+  face_id_int = 0;
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+
+    /* currently working external communicator */
+    ext_face_comm = &parmesh->ext_face_comm[k];
+
+    for ( i=0; i<ext_face_comm->nitem; ++i ) {
+      idx = ext_face_comm->int_comm_index[i];
+      iel = intvalues[idx];
+
+      /* Add this face to the face communicators */
+      if ( face_id_int == grp[0].nitem_int_face_comm ) {
+        new_nitem_int_face_comm = (int)(1.2*grp[0].nitem_int_face_comm);
+        PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index1,
+                     new_nitem_int_face_comm,
+                     grp[0].nitem_int_face_comm,int,
+                     "(mergeGrps) node2int_face_comm_index1",
+                     grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
+                     return 0);
+        PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index2,
+                     new_nitem_int_face_comm,
+                     grp[0].nitem_int_face_comm,int,
+                     "(mergeGrps) node2int_face_comm_index2",
+                     grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
+                     return 0);
+        grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
+        node2int_face_comm0_index1 = grp[0].node2int_face_comm_index1;
+        node2int_face_comm0_index2 = grp[0].node2int_face_comm_index2;
+      }
+      node2int_face_comm0_index1[ face_id_int ] = iel;
+      node2int_face_comm0_index2[ face_id_int ] = face_id_int;
+      ext_face_comm->int_comm_index[ i ]        = face_id_int;
+      face_id_int++;
+    }
+  }
+
+  PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index1,face_id_int,
+               grp[0].nitem_int_face_comm,int,
+               "(mergeGrps) node2int_face_comm_index1",return 0);
+  PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index2,face_id_int,
+               grp[0].nitem_int_face_comm,int,
+               "(mergeGrps) node2int_face_comm_index2",return 0);
+  grp[0].nitem_int_face_comm = face_id_int;
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "free int_face_comm intvalues");
+  int_face_comm->nitem       = face_id_int;
 
   return 1;
 }
@@ -444,6 +525,8 @@ static inline
 int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
   if ( !PMMG_mergeGrps_nodeCommunicators(parmesh) ) return 0;
+
+  if ( !PMMG_mergeGrps_faceCommunicators(parmesh) ) return 0;
 
   return 1;
 }
@@ -475,13 +558,13 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   grp  = parmesh->listgrp;
 
   /** Use the internal communicators to store the interface entities indices */
-#warning why do we need to allocate at nitem+1 size and not nitem? (I think that nitem is false...)
   int_node_comm              = parmesh->int_node_comm;
+#warning TO DEBUG: it should be nitem here, not nitem+1
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
               "node communicator",return PMMG_FAILURE);
 
   int_face_comm              = parmesh->int_face_comm;
-  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
               "face communicator",goto fail_ncomm);
 
   mesh0                      = grp[0].mesh;
@@ -533,10 +616,11 @@ int PMMG_mergeGrps( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 
 fail_comms:
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem+1,int,
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
 
 fail_ncomm:
+#warning TO DEBUG: it should be nitem here, not nitem+1
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
                "node communicator");
 

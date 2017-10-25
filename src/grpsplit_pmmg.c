@@ -414,7 +414,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
           // communicator
           if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
             if (  PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
-                               poiPerGrp, meshCur->point[ poiPerGrp ].tmp )
+                                    poiPerGrp, meshCur->point[ poiPerGrp ].tmp )
                 != PMMG_SUCCESS ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
@@ -538,6 +538,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
     meshCur->np = poiPerGrp;
     meshCur->npi = poiPerGrp;
     meshCur->npnil = poiPerGrp + 1;
+
     for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
       meshCur->point[poi].n[0] = 0;
       meshCur->point[poi].n[1] = 0;
@@ -604,6 +605,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
   // Should be executed only if an error has occured
 fail_sgrp:
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
+
 #warning Algiane : the deallocation size may be false for the communicators if we have reallocated it
     meshCur = grpsNew[grpId].mesh;
 
