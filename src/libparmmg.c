@@ -106,7 +106,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
 
   if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
     return PMMG_STRONGFAILURE;
-  if ( _MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
+  if ( MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;

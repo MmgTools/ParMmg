@@ -218,7 +218,7 @@ int main( int argc, char *argv[] )
     if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-    if ( -1 == _MMG3D_bdryBuild( mesh ) )
+    if ( -1 == MMG3D_bdryBuild( mesh ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
     if (  mesh->info.imprim )
