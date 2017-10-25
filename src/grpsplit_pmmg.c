@@ -156,7 +156,7 @@ static int PMMG_n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * if the existing group of only one mesh is too big, split it into into several
  * meshes.
  */
-int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -190,7 +190,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
 
   n2inc_max = n2ifc_max = 0;
 
-  assert ( (parmesh->ngrp == 1) && " splitGrps can not split m groups to n");
+  assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
           parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
 
@@ -219,8 +219,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
   // part array contains the groupID computed by metis for each tetra
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
   meshOld_ne = meshOld->ne;
-  if (   PMMG_partition_metis( parmesh, part, ngrp )
-      != PMMG_SUCCESS ) {
+  if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
     ret_val = PMMG_FAILURE;
     goto fail_part;
   }
@@ -548,7 +547,7 @@ int PMMG_splitGrps( PMMG_pParMesh parmesh,int target_mesh_size )
       grpCur->met->np = poiPerGrp;
       grpCur->met->npi = poiPerGrp;
     }
-    assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_splitGrps" );
+    assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
     printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
             " %d nitem in int communicator.np=%d,npi=%d\n",
             ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,

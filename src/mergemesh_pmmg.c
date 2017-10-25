@@ -544,7 +544,7 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
  *
  * \warning the groups meshes must be packed.
  */
-int PMMG_mergeGrps( PMMG_pParMesh parmesh )
+int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh0,mesh;
@@ -986,7 +986,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
  *
  */
 static inline
-int PMMG_mergeParMesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
+int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
                          MMG5_pxPoint rcv_xpoint,MMG5_pTetra rcv_tetra,
                          MMG5_pxTetra rcv_xtetra,double *rcv_met,
                          int *rcv_intvalues,int *rcv_nitem_ext_tab,
@@ -1221,7 +1221,7 @@ int PMMG_mergeParMesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
  *
  * \warning the meshes must be packed before calling this procedure.
  */
-int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
+int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
   PMMG_pGrp      grp;
   MMG5_pPoint    rcv_point;
   MMG5_pxPoint   rcv_xpoint;
@@ -1248,7 +1248,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   /** Step 1: merge the groups over each procs and return 1 group per proc.
    * This group contains a packed mesh where the triangle and edges are not
    * reconstructed (the mesh contains tetra and xtetra). */
-  if ( merge && !PMMG_mergeGrps(parmesh) ) return 0;
+  if ( merge && !PMMG_merge_grps(parmesh) ) return 0;
 
   /** Step 2: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
@@ -1282,7 +1282,7 @@ int PMMG_mergeParMesh(PMMG_pParMesh parmesh, int merge) {
   /** Step 4: Proc 0 merges the meshes: We travel through the external
    * communicators to recover the numbering of the points shared with a lower
    * proc. The other points are concatenated with the proc 0. */
-  if ( !PMMG_mergeParMesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
+  if ( !PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
                             rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
                             rcv_color_in_tab,rcv_color_out_tab,
                             rcv_node2int_node_comm_index1,

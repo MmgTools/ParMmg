@@ -328,7 +328,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        it, i;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
+  if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
@@ -342,7 +342,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
   }
-
 
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
@@ -364,7 +363,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+#warning add adjacendy update in merge_grp and merge_parmesh function and remove this
 #warning NIKOS: I am not sure what is happening here. Finish error handling
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
@@ -375,7 +374,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
-  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
+  if ( PMMG_SUCCESS != PMMG_merge_grps(parmesh) )
     return PMMG_STRONGFAILURE;
 
   /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
@@ -389,7 +388,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** mmg3d1_delone failure */
 #warning NIKOS: These lines are exactly the same as in 334-344, handle ret_val correctly and remove code duplication
 failed:
-#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+#warning add adjacendy update in merge grp and merge_parmesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
@@ -399,7 +398,7 @@ failed:
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
     return PMMG_STRONGFAILURE;
 
-  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
+  if ( PMMG_SUCCESS != PMMG_merge_grps(parmesh) )
     return PMMG_STRONGFAILURE;
 
   return PMMG_LOWFAILURE;

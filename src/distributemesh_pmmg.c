@@ -109,7 +109,7 @@ static void swapPoint( MMG5_pPoint point, double* met,int* perm,
  */
 #warning NIKOS TODO: could add a parameter in PMMG_bcastMesh to select which node broadcasts the mesh
 #warning NIKOS TODO: perhaps change to: int PMMG_bcastMesh(MMG5_pMesh msh, int myid, int comm, int source);
-int PMMG_bcastMesh( PMMG_pParMesh parmesh )
+int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -723,12 +723,11 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward the metis array containing the partitions.
  *
- * \return PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return 0 if fail, 1 otherwise
  *
  * Delete parts of the mesh not on the processor.
  */
-int PMMG_distributeMesh( PMMG_pParMesh parmesh )
+int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
@@ -738,7 +737,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
-  int            ret_val = PMMG_SUCCESS;
+  int            ret_val=1;
   MPI_Datatype   metis_dt;
 
   /** Proc 0 send the mesh to the other procs */
@@ -752,11 +751,10 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
 
   /** Call metis for partionning*/
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
-              ret_val = PMMG_FAILURE;goto fail_alloc0);
+              ret_val=0;goto fail_alloc0);
   if ( (!parmesh->myrank) && nprocs > 1 ) {
-    if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
-         != PMMG_SUCCESS ) {
-      ret_val = PMMG_FAILURE;
+    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs) ) {
+      ret_val = 0;
       goto fail_alloc1;
     }
   }
