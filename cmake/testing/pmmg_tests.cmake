@@ -7,11 +7,24 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   set( CI_DIR_INPUTS  "../../TestParMmg" CACHE PATH "path to test meshes repository" )
 
-  foreach( MESH cube_unit-dual_density cube_unit-int_sphere )
+  # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
+  # on 1,2,4,6,8 processors
+  foreach( MESH cube-unit-dual_density cube-unit-int_sphere )
     foreach( NP 1 2 4 6 8 )
       add_test( NAME ${MESH}-${NP}
                 COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
                 ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
+                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
+    endforeach()
+  endforeach()
+
+  # remesh a unit cube with two different solution files on 1,2,4,6,8 processors
+  foreach( MESH dual_density int_sphere )
+    foreach( NP 1 2 4 6 8 )
+      add_test( NAME cube-unit-coarse-${MESH}-${NP}
+                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+                ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
+                -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
                 -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
     endforeach()
   endforeach()
