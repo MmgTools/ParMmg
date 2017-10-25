@@ -72,6 +72,8 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
       assert ( node2int_node_comm_index1[ k ] < mesh->np );
       ppt = &mesh->point[ node2int_node_comm_index1[ k ] ];
 
+      if ( !MG_VOK(ppt) ) continue;
+
       /* point ppt is not found in the merged mesh. add it */
       if ( !intvalues[ poi_id_glo ] ) {
         ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
@@ -146,7 +148,8 @@ int PMMG_mergeGrps_internalPoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 
   for ( k=1; k<=mesh->np; k++ ) {
     ppt = &mesh->point[k];
-    if ( ppt->tmp ) continue;
+    if ( !MG_VOK(ppt) ) continue;
+    if ( ppt->tmp )     continue;
 
     ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
     if ( !ip ) {
@@ -201,7 +204,6 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
   grp       = parmesh->listgrp;
   intvalues = parmesh->int_face_comm->intvalues;
 
-
   /** Add the interfaces tetra to the mesh0 mesh */
   mesh                      = grp[imsh].mesh;
   nitem_int_face_comm       = grp[imsh].nitem_int_face_comm;
@@ -219,6 +221,9 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
     ifac = node2int_face_comm_index1[k]%4;
     assert ( iel < mesh->ne );
     pt       = &mesh->tetra[iel];
+
+    if ( !MG_EOK(pt) ) continue;
+
     pt->base = mesh->base;
 
     /* Add the tetra iel to mesh0 */
@@ -300,9 +305,7 @@ int PMMG_mergeGrps_internalTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int imsh
 
     /** Add xtetra if needed */
     if ( pt->xt ) {
-#warning add only the "true" xtetras (not those linked to the interfaces)
       pxt = &mesh->xtetra[pt->xt];
-
       mesh0->xt++;
       if ( mesh0->xt > mesh0->xtmax ) {
         PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
