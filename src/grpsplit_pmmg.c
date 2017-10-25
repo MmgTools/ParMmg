@@ -639,3 +639,18 @@ fail_part:
   PMMG_DEL_MEM(parmesh,part,meshOld_ne,idx_t,"free metis buffer ");
   return ret_val;
 }
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param target_mesh_size wanted number of elements per group
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Redistribute the n groups of listgrps into \a target_mesh_size groups.
+ *
+ */
+int PMMG_split_n2mGroups(PMMG_pParMesh parmesh,int target_mesh_size) {
+
+  return 1;
+}

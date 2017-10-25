@@ -120,35 +120,30 @@ extern "C" {
 
 
 
-void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
-void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
+/* Input */
+int  PMMG_check_inputData ( PMMG_pParMesh parmesh );
+int  PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 
-int PMMG_check_inputData ( PMMG_pParMesh parmesh );
+/* Internal library */
+int  PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
-int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
-
+/* Mesh distrib */
+int  PMMG_bdryUpdate( MMG5_pMesh mesh );
+int  PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
 int  PMMG_split_grps( PMMG_pParMesh,int );
 
+/* Load Balancing */
+int PMMG_distribute_groups( PMMG_pParMesh parmesh );
+int PMMG_loadBalancing(PMMG_pParMesh parmesh);
+int PMMG_split_n2mGroups(PMMG_pParMesh,int);
+
+/* Mesh merge */
 int  PMMG_merge_grps ( PMMG_pParMesh parmesh );
-int  PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
-int  PMMG_bdryStore ( MMG5_pMesh mesh );
-int  PMMG_bdryUpdate( MMG5_pMesh mesh );
 
+/* Memory */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
-
-/**
- * \param argc number of command line arguments.
- * \param argv command line arguments.
- * \param mesh pointer toward the mesh structure.
- * \param met pointer toward the sol structure.
- * \return 1.
- *
- * Store command line arguments.
- *
- * \remark no matching fortran function.
- *
- */
-int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
+void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus

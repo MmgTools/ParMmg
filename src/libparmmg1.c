@@ -353,10 +353,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) )
         goto failed;
 #endif
-
-#warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
       /** load Balancing at group scale and communicators reconstruction */
-
+      if ( !PMMG_loadBalancing(parmesh) ) goto failed;
     }
   }
 
