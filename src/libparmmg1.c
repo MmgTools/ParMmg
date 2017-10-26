@@ -154,13 +154,17 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
 
     // Cannot call pack_pointArray here because the assert(ppt->xp) fail....
-    np = nbl = 0;
+    np  = 0;
+    nbl = 1;
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
       if ( !MG_VOK(ppt) )
         continue;
       np++;
       if ( k!=nbl ) {
+
+        assert(nbl==ppt->tmp);
+
         pptnew = &mesh->point[nbl];
         memmove(pptnew,ppt,sizeof(MMG5_Point));
         memset(ppt,0,sizeof(MMG5_Point));
