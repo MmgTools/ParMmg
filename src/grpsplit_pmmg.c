@@ -163,7 +163,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh const meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
-  MMG5_pTetra tetraCur = NULL;
+  MMG5_pTetra pt,tetraCur = NULL;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   int *countPerGrp = NULL;
@@ -352,10 +352,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
     tetPerGrp = 0;
     poiPerGrp = 0;
     for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
+      pt = &meshOld->tetra[tet];
+
+      if ( !MG_EOK(pt) ) continue;
+
       // MMG3D_Tetra.flag is used to update adjacency vector:
       //   if the tetra belongs to the group we store the local tetrahedron id
       //   in the tet.flag
-      meshOld->tetra[tet].flag = 0;
+      pt->flag = 0;
 
       // Skip elements that do not belong in the group processed in this iteration
       if ( grpId != part[ tet - 1 ] )
@@ -364,10 +368,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
       ++tetPerGrp;
       assert( ( tetPerGrp < meshCur->nemax ) && "overflowing tetra array?" );
       tetraCur = meshCur->tetra + tetPerGrp;
-      meshOld->tetra[tet].flag = tetPerGrp;
+      pt->flag = tetPerGrp;
 
       // add tetrahedron to subgroup (copy from original group)
-      memcpy( tetraCur, &meshOld->tetra[tet], sizeof(MMG5_Tetra) );
+      memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
       tetraCur->base = 0;
       tetraCur->mark = 0;
       tetraCur->flag = 0;
@@ -380,25 +384,21 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
         }
         tetraCur->xt = meshCur->xt;
       }
-#warning NIKOS TODO: are there or should these just be deleted?
-      //else
-      //  printf ("there may be more: new boundary between subgroups\n");
 
       // Add tetrahedron vertices in points struct and
       // adjust tetrahedron vertices indices
       for ( poi = 0; poi < 4 ; ++poi ) {
-        if ( 0 == meshOld->point[ meshOld->tetra[tet].v[poi] ].flag ) { // 1st time that this point is seen in this subgroup
-
+        if ( !meshOld->point[ pt->v[poi] ].flag ) {
+          // 1st time that this point is seen in this subgroup
           // Add point in subgroup point array
           ++poiPerGrp;
           assert( (poiPerGrp < meshCur->npmax) && "overflowing mesh points" );
-          memcpy( meshCur->point + poiPerGrp,
-                  &meshOld->point[ meshOld->tetra[tet].v[poi] ],
+          memcpy( meshCur->point+poiPerGrp,&meshOld->point[pt->v[poi]],
                   sizeof(MMG5_Point) );
            if ( grpCur->met->m ) {
              assert( (poiPerGrp < grpCur->met->npmax) && "overflowing sol points" );
              memcpy( &grpCur->met->m[ poiPerGrp * grpCur->met->size ],
-                 &grpOld->met->m[meshOld->tetra[tet].v[poi] * grpCur->met->size],
+                 &grpOld->met->m[pt->v[poi] * grpCur->met->size],
                  grpCur->met->size * sizeof( double ) );
            }
 
@@ -406,7 +406,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           tetraCur->v[poi] = poiPerGrp;
 
           // "Remember" the assigned subgroup point id
-          meshOld->point[ meshOld->tetra[tet].v[poi] ].flag = poiPerGrp;
+          meshOld->point[ pt->v[poi] ].flag = poiPerGrp;
 
           // Add point in subgroup's communicator if it already was in group's
           // communicator
@@ -430,16 +430,16 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           //else
           //  printf( " some other more border cases, think about it \n" );
         } else { // point is already included in this subgroup, update current tetra vertex reference
-          tetraCur->v[poi] = meshOld->point[ meshOld->tetra[tet].v[poi] ].flag;
+          tetraCur->v[poi] = meshOld->point[ pt->v[poi] ].flag;
         }
       }
 
 
       /* Copy element's vertices adjucency from old mesh and update them to the new mesh values */
-      assert( ((4 * (tetPerGrp - 1) + 1 + 3) < (4 * (meshCur->ne - 1) + 1 + 4)) && "adja overflow" );
+      assert( ((4*(tetPerGrp-1)+4) < (4*(meshCur->ne-1)+5)) && "adja overflow" );
       adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
 
-      assert( (4 * (tet - 1) + 1 + 3) < (4 * (meshOld->ne - 1) + 1 + 4) && "meshCur->adja overflow" );
+      assert( (4 *(tet-1)+1+3) < (4*(meshOld->ne-1)+1+5) && "meshCur->adja overflow" );
       memcpy( adja, &meshOld->adja[ 4 * ( tet - 1 ) + 1 ], 4 * sizeof(int) );
 
       /* Update element's adjuceny to elements in the new mesh */
@@ -493,8 +493,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           assert(     (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex )
                     < (4 * (meshCur->ne -1 ) + 1 + 4)
                  && "adja overflow" );
-          meshCur->adja[ 4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex ] =
-            4 * tetPerGrp + fac;
+          meshCur->adja[4*(meshOld->tetra[adjidx].flag-1)+1+vindex] =
+            4*tetPerGrp+fac;
         }
       }
       adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
@@ -513,7 +513,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
                 goto fail_sgrp;
               }
 
-              meshOld->point[ meshOld->tetra[tet].v[ _MMG5_idir[fac][poi]  ] ].tmp =
+              meshOld->point[ pt->v[ _MMG5_idir[fac][poi]  ] ].tmp =
                 parmesh->int_node_comm->nitem + 1;
               meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp =
                 parmesh->int_node_comm->nitem + 1;
