@@ -156,7 +156,7 @@ static int PMMG_n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * if the existing group of only one mesh is too big, split it into into several
  * meshes.
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int pack )
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -183,7 +183,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   int *adja = NULL;
   int vindex = 0;
   int adjidx = 0;
-  int j;
+  int j,ne;
 
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
@@ -191,8 +191,20 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   n2inc_max = n2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
-  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
-          parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
+  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) tetras(elements)\n",
+          parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->ne, meshOld->nei );
+
+  if ( pack ) {
+    ne = 0;
+    for ( tet=1; tet<=meshOld->ne; ++tet ) {
+      pt = &meshOld->tetra[tet];
+      if ( !MG_EOK(pt) ) continue;
+      pt->flag = ++ne;
+    }
+
+    if ( !MMG3D_pack_tetraAndAdja(meshOld) ) return PMMG_FAILURE;
+
+  }
 
   ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
   // Does the group need to be further subdivided to subgroups or not?
@@ -653,6 +665,12 @@ fail_part:
  *
  */
 int PMMG_split_n2mGroups(PMMG_pParMesh parmesh,int target_mesh_size) {
+
+  /** Merge the parmesh groups into 1 group */
+  if ( !PMMG_merge_grps(parmesh) ) return 0;
+
+  /** Split the group into the suitable number of groups */
+  if ( !PMMG_split_grps(parmesh,target_mesh_size,1) ) return 0;
 
   return 1;
 }
