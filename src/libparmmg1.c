@@ -339,12 +339,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
-  /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
-  /* char filename[200]; */
-  /* sprintf(filename,"End_libparmmg1_proc%d.mesh",parmesh->myrank); */
-  /* MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-  /* PMMG_saveMesh(parmesh,filename); */
-
   return PMMG_SUCCESS;
 
   /** mmg3d1_delone failure */

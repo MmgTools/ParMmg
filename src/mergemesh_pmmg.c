@@ -740,7 +740,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   /* } */
 
   /** Gather parmesh size infos on proc 0 */
-#warning try to compare with non-blocking comms (Igather(v))
   MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,0,comm);
   MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,0,comm);
   MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,0,comm);
