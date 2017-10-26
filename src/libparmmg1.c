@@ -10,6 +10,87 @@
 #include "parmmg.h"
 
 /**
+ * \param grp pointer toward the group in which we want to update the list of
+ * nodes that are in the internal communicator.
+ *
+ * \return 1 if success, 0 otherwise
+ *
+ * Update the list of vertices indices with the pack point index stored in the
+ * tmp field of points.
+ *
+ */
+int PMMG_update_node2intVertices( PMMG_pGrp grp ) {
+  MMG5_pPoint ppt;
+  int         *node2int_node_comm_index1;
+  int         k,iadr;
+
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+
+  for (k=0; k<grp->nitem_int_node_comm; ++k) {
+    iadr = node2int_node_comm_index1[k];
+
+    ppt = &grp->mesh->point[iadr];
+    assert ( MG_VOK(ppt) );
+
+    node2int_node_comm_index1[k] = ppt->tmp;
+  }
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure (unused).
+ * \param ne pointer toward the number of packed tetra
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Count the number of packed tetra and store the packed tetra index in flag.
+ *
+ */
+
+int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
+  MMG5_pTetra   pt;
+  int           k;
+
+  (*ne) = 0;
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) )  continue;
+    pt->flag = ++(*ne);
+  }
+  return 1;
+}
+
+/**
+ * \param grp pointer toward the group in which we want to update the list of
+ * faces that are in the internal communicator.
+ *
+ * \return 1 if success, 0 otherwise
+ *
+ * Update the list of tetra indices with the pack tetra index stored in the
+ * flag field of tetras.
+ *
+ */
+int PMMG_update_node2intTetra( PMMG_pGrp grp ) {
+  MMG5_pTetra pt;
+  int         *node2int_face_comm_index1;
+  int         k,iel,ifac;
+
+  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
+
+  for (k=0; k<grp->nitem_int_face_comm; ++k) {
+    iel  = node2int_face_comm_index1[k]/4;
+    ifac = node2int_face_comm_index1[k]%4;
+
+    pt = &grp->mesh->tetra[iel];
+    assert ( MG_EOK(pt) );
+
+    node2int_face_comm_index1[iel] = pt->flag;
+  }
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  *
  * \return PMMG_FAILURE
@@ -26,29 +107,22 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   MMG5_pSol   met;
   MMG5_pSol   disp;
   MMG5_pPoint ppt,pptnew;
-  int         *node2int_node_comm_index1;
-  int         np,nbl,nc,k,igrp;
-  int         iadr;
+  int         ne,np,nbl,nc,k,igrp;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
     met                       = grp->met;
-    node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     disp                      = grp->disp;
 
-    /* compact vertices */
-    if ( !MMG3D_count_packedPoints(mesh,&np,&nc) ) return 0;
+    /** Store in flag the pack index of each tetra */
+    if ( !MMG3D_mark_packedTetra(mesh,&ne) ) return 0;
 
-    /* node index update in internal communicator */
-    for (k=0; k<grp->nitem_int_node_comm; ++k) {
-      iadr = node2int_node_comm_index1[k];
-
-      ppt = &mesh->point[iadr];
-      assert ( MG_VOK(ppt) );
-
-      node2int_node_comm_index1[k] = ppt->tmp;
-    }
+    /** Update the tetra indices in the face communicator */
+ #warning cannot work because the tetra indices are modified in mmg3d.
+    // Tetra indices are modified by paktet in mmg3d1. We need to do something
+    // different for the face communicators...
+    //if ( !PMMG_update_node2intTetra(grp) ) return 0;
 
     /* compact tetrahedra */
     if ( mesh->adja ) {
@@ -57,6 +131,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     else {
       if ( !MMG3D_pack_tetra(mesh) ) return 0;
     }
+    assert ( ne==mesh->ne );
 
     /* update prisms and quads vertex indices */
     if ( !MMG3D_pack_prismsAndQuads(mesh) ) return 0;
@@ -69,11 +144,17 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     if ( disp && disp->m )
       if ( !MMG3D_pack_sol(mesh,disp) ) return 0;
 
-    /* compact vertices */
-    // pack_points fail because we miss some xp after merging
-    // if ( !MMG3D_pack_points(mesh) ) return 0;
-    np  = 0;
-    nbl = 1;
+    /** Store in tmp the pack index of each point and count the corner*/
+    if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
+
+    /* node index update in internal communicator */
+    if ( !PMMG_update_node2intVertices( grp ) ) return 0;
+
+    /** Update the element vertices indices */
+    if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
+
+    // Cannot call pack_pointArray here because the assert(ppt->xp) fail....
+    np = nbl = 0;
     for (k=1; k<=mesh->np; k++) {
       ppt = &mesh->point[k];
       if ( !MG_VOK(ppt) )

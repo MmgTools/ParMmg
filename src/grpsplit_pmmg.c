@@ -332,8 +332,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   //   or -1 if they are not in the comm
   for ( poi = 1; poi < meshOld->np + 1; ++poi )
     meshOld->point[poi].tmp = -1;
+
   for ( i = 0; i < grpOld->nitem_int_node_comm; i++ )
-    meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp = grpOld->node2int_node_comm_index2[ i ];
+    meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
+      grpOld->node2int_node_comm_index2[ i ];
 
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
     grpCur = &grpsNew[grpId];

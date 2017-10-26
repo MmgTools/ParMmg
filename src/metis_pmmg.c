@@ -21,6 +21,8 @@
  *
  * Build the metis graph with the mesh elements as metis nodes.
  *
+ * \warning the mesh must be packed
+ *
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                                idx_t **xadj,idx_t **adjncy,
@@ -39,7 +41,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
               goto end_mesh_adja);
 
   /** 1) Count the number of adjacent of each elements and fill xadj */
-  (*xadj)[0]  = 0;
+  (*xadj)[0] = 0;
   (*nadjncy) = 0;
   for( k = 1; k <= mesh->ne; k++ ) {
     nbAdj = 0;
@@ -49,7 +51,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       if( adja[j] )
         nbAdj++;
 
-    (*nadjncy) += nbAdj;
+    (*nadjncy)+= nbAdj;
     (*xadj)[k] = (*nadjncy);
   }
 
