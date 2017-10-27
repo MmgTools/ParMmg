@@ -19,7 +19,7 @@
  * tmp field of points.
  *
  */
-int PMMG_update_node2intVertices( PMMG_pGrp grp ) {
+int PMMG_update_node2intPackedVertices( PMMG_pGrp grp ) {
   MMG5_pPoint ppt;
   int         *node2int_node_comm_index1;
   int         k,iadr;
@@ -70,7 +70,7 @@ int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
  * flag field of tetras.
  *
  */
-int PMMG_update_node2intTetra( PMMG_pGrp grp ) {
+int PMMG_update_face2intPackedTetra( PMMG_pGrp grp ) {
   MMG5_pTetra pt;
   int         *face2int_face_comm_index1;
   int         k,iel,ifac;
@@ -121,7 +121,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
  #warning cannot work because the tetra indices are modified in mmg3d.
     // Tetra indices are modified by paktet in mmg3d1. We need to do something
     // different for the face communicators...
-    //if ( !PMMG_update_node2intTetra(grp) ) return 0;
+    //if ( !PMMG_update_node2intPackedTetra(grp) ) return 0;
 
     /* compact tetrahedra */
     if ( mesh->adja ) {
@@ -147,7 +147,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
 
     /* node index update in internal communicator */
-    if ( !PMMG_update_node2intVertices( grp ) ) return 0;
+    if ( !PMMG_update_node2intPackedVertices( grp ) ) return 0;
 
     /** Update the element vertices indices */
     if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
@@ -258,6 +258,52 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 }
 
 /**
+ * \param parmesh pointer toward a parmesh structure
+ * \param igrp index of the group that we want to treat
+ * \param facesData list 3 data allowing to identify from their nodes the faces
+ * present in the list of interface triangles of the group.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Store in \a facesVertices the 3 data allowing to recover the face identity:
+ * (\a mins,\a maxs,\a sum) where \a mins is the minimal index of the face
+ * vertices, \a maxs the maximal one and \a sum the sum of the vertices indices.
+ * The \f$ i^th \f$ face is stored at the \f$ [ 3*i;3$i+2 ] positions of the
+ * \a facesData array. The \a facesData array is allocated in this function.
+ *
+ */
+static inline
+int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
+                                      int **facesData) {
+
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param igrp index of the group that we want to treat
+ * \param facesData list 3 data allowing to identify from their nodes the faces
+ * present in the list of interface triangles of the group.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Find the index of the interface tetras from the nodes data ((\a mins,\a
+ * maxs,\a sum) where \a mins is the minimal index of the face vertices, \a maxs
+ * the maximal one and \a sum the sum of the vertices indices) of the interface
+ * faces stored int the \a facesData array (by the \ref
+ * store_faceVerticesInIntComm function) and update the
+ * face2int_face_comm_index1 array. This function free the \a facesData array.
+ *
+ */
+static inline
+int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
+                                         int **facesData ) {
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
  *
@@ -274,7 +320,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it, i;
+  int        it, i, *facesData;
 
   /** Groups creation */
   if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
@@ -298,13 +344,20 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
 
+      /** Store the vertices of interface faces in the internal communicator */
+      if ( !PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) )
+        goto failed;
+
+      /** Call the remesher */
 #ifdef PATTERN
-      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) )
-        goto failed;
+      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) goto failed;
 #else
-      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) )
-        goto failed;
+      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) goto failed;
 #endif
+      /** Update interface tetra indices in the face communicator */
+      if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,&facesData) )
+        goto failed;
+
       /** load Balancing at group scale and communicators reconstruction */
       if ( !PMMG_loadBalancing(parmesh) ) goto failed;
     }
