@@ -873,9 +873,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   }
   ext_comm_displs_tot = (*ext_comm_displs)[nprocs-1] + (*rcv_next_node_comm)[nprocs-1];
 
-  (*rcv_color_in_tab)  = (int*)malloc(nitem_ext_tot*sizeof(int));
-  (*rcv_color_out_tab) = (int*)malloc(nitem_ext_tot*sizeof(int));
-  (*rcv_nitem_ext_tab) = (int*)malloc(nitem_ext_tot*sizeof(int));
+  (*rcv_color_in_tab)  = (int*)malloc(ext_comm_displs_tot*sizeof(int));
+  (*rcv_color_out_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
+  (*rcv_nitem_ext_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
 
   MPI_Gatherv(color_in_tab,parmesh->next_node_comm,MPI_INT,
               (*rcv_color_in_tab),(*rcv_next_node_comm),(*ext_comm_displs),MPI_INT,
