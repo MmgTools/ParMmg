@@ -69,7 +69,7 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
       assert(poi_id_glo < (parmesh->int_node_comm->nitem+1));
 
       // location in currently working mesh where point data actually are
-      assert ( node2int_node_comm_index1[ k ] < mesh->np );
+      assert ( node2int_node_comm_index1[ k ] <= mesh->np );
       ppt = &mesh->point[ node2int_node_comm_index1[ k ] ];
 
       if ( !MG_VOK(ppt) ) continue;
@@ -219,7 +219,7 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
     /* Index of the interface tetra in the mesh */
     iel  = node2int_face_comm_index1[k]/4;
     ifac = node2int_face_comm_index1[k]%4;
-    assert ( iel < mesh->ne );
+    assert ( iel<=mesh->ne );
     pt       = &mesh->tetra[iel];
 
     if ( !MG_EOK(pt) ) continue;
