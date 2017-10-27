@@ -121,7 +121,7 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int
  *  Append new values in face internal communitor, resizing the buffers if
  *  required
  */
-static int PMMG_n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
+static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                         int idx1, int idx2 )
 {
   assert( (max != 0) && "null pointer passed" );
@@ -130,17 +130,17 @@ static int PMMG_n2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
   const float scale = 2.f;
 
   if ( (grp->nitem_int_face_comm + 1) >= *max ) {
-    PMMG_RECALLOC(parmesh, grp->node2int_face_comm_index1,
+    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index1,
                   scale * *max, *max, int,
-                  "increasing node2int_face_comm_index1",return PMMG_FAILURE);
-    PMMG_RECALLOC(parmesh, grp->node2int_face_comm_index2,
+                  "increasing face2int_face_comm_index1",return PMMG_FAILURE);
+    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index2,
                   scale * *max, *max, int,
-                  "increasing node2int_face_comm_index2",return PMMG_FAILURE);
+                  "increasing face2int_face_comm_index2",return PMMG_FAILURE);
     *max  = *max * scale;
   }
 
-  grp->node2int_face_comm_index1[ grp->nitem_int_face_comm ] = idx1;
-  grp->node2int_face_comm_index2[ grp->nitem_int_face_comm ] = idx2;
+  grp->face2int_face_comm_index1[ grp->nitem_int_face_comm ] = idx1;
+  grp->face2int_face_comm_index2[ grp->nitem_int_face_comm ] = idx2;
   ++grp->nitem_int_face_comm;
 
   return PMMG_SUCCESS;
@@ -172,7 +172,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   int meshOld_ne = 0;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
    *  actual node2int_node_comm */
-  int n2inc_max,n2ifc_max;
+  int n2inc_max,f2ifc_max;
 
   idx_t ngrp = 1;
   idx_t *part = NULL;
@@ -188,7 +188,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
 
-  n2inc_max = n2ifc_max = 0;
+  n2inc_max = f2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
   printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
@@ -322,12 +322,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
             meshCur->adja,n2inc_max, grpCur->node2int_node_comm_index1,
             grpCur->node2int_node_comm_index2);
 
-    n2ifc_max = meshCur->xtmax;
-    PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index1,n2ifc_max,int,
-                "node2int_face_comm_index1 communicator",ret_val = PMMG_FAILURE;
+    f2ifc_max = meshCur->xtmax;
+    PMMG_CALLOC(parmesh,grpCur->face2int_face_comm_index1,f2ifc_max,int,
+                "face2int_face_comm_index1 communicator",ret_val = PMMG_FAILURE;
                 goto fail_sgrp);
-    PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index2,n2ifc_max,int,
-                "node2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
+    PMMG_CALLOC(parmesh,grpCur->face2int_face_comm_index2,f2ifc_max,int,
+                "face2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
                 goto fail_sgrp);
   }
 
@@ -477,7 +477,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
           /* Build the internal communicator for the boundary faces */
-          if ( PMMG_n2ifcAppend( parmesh, grpCur, &n2ifc_max,4*tetPerGrp+fac,
+          if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
                                  grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
             ret_val = PMMG_FAILURE;
             goto fail_sgrp;
@@ -635,12 +635,12 @@ fail_sgrp:
       PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,"subgroup internal1 communicator ");
 
     /* internal communicator for faces */
-    if ( grpCur->node2int_face_comm_index1 )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_face_comm_index1,n2ifc_max,int,
-                   "node2int_face_comm_index1 communicator ");
-    if ( grpCur->node2int_face_comm_index2 )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_face_comm_index2,n2ifc_max,int,
-                   "node2int_face_comm_index1 communicator ");
+    if ( grpCur->face2int_face_comm_index1 )
+      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index1,f2ifc_max,int,
+                   "face2int_face_comm_index1 communicator ");
+    if ( grpCur->face2int_face_comm_index2 )
+      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index2,f2ifc_max,int,
+                   "face2int_face_comm_index1 communicator ");
 
     /* mesh */
     if ( meshCur->adja != NULL )

@@ -72,19 +72,19 @@ int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
  */
 int PMMG_update_node2intTetra( PMMG_pGrp grp ) {
   MMG5_pTetra pt;
-  int         *node2int_face_comm_index1;
+  int         *face2int_face_comm_index1;
   int         k,iel,ifac;
 
-  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
 
   for (k=0; k<grp->nitem_int_face_comm; ++k) {
-    iel  = node2int_face_comm_index1[k]/4;
-    ifac = node2int_face_comm_index1[k]%4;
+    iel  = face2int_face_comm_index1[k]/4;
+    ifac = face2int_face_comm_index1[k]%4;
 
     pt = &grp->mesh->tetra[iel];
     assert ( MG_EOK(pt) );
 
-    node2int_face_comm_index1[iel] = pt->flag;
+    face2int_face_comm_index1[iel] = pt->flag;
   }
 
   return 1;

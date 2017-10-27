@@ -134,12 +134,12 @@ typedef struct {
   int*         node2int_node_comm_index2; /*!< List of index in internal communicator (where put the interface nodes)*/
 
   int          nitem_int_edge_comm;/*!< Nb edges of this grp in internal communicator*/
-  int*         node2int_edge_comm_index1; /*!< List of interface edges (local index)*/
-  int*         node2int_edge_comm_index2; /*!< List of index in internal communicator (where put the interface edges)*/
+  int*         edge2int_edge_comm_index1; /*!< List of interface edges (local index)*/
+  int*         edge2int_edge_comm_index2; /*!< List of index in internal communicator (where put the interface edges)*/
 
   int          nitem_int_face_comm;/*!< Nb faces of this grp in internal communicator*/
-  int*         node2int_face_comm_index1; /*!< List of interface faces (local index)*/
-  int*         node2int_face_comm_index2; /*!< List of index in internal communicator (where put the interface faces)*/
+  int*         face2int_face_comm_index1; /*!< List of interface faces (local index)*/
+  int*         face2int_face_comm_index2; /*!< List of index in internal communicator (where put the interface faces)*/
 
 } PMMG_Grp;
 typedef PMMG_Grp  * PMMG_pGrp;

@@ -72,12 +72,12 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
         (*listgrp)[k].node2int_node_comm_index2,
         &(*listgrp)[k].nitem_int_node_comm);
     pmesh_grp_comm_free( parmesh,
-        (*listgrp)[k].node2int_edge_comm_index1,
-        (*listgrp)[k].node2int_edge_comm_index2,
+        (*listgrp)[k].edge2int_edge_comm_index1,
+        (*listgrp)[k].edge2int_edge_comm_index2,
         &(*listgrp)[k].nitem_int_edge_comm);
     pmesh_grp_comm_free( parmesh,
-        (*listgrp)[k].node2int_face_comm_index1,
-        (*listgrp)[k].node2int_face_comm_index2,
+        (*listgrp)[k].face2int_face_comm_index1,
+        (*listgrp)[k].face2int_face_comm_index2,
         &(*listgrp)[k].nitem_int_face_comm);
 #warning NIKOS: MET AND DISP FIELDS ARE NOT DEALLOCATED
     MMG3D_Free_all( MMG5_ARG_start,

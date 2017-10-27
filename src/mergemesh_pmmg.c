@@ -197,7 +197,7 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
   MMG5_pxTetra   pxt0,pxt;
   int            nitem_int_face_comm;
   int            *intvalues;
-  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            face_id_glo;
   int            k,iel,ie,ifac,i;
 
@@ -207,18 +207,18 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
   /** Add the interfaces tetra to the mesh0 mesh */
   mesh                      = grp[imsh].mesh;
   nitem_int_face_comm       = grp[imsh].nitem_int_face_comm;
-  node2int_face_comm_index1 = grp[imsh].node2int_face_comm_index1;
-  node2int_face_comm_index2 = grp[imsh].node2int_face_comm_index2;
+  face2int_face_comm_index1 = grp[imsh].face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp[imsh].face2int_face_comm_index2;
 
   ++mesh->base;
   for ( k=0; k<nitem_int_face_comm; ++k ) {
-    face_id_glo = node2int_face_comm_index2[k];
+    face_id_glo = face2int_face_comm_index2[k];
     assert( 0 <= face_id_glo );
     assert(face_id_glo < (parmesh->int_face_comm->nitem));
 
     /* Index of the interface tetra in the mesh */
-    iel  = node2int_face_comm_index1[k]/4;
-    ifac = node2int_face_comm_index1[k]%4;
+    iel  = face2int_face_comm_index1[k]/4;
+    ifac = face2int_face_comm_index1[k]%4;
     assert ( iel<=mesh->ne );
     pt       = &mesh->tetra[iel];
 
@@ -450,8 +450,8 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pext_comm ext_face_comm;
   PMMG_pint_comm int_face_comm;
   int            nitem_int_face_comm0,*intvalues;
-  int           *node2int_face_comm0_index1;
-  int           *node2int_face_comm0_index2;
+  int           *face2int_face_comm0_index1;
+  int           *face2int_face_comm0_index2;
   int            face_id_int,idx,k,i,iel;
   int            new_nitem_int_face_comm;
 
@@ -462,8 +462,8 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   mesh0                      = grp[0].mesh;
   met0                       = grp[0].met;
   nitem_int_face_comm0       = grp[0].nitem_int_face_comm;
-  node2int_face_comm0_index1 = grp[0].node2int_face_comm_index1;
-  node2int_face_comm0_index2 = grp[0].node2int_face_comm_index2;
+  face2int_face_comm0_index1 = grp[0].face2int_face_comm_index1;
+  face2int_face_comm0_index2 = grp[0].face2int_face_comm_index2;
 
   /** Travel through the external communicators and udpate all the communicators */
   face_id_int = 0;
@@ -479,35 +479,35 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
       /* Add this face to the face communicators */
       if ( face_id_int == grp[0].nitem_int_face_comm ) {
         new_nitem_int_face_comm = (int)(1.2*grp[0].nitem_int_face_comm);
-        PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index1,
+        PMMG_REALLOC(parmesh,grp[0].face2int_face_comm_index1,
                      new_nitem_int_face_comm,
                      grp[0].nitem_int_face_comm,int,
-                     "(mergeGrps) node2int_face_comm_index1",
+                     "(mergeGrps) face2int_face_comm_index1",
                      grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
                      return 0);
-        PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index2,
+        PMMG_REALLOC(parmesh,grp[0].face2int_face_comm_index2,
                      new_nitem_int_face_comm,
                      grp[0].nitem_int_face_comm,int,
-                     "(mergeGrps) node2int_face_comm_index2",
+                     "(mergeGrps) face2int_face_comm_index2",
                      grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
                      return 0);
         grp[0].nitem_int_face_comm = new_nitem_int_face_comm;
-        node2int_face_comm0_index1 = grp[0].node2int_face_comm_index1;
-        node2int_face_comm0_index2 = grp[0].node2int_face_comm_index2;
+        face2int_face_comm0_index1 = grp[0].face2int_face_comm_index1;
+        face2int_face_comm0_index2 = grp[0].face2int_face_comm_index2;
       }
-      node2int_face_comm0_index1[ face_id_int ] = iel;
-      node2int_face_comm0_index2[ face_id_int ] = face_id_int;
+      face2int_face_comm0_index1[ face_id_int ] = iel;
+      face2int_face_comm0_index2[ face_id_int ] = face_id_int;
       ext_face_comm->int_comm_index[ i ]        = face_id_int;
       face_id_int++;
     }
   }
 
-  PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index1,face_id_int,
+  PMMG_REALLOC(parmesh,grp[0].face2int_face_comm_index1,face_id_int,
                grp[0].nitem_int_face_comm,int,
-               "(mergeGrps) node2int_face_comm_index1",return 0);
-  PMMG_REALLOC(parmesh,grp[0].node2int_face_comm_index2,face_id_int,
+               "(mergeGrps) face2int_face_comm_index1",return 0);
+  PMMG_REALLOC(parmesh,grp[0].face2int_face_comm_index2,face_id_int,
                grp[0].nitem_int_face_comm,int,
-               "(mergeGrps) node2int_face_comm_index2",return 0);
+               "(mergeGrps) face2int_face_comm_index2",return 0);
   grp[0].nitem_int_face_comm = face_id_int;
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "free int_face_comm intvalues");
@@ -551,7 +551,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   MMG5_pMesh     mesh0,mesh;
   MMG5_pSol      met0,met;
   PMMG_pint_comm int_node_comm,int_face_comm;
-  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
   if ( parmesh->ngrp == 1 ) return 1;
@@ -586,11 +586,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     /** Step 3: Merge interfaces tetras of the imsh mesh into the mesh0 mesh */
     /* 1) Store the indices of the interface faces of mesh0 into the internal
      * face communicator */
-    node2int_face_comm_index1 = parmesh->listgrp[0].node2int_face_comm_index1;
-    node2int_face_comm_index2 = parmesh->listgrp[0].node2int_face_comm_index2;
+    face2int_face_comm_index1 = parmesh->listgrp[0].face2int_face_comm_index1;
+    face2int_face_comm_index2 = parmesh->listgrp[0].face2int_face_comm_index2;
     for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
-      iel = node2int_face_comm_index1[k];
-      parmesh->int_face_comm->intvalues[node2int_face_comm_index2[k]] = iel;
+      iel = face2int_face_comm_index1[k];
+      parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
     }
 
     /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
@@ -933,8 +933,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     _MMG5_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size*sizeof(double));
 
   /* 2: communicators */
-  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index1);
-  _MMG5_SAFE_FREE(grp->node2int_edge_comm_index2);
+  _MMG5_SAFE_FREE(grp->edge2int_edge_comm_index1);
+  _MMG5_SAFE_FREE(grp->edge2int_edge_comm_index2);
   _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
 
   for ( i=0; i<parmesh->next_node_comm; ++i ) {

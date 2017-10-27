@@ -483,7 +483,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   int             next_node_comm,next_face_comm;
   int             nitem_int_node_comm,nitem_int_face_comm;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int             inIntComm;
   int            *idx,kvois,k,i,j;
   int8_t          ifac,ifacVois;
@@ -571,21 +571,21 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   /* Internal face comm */
   assert ( !grp->nitem_int_face_comm );
   grp->nitem_int_face_comm = nitem_int_face_comm;
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index1,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index1 ",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,
+              "alloc face2int_face_comm_index1 ",return 0);
 
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index2,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->node2int_face_comm_index1,
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,
+              "alloc face2int_face_comm_index2 ",
+              PMMG_DEL_MEM(parmesh,grp->face2int_face_comm_index1,
                            nitem_int_face_comm,int,
-                           "free node2int_face_comm_index1 ");
+                           "free face2int_face_comm_index1 ");
               grp->nitem_int_face_comm = 0;return 0);
 
   /** Travel through the mesh and fill the communicators */
   node2int_node_comm_index1 = grp->node2int_node_comm_index1;
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
-  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
-  node2int_face_comm_index2 = grp->node2int_face_comm_index2;
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
   /* Node Communicators */
   /* Idx is used to store the external communicator cursor */
@@ -640,8 +640,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*pt->flag + ifac;
-        node2int_face_comm_index2[i] = i;
+        face2int_face_comm_index1[i] = 4*pt->flag + ifac;
+        face2int_face_comm_index2[i] = i;
         ++i;
       }
       else if ( rankVois == rank ) {
@@ -651,8 +651,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
-        node2int_face_comm_index2[i] = i;
+        face2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
+        face2int_face_comm_index2[i] = i;
         ++i;
       }
     }
