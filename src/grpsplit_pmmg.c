@@ -191,8 +191,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   n2inc_max = n2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
-  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points, %d(%d) #edges, %d(%d) #tria and %d(%d) tetras(elements)\n",
-          parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->na, meshOld->nai, meshOld->nt, meshOld->nti, meshOld->ne, meshOld->nei );
+  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
+          parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi,
+          meshOld->ne, meshOld->nei );
 
   ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
   // Does the group need to be further subdivided to subgroups or not?
@@ -231,7 +232,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
   for ( i = 0; i < ngrp ; i++ )
-    printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n", parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
+    printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n",
+            parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
 
 
   /* Allocate list of subgroups struct and allocate memory */
@@ -307,15 +309,18 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
     n2inc_max = countPerGrp[ grpId ] / 3;
     assert( (grpCur->nitem_int_node_comm == 0 ) && "non empty comm" );
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
-                "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
+                "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;
+                goto fail_sgrp);
     PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,n2inc_max,int,
-               "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;goto fail_sgrp);
-    printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p index2 %p \n",
-            parmesh->myrank + 1, parmesh->nprocs,
-            meshCur, meshCur->xtmax, meshCur->xtetra,
-            meshCur->xpmax, meshCur->xpoint,
-            meshCur->nemax, meshCur->adja,
-            n2inc_max, grpCur->node2int_node_comm_index1, grpCur->node2int_node_comm_index2);
+               "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;
+                goto fail_sgrp);
+    printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t"
+            "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
+            " index2 %p \n",
+            parmesh->myrank + 1, parmesh->nprocs,meshCur, meshCur->xtmax,
+            meshCur->xtetra,meshCur->xpmax, meshCur->xpoint,meshCur->nemax,
+            meshCur->adja,n2inc_max, grpCur->node2int_node_comm_index1,
+            grpCur->node2int_node_comm_index2);
 
     n2ifc_max = meshCur->xtmax;
     PMMG_CALLOC(parmesh,grpCur->node2int_face_comm_index1,n2ifc_max,int,
@@ -377,7 +382,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
       tetraCur->base = 0;
       tetraCur->mark = 0;
       tetraCur->flag = 0;
-#warning NIKOS TODO: there are also cases where we have to update existing boundaries, eg when boundary tetras are also interfaced with new groups
+
       // xTetra: this element was already an xtetra (in meshOld)
       if ( tetraCur->xt != 0 ) {
         if ( PMMG_SUCCESS != PMMG_xtetraAppend( meshCur, meshOld, tet ) ) {
@@ -398,7 +403,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           memcpy( meshCur->point+poiPerGrp,&meshOld->point[pt->v[poi]],
                   sizeof(MMG5_Point) );
            if ( grpCur->met->m ) {
-             assert( (poiPerGrp < grpCur->met->npmax) && "overflowing sol points" );
+             assert( (poiPerGrp<grpCur->met->npmax) && "overflowing sol points");
              memcpy( &grpCur->met->m[ poiPerGrp * grpCur->met->size ],
                  &grpOld->met->m[pt->v[poi] * grpCur->met->size],
                  grpCur->met->size * sizeof( double ) );
@@ -411,34 +416,35 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           meshOld->point[ pt->v[poi] ].flag = poiPerGrp;
 
           // Add point in subgroup's communicator if it already was in group's
-          // communicator
-          if ( meshCur->point[ poiPerGrp ].tmp != -1 ) {
+          // ommunicator
+          ppt = &meshCur->point[poiPerGrp];
+          if ( ppt->tmp != -1 ) {
             if (  PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
-                                    poiPerGrp, meshCur->point[ poiPerGrp ].tmp )
-                != PMMG_SUCCESS ) {
+                                    poiPerGrp, ppt->tmp )
+                  != PMMG_SUCCESS ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
           }
           // xPoints: this was already a boundary point
           if ( meshCur->point[poiPerGrp].xp != 0 ) {
-            if ( PMMG_SUCCESS != PMMG_xpointAppend( meshCur, meshOld, tet, poi ) ) {
+            if ( PMMG_SUCCESS != PMMG_xpointAppend(meshCur,meshOld,tet,poi) ) {
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
             meshCur->point[poiPerGrp].xp = meshCur->xp;
           }
-#warning NIKOS: are there other border cases or simply delete these?
-          //else
-          //  printf( " some other more border cases, think about it \n" );
-        } else { // point is already included in this subgroup, update current tetra vertex reference
+        } else {
+          // point is already included in this subgroup, update current tetra
+          // vertex reference
           tetraCur->v[poi] = meshOld->point[ pt->v[poi] ].flag;
         }
       }
 
 
-      /* Copy element's vertices adjucency from old mesh and update them to the new mesh values */
-      assert( ((4*(tetPerGrp-1)+4) < (4*(meshCur->ne-1)+5)) && "adja overflow" );
+      /* Copy element's vertices adjucency from old mesh and update them to the
+       * new mesh values */
+      assert( ((4*(tetPerGrp-1)+4)<(4*(meshCur->ne-1)+5)) && "adja overflow" );
       adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
 
       assert( (4 *(tet-1)+1+3) < (4*(meshOld->ne-1)+1+5) && "meshCur->adja overflow" );
@@ -486,7 +492,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           }
 
         // if the adjacent number is already processed
-#warning NIKOS TODO: ie if meshOld->tetra[tet].flag != 0
 #warning NIKOS: I do not understand why this if and if there are other clauses
         } else if ( adjidx < tet ) {
           adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vindex;
