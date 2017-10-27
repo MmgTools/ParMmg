@@ -887,6 +887,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
               (*rcv_nitem_ext_tab),(*rcv_next_node_comm),(*ext_comm_displs),MPI_INT,
               0,comm);
 
+#warning NIKOS: the  return 0 in this macro results in leaking memory: int_comm_index
   _MMG5_SAFE_CALLOC(nitems_ext_idx,nprocs,int,0);
 
   (*int_comm_index_displs)[0] = 0;
