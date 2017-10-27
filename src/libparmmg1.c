@@ -106,8 +106,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   MMG5_pSol   disp;
-  MMG5_pPoint ppt,pptnew;
-  int         ne,np,nbl,nc,k,igrp;
+  int         ne,np,nc,igrp;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
@@ -153,26 +152,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /** Update the element vertices indices */
     if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
 
-    // Cannot call pack_pointArray here because the assert(ppt->xp) fail....
-    np  = 0;
-    nbl = 1;
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )
-        continue;
-      np++;
-      if ( k!=nbl ) {
-
-        assert(nbl==ppt->tmp);
-
-        pptnew = &mesh->point[nbl];
-        memmove(pptnew,ppt,sizeof(MMG5_Point));
-        memset(ppt,0,sizeof(MMG5_Point));
-        ppt->tag = MG_NUL;
-      }
-      nbl++;
-    }
-    mesh->np = np;
+    if ( MMG3D_pack_pointArray(mesh) < 0 ) return 0;
 
     /* create prism adjacency */
     if ( !MMG3D_hashPrism(mesh) ) {

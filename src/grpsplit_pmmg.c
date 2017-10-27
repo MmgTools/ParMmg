@@ -489,6 +489,21 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
             pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
             ppt = &meshCur->point[tetraCur->v[_MMG5_idir[fac][j]]];
             ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+
+            /** Add an xPoint if needed */
+// TO REMOVE WHEN MMG WILL BE READY
+            if ( !ppt->xp ) {
+              if ( (meshCur->xp+1) > meshCur->xpmax ) {
+                /* realloc of xtetras table */
+                PMMG_RECALLOC(meshCur,meshCur->xpoint,1.2*meshCur->xpmax+1,
+                              meshCur->xpmax+1,int, "larger xpoint ",
+                              ret_val = 0;goto fail_sgrp);
+                meshCur->xpmax = 1.2 * meshCur->xpmax;
+              }
+              ++meshCur->xp;
+              ppt->xp = meshCur->xp;
+            }
+// TO REMOVE WHEN MMG WILL BE READY
           }
 
         // if the adjacent number is already processed
@@ -510,8 +525,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
 
         if ( adjidx && grpId != part[ adjidx - 1 ] ) {
           for ( poi = 0; poi < 3; ++poi ) {
-            if ( meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp == -1 ) {
-
+            ppt = & meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ];
+            if ( ppt->tmp == -1 ) {
               if (   PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
                                   tetraCur->v[ _MMG5_idir[fac][poi] ],
                                   parmesh->int_node_comm->nitem + 1 )
@@ -522,8 +537,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
 
               meshOld->point[ pt->v[ _MMG5_idir[fac][poi]  ] ].tmp =
                 parmesh->int_node_comm->nitem + 1;
-              meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ].tmp =
-                parmesh->int_node_comm->nitem + 1;
+              ppt->tmp = parmesh->int_node_comm->nitem + 1;
 
               ++parmesh->int_node_comm->nitem;
             }
