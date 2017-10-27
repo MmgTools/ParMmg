@@ -126,7 +126,7 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
     //MMG5_saveMshMesh( pmesh[ grpId ].mesh, mesMMG5_pSol met,const char *filename)
     sprintf( name, "%s-P%02d-%02d.mesh", basename, rank, grpId );
     MMG3D_hashTetra( listgrp[ grpId ].mesh, 1 );
-    _MMG3D_bdryBuild( listgrp[ grpId ].mesh ); //note: no error checking
+    MMG3D_bdryBuild( listgrp[ grpId ].mesh ); //note: no error checking
     MMG3D_saveMesh( listgrp[ grpId ].mesh, name );
     if ( listgrp[ grpId ].met->m ) {
       sprintf( name, "%s-P%02d-%02d.sol", basename, rank, grpId );

@@ -109,7 +109,7 @@ static void swapPoint( MMG5_pPoint point, double* met,int* perm,
  */
 #warning NIKOS TODO: could add a parameter in PMMG_bcastMesh to select which node broadcasts the mesh
 #warning NIKOS TODO: perhaps change to: int PMMG_bcastMesh(MMG5_pMesh msh, int myid, int comm, int source);
-int PMMG_bcastMesh( PMMG_pParMesh parmesh )
+int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -393,7 +393,6 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
           /* Mark parallel vertex */
           ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
-#warning TRY TO NOT ADD XPOINTS OVER NOSURF BDY INSIDE MMG. If OK: REMOVE THIS
 // TO REMOVE WHEN MMG WILL BE READY
           if ( !ppt->xp ) {
             if ( (mesh->xp+1) > mesh->xpmax ) {
@@ -484,7 +483,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   int             next_node_comm,next_face_comm;
   int             nitem_int_node_comm,nitem_int_face_comm;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            *node2int_face_comm_index1,*node2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int             inIntComm;
   int            *idx,kvois,k,i,j;
   int8_t          ifac,ifacVois;
@@ -572,21 +571,21 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   /* Internal face comm */
   assert ( !grp->nitem_int_face_comm );
   grp->nitem_int_face_comm = nitem_int_face_comm;
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index1,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index1 ",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,
+              "alloc face2int_face_comm_index1 ",return 0);
 
-  PMMG_CALLOC(parmesh,grp->node2int_face_comm_index2,nitem_int_face_comm,int,
-              "alloc node2int_face_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->node2int_face_comm_index1,
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,
+              "alloc face2int_face_comm_index2 ",
+              PMMG_DEL_MEM(parmesh,grp->face2int_face_comm_index1,
                            nitem_int_face_comm,int,
-                           "free node2int_face_comm_index1 ");
+                           "free face2int_face_comm_index1 ");
               grp->nitem_int_face_comm = 0;return 0);
 
   /** Travel through the mesh and fill the communicators */
   node2int_node_comm_index1 = grp->node2int_node_comm_index1;
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
-  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
-  node2int_face_comm_index2 = grp->node2int_face_comm_index2;
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
   /* Node Communicators */
   /* Idx is used to store the external communicator cursor */
@@ -641,8 +640,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*pt->flag + ifac;
-        node2int_face_comm_index2[i] = i;
+        face2int_face_comm_index1[i] = 4*pt->flag + ifac;
+        face2int_face_comm_index2[i] = i;
         ++i;
       }
       else if ( rankVois == rank ) {
@@ -652,8 +651,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        node2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
-        node2int_face_comm_index2[i] = i;
+        face2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
+        face2int_face_comm_index2[i] = i;
         ++i;
       }
     }
@@ -723,12 +722,11 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward the metis array containing the partitions.
  *
- * \return PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return 0 if fail, 1 otherwise
  *
  * Delete parts of the mesh not on the processor.
  */
-int PMMG_distributeMesh( PMMG_pParMesh parmesh )
+int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
@@ -738,7 +736,7 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
-  int            ret_val = PMMG_SUCCESS;
+  int            ret_val=1;
   MPI_Datatype   metis_dt;
 
   /** Proc 0 send the mesh to the other procs */
@@ -750,13 +748,12 @@ int PMMG_distributeMesh( PMMG_pParMesh parmesh )
   mesh   = grp->mesh;
   met    = grp->met;
 
-  /** Call metis for partionning*/
+  /** Call metis for partionning */
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
-              ret_val = PMMG_FAILURE;goto fail_alloc0);
+              ret_val=0;goto fail_alloc0);
   if ( (!parmesh->myrank) && nprocs > 1 ) {
-    if (    PMMG_partition_metis( parmesh, part, parmesh->nprocs )
-         != PMMG_SUCCESS ) {
-      ret_val = PMMG_FAILURE;
+    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs) ) {
+      ret_val = 0;
       goto fail_alloc1;
     }
   }

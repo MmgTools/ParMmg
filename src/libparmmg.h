@@ -59,6 +59,12 @@ enum PMMG_Param {
 };
 
 
+/**< Subgroups target size for a fast remeshing step */
+static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
+/**< Subgroups target size for parmetis */
+static const int METIS_TARGET_MESH_SIZE = 200;
+
+
 /* API_functions_pmmg.c */
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh );
 
@@ -107,11 +113,37 @@ void  PMMG_Init_parameters(PMMG_pParMesh parmesh);
  */
 int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
 
-/* distributemesh */
-int PMMG_distributeMesh(PMMG_pParMesh);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set integer parameter \a iparam at value \a val.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_DISTRIBUTE_MESH(parmesh,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_distribute_mesh(PMMG_pParMesh);
 
-/* mergeMesh */
-int PMMG_mergeParMesh( PMMG_pParMesh, int );
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param merge 1 if we must ty to merge groups before merging the parmeshes
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set integer parameter \a iparam at value \a val.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_DISTRIBUTE_MESH(parmesh,merge,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: merge\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_merge_parmesh( PMMG_pParMesh parmesh, int merge);
 
 #ifdef __cplusplus
 }

@@ -9,8 +9,86 @@
  */
 #include "parmmg.h"
 
-/**< Subgroups target size: Chosen to keep the remeshing step fast */
-static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
+/**
+ * \param grp pointer toward the group in which we want to update the list of
+ * nodes that are in the internal communicator.
+ *
+ * \return 1 if success, 0 otherwise
+ *
+ * Update the list of vertices indices with the pack point index stored in the
+ * tmp field of points.
+ *
+ */
+int PMMG_update_node2intVertices( PMMG_pGrp grp ) {
+  MMG5_pPoint ppt;
+  int         *node2int_node_comm_index1;
+  int         k,iadr;
+
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+
+  for (k=0; k<grp->nitem_int_node_comm; ++k) {
+    iadr = node2int_node_comm_index1[k];
+
+    ppt = &grp->mesh->point[iadr];
+    assert ( MG_VOK(ppt) );
+
+    node2int_node_comm_index1[k] = ppt->tmp;
+  }
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure (unused).
+ * \param ne pointer toward the number of packed tetra
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Count the number of packed tetra and store the packed tetra index in flag.
+ *
+ */
+
+int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
+  MMG5_pTetra   pt;
+  int           k;
+
+  (*ne) = 0;
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) )  continue;
+    pt->flag = ++(*ne);
+  }
+  return 1;
+}
+
+/**
+ * \param grp pointer toward the group in which we want to update the list of
+ * faces that are in the internal communicator.
+ *
+ * \return 1 if success, 0 otherwise
+ *
+ * Update the list of tetra indices with the pack tetra index stored in the
+ * flag field of tetras.
+ *
+ */
+int PMMG_update_node2intTetra( PMMG_pGrp grp ) {
+  MMG5_pTetra pt;
+  int         *face2int_face_comm_index1;
+  int         k,iel,ifac;
+
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+
+  for (k=0; k<grp->nitem_int_face_comm; ++k) {
+    iel  = face2int_face_comm_index1[k]/4;
+    ifac = face2int_face_comm_index1[k]%4;
+
+    pt = &grp->mesh->tetra[iel];
+    assert ( MG_EOK(pt) );
+
+    face2int_face_comm_index1[iel] = pt->flag;
+  }
+
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -28,197 +106,68 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   MMG5_pSol   disp;
-  MMG5_pTetra pt,ptnew;
-  MMG5_pPrism pp;
-  MMG5_pQuad  pq;
-  MMG5_pPoint ppt,pptnew;
-  int         *node2int_node_comm_index1;
-  int         np,nc,k,ne,nbl,imet,imetnew,i,igrp;
-  int         iadr;//,iadrnew,iadrv,*adjav,*adja,*adjanew,voy;
+  int         ne,np,nc,igrp;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
     met                       = grp->met;
-    node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     disp                      = grp->disp;
 
-    /* compact vertices */
-    np = nc = 0;
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )
-        continue;
-      ppt->tmp = ++np;
+    /** Store in flag the pack index of each tetra */
+    if ( !MMG3D_mark_packedTetra(mesh,&ne) ) return 0;
 
-      if ( (ppt->tag & MG_NOSURF) ) {
-        ppt->tag &= ~MG_REQ;
-        ppt->tag &= ~MG_NOSURF;
-      }
-
-      if ( ppt->tag & MG_CRN )
-        nc++;
-
-      ppt->ref = abs(ppt->ref);
-    }
-
-    /* node index update in internal communicator */
-    for (k=0; k<grp->nitem_int_node_comm; ++k) {
-      iadr = node2int_node_comm_index1[k];
-
-      ppt = &mesh->point[iadr];
-      assert ( MG_VOK(ppt) );
-
-      node2int_node_comm_index1[k] = ppt->tmp;
-    }
+    /** Update the tetra indices in the face communicator */
+ #warning cannot work because the tetra indices are modified in mmg3d.
+    // Tetra indices are modified by paktet in mmg3d1. We need to do something
+    // different for the face communicators...
+    //if ( !PMMG_update_node2intTetra(grp) ) return 0;
 
     /* compact tetrahedra */
-    ne  = 0;
-    nbl = 1;
-    for (k=1; k<=mesh->ne; k++) {
-      pt = &mesh->tetra[k];
-      if ( !MG_EOK(pt) )
-        continue;
-
-      pt->v[0] = mesh->point[pt->v[0]].tmp;
-      pt->v[1] = mesh->point[pt->v[1]].tmp;
-      pt->v[2] = mesh->point[pt->v[2]].tmp;
-      pt->v[3] = mesh->point[pt->v[3]].tmp;
-      ne++;
-      if ( k!=nbl ) {
-        ptnew = &mesh->tetra[nbl];
-        memcpy(ptnew,pt,sizeof(MMG5_Tetra));
-#warning update adjacency table: to keep for when the adjacency update will be implemented in mergeGrp and mergeParmesh functions
-      /*   iadr = 4*(k-1) + 1; */
-      /*   adja = &mesh->adja[iadr]; */
-      /*   iadrnew = 4*(nbl-1) + 1; */
-      /*   adjanew = &mesh->adja[iadrnew]; */
-      /*   for(i=0 ; i<4 ; i++) { */
-      /*     adjanew[i] = adja[i]; */
-      /*     if(!adja[i]) continue; */
-      /*     iadrv = 4*(adja[i]/4-1) +1; */
-      /*     adjav = &mesh->adja[iadrv]; */
-      /*     voy = i; */
-      /*     adjav[adja[i]%4] = 4*nbl + voy; */
-      /*   } */
-      }
-      nbl++;
+    if ( mesh->adja ) {
+      if ( !MMG3D_pack_tetraAndAdja(mesh) ) return 0;
     }
-    mesh->ne = ne;
+    else {
+      if ( !MMG3D_pack_tetra(mesh) ) return 0;
+    }
+    assert ( ne==mesh->ne );
 
     /* update prisms and quads vertex indices */
-    for (k=1; k<=mesh->nprism; k++) {
-      pp = &mesh->prism[k];
-      if ( !MG_EOK(pp) )
-        continue;
-
-      pp->v[0] = mesh->point[pp->v[0]].tmp;
-      pp->v[1] = mesh->point[pp->v[1]].tmp;
-      pp->v[2] = mesh->point[pp->v[2]].tmp;
-      pp->v[3] = mesh->point[pp->v[3]].tmp;
-      pp->v[4] = mesh->point[pp->v[4]].tmp;
-      pp->v[5] = mesh->point[pp->v[5]].tmp;
-    }
-    for (k=1; k<=mesh->nquad; k++) {
-      pq = &mesh->quadra[k];
-      if ( !MG_EOK(pq) )
-        continue;
-
-      pq->v[0] = mesh->point[pq->v[0]].tmp;
-      pq->v[1] = mesh->point[pq->v[1]].tmp;
-      pq->v[2] = mesh->point[pq->v[2]].tmp;
-      pq->v[3] = mesh->point[pq->v[3]].tmp;
-    }
+    if ( !MMG3D_pack_prismsAndQuads(mesh) ) return 0;
 
     /* compact metric */
-    nbl = 1;
-    if ( met && met->m ) {
-      for (k=1; k<=mesh->np; k++) {
-        ppt = &mesh->point[k];
-        if ( !MG_VOK(ppt) )
-          continue;
-        imet    = k   * met->size;
-        imetnew = nbl * met->size;
-
-        for (i=0; i<met->size; i++)
-          met->m[imetnew + i] = met->m[imet + i];
-        ++nbl;
-      }
-    }
+    if ( met && met->m )
+      if ( !MMG3D_pack_sol(mesh,met) ) return 0;
 
     /* compact displacement */
-    nbl = 1;
-    if ( disp && disp->m ) {
-      for (k=1; k<=mesh->np; k++) {
-        ppt = &mesh->point[k];
-        if ( !MG_VOK(ppt) )
-          continue;
-        imet    = k   * disp->size;
-        imetnew = nbl * disp->size;
-
-        for (i=0; i<disp->size; i++)
-          disp->m[imetnew + i] = disp->m[imet + i];
-        ++nbl;
-      }
-    }
-
-    /* compact vertices */
-    np  = 0;
-    nbl = 1;
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )
-        continue;
-      np++;
-      if ( k!=nbl ) {
-        pptnew = &mesh->point[nbl];
-        memmove(pptnew,ppt,sizeof(MMG5_Point));
-        memset(ppt,0,sizeof(MMG5_Point));
-        ppt->tag = MG_NUL;
-      }
-      nbl++;
-    }
-    mesh->np = np;
-    if ( met && met->m )
-      met->np  = np;
     if ( disp && disp->m )
-      disp->np = np;
+      if ( !MMG3D_pack_sol(mesh,disp) ) return 0;
+
+    /** Store in tmp the pack index of each point and count the corner*/
+    if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
+
+    /* node index update in internal communicator */
+    if ( !PMMG_update_node2intVertices( grp ) ) return 0;
+
+    /** Update the element vertices indices */
+    if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
+
+    if ( MMG3D_pack_pointArray(mesh) < 0 ) return 0;
 
     /* create prism adjacency */
     if ( !MMG3D_hashPrism(mesh) ) {
-      fprintf(stderr,"  ## Prism hashing problem. Exit program.\n");
-      return PMMG_FAILURE;
+      fprintf(stderr,"\n  ## Error: %s: prism hashing problem. Exit program.\n",
+              __func__);
+      return(0);
     }
 
     /* Remove the MG_REQ tags added by the nosurf option */
-    for (k=1; k<=mesh->ne; k++) {
-      pt = &mesh->tetra[k];
-      if ( MG_EOK(pt) &&  pt->xt ) {
-
-        for (i=0; i<6; i++) {
-          if ( mesh->xtetra[pt->xt].tag[i] & MG_NOSURF ) {
-            mesh->xtetra[pt->xt].tag[i] &= ~MG_REQ;
-            mesh->xtetra[pt->xt].tag[i] &= ~MG_NOSURF;
-          }
-        }
-      }
-    }
+    MMG3D_unset_reqBoundaries(mesh);
 
     if ( mesh->info.imprim ) {
       fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
       fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
     }
-
-    for(k=1 ; k<=mesh->np ; k++)
-      mesh->point[k].tmp = 0;
-
-    mesh->npnil = mesh->np + 1;
-    for(k=mesh->npnil; k<mesh->npmax-1; k++)
-      mesh->point[k].tmp  = k+1;
-
-    mesh->nenil = mesh->ne + 1;
-    for(k=mesh->nenil; k<mesh->nemax-1; k++)
-      mesh->tetra[k].v[3] = k+1;
 
     /* to could save the mesh, the adjacency have to be correct */
     if ( mesh->info.ddebug && (!_MMG5_chkmsh(mesh,1,1) ) ) {
@@ -328,7 +277,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        it, i;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_splitGrps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
+  if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
@@ -343,7 +292,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
   }
 
-
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
     for ( i=0; i<parmesh->ngrp; ++i ) {
@@ -357,14 +305,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) )
         goto failed;
 #endif
-
-#warning Do we need to update the communicators? Does Mmg renum the boundary nodes with -nosurf option?
       /** load Balancing at group scale and communicators reconstruction */
-
+      if ( !PMMG_loadBalancing(parmesh) ) goto failed;
     }
   }
 
-#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+#warning add adjacendy update in merge_grp and merge_parmesh function and remove this
 #warning NIKOS: I am not sure what is happening here. Finish error handling
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
@@ -375,21 +321,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
-  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
-    return PMMG_STRONGFAILURE;
-
-  /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
-  /* char filename[200]; */
-  /* sprintf(filename,"End_libparmmg1_proc%d.mesh",parmesh->myrank); */
-  /* _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-  /* PMMG_saveMesh(parmesh,filename); */
+  if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
   return PMMG_SUCCESS;
 
   /** mmg3d1_delone failure */
 #warning NIKOS: These lines are exactly the same as in 334-344, handle ret_val correctly and remove code duplication
 failed:
-#warning add adjacendy update in mergeGrp and mergeParMesh function and remove this
+#warning add adjacendy update in merge grp and merge_parmesh function and remove this
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
@@ -399,8 +338,7 @@ failed:
   if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
     return PMMG_STRONGFAILURE;
 
-  if ( PMMG_SUCCESS != PMMG_mergeGrps(parmesh) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
   return PMMG_LOWFAILURE;
 }

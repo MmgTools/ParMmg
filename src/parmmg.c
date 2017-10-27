@@ -160,7 +160,7 @@ int main( int argc, char *argv[] )
     fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
 
   /** Send mesh to other procs */
-  if ( PMMG_SUCCESS != PMMG_bcastMesh( parmesh ) )
+  if ( PMMG_SUCCESS != PMMG_bcast_mesh( parmesh ) )
     PMMG_exit_and_free( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
@@ -174,7 +174,7 @@ int main( int argc, char *argv[] )
   }
 
   /** Send mesh partionning to other procs */
-  if ( PMMG_SUCCESS != PMMG_distributeMesh( parmesh ) ) {
+  if ( !PMMG_distribute_mesh( parmesh ) ) {
     if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
     PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
@@ -205,7 +205,7 @@ int main( int argc, char *argv[] )
     fprintf( stdout,"\n   -- PHASE 4 : MERGE MESH\n" );
 
 #warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
-  if ( !PMMG_mergeParMesh( parmesh, 0 ) )
+  if ( !PMMG_merge_parmesh( parmesh, 0 ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && mesh->info.imprim )
@@ -218,7 +218,7 @@ int main( int argc, char *argv[] )
     if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-    if ( -1 == _MMG3D_bdryBuild( mesh ) )
+    if ( -1 == MMG3D_bdryBuild( mesh ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
     if (  mesh->info.imprim )
