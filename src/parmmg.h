@@ -141,9 +141,9 @@ int PMMG_split_n2mGroups(PMMG_pParMesh,int);
 int  PMMG_merge_grps ( PMMG_pParMesh parmesh );
 
 /* Packing */
-int PMMG_update_node2intTetra( PMMG_pGrp grp );
+int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
 int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne);
-int PMMG_update_node2intVertices( PMMG_pGrp grp );
+int PMMG_update_node2intPackedVertices( PMMG_pGrp grp );
 
 /* Memory */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
