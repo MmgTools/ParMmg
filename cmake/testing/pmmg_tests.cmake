@@ -14,7 +14,8 @@ IF( BUILD_TESTING )
       add_test( NAME ${MESH}-${NP}
                 COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
                 ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
-                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
+                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
+                -m 11000 )
     endforeach()
   endforeach()
 
