@@ -19,7 +19,7 @@
  * tmp field of points.
  *
  */
-int PMMG_update_node2intVertices( PMMG_pGrp grp ) {
+int PMMG_update_node2intPackedVertices( PMMG_pGrp grp ) {
   MMG5_pPoint ppt;
   int         *node2int_node_comm_index1;
   int         k,iadr;
@@ -70,22 +70,58 @@ int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
  * flag field of tetras.
  *
  */
-int PMMG_update_node2intTetra( PMMG_pGrp grp ) {
+int PMMG_update_face2intPackedTetra( PMMG_pGrp grp ) {
   MMG5_pTetra pt;
-  int         *node2int_face_comm_index1;
+  int         *face2int_face_comm_index1;
   int         k,iel,ifac;
 
-  node2int_face_comm_index1 = grp->node2int_face_comm_index1;
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
 
   for (k=0; k<grp->nitem_int_face_comm; ++k) {
-    iel  = node2int_face_comm_index1[k]/4;
-    ifac = node2int_face_comm_index1[k]%4;
+    iel  = face2int_face_comm_index1[k]/4;
+    ifac = face2int_face_comm_index1[k]%4;
 
     pt = &grp->mesh->tetra[iel];
     assert ( MG_EOK(pt) );
 
-    node2int_face_comm_index1[iel] = pt->flag;
+    face2int_face_comm_index1[k] = pt->flag;
   }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param igrp index of the group that we want to treat
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Pack the tetra+adja arrays and update the face communicator with the new
+ * tetra indices.
+ *
+ */
+int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  int         ne;
+
+  grp                       = &parmesh->listgrp[igrp];
+  mesh                      = grp->mesh;
+
+  /** Store in flag the pack index of each tetra */
+  if ( !MMG3D_mark_packedTetra(mesh,&ne) ) return 0;
+
+  /** Update the tetra indices in the face communicator */
+  if ( !PMMG_update_face2intPackedTetra(grp) ) return 0;
+
+  /* compact tetrahedra */
+  if ( mesh->adja ) {
+    if ( !MMG3D_pack_tetraAndAdja(mesh) ) return 0;
+  }
+  else {
+    if ( !MMG3D_pack_tetra(mesh) ) return 0;
+  }
+  assert ( ne==mesh->ne );
 
   return 1;
 }
@@ -106,32 +142,13 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   MMG5_pSol   disp;
-  MMG5_pPoint ppt,pptnew;
-  int         ne,np,nbl,nc,k,igrp;
+  int         np,nc,igrp;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
-
-    /** Store in flag the pack index of each tetra */
-    if ( !MMG3D_mark_packedTetra(mesh,&ne) ) return 0;
-
-    /** Update the tetra indices in the face communicator */
- #warning cannot work because the tetra indices are modified in mmg3d.
-    // Tetra indices are modified by paktet in mmg3d1. We need to do something
-    // different for the face communicators...
-    //if ( !PMMG_update_node2intTetra(grp) ) return 0;
-
-    /* compact tetrahedra */
-    if ( mesh->adja ) {
-      if ( !MMG3D_pack_tetraAndAdja(mesh) ) return 0;
-    }
-    else {
-      if ( !MMG3D_pack_tetra(mesh) ) return 0;
-    }
-    assert ( ne==mesh->ne );
 
     /* update prisms and quads vertex indices */
     if ( !MMG3D_pack_prismsAndQuads(mesh) ) return 0;
@@ -148,27 +165,12 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
 
     /* node index update in internal communicator */
-    if ( !PMMG_update_node2intVertices( grp ) ) return 0;
+    if ( !PMMG_update_node2intPackedVertices( grp ) ) return 0;
 
     /** Update the element vertices indices */
     if ( !MMG3D_update_eltsVertices(mesh) ) return 0;
 
-    // Cannot call pack_pointArray here because the assert(ppt->xp) fail....
-    np = nbl = 0;
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )
-        continue;
-      np++;
-      if ( k!=nbl ) {
-        pptnew = &mesh->point[nbl];
-        memmove(pptnew,ppt,sizeof(MMG5_Point));
-        memset(ppt,0,sizeof(MMG5_Point));
-        ppt->tag = MG_NUL;
-      }
-      nbl++;
-    }
-    mesh->np = np;
+    if ( MMG3D_pack_pointArray(mesh) < 0 ) return 0;
 
     /* create prism adjacency */
     if ( !MMG3D_hashPrism(mesh) ) {
@@ -274,6 +276,144 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 }
 
 /**
+ * \param parmesh pointer toward a parmesh structure
+ * \param igrp index of the group that we want to treat
+ * \param facesData pointer toward the allocatable list of the node indices of
+ * the interface faces present in the list of interface triangles of the group.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Store in \a facesVertices the nodes indices of the interface faces.  The \f$
+ * i^th \f$ face is stored at the \f$ [ 3*i;3$i+2 ] positions of the \a
+ * facesData array. The \a facesData array is allocated in this function.
+ *
+ */
+static inline
+int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
+                                      int **facesData) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt;
+  int         *face2int_face_comm_index1,nitem_int_face_comm;
+  int         iel,ifac,ia,ib,ic;
+  int         k;
+
+  grp                 = &parmesh->listgrp[igrp];
+  nitem_int_face_comm = grp->nitem_int_face_comm;
+
+  PMMG_MALLOC(parmesh,*facesData,3*nitem_int_face_comm,int,"facesData",return 0);
+
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  mesh                      = parmesh->listgrp[igrp].mesh;
+  for ( k=0; k<nitem_int_face_comm; ++k ) {
+    /** Get the vertices indices of the interface triangles */
+    iel  = face2int_face_comm_index1[k]/4;
+    ifac = face2int_face_comm_index1[k]%4;
+
+    pt = &mesh->tetra[iel];
+
+    assert( MG_EOK(pt) );
+    assert( pt->xt && ( mesh->xtetra[pt->xt].ftag[ifac] & MG_PARBDY ) );
+
+    ia = pt->v[_MMG5_idir[ifac][0]];
+    ib = pt->v[_MMG5_idir[ifac][1]];
+    ic = pt->v[_MMG5_idir[ifac][2]];
+
+    /** Store the face vertices */
+    (*facesData)[3*k]   = ia;
+    (*facesData)[3*k+1] = ib;
+    (*facesData)[3*k+2] = ic;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param igrp index of the group that we want to treat
+ * \param facesData list the node vertices of the interface faces
+ * present in the list of interface triangles of the group.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Find the index of the interface tetras from the data stored in the
+ * \a facesData array (by the \ref store_faceVerticesInIntComm function) and
+ * update the face2int_face_comm_index1 array. This function frees the \a
+ * facesData array.
+ *
+ */
+static inline
+int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
+                                         int *facesData ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  _MMG5_Hash   hash;
+  int          *face2int_face_comm_index1,nitem;
+  int          iel,ifac,ia,ib,ic;
+  int          k,i,ier;
+
+  grp   = &parmesh->listgrp[igrp];
+  nitem = grp->nitem_int_face_comm;
+  ier     = 1;
+
+  /** Step 1: Hash the MG_PARBDY faces */
+  mesh = parmesh->listgrp[igrp].mesh;
+  if ( !_MMG5_hashNew(mesh,&hash,0.51*nitem,1.51*nitem) ) {
+    ier = 0;
+    goto facesData;
+  }
+
+  for ( k=1; k<=mesh->ne; ++k ) {
+    pt = &mesh->tetra[k];
+    if ( (!MG_EOK(pt)) || !pt->xt ) continue;
+
+    pxt = &mesh->xtetra[pt->xt];
+    for ( i=0; i<4; ++i ) {
+      if ( !(pxt->ftag[i] & MG_PARBDY) ) continue;
+
+      ia = pt->v[_MMG5_idir[i][0]];
+      ib = pt->v[_MMG5_idir[i][1]];
+      ic = pt->v[_MMG5_idir[i][2]];
+      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,k)  ) {
+        ier = 0;
+        goto hash;
+      }
+    }
+  }
+
+  /** Step 2: Travel through the \a facesData array, get int the hash table the
+   * index of the element to which belong the face and update the face
+   * communicator */
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  for ( k=0; k<nitem; ++k ) {
+    /* Get the local index in the tetra of the interface triangle, it is preserved */
+    ifac = face2int_face_comm_index1[k]%4;
+
+    /* Get the interface triangle vertices */
+    ia = facesData[3*k  ];
+    ib = facesData[3*k+1];
+    ic = facesData[3*k+2];
+
+    iel = _MMG5_hashGetFace(&hash,ia,ib,ic);
+    assert( iel );
+    assert( MG_EOK(&mesh->tetra[iel]) );
+
+    /* Update the face communicator */
+    face2int_face_comm_index1[k] = 4*iel+ifac;
+  }
+
+hash:
+  _MMG5_DEL_MEM(mesh,hash.item,(hash.max+1)*sizeof(_MMG5_hedge));
+
+facesData:
+  PMMG_DEL_MEM(parmesh,facesData,3*nitem,int,"facesData");
+
+  return ier;
+}
+
+/**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
  *
@@ -290,13 +430,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it, i;
+  int        it, i, *facesData;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 ) )
+  if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE ) )
     return PMMG_STRONGFAILURE;
 
-//DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
+  //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
 
   /** Reset the boundary fields between the old mesh size and the new one (Mmg
    * uses this fields assiming they are setted to 0)/ */
@@ -314,13 +454,20 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
 
+      /** Store the vertices of interface faces in the internal communicator */
+      if ( !PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) )
+        goto failed;
+
+      /** Call the remesher */
 #ifdef PATTERN
-      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) )
-        goto failed;
+      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) goto failed;
 #else
-      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) )
-        goto failed;
+      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) goto failed;
 #endif
+      /** Update interface tetra indices in the face communicator */
+      if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) )
+        goto failed;
+
       /** load Balancing at group scale and communicators reconstruction */
       if ( !PMMG_loadBalancing(parmesh) ) goto failed;
     }
@@ -338,12 +485,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
-
-  /* if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) return PMMG_STRONGFAILURE; */
-  /* char filename[200]; */
-  /* sprintf(filename,"End_libparmmg1_proc%d.mesh",parmesh->myrank); */
-  /* MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-  /* PMMG_saveMesh(parmesh,filename); */
 
   return PMMG_SUCCESS;
 

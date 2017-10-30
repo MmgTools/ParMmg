@@ -130,7 +130,7 @@ int  PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 /* Mesh distrib */
 int  PMMG_bdryUpdate( MMG5_pMesh mesh );
 int  PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
-int  PMMG_split_grps( PMMG_pParMesh,int,int );
+int  PMMG_split_grps( PMMG_pParMesh,int );
 
 /* Load Balancing */
 int PMMG_distribute_groups( PMMG_pParMesh parmesh );
@@ -139,6 +139,12 @@ int PMMG_split_n2mGroups(PMMG_pParMesh,int);
 
 /* Mesh merge */
 int  PMMG_merge_grps ( PMMG_pParMesh parmesh );
+
+/* Packing */
+int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
+int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne);
+int PMMG_update_node2intPackedVertices( PMMG_pGrp grp );
+int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 
 /* Memory */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
