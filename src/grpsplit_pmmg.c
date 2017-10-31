@@ -444,7 +444,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
       }
 
 
-      /* Copy element's vertices adjucency from old mesh and update them to the
+      /* Copy element's vertices adjacency from old mesh and update them to the
        * new mesh values */
       assert( ((4*(tetPerGrp-1)+4)<(4*(meshCur->ne-1)+5)) && "adja overflow" );
       adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
@@ -452,7 +452,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
       assert( (4 *(tet-1)+1+3) < (4*(meshOld->ne-1)+1+5) && "meshCur->adja overflow" );
       memcpy( adja, &meshOld->adja[ 4 * ( tet - 1 ) + 1 ], 4 * sizeof(int) );
 
-      /* Update element's adjuceny to elements in the new mesh */
+      /* Update element's adjaceny to elements in the new mesh */
       for ( fac = 0; fac < 4; ++fac ) {
 
         if ( adja[ fac ] == 0 )

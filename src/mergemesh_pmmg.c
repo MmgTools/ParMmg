@@ -223,6 +223,7 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
     pt       = &mesh->tetra[iel];
 
     if ( !MG_EOK(pt) ) continue;
+    if ( pt->base == mesh->base ) continue;
 
     pt->base = mesh->base;
 

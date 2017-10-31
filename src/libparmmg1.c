@@ -472,15 +472,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       /** Update interface tetra indices in the face communicator */
       if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) )
         goto failed;
-
-      /** load Balancing at group scale and communicators reconstruction */
-      if ( !PMMG_loadBalancing(parmesh) ) goto failed;
     }
+    /** load Balancing at group scale and communicators reconstruction */
+    if ( !PMMG_loadBalancing(parmesh) ) goto failed;
   }
 
   if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
-//DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 
   return PMMG_SUCCESS;
