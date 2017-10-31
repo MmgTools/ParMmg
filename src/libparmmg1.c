@@ -129,8 +129,7 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
- * \return PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return 0 if fail, 1 otherwise
  *
  * Pack the sparse meshes of each group and create triangles and edges before
  * getting out of library
@@ -149,6 +148,9 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
+
+    /* Pack tetrahedra */
+    if ( !PMMG_packTetra(parmesh,igrp) ) return 0;
 
     /* update prisms and quads vertex indices */
     if ( !MMG3D_pack_prismsAndQuads(mesh) ) return 0;
@@ -190,11 +192,11 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /* to could save the mesh, the adjacency have to be correct */
     if ( mesh->info.ddebug && (!_MMG5_chkmsh(mesh,1,1) ) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
-      return PMMG_FAILURE;
+      return 0;
     }
   }
 
-  return PMMG_SUCCESS;
+  return 1;
 }
 
 
@@ -480,8 +482,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     met  = parmesh->listgrp[i].met;
     PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
-  if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
@@ -498,8 +499,7 @@ failed:
     PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
   }
 
-  if ( PMMG_SUCCESS != PMMG_packParMesh(parmesh) )
-    return PMMG_STRONGFAILURE;
+  if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;
 

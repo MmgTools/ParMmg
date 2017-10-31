@@ -607,7 +607,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   }
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     meshCur = grpsNew[grpId].mesh;
-    if ( 1 != _MMG5_mmg3dChkmsh(meshCur,1,0) ) {
+    if ( !_MMG5_mmg3dChkmsh(meshCur,1,0) ) {
       printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
     }
   }
