@@ -104,8 +104,6 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
-  if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) )
-    return PMMG_STRONGFAILURE;
   if ( MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;

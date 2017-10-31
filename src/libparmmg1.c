@@ -466,6 +466,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #else
       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) goto failed;
 #endif
+      /** Pack the tetra */
+      if ( !_MMG5_paktet(mesh) ) goto failed;
+
       /** Update interface tetra indices in the face communicator */
       if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) )
         goto failed;
@@ -475,13 +478,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-#warning add adjacendy update in merge_grp and merge_parmesh function and remove this
-#warning NIKOS: I am not sure what is happening here. Finish error handling
-  for ( i=0; i<parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-    met  = parmesh->listgrp[i].met;
-    PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
-  }
   if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
 //DEBUGGING:  saveGrpsToMeshes( parmesh->listgrp, parmesh->ngrp, parmesh->myrank, "2-packParMesh" );
@@ -490,15 +486,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 
   /** mmg3d1_delone failure */
-#warning NIKOS: These lines are exactly the same as in 334-344, handle ret_val correctly and remove code duplication
 failed:
-#warning add adjacendy update in merge grp and merge_parmesh function and remove this
-  for ( i=0; i<parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-    met  = parmesh->listgrp[i].met;
-    PMMG_DEL_MEM(mesh, mesh->adja, 4 * mesh->nemax + 5, int, "adjacency table" );
-  }
-
   if ( !PMMG_packParMesh(parmesh) ) return PMMG_STRONGFAILURE;
 
   if ( !PMMG_merge_grps(parmesh) ) return PMMG_STRONGFAILURE;

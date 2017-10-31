@@ -130,20 +130,18 @@ int PMMG_distribute_mesh(PMMG_pParMesh);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param merge 1 if we must ty to merge groups before merging the parmeshes
  * \return 0 if failed, 1 otherwise.
  *
  * Set integer parameter \a iparam at value \a val.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_DISTRIBUTE_MESH(parmesh,merge,retval)\n
+ * >   SUBROUTINE PMMG_DISTRIBUTE_MESH(parmesh,retval)\n
  * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)          :: merge\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_merge_parmesh( PMMG_pParMesh parmesh, int merge);
+int PMMG_merge_parmesh( PMMG_pParMesh parmesh );
 
 #ifdef __cplusplus
 }

@@ -539,11 +539,10 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
  * \return 0 if fail, 1 if success
  *
  * Merge all meshes (mesh elements + internal communicator) of a group into the
- * first mesh of the group
+ * first mesh of the group. This function free the adjacency array.
  *
- * \remark not yet tested
+ * \remark the tetra must be packed.
  *
- * \warning the groups meshes must be packed.
  */
 int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
@@ -554,9 +553,16 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
-  if ( parmesh->ngrp == 1 ) return 1;
-
   grp  = parmesh->listgrp;
+
+  /** Free the adjacency array: a possible improvement is to update it */
+  mesh0 = grp[0].mesh;
+  met0  = grp[0].met;
+
+  if ( mesh0->adja )
+    PMMG_DEL_MEM(mesh0, mesh0->adja, 4*mesh0->nemax+5, int, "adjacency table" );
+
+  if ( parmesh->ngrp == 1 ) return 1;
 
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm              = parmesh->int_node_comm;
@@ -567,9 +573,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   int_face_comm              = parmesh->int_face_comm;
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
               "face communicator",goto fail_ncomm);
-
-  mesh0                      = grp[0].mesh;
-  met0                       = grp[0].met;
 
   //DEBUGGING:
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
@@ -614,6 +617,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   parmesh->listgrp = grp;
 
   parmesh->ngrp = 1;
+
   return 1;
 
 fail_comms:
@@ -1212,17 +1216,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   return 1;
 }
 
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param merge 1 if the groups needs to be merged on the processor.
- * \return 0 if fail, 1 otherwise.
- *
- * Merge the mesh through the processors: The processors send their parmesh to
- * proc 0 that merge all the parmeshes.
- *
- * \warning the meshes must be packed before calling this procedure.
- */
-int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
+int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
   MMG5_pPoint    rcv_point;
   MMG5_pxPoint   rcv_xpoint;
@@ -1243,15 +1237,12 @@ int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
   ier = 1;
   grp = &parmesh->listgrp[0];
 
+  assert ( parmesh->ngrp==1 );
+
   //DEBUGGING:
   // saveGrpsToMeshes( PMMG_pGrp listgrp, 0, parmesh->myrank, "mesh" );
 
-  /** Step 1: merge the groups over each procs and return 1 group per proc.
-   * This group contains a packed mesh where the triangle and edges are not
-   * reconstructed (the mesh contains tetra and xtetra). */
-  if ( merge && !PMMG_merge_grps(parmesh) ) return 0;
-
-  /** Step 2: Allocate internal communicator buffer and fill it: the
+  /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
   int_node_comm = parmesh->int_node_comm;
 
@@ -1265,7 +1256,7 @@ int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
     int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
   }
 
-  /** Step 3: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
+  /** Step 2: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
   if ( !PMMG_gather_parmesh(parmesh,&rcv_point,&rcv_xpoint,&rcv_tetra,
                             &rcv_xtetra,&rcv_met,&rcv_intvalues,&rcv_nitem_ext_tab,
                             &rcv_color_in_tab,&rcv_color_out_tab,
@@ -1280,7 +1271,7 @@ int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
     goto fail;
   }
 
-  /** Step 4: Proc 0 merges the meshes: We travel through the external
+  /** Step 3: Proc 0 merges the meshes: We travel through the external
    * communicators to recover the numbering of the points shared with a lower
    * proc. The other points are concatenated with the proc 0. */
   if ( !PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
@@ -1296,7 +1287,7 @@ int PMMG_merge_parmesh(PMMG_pParMesh parmesh, int merge) {
     ier = 0;
   }
 
-  fail:
+fail:
   /* Free memory */
   /* 1: Mesh data */
   _MMG5_SAFE_FREE(rcv_np);

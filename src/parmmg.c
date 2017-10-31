@@ -205,7 +205,7 @@ int main( int argc, char *argv[] )
     fprintf( stdout,"\n   -- PHASE 4 : MERGE MESH\n" );
 
 #warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
-  if ( !PMMG_merge_parmesh( parmesh, 0 ) )
+  if ( !PMMG_merge_parmesh( parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && mesh->info.imprim )
