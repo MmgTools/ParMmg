@@ -677,13 +677,23 @@ fail_part:
 int PMMG_split_n2mGroups(PMMG_pParMesh parmesh,int target_mesh_size) {
 
   /** Merge the parmesh groups into 1 group */
-  if ( !PMMG_merge_grps(parmesh) ) return 0;
+  if ( !PMMG_merge_grps(parmesh) ) {
+    fprintf(stderr,"\n  ## Merge groups problem. Exit program.\n");
+    return 0;
+  }
 
   /** Pack the tetra and update the face communicator */
-  if ( !PMMG_packTetra(parmesh,0) ) return 0;
+  if ( !PMMG_packTetra(parmesh,0) ) {
+    fprintf(stderr,"\n  ## Pack tetrahedra and face communicators problem."
+            " Exit program.\n");
+    return 0;
+  }
 
   /** Split the group into the suitable number of groups */
-  if ( !PMMG_split_grps(parmesh,target_mesh_size) ) return 0;
+  if ( PMMG_split_grps(parmesh,target_mesh_size) ) {
+    fprintf(stderr,"\n  ## Split group problem. Exit program.\n");
+    return 0;
+  }
 
   return 1;
 }
