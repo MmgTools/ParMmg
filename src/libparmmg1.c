@@ -82,9 +82,9 @@ int PMMG_update_face2intPackedTetra( PMMG_pGrp grp ) {
     ifac = face2int_face_comm_index1[k]%4;
 
     pt = &grp->mesh->tetra[iel];
-    assert ( MG_EOK(pt) );
+    assert ( MG_EOK(pt) && pt->flag );
 
-    face2int_face_comm_index1[k] = pt->flag;
+    face2int_face_comm_index1[k] = 4*pt->flag+ifac;
   }
 
   return 1;
