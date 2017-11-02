@@ -427,6 +427,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
               ret_val = PMMG_FAILURE;
               goto fail_sgrp;
             }
+            ++parmesh->int_node_comm->nitem;
           }
           // xPoints: this was already a boundary point
           if ( meshCur->point[poiPerGrp].xp != 0 ) {

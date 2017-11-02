@@ -49,7 +49,9 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
   for ( k = 0; k < grp[0].nitem_int_node_comm; ++k ) {
     poi_id_int = grp[0].node2int_node_comm_index1[k];
     poi_id_glo = grp[0].node2int_node_comm_index2[k];
-
+    assert(   ( 0 <= poi_id_glo )
+           && ( poi_id_glo < parmesh->int_node_comm->nitem )
+           && "check intvalues indices" );
     intvalues[ poi_id_glo ] = poi_id_int;
   }
 
@@ -64,9 +66,9 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 
     for ( k=0; k<nitem_int_node_comm; ++k ) {
       poi_id_glo = node2int_node_comm_index2[k];
-      assert( 0 <= poi_id_glo );
-#warning TO DEBUG: it should be nitem here, not nitem+1
-      assert(poi_id_glo < (parmesh->int_node_comm->nitem+1));
+      assert(   ( 0 <= poi_id_glo )
+             && ( poi_id_glo < parmesh->int_node_comm->nitem )
+             && "check intvalues indices"  );
 
       // location in currently working mesh where point data actually are
       assert ( node2int_node_comm_index1[ k ] <= mesh->np );
@@ -371,6 +373,7 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
     poi_id_glo = 0;
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
       idx = ext_node_comm->int_comm_index[i];
+      assert( ( 0 <= idx ) && ( idx < parmesh->int_node_comm->nitem ) && "check intvalues indices" );
       ip  = intvalues[idx];
       ppt = &mesh0->point[ip];
 
@@ -426,8 +429,7 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
                grp[0].nitem_int_node_comm,int,
                "(mergeGrps) node2int_node_comm_index2",return 0);
   grp[0].nitem_int_node_comm = poi_id_int;
-#warning TO DEBUG: it should be nitem here, not nitem+1
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
                "free int_node_comm intvalues");
   int_node_comm->nitem       = poi_id_int;
 
@@ -567,8 +569,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm              = parmesh->int_node_comm;
-#warning TO DEBUG: it should be nitem here, not nitem+1
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
               "node communicator",return 0);
 
   int_face_comm              = parmesh->int_face_comm;
@@ -594,6 +595,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     face2int_face_comm_index2 = parmesh->listgrp[0].face2int_face_comm_index2;
     for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
       iel = face2int_face_comm_index1[k];
+      assert(   ( 0 <= face2int_face_comm_index2[k] )
+             && ( face2int_face_comm_index2[k] < parmesh->int_node_comm->nitem )
+             && "check intvalues indices" );
       parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
     }
 
@@ -626,8 +630,7 @@ fail_comms:
                "face communicator");
 
 fail_ncomm:
-#warning TO DEBUG: it should be nitem here, not nitem+1
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem+1,int,
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
                "node communicator");
 
   return 0;
