@@ -230,7 +230,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
     goto fail_part;
   }
 
-
   /* count_per_grp: how many elements per group are there? */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
               ret_val = PMMG_FAILURE;goto fail_part);
@@ -609,11 +608,20 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
                   grpCur->nitem_int_node_comm, n2inc_max, int,
                   "subgroup internal2 communicator ",
                   ret_val = PMMG_FAILURE;goto fail_sgrp );
+    n2inc_max = grpCur->nitem_int_node_comm;
+    PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index1,
+                  grpCur->nitem_int_face_comm, f2ifc_max, int,
+                  "subgroup interface faces communicator ",
+                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+    PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index2,
+                  grpCur->nitem_int_face_comm, f2ifc_max, int,
+                  "subgroup interface faces communicator ",
+                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+
     // Update the empty points' values as per the convention used in MMG3D
     meshCur->np = poiPerGrp;
     meshCur->npi = poiPerGrp;
     meshCur->npnil = poiPerGrp + 1;
-
     for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
       meshCur->point[poi].n[0] = 0;
       meshCur->point[poi].n[1] = 0;
@@ -671,7 +679,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
-  if ( !PMMG_PMesh_SetMemMax(parmesh, 5) ) {
+  if ( PMMG_PMesh_SetMemMax(parmesh, 5) ) {
     // No error so far, skip deallocation of lstgrps
     goto fail_facePos;
   }
@@ -683,14 +691,15 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
 fail_sgrp:
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
 
-#warning Algiane : the deallocation size may be false for the communicators if we have reallocated it
     meshCur = grpsNew[grpId].mesh;
 
     /* internal comm for nodes */
     if ( grpCur->node2int_node_comm_index2 != NULL )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index2,meshCur->ne/3,int,"subgroup internal2 communicator ");
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index2,n2inc_max,int,
+                   "subgroup internal2 communicator ");
     if ( grpCur->node2int_node_comm_index1 != NULL )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,meshCur->ne/3,int,"subgroup internal1 communicator ");
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
+                   "subgroup internal1 communicator ");
 
     /* internal communicator for faces */
     if ( grpCur->face2int_face_comm_index1 )

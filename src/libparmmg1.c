@@ -466,31 +466,31 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
         fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
                 " Exit program.\n");
-        goto failed;
+        goto strong_failed;
       }
 #else
       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) {
         fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem."
                 " Exit program.\n");
-        goto failed;
+        goto strong_failed;
       }
 #endif
       /** Pack the tetra */
       if ( !_MMG5_paktet(mesh) ) {
         fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
-        goto failed;
+        goto strong_failed;
       }
 
       /** Update interface tetra indices in the face communicator */
       if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) {
         fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-        goto failed;
+        goto strong_failed;
       }
     }
     /** load Balancing at group scale and communicators reconstruction */
     if ( !PMMG_loadBalancing(parmesh) ) {
       fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
-      goto failed;
+      goto strong_failed;
     }
   }
 
@@ -507,6 +507,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 
   /** mmg3d1_delone failure */
+strong_failed:
+  return PMMG_STRONGFAILURE;
+
 failed:
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
