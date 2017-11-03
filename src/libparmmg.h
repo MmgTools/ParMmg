@@ -62,7 +62,7 @@ enum PMMG_Param {
 /**< Subgroups target size for a fast remeshing step */
 static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
 /**< Subgroups target size for parmetis */
-static const int METIS_TARGET_MESH_SIZE = 200;
+static const int METIS_TARGET_MESH_SIZE = 8000;
 
 
 /* API_functions_pmmg.c */
