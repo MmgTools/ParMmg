@@ -113,13 +113,16 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int
 }
 
 /**
- * \param parmesh parmmg struct pointer
- * \param grp     working group pointer
- * \param idx1    index1 value
- * \param idx2    index2 value
+ * \param parmesh pointer toward the parmmg structure
+ * \param grp     pointer toward the working group
+ * \param idx1    \f$ 4\times iel + ifac \f$ with \a iel the index of the
+ * element to which the face belong and \a ifac the local index of the face in
+ * \a iel
+ * \param idx2    position of the face in the internal face communicator.
  *
- *  Append new values in face internal communitor, resizing the buffers if
- *  required
+ *  Append new values in the face internal communicator, resizing the buffers if
+ *  required.
+ *
  */
 static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                         int idx1, int idx2 )
