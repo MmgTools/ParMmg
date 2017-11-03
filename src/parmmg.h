@@ -33,13 +33,16 @@ extern "C" {
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
            __func__, __FILE__, __LINE__ )
 
-#define MEM_CHK_AVAIL(mesh,bytes,msg) do {            \
-  if (   ((mesh)->memCur + (bytes) > (mesh)->memMax ) \
-      || ((mesh)->memCur + (bytes) < 0 ) ) {          \
-    ERROR_AT(msg," Exceeded max memory allowed or tried to free more mem than allocated: " );\
-    stat = PMMG_FAILURE;                              \
-  } else {                                            \
-    stat = PMMG_SUCCESS;                              \
+#define MEM_CHK_AVAIL(mesh,bytes,msg) do {                            \
+  if ( (mesh)->memCur + (bytes) > (mesh)->memMax ) {                  \
+    ERROR_AT(msg," Exceeded max memory allowed: " );                  \
+    stat = PMMG_FAILURE;                                              \
+  } else if ( (mesh)->memCur + (bytes) < 0  ) {                       \
+    ERROR_AT(msg," Tried to free more mem than allocated: " );        \
+    stat = PMMG_FAILURE;                                              \
+  }                                                                   \
+  else {                                                              \
+    stat = PMMG_SUCCESS;                                              \
   } } while(0)
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {  \
