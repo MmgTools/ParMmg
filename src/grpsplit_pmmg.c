@@ -186,7 +186,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   int *adja = NULL;
   int vindex = 0;
   int adjidx = 0;
-  int j;
+  int j,*posInIntFaceComm;
 
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
@@ -241,6 +241,33 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   /* Allocate list of subgroups struct and allocate memory */
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
               ret_val = PMMG_FAILURE; goto fail_counters);
+
+  /* Use the posInIntFaceComm array to remember the position of the tetra faces
+   * in the internal face communicator */
+  posInIntFaceComm = NULL;
+  PMMG_MALLOC(parmesh,posInIntFaceComm,4*meshOld->ne+1,int,
+              "array of faces position in the internal face commmunicator ",
+              ret_val = PMMG_FAILURE;goto fail_facePos);
+  for ( i=0; i<=4*meshOld->ne; ++i )
+    posInIntFaceComm[i] = -1;
+
+  for ( i=0; i<grpOld->nitem_int_face_comm; ++i ) {
+    ie  = grpOld->face2int_face_comm_index1[i]/4;
+    fac = grpOld->face2int_face_comm_index1[i]%4;
+    posInIntFaceComm[4*(ie-1)+1+fac] = grpOld->face2int_face_comm_index2[i];
+  }
+
+  // use point[].tmp field to "remember" index in internal communicator of
+  // vertices. specifically:
+  //   place a copy of vertices' node2index2 position at point[].tmp field
+  //   or -1 if they are not in the comm
+  for ( poi = 1; poi < meshOld->np + 1; ++poi )
+    meshOld->point[poi].tmp = -1;
+
+  for ( i = 0; i < grpOld->nitem_int_node_comm; i++ )
+    meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
+      grpOld->node2int_node_comm_index2[ i ];
+
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur = &grpsNew[grpId];
     grpCur->mesh = NULL;
@@ -332,17 +359,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
                 "face2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
                 goto fail_sgrp);
   }
-
-  // use point[].tmp field to "remember" index in internal communicator of
-  // vertices. specifically:
-  //   place a copy of vertices' node2index2 position at point[].tmp field
-  //   or -1 if they are not in the comm
-  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-    meshOld->point[poi].tmp = -1;
-
-  for ( i = 0; i < grpOld->nitem_int_node_comm; i++ )
-    meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
-      grpOld->node2int_node_comm_index2[ i ];
 
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
     grpCur = &grpsNew[grpId];
@@ -456,8 +472,22 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
       /* Update element's adjaceny to elements in the new mesh */
       for ( fac = 0; fac < 4; ++fac ) {
 
-        if ( adja[ fac ] == 0 )
+        if ( adja[ fac ] == 0 ) {
+          /** Build the internal communicator for the parallel faces */
+          /* 1) Check if this face has a position in the internal face
+           * communicator. If not, the face is not parallel and we have nothing
+           * to do */
+          if ( posInIntFaceComm[4*(tet-1)+1+fac]<0 ) continue;
+
+          /* 2) Add the point in the list of interface faces of the group */
+          if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
+                                 posInIntFaceComm[4*(tet-1)+1+fac] )
+               != PMMG_SUCCESS ) {
+            ret_val = PMMG_FAILURE;
+            goto fail_sgrp;
+          }
           continue;
+        }
 
         adjidx = adja[ fac ] / 4;
         vindex = adja[ fac ] % 4;
@@ -479,13 +509,33 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           pxt->ref[fac] = 0;
           pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
-          /* Build the internal communicator for the boundary faces */
-          if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
-                                 grpCur->nitem_int_face_comm) != PMMG_SUCCESS ) {
-            ret_val = PMMG_FAILURE;
-            goto fail_sgrp;
+          /** Build the internal communicator for the boundary faces */
+          /* 1) Check if this face has already a position in the internal face
+           * communicator, and if not, increment the internal face comm and
+           * store the face position in posInIntFaceComm */
+          if ( posInIntFaceComm[4*(adjidx-1)+1+vindex]<0 ) {
+            posInIntFaceComm[4*(tet-1)+1+fac]       = parmesh->int_face_comm->nitem;
+            posInIntFaceComm[4*(adjidx-1)+1+vindex] = parmesh->int_face_comm->nitem;
+            /* 2) Add the face in the list of interface faces of the group */
+            if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
+                                   posInIntFaceComm[4*(tet-1)+1+fac] )
+                 != PMMG_SUCCESS ) {
+              ret_val = PMMG_FAILURE;
+              goto fail_sgrp;
+            }
+            ++parmesh->int_face_comm->nitem;
           }
-          ++parmesh->int_face_comm->nitem;
+          else {
+            assert ( posInIntFaceComm[4*(tet-1)+1+fac] >=0 );
+
+            /* 2) Add the face in the list of interface faces of the group */
+            if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
+                                   posInIntFaceComm[4*(tet-1)+1+fac] )
+                 != PMMG_SUCCESS ) {
+              ret_val = PMMG_FAILURE;
+              goto fail_sgrp;
+            }
+          }
 
           for ( j=0; j<3; ++j ) {
             /* Update the face and face vertices tags */
@@ -621,7 +671,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   PMMG_PMesh_SetMemMax(parmesh, 5);
 
   // No error so far, skip deallocation of lstgrps
-  goto fail_counters;
+  goto fail_facePos;
 
   // fail_sgrp deallocates any mesh that has been allocated in listgroup.
   // Should be executed only if an error has occured
@@ -654,9 +704,11 @@ fail_sgrp:
       PMMG_DEL_MEM(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
 #warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
-  PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
   // these labels should be executed as part of normal code execution before
   // returning as well as error handling
+fail_facePos:
+  PMMG_DEL_MEM(parmesh,posInIntFaceComm,4*meshOld_ne+1,int,
+               "array to store faces positions in internal face communicator");
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 fail_part:
