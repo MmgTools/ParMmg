@@ -142,7 +142,7 @@ int  PMMG_merge_grps ( PMMG_pParMesh parmesh );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
-int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne);
+int PMMG_mark_packedTetra(MMG5_pMesh mesh,int *ne);
 int PMMG_update_node2intPackedVertices( PMMG_pGrp grp );
 int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 

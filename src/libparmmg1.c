@@ -47,7 +47,7 @@ int PMMG_update_node2intPackedVertices( PMMG_pGrp grp ) {
  *
  */
 
-int MMG3D_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
+int PMMG_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
   MMG5_pTetra   pt;
   int           k;
 
@@ -109,7 +109,7 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
   mesh                      = grp->mesh;
 
   /** Store in flag the pack index of each tetra */
-  if ( !MMG3D_mark_packedTetra(mesh,&ne) ) return 0;
+  if ( !PMMG_mark_packedTetra(mesh,&ne) ) return 0;
 
   /** Update the tetra indices in the face communicator */
   if ( !PMMG_update_face2intPackedTetra(grp) ) return 0;
