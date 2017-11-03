@@ -378,7 +378,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
       ia = pt->v[_MMG5_idir[i][0]];
       ib = pt->v[_MMG5_idir[i][1]];
       ic = pt->v[_MMG5_idir[i][2]];
-      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,k)  ) {
+      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,4*k+i)  ) {
         ier = 0;
         goto hash;
       }
@@ -390,8 +390,6 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
    * communicator */
   face2int_face_comm_index1 = grp->face2int_face_comm_index1;
   for ( k=0; k<nitem; ++k ) {
-    /* Get the local index in the tetra of the interface triangle, it is preserved */
-    ifac = face2int_face_comm_index1[k]%4;
 
     /* Get the interface triangle vertices */
     ia = facesData[3*k  ];
@@ -400,6 +398,9 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
 
     iel = _MMG5_hashGetFace(&hash,ia,ib,ic);
     assert( iel );
+
+    ifac = iel%4;
+    iel /= 4;
     assert( MG_EOK(&mesh->tetra[iel]) );
 
     /* Update the face communicator */

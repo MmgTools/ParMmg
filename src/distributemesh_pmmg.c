@@ -220,6 +220,7 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
     ++ne;
 
     if ( k!=nbl ) {
+      assert( nbl==pt->flag && "non-matching index" );
       ptnew = &mesh->tetra[nbl];
       memcpy(ptnew,pt,sizeof(MMG5_Tetra));
     }
