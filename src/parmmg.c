@@ -117,8 +117,10 @@ int main( int argc, char *argv[] )
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+
   // Init memMax sizes. Only one mesh for now => pmmg structs do not need much
-  PMMG_PMesh_SetMemMax(parmesh, 20);
+  if ( !PMMG_PMesh_SetMemMax(parmesh, 20) )
+    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
     &comm_shm );

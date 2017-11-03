@@ -671,10 +671,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
-  PMMG_PMesh_SetMemMax(parmesh, 5);
-
-  // No error so far, skip deallocation of lstgrps
-  goto fail_facePos;
+  if ( !PMMG_PMesh_SetMemMax(parmesh, 5) ) {
+    // No error so far, skip deallocation of lstgrps
+    goto fail_facePos;
+  }
+  else
+    ret_val = PMMG_FAILURE;
 
   // fail_sgrp deallocates any mesh that has been allocated in listgroup.
   // Should be executed only if an error has occured

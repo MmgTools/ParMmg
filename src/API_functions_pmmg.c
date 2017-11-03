@@ -211,6 +211,8 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
  * \param parmesh parmesh structure to adjust
  * \param percent integer value bewtween 0 and 100
  *
+ * \return 1 if success, 0 if fail
+ *
  * Set the maximum memory parmesh and the meshes in listgrp can use.
  * The total memory available is split between the parmesh structure and the
  * listgrp structures according to the percentage specified by the percent
@@ -218,23 +220,33 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
  *   percent % of the available mem is assigned to pmesh.memMax
  *   ((100-percent)/100) / # groups is assigned to all mesh[i].memMax
  */
-void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
+int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
-  int i = 0;
+  MMG5_pMesh mesh;
+  int        remaining_ngrps;
+  long long  available;
+  int        i = 0;
 
   assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
 
-  //!!!!NIKOS TODO: It might be better to use this in setting memMax
-  //long long int usage = 0;
-  // Total mem usage of all meshes in listgrp
-  //for ( i = 0; i < parmesh->ngrp; ++i )
-  //  usage += parmesh->listgrp[i].mesh->memCur;
-  //usage += parmesh->memCur;
-
   parmesh->memMax = parmesh->memGloMax * percent / 100;
-  for ( i = 0; i < parmesh->ngrp; ++i )
-    parmesh->listgrp[i].mesh->memMax =  ( parmesh->memGloMax - parmesh->memMax )
-                                      / parmesh->ngrp;
+  available       = parmesh->memGloMax - parmesh->memMax;
+  remaining_ngrps = parmesh->ngrp;
+  for ( i = 0; i < parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+    mesh->memMax = available/remaining_ngrps;
+    /* Not enough memory: set the minimal memory to be able to continue */
+    if ( mesh->memMax < mesh->memCur ) {
+      mesh->memMax = mesh->memCur;
+    }
+    available -= mesh->memMax;
+    --remaining_ngrps;
+    if ( available < 0 ) {
+      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
+      return 0;
+    }
+  }
+  return 1;
 }
 
 

@@ -151,7 +151,7 @@ int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 
 /* Memory */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
-void PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
+int  PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
