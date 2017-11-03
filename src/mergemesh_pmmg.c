@@ -226,12 +226,17 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
 
     assert ( MG_EOK(pt) );
 
-    /* Store the interface face if it has not been seen from another group */
-    if ( !intvalues[face_id_glo] )
-      intvalues[face_id_glo] = 4*(ie-1)+ifac;
+    /* If the tetra has already been added to mesh0 */
+    if ( pt->base == mesh->base ) {
+      /* Store the interface face if it has not been seen from another group */
+      assert( pt->flag );
 
-    if ( pt->base == mesh->base ) continue;
+      if ( !intvalues[face_id_glo] )
+        intvalues[face_id_glo] = 4*pt->flag+ifac;
+      continue;
+    }
 
+    /* Else */
     pt->base = mesh->base;
 
     /* Add the tetra iel to mesh0 */
@@ -246,7 +251,12 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,int ims
     pt0 = &mesh0->tetra[ie];
 
     for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
-    pt0->ref = pt->ref;
+    pt0->ref  = pt->ref;
+    pt->flag  = ie;
+
+    /* Store the interface face if it has not been seen from another group */
+    if ( !intvalues[face_id_glo] )
+      intvalues[face_id_glo] = 4*ie+ifac;
 
     /** Add xtetra if needed */
     if ( pt->xt ) {
