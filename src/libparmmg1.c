@@ -353,7 +353,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   MMG5_pxTetra pxt;
   _MMG5_Hash   hash;
   int          *face2int_face_comm_index1,nitem;
-  int          iel,ifac,ia,ib,ic;
+  int          iel,ia,ib,ic;
   int          k,i,ier;
 
   grp   = &parmesh->listgrp[igrp];
@@ -398,13 +398,10 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
 
     iel = _MMG5_hashGetFace(&hash,ia,ib,ic);
     assert( iel );
-
-    ifac = iel%4;
-    iel /= 4;
-    assert( MG_EOK(&mesh->tetra[iel]) );
+    assert( MG_EOK(&mesh->tetra[iel/4]) );
 
     /* Update the face communicator */
-    face2int_face_comm_index1[k] = 4*iel+ifac;
+    face2int_face_comm_index1[k] = iel;
   }
 
 hash:
