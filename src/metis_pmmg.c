@@ -135,6 +135,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   idx_t      objval = 0;
   int        adjsize;
   int        ier = 0;
+  int        status = 1;
 
   if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize,nproc) )
     return 0;
@@ -157,21 +158,13 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
         fprintf(stderr, "METIS_ERROR: update your METIS error handling\n" );
         break;
     }
-    goto end_adjncy;
+    status = 0;
   }
 
   PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
 
-  return 1;
-
-end_adjncy:
-  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
-#warning IS MESH->ADJA DEALLOCATION CORRECT? IF I CAN REMOVE IT, THEN MULTIPLE RETURN PATHS ARE NOT REQUIRED
-  PMMG_DEL_MEM(mesh, mesh->adja, 4*mesh->nemax + 5, int, "deallocate mesh->adja");
-  PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
-
-  return 0;
+  return status;
 }
 
 /**
