@@ -218,7 +218,7 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
  * listgrp structures according to the percentage specified by the percent
  * input variable:
  *   percent % of the available mem is assigned to pmesh.memMax
- *   ((100-percent)/100) / # groups is assigned to all mesh[i].memMax
+ *   (100-percent)/100 are assigned to the mesh[i].memMax
  */
 int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
