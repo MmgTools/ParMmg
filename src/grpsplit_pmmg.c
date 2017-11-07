@@ -667,12 +667,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
     ret_val = PMMG_FAILURE;
     goto fail_sgrp;
   }
-  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    meshCur = grpsNew[grpId].mesh;
-    if ( !_MMG5_mmg3dChkmsh(meshCur,1,0) ) {
-      printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
-    }
-  }
+//  for ( grpId = 0; grpId < ngrp; ++grpId ) {
+//    meshCur = grpsNew[grpId].mesh;
+//    if ( !_MMG5_mmg3dChkmsh(meshCur,1,0) ) {
+//      printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
+//    }
+//  }
 #endif
 
   PMMG_grp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
