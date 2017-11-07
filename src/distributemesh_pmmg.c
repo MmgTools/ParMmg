@@ -107,8 +107,6 @@ static void swapPoint( MMG5_pPoint point, double* met,int* perm,
  *
  * Send the initial mesh from proc 0 toward the other procs.
  */
-#warning NIKOS TODO: could add a parameter in PMMG_bcastMesh to select which node broadcasts the mesh
-#warning NIKOS TODO: perhaps change to: int PMMG_bcastMesh(MMG5_pMesh msh, int myid, int comm, int source);
 int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp    grp;
@@ -149,7 +147,6 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   met->dim = mesh->dim;
 
   if ( rank ) {
-#warning NIKOS: DO WE NEED TO CLEANUP mesh member allocations or are they handled in mesh deallocation?
     PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices", return PMMG_FAILURE);
 
     PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",return PMMG_FAILURE);

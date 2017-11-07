@@ -9,7 +9,6 @@
 #include "parmmg.h"
 
 
-#warning NIKOS: on NULL input should it fail or simply return?
 static void pmesh_int_comm_free( PMMG_pParMesh pmesh, PMMG_pint_comm comm )
 {
   if ( comm == NULL )
@@ -79,7 +78,6 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
         (*listgrp)[k].face2int_face_comm_index1,
         (*listgrp)[k].face2int_face_comm_index2,
         &(*listgrp)[k].nitem_int_face_comm);
-#warning NIKOS: MET AND DISP FIELDS ARE NOT DEALLOCATED
     MMG3D_Free_all( MMG5_ARG_start,
                     MMG5_ARG_ppMesh, &(*listgrp)[k].mesh,
                     MMG5_ARG_ppMet, &(*listgrp)[k].met,

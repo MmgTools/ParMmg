@@ -562,7 +562,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
           }
 
         // if the adjacent number is already processed
-#warning NIKOS: I do not understand why this if and if there are other clauses
         } else if ( adjidx < tet ) {
           adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vindex;
           // Now that we know the local gr_idx for both tetra we should also

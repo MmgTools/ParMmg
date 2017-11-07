@@ -210,7 +210,6 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
  * compatibility with respect to the provided mesh, Mmg options).
  *
  */
-#warning NIKOS: more appropriate name: PMMG_CHECK_MESHES
 int PMMG_check_inputData(PMMG_pParMesh parmesh)
 {
   MMG5_pMesh mesh;
