@@ -38,7 +38,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
 
   /** Step 2: build the metis graph */
   PMMG_CALLOC(parmesh, (*xadj), mesh->ne+1, idx_t, "allocate xadj",
-              goto end_mesh_adja);
+              return 0);
 
   /** 1) Count the number of adjacent of each elements and fill xadj */
   (*xadj)[0] = 0;
@@ -77,12 +77,8 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
 
   return 1;
 
-#warning IS MESH->ADJA DEALLOCATION CORRECT? IF I CAN REMOVE IT, THEN MULTIPLE RETURN PATHS ARE NOT REQUIRED
-end_mesh_adja:
-  PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"deallocate mesh->adja");
 end_xadj:
   PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
-
   return 0;
 }
 
