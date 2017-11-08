@@ -152,6 +152,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param target_mesh_size wanted number of elements per group
+ * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
@@ -162,7 +163,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -599,6 +600,52 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
         }
       }
     }
+    if ( fitMesh ) {
+      /* Mesh reallocation at the smallest possible size */
+      PMMG_REALLOC(meshCur,meshCur->point,poiPerGrp+1,meshCur->npmax+1,
+                   MMG5_Point,"fitted point table",goto fail_sgrp);
+      meshCur->npmax = poiPerGrp;
+      meshCur->npnil = 0;
+      meshCur->nenil = 0;
+
+      PMMG_REALLOC(meshCur,meshCur->xpoint,meshCur->xp+1,meshCur->xpmax+1,
+                   MMG5_xPoint,"fitted xpoint table",goto fail_sgrp);
+      meshCur->xpmax = meshCur->xp;
+      PMMG_REALLOC(meshCur,meshCur->tetra,meshCur->ne+1,meshCur->nemax+1,
+                   MMG5_Tetra,"fitted tetra table",goto fail_sgrp);
+      meshCur->nemax = meshCur->ne;
+      PMMG_REALLOC(meshCur,meshCur->xtetra,meshCur->xt+1,meshCur->xtmax+1,
+                   MMG5_xTetra,"fitted xtetra table",goto fail_sgrp);
+      meshCur->xtmax = meshCur->xt;
+      if ( grpCur->met->m )
+        PMMG_REALLOC(meshCur,grpCur->met->m,grpCur->met->size*(poiPerGrp+1),
+                     grpCur->met->size*(meshCur->xpmax+1),
+                     double,"fitted metric table",goto fail_sgrp);
+    }
+    else {
+      meshCur->npnil = poiPerGrp + 1;
+      for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
+        meshCur->point[poi].n[0] = 0;
+        meshCur->point[poi].n[1] = 0;
+        meshCur->point[poi].n[2] = 0;
+        meshCur->point[poi].tmp  = poi + 1;
+      }
+    }
+    // Update the empty points' values as per the convention used in MMG3D
+    meshCur->np = poiPerGrp;
+    meshCur->npi = poiPerGrp;
+
+    if ( grpCur->met->m ) {
+      grpCur->met->np = poiPerGrp;
+      grpCur->met->npi = poiPerGrp;
+    }
+    assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
+    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
+            " %d nitem in int communicator.np=%d,npi=%d\n",
+            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
+            grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
+
+    /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
                   grpCur->nitem_int_node_comm, n2inc_max, int,
                   "subgroup internal1 communicator ",
@@ -616,26 +663,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size )
                   grpCur->nitem_int_face_comm, f2ifc_max, int,
                   "subgroup interface faces communicator ",
                   ret_val = PMMG_FAILURE;goto fail_sgrp );
-
-    // Update the empty points' values as per the convention used in MMG3D
-    meshCur->np = poiPerGrp;
-    meshCur->npi = poiPerGrp;
-    meshCur->npnil = poiPerGrp + 1;
-    for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
-      meshCur->point[poi].n[0] = 0;
-      meshCur->point[poi].n[1] = 0;
-      meshCur->point[poi].n[2] = 0;
-      meshCur->point[poi].tmp  = poi + 1;
-    }
-    if ( grpOld->met->m ) {
-      grpCur->met->np = poiPerGrp;
-      grpCur->met->npi = poiPerGrp;
-    }
-    assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
-    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
-            " %d nitem in int communicator.np=%d,npi=%d\n",
-            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
-            grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
 
     /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
      * shell of an edge, it is possible that one of the xtetra has set the edge
@@ -755,7 +782,7 @@ int PMMG_split_n2mGroups(PMMG_pParMesh parmesh,int target_mesh_size) {
   }
 
   /** Split the group into the suitable number of groups */
-  if ( PMMG_split_grps(parmesh,target_mesh_size) ) {
+  if ( PMMG_split_grps(parmesh,target_mesh_size,1) ) {
     fprintf(stderr,"\n  ## Split group problem. Exit program.\n");
     return 0;
   }

@@ -100,7 +100,7 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
           pxp  = &mesh->xpoint[ppt->xp];
           ppt0 = &mesh0->point[ip];
           pxp0 = &mesh0->xpoint[ppt0->xp];
-          assert( (ppt0->xp < mesh0->xpmax) && "increase xpoints" );
+          assert( (ppt0->xp <= mesh0->xpmax) && "increase xpoints" );
           assert( (ppt0->xp > 0) && "negative xpoints?!?!?!?!?" );
           memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
         }
