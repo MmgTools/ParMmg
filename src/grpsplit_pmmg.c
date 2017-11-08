@@ -150,6 +150,89 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 }
 
 /**
+ * \param mesh pointer toward an MMG5 mesh structure
+ * \param met pointer toward an MMG5 metric structure
+ * \param np number of points in the mesh
+ * \param fitMesh 1 if the mesh must be reallocated at its exact size
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Clean the mesh filled by the \a split_grps function to make it valid:
+ *   - reallocate the mesh at it exact size if fitMesh==1
+ *   - set the np/ne/npi/nei/npnil/nenil fields to suitables value and keep
+ *   track of empty link
+ *   - update the edge tags in all the xtetra of the edge shell
+ *
+ */
+static inline
+int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np,int fitMesh )
+{
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  int          k,i;
+
+  if ( fitMesh ) {
+    /* Mesh reallocation at the smallest possible size */
+    PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
+                 MMG5_Point,"fitted point table",return 0);
+    mesh->npmax = np;
+    mesh->npnil = 0;
+    mesh->nenil = 0;
+
+    PMMG_REALLOC(mesh,mesh->xpoint,mesh->xp+1,mesh->xpmax+1,
+                 MMG5_xPoint,"fitted xpoint table",return 0);
+    mesh->xpmax = mesh->xp;
+    PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,
+                 MMG5_Tetra,"fitted tetra table",return 0);
+    mesh->nemax = mesh->ne;
+    PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,
+                 MMG5_xTetra,"fitted xtetra table",return 0);
+    mesh->xtmax = mesh->xt;
+    if ( met->m )
+      PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(mesh->xpmax+1),
+                   double,"fitted metric table",return 0);
+  }
+  else {
+    mesh->npnil = np + 1;
+    for ( k = mesh->npnil; k < mesh->npmax - 1; ++k ) {
+      mesh->point[k].n[0] = 0;
+      mesh->point[k].n[1] = 0;
+      mesh->point[k].n[2] = 0;
+      mesh->point[k].tmp  = k + 1;
+    }
+  }
+  // Update the empty points' values as per the convention used in MMG3D
+  mesh->np = np;
+  mesh->npi = np;
+
+  if ( met->m ) {
+    met->np = np;
+    met->npi = np;
+  }
+
+  /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
+   * shell of an edge, it is possible that one of the xtetra has set the edge
+   * as MG_PARBDY. In this case, this tag must be reported in the second
+   * xtetra) */
+  for ( k = 1; k < mesh->ne +1; ++k ) {
+    pt = &mesh->tetra[k];
+
+    if ( !MG_EOK(pt) ) continue;
+    if ( !pt->xt )     continue;
+
+    pxt = &mesh->xtetra[pt->xt];
+
+    for ( i=0; i<6; ++i ) {
+      if ( !(pxt->tag[i] & MG_PARBDY ) )  continue;
+      // Algiane: if this step is too long, try to hash the updated edges to not
+      // update twice the same shell (PMMG_bdryUpdate function).
+      _MMG5_settag(mesh,k,i,pxt->tag[i],pxt->edg[i]);
+    }
+  }
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param target_mesh_size wanted number of elements per group
  * \param fitMesh alloc the meshes at their exact sizes
@@ -600,45 +683,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
         }
       }
     }
-    if ( fitMesh ) {
-      /* Mesh reallocation at the smallest possible size */
-      PMMG_REALLOC(meshCur,meshCur->point,poiPerGrp+1,meshCur->npmax+1,
-                   MMG5_Point,"fitted point table",goto fail_sgrp);
-      meshCur->npmax = poiPerGrp;
-      meshCur->npnil = 0;
-      meshCur->nenil = 0;
 
-      PMMG_REALLOC(meshCur,meshCur->xpoint,meshCur->xp+1,meshCur->xpmax+1,
-                   MMG5_xPoint,"fitted xpoint table",goto fail_sgrp);
-      meshCur->xpmax = meshCur->xp;
-      PMMG_REALLOC(meshCur,meshCur->tetra,meshCur->ne+1,meshCur->nemax+1,
-                   MMG5_Tetra,"fitted tetra table",goto fail_sgrp);
-      meshCur->nemax = meshCur->ne;
-      PMMG_REALLOC(meshCur,meshCur->xtetra,meshCur->xt+1,meshCur->xtmax+1,
-                   MMG5_xTetra,"fitted xtetra table",goto fail_sgrp);
-      meshCur->xtmax = meshCur->xt;
-      if ( grpCur->met->m )
-        PMMG_REALLOC(meshCur,grpCur->met->m,grpCur->met->size*(poiPerGrp+1),
-                     grpCur->met->size*(meshCur->xpmax+1),
-                     double,"fitted metric table",goto fail_sgrp);
-    }
-    else {
-      meshCur->npnil = poiPerGrp + 1;
-      for ( poi = meshCur->npnil; poi < meshCur->npmax - 1; ++poi ) {
-        meshCur->point[poi].n[0] = 0;
-        meshCur->point[poi].n[1] = 0;
-        meshCur->point[poi].n[2] = 0;
-        meshCur->point[poi].tmp  = poi + 1;
-      }
-    }
-    // Update the empty points' values as per the convention used in MMG3D
-    meshCur->np = poiPerGrp;
-    meshCur->npi = poiPerGrp;
+    if ( !PMMG_splitGrps_cleanMesh( meshCur,grpCur->met,poiPerGrp,fitMesh ) )
+      goto fail_sgrp;
 
-    if ( grpCur->met->m ) {
-      grpCur->met->np = poiPerGrp;
-      grpCur->met->npi = poiPerGrp;
-    }
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
     printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
             " %d nitem in int communicator.np=%d,npi=%d\n",
@@ -663,26 +711,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                   grpCur->nitem_int_face_comm, f2ifc_max, int,
                   "subgroup interface faces communicator ",
                   ret_val = PMMG_FAILURE;goto fail_sgrp );
-
-    /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
-     * shell of an edge, it is possible that one of the xtetra has set the edge
-     * as MG_PARBDY. In this case, this tag must be reported in the second
-     * xtetra) */
-    for ( tet = 1; tet < meshCur->ne +1; ++tet ) {
-      tetraCur = &meshCur->tetra[tet];
-
-      if ( !MG_EOK(tetraCur) ) continue;
-      if ( !tetraCur->xt )     continue;
-
-      pxt = &meshCur->xtetra[tetraCur->xt];
-
-      for ( ie=0; ie<6; ++ie ) {
-        if ( !(pxt->tag[ie] & MG_PARBDY ) )  continue;
-        // Algiane: if this step is too long, try to hash the updated edges to not
-        // update twice the same shell (PMMG_bdryUpdate function).
-        _MMG5_settag(meshCur,tet,ie,pxt->tag[ie],pxt->edg[ie]);
-      }
-    }
   }
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
@@ -693,12 +721,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     ret_val = PMMG_FAILURE;
     goto fail_sgrp;
   }
-//  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-//    meshCur = grpsNew[grpId].mesh;
-//    if ( !_MMG5_mmg3dChkmsh(meshCur,1,0) ) {
-//      printf( "MMG3D CHECK MESH FAILED FOR id = %d\n", grpId );
-//    }
-//  }
 #endif
 
   PMMG_grp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
