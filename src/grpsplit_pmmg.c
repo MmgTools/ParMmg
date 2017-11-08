@@ -150,6 +150,103 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to create
+ * \param ne number of elements in the new group mesh
+ * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
+ * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Creation of the new group \a grp: allocation and initialization of the mesh
+ * and communicator structures. Set the f2ifc_max variable at the size at which
+ * we allocate the face2int_face_comm arrays and the n2inc_max variable at the
+ * size at which the node2int_node_comm arrays are allocated.
+ *
+ */
+static int
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ne,
+                         int *f2ifc_max,int *n2inc_max ) {
+  PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
+  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
+  MMG5_pMesh       mesh;
+
+  grp->mesh = NULL;
+  grp->met  = NULL;
+  grp->disp = NULL;
+
+  MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grp->mesh,
+                   MMG5_ARG_ppMet, &grp->met, MMG5_ARG_end );
+
+  mesh      = grp->mesh;
+
+  /* Copy the mesh filenames */
+  if ( !MMG5_Set_inputMeshName( mesh,meshOld->namein) )                return 0;
+  if ( !MMG5_Set_inputSolName(  mesh,grp->met,grpOld->met->namein ) )  return 0;
+  if ( !MMG5_Set_outputMeshName(mesh, meshOld->nameout ) )             return 0;
+  if ( !MMG5_Set_outputSolName( mesh,grp->met,grpOld->met->nameout ) ) return 0;
+
+  /* Uses the Euler-poincare formulae to estimate the number of points from
+   * the number of elements per group: np = ne/6 */
+  if ( !MMG3D_Set_meshSize( mesh,ne/6,ne,0,0,0,0) ) return 0;
+
+  grp->mesh->np = 0;
+  grp->mesh->npi = 0;
+
+  if ( grpOld->met->m ) {
+    if ( grpOld->met->size == 1 )
+      grp->met->type = MMG5_Scalar;
+    else if ( grpOld->met->size == 6 )
+      grp->met->type = MMG5_Tensor;
+
+    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,1,grp->met->type) )
+      return 0;
+  }
+
+  /* Copy the info structure of the initial mesh: it contains the remeshing
+   * options */
+  memcpy(&(grp->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
+
+  /* Uses the Euler-poincare formulae to estimate the number of boundary
+   * triangles from the number of elements per groups: nt = ne/3 */
+  mesh->xtmax = ne/3;
+  PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
+              "msh boundary xtetra", return 0);
+
+  /* memory to store normals for boundary points */
+  mesh->xpmax  = mesh->npmax;
+  PMMG_CALLOC(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,
+              "boundary points",return 0);
+
+  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
+
+  *n2inc_max = ne/3;
+  assert( (grp->nitem_int_node_comm == 0 ) && "non empty comm" );
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,*n2inc_max,int,
+              "subgroup internal1 communicator ",return 0);
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,*n2inc_max,int,
+              "subgroup internal2 communicator ",return 0);
+
+  if ( parmesh->ddebug ) {
+    printf( "+++++NIKOS+++++[%d/%d]:\t mesh %p,\t xtmax %d - xtetra:%p,\t"
+            "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
+            " index2 %p \n",
+            parmesh->myrank + 1, parmesh->nprocs,mesh, mesh->xtmax,
+            mesh->xtetra,mesh->xpmax, mesh->xpoint,mesh->nemax,
+            mesh->adja,*n2inc_max, grp->node2int_node_comm_index1,
+            grp->node2int_node_comm_index2);
+  }
+
+  *f2ifc_max = mesh->xtmax;
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,*f2ifc_max,int,
+              "face2int_face_comm_index1 communicator",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,*f2ifc_max,int,
+              "face2int_face_comm_index2 communicator",return 0);
+  return 1;
+}
+
+
+/**
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
@@ -354,97 +451,15 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
       grpOld->node2int_node_comm_index2[ i ];
 
-  for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    grpCur = &grpsNew[grpId];
-    grpCur->mesh = NULL;
-    grpCur->met  = NULL;
-    grpCur->disp = NULL;
-
-    MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grpCur->mesh,
-                     MMG5_ARG_ppMet, &grpCur->met, MMG5_ARG_end );
-
-    meshCur = grpCur->mesh;
-
-    /* Copy the mesh filenames */
-    if ( !MMG5_Set_inputMeshName( meshCur, meshOld->namein ) ) {
-      ret_val = PMMG_FAILURE;
-      goto fail_sgrp;
-    }
-    if ( !MMG5_Set_inputSolName( meshCur, grpCur->met, grpOld->met->namein ) ) {
-      ret_val = PMMG_FAILURE;
-      goto fail_sgrp;
-    }
-    if ( !MMG5_Set_outputMeshName( meshCur, meshOld->nameout ) ) {
-      ret_val = PMMG_FAILURE;
-      goto fail_sgrp;
-    }
-    if ( !MMG5_Set_outputSolName( meshCur, grpCur->met, grpOld->met->nameout ) ) {
+  for ( grpId = 0; grpId < ngrp; ++grpId )
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],countPerGrp[grpId],
+                                  &f2ifc_max,&n2inc_max) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to initialize the %dth new group.\n",
+              __func__,grpId);
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
 
-    /* Uses the Euler-poincare formulae to estimate the number of points from
-     * the number of elements per group: np = ne/6 */
-    if ( 1 != MMG3D_Set_meshSize( grpCur->mesh, countPerGrp[ grpId ] / 6,
-          countPerGrp[ grpId ], 0, 0, 0, 0 ) )
-      goto fail_sgrp;
-
-    grpCur->mesh->np = 0;
-    grpCur->mesh->npi = 0;
-
-    if ( grpOld->met->m ) {
-      if ( grpOld->met->size == 1 )
-        grpCur->met->type = MMG5_Scalar;
-      else if ( grpOld->met->size == 6 )
-        grpCur->met->type = MMG5_Tensor;
-
-      if ( 1 != MMG3D_Set_solSize( grpCur->mesh, grpCur->met, MMG5_Vertex, 1,
-            grpCur->met->type ) )
-        goto fail_sgrp;
-    }
-
-    /* Copy the info structure of the initial mesh: it contains the remeshing
-     * options */
-    memcpy(&(grpCur->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
-
-    /* Uses the Euler-poincare formulae to estimate the number of boundary
-     * triangles from the number of elements per groups: nt = ne/3 */
-    meshCur->xtmax = countPerGrp[ grpId ] / 3;
-    PMMG_CALLOC(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,
-                "msh boundary xtetra", ret_val = PMMG_FAILURE;goto fail_sgrp);
-
-    /* memory to store normals for boundary points */
-    meshCur->xpmax  = meshCur->npmax;
-    PMMG_CALLOC(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,
-                "boundary points", ret_val = PMMG_FAILURE;goto fail_sgrp);
-
-    PMMG_CALLOC(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table",
-                ret_val = PMMG_FAILURE;goto fail_sgrp);
-
-    n2inc_max = countPerGrp[ grpId ] / 3;
-    assert( (grpCur->nitem_int_node_comm == 0 ) && "non empty comm" );
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
-                "subgroup internal1 communicator ", ret_val = PMMG_FAILURE;
-                goto fail_sgrp);
-    PMMG_CALLOC(parmesh,grpCur->node2int_node_comm_index2,n2inc_max,int,
-               "subgroup internal2 communicator ", ret_val = PMMG_FAILURE;
-                goto fail_sgrp);
-    printf( "+++++NIKOS+++++[%d/%d]:\t meshCur %p,\t xtmax %d - xtetra:%p,\t"
-            "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
-            " index2 %p \n",
-            parmesh->myrank + 1, parmesh->nprocs,meshCur, meshCur->xtmax,
-            meshCur->xtetra,meshCur->xpmax, meshCur->xpoint,meshCur->nemax,
-            meshCur->adja,n2inc_max, grpCur->node2int_node_comm_index1,
-            grpCur->node2int_node_comm_index2);
-
-    f2ifc_max = meshCur->xtmax;
-    PMMG_CALLOC(parmesh,grpCur->face2int_face_comm_index1,f2ifc_max,int,
-                "face2int_face_comm_index1 communicator",ret_val = PMMG_FAILURE;
-                goto fail_sgrp);
-    PMMG_CALLOC(parmesh,grpCur->face2int_face_comm_index2,f2ifc_max,int,
-                "face2int_face_comm_index2 communicator",ret_val = PMMG_FAILURE;
-                goto fail_sgrp);
-  }
 
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
     grpCur = &grpsNew[grpId];
