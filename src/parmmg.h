@@ -138,7 +138,7 @@ int  PMMG_split_grps( PMMG_pParMesh,int,int );
 /* Load Balancing */
 int PMMG_distribute_groups( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing(PMMG_pParMesh parmesh);
-int PMMG_split_n2mGroups(PMMG_pParMesh,int);
+int PMMG_split_n2mGroups(PMMG_pParMesh,int,int);
 
 /* Mesh merge */
 int  PMMG_merge_grps ( PMMG_pParMesh parmesh );

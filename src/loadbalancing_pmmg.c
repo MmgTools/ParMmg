@@ -43,7 +43,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   }
 
   /** Split the ngrp groups of listgrp into a higher number of groups */
-  if ( !PMMG_split_n2mGroups(parmesh,METIS_TARGET_MESH_SIZE) ) {
+  if ( !PMMG_split_n2mGroups(parmesh,METIS_TARGET_MESH_SIZE,1) ) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups."
             " Exit program.\n");
     return 0;
@@ -55,7 +55,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   }
 
   /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-  if ( !PMMG_split_n2mGroups(parmesh,REMESHER_TARGET_MESH_SIZE) ) {
+  if ( !PMMG_split_n2mGroups(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
     fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups."
             " Exit program.\n");
     return 0;
