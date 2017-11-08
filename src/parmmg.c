@@ -105,7 +105,6 @@ int main( int argc, char *argv[] )
     MPI_Finalize();
     return PMMG_FAILURE;
   }
-  parmesh->ddebug = 1;
   parmesh->niter = 1;
   parmesh->comm = MPI_COMM_WORLD;
   parmesh->myrank = rank;

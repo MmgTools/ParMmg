@@ -378,20 +378,24 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   n2inc_max = f2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
-  printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
-          parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi, meshOld->ne, meshOld->nei );
+  if ( parmesh->ddebug )
+    printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
+            parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi,
+            meshOld->ne, meshOld->nei );
 
   ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
   // Does the group need to be further subdivided to subgroups or not?
   if ( ngrp == 1 )  {
-    fprintf( stdout,
-            "[%d-%d]: %d group is enough, no need to create sub groups.\n",
-            parmesh->myrank+1, parmesh->nprocs, ngrp );
+    if ( parmesh->ddebug )
+      fprintf( stdout,
+               "[%d-%d]: %d group is enough, no need to create sub groups.\n",
+               parmesh->myrank+1, parmesh->nprocs, ngrp );
     return PMMG_SUCCESS;
   } else {
-    fprintf( stdout,
-             "[%d-%d]: %d groups required, splitting into sub groups...\n",
-             parmesh->myrank+1, parmesh->nprocs, ngrp );
+    if ( parmesh->ddebug )
+      fprintf( stdout,
+               "[%d-%d]: %d groups required, splitting into sub groups...\n",
+               parmesh->myrank+1, parmesh->nprocs, ngrp );
   }
 
 
@@ -416,9 +420,11 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
               ret_val = PMMG_FAILURE;goto fail_part);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
-  for ( i = 0; i < ngrp ; i++ )
-    printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n",
-            parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
+
+  if ( parmesh->ddebug )
+    for ( i = 0; i < ngrp ; i++ )
+      printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n",
+              parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
 
 
   /* Allocate list of subgroups struct and allocate memory */
@@ -451,7 +457,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
       grpOld->node2int_node_comm_index2[ i ];
 
-  for ( grpId = 0; grpId < ngrp; ++grpId )
+  for ( grpId = 0; grpId < ngrp; ++grpId ) {
     if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],countPerGrp[grpId],
                                   &f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize the %dth new group.\n",
@@ -459,7 +465,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-
+  }
 
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
     grpCur = &grpsNew[grpId];
@@ -703,10 +709,11 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       goto fail_sgrp;
 
     assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
-    printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
-            " %d nitem in int communicator.np=%d,npi=%d\n",
-            ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
-            grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
+    if ( parmesh->ddebug )
+      printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
+              " %d nitem in int communicator.np=%d,npi=%d\n",
+              ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
+              grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
 
     /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,

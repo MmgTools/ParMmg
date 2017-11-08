@@ -86,7 +86,8 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
         }
       }
     }
-    printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED: number of failed communicator elements: %d \n", ngrp, grpId+1, numFailed / 3 );
+    if ( numFailed )
+      printf( "+++++NIKOS[%d/%d]:: INTERNAL COMMUNICATOR CHECKED: number of failed communicator elements: %d \n", ngrp, grpId+1, numFailed / 3 );
   }
 
 
