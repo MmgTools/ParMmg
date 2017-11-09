@@ -109,6 +109,7 @@ void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
   PMMG_PMesh_Free( parmesh );
+  MPI_Abort( MPI_COMM_WORLD, val );
   MPI_Finalize();
   exit( val );
 }
