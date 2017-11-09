@@ -150,8 +150,62 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 }
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \param fitMesh 1 if the mesh must be allocated at its exact size (groups for
+ * metis), 0 if it must be allocated at a greater size (groups for Mmg)
+ * \param np number of vertices.
+ * \param ne number of tetrahedra.
+ * \param nprism number of prisms.
+ * \param nt number of triangles.
+ * \param nquad number of quads.
+ * \param na number of edges.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the input mesh size and assign their values to the mesh.
+ *
+ */
+int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
+                              int nprism,int nt,int nquad,int na ) {
+
+  /* Check input data and set mesh->ne/na/np/nt to the suitable values */
+  if ( !MMG3D_setMeshSize_initData(mesh,np,ne,nprism,nt,nquad,na) )
+    return 0;
+
+  /* Check the -m option */
+  if( mesh->info.mem > 0) {
+    if((mesh->npmax < mesh->np || mesh->ntmax < mesh->nt || mesh->nemax < mesh->ne)) {
+      if ( !_MMG3D_memOption(mesh) )  return 0;
+    } else if(mesh->info.mem < 39) {
+      fprintf(stderr,"\n  ## Error: %s: not enough memory  %d\n",__func__,
+              mesh->info.mem);
+      return(0);
+    }
+  } else {
+    mesh->memMax = _MMG5_memSize();
+    if ( fitMesh ) {
+      mesh->npmax  = mesh->np;
+      mesh->nemax  = mesh->ne;
+      mesh->ntmax  = mesh->nt;
+    }
+    else {
+      mesh->npmax  = MG_MAX(1.5*mesh->np,_MMG3D_NPMAX);
+      mesh->nemax  = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
+      mesh->ntmax  = MG_MAX(1.5*mesh->nt,_MMG3D_NTMAX);
+    }
+  }
+
+  /* Mesh allocation and linkage */
+  if ( !MMG3D_setMeshSize_alloc( mesh ) ) return 0;
+
+  return(1);
+
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
+ * \param fitMesh 1 if the mesh must be allocated at its exact size.
  * \param ne number of elements in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
  * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
@@ -165,7 +219,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  *
  */
 static int
-PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ne,
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int fitMesh,int ne,
                          int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
   MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
@@ -188,7 +242,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ne,
 
   /* Uses the Euler-poincare formulae to estimate the number of points from
    * the number of elements per group: np = ne/6 */
-  if ( !MMG3D_Set_meshSize( mesh,ne/6,ne,0,0,0,0) ) return 0;
+  if ( !PMMG_grpSplit_setMeshSize( mesh,fitMesh,ne/6,ne,0,0,0,0) ) return 0;
 
   grp->mesh->np = 0;
   grp->mesh->npi = 0;
@@ -270,6 +324,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
   PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
   MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
   MMG5_pMesh       mesh;
+  MMG5_pSol        met;
   MMG5_pTetra      pt,tetraCur;
   MMG5_pxTetra     pxt;
   MMG5_pPoint      ppt;
@@ -277,6 +332,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
   int              tetPerGrp,tet,poi,j;
 
   mesh = grp->mesh;
+  met  = grp->met;
 
   // Reinitialize to the value that n2i_n_c arrays are initially allocated
   // Otherwise grp #1,2,etc will incorrectly use the values that the previous
@@ -305,7 +361,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
       continue;
 
     ++tetPerGrp;
-    assert( ( tetPerGrp < mesh->nemax ) && "overflowing tetra array?" );
+    assert( ( tetPerGrp <= mesh->nemax ) && "overflowing tetra array?" );
     tetraCur = mesh->tetra + tetPerGrp;
     pt->flag = tetPerGrp;
 
@@ -329,14 +385,28 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         // 1st time that this point is seen in this subgroup
         // Add point in subgroup point array
         ++(*np);
-        assert( (*np < mesh->npmax) && "overflowing mesh points" );
+
+        if ( *np > mesh->npmax ) {
+          PMMG_RECALLOC(mesh,mesh->point,1.2*mesh->npmax+1,mesh->npmax+1,
+                        MMG5_Point,"point array",return 0);
+          mesh->npmax = (int)(1.2*mesh->npmax);
+          mesh->npnil = (*np)+1;;
+          for (j=mesh->npnil; j<mesh->npmax-1; j++)
+            mesh->point[j].tmp  = j+1;
+
+          if ( met->m ) {
+            PMMG_REALLOC(mesh,met->m,met->size*mesh->npmax+1,
+                         met->size*met->npmax+1,double,
+                         "metric array",return 0);
+          }
+          met->npmax = mesh->npmax;
+        }
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
-        if ( grp->met->m ) {
-          assert( ((*np)<grp->met->npmax) && "overflowing sol points");
-          memcpy( &grp->met->m[ (*np) * grp->met->size ],
-                  &grpOld->met->m[pt->v[poi] * grp->met->size],
-                  grp->met->size * sizeof( double ) );
+        if ( met->m ) {
+          memcpy( &met->m[ (*np) * met->size ],
+                  &grpOld->met->m[pt->v[poi] * met->size],
+                  met->size * sizeof( double ) );
         }
 
         // update tetra vertex reference
@@ -502,6 +572,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
       }
     }
   }
+  assert( (mesh->ne == tetPerGrp) && "Error in the tetra count" );
+
   return 1;
 }
 
@@ -710,8 +782,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],countPerGrp[grpId],
-                                  &f2ifc_max,&n2inc_max) ) {
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],fitMesh,
+                                  countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize the %d th new"
               " group.\n",__func__,grpId);
       ret_val = PMMG_FAILURE;
