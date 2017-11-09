@@ -245,6 +245,265 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ne,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to fill
+ * \param grpId index of the group that we create in the list of groups
+ * \param ne number of elements in the new group mesh
+ * \param np pointer toward number of points in the new group mesh
+ * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
+ * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
+ * \param part metis partition
+ * \param posInIntFaceComm poisition of each tetra face in the internal face
+ * communicator (-1 if not in the internal face comm)
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Fill the mesh and communicators of the new group \a grp.
+ *
+ */
+static int
+PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
+                          int *np,int *f2ifc_max,int *n2inc_max,idx_t *part,
+                          int* posInIntFaceComm ) {
+
+  PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
+  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
+  MMG5_pMesh       mesh;
+  MMG5_pTetra      pt,tetraCur;
+  MMG5_pxTetra     pxt;
+  MMG5_pPoint      ppt;
+  int              *adja,adjidx,vidx,fac;
+  int              tetPerGrp,tet,poi,j;
+
+  mesh = grp->mesh;
+
+  // Reinitialize to the value that n2i_n_c arrays are initially allocated
+  // Otherwise grp #1,2,etc will incorrectly use the values that the previous
+  // grps assigned to n2inc_max
+  (*n2inc_max) = ne/3;
+
+  // use point[].flag field to "remember" assigned local(in subgroup) numbering
+  for ( poi = 1; poi < meshOld->np + 1; ++poi )
+    meshOld->point[poi].flag = 0;
+
+  // Loop over tetras and choose the ones to add in the submesh being constructed
+  tetPerGrp = 0;
+  *np       = 0;
+  for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
+    pt = &meshOld->tetra[tet];
+
+    if ( !MG_EOK(pt) ) continue;
+
+    // MMG3D_Tetra.flag is used to update adjacency vector:
+    //   if the tetra belongs to the group we store the local tetrahedron id
+    //   in the tet.flag
+    pt->flag = 0;
+
+    // Skip elements that do not belong in the group processed in this iteration
+    if ( grpId != part[ tet - 1 ] )
+      continue;
+
+    ++tetPerGrp;
+    assert( ( tetPerGrp < mesh->nemax ) && "overflowing tetra array?" );
+    tetraCur = mesh->tetra + tetPerGrp;
+    pt->flag = tetPerGrp;
+
+    // add tetrahedron to subgroup (copy from original group)
+    memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
+    tetraCur->base = 0;
+    tetraCur->mark = 0;
+    tetraCur->flag = 0;
+
+    // xTetra: this element was already an xtetra (in meshOld)
+    if ( tetraCur->xt != 0 ) {
+      if ( PMMG_SUCCESS != PMMG_xtetraAppend( mesh, meshOld, tet ) )
+        return 0;
+      tetraCur->xt = mesh->xt;
+    }
+
+    // Add tetrahedron vertices in points struct and
+    // adjust tetrahedron vertices indices
+    for ( poi = 0; poi < 4 ; ++poi ) {
+      if ( !meshOld->point[ pt->v[poi] ].flag ) {
+        // 1st time that this point is seen in this subgroup
+        // Add point in subgroup point array
+        ++(*np);
+        assert( (*np < mesh->npmax) && "overflowing mesh points" );
+        memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
+                sizeof(MMG5_Point) );
+        if ( grp->met->m ) {
+          assert( ((*np)<grp->met->npmax) && "overflowing sol points");
+          memcpy( &grp->met->m[ (*np) * grp->met->size ],
+                  &grpOld->met->m[pt->v[poi] * grp->met->size],
+                  grp->met->size * sizeof( double ) );
+        }
+
+        // update tetra vertex reference
+        tetraCur->v[poi] = (*np);
+
+        // "Remember" the assigned subgroup point id
+        meshOld->point[ pt->v[poi] ].flag = (*np);
+
+        // Add point in subgroup's communicator if it already was in group's
+        // ommunicator
+        ppt = &mesh->point[*np];
+        if ( ppt->tmp != -1 ) {
+          if (  PMMG_n2incAppend( parmesh, grp, n2inc_max,
+                                  *np, ppt->tmp )
+                != PMMG_SUCCESS ) {
+            return 0;
+          }
+          ++parmesh->int_node_comm->nitem;
+        }
+        // xPoints: this was already a boundary point
+        if ( mesh->point[*np].xp != 0 ) {
+          if ( PMMG_SUCCESS != PMMG_xpointAppend(mesh,meshOld,tet,poi) ) {
+            return 0;
+          }
+          mesh->point[*np].xp = mesh->xp;
+        }
+      } else {
+        // point is already included in this subgroup, update current tetra
+        // vertex reference
+        tetraCur->v[poi] = meshOld->point[ pt->v[poi] ].flag;
+      }
+    }
+
+
+    /* Copy element's vertices adjacency from old mesh and update them to the
+     * new mesh values */
+    assert( ((4*(tetPerGrp-1)+4)<(4*(mesh->ne-1)+5)) && "adja overflow" );
+    adja = &mesh->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
+
+    assert( (4 *(tet-1)+1+3) < (4*(meshOld->ne-1)+1+5) && "mesh->adja overflow" );
+    memcpy( adja, &meshOld->adja[ 4 * ( tet - 1 ) + 1 ], 4 * sizeof(int) );
+
+    /* Update element's adjaceny to elements in the new mesh */
+    for ( fac = 0; fac < 4; ++fac ) {
+
+      if ( adja[ fac ] == 0 ) {
+        /** Build the internal communicator for the parallel faces */
+        /* 1) Check if this face has a position in the internal face
+         * communicator. If not, the face is not parallel and we have nothing
+         * to do */
+        if ( posInIntFaceComm[4*(tet-1)+1+fac]<0 ) continue;
+
+        /* 2) Add the point in the list of interface faces of the group */
+        if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,4*tetPerGrp+fac,
+                               posInIntFaceComm[4*(tet-1)+1+fac] )
+             != PMMG_SUCCESS ) {
+          return 0;
+        }
+        continue;
+      }
+
+      adjidx = adja[ fac ] / 4;
+      vidx   = adja[ fac ] % 4;
+
+      // new boundary face: set to 0, add xtetra and set tags
+      assert( ((adjidx - 1) < meshOld->ne ) && "part[adjaidx] would overflow" );
+      if ( part[ adjidx - 1 ] != grpId ) {
+        adja[ fac ] = 0;
+
+        /* creation of the interface faces : ref 0 and tag MG_PARBDY */
+        if( !mesh->tetra[tetPerGrp].xt ) {
+          if ( PMMG_SUCCESS != PMMG_xtetraAppend( mesh, meshOld, tet ) ) {
+            return 0;
+          }
+          tetraCur->xt = mesh->xt;
+        }
+        pxt = &mesh->xtetra[tetraCur->xt];
+        pxt->ref[fac] = 0;
+        pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+
+        /** Build the internal communicator for the boundary faces */
+        /* 1) Check if this face has already a position in the internal face
+         * communicator, and if not, increment the internal face comm and
+         * store the face position in posInIntFaceComm */
+        if ( posInIntFaceComm[4*(adjidx-1)+1+vidx]<0 ) {
+          posInIntFaceComm[4*(tet-1)+1+fac]       = parmesh->int_face_comm->nitem;
+          posInIntFaceComm[4*(adjidx-1)+1+vidx] = parmesh->int_face_comm->nitem;
+          /* 2) Add the face in the list of interface faces of the group */
+          if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,4*tetPerGrp+fac,
+                                 posInIntFaceComm[4*(tet-1)+1+fac] )
+               != PMMG_SUCCESS ) {
+            return 0;
+          }
+          ++parmesh->int_face_comm->nitem;
+        }
+        else {
+          assert ( posInIntFaceComm[4*(tet-1)+1+fac] >=0 );
+
+          /* 2) Add the face in the list of interface faces of the group */
+          if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,4*tetPerGrp+fac,
+                                 posInIntFaceComm[4*(tet-1)+1+fac] )
+               != PMMG_SUCCESS ) {
+            return 0;
+          }
+        }
+
+        for ( j=0; j<3; ++j ) {
+          /* Update the face and face vertices tags */
+          pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          ppt = &mesh->point[tetraCur->v[_MMG5_idir[fac][j]]];
+          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+
+          /** Add an xPoint if needed */
+// TO REMOVE WHEN MMG WILL BE READY
+          if ( !ppt->xp ) {
+            if ( (mesh->xp+1) > mesh->xpmax ) {
+              /* realloc of xtetras table */
+              PMMG_RECALLOC(mesh,mesh->xpoint,1.2*mesh->xpmax+1,
+                            mesh->xpmax+1,int, "larger xpoint ",
+                            return 0);
+              mesh->xpmax = 1.2 * mesh->xpmax;
+            }
+            ++mesh->xp;
+            ppt->xp = mesh->xp;
+          }
+// TO REMOVE WHEN MMG WILL BE READY
+        }
+
+        // if the adjacent number is already processed
+      } else if ( adjidx < tet ) {
+        adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vidx;
+        // Now that we know the local gr_idx for both tetra we should also
+        // update the adjacency entry for the adjacent face
+        assert(     (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vidx )
+                    < (4 * (mesh->ne -1 ) + 1 + 4)
+                    && "adja overflow" );
+        mesh->adja[4*(meshOld->tetra[adjidx].flag-1)+1+vidx] =
+          4*tetPerGrp+fac;
+      }
+    }
+    adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
+    for ( fac = 0; fac < 4; ++fac ) {
+      adjidx = adja[ fac ] / 4;
+
+      if ( adjidx && grpId != part[ adjidx - 1 ] ) {
+        for ( poi = 0; poi < 3; ++poi ) {
+          ppt = & mesh->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ];
+          if ( ppt->tmp == -1 ) {
+            if (   PMMG_n2incAppend( parmesh, grp, n2inc_max,
+                                     tetraCur->v[ _MMG5_idir[fac][poi] ],
+                                     parmesh->int_node_comm->nitem + 1 )
+                   != PMMG_SUCCESS ) {
+              return 0;
+            }
+
+            meshOld->point[ pt->v[ _MMG5_idir[fac][poi]  ] ].tmp =
+              parmesh->int_node_comm->nitem + 1;
+            ppt->tmp = parmesh->int_node_comm->nitem + 1;
+
+            ++parmesh->int_node_comm->nitem;
+          }
+        }
+      }
+    }
+  }
+  return 1;
+}
 
 /**
  * \param mesh pointer toward an MMG5 mesh structure
@@ -326,6 +585,7 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np,int fitMesh )
       _MMG5_settag(mesh,k,i,pxt->tag[i],pxt->edg[i]);
     }
   }
+
   return 1;
 }
 
@@ -350,9 +610,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh const meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
-  MMG5_pTetra pt,tetraCur = NULL;
-  MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt;
   int *countPerGrp = NULL;
   int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
   /** remember meshOld->ne to correctly free the metis buffer */
@@ -365,12 +622,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   idx_t *part = NULL;
 
   // counters for tetra, point, while constructing a subgroup
-  int tetPerGrp = 0;
   int poiPerGrp = 0;
-  int *adja = NULL;
-  int vindex = 0;
-  int adjidx = 0;
-  int j,*posInIntFaceComm;
+  int *posInIntFaceComm;
 
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
@@ -398,10 +651,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                parmesh->myrank+1, parmesh->nprocs, ngrp );
   }
 
-
   // Crude check whether there is enough free memory to allocate the new group
-  if (  parmesh->memCur + 2 * parmesh->listgrp[0].mesh->memCur
-      > parmesh->memGloMax ) {
+  if ( parmesh->memCur+2*parmesh->listgrp[0].mesh->memCur>parmesh->memGloMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
     return PMMG_FAILURE;
   }
@@ -458,262 +709,37 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       grpOld->node2int_node_comm_index2[ i ];
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
+    /** New group initialisation */
     if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],countPerGrp[grpId],
                                   &f2ifc_max,&n2inc_max) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to initialize the %dth new group.\n",
-              __func__,grpId);
+      fprintf(stderr,"\n  ## Error: %s: unable to initialize the %d th new"
+              " group.\n",__func__,grpId);
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
   }
 
   for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
-    grpCur = &grpsNew[grpId];
+    /** New group filling */
+    grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
 
-    // Reinitialize to the value that n2i_n_c arrays are initially allocated
-    // Otherwise grp #1,2,etc will incorrectly use the values that the previous
-    // grps assigned to n2inc_max
-    n2inc_max = countPerGrp[ grpId ] / 3;
-
-    // use point[].flag field to "remember" assigned local(in subgroup) numbering
-    for ( poi = 1; poi < meshOld->np + 1; ++poi )
-      meshOld->point[poi].flag = 0;
-
-    // Loop over tetras and choose the ones to add in the submesh being constructed
-    tetPerGrp = 0;
-    poiPerGrp = 0;
-    for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
-      pt = &meshOld->tetra[tet];
-
-      if ( !MG_EOK(pt) ) continue;
-
-      // MMG3D_Tetra.flag is used to update adjacency vector:
-      //   if the tetra belongs to the group we store the local tetrahedron id
-      //   in the tet.flag
-      pt->flag = 0;
-
-      // Skip elements that do not belong in the group processed in this iteration
-      if ( grpId != part[ tet - 1 ] )
-        continue;
-
-      ++tetPerGrp;
-      assert( ( tetPerGrp < meshCur->nemax ) && "overflowing tetra array?" );
-      tetraCur = meshCur->tetra + tetPerGrp;
-      pt->flag = tetPerGrp;
-
-      // add tetrahedron to subgroup (copy from original group)
-      memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
-      tetraCur->base = 0;
-      tetraCur->mark = 0;
-      tetraCur->flag = 0;
-
-      // xTetra: this element was already an xtetra (in meshOld)
-      if ( tetraCur->xt != 0 ) {
-        if ( PMMG_SUCCESS != PMMG_xtetraAppend( meshCur, meshOld, tet ) ) {
-          ret_val = PMMG_FAILURE;
-          goto fail_sgrp;
-        }
-        tetraCur->xt = meshCur->xt;
-      }
-
-      // Add tetrahedron vertices in points struct and
-      // adjust tetrahedron vertices indices
-      for ( poi = 0; poi < 4 ; ++poi ) {
-        if ( !meshOld->point[ pt->v[poi] ].flag ) {
-          // 1st time that this point is seen in this subgroup
-          // Add point in subgroup point array
-          ++poiPerGrp;
-          assert( (poiPerGrp < meshCur->npmax) && "overflowing mesh points" );
-          memcpy( meshCur->point+poiPerGrp,&meshOld->point[pt->v[poi]],
-                  sizeof(MMG5_Point) );
-           if ( grpCur->met->m ) {
-             assert( (poiPerGrp<grpCur->met->npmax) && "overflowing sol points");
-             memcpy( &grpCur->met->m[ poiPerGrp * grpCur->met->size ],
-                 &grpOld->met->m[pt->v[poi] * grpCur->met->size],
-                 grpCur->met->size * sizeof( double ) );
-           }
-
-          // update tetra vertex reference
-          tetraCur->v[poi] = poiPerGrp;
-
-          // "Remember" the assigned subgroup point id
-          meshOld->point[ pt->v[poi] ].flag = poiPerGrp;
-
-          // Add point in subgroup's communicator if it already was in group's
-          // ommunicator
-          ppt = &meshCur->point[poiPerGrp];
-          if ( ppt->tmp != -1 ) {
-            if (  PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
-                                    poiPerGrp, ppt->tmp )
-                  != PMMG_SUCCESS ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
-            ++parmesh->int_node_comm->nitem;
-          }
-          // xPoints: this was already a boundary point
-          if ( meshCur->point[poiPerGrp].xp != 0 ) {
-            if ( PMMG_SUCCESS != PMMG_xpointAppend(meshCur,meshOld,tet,poi) ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
-            meshCur->point[poiPerGrp].xp = meshCur->xp;
-          }
-        } else {
-          // point is already included in this subgroup, update current tetra
-          // vertex reference
-          tetraCur->v[poi] = meshOld->point[ pt->v[poi] ].flag;
-        }
-      }
-
-
-      /* Copy element's vertices adjacency from old mesh and update them to the
-       * new mesh values */
-      assert( ((4*(tetPerGrp-1)+4)<(4*(meshCur->ne-1)+5)) && "adja overflow" );
-      adja = &meshCur->adja[ 4 * ( tetPerGrp - 1 ) + 1 ];
-
-      assert( (4 *(tet-1)+1+3) < (4*(meshOld->ne-1)+1+5) && "meshCur->adja overflow" );
-      memcpy( adja, &meshOld->adja[ 4 * ( tet - 1 ) + 1 ], 4 * sizeof(int) );
-
-      /* Update element's adjaceny to elements in the new mesh */
-      for ( fac = 0; fac < 4; ++fac ) {
-
-        if ( adja[ fac ] == 0 ) {
-          /** Build the internal communicator for the parallel faces */
-          /* 1) Check if this face has a position in the internal face
-           * communicator. If not, the face is not parallel and we have nothing
-           * to do */
-          if ( posInIntFaceComm[4*(tet-1)+1+fac]<0 ) continue;
-
-          /* 2) Add the point in the list of interface faces of the group */
-          if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
-                                 posInIntFaceComm[4*(tet-1)+1+fac] )
-               != PMMG_SUCCESS ) {
-            ret_val = PMMG_FAILURE;
-            goto fail_sgrp;
-          }
-          continue;
-        }
-
-        adjidx = adja[ fac ] / 4;
-        vindex = adja[ fac ] % 4;
-
-        // new boundary face: set to 0, add xtetra and set tags
-        assert( ((adjidx - 1) < meshOld->ne ) && "part[adjaidx] would overflow" );
-        if ( part[ adjidx - 1 ] != grpId ) {
-          adja[ fac ] = 0;
-
-          /* creation of the interface faces : ref 0 and tag MG_PARBDY */
-          if( !meshCur->tetra[tetPerGrp].xt ) {
-            if ( PMMG_SUCCESS != PMMG_xtetraAppend( meshCur, meshOld, tet ) ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
-            tetraCur->xt = meshCur->xt;
-          }
-          pxt = &meshCur->xtetra[tetraCur->xt];
-          pxt->ref[fac] = 0;
-          pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-
-          /** Build the internal communicator for the boundary faces */
-          /* 1) Check if this face has already a position in the internal face
-           * communicator, and if not, increment the internal face comm and
-           * store the face position in posInIntFaceComm */
-          if ( posInIntFaceComm[4*(adjidx-1)+1+vindex]<0 ) {
-            posInIntFaceComm[4*(tet-1)+1+fac]       = parmesh->int_face_comm->nitem;
-            posInIntFaceComm[4*(adjidx-1)+1+vindex] = parmesh->int_face_comm->nitem;
-            /* 2) Add the face in the list of interface faces of the group */
-            if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
-                                   posInIntFaceComm[4*(tet-1)+1+fac] )
-                 != PMMG_SUCCESS ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
-            ++parmesh->int_face_comm->nitem;
-          }
-          else {
-            assert ( posInIntFaceComm[4*(tet-1)+1+fac] >=0 );
-
-            /* 2) Add the face in the list of interface faces of the group */
-            if ( PMMG_f2ifcAppend( parmesh, grpCur, &f2ifc_max,4*tetPerGrp+fac,
-                                   posInIntFaceComm[4*(tet-1)+1+fac] )
-                 != PMMG_SUCCESS ) {
-              ret_val = PMMG_FAILURE;
-              goto fail_sgrp;
-            }
-          }
-
-          for ( j=0; j<3; ++j ) {
-            /* Update the face and face vertices tags */
-            pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-            ppt = &meshCur->point[tetraCur->v[_MMG5_idir[fac][j]]];
-            ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-
-            /** Add an xPoint if needed */
-// TO REMOVE WHEN MMG WILL BE READY
-            if ( !ppt->xp ) {
-              if ( (meshCur->xp+1) > meshCur->xpmax ) {
-                /* realloc of xtetras table */
-                PMMG_RECALLOC(meshCur,meshCur->xpoint,1.2*meshCur->xpmax+1,
-                              meshCur->xpmax+1,int, "larger xpoint ",
-                              ret_val = 0;goto fail_sgrp);
-                meshCur->xpmax = 1.2 * meshCur->xpmax;
-              }
-              ++meshCur->xp;
-              ppt->xp = meshCur->xp;
-            }
-// TO REMOVE WHEN MMG WILL BE READY
-          }
-
-        // if the adjacent number is already processed
-        } else if ( adjidx < tet ) {
-          adja[ fac ] =  4 * meshOld->tetra[ adjidx ].flag  + vindex;
-          // Now that we know the local gr_idx for both tetra we should also
-          // update the adjacency entry for the adjacent face
-          assert(     (4 * (meshOld->tetra[adjidx].flag-1) + 1 + vindex )
-                    < (4 * (meshCur->ne -1 ) + 1 + 4)
-                 && "adja overflow" );
-          meshCur->adja[4*(meshOld->tetra[adjidx].flag-1)+1+vindex] =
-            4*tetPerGrp+fac;
-        }
-      }
-      adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
-      for ( fac = 0; fac < 4; ++fac ) {
-        adjidx = adja[ fac ] / 4;
-
-        if ( adjidx && grpId != part[ adjidx - 1 ] ) {
-          for ( poi = 0; poi < 3; ++poi ) {
-            ppt = & meshCur->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ];
-            if ( ppt->tmp == -1 ) {
-              if (   PMMG_n2incAppend( parmesh, grpCur, &n2inc_max,
-                                  tetraCur->v[ _MMG5_idir[fac][poi] ],
-                                  parmesh->int_node_comm->nitem + 1 )
-                  != PMMG_SUCCESS ) {
-                ret_val = PMMG_FAILURE;
-                goto fail_sgrp;
-              }
-
-              meshOld->point[ pt->v[ _MMG5_idir[fac][poi]  ] ].tmp =
-                parmesh->int_node_comm->nitem + 1;
-              ppt->tmp = parmesh->int_node_comm->nitem + 1;
-
-              ++parmesh->int_node_comm->nitem;
-            }
-          }
-        }
-      }
+    if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpId,
+                                   countPerGrp[grpId],&poiPerGrp,&f2ifc_max,
+                                   &n2inc_max,part,posInIntFaceComm) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to fill the %d th new group.\n",
+              __func__,grpId);
+      ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
     }
 
-    if ( !PMMG_splitGrps_cleanMesh( meshCur,grpCur->met,poiPerGrp,fitMesh ) )
+    /* Mesh cleaning in the new group */
+    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp,fitMesh) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of the %d th"
+              " new group.\n",__func__,grpId);
+      ret_val = PMMG_FAILURE;
       goto fail_sgrp;
-
-    assert( (meshCur->ne == tetPerGrp) && "Error in PMMG_split_grps" );
-    if ( parmesh->ddebug )
-      printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra (expected: %d)ed."
-              " %d nitem in int communicator.np=%d,npi=%d\n",
-              ngrp, grpId+1, poiPerGrp, tetPerGrp, meshCur->ne,
-              grpCur->nitem_int_node_comm,grpCur->mesh->np,grpCur->mesh->npi );
+    }
 
     /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
@@ -733,6 +759,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                   grpCur->nitem_int_face_comm, f2ifc_max, int,
                   "subgroup interface faces communicator ",
                   ret_val = PMMG_FAILURE;goto fail_sgrp );
+
+    if ( parmesh->ddebug )
+      printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra."
+              " %d nitem in int communicator\n",
+              ngrp, grpId+1, meshCur->np, meshCur->ne,
+              grpCur->nitem_int_node_comm );
   }
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
