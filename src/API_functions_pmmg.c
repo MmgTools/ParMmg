@@ -113,13 +113,6 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
-/** return:
- *   PMMG_SUCCESS
- *   PMMG_FAILURE Failed to allocate pmmg struct or initialize mesh/sol
- *
- *   Allocate the main pmmg struct with a listgrp of one mesh and initialize
- *   maximum available memory
- */
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 {
   PMMG_pGrp grp = NULL;
@@ -164,89 +157,6 @@ fail_grplst:
 fail_pmesh:
   return PMMG_FAILURE;
 }
-
-
-/** return:
- *
- *  Sets the maximum amount of memory that is available to a parmmg process to
- *  memReq Mb.
- *  If memReq is zero then it is set to half of the available memory physically
- *  available on the machine. On multicore machines the available memory is
- *  shared equally to pmmg processes. If memReq is negative or more than the
- *  detected available memory, then again it is set to the detected available
- *  memory
- */
-void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
-{
-  long long int maxAvail = 0;
-  MPI_Comm comm_shm = 0;
-  int size_shm = 1;
-  const int million = 1024 * 1024;
-
-  assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
-  MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                       &comm_shm );
-  MPI_Comm_size( comm_shm, &size_shm );
-
-  maxAvail = _MMG5_memSize();
-  // if detection failed => default value of _MMG5_MEMMAX Mo
-  if ( maxAvail == 0 )
-    maxAvail = _MMG5_MEMMAX << 20;
-
-  // Multiple MPI processes may be running on the same node => distribute equally
-  if ( (memReq > 0) && ((memReq * million) < maxAvail) )
-    parmesh->memGloMax = (memReq * million) / size_shm;
-  else
-    parmesh->memGloMax = (maxAvail * 50) / (size_shm * 100);
-
-  fprintf ( stdout,
-            "Requested %lld Mb max memory usage. Max memory limit set to %lld Mb\n",
-            memReq, parmesh->memGloMax/million );
-}
-
-
-/**
- * \param parmesh parmesh structure to adjust
- * \param percent integer value bewtween 0 and 100
- *
- * \return 1 if success, 0 if fail
- *
- * Set the maximum memory parmesh and the meshes in listgrp can use.
- * The total memory available is split between the parmesh structure and the
- * listgrp structures according to the percentage specified by the percent
- * input variable:
- *   percent % of the available mem is assigned to pmesh.memMax
- *   (100-percent)/100 are assigned to the mesh[i].memMax
- */
-int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
-{
-  MMG5_pMesh mesh;
-  int        remaining_ngrps;
-  long long  available;
-  int        i = 0;
-
-  assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
-
-  parmesh->memMax = parmesh->memGloMax * percent / 100;
-  available       = parmesh->memGloMax - parmesh->memMax;
-  remaining_ngrps = parmesh->ngrp;
-  for ( i = 0; i < parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-    mesh->memMax = available/remaining_ngrps;
-    /* Not enough memory: set the minimal memory to be able to continue */
-    if ( mesh->memMax < mesh->memCur ) {
-      mesh->memMax = mesh->memCur;
-    }
-    available -= mesh->memMax;
-    --remaining_ngrps;
-    if ( available < 0 ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
-      return 0;
-    }
-  }
-  return 1;
-}
-
 
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
