@@ -593,10 +593,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   //DEBUGGING:
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
-  /** Step 1: Merge interface points from all meshes into mesh0->points */
+   /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+    mesh0->memMax += parmesh->listgrp[imsh].mesh->memMax;
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrps_internalPoints(parmesh,mesh0,met0,imsh) )
@@ -628,6 +629,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
                    MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
                    MMG5_ARG_end);
   }
+  assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
