@@ -488,7 +488,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
     /** load Balancing at group scale and communicators reconstruction */
     if ( !PMMG_loadBalancing(parmesh) ) {
-      fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       goto strong_failed;
     }
   }

@@ -34,19 +34,22 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
  *
  */
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
+  int ier,ier_glob;
+
+  ier = 1;
 
   /** Count the number of interface faces per tetra and store it in mark */
   if ( !PMMG_count_parBdy(parmesh) ) {
     fprintf(stderr,"\n  ## Problem when counting the number of interface faces."
             " Exit program.\n");
-    return 0;
+    ier=0;
   }
 
   /** Split the ngrp groups of listgrp into a higher number of groups */
   if ( !PMMG_split_n2mGroups(parmesh,METIS_TARGET_MESH_SIZE,1) ) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups."
             " Exit program.\n");
-    return 0;
+    ier=0;
   }
 
   /** Distribute the groups over the processor to load balance the meshes */
@@ -58,8 +61,10 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   if ( !PMMG_split_n2mGroups(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
     fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups."
             " Exit program.\n");
-    return 0;
+    ier=0;
   }
 
-  return 1;
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  return ier_glob;
 }
