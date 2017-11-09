@@ -854,8 +854,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   // Should be executed only if an error has occured
 fail_sgrp:
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
-
-    meshCur = grpsNew[grpId].mesh;
+    grpCur  = &grpsNew[grpId];
+    meshCur = grpCur->mesh;
 
     /* internal comm for nodes */
     if ( grpCur->node2int_node_comm_index2 != NULL )
@@ -874,12 +874,14 @@ fail_sgrp:
                    "face2int_face_comm_index1 communicator ");
 
     /* mesh */
-    if ( meshCur->adja != NULL )
-      PMMG_DEL_MEM(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
-    if ( meshCur->xpoint != NULL )
-      PMMG_DEL_MEM(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
-    if ( meshCur->xtetra != NULL )
-      PMMG_DEL_MEM(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
+    if ( meshCur ) {
+      if ( meshCur->adja != NULL )
+        PMMG_DEL_MEM(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
+      if ( meshCur->xpoint != NULL )
+        PMMG_DEL_MEM(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
+      if ( meshCur->xtetra != NULL )
+        PMMG_DEL_MEM(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
+    }
 #warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
   // these labels should be executed as part of normal code execution before

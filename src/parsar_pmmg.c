@@ -109,6 +109,13 @@ int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 
   parmesh->memMax = parmesh->memGloMax * percent / 100;
   available       = parmesh->memGloMax - parmesh->memMax;
+
+  if ( available < 0 ) {
+    fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
+            __func__);
+    return 0;
+  }
+
   remaining_ngrps = parmesh->ngrp;
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
