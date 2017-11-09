@@ -102,6 +102,7 @@ int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
   MMG5_pMesh mesh;
   int        remaining_ngrps;
   long long  available;
+  long long  million = 1048576L;
   int        i = 0;
 
   assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
@@ -112,10 +113,14 @@ int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     mesh->memMax = available/remaining_ngrps;
+
     /* Not enough memory: set the minimal memory to be able to continue */
     if ( mesh->memMax < mesh->memCur ) {
       mesh->memMax = mesh->memCur;
     }
+    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
+    mesh->info.mem = mesh->memMax/million;
+
     available -= mesh->memMax;
     --remaining_ngrps;
     if ( available < 0 ) {

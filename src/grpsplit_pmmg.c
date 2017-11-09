@@ -172,27 +172,15 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
   if ( !MMG3D_setMeshSize_initData(mesh,np,ne,nprism,nt,nquad,na) )
     return 0;
 
-  /* Check the -m option */
-  if( mesh->info.mem > 0) {
-    if((mesh->npmax < mesh->np || mesh->ntmax < mesh->nt || mesh->nemax < mesh->ne)) {
-      if ( !_MMG3D_memOption(mesh) )  return 0;
-    } else if(mesh->info.mem < 39) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory  %d\n",__func__,
-              mesh->info.mem);
-      return(0);
-    }
-  } else {
-    mesh->memMax = _MMG5_memSize();
-    if ( fitMesh ) {
-      mesh->npmax  = mesh->np;
-      mesh->nemax  = mesh->ne;
-      mesh->ntmax  = mesh->nt;
-    }
-    else {
-      mesh->npmax  = MG_MAX(1.5*mesh->np,_MMG3D_NPMAX);
-      mesh->nemax  = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
-      mesh->ntmax  = MG_MAX(1.5*mesh->nt,_MMG3D_NTMAX);
-    }
+  if ( fitMesh ) {
+    mesh->npmax  = mesh->np;
+    mesh->nemax  = mesh->ne;
+    mesh->ntmax  = mesh->nt;
+  }
+  else {
+    mesh->npmax  = MG_MAX(1.5*mesh->np,_MMG3D_NPMAX);
+    mesh->nemax  = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
+    mesh->ntmax  = MG_MAX(1.5*mesh->nt,_MMG3D_NTMAX);
   }
 
   /* Mesh allocation and linkage */
@@ -205,6 +193,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
+ * \param ngrps number of new groups
  * \param fitMesh 1 if the mesh must be allocated at its exact size.
  * \param ne number of elements in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
@@ -219,8 +208,8 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
  *
  */
 static int
-PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int fitMesh,int ne,
-                         int *f2ifc_max,int *n2inc_max ) {
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ngrps,
+                         int fitMesh,int ne,int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
   MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
   MMG5_pMesh       mesh;
@@ -242,6 +231,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int fitMesh,int ne,
 
   /* Uses the Euler-poincare formulae to estimate the number of points from
    * the number of elements per group: np = ne/6 */
+  mesh->memMax = meshOld->memMax/ngrps;
   if ( !PMMG_grpSplit_setMeshSize( mesh,fitMesh,ne/6,ne,0,0,0,0) ) return 0;
 
   grp->mesh->np = 0;
@@ -782,7 +772,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],fitMesh,
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],ngrp,fitMesh,
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize the %d th new"
               " group.\n",__func__,grpId);
