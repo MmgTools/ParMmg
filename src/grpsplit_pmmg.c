@@ -182,7 +182,6 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
     mesh->nemax  = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
     mesh->ntmax  = MG_MAX(1.5*mesh->nt,_MMG3D_NTMAX);
   }
-
   /* Mesh allocation and linkage */
   if ( !MMG3D_setMeshSize_alloc( mesh ) ) return 0;
 
@@ -771,6 +770,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       grpOld->node2int_node_comm_index2[ i ];
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
+    /** New group filling */
+    grpCur  = &grpsNew[grpId];
+
     /** New group initialisation */
     if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],ngrp,fitMesh,
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
@@ -779,11 +781,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
-  }
-
-  for ( grpId = 0 ; grpId < ngrp ; ++grpId ) {
-    /** New group filling */
-    grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
 
     if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpId,
