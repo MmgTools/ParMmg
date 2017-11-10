@@ -192,7 +192,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
- * \param ngrps number of new groups
+ * \param memAv available mem for the mesh allocation
  * \param fitMesh 1 if the mesh must be allocated at its exact size.
  * \param ne number of elements in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
@@ -207,7 +207,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
  *
  */
 static int
-PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ngrps,
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
                          int fitMesh,int ne,int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
   MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
@@ -228,9 +228,12 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int ngrps,
   if ( !MMG5_Set_outputMeshName(mesh, meshOld->nameout ) )             return 0;
   if ( !MMG5_Set_outputSolName( mesh,grp->met,grpOld->met->nameout ) ) return 0;
 
+  /* The mesh will be smaller than memCur. Set its maximal memory with respect
+   * to the available memory. */
+  mesh->memMax = MG_MIN(memAv,parmesh->listgrp[0].mesh->memCur);
+
   /* Uses the Euler-poincare formulae to estimate the number of points from
    * the number of elements per group: np = ne/6 */
-  mesh->memMax = meshOld->memMax/ngrps;
   if ( !PMMG_grpSplit_setMeshSize( mesh,fitMesh,ne/6,ne,0,0,0,0) ) return 0;
 
   grp->mesh->np = 0;
@@ -618,6 +621,10 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np,int fitMesh )
       mesh->point[k].tmp  = k + 1;
     }
   }
+
+  /* Set memMax to the smallest possible value */
+  mesh->memMax = mesh->memCur;
+
   // Update the empty points' values as per the convention used in MMG3D
   mesh->np = np;
   mesh->npi = np;
@@ -682,7 +689,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   idx_t ngrp = 1;
   idx_t *part = NULL;
 
-  // counters for tetra, point, while constructing a subgroup
+  long long memAv;
+  // counters for tetra, point, while constructing a Subgroups
   int poiPerGrp = 0;
   int *posInIntFaceComm;
 
@@ -769,15 +777,18 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
       grpOld->node2int_node_comm_index2[ i ];
 
+  /* Available memory to create the groups */
+  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
+  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memCur;
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group filling */
     grpCur  = &grpsNew[grpId];
 
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],ngrp,fitMesh,
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],memAv,fitMesh,
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to initialize the %d th new"
-              " group.\n",__func__,grpId);
+      fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
+              " group (%d).\n",__func__,grpId);
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
     }
@@ -786,7 +797,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpId,
                                    countPerGrp[grpId],&poiPerGrp,&f2ifc_max,
                                    &n2inc_max,part,posInIntFaceComm) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to fill the %d th new group.\n",
+      fprintf(stderr,"\n  ## Error: %s: unable to fill new group (%d).\n",
               __func__,grpId);
       ret_val = PMMG_FAILURE;
       goto fail_sgrp;
@@ -794,9 +805,16 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
     /* Mesh cleaning in the new group */
     if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp,fitMesh) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of the %d th"
-              " new group.\n",__func__,grpId);
+      fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
+              " new group (%d).\n",__func__,grpId);
       ret_val = PMMG_FAILURE;
+      goto fail_sgrp;
+    }
+    /* Remove the memory used by this mesh from the available memory */
+    memAv -= meshCur->memMax;
+    if ( memAv < 0 ) {
+      fprintf(stderr,"\n  ## Error: %s: not enough memory to allocate a new"
+              " group.\n",__func__);
       goto fail_sgrp;
     }
 
