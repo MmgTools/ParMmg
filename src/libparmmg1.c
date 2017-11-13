@@ -178,7 +178,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_hashPrism(mesh) ) {
       fprintf(stderr,"\n  ## Error: %s: prism hashing problem. Exit program.\n",
               __func__);
-      return(0);
+      return 0;
     }
 
     /* Remove the MG_REQ tags added by the nosurf option */
@@ -190,9 +190,16 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* to could save the mesh, the adjacency have to be correct */
-    if ( mesh->info.ddebug && (!_MMG5_chkmsh(mesh,1,1) ) ) {
-      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
-      return 0;
+    if ( mesh->info.ddebug ) {
+      if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+        fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
+                __func__);
+        return 0;
+      }
+      if ( !_MMG5_chkmsh(mesh,1,1) ) {
+        fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+        return 0;
+      }
     }
   }
 
