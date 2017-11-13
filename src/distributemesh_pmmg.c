@@ -129,10 +129,18 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm );
   MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm );
 
-  mesh->nemax = mesh->nei = mesh->ne;
-  mesh->nenil = 0;
+  if ( !rank ) {
+    PMMG_RECALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
+                  "vertices array", return PMMG_FAILURE);
+    PMMG_RECALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
+                  "tetra array", return PMMG_FAILURE);
+  }
+
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
+
+  mesh->nemax = mesh->nei = mesh->ne;
+  mesh->nenil = 0;
   mesh->nti   = mesh->nt;
   mesh->xtmax = mesh->ntmax;
 
