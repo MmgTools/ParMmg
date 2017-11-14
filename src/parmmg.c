@@ -203,7 +203,7 @@ int main( int argc, char *argv[] )
 
   /** Merge all the meshes on the proc 0 */
   if ( !parmesh->myrank && mesh->info.imprim )
-    fprintf( stdout,"\n   -- PHASE 4 : MERGE MESH\n" );
+    fprintf( stdout,"\n   -- PHASE 4 : MERGE MESHES OVER PROCESSORS\n" );
 
 #warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
   if ( !PMMG_merge_parmesh( parmesh ) )
