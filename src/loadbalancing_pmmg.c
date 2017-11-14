@@ -21,6 +21,25 @@
  */
 static inline
 int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  int          k,i,j;
+
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+
+    for ( k=1; k<=mesh->ne; ++k ) {
+      pt       = &mesh->tetra[k];
+      pt->mark = 0;
+
+      if ( (!MG_EOK(pt)) || (!pt->xt) ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+
+      for ( j=0; j<4; ++j )
+        if ( pxt->ftag[j] & MG_PARBDY ) ++pt->mark;
+    }
+  }
 
   return 1;
 }
