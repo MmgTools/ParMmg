@@ -450,9 +450,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         ++(*np);
 
         if ( *np > mesh->npmax ) {
-          PMMG_RECALLOC(mesh,mesh->point,(int)(1.2*mesh->npmax)+1,mesh->npmax+1,
+          PMMG_RECALLOC(mesh,mesh->point,(int)((1+mesh->gap)*mesh->npmax)+1,mesh->npmax+1,
                         MMG5_Point,"point array",return 0);
-          mesh->npmax = (int)(1.2*mesh->npmax);
+          mesh->npmax = (int)((1+mesh->gap)*mesh->npmax);
           mesh->npnil = (*np)+1;;
           for (j=mesh->npnil; j<mesh->npmax-1; j++)
             mesh->point[j].tmp  = j+1;
@@ -587,10 +587,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
           if ( !ppt->xp ) {
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
-              PMMG_RECALLOC(mesh,mesh->xpoint,1.2*mesh->xpmax+1,
+              PMMG_RECALLOC(mesh,mesh->xpoint,(int)((1+mesh->gap)*mesh->xpmax+1),
                             mesh->xpmax+1,MMG5_xPoint, "larger xpoint ",
                             return 0);
-              mesh->xpmax = 1.2 * mesh->xpmax;
+              mesh->xpmax = (int)((1+mesh->gap) * mesh->xpmax);
             }
             ++mesh->xp;
             ppt->xp = mesh->xp;
