@@ -100,9 +100,9 @@ void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
   MMG5_pMesh mesh;
-  int        remaining_ngrps;
   long long  available;
   long long  million = 1048576L;
+  int        remaining_ngrps;
   int        i = 0;
 
   assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );

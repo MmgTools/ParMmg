@@ -573,64 +573,53 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
- * \param fitMesh 1 if the mesh must be reallocated at its exact size
  *
  * \return 0 if fail, 1 if success
  *
  * Clean the mesh filled by the \a split_grps function to make it valid:
- *   - reallocate the mesh at it exact size if fitMesh==1
+ *   - reallocate the mesh at it exact size
  *   - set the np/ne/npi/nei/npnil/nenil fields to suitables value and keep
  *   track of empty link
  *   - update the edge tags in all the xtetra of the edge shell
  *
  */
 static inline
-int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np,int fitMesh )
+int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
 {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,i;
 
-  if ( fitMesh ) {
-    /* Mesh reallocation at the smallest possible size */
-    PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
-                 MMG5_Point,"fitted point table",return 0);
-    mesh->npmax = np;
-    mesh->npnil = 0;
-    mesh->nenil = 0;
+  /* Mesh reallocation at the smallest possible size */
+  PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
+               MMG5_Point,"fitted point table",return 0);
+  mesh->npmax = np;
+  mesh->npnil = 0;
+  mesh->nenil = 0;
 
-    PMMG_REALLOC(mesh,mesh->xpoint,mesh->xp+1,mesh->xpmax+1,
-                 MMG5_xPoint,"fitted xpoint table",return 0);
-    mesh->xpmax = mesh->xp;
-    PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,
-                 MMG5_Tetra,"fitted tetra table",return 0);
-    mesh->nemax = mesh->ne;
-    PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,
-                 MMG5_xTetra,"fitted xtetra table",return 0);
-    mesh->xtmax = mesh->xt;
-    if ( met->m )
-      PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(mesh->xpmax+1),
-                   double,"fitted metric table",return 0);
-  }
-  else {
-    mesh->npnil = np + 1;
-    for ( k = mesh->npnil; k < mesh->npmax - 1; ++k ) {
-      mesh->point[k].n[0] = 0;
-      mesh->point[k].n[1] = 0;
-      mesh->point[k].n[2] = 0;
-      mesh->point[k].tmp  = k + 1;
-    }
-  }
+  PMMG_REALLOC(mesh,mesh->xpoint,mesh->xp+1,mesh->xpmax+1,
+               MMG5_xPoint,"fitted xpoint table",return 0);
+  mesh->xpmax = mesh->xp;
+  PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,
+               MMG5_Tetra,"fitted tetra table",return 0);
+  mesh->nemax = mesh->ne;
+  PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,
+               MMG5_xTetra,"fitted xtetra table",return 0);
+  mesh->xtmax = mesh->xt;
+  if ( met->m )
+    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
+                 double,"fitted metric table",return 0);
+  met->npmax = mesh->npmax;
 
   /* Set memMax to the smallest possible value */
   mesh->memMax = mesh->memCur;
 
   // Update the empty points' values as per the convention used in MMG3D
-  mesh->np = np;
+  mesh->np  = np;
   mesh->npi = np;
 
   if ( met->m ) {
-    met->np = np;
+    met->np  = np;
     met->npi = np;
   }
 
