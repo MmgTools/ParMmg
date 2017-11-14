@@ -102,6 +102,7 @@ int main( int argc, char *argv[] )
 
   /* Allocate the main pmmg struct and assign default values */
   if ( PMMG_SUCCESS != PMMG_Init_parMesh( &parmesh ) ) {
+    MPI_Abort( MPI_COMM_WORLD, PMMG_FAILURE );
     MPI_Finalize();
     return PMMG_FAILURE;
   }
