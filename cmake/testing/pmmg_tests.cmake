@@ -5,7 +5,7 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR} )
   set( CI_DIR_RESULTS  ${CI_DIR}/output )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
-  set( CI_DIR_INPUTS  "../../TestParMmg" CACHE PATH "path to test meshes repository" )
+  set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
 
   # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
   # on 1,2,4,6,8 processors
