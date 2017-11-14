@@ -133,7 +133,7 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 /* Mesh distrib */
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
-int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int,int,int );
+int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh,int,int );
 
 /* Load Balancing */
@@ -151,8 +151,10 @@ int PMMG_update_node2intPackedVertices( PMMG_pGrp grp );
 int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 
 /* Memory */
+int  PMMG_link_mesh( MMG5_pMesh mesh );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
-int  PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent );
+int  PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
+int  PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );

@@ -151,39 +151,122 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 
 /**
  * \param mesh pointer toward the mesh structure.
- * \param fitMesh 1 if the mesh must be allocated at its exact size (groups for
- * metis), 0 if it must be allocated at a greater size (groups for Mmg)
  * \param np number of vertices.
  * \param ne number of tetrahedra.
  * \param nprism number of prisms.
- * \param nt number of triangles.
- * \param nquad number of quads.
- * \param na number of edges.
+ * \param xp number of boundary point
+ * \param xt number of boundary tetra
  *
  * \return 0 if failed, 1 otherwise.
  *
  * Check the input mesh size and assign their values to the mesh.
  *
  */
-int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
-                              int nprism,int nt,int nquad,int na ) {
+int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
+                                       int nprism, int xp, int xt ) {
+
+  if ( ( (mesh->info.imprim > 5) || mesh->info.ddebug ) &&
+       ( mesh->point || mesh->xpoint || mesh->tetra || mesh->xtetra) )
+    fprintf(stderr,"\n  ## Warning: %s: old mesh deletion.\n",__func__);
+
+  if ( !np ) {
+    fprintf(stderr,"  ** MISSING DATA:\n");
+    fprintf(stderr,"     Your mesh must contains at least points.\n");
+    return(0);
+  }
+  if ( !ne && (mesh->info.imprim > 4 || mesh->info.ddebug) ) {
+    fprintf(stderr,"  ** WARNING:\n");
+    fprintf(stderr,"     Your mesh don't contains tetrahedra.\n");
+  }
+
+  if ( mesh->point )
+    _MMG5_DEL_MEM(mesh,mesh->point,(mesh->npmax+1)*sizeof(MMG5_Point));
+  if ( mesh->tetra )
+    _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
+  if ( mesh->prism )
+    _MMG5_DEL_MEM(mesh,mesh->prism,(mesh->nprism+1)*sizeof(MMG5_Prism));
+  if ( mesh->tria )
+    _MMG5_DEL_MEM(mesh,mesh->tria,(mesh->nt+1)*sizeof(MMG5_Tria));
+  if ( mesh->quadra )
+    _MMG5_DEL_MEM(mesh,mesh->quadra,(mesh->nquad+1)*sizeof(MMG5_Quad));
+  if ( mesh->edge )
+    _MMG5_DEL_MEM(mesh,mesh->edge,(mesh->na+1)*sizeof(MMG5_Edge));
+
+  mesh->np  = np;
+  mesh->ne  = ne;
+  mesh->xp  = xp;
+  mesh->xt  = xt;
+  mesh->nprism = nprism;
+
+  mesh->npi = mesh->np;
+  mesh->nei = mesh->ne;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Allocation of the array fields of the mesh for the given xpmax, npmax,xtmax,
+ * nemax.
+ *
+ */
+int PMMG_grpSplit_setMeshSize_alloc( MMG5_pMesh mesh ) {
+
+  PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,
+              "vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,
+              "boundary vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,
+              "tetra array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
+              "boundary tetra array", return 0);
+
+  if ( mesh->nprism ) {
+    PMMG_CALLOC(mesh,mesh->prism,mesh->nprism+1,MMG5_Prism,
+                "prisms array", return 0);
+  }
+  if ( mesh->xpr ) {
+    PMMG_CALLOC(mesh,mesh->xprism,mesh->xpr+1,MMG5_xPrism,
+                "boundary prisms array", return 0);
+  }
+
+  return ( PMMG_link_mesh( mesh ) );
+}
+
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param np number of vertices.
+ * \param ne number of tetrahedra.
+ * \param nprism number of prisms.
+ * \param xp number of boundary points.
+ * \param xt number of boundary tetra.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the input mesh size and assign their values to the mesh.
+ *
+ */
+int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
+                              int nprism,int xp,int xt ) {
 
   /* Check input data and set mesh->ne/na/np/nt to the suitable values */
-  if ( !MMG3D_setMeshSize_initData(mesh,np,ne,nprism,nt,nquad,na) )
+  if ( !PMMG_grpSplit_setMeshSize_initData(mesh,np,ne,nprism,xp,xt) )
     return 0;
 
-  if ( fitMesh ) {
-    mesh->npmax  = mesh->np;
-    mesh->nemax  = mesh->ne;
-    mesh->ntmax  = mesh->nt;
-  }
-  else {
-    mesh->npmax  = MG_MAX(1.5*mesh->np,_MMG3D_NPMAX);
-    mesh->nemax  = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
-    mesh->ntmax  = MG_MAX(1.5*mesh->nt,_MMG3D_NTMAX);
-  }
+  mesh->npmax  = mesh->np;
+  mesh->xpmax  = mesh->xp;
+  mesh->nemax  = mesh->ne;
+  mesh->xtmax  = mesh->xt;
+
   /* Mesh allocation and linkage */
-  if ( !MMG3D_setMeshSize_alloc( mesh ) ) return 0;
+  if ( !PMMG_grpSplit_setMeshSize_alloc( mesh ) ) return 0;
 
   return(1);
 
@@ -193,7 +276,6 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
  * \param memAv available mem for the mesh allocation
- * \param fitMesh 1 if the mesh must be allocated at its exact size.
  * \param ne number of elements in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
  * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
@@ -208,7 +290,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int fitMesh,int np,int ne,
  */
 static int
 PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
-                         int fitMesh,int ne,int *f2ifc_max,int *n2inc_max ) {
+                         int ne,int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
   MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
   MMG5_pMesh       mesh;
@@ -232,9 +314,11 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
    * to the available memory. */
   mesh->memMax = MG_MIN(memAv,parmesh->listgrp[0].mesh->memCur);
 
-  /* Uses the Euler-poincare formulae to estimate the number of points from
-   * the number of elements per group: np = ne/6 */
-  if ( !PMMG_grpSplit_setMeshSize( mesh,fitMesh,ne/6,ne,0,0,0,0) ) return 0;
+  /* Uses the Euler-poincare formulae to estimate the number of entities (np =
+   * ne/6, nt=ne/3 */
+  if ( !PMMG_grpSplit_setMeshSize( mesh,ne/6,ne,0,ne/6,ne/3) ) return 0;
+
+  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 
   grp->mesh->np = 0;
   grp->mesh->npi = 0;
@@ -252,19 +336,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
   memcpy(&(grp->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
-
-  /* Uses the Euler-poincare formulae to estimate the number of boundary
-   * triangles from the number of elements per groups: nt = ne/3 */
-  mesh->xtmax = ne/3;
-  PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
-              "msh boundary xtetra", return 0);
-
-  /* memory to store normals for boundary points */
-  mesh->xpmax  = mesh->npmax;
-  PMMG_CALLOC(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,
-              "boundary points",return 0);
-
-  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 
   *n2inc_max = ne/3;
   assert( (grp->nitem_int_node_comm == 0 ) && "non empty comm" );
@@ -379,7 +450,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         ++(*np);
 
         if ( *np > mesh->npmax ) {
-          PMMG_RECALLOC(mesh,mesh->point,1.2*mesh->npmax+1,mesh->npmax+1,
+          PMMG_RECALLOC(mesh,mesh->point,(int)(1.2*mesh->npmax)+1,mesh->npmax+1,
                         MMG5_Point,"point array",return 0);
           mesh->npmax = (int)(1.2*mesh->npmax);
           mesh->npnil = (*np)+1;;
@@ -517,7 +588,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
               PMMG_RECALLOC(mesh,mesh->xpoint,1.2*mesh->xpmax+1,
-                            mesh->xpmax+1,int, "larger xpoint ",
+                            mesh->xpmax+1,MMG5_xPoint, "larger xpoint ",
                             return 0);
               mesh->xpmax = 1.2 * mesh->xpmax;
             }
@@ -774,7 +845,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     grpCur  = &grpsNew[grpId];
 
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],memAv,fitMesh,
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],memAv,
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
               " group (%d).\n",__func__,grpId);
@@ -793,7 +864,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     }
 
     /* Mesh cleaning in the new group */
-    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp,fitMesh) ) {
+    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
       ret_val = PMMG_FAILURE;
@@ -847,7 +918,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
-  if ( PMMG_PMesh_SetMemMax(parmesh, 5) ) {
+  if ( PMMG_parMesh_updateMemMax(parmesh, 105, fitMesh) ) {
     // No error so far, skip deallocation of lstgrps
     goto fail_facePos;
   }
