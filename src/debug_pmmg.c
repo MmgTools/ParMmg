@@ -167,3 +167,33 @@ void dump_malloc_allocator_info( char *msg, int id )
       "currently only implemented on linux\n" );
 #endif
 }
+
+void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh )
+{
+  size_t n_total = parmesh->memCur;
+  const size_t mb = 1024 * 1024;
+  for ( size_t i = 0; i < parmesh->ngrp; ++i )
+    n_total += parmesh->listgrp[ i ].mesh->memCur;
+  if ( n_total > parmesh->memGloMax )
+    fprintf( stderr,
+             "%2d-%2d: memCur check ERROR: memCur > memGloMax at %s %s %d\n",
+	     parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
+  else
+    fprintf( stderr,
+             "%2d-%2d: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
+             parmesh->myrank, parmesh->nprocs,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+
+  n_total = parmesh->memMax;
+  for ( size_t i = 0; i < parmesh->ngrp; ++i )
+    n_total += parmesh->listgrp[ i ].mesh->memMax;
+  if ( n_total > parmesh->memGloMax )
+    fprintf( stderr,
+             "%2d-%2d: memMax check ERROR: memMax > memGloMax at %s %s %d\n",
+             parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
+  else
+    fprintf( stderr,
+             "%2d-%2d: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
+             parmesh->myrank, parmesh->nprocs,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+}
