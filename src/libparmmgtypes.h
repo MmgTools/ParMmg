@@ -82,6 +82,14 @@
  */
 #define PMMG_ARG_end    5
 
+/**
+ * \def PMMG_UNSET
+ *
+ * Initialization value
+ *
+ */
+#define PMMG_UNSET     -1
+
 
 /**
  * Types

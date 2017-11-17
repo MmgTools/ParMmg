@@ -45,44 +45,53 @@ extern "C" {
     stat = PMMG_SUCCESS;                                              \
   } } while(0)
 
-#define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {  \
-  int stat = PMMG_SUCCESS;                      \
-  MEM_CHK_AVAIL(mesh,-(size)*sizeof(type),msg); \
-  if ( stat == PMMG_SUCCESS )                   \
-    (mesh)->memCur -= (size) * sizeof(type);    \
-  free( ptr );                                  \
-  ptr = NULL;                                   \
+#define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
+    int stat = PMMG_SUCCESS;                                \
+                                                            \
+    if ( size ) {                                           \
+      MEM_CHK_AVAIL(mesh,-(size)*sizeof(type),msg);         \
+      if ( stat == PMMG_SUCCESS )                           \
+        (mesh)->memCur -= (size) * sizeof(type);            \
+      free( ptr );                                          \
+      ptr = NULL;                                           \
+    }                                                       \
   } while(0)
 
 #define PMMG_MALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
-  MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg );             \
-  if ( stat == PMMG_SUCCESS ) {                             \
-    ptr = malloc( (size) * sizeof(type) );                  \
-    if ( ptr == NULL ) {                                    \
-      ERROR_AT( msg, " malloc failed: " );                  \
-      on_failure;                                           \
+                                                            \
+  if ( size ) {                                             \
+    MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg );           \
+    if ( stat == PMMG_SUCCESS ) {                           \
+      ptr = malloc( (size) * sizeof(type) );                \
+      if ( ptr == NULL ) {                                  \
+        ERROR_AT( msg, " malloc failed: " );                \
+        on_failure;                                         \
+      } else {                                              \
+        (mesh)->memCur += (size) * sizeof(type);            \
+        stat = PMMG_SUCCESS;                                \
+      }                                                     \
     } else {                                                \
-      (mesh)->memCur += (size) * sizeof(type);              \
-      stat = PMMG_SUCCESS;                                  \
+      on_failure;                                           \
     }                                                       \
-  } else {                                                  \
-    on_failure;                                             \
   } } while(0)
 
 #define PMMG_CALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
-  MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg);              \
-  if ( stat == PMMG_SUCCESS ) {                             \
-    ptr = calloc( (size), sizeof(type) );                   \
-    if ( ptr == NULL ) {                                    \
-      ERROR_AT(msg," calloc failed: ");                     \
-      on_failure;                                           \
+                                                            \
+  if ( size ) {                                             \
+    MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg);            \
+    if ( stat == PMMG_SUCCESS ) {                           \
+      ptr = calloc( (size), sizeof(type) );                 \
+      if ( ptr == NULL ) {                                  \
+        ERROR_AT(msg," calloc failed: ");                   \
+        on_failure;                                         \
+      } else {                                              \
+        (mesh)->memCur += (size) * sizeof(type);            \
+      }                                                     \
     } else {                                                \
-      (mesh)->memCur += (size) * sizeof(type);              \
+      on_failure;                                           \
     }                                                       \
-  } else {                                                  \
-    on_failure;                                             \
   } } while(0)
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
@@ -120,8 +129,6 @@ extern "C" {
   if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) )           \
     memset( (ptr) + oldsize, 0, ((newsize)-(oldsize))*sizeof(type));     \
   } while(0)
-
-
 
 /* Input */
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );

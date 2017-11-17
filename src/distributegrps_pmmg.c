@@ -44,10 +44,17 @@ int PMMG_distribute_groups( PMMG_pParMesh parmesh )
 
   /** Get the new partition of groups (1 group=1 metis node) */
   part = NULL;
-  if ( !PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs) ) return 0;
+  if ( !PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs) ) {
+    fprintf(stderr,"\n  ## Unable to compute the new partition.\n Exit program.\n");
+    return 0;
+  }
 
   /** Send the suitable groups to other procs and recieve their groups */
-  if ( !PMMG_mpiexchange_groups(parmesh,part) ) return 0;
+  if ( !PMMG_mpiexchange_groups(parmesh,part) ) {
+    fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n"
+            " Exit program.\n");
+    return 0;
+  }
 
   return 1;
 }
