@@ -168,7 +168,7 @@ void dump_malloc_allocator_info( char *msg, int id )
 #endif
 }
 
-void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh )
+void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 {
   size_t n_total = parmesh->memCur;
   const size_t mb = 1024 * 1024;
@@ -176,24 +176,28 @@ void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh )
     n_total += parmesh->listgrp[ i ].mesh->memCur;
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
-             "%2d-%2d: memCur check ERROR: memCur > memGloMax at %s %s %d\n",
-	     parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
-  else
-    fprintf( stderr,
-             "%2d-%2d: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
-             parmesh->myrank, parmesh->nprocs,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+             "%2d-%2d: %s: memCur check ERROR: memCur ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
+	     parmesh->myrank, parmesh->nprocs, msg,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
+	     __func__, __FILE__, __LINE__ );
+//  else
+//    fprintf( stderr,
+//             "%2d-%2d: %s: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
+//             parmesh->myrank, parmesh->nprocs, mesg,
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
 
   n_total = parmesh->memMax;
   for ( size_t i = 0; i < parmesh->ngrp; ++i )
     n_total += parmesh->listgrp[ i ].mesh->memMax;
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
-             "%2d-%2d: memMax check ERROR: memMax > memGloMax at %s %s %d\n",
-             parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
-  else
-    fprintf( stderr,
-             "%2d-%2d: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
-             parmesh->myrank, parmesh->nprocs,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+             "%2d-%2d: %s: memMax check ERROR: memMax ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
+             parmesh->myrank, parmesh->nprocs, msg,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
+	     __func__, __FILE__, __LINE__ );
+//  else
+//    fprintf( stderr,
+//             "%2d-%2d: %s: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
+//             parmesh->myrank, parmesh->nprocs, msg,
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
 }
