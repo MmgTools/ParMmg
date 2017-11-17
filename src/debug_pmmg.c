@@ -160,12 +160,12 @@ void dump_malloc_allocator_info( char *msg, int id )
   fprintf( fp, "* %4d \tTotal free space (mbytes)                  *\n", me.fordblks / mb );
   fprintf( fp, "* %4d \tTop-most, releasable space (mbytes)        *\n", me.keepcost / mb );
   fprintf( fp, "****************************************************\n\n" );
-
-  fclose(fp);
 #else
   fprintf( fp, "Extended information read directly from the malloc allocator is"
       "currently only implemented on linux\n" );
 #endif
+
+  fclose(fp);
 }
 
 void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
