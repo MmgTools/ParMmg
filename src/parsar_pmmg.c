@@ -13,7 +13,7 @@
 
 // Free custom argv allocations
 static void
-argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
+PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
 {
   int i;
   for ( i = 0; i < mmgArgc; ++i )
@@ -22,7 +22,7 @@ argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
 }
 
 static void
-defaultValues( PMMG_pParMesh parmesh, const int rank )
+PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
 {
   if ( rank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
@@ -34,7 +34,7 @@ defaultValues( PMMG_pParMesh parmesh, const int rank )
 }
 
 static void
-usage( PMMG_pParMesh parmesh, char * const progname )
+PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
 {
   if ( parmesh->myrank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
@@ -401,9 +401,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
-      defaultValues( parmesh, parmesh->myrank );
+      PMMG_defaultValues( parmesh, parmesh->myrank );
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-      usage( parmesh, argv[0] );
+      PMMG_usage( parmesh, argv[0] );
 
   // Create a new set of argc/argv variables adding only the the cl options that
   // mmg has to process
@@ -432,7 +432,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           PMMG_PMesh_SetMemMax( parmesh, 20 );
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-          usage( parmesh, argv[0] );
+          PMMG_usage( parmesh, argv[0] );
         }
       break;
 
@@ -477,7 +477,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   }
 
 fail_proc:
-  argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
+  PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
 fail_mmgargv:
   return ret_val;
 }
