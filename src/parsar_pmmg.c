@@ -11,7 +11,15 @@
   ++toC;                                                                     \
 }while(0)
 
-// Free custom argv allocations
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param mmgArgv pointer to argv like buffer
+ * \param mmgArgc pointer to argc like buffer
+ * \param argc    actual argc value
+ *
+ * Free the allocations of the custom created argc/argv wrapper that is passed
+ * to mmg to parse the command line options
+ */
 static void
 PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
 {
@@ -21,6 +29,13 @@ PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc 
   PMMG_DEL_MEM(parmesh, mmgArgv, argc, char*, "Deallocating mmgargv: " );
 }
 
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param rank    process's MPI rank
+ *
+ * set the mmg default values in the first mesh in the listgrp
+ * of the pmmg struct of rank 0
+ */
 static void
 PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
 {
@@ -33,6 +48,12 @@ PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
+/**
+ * \param parmesh  pointer to pmmg structure
+ * \param progname program name string
+ *
+ * print the command line usage of the parmmg tool
+ */
 static void
 PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
 {
@@ -45,15 +66,20 @@ PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
-/** return:
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param memReq  size of memory in Mb. If memReq is zero then it is
+ *                automatically set to half of the machine's available memory.
+ *                On machines with multicore processors (ie most of today's cpus)
+ *                the total available memory is shared equally to pmmg processes
+ *                running on the same machine.
+ *                If memReq is negative or more than the detected available
+ *                memory, then the requested value is discarded and the maximum
+ *                allowed memory is set to half the detected available memory.
  *
- *  Sets the maximum amount of memory that is available to a parmmg process to
- *  memReq Mb.
- *  If memReq is zero then it is set to half of the available memory physically
- *  available on the machine. On multicore machines the available memory is
- *  shared equally to pmmg processes. If memReq is negative or more than the
- *  detected available memory, then again it is set to the detected available
- *  memory
+ *  Sets the maximum amount of memory that a parmmg process is allowed to use.
+ *  This includes both the memory used for the parmmg struct and the mmg structs
+ *  in listgrp
  */
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 {
