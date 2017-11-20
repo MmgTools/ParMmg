@@ -111,28 +111,33 @@ SET( CMAKE_C_COMPILER  ${MPI_C_COMPILER} )
 #####
 ############################################################################
 SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
+SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-INCLUDE(cmake/modules/FindMmg.cmake)
+FIND_PACKAGE(Mmg)
 
-IF(NOT MMG_DIR OR NOT MMG_FOUND )
+IF(NOT MMG_FOUND )
   MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
     "(see https://github.com/MmgTools/mmg and  download the branch develop)."
     "If you have already installed Mmg and want to use it, "
     "please set the CMake variable or environment variable MMG_DIR "
     "to your mmg directory.")
 ELSE()
-  # Set flags for building test program
-  INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIR})
-  INCLUDE_DIRECTORIES(${MMG_BUILD_DIR}/src/common)
-  INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
-  INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-  INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+  INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+  MESSAGE(STATUS
+    "Compilation with Mmg: ${MMG_LIBRARIES}")
+  SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
-  #SET(CMAKE_REQUIRED_INCLUDES ${MMG_INCLUDE_DIR})
-
-  SET( LIBRARIES ${MMG_LIBRARY} ${LIBRARIES})
-
-
+  IF ( MMG_DIR )
+    INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
+    INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
+    INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+  ELSE ( )
+    MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
+      "(see https://github.com/MmgTools/mmg and  download the branch develop)."
+      "If you have already installed Mmg and want to use it, "
+      "please set the CMake variable or environment variable MMG_DIR "
+      "to your mmg directory.")
+  ENDIF ( )
 ENDIF ( )
 
 ############################################################################
@@ -141,7 +146,7 @@ ENDIF ( )
 #####
 ############################################################################
 
-FILE(READ ${MMG_BUILD_DIR}/CMakeFiles/libmmg_a.dir/flags.make TMPTXT)
+FILE(READ ${MMG_BUILDDIR_INTERNAL}/CMakeFiles/libmmg_a.dir/flags.make TMPTXT)
 STRING(FIND "${TMPTXT}" "PATTERN" matchres)
 
 IF(${matchres} EQUAL -1)
