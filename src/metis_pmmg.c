@@ -232,7 +232,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( k=1; k<=nproc; ++k )
     (*vtxdist)[k] += (*vtxdist)[k-1];
 
-  /** Step 2; Fill weights array with the number of MG_PARBDY face per group */
+  /** Step 2: Fill weights array with the number of MG_PARBDY face per group */
   PMMG_CALLOC(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt", goto fail_1);
 
   for ( igrp=0; igrp<ngrp; ++igrp ) {
@@ -245,15 +245,27 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       (*vwgt)[igrp] += pt->mark;
     }
   }
+  for ( igrp=0; igrp<ngrp; ++igrp )
+    printf(" vwgt %d\n",(*vwgt)[igrp]);
+
+  /* Fill tpwgts */
+  PMMG_CALLOC(parmesh,*tpwgts,(*ncon)*nproc,idx_t,"parmetis tpwgts", goto fail_2);
+  for ( k=0; k < (*ncon)*nproc ; ++k )
+    (*tpwgts)[k] = 1./(double)nproc;
+
+  /* Fill ubvec */
+  PMMG_CALLOC(parmesh,*ubvec,(*ncon),idx_t,"parmetis ubvec", goto fail_3);
+  for ( k=0; k < (*ncon); ++k )
+    (*ubvec)[k] = PMMG_UBVEC_DEF;
 
   /** Step 3: Fill the internal communicator with the greater index of the 2
    * groups to which the face belong */
-  PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", goto fail_2);
+  PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", goto fail_4);
 
   int_face_comm = parmesh->int_face_comm;
 
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "face communicator",goto fail_3);
+              "face communicator",goto fail_5);
 
   /* Face communicator initialization */
   intvalues = parmesh->int_face_comm->intvalues;
@@ -277,7 +289,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem         = ext_face_comm->nitem;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                goto fail_4);
+                goto fail_6);
     itosend = ext_face_comm->itosend;
 
     for ( i=0; i<nitem; ++i ) {
@@ -289,19 +301,23 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
     tag = myrank*nproc + ext_face_comm->color_out;
     MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,tag,comm);
-  }
 
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+  }
+#warning remove the unalloc
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     nitem         = ext_face_comm->nitem;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                goto fail_5);
+                goto fail_7);
     itorecv       = ext_face_comm->itorecv;
 
     tag = ext_face_comm->color_out*nproc + myrank;
     MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,MPI_ANY_TAG,comm,
              &status);
+
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
   }
 
    /** Step 5: Process the external communicators to count for each group the
@@ -309,7 +325,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     * list of adjacency */
 
   /* hash is used to store the sorted list of adjacent groups to a group */
-  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,10*ngrp+1) ) goto fail_6;
+  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,10*ngrp+1) ) goto fail_8;
 
   for (  k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
@@ -335,7 +351,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        goto fail_7;
+        goto fail_9;
       }
       if ( found==2 ) continue; // The group is already in the adja list
 
@@ -361,7 +377,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        goto fail_7;
+        goto fail_9;
       }
 
       if ( found==2 ) continue; // The group is already in the adja list
@@ -373,7 +389,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( 1!=found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        goto fail_7;
+        goto fail_9;
       }
       ++(*xadj)[ igrp_adj+1 ];
     }
@@ -387,7 +403,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   /** Step 8: Fill adjncy array at metis format */
   PMMG_CALLOC(parmesh,*adjncy,(*xadj)[ngrp],idx_t,"adjcncy parmetis array",
-              goto fail_7);
+              goto fail_9);
 
   (*nadjncy) = 0;
   for ( igrp=0; igrp<=ngrp; ++igrp ) {
@@ -405,23 +421,28 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   assert ( (*nadjncy)==(*xadj)[ngrp] );
 
   PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
-  PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
-  PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
+
   return 1;
 
-fail_7:
+fail_9:
   PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
+fail_8:
+  if ( ext_face_comm->itorecv )
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+fail_7:
+  if ( ext_face_comm->itosend )
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
 fail_6:
-  PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
-fail_5:
-  PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
-fail_4:
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
-fail_3:
+fail_5:
   PMMG_DEL_MEM(parmesh,*xadj,ngrp/1,idx_t,"parmetis xadj");
+fail_4:
+  PMMG_DEL_MEM(parmesh,*ubvec,(*ncon),idx_t,"parmetis ubvec");
+fail_3:
+  PMMG_DEL_MEM(parmesh,*tpwgts,(*ncon)*nproc,idx_t,"parmetis tpwgts");
 fail_2:
   PMMG_DEL_MEM(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt");
 fail_1:
@@ -496,13 +517,17 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 {
   real_t     *tpwgts,*ubvec;
-  idx_t      *xadj,*adjncy,*vwgt,*vtxdist,adjsize;
-  idx_t      wgtflag,numflag,ncon;
-  int        ier;
+  idx_t      *xadj,*adjncy,*vwgt,*vtxdist,adjsize,edgecut;
+  idx_t      wgtflag,numflag,ncon,options[3];
+  int        ngrp,nprocs,ier;
+
+  ngrp   = parmesh->ngrp;
+  nprocs = parmesh->nprocs;
 
   /** Build the parmetis graph */
   xadj   = adjncy = vwgt = vtxdist = NULL;
   tpwgts = ubvec  =  NULL;
+  options[0] = 0;
   if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
                                         &vwgt,&wgtflag,&numflag,&ncon,
                                         nproc,&tpwgts,&ubvec) ) {
@@ -511,37 +536,33 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   }
 
   /** Call parmetis and get the partition array */
-  /* ier = ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,&ncon, */
-  /*                             &nproc,tpwgts,ubvec,NULL,NULL,part,parmesh->comm); */
-  /* if ( ier != METIS_OK ) { */
-  /*   switch ( ier ) { */
-  /*     case METIS_ERROR_INPUT: */
-  /*       fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" ); */
-  /*       break; */
-  /*     case METIS_ERROR_MEMORY: */
-  /*       fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" ); */
-  /*       break; */
-  /*     case METIS_ERROR: */
-  /*       fprintf(stderr, "METIS_ERROR: generic error\n" ); */
-  /*       break; */
-  /*     default: */
-  /*       fprintf(stderr, "METIS_ERROR: update your METIS error handling\n" ); */
-  /*       break; */
-  /*   } */
-  /*   goto end_adjncy; */
-  /* } */
+  ier = ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,&ncon,
+                              &nproc,tpwgts,ubvec,options,&edgecut,part,&parmesh->comm);
+  if ( ier != METIS_OK ) {
+    switch ( ier ) {
+      case METIS_ERROR_INPUT:
+        fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" );
+        break;
+      case METIS_ERROR_MEMORY:
+        fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" );
+        break;
+      case METIS_ERROR:
+        fprintf(stderr, "METIS_ERROR: generic error\n" );
+        break;
+      default:
+        fprintf(stderr, "METIS_ERROR: update your METIS error handling\n" );
+        break;
+    }
+    ier = 0;
+  }
+  else ier = 1;
 
-  /* PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" ); */
-  /* PMMG_DEL_MEM(parmesh, xadj, ngrps+1, idx_t, "deallocate xadj" ); */
-  /* PMMG_DEL_MEM(parmesh, vwgt, ngrps+1, idx_t, "deallocate vwgt" ); */
-  /* PMMG_DEL_MEM(parmesh, adjwgt, mesh->ne + 1, idx_t, "deallocate adjwgt" ); */
-  /* PMMG_DEL_MEM(parmesh, vtxdist, nproc+1, idx_t, "deallocate adjwgt" ); */
+  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, xadj, ngrp+1, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, ubvec,ncon,idx_t,"parmetis ubvec");
+  PMMG_DEL_MEM(parmesh, vwgt, ngrp+1, idx_t, "deallocate vwgt" );
+  PMMG_DEL_MEM(parmesh, tpwgts, ncon*nproc, idx_t, "deallocate tpwgts" );
+  PMMG_DEL_MEM(parmesh, vtxdist, nproc+1, idx_t, "deallocate vtxdist" );
 
-  return 1;
-
-/* end_adjncy: */
-/*   PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" ); */
-/*   PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" ); */
-
-/*   return 0; */
+  return ier;
 }

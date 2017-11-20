@@ -4,6 +4,15 @@
 
 #include "parmmg.h"
 #include <metis.h>
+#include <parmetis.h>
+
+/**
+ * \def PMMG_UBVEC_DEF
+ *
+ * value for the ubvec vector of ParMetis
+ *
+ */
+#define PMMG_UBVEC_DEF     1.05
 
 /**
  * \struct PMMG_hgrp
