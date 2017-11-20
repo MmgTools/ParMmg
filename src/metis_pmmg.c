@@ -223,7 +223,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   ngrp   = parmesh->ngrp;
 
 #warning add check of MPI operators return value
-#warning add suitable unallocations
   /** Step 1: Fill vtxdist array with the range of groups local to each
    * processor */
   PMMG_CALLOC(parmesh,*vtxdist,nproc+1,idx_t,"parmetis vtxdist", return 0);
@@ -234,7 +233,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     (*vtxdist)[k] += (*vtxdist)[k-1];
 
   /** Step 2; Fill weights array with the number of MG_PARBDY face per group */
-  PMMG_CALLOC(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt", return 0);
+  PMMG_CALLOC(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt", goto fail_1);
 
   for ( igrp=0; igrp<ngrp; ++igrp ) {
     mesh = parmesh->listgrp[igrp].mesh;
@@ -249,12 +248,12 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   /** Step 3: Fill the internal communicator with the greater index of the 2
    * groups to which the face belong */
-  PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", return 0);
+  PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", goto fail_2);
 
   int_face_comm = parmesh->int_face_comm;
 
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "face communicator",return 0);
+              "face communicator",goto fail_3);
 
   /* Face communicator initialization */
   intvalues = parmesh->int_face_comm->intvalues;
@@ -278,7 +277,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem         = ext_face_comm->nitem;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                return 0);
+                goto fail_4);
     itosend = ext_face_comm->itosend;
 
     for ( i=0; i<nitem; ++i ) {
@@ -297,7 +296,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem         = ext_face_comm->nitem;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
+                goto fail_5);
     itorecv       = ext_face_comm->itorecv;
 
     tag = ext_face_comm->color_out*nproc + myrank;
@@ -310,7 +309,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     * list of adjacency */
 
   /* hash is used to store the sorted list of adjacent groups to a group */
-  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,10*ngrp+1) ) return 0;
+  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,10*ngrp+1) ) goto fail_6;
 
   for (  k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
@@ -336,7 +335,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        return 0;
+        goto fail_7;
       }
       if ( found==2 ) continue; // The group is already in the adja list
 
@@ -362,7 +361,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        return 0;
+        goto fail_7;
       }
 
       if ( found==2 ) continue; // The group is already in the adja list
@@ -374,7 +373,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       if ( 1!=found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
-        return 0;
+        goto fail_7;
       }
       ++(*xadj)[ igrp_adj+1 ];
     }
@@ -388,24 +387,47 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   /** Step 8: Fill adjncy array at metis format */
   PMMG_CALLOC(parmesh,*adjncy,(*xadj)[ngrp],idx_t,"adjcncy parmetis array",
-              return 0);
+              goto fail_7);
 
-  idx = 0;
+  (*nadjncy) = 0;
   for ( igrp=0; igrp<=ngrp; ++igrp ) {
 
     ph = &hash.item[igrp+1];
     if ( PMMG_UNSET==ph->adj ) continue;
 
-    (*adjncy)[idx++] = ph->adj;
+    (*adjncy)[(*nadjncy)++] = ph->adj;
 
     while ( ph->nxt ) {
       ph                = &hash.item[ph->nxt];
-      (*adjncy)[idx++] = ph->adj;
+      (*adjncy)[(*nadjncy)++] = ph->adj;
     }
   }
-  assert ( idx==(*xadj)[ngrp] );
+  assert ( (*nadjncy)==(*xadj)[ngrp] );
 
+  PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
+  PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+  PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+               "face communicator");
   return 1;
+
+fail_7:
+  PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
+fail_6:
+  PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+fail_5:
+  PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+fail_4:
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+               "face communicator");
+fail_3:
+  PMMG_DEL_MEM(parmesh,*xadj,ngrp/1,idx_t,"parmetis xadj");
+fail_2:
+  PMMG_DEL_MEM(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt");
+fail_1:
+  PMMG_DEL_MEM(parmesh,*vtxdist,nproc+1,idx_t,"parmetis vtxdist");
+
+  return 0;
 }
 
 /**

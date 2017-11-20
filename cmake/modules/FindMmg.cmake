@@ -23,7 +23,7 @@
 # - Find mmg include dirs and libraries
 # Use this module by invoking find_package with the form:
 #  find_package(MMG
-#              [REQUIRED]             # Fail with error if parmetis is not found
+#              [REQUIRED]             # Fail with error if mmg is not found
 #              )
 #
 # This module finds headers and mmg libraries.
@@ -35,7 +35,7 @@
 #
 # The user can give specific paths where to find the libraries adding cmake
 # options at configure (ex: cmake path/to/project -DMMG_DIR=path/to/mmg):
-#  MMG_DIR                  - Where to find the base directory of parmetis
+#  MMG_DIR                  - Where to find the base directory of mmg
 #  MMG_INCDIR               - Where to find the header files
 #  MMG_LIBDIR               - Where to find the library files
 #  MMG_BUILDDIR             - Where to find the build directory of Mmg
@@ -150,8 +150,8 @@ else()
       HINTS ${_inc_env})
   endif()
 endif()
-STRING(REGEX REPLACE "mmg/mmg2d|mmgs|mmg3d|mmg" ""
-  MMG_libmmgtypes.h_DIRS ${MMG_libmmgtypes.h_DIRS} )
+STRING(REGEX REPLACE "(mmg/mmg2d)|(mmg/mmgs)|(mmg/mmg3d)" ""
+  MMG_libmmgtypes.h_DIRS ${MMG_libmmgtypes.h_DIRS})
 
 mark_as_advanced(MMG_libmmgtypes.h_DIRS)
 
@@ -291,7 +291,7 @@ if(MMG_LIBRARIES)
 
   if(NOT MMG_WORKS)
     if(NOT MMG_FIND_QUIETLY)
-      message(STATUS "Looking for MMG : test of Mmg_V3_NodeND with MMG library fails")
+      message(STATUS "Looking for MMG : test of MMG5_loadMshMesh_part1 with MMG library fails")
       message(STATUS "CMAKE_REQUIRED_LIBRARIES: ${CMAKE_REQUIRED_LIBRARIES}")
       message(STATUS "CMAKE_REQUIRED_INCLUDES: ${CMAKE_REQUIRED_INCLUDES}")
       message(STATUS "Check in CMakeFiles/CMakeError.log to figure out why it fails")

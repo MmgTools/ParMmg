@@ -123,10 +123,13 @@ IF(NOT MMG_FOUND )
     "to your mmg directory.")
 ELSE()
   INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG_LIBRARIES}")
   SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
+  # Additionnal directories to access the Mmg sources
+  INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
   IF ( MMG_DIR )
     INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
     INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
