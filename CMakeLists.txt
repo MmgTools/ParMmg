@@ -27,6 +27,8 @@ SET (CMAKE_RELEASE_VERSION
 # Executable path
 SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 SET(PMMG_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
+LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
+
 
 # Find "exotic" compilers
 IF (${CMAKE_C_COMPILER} MATCHES Clang OR ${CMAKE_C_COMPILER} MATCHES clang)
@@ -156,99 +158,60 @@ ENDIF()
 ############################################################################
 # add metis library?
 SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
-INCLUDE(cmake/modules/FindMetis.cmake)
 
-IF(METIS_FOUND)
+FIND_PACKAGE(Metis)
+
+IF( METIS_FOUND)
   OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
   IF( USE_METIS )
     # Set flags for building test program
-    INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIR})
-
-    SET(CMAKE_REQUIRED_INCLUDES ${METIS_INCLUDE_DIR})
-    SET(CMAKE_REQUIRED_LIBRARIES ${METIS_LIBRARY})
-    # SET(CMAKE_REQUIRED_LIBRARIES ${PARMETIS_LIBRARY})
+    INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
 
     SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+
     MESSAGE(STATUS
-      "Compilation with metis: ${METIS_LIBRARY}")
-    SET( LIBRARIES ${METIS_LINK_FLAGS} ${LIBRARIES})
-    # SET( LIBRARIES ${PARMETIS_LIBRARY} ${LIBRARIES})
-    SET( LIBRARIES ${METIS_LIBRARY} ${LIBRARIES})
+      "Compilation with metis: ${METIS_LIBRARIES}")
+    SET( LIBRARIES ${METIS_LIBRARIES} ${LIBRARIES})
   ENDIF()
 ELSE ( )
-  MESSAGE(STATUS ${METIS_INCLUDE_DIR} ${METIS_LIBRARY} )
+  MESSAGE(STATUS ${METIS_INCLUDE_DIR} ${METIS_LIBRARIES} )
 
   MESSAGE ( ERROR " Metis library not found: "
     "If you have already installed Metis and want to use it, "
     "please set the CMake variable or environment variable METIS_DIR "
     "to your metis directory.")
 ENDIF ( )
+
 ############################################################################
 #####
-#####         Scotch
+#####        ParMetis
 #####
 ############################################################################
-#!!!!!NIKOS # add SCOTCH library?
-#!!!!!NIKOS SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-#!!!!!NIKOS INCLUDE(cmake/modules/FindScotch.cmake)
-#!!!!!NIKOS
-#!!!!!NIKOS IF(SCOTCH_FOUND)
-#!!!!!NIKOS   OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON)
-#!!!!!NIKOS   IF( USE_SCOTCH )
-#!!!!!NIKOS     # Set flags for building test program
-#!!!!!NIKOS     INCLUDE_DIRECTORIES(${SCOTCH_INCLUDE_DIR})
-#!!!!!NIKOS
-#!!!!!NIKOS     SET(CMAKE_REQUIRED_INCLUDES ${SCOTCH_INCLUDE_DIR})
-#!!!!!NIKOS     SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCH_LIBRARY})
-#!!!!!NIKOS     SET(CMAKE_REQUIRED_LIBRARIES ${SCOTCHERR_LIBRARY})
-#!!!!!NIKOS
-#!!!!!NIKOS     SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
-#!!!!!NIKOS     SET(SCOTCH_LINK_FLAGS "-lpthread")
-#!!!!!NIKOS     MESSAGE(STATUS
-#!!!!!NIKOS       "Compilation with scotch: ${SCOTCH_LIBRARY}")
-#!!!!!NIKOS     SET( LIBRARIES ${SCOTCH_LINK_FLAGS} ${LIBRARIES})
-#!!!!!NIKOS     SET( LIBRARIES ${SCOTCHERR_LIBRARY} ${LIBRARIES})
-#!!!!!NIKOS     SET( LIBRARIES ${SCOTCH_LIBRARY} ${LIBRARIES})
-#!!!!!NIKOS   ENDIF()
-#!!!!!NIKOS ELSE ( )
-#!!!!!NIKOS   MESSAGE ( WARNING "Scotch library not found:"
-#!!!!!NIKOS     "if you compile mmg platform without scotch, it is not a problem otherwise"
-#!!!!!NIKOS     "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-#!!!!!NIKOS     "If you have already installed Scotch and want to use it, "
-#!!!!!NIKOS     "please set the CMake variable or environment variable SCOTCH_DIR "
-#!!!!!NIKOS     "to your scotch directory.")
-#!!!!!NIKOS ENDIF ( )
-#!!!!!NIKOS
-#!!!!!NIKOS ############################################################################
-#!!!!!NIKOS #####
-#!!!!!NIKOS #####         Elastic
-#!!!!!NIKOS #####
-#!!!!!NIKOS ############################################################################
-#!!!!!NIKOS # add SUscElas library?
-#!!!!!NIKOS SET(SUSCELAS_DIR "" CACHE PATH "Installation directory for SUscElas")
-#!!!!!NIKOS INCLUDE(cmake/modules/FindSUscElas.cmake)
-#!!!!!NIKOS
-#!!!!!NIKOS IF(SUSCELAS_FOUND)
-#!!!!!NIKOS   # Set flags for building test program
-#!!!!!NIKOS   INCLUDE_DIRECTORIES(${SUSCELAS_INCLUDE_DIR})
-#!!!!!NIKOS
-#!!!!!NIKOS   SET(CMAKE_REQUIRED_INCLUDES ${SUSCELAS_INCLUDE_DIR})
-#!!!!!NIKOS   SET(CMAKE_REQUIRED_LIBRARIES ${SUSCELAS_LIBRARY})
-#!!!!!NIKOS
-#!!!!!NIKOS   SET(CMAKE_C_FLAGS "-DUSE_SUSCELAS ${CMAKE_C_FLAGS}")
-#!!!!!NIKOS   MESSAGE(STATUS
-#!!!!!NIKOS     "Compilation with the Elas library: ${SUSCELAS_LIBRARY} ")
-#!!!!!NIKOS   SET( LIBRARIES ${SUSCELAS_LINK_FLAGS} ${LIBRARIES})
-#!!!!!NIKOS   SET( LIBRARIES ${SUSCELAS_LIBRARY} ${LIBRARIES})
-#!!!!!NIKOS ELSE ( )
-#!!!!!NIKOS   MESSAGE ( WARNING "SUscElas is a library to solve the linear elasticity "
-#!!!!!NIKOS     "if you compile mmg platform without SUscElas, it is not a problem otherwise"
-#!!!!!NIKOS     "problem (see https://github.com/SUscTools/SUscElas to download it). "
-#!!!!!NIKOS     "This library is needed to use the lagrangian motion option. "
-#!!!!!NIKOS     "If you have already installed SUscElas and want to use it, "
-#!!!!!NIKOS     "please set the CMake variable or environment variable SUSCELAS_DIR "
-#!!!!!NIKOS     "to your SUscElas directory.")
-#!!!!!NIKOS ENDIF ( )
+# add metis library?
+SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
+FIND_PACKAGE(Parmetis)
+
+IF( PARMETIS_FOUND)
+  OPTION ( USE_PARMETIS "Use PARMETIS TOOL for partioning" ON)
+  IF( USE_PARMETIS )
+    # Set flags for building test program
+    INCLUDE_DIRECTORIES(${PARMETIS_INCLUDE_DIRS})
+
+    SET(CMAKE_C_FLAGS "-DUSE_PARMETIS ${CMAKE_C_FLAGS}")
+
+    MESSAGE(STATUS
+      "Compilation with parmetis: ${PARMETIS_LIBRARIES}")
+    SET( LIBRARIES ${PARMETIS_LIBRARIES} ${LIBRARIES})
+  ENDIF()
+ELSE ( )
+  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
+
+  MESSAGE ( ERROR " parmetis library not found: "
+    "If you have already installed ParMetis and want to use it, "
+    "please set the CMake variable or environment variable PARMETIS_DIR "
+    "to your metis directory.")
+ENDIF ( )
+
 ############################################################################
 #####
 #####         Fortran header: libparmmgf.h
