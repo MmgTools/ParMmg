@@ -431,7 +431,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
     // add tetrahedron to subgroup (copy from original group)
     memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
     tetraCur->base = 0;
-    tetraCur->mark = 0;
     tetraCur->flag = 0;
 
     // xTetra: this element was already an xtetra (in meshOld)
