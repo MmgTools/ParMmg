@@ -245,8 +245,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       (*vwgt)[igrp] += pt->mark;
     }
   }
-  for ( igrp=0; igrp<ngrp; ++igrp )
-    printf(" vwgt %d\n",(*vwgt)[igrp]);
 
   /* Fill tpwgts */
   PMMG_CALLOC(parmesh,*tpwgts,(*ncon)*nproc,idx_t,"parmetis tpwgts", goto fail_2);
@@ -301,10 +299,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
     tag = myrank*nproc + ext_face_comm->color_out;
     MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,tag,comm);
-
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
   }
-#warning remove the unalloc
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     nitem         = ext_face_comm->nitem;
@@ -316,8 +311,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     tag = ext_face_comm->color_out*nproc + myrank;
     MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,MPI_ANY_TAG,comm,
              &status);
-
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
   }
 
    /** Step 5: Process the external communicators to count for each group the
@@ -420,6 +413,13 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   }
   assert ( (*nadjncy)==(*xadj)[ngrp] );
 
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->itorecv )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+    if ( ext_face_comm->itosend )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+  }
   PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
@@ -429,11 +429,18 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 fail_9:
   PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
 fail_8:
-  if ( ext_face_comm->itorecv )
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->itorecv )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+  }
+
 fail_7:
-  if ( ext_face_comm->itosend )
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->itosend )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+  }
 fail_6:
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
@@ -523,11 +530,13 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
 
   ngrp   = parmesh->ngrp;
   nprocs = parmesh->nprocs;
+  ier    = 1;
 
   /** Build the parmetis graph */
   xadj   = adjncy = vwgt = vtxdist = NULL;
   tpwgts = ubvec  =  NULL;
   options[0] = 0;
+
   if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
                                         &vwgt,&wgtflag,&numflag,&ncon,
                                         nproc,&tpwgts,&ubvec) ) {
@@ -536,26 +545,14 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   }
 
   /** Call parmetis and get the partition array */
-  ier = ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,&ncon,
-                              &nproc,tpwgts,ubvec,options,&edgecut,part,&parmesh->comm);
-  if ( ier != METIS_OK ) {
-    switch ( ier ) {
-      case METIS_ERROR_INPUT:
-        fprintf(stderr, "METIS_ERROR_INPUT: input data error\n" );
-        break;
-      case METIS_ERROR_MEMORY:
-        fprintf(stderr, "METIS_ERROR_MEMORY: could not allocate memory error\n" );
-        break;
-      case METIS_ERROR:
+  if ( 2 < nprocs + ngrp ) {
+    if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,
+                               &ncon,&nproc,tpwgts,ubvec,options,&edgecut,part,
+                               &parmesh->comm) != METIS_OK ) {
         fprintf(stderr, "METIS_ERROR: generic error\n" );
-        break;
-      default:
-        fprintf(stderr, "METIS_ERROR: update your METIS error handling\n" );
-        break;
+        ier = 0;
     }
-    ier = 0;
   }
-  else ier = 1;
 
   PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, ngrp+1, idx_t, "deallocate xadj" );

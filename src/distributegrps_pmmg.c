@@ -45,12 +45,13 @@ int PMMG_distribute_groups( PMMG_pParMesh parmesh )
 
   ier = 1;
 
-  /** Get the new partition of groups (1 group=1 metis node) */
+  /** Get the new partition of groups (1 group = 1 metis node) */
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
   if ( !PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs) ) {
-    fprintf(stderr,"\n  ## Unable to compute the new partition.\n Exit program.\n");
+    fprintf(stderr,"\n  ## Unable to compute the new partition.\n"
+            " Exit program.\n");
     ier = 0;
   }
 
