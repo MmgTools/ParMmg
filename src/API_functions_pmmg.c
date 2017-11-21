@@ -9,6 +9,12 @@
 #include "parmmg.h"
 
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param comm    external communicator to be freed
+ *
+ * deallocate all internal communicator's fields
+ */
 static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
                                         PMMG_pint_comm comm )
 {
@@ -26,6 +32,13 @@ static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
   }
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param comm    external communicator to be freed
+ * \param ncomm   parameter ncomm
+ *
+ * deallocate all external communicators's fields
+ */
 static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
                                         PMMG_pext_comm comm, int ncomm )
 {
@@ -58,6 +71,14 @@ static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
   }
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param idx1    node2int_node_comm_index1 to be freed
+ * \param idx2    node2int_node_comm_index2 to be freed
+ * \param n       pointer to node2int_node_comm_nitem size
+ *
+ * Deallocate all the MMG3D meshes and their communicators and zero the size
+ */
 static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
                                         int *idx1, int *idx2, int *n )
 {
@@ -66,6 +87,13 @@ static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
   *n = 0;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param listgrp group of MMG3D meshes in parmesh
+ * \param ngrp    number of mmg meshes in listgrp
+ *
+ * Deallocate all the MMG3D meshes and their communicators
+ */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 {
   int k = 0;
@@ -90,6 +118,11 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
   PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Free any parmesh members that are allocated
+ */
 void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 {
   PMMG_grp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
@@ -110,6 +143,17 @@ void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
 }
 
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param val     exit value
+ *
+ * Controlled parmmg termination:
+ *   Deallocate parmesh struct and its allocated members
+ *   If this is an unsuccessful exit call abort to cancel any remaining processes
+ *   Call MPI_Finalize / exit
+ */
+#warning NIKOS: MPI_Finalize might not be desirable here
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
   PMMG_PMesh_Free( parmesh );
@@ -119,6 +163,14 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * \return 0 on error
+ *         1 on success
+ * allocate a parmesh struct with a single mesh struct and initialize
+ * some of the struct fields
+ */
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 {
   PMMG_pGrp grp = NULL;
@@ -164,6 +216,16 @@ fail_pmesh:
   return PMMG_FAILURE;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param iparam  parameter enumeration option
+ * \param val     parameter value
+ *
+ * \return 0 on error
+ *         1 on success
+ *
+ * set parameters
+ */
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
   MMG5_pSol   met;

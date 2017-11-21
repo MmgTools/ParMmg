@@ -10,6 +10,15 @@
 
 #include "parmmg.h"
 
+/**
+ * \param  parmesh pointer toward a parmesh structure
+ *
+ * \return PMMG_STRONFAILURE error and a conformant mesh can not be saved
+ * \return PMMG_LOWFAILURE   error but a conformant mesh can be saved
+ * \return PMMG_SUCCESS      on success
+ *
+ *  main parmmh library call
+ */
 int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;

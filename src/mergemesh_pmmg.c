@@ -1236,6 +1236,12 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if fail, 1 if success
+ *
+ *  TODO what?
+ */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
   MMG5_pPoint    rcv_point;

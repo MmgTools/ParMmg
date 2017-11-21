@@ -5,6 +5,16 @@
 #include <malloc.h> // mallinfo
 #endif
 
+/**
+ * \param name   filename to open
+ * \param status file desriptor's desired mode
+ *
+ * \return file descriptor to newly opened file
+ *
+ * This is a fopen wrapper that checks the error code returned from fopen and
+ * aborts on error. A file descriptor obtained from this function can safely
+ * be used
+ */
 static FILE* my_fopen( char *name, char *status )
 {
    FILE *fp = fopen( name, status );
@@ -15,6 +25,14 @@ static FILE* my_fopen( char *name, char *status )
    return fp;
 }
 
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param ngrp number of mmg3d meshes in grp
+ *
+ * This function writes all point and xpoint members of every mesh in grp to a
+ * text file named "name"
+ */
 void grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
   FILE *fp = my_fopen( name, "w" );
@@ -51,6 +69,14 @@ void grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
   fclose(fp);
 }
 
+/**
+ * \param name filename to open
+ * \param mesh pointer to mmg3d mesh to write to file
+ * \param num  number of tetras in mmg3d
+ *
+ * This function writes all the tetras' vertices of the given mmg3d mesh to a
+ * text file named "name"
+ */
 void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
 {
   FILE *fp = my_fopen( name, "w" );
@@ -62,6 +88,14 @@ void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
   fclose(fp);
 }
 
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param nmsh number of mmg3d meshes in grp
+ *
+ * This function checks all the tetras in all meshes in grp for referencing
+ * null vertice and outputs the ones detected to a text file named "name"
+ */
 void find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int nmsh )
 {
   FILE *fp = my_fopen( name, "w" );
@@ -73,12 +107,20 @@ void find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int 
           ++check;
       if ( 3 == check )
         fprintf(fp, " mesh %d references point %d with all zero coordinates \n",imsh, tet );
-      check = 0;
     }
   }
   fclose(fp);
 }
 
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent we want
+ * \param face    face of tetra whose adjacent we want
+ *
+ * \return index in adjacency vector to adjacent tetra/face
+ *
+ * index in adjacency matrix of adjacent face for given tetra/face
+ */
 int adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
 {
   int location = 4 * (element - 1) + 1 + face;
@@ -88,15 +130,39 @@ int adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
   assert( (location > 0) && (location < max_loc) && " adja out of bound "  );
   return mesh->adja[ location ];
 }
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent tetra we are searching
+ * \param face    face of tetra whose adjacent tetra we are searching
+ *
+ * find the idx in the adjacency vector of adjacent tetra to the given
+ * tetra/face
+ */
 int adja_tetra_to_face( MMG5_pMesh mesh, int element, int face )
 {
   return adja_idx_of_face( mesh, element, face ) / 4;
 }
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent tetra we are searching
+ * \param face    face of tetra whose adjacent tetra we are searching
+ *
+ * find the idx in the adjacency vector of the face of the adjacent tetra
+ * to the given tetra/face
+ */
 int adja_face_to_face( MMG5_pMesh mesh, int element, int face )
 {
   return adja_idx_of_face( mesh, element, face ) % 4;
 }
 
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param ngrp number of mmg3d meshes in grp
+ *
+ * create text file named "name" containing for every mesh's tetra/face
+ * their adjacent tetra/face
+ */
 void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
   FILE *fp = my_fopen( name, "w" );
@@ -116,6 +182,14 @@ void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
   fclose(fp);
 }
 
+/**
+ * \param name filename to open
+ * \param mesh pointer to mmg3d mesh to write to file
+ * \param num  number of tetras in mmg3d
+ *
+ * This function writes all the tetras' vertices of the given mmg3d mesh to a
+ * text file named "name"
+ */
 void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *basename )
 {
   int grpId;
@@ -135,6 +209,12 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
   }
 }
 
+/**
+ * \param msg custom message to print in the beggining of the report
+ * \param id process number
+ *
+ * report memory usage as reported be glibc on linux systems
+ */
 void dump_malloc_allocator_info( char *msg, int id )
 {
   char name[ 16 ];
@@ -168,6 +248,16 @@ void dump_malloc_allocator_info( char *msg, int id )
   fclose(fp);
 }
 
+/**
+ * \param parmesh pointer to parmmg structure
+ * \param msg     custom msg to include in the output messages
+ *
+ * check if any of the
+ *   sum of memMax fields (in parmesh struct and in listgrp meshes)
+ * or
+ *   sum of memCur fields (in parmesh struct and in listgrp meshes)
+ * exceed the memGloMax limit.
+ */
 void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 {
   size_t n_total = parmesh->memCur;
