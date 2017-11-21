@@ -195,7 +195,7 @@ ENDIF ( )
 #####        ParMetis
 #####
 ############################################################################
-# add metis library?
+# add parmetis library?
 SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
 FIND_PACKAGE(Parmetis)
 
@@ -217,7 +217,7 @@ ELSE ( )
   MESSAGE ( ERROR " parmetis library not found: "
     "If you have already installed ParMetis and want to use it, "
     "please set the CMake variable or environment variable PARMETIS_DIR "
-    "to your metis directory.")
+    "to your parmetis directory.")
 ENDIF ( )
 
 ############################################################################

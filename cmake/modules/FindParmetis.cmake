@@ -10,7 +10,7 @@
 #
 # - Find PARMETIS include dirs and libraries
 # Use this module by invoking find_package with the form:
-#  find_package(PARMETIS
+#  find_package(Parmetis
 #               [REQUIRED]             # Fail with error if parmetis is not found
 #              )
 #
@@ -47,9 +47,9 @@
 #  License text for the above reference.)
 
 if (NOT PARMETIS_FOUND)
-  set(PARMETIS_DIR "" CACHE PATH "Installation directory of PARMETIS library")
+  set(PARMETIS_DIR "" CACHE PATH "Installation directory of Parmetis library")
   if (NOT PARMETIS_FIND_QUIETLY)
-    message(STATUS "A cache variable, namely PARMETIS_DIR, has been set to specify the install directory of PARMETIS")
+    message(STATUS "A cache variable, namely PARMETIS_DIR, has been set to specify the install directory of Parmetis")
   endif()
 endif()
 
@@ -229,7 +229,7 @@ if(PARMETIS_LIBRARIES)
 
   if(NOT PARMETIS_WORKS)
     if(NOT PARMETIS_FIND_QUIETLY)
-      message(STATUS "Looking for PARMETIS : test of ParMETIS_V3_NodeND with PARMETIS library fails")
+      message(STATUS "Looking for Parmetis : test of ParMETIS_V3_NodeND with Parmetis library fails")
       message(STATUS "CMAKE_REQUIRED_LIBRARIES: ${CMAKE_REQUIRED_LIBRARIES}")
       message(STATUS "CMAKE_REQUIRED_INCLUDES: ${CMAKE_REQUIRED_INCLUDES}")
       message(STATUS "Check in CMakeFiles/CMakeError.log to figure out why it fails")
@@ -245,9 +245,9 @@ if (PARMETIS_LIBRARIES)
   get_filename_component(first_lib_path "${first_lib}" PATH)
   if (${first_lib_path} MATCHES "/lib(32|64)?$")
     string(REGEX REPLACE "/lib(32|64)?$" "" not_cached_dir "${first_lib_path}")
-    set(PARMETIS_DIR_FOUND "${not_cached_dir}" CACHE PATH "Installation directory of PARMETIS library" FORCE)
+    set(PARMETIS_DIR_FOUND "${not_cached_dir}" CACHE PATH "Installation directory of Parmetis library" FORCE)
   else()
-    set(PARMETIS_DIR_FOUND "${first_lib_path}" CACHE PATH "Installation directory of PARMETIS library" FORCE)
+    set(PARMETIS_DIR_FOUND "${first_lib_path}" CACHE PATH "Installation directory of Parmetis library" FORCE)
   endif()
 endif()
 mark_as_advanced(PARMETIS_DIR)
