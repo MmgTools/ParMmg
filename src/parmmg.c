@@ -69,8 +69,8 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
  * \param argc number of command line arguments.
  * \param argv command line arguments.
  * \return \ref PMMG_SUCCESS if success.
- * \return \ref PMMG_LOWFAILURE if failed but a conform mesh is saved.
- * \return \ref PMMG_STRONGFAILURE if failed and we can't save the mesh.
+ *         \ref PMMG_LOWFAILURE if failed but a conform mesh is saved.
+ *         \ref PMMG_STRONGFAILURE if failed and we can't save the mesh.
  *
  * Main program for PARMMG executable: perform parallel mesh adaptation.
  *

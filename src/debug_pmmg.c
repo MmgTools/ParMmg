@@ -30,6 +30,8 @@ static FILE* my_fopen( char *name, char *status )
  * \param grp  pointer to list of mmg3d meshes
  * \param ngrp number of mmg3d meshes in grp
  *
+ * \return nothing
+ *
  * This function writes all point and xpoint members of every mesh in grp to a
  * text file named "name"
  */
@@ -74,6 +76,8 @@ void grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
  * \param mesh pointer to mmg3d mesh to write to file
  * \param num  number of tetras in mmg3d
  *
+ * \return nothing
+ *
  * This function writes all the tetras' vertices of the given mmg3d mesh to a
  * text file named "name"
  */
@@ -92,6 +96,8 @@ void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
  * \param name filename to open
  * \param grp  pointer to list of mmg3d meshes
  * \param nmsh number of mmg3d meshes in grp
+ *
+ * \return nothing
  *
  * This function checks all the tetras in all meshes in grp for referencing
  * null vertice and outputs the ones detected to a text file named "name"
@@ -135,6 +141,8 @@ int adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
  * \param element tetra whose adjacent tetra we are searching
  * \param face    face of tetra whose adjacent tetra we are searching
  *
+ * \return base index of afjacent tetra to tetra/face
+ *
  * find the idx in the adjacency vector of adjacent tetra to the given
  * tetra/face
  */
@@ -146,6 +154,8 @@ int adja_tetra_to_face( MMG5_pMesh mesh, int element, int face )
  * \param mesh    pointer to mmg3d mesh
  * \param element tetra whose adjacent tetra we are searching
  * \param face    face of tetra whose adjacent tetra we are searching
+ *
+ * \return base index of afjacent tetra to tetra/face
  *
  * find the idx in the adjacency vector of the face of the adjacent tetra
  * to the given tetra/face
@@ -159,6 +169,8 @@ int adja_face_to_face( MMG5_pMesh mesh, int element, int face )
  * \param name filename to open
  * \param grp  pointer to list of mmg3d meshes
  * \param ngrp number of mmg3d meshes in grp
+ *
+ * \return nothing
  *
  * create text file named "name" containing for every mesh's tetra/face
  * their adjacent tetra/face
@@ -187,6 +199,8 @@ void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
  * \param mesh pointer to mmg3d mesh to write to file
  * \param num  number of tetras in mmg3d
  *
+ * \return nothing
+ *
  * This function writes all the tetras' vertices of the given mmg3d mesh to a
  * text file named "name"
  */
@@ -212,6 +226,8 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
 /**
  * \param msg custom message to print in the beggining of the report
  * \param id process number
+ *
+ * \return nothing
  *
  * report memory usage as reported be glibc on linux systems
  */
@@ -251,6 +267,8 @@ void dump_malloc_allocator_info( char *msg, int id )
 /**
  * \param parmesh pointer to parmmg structure
  * \param msg     custom msg to include in the output messages
+ *
+ * \return nothing
  *
  * check if any of the
  *   sum of memMax fields (in parmesh struct and in listgrp meshes)

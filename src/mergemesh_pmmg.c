@@ -1240,7 +1240,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
  * \param parmesh pointer toward the parmesh structure.
  * \return 0 if fail, 1 if success
  *
- *  TODO what?
+ *  merge all meshes to a single mesh in P0's parmesh
  */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;

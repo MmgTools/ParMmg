@@ -41,6 +41,9 @@ static int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
  * \param from     mesh to copy xtetra item from
  * \param location location of xtetra to copy in original mesh
  *
+ * \return PMMG_SUCCESS if tetra is successfully appended
+ *         PMMG_FAILURE if tetra is not successfully appended
+ *
  *  Append a tetraedron to the mesh, increasing the array if the allocated
  *  array is not big enough.
  */
@@ -65,6 +68,9 @@ static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
  * \param location location of xpoint to copy in original mesh
  * \param point    xpoint's number in tetrahedron
  *
+ * \return PMMG_SUCCESS if tetra is successfully appended
+ *         PMMG_FAILURE if tetra is not successfully appended
+ *
  *  Append a point in the point list, increasing the array if the allocated
  *  array is not big enough.
  */
@@ -88,6 +94,9 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
  * \param grp     working group pointer
  * \param idx1    index1 value
  * \param idx2    index2 value
+ *
+ * \return PMMG_SUCCESS if tetra is successfully appended
+ *         PMMG_FAILURE if tetra is not successfully appended
  *
  *  Append new values in  group's internal communitor, resizing the buffers if
  *  required
@@ -120,9 +129,11 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int
  * \a iel
  * \param idx2    position of the face in the internal face communicator.
  *
+ * \return PMMG_SUCCESS if tetra is successfully appended
+ *         PMMG_FAILURE if tetra is not successfully appended
+ *
  *  Append new values in the face internal communicator, resizing the buffers if
  *  required.
- *
  */
 static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                         int idx1, int idx2 )
