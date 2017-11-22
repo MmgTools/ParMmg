@@ -487,6 +487,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                       ret_val = PMMG_FAILURE; goto fail_proc );
         }
       break;
+
+      case 'd':  // number of adaptation iterations
+        parmesh->ddebug = 1;
+        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                    " adding to mmgArgv for mmg: ",
+                    ret_val = PMMG_FAILURE; goto fail_proc );
+      break;
+
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                     " adding to mmgArgv for mmg: ",
