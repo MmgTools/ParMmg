@@ -593,6 +593,14 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   //DEBUGGING:
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
+  /* assign the mesh1,2,... remaining memory allowance to mesh0 as they will be
+   * merged to mesh0 and freed, no more operations in them */
+  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+    mesh = parmesh->listgrp[imsh].mesh;
+    met  = parmesh->listgrp[imsh].met;
+    mesh0->memMax += (mesh->memMax - mesh->memCur);
+  }
+
    /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
@@ -619,12 +627,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
     /** Step 4: Merge internal tetras of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrps_internalTetra(parmesh,mesh0,imsh) ) goto fail_comms;
-  }
-  /* add the merged groups' memory allowance to the merged groupd and free them */
-  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+
+    /* Free merged mesh and increase mesh0->memMax*/
     mesh = parmesh->listgrp[imsh].mesh;
     met  = parmesh->listgrp[imsh].met;
-    mesh0->memMax += mesh->memMax;
+    mesh0->memMax += mesh->memCur;
     MMG3D_Free_all(MMG5_ARG_start,
                    MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
                    MMG5_ARG_end);
