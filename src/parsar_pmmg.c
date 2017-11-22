@@ -1,16 +1,5 @@
 #include "parmmg.h"
 
-// Helper macro. Used only in this file. On success:
-//   copies the contents of fromV[fromC] (which are argv[argc]) to toV[toC]
-//   updates toC
-#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
-  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
-              on_failure);                                                   \
-  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
-  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
-  ++toC;                                                                     \
-}while(0)
-
 /**
  * \param parmesh pointer to pmmg structure
  * \param mmgArgv pointer to argv like buffer
@@ -408,6 +397,17 @@ int PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   }
   return 1;
 }
+
+// Helper macro. Used only in this file. On success:
+//   copies the contents of fromV[fromC] (which are argv[argc]) to toV[toC]
+//   updates toC
+#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
+  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
+              on_failure);                                                   \
+  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
+  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
+  ++toC;                                                                     \
+}while(0)
 
 /**
 * \param argc the argument count parameter from main
