@@ -15,8 +15,6 @@
  * \param point pointer toward the point we want to communicate
  * \param mpi_light_point new MPI data type
  *
- * \return nothing
- *
  * Create an MPI data type to allow the communication of
  * choosen fields of a point (only those who needs to be communicated) when the
  * mesh hast not yet been analyzed (xp field must not be communicated).
@@ -51,8 +49,6 @@ void PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point
 /**
  * \param point pointer toward the point we want to communicate
  * \param mpi_point new MPI data type
- *
- * \return nothing
  *
  * Create an MPI data type named mpi_point to allow the communication of
  * choosen fields of a point (only those who needs to be communicated).
@@ -89,8 +85,6 @@ void PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point)
  * \param xPoint pointer toward the xPoint we want to communicate
  * \param mpi_xpoint new MPI data type
  *
- * \return nothing
- *
  * Create an MPI data type named mpi_xpoint to allow the communication of
  * choosen fields of a xPoint (only those who needs to be communicated).
  *
@@ -122,8 +116,6 @@ void PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint)
 /**
  * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_light_tetra new MPI data type
- *
- * \return nothing
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tetra (only those who needs to be communicated) when the
@@ -159,8 +151,6 @@ void PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra
  * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_tetra new MPI data type
  *
- * \return nothing
- *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tetra (only those who needs to be communicated).
  *
@@ -194,8 +184,6 @@ void PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra)
 /**
  * \param edge pointer toward the edge we want to communicate
  * \param mpi_edge new MPI data type
- *
- * \return nothing
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a edge (only those who needs to be communicated).
@@ -232,8 +220,6 @@ void PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge)
  * \param tria pointer toward the tria we want to communicate
  * \param mpi_tria new MPI data type
  *
- * \return nothing
- *
  * Create an MPI data type to allow the communication of
  * choosen fields of a tria (only those who needs to be communicated).
  *
@@ -269,8 +255,6 @@ void PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria)
  *
  * Create an MPI data type to allow the communication of
  * choosen fields of a xTetra (only those who needs to be communicated).
- *
- * \return nothing
  *
  * \warning to fill when we need to communicate additional things
  */

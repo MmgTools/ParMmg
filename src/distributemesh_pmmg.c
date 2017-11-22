@@ -19,8 +19,6 @@
  * \param ind1 index of the first xtetra to swap.
  * \param ind2 index of the second xtetra to swap.
  *
- * \return nothing
- *
  * Swap two xtetra in the table of xtetrahedras.
  */
 static void PMMG_swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 )
@@ -45,8 +43,6 @@ static void PMMG_swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 
  * permutations).
  * \param ind1 index of the first xpoint to swap.
  * \param ind2 index of the second xpoint to swap.
- *
- * \return nothing
  *
  * Swap two xpoint in the table of xpoints.
  */
@@ -74,8 +70,6 @@ static void PMMG_swapxPoint( MMG5_pxPoint xpoint, int* perm, int ind1, int ind2 
  * \param ind1 index of the first xpoint to swap.
  * \param ind2 index of the second xpoint to swap.
  * \param metsize size of the metric (1=iso,6=aniso).
- *
- * \return nothing
  *
  * Swap two points in the table of points.
  */

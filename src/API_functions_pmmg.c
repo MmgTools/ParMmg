@@ -13,7 +13,6 @@
  * \param parmesh pointer toward a parmesh structure
  * \param comm    external communicator to be freed
  *
- * \return nothing
  * deallocate all internal communicator's fields
  */
 static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
@@ -37,8 +36,6 @@ static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
  * \param parmesh pointer toward a parmesh structure
  * \param comm    external communicator to be freed
  * \param ncomm   parameter ncomm
- *
- * \return nothing
  *
  * deallocate all external communicators's fields
  */
@@ -80,8 +77,6 @@ static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
  * \param idx2    node2int_node_comm_index2 to be freed
  * \param n       pointer to node2int_node_comm_nitem size
  *
- * \return nothing
- *
  * Deallocate all the MMG3D meshes and their communicators and zero the size
  */
 static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
@@ -96,8 +91,6 @@ static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
  * \param parmesh pointer toward a parmesh structure
  * \param listgrp group of MMG3D meshes in parmesh
  * \param ngrp    number of mmg meshes in listgrp
- *
- * \return nothing
  *
  * Deallocate all the MMG3D meshes and their communicators
  */
@@ -128,8 +121,6 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * \return nothing
- *
  * Free any parmesh members that are allocated
  */
 void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
@@ -156,8 +147,6 @@ void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 /**
  * \param parmesh pointer toward a parmesh structure
  * \param val     exit value
- *
- * \return nothing
  *
  * Controlled parmmg termination:
  *   Deallocate parmesh struct and its allocated members
