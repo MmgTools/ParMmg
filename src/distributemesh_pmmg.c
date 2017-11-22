@@ -7,7 +7,6 @@
  * \copyright GNU Lesser General Public License.
  * \todo doxygen documentation.
  */
-#include <mpi.h>
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
 #include "metis_pmmg.h"
@@ -122,12 +121,18 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   rank   = parmesh->myrank;
 
   /* Mesh */
-  MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm );
-  MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm );
-  MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm );
-  MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm );
-  MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm );
-  MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm );
+   MPI_CHECK( MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm ),
+              return PMMG_FAILURE);
+   MPI_CHECK( MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm ),
+              return PMMG_FAILURE);
+   MPI_CHECK( MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm ),
+              return PMMG_FAILURE);
+   MPI_CHECK( MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm ),
+              return PMMG_FAILURE);
+   MPI_CHECK( MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm ),
+              return PMMG_FAILURE);
+   MPI_CHECK( MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm ),
+              return PMMG_FAILURE);
 
   if ( !rank ) {
     PMMG_RECALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
@@ -145,45 +150,61 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   mesh->xtmax = mesh->ntmax;
 
   /* Metric */
-  MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm );
-  MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm );
-  MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm );
-  MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm );
+  MPI_CHECK( MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm ),
+             return PMMG_FAILURE);
+  MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm ),
+             return PMMG_FAILURE);
+  MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm ),
+             return PMMG_FAILURE);
+  MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm ),
+             return PMMG_FAILURE);
 
   met->npi = met->np;
   met->ver = mesh->ver;
   met->dim = mesh->dim;
 
   if ( rank ) {
-    PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices", return PMMG_FAILURE);
+    PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices",
+                return PMMG_FAILURE);
 
-    PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",return PMMG_FAILURE);
+    PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",
+                return PMMG_FAILURE);
 
     if ( mesh->nt )
-      PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,"initial triangles",return PMMG_SUCCESS);
+      PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,"initial triangles",
+                  return PMMG_SUCCESS);
 
     if ( mesh->na )
-      PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges",return PMMG_FAILURE);
+      PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges",
+                  return PMMG_FAILURE);
 
     if ( met->npmax )
-      PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges",return PMMG_FAILURE);
+      PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges",
+                  return PMMG_FAILURE);
   }
 
-  PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point );
-  PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra );
-  if ( mesh->nt )
-    PMMG_create_MPI_Tria( mesh->tria, &mpi_tria );
-  if ( mesh->na )
-    PMMG_create_MPI_Edge( mesh->edge, &mpi_edge );
+  if ( !PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point ) )
+    goto fail_5;
+  if ( !PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra ) )
+    goto fail_4;
+  if ( mesh->nt && !PMMG_create_MPI_Tria( mesh->tria, &mpi_tria ) )
+    goto fail_3;
+  if ( mesh->na && !PMMG_create_MPI_Edge( mesh->edge, &mpi_edge ) )
+    goto fail_2;
 
-  MPI_Bcast( mesh->point, mesh->np + 1, mpi_light_point, 0, parmesh->comm );
-  MPI_Bcast( mesh->tetra, mesh->ne + 1, mpi_light_tetra, 0, parmesh->comm );
+  MPI_CHECK( MPI_Bcast(mesh->point,mesh->np+1,mpi_light_point,0,parmesh->comm),
+             goto fail_1);
+  MPI_CHECK( MPI_Bcast(mesh->tetra,mesh->ne+1,mpi_light_tetra,0,parmesh->comm),
+             goto fail_1);
   if ( mesh->nt )
-    MPI_Bcast( mesh->tria, mesh->nt + 1, mpi_tria, 0, parmesh->comm );
+    MPI_CHECK( MPI_Bcast( mesh->tria,mesh->nt+1,mpi_tria,0,parmesh->comm ),
+               goto fail_1);
   if ( mesh->na )
-    MPI_Bcast( mesh->edge, mesh->na + 1, mpi_edge, 0, parmesh->comm );
+    MPI_CHECK( MPI_Bcast( mesh->edge,mesh->na+1,mpi_edge,0,parmesh->comm ),
+               goto fail_1);
   if ( met->m )
-    MPI_Bcast( met->m, met->size * (met->npmax + 1), MPI_DOUBLE, 0, parmesh->comm );
+    MPI_CHECK( MPI_Bcast(met->m,met->size*(met->npmax+1),MPI_DOUBLE,0,parmesh->comm ),
+               goto fail_1);
 
   MPI_Type_free( &mpi_light_point );
   MPI_Type_free( &mpi_light_tetra );
@@ -193,6 +214,19 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
     MPI_Type_free( &mpi_edge );
 
   return PMMG_SUCCESS;
+
+fail_1:
+  if ( mesh->na )
+    MPI_Type_free( &mpi_edge );
+fail_2:
+  if ( mesh->nt )
+    MPI_Type_free( &mpi_tria );
+fail_3:
+  MPI_Type_free( &mpi_light_tetra );
+fail_4:
+  MPI_Type_free( &mpi_light_point );
+fail_5:
+  return PMMG_FAILURE;
 }
 
 /**
@@ -774,7 +808,8 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
            __func__,IDXTYPEWIDTH);
     goto fail_alloc1;
   }
-  MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm );
+  MPI_CHECK( MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm ),
+             goto fail_alloc1 );
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
    * shared entites with the other procs */

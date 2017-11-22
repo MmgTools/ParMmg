@@ -7,7 +7,6 @@
  * \copyright GNU Lesser General Public License.
  */
 #include "metis_pmmg.h"
-#include "mpitypes_pmmg.h"
 
 
 /**
@@ -222,12 +221,12 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   myrank = parmesh->myrank;
   ngrp   = parmesh->ngrp;
 
-#warning add check of MPI operators return value
   /** Step 1: Fill vtxdist array with the range of groups local to each
    * processor */
   PMMG_CALLOC(parmesh,*vtxdist,nproc+1,idx_t,"parmetis vtxdist", return 0);
 
-  MPI_Allgather(&ngrp,1,MPI_INT,&(*vtxdist)[1],1,MPI_INT,comm);
+  MPI_CHECK( MPI_Allgather(&ngrp,1,MPI_INT,&(*vtxdist)[1],1,MPI_INT,comm),
+             goto fail_1 );
 
   for ( k=1; k<=nproc; ++k )
     (*vtxdist)[k] += (*vtxdist)[k-1];
@@ -298,7 +297,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     }
 
     tag = myrank*nproc + ext_face_comm->color_out;
-    MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,tag,comm);
+    MPI_CHECK( MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,tag,comm),
+               goto fail_6 );
   }
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
@@ -309,8 +309,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     itorecv       = ext_face_comm->itorecv;
 
     tag = ext_face_comm->color_out*nproc + myrank;
-    MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,MPI_ANY_TAG,comm,
-             &status);
+    MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,
+                        MPI_ANY_TAG,comm,&status),goto fail_7 );
   }
 
    /** Step 5: Process the external communicators to count for each group the
@@ -549,7 +549,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
     if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,
                                &ncon,&nproc,tpwgts,ubvec,options,&edgecut,part,
                                &parmesh->comm) != METIS_OK ) {
-        fprintf(stderr, "METIS_ERROR: generic error\n" );
+        fprintf(stderr,"\n  ## Error: Parmetis fails.\n" );
         ier = 0;
     }
   }

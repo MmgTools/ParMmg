@@ -764,14 +764,14 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   /* } */
 
   /** Gather parmesh size infos on proc 0 */
-  MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,0,comm);
-  MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,0,comm);
-  MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,0,comm);
-  MPI_Gather(&mesh->xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,0,comm);
-  MPI_Gather(&grp->nitem_int_node_comm,1,MPI_INT,
-              (*rcv_nitem_int_node_comm),1,MPI_INT,0,comm);
-  MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
-              (*rcv_next_node_comm),1,MPI_INT,0,comm);
+  MPI_CHECK( MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&mesh->xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&grp->nitem_int_node_comm,1,MPI_INT,
+                        (*rcv_nitem_int_node_comm),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
+                        (*rcv_next_node_comm),1,MPI_INT,0,comm),return 0);
 
   /** Gather meshes on proc 0 */
   /* Creation of MPI types for the mesh comm */
@@ -790,8 +790,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   np_tot       = (*point_displs)[nprocs-1]+(*rcv_np)[nprocs-1];
   (*rcv_point) = (MMG5_pPoint)calloc(np_tot+1,sizeof(MMG5_Point));
 
-  MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
-               (*rcv_np),(*point_displs),mpi_point,0,comm);
+  MPI_CHECK( MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
+                         (*rcv_np),(*point_displs),mpi_point,0,comm),return 0);
 
   /* xPoints */
   (*xpoint_displs)[0] = 0;
@@ -801,8 +801,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   xp_tot        = (*xpoint_displs)[nprocs-1]+(*rcv_xp)[nprocs-1];
   (*rcv_xpoint) = (MMG5_pxPoint)calloc(xp_tot+1,sizeof(MMG5_xPoint));
 
-  MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
-              (*rcv_xp),(*xpoint_displs),mpi_xpoint,0,comm);
+  MPI_CHECK( MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
+                         (*rcv_xp),(*xpoint_displs),mpi_xpoint,0,comm),return 0);
 
   /* Tetra */
   (*tetra_displs)[0] = 0;
@@ -811,8 +811,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   }
   ne_tot       = (*tetra_displs)[nprocs-1]+(*rcv_ne)[nprocs-1];
   (*rcv_tetra) = (MMG5_pTetra)calloc(ne_tot+1,sizeof(MMG5_Tetra));
-  MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&(*rcv_tetra)[1],
-              (*rcv_ne),(*tetra_displs),mpi_tetra,0,comm);
+  MPI_CHECK( MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&(*rcv_tetra)[1],
+                         (*rcv_ne),(*tetra_displs),mpi_tetra,0,comm),return 0);
 
   /* xTetra */
   (*xtetra_displs)[0] = 0;
@@ -822,8 +822,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   xt_tot        = (*xtetra_displs)[nprocs-1]+(*rcv_xt)[nprocs-1];
   (*rcv_xtetra) = (MMG5_pxTetra)calloc(xt_tot+1,sizeof(MMG5_xTetra));
 
-  MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&(*rcv_xtetra)[1],
-              (*rcv_xt),(*xtetra_displs),mpi_xtetra,0,comm);
+  MPI_CHECK( MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&(*rcv_xtetra)[1],
+                         (*rcv_xt),(*xtetra_displs),mpi_xtetra,0,comm),return 0);
 
   /* Solutions */
   *rcv_met = NULL;
@@ -839,9 +839,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     nmet_tot   = (*met_displs)[nprocs-1]+(*rcv_nmet)[nprocs-1];
     (*rcv_met) = (double*)calloc(nmet_tot+met->size,sizeof(double));
 
-    MPI_Gatherv(&met->m[met->size],mesh->np*met->size,MPI_DOUBLE,
-                &(*rcv_met)[met->size],(*rcv_nmet),(*met_displs),MPI_DOUBLE,0,
-                comm);
+    MPI_CHECK( MPI_Gatherv(&met->m[met->size],mesh->np*met->size,MPI_DOUBLE,
+                           &(*rcv_met)[met->size],(*rcv_nmet),(*met_displs),
+                           MPI_DOUBLE,0,comm),return 0);
   }
 
   /* Internal communicator */
@@ -856,15 +856,15 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   (*rcv_node2int_node_comm_index1) = malloc(nitem_int_node_comm_tot*sizeof(int));
   (*rcv_node2int_node_comm_index2) = malloc(nitem_int_node_comm_tot*sizeof(int));
 
-  MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
-               (*rcv_intvalues),(*rcv_nitem_int_node_comm),(*intval_displs),MPI_INT,
-              0,comm);
-  MPI_Gatherv(grp->node2int_node_comm_index1,int_node_comm->nitem,MPI_INT,
-              (*rcv_node2int_node_comm_index1),(*rcv_nitem_int_node_comm),
-              (*intval_displs),MPI_INT,0,comm);
-  MPI_Gatherv(grp->node2int_node_comm_index2,int_node_comm->nitem,MPI_INT,
-              (*rcv_node2int_node_comm_index2),(*rcv_nitem_int_node_comm),
-              (*intval_displs),MPI_INT,0,comm);
+  MPI_CHECK( MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
+                         (*rcv_intvalues),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index1,int_node_comm->nitem,MPI_INT,
+                         (*rcv_node2int_node_comm_index1),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index2,int_node_comm->nitem,MPI_INT,
+                         (*rcv_node2int_node_comm_index2),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,0,comm),return 0);
 
 
   /* External communicator */
@@ -901,15 +901,15 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   (*rcv_color_out_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
   (*rcv_nitem_ext_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
 
-  MPI_Gatherv(color_in_tab,parmesh->next_node_comm,MPI_INT,
-              (*rcv_color_in_tab),(*rcv_next_node_comm),(*ext_comm_displs),MPI_INT,
-              0,comm);
-  MPI_Gatherv(color_out_tab,parmesh->next_node_comm,MPI_INT,
-              (*rcv_color_out_tab),(*rcv_next_node_comm),(*ext_comm_displs),MPI_INT,
-              0,comm);
-  MPI_Gatherv(nitem_ext_tab,parmesh->next_node_comm,MPI_INT,
-              (*rcv_nitem_ext_tab),(*rcv_next_node_comm),(*ext_comm_displs),MPI_INT,
-              0,comm);
+  MPI_CHECK( MPI_Gatherv(color_in_tab,parmesh->next_node_comm,MPI_INT,
+                         (*rcv_color_in_tab),(*rcv_next_node_comm),
+                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gatherv(color_out_tab,parmesh->next_node_comm,MPI_INT,
+                         (*rcv_color_out_tab),(*rcv_next_node_comm),
+                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gatherv(nitem_ext_tab,parmesh->next_node_comm,MPI_INT,
+                         (*rcv_nitem_ext_tab),(*rcv_next_node_comm),
+                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
 
 #warning NIKOS: the  return 0 in this macro results in leaking memory(if ever executed): int_comm_index
   _MMG5_SAFE_CALLOC(nitems_ext_idx,nprocs,int,0);

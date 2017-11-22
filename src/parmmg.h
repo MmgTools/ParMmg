@@ -20,7 +20,7 @@
 #include <ctype.h>
 #include <float.h>
 #include <math.h>
-#include <mpi.h>
+#include <mpi_pmmg.h>
 
 #include "libparmmg.h"
 
