@@ -179,12 +179,12 @@ typedef struct {
   PMMG_pint_comm  int_face_comm; /*!< Internal face communicator */
 
   /* external communicators */
-  int            next_node_comm;    /*!< Number of external node communicator */
-  PMMG_pext_comm ext_node_comm; /*!< External communicators (in increasing order w.r. to the remote proc index) */
-  int            next_edge_comm;    /*!< Number of external edge communicator */
+  int            next_node_comm; /*!< Number of external node communicator */
+  PMMG_pext_comm ext_node_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+  int            next_edge_comm; /*!< Number of external edge communicator */
   PMMG_pext_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
-  int            next_face_comm;    /*!< Number of external face communicator */
-  PMMG_pext_comm ext_face_comm; /*!< External communicators (in increasing order w.r. to the remote proc index) */
+  int            next_face_comm; /*!< Number of external face communicator */
+  PMMG_pext_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
 
   /* global variables */
   int            ddebug; //! Debug level
