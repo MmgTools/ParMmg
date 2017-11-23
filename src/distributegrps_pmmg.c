@@ -71,7 +71,7 @@ int PMMG_recv_grps(PMMG_pParMesh parmesh) {
  *
  */
 static inline
-int PMMG_mpiexchange_groups(PMMG_pParMesh parmesh,idx_t *part) {
+int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   int ier;
 
   /** Merge all the groups that must be send to a given proc into 1 group */
@@ -130,7 +130,7 @@ int PMMG_distribute_groups( PMMG_pParMesh parmesh )
   }
 
   /** Send the suitable groups to other procs and recieve their groups */
-  if ( !PMMG_mpiexchange_groups(parmesh,part) ) {
+  if ( !PMMG_mpiexchange_grps(parmesh,part) ) {
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
     return 0;
   }

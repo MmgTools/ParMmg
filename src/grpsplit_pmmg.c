@@ -924,7 +924,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   }
 #endif
 
-  PMMG_grp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
+  PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 

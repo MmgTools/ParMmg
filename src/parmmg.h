@@ -159,7 +159,8 @@ int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 
 /* Memory */
 int  PMMG_link_mesh( MMG5_pMesh mesh );
-void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
+void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
+void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );

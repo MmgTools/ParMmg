@@ -94,28 +94,40 @@ static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
  *
  * Deallocate all the MMG3D meshes and their communicators
  */
-void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
+void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 {
-  int k = 0;
-  for ( k = 0; k < ngrp; ++k ) {
-    PMMG_parmesh_grp_comm_free( parmesh,
-        (*listgrp)[k].node2int_node_comm_index1,
-        (*listgrp)[k].node2int_node_comm_index2,
-        &(*listgrp)[k].nitem_int_node_comm);
-    PMMG_parmesh_grp_comm_free( parmesh,
-        (*listgrp)[k].edge2int_edge_comm_index1,
-        (*listgrp)[k].edge2int_edge_comm_index2,
-        &(*listgrp)[k].nitem_int_edge_comm);
-    PMMG_parmesh_grp_comm_free( parmesh,
-        (*listgrp)[k].face2int_face_comm_index1,
-        (*listgrp)[k].face2int_face_comm_index2,
-        &(*listgrp)[k].nitem_int_face_comm);
-    MMG3D_Free_all( MMG5_ARG_start,
-                    MMG5_ARG_ppMesh, &(*listgrp)[k].mesh,
-                    MMG5_ARG_ppMet, &(*listgrp)[k].met,
-                    MMG5_ARG_end );
-  }
+  int k;
+
+  for ( k = 0; k < ngrp; ++k )
+    PMMG_grp_free( parmesh, listgrp[k] );
+
   PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param grp     group to free
+ *
+ * Deallocate all the MMG3D meshes and their communicators
+ */
+void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
+{
+  PMMG_parmesh_grp_comm_free( parmesh,
+                              grp->node2int_node_comm_index1,
+                              grp->node2int_node_comm_index2,
+                              &grp->nitem_int_node_comm);
+  PMMG_parmesh_grp_comm_free( parmesh,
+                              grp->edge2int_edge_comm_index1,
+                              grp->edge2int_edge_comm_index2,
+                              &grp->nitem_int_edge_comm);
+  PMMG_parmesh_grp_comm_free( parmesh,
+                              grp->face2int_face_comm_index1,
+                              grp->face2int_face_comm_index2,
+                              &grp->nitem_int_face_comm);
+  MMG3D_Free_all( MMG5_ARG_start,
+                  MMG5_ARG_ppMesh, &grp->mesh,
+                  MMG5_ARG_ppMet, &grp->met,
+                  MMG5_ARG_end );
 }
 
 /**
@@ -125,7 +137,7 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
  */
 void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 {
-  PMMG_grp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+  PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
 
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_node_comm );
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
