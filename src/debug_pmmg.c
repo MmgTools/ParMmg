@@ -5,7 +5,17 @@
 #include <malloc.h> // mallinfo
 #endif
 
-static FILE* my_fopen( char *name, char *status )
+/**
+ * \param name   filename to open
+ * \param status file desriptor's desired mode
+ *
+ * \return file descriptor to newly opened file
+ *
+ * This is a fopen wrapper that checks the error code returned from fopen and
+ * aborts on error. A file descriptor obtained from this function can safely
+ * be used
+ */
+static FILE* PMMG_my_fopen( char *name, char *status )
 {
    FILE *fp = fopen( name, status );
    if ( NULL == fp ) {
@@ -15,9 +25,17 @@ static FILE* my_fopen( char *name, char *status )
    return fp;
 }
 
-void grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param ngrp number of mmg3d meshes in grp
+ *
+ * This function writes all point and xpoint members of every mesh in grp to a
+ * text file named "name"
+ */
+void PMMG_grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
-  FILE *fp = my_fopen( name, "w" );
+  FILE *fp = PMMG_my_fopen( name, "w" );
   for ( int imsh = 0; imsh < ngrp; ++imsh ) {
     fprintf( fp, "Points in mesh %d\n", imsh );
     for ( int k = 0; k < grp[imsh].mesh->np + 2; k++ ) {
@@ -51,9 +69,17 @@ void grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
   fclose(fp);
 }
 
-void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
+/**
+ * \param name filename to open
+ * \param mesh pointer to mmg3d mesh to write to file
+ * \param num  number of tetras in mmg3d
+ *
+ * This function writes all the tetras' vertices of the given mmg3d mesh to a
+ * text file named "name"
+ */
+void PMMG_tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
 {
-  FILE *fp = my_fopen( name, "w" );
+  FILE *fp = PMMG_my_fopen( name, "w" );
   fprintf( fp, "Tetras in  mesh %d.ne: %d, nei:%d\n", num, mesh->ne, mesh->nei );
   for ( int k = 1; k < mesh->ne + 2; ++k )
     fprintf( fp,
@@ -62,9 +88,19 @@ void tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
   fclose(fp);
 }
 
-void find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int nmsh )
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param nmsh number of mmg3d meshes in grp
+ *
+ * This function checks all the tetras in all meshes in grp for referencing
+ * null vertice and outputs the ones detected to a text file named "name"
+ */
+void PMMG_find_tetras_referencing_null_points_to_txt( char *name,
+                                                      PMMG_pGrp grp,
+                                                      int nmsh )
 {
-  FILE *fp = my_fopen( name, "w" );
+  FILE *fp = PMMG_my_fopen( name, "w" );
   for ( int imsh = 0; imsh < nmsh; ++imsh ) {
     for ( int tet = 0; tet < grp[imsh].mesh->ne; ++tet ) {
       int check = 0;
@@ -73,13 +109,21 @@ void find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int 
           ++check;
       if ( 3 == check )
         fprintf(fp, " mesh %d references point %d with all zero coordinates \n",imsh, tet );
-      check = 0;
     }
   }
   fclose(fp);
 }
 
-int adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent we want
+ * \param face    face of tetra whose adjacent we want
+ *
+ * \return index in adjacency vector to adjacent tetra/face
+ *
+ * index in adjacency matrix of adjacent face for given tetra/face
+ */
+int PMMG_adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
 {
   int location = 4 * (element - 1) + 1 + face;
   int max_loc = 4 * (mesh->ne-1) + 5;
@@ -88,27 +132,55 @@ int adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
   assert( (location > 0) && (location < max_loc) && " adja out of bound "  );
   return mesh->adja[ location ];
 }
-int adja_tetra_to_face( MMG5_pMesh mesh, int element, int face )
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent tetra we are searching
+ * \param face    face of tetra whose adjacent tetra we are searching
+ *
+ * \return base index of afjacent tetra to tetra/face
+ *
+ * find the idx in the adjacency vector of adjacent tetra to the given
+ * tetra/face
+ */
+int PMMG_adja_tetra_to_face( MMG5_pMesh mesh, int element, int face )
 {
-  return adja_idx_of_face( mesh, element, face ) / 4;
+  return PMMG_adja_idx_of_face( mesh, element, face ) / 4;
 }
-int adja_face_to_face( MMG5_pMesh mesh, int element, int face )
+/**
+ * \param mesh    pointer to mmg3d mesh
+ * \param element tetra whose adjacent tetra we are searching
+ * \param face    face of tetra whose adjacent tetra we are searching
+ *
+ * \return base index of afjacent tetra to tetra/face
+ *
+ * find the idx in the adjacency vector of the face of the adjacent tetra
+ * to the given tetra/face
+ */
+int PMMG_adja_face_to_face( MMG5_pMesh mesh, int element, int face )
 {
-  return adja_idx_of_face( mesh, element, face ) % 4;
+  return PMMG_adja_idx_of_face( mesh, element, face ) % 4;
 }
 
-void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
+/**
+ * \param name filename to open
+ * \param grp  pointer to list of mmg3d meshes
+ * \param ngrp number of mmg3d meshes in grp
+ *
+ * create text file named "name" containing for every mesh's tetra/face
+ * their adjacent tetra/face
+ */
+void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
-  FILE *fp = my_fopen( name, "w" );
+  FILE *fp = PMMG_my_fopen( name, "w" );
   for ( int imsh = 0; imsh < ngrp; ++imsh ) {
     fprintf( fp, "Mesh %d, ne= %d\n", imsh, grp[imsh].mesh->ne );
     for ( int k = 1; k < grp[imsh].mesh->ne + 1; ++k ) {
       fprintf( fp, "tetra %d\t\t", k );
       for ( int i = 0; i < 4; ++i ) {
-        fprintf( fp, "adja[%d] %d", i, adja_idx_of_face( grp[ imsh ].mesh, k, i ) );
+        fprintf( fp, "adja[%d] %d", i, PMMG_adja_idx_of_face( grp[ imsh ].mesh, k, i ) );
         fprintf( fp, ", (tetra:%d, face:%1d)\t",
-            adja_tetra_to_face( grp[ imsh ].mesh, k, i ),
-            adja_face_to_face( grp[ imsh ].mesh, k, i ) );
+            PMMG_adja_tetra_to_face( grp[ imsh ].mesh, k, i ),
+            PMMG_adja_face_to_face( grp[ imsh ].mesh, k, i ) );
       }
       fprintf( fp, "\n" );
     }
@@ -116,7 +188,15 @@ void listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
   fclose(fp);
 }
 
-void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *basename )
+/**
+ * \param name filename to open
+ * \param mesh pointer to mmg3d mesh to write to file
+ * \param num  number of tetras in mmg3d
+ *
+ * This function writes all the tetras' vertices of the given mmg3d mesh to a
+ * text file named "name"
+ */
+void PMMG_grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *basename )
 {
   int grpId;
   char name[ 2048 ];
@@ -135,13 +215,19 @@ void grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *bas
   }
 }
 
-void dump_malloc_allocator_info( char *msg, int id )
+/**
+ * \param msg custom message to print in the beggining of the report
+ * \param id process number
+ *
+ * report memory usage as reported be glibc on linux systems
+ */
+void PMMG_dump_malloc_allocator_info( char *msg, int id )
 {
   char name[ 16 ];
   FILE *fp;
 
   sprintf(name,"mem_info-%02d.txt", id );
-  fp = my_fopen( name, "a" );
+  fp = PMMG_my_fopen( name, "a" );
 
 #ifdef __linux__
   const int mb = 1024 * 1024;
@@ -160,15 +246,25 @@ void dump_malloc_allocator_info( char *msg, int id )
   fprintf( fp, "* %4d \tTotal free space (mbytes)                  *\n", me.fordblks / mb );
   fprintf( fp, "* %4d \tTop-most, releasable space (mbytes)        *\n", me.keepcost / mb );
   fprintf( fp, "****************************************************\n\n" );
-
-  fclose(fp);
 #else
   fprintf( fp, "Extended information read directly from the malloc allocator is"
       "currently only implemented on linux\n" );
 #endif
+
+  fclose(fp);
 }
 
-void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh )
+/**
+ * \param parmesh pointer to parmmg structure
+ * \param msg     custom msg to include in the output messages
+ *
+ * check if any of the
+ *   sum of memMax fields (in parmesh struct and in listgrp meshes)
+ * or
+ *   sum of memCur fields (in parmesh struct and in listgrp meshes)
+ * exceed the memGloMax limit.
+ */
+void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 {
   size_t n_total = parmesh->memCur;
   const size_t mb = 1024 * 1024;
@@ -176,24 +272,28 @@ void check_mem_max_and_mem_cur( PMMG_pParMesh parmesh )
     n_total += parmesh->listgrp[ i ].mesh->memCur;
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
-             "%2d-%2d: memCur check ERROR: memCur > memGloMax at %s %s %d\n",
-	     parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
-  else
-    fprintf( stderr,
-             "%2d-%2d: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
-             parmesh->myrank, parmesh->nprocs,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+             "%2d-%2d: %s: memCur check ERROR: memCur ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
+	     parmesh->myrank, parmesh->nprocs, msg,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
+	     __func__, __FILE__, __LINE__ );
+//  else
+//    fprintf( stderr,
+//             "%2d-%2d: %s: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
+//             parmesh->myrank, parmesh->nprocs, mesg,
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
 
   n_total = parmesh->memMax;
   for ( size_t i = 0; i < parmesh->ngrp; ++i )
     n_total += parmesh->listgrp[ i ].mesh->memMax;
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
-             "%2d-%2d: memMax check ERROR: memMax > memGloMax at %s %s %d\n",
-             parmesh->myrank, parmesh->nprocs, __func__, __FILE__, __LINE__ );
-  else
-    fprintf( stderr,
-             "%2d-%2d: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
-             parmesh->myrank, parmesh->nprocs,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb );
+             "%2d-%2d: %s: memMax check ERROR: memMax ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
+             parmesh->myrank, parmesh->nprocs, msg,
+	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
+	     __func__, __FILE__, __LINE__ );
+//  else
+//    fprintf( stderr,
+//             "%2d-%2d: %s: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
+//             parmesh->myrank, parmesh->nprocs, msg,
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
 }

@@ -20,7 +20,7 @@
  *
  * Swap two xtetra in the table of xtetrahedras.
  */
-static void swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 )
+static void PMMG_swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 )
 {
   MMG5_xTetra pxttmp;
   int         tmp;
@@ -45,7 +45,7 @@ static void swapxTetra( MMG5_pxTetra xtetra, int* perm, int ind1, int ind2 )
  *
  * Swap two xpoint in the table of xpoints.
  */
-static void swapxPoint( MMG5_pxPoint xpoint, int* perm, int ind1, int ind2 )
+static void PMMG_swapxPoint( MMG5_pxPoint xpoint, int* perm, int ind1, int ind2 )
 {
   MMG5_xPoint pxptmp;
   int         tmp;
@@ -72,8 +72,8 @@ static void swapxPoint( MMG5_pxPoint xpoint, int* perm, int ind1, int ind2 )
  *
  * Swap two points in the table of points.
  */
-static void swapPoint( MMG5_pPoint point, double* met,int* perm,
-                       int ind1, int ind2, int metsiz )
+static void PMMG_swapPoint( MMG5_pPoint point, double* met,int* perm,
+                            int ind1, int ind2, int metsiz )
 {
   MMG5_Point ppttmp;
   MMG5_Sol   mettmp;
@@ -291,17 +291,17 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
   /** Compact xtetra on the proc: in place permutations */
   for ( k=1; k<=mesh->xt; ++k )
     while ( xTetraPerm[k] != k && xTetraPerm[k] )
-      swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
+      PMMG_swapxTetra(mesh->xtetra,xTetraPerm,k,xTetraPerm[k]);
 
   /** Compact vertices on the proc: in place permutations */
   for ( k=1; k<=mesh->np; ++k )
     while ( pointPerm[k] != k && pointPerm[k] )
-      swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
+      PMMG_swapPoint(mesh->point,met->m,pointPerm,k,pointPerm[k],met->size);
 
   /** Compact xpoint on the proc: in place permutations */
   for ( k=1; k<=mesh->xp; ++k )
     while ( xPointPerm[k] != k && xPointPerm[k] )
-      swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
+      PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
 
   return 1;
 }

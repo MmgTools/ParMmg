@@ -9,22 +9,38 @@
 #include "parmmg.h"
 
 
-static void pmesh_int_comm_free( PMMG_pParMesh pmesh, PMMG_pint_comm comm )
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param comm    external communicator to be freed
+ *
+ * deallocate all internal communicator's fields
+ */
+static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
+                                        PMMG_pint_comm comm )
 {
   if ( comm == NULL )
     return;
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(pmesh,comm->intvalues,comm->nitem,int,"int comm int array");
+    PMMG_DEL_MEM(parmesh,comm->intvalues,comm->nitem,int,"int comm int array");
   }
   if ( NULL != comm->doublevalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(pmesh,comm->doublevalues,comm->nitem,double,"int comm double array");
+    PMMG_DEL_MEM(parmesh,
+                 comm->doublevalues,comm->nitem,double,"int comm double array");
   }
 }
 
-static void pmesh_ext_comm_free( PMMG_pParMesh pmesh, PMMG_pext_comm comm, int ncomm )
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param comm    external communicator to be freed
+ * \param ncomm   parameter ncomm
+ *
+ * deallocate all external communicators's fields
+ */
+static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
+                                        PMMG_pext_comm comm, int ncomm )
 {
   int i = 0;
 
@@ -34,47 +50,63 @@ static void pmesh_ext_comm_free( PMMG_pParMesh pmesh, PMMG_pext_comm comm, int n
   for( i = 0; i < ncomm; ++i ) {
     if ( NULL != comm->int_comm_index ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(pmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
+      PMMG_DEL_MEM(parmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
     }
     if ( NULL != comm->itosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(pmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
+      PMMG_DEL_MEM(parmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
     }
     if ( NULL != comm->itorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(pmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
+      PMMG_DEL_MEM(parmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
     }
     if ( NULL != comm->rtosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(pmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
+      PMMG_DEL_MEM(parmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
     }
     if ( NULL != comm->rtorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(pmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
+      PMMG_DEL_MEM(parmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
     }
   }
 }
 
-static void pmesh_grp_comm_free( PMMG_pParMesh parmesh, int *idx1, int *idx2, int *n )
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param idx1    node2int_node_comm_index1 to be freed
+ * \param idx2    node2int_node_comm_index2 to be freed
+ * \param n       pointer to node2int_node_comm_nitem size
+ *
+ * Deallocate all the MMG3D meshes and their communicators and zero the size
+ */
+static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
+                                        int *idx1, int *idx2, int *n )
 {
   PMMG_DEL_MEM(parmesh,idx1,*n,int,"group communicator");
   PMMG_DEL_MEM(parmesh,idx2,*n,int,"group communicator");
   *n = 0;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param listgrp group of MMG3D meshes in parmesh
+ * \param ngrp    number of mmg meshes in listgrp
+ *
+ * Deallocate all the MMG3D meshes and their communicators
+ */
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 {
   int k = 0;
   for ( k = 0; k < ngrp; ++k ) {
-    pmesh_grp_comm_free( parmesh,
+    PMMG_parmesh_grp_comm_free( parmesh,
         (*listgrp)[k].node2int_node_comm_index1,
         (*listgrp)[k].node2int_node_comm_index2,
         &(*listgrp)[k].nitem_int_node_comm);
-    pmesh_grp_comm_free( parmesh,
+    PMMG_parmesh_grp_comm_free( parmesh,
         (*listgrp)[k].edge2int_edge_comm_index1,
         (*listgrp)[k].edge2int_edge_comm_index2,
         &(*listgrp)[k].nitem_int_edge_comm);
-    pmesh_grp_comm_free( parmesh,
+    PMMG_parmesh_grp_comm_free( parmesh,
         (*listgrp)[k].face2int_face_comm_index1,
         (*listgrp)[k].face2int_face_comm_index2,
         &(*listgrp)[k].nitem_int_face_comm);
@@ -86,26 +118,42 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
   PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Free any parmesh members that are allocated
+ */
 void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 {
   PMMG_grp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
 
-  pmesh_int_comm_free( parmesh, parmesh->int_node_comm );
-  pmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
-  pmesh_int_comm_free( parmesh, parmesh->int_face_comm );
+  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_node_comm );
+  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
+  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_face_comm );
 
-  pmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
+  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
             PMMG_ext_comm, "ext node comm");
-  pmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
+  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
             PMMG_ext_comm, "ext edge comm");
-  pmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
+  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
             PMMG_ext_comm, "ext face comm");
   PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
 }
 
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param val     exit value
+ *
+ * Controlled parmmg termination:
+ *   Deallocate parmesh struct and its allocated members
+ *   If this is an unsuccessful exit call abort to cancel any remaining processes
+ *   Call MPI_Finalize / exit
+ */
+#warning NIKOS: MPI_Finalize might not be desirable here
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
   PMMG_PMesh_Free( parmesh );
@@ -115,6 +163,14 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
   exit( val );
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * \return 0 on error
+ *         1 on success
+ * allocate a parmesh struct with a single mesh struct and initialize
+ * some of the struct fields
+ */
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 {
   PMMG_pGrp grp = NULL;
@@ -160,6 +216,16 @@ fail_pmesh:
   return PMMG_FAILURE;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param iparam  parameter enumeration option
+ * \param val     parameter value
+ *
+ * \return 0 on error
+ *         1 on success
+ *
+ * set parameters
+ */
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
   MMG5_pSol   met;

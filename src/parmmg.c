@@ -12,7 +12,7 @@
  * Mesh preprocessing: set function pointers, scale mesh, perform mesh
  * analysis and display length and quality histos.
  */
-static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
+static int PMMG_preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
 {
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
@@ -69,8 +69,8 @@ static int preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
  * \param argc number of command line arguments.
  * \param argv command line arguments.
  * \return \ref PMMG_SUCCESS if success.
- * \return \ref PMMG_LOWFAILURE if failed but a conform mesh is saved.
- * \return \ref PMMG_STRONGFAILURE if failed and we can't save the mesh.
+ *         \ref PMMG_LOWFAILURE if failed but a conform mesh is saved.
+ *         \ref PMMG_STRONGFAILURE if failed and we can't save the mesh.
  *
  * Main program for PARMMG executable: perform parallel mesh adaptation.
  *
@@ -168,7 +168,7 @@ int main( int argc, char *argv[] )
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
 #warning NIKOS: I think I have messed up this error handling
-  ier = preprocessMesh( mesh, met, parmesh->myrank );
+  ier = PMMG_preprocessMesh( mesh, met, parmesh->myrank );
   if ( ier != PMMG_SUCCESS ) {
     if ( ( ier == PMMG_LOWFAILURE ) || !(_MMG5_unscaleMesh( mesh, met )) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );

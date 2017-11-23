@@ -1,19 +1,16 @@
 #include "parmmg.h"
 
-// Helper macro. Used only in this file. On success:
-//   copies the contents of fromV[fromC] (which are argv[argc]) to toV[toC]
-//   updates toC
-#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
-  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
-              on_failure);                                                   \
-  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
-  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
-  ++toC;                                                                     \
-}while(0)
-
-// Free custom argv allocations
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param mmgArgv pointer to argv like buffer
+ * \param mmgArgc pointer to argc like buffer
+ * \param argc    actual argc value
+ *
+ * Free the allocations of the custom created argc/argv wrapper that is passed
+ * to mmg to parse the command line options
+ */
 static void
-argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
+PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
 {
   int i;
   for ( i = 0; i < mmgArgc; ++i )
@@ -21,8 +18,15 @@ argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
   PMMG_DEL_MEM(parmesh, mmgArgv, argc, char*, "Deallocating mmgargv: " );
 }
 
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param rank    process's MPI rank
+ *
+ * set the mmg default values in the first mesh in the listgrp
+ * of the pmmg struct of rank 0
+ */
 static void
-defaultValues( PMMG_pParMesh parmesh, const int rank )
+PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
 {
   if ( rank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
@@ -33,8 +37,14 @@ defaultValues( PMMG_pParMesh parmesh, const int rank )
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
+/**
+ * \param parmesh  pointer to pmmg structure
+ * \param progname program name string
+ *
+ * print the command line usage of the parmmg tool
+ */
 static void
-usage( PMMG_pParMesh parmesh, char * const progname )
+PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
 {
   if ( parmesh->myrank == 0 ) {
     fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
@@ -45,15 +55,20 @@ usage( PMMG_pParMesh parmesh, char * const progname )
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
-/** return:
+/**
+ * \param parmesh pointer to pmmg structure
+ * \param memReq  size of memory in Mb. If memReq is zero then it is
+ *                automatically set to half of the machine's available memory.
+ *                On machines with multicore processors (ie most of today's cpus)
+ *                the total available memory is shared equally to pmmg processes
+ *                running on the same machine.
+ *                If memReq is negative or more than the detected available
+ *                memory, then the requested value is discarded and the maximum
+ *                allowed memory is set to half the detected available memory.
  *
- *  Sets the maximum amount of memory that is available to a parmmg process to
- *  memReq Mb.
- *  If memReq is zero then it is set to half of the available memory physically
- *  available on the machine. On multicore machines the available memory is
- *  shared equally to pmmg processes. If memReq is negative or more than the
- *  detected available memory, then again it is set to the detected available
- *  memory
+ *  Sets the maximum amount of memory that a parmmg process is allowed to use.
+ *  This includes both the memory used for the parmmg struct and the mmg structs
+ *  in listgrp
  */
 void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 {
@@ -375,6 +390,17 @@ int PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   return 1;
 }
 
+// Helper macro. Used only in this file. On success:
+//   copies the contents of fromV[fromC] (which are argv[argc]) to toV[toC]
+//   updates toC
+#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
+  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
+              on_failure);                                                   \
+  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
+  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
+  ++toC;                                                                     \
+}while(0)
+
 /**
 * \param argc the argument count parameter from main
 * \param argv the argument values parameter from main
@@ -401,9 +427,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
-      defaultValues( parmesh, parmesh->myrank );
+      PMMG_defaultValues( parmesh, parmesh->myrank );
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-      usage( parmesh, argv[0] );
+      PMMG_usage( parmesh, argv[0] );
 
   // Create a new set of argc/argv variables adding only the the cl options that
   // mmg has to process
@@ -432,7 +458,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           PMMG_PMesh_SetMemMax( parmesh, 20 );
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-          usage( parmesh, argv[0] );
+          PMMG_usage( parmesh, argv[0] );
         }
       break;
 
@@ -453,6 +479,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                       ret_val = PMMG_FAILURE; goto fail_proc );
         }
       break;
+
+      case 'd':  // number of adaptation iterations
+        parmesh->ddebug = 1;
+        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                    " adding to mmgArgv for mmg: ",
+                    ret_val = PMMG_FAILURE; goto fail_proc );
+      break;
+
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                     " adding to mmgArgv for mmg: ",
@@ -477,7 +511,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   }
 
 fail_proc:
-  argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
+  PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
 fail_mmgargv:
   return ret_val;
 }

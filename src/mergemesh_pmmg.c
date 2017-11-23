@@ -582,23 +582,29 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   if ( parmesh->ngrp == 1 ) return 1;
 
   /** Use the internal communicators to store the interface entities indices */
-  int_node_comm              = parmesh->int_node_comm;
+  int_node_comm = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
               "node communicator",return 0);
 
-  int_face_comm              = parmesh->int_face_comm;
+  int_face_comm = parmesh->int_face_comm;
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
               "face communicator",goto fail_ncomm);
 
   //DEBUGGING:
   //saveGrpsToMeshes(parmesh->listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
+  /* assign the mesh1,2,... remaining memory allowance to mesh0 as they will be
+   * merged to mesh0 and freed, no more operations in them */
+  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+    mesh = parmesh->listgrp[imsh].mesh;
+    met  = parmesh->listgrp[imsh].met;
+    mesh0->memMax += (mesh->memMax - mesh->memCur);
+  }
+
    /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh,mesh0,met0) ) goto fail_comms;
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    mesh0->memMax += parmesh->listgrp[imsh].mesh->memMax;
-
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrps_internalPoints(parmesh,mesh0,met0,imsh) )
       goto fail_comms;
@@ -622,9 +628,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     /** Step 4: Merge internal tetras of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrps_internalTetra(parmesh,mesh0,imsh) ) goto fail_comms;
 
-    /** Free the mesh of listgrp that is useless now */
+    /* Free merged mesh and increase mesh0->memMax*/
     mesh = parmesh->listgrp[imsh].mesh;
     met  = parmesh->listgrp[imsh].met;
+    mesh0->memMax += mesh->memCur;
     MMG3D_Free_all(MMG5_ARG_start,
                    MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
                    MMG5_ARG_end);
@@ -1236,6 +1243,12 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if fail, 1 if success
+ *
+ *  merge all meshes to a single mesh in P0's parmesh
+ */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
   MMG5_pPoint    rcv_point;
