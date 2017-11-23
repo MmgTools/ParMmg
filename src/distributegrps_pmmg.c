@@ -20,13 +20,90 @@
  *
  * \return 0 if fail, 1 otherwise
  *
+ * Merge all the groups that must be send to a given proc into 1 group.
+ * Update the \a part array to match with the new groups.
+ *
+ */
+static inline
+int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t *part) {
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Send each group to the suitable processor.
+ *
+ */
+static inline
+int PMMG_send_grps(PMMG_pParMesh parmesh,idx_t *part) {
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Recieve groups from other processors and update \a parmesh
+ * (groups and communicators).
+ *
+ */
+static inline
+int PMMG_recv_grps(PMMG_pParMesh parmesh) {
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
  * Send the suitable group to other procs and recieve their groups.
+ * Deallocate the \a part array.
  *
  */
 static inline
 int PMMG_mpiexchange_groups(PMMG_pParMesh parmesh,idx_t *part) {
+  int ier;
 
-  return 1;
+  /** Merge all the groups that must be send to a given proc into 1 group */
+  if ( !PMMG_merge_grps2send(parmesh,part) ) {
+    fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
+    ier = 0;
+    goto fail;
+  }
+
+  /** Send each group to the suitable processor */
+  if ( !PMMG_send_grps(parmesh,part) ) {
+    fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
+    ier = 0;
+    goto fail;
+  }
+  PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+
+  /** Recieve the groups */
+  if ( !PMMG_recv_grps(parmesh) ) {
+    fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
+    ier = 0;
+    goto fail;
+  }
+
+  /** Success */
+  ier = 1;
+
+fail:
+  if ( part )
+    PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+
+  return ier;
 }
 
 /**
