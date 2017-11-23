@@ -60,28 +60,25 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   /** Count the number of interface faces per tetra and store it in mark */
   if ( !PMMG_count_parBdy(parmesh) ) {
-    fprintf(stderr,"\n  ## Problem when counting the number of interface faces."
-            " Exit program.\n");
+    fprintf(stderr,"\n  ## Problem when counting the number of interface faces.\n");
     ier=0;
   }
 
   /** Split the ngrp groups of listgrp into a higher number of groups */
   if ( !PMMG_split_n2mGroups(parmesh,METIS_TARGET_MESH_SIZE,1) ) {
-    fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups."
-            " Exit program.\n");
+    fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     ier=0;
   }
 
   /** Distribute the groups over the processor to load balance the meshes */
   if ( !PMMG_distribute_groups(parmesh) ) {
-    fprintf(stderr,"\n  ## Group distribution problem. Exit program.\n");
+    fprintf(stderr,"\n  ## Group distribution problem.\n");
     ier = 0;
   }
 
   /** Redistribute the ngrp groups of listgrp into a higher number of groups */
   if ( !PMMG_split_n2mGroups(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
-    fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups."
-            " Exit program.\n");
+    fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
     ier=0;
   }
 

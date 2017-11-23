@@ -804,8 +804,8 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   else if ( IDXTYPEWIDTH == 64 )
     metis_dt = MPI_INT64_T;
   else {
-    printf("  ## Error: %s: unable to detect the metis integer width (%d).\n",
-           __func__,IDXTYPEWIDTH);
+    fprintf(stderr,"  ## Error: %s: unable to detect the metis integer width (%d).\n",
+            __func__,IDXTYPEWIDTH);
     goto fail_alloc1;
   }
   MPI_CHECK( MPI_Bcast( &part[0], mesh->ne, metis_dt, 0, parmesh->comm ),
