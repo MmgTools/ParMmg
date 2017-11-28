@@ -122,41 +122,41 @@ int PMMG_mergeGrps_interfacePoints(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 
 /**
  * \param parmesh pointer toward a parmmg parmesh mesh structure.
- * \param mesh0 pointer toward a MMG5 mesh structure.
- * \param met0 pointer toward a MMG5 solution structure.
- * \param grp pointer toward the group that we want to merge into mesh0
+ * \param metI pointer toward the group in which we wnat to merge.
+ * \param grpJ pointer toward the group that we want to merge into grpI
  *
  * \return 0 if fail, 1 otherwise
  *
- * Merge the non internal nodes of the lisgrp[imsh].mesh mesh into the mesh0
- * mesh.
+ * Merge the internal nodes of the group \a grpJ into the group grpI.
  *
  */
 static inline
-int PMMG_mergeGrps_internalPoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
-                                   MMG5_pSol met0,PMMG_pGrp grp ) {
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
+int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                      PMMG_pGrp grpJ ) {
+  MMG5_pMesh     meshI,meshJ;
+  MMG5_pSol      metI,metJ;
   MMG5_pPoint    ppt0,ppt;
   MMG5_pxPoint   pxp0,pxp;
   int            np,ip,k;
 
-  np = mesh0->np;
+  meshI = grpI->mesh;
+  metI  = grpI->met;
+  np    = meshI->np;
 
   /** Loop over points and add the ones that are not already in the merged
-   * mesh (mesh0) */
-  mesh = grp->mesh;
-  met  = grp->met;
+   * mesh (meshI) */
+  meshJ = grpJ->mesh;
+  metJ  = grpJ->met;
 
-  for ( k=1; k<=mesh->np; k++ ) {
-    ppt = &mesh->point[k];
+  for ( k=1; k<=meshJ->np; k++ ) {
+    ppt = &meshJ->point[k];
     if ( !MG_VOK(ppt) ) continue;
     if ( ppt->tmp )     continue;
 
-    ip = _MMG3D_newPt(mesh0,ppt->c,ppt->tag);
+    ip = _MMG3D_newPt(meshI,ppt->c,ppt->tag);
     if ( !ip ) {
       /* reallocation of point table */
-      _MMG5_POINT_REALLOC(mesh0,met0,ip,mesh0->gap,
+      _MMG5_POINT_REALLOC(meshI,metI,ip,meshI->gap,
                           printf("  ## Error: unable to merge group points\n");
                           _MMG5_INCREASE_MEM_MESSAGE();
                           return 0;,
@@ -167,14 +167,14 @@ int PMMG_mergeGrps_internalPoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
     /* Add xpoint if needed */
     if ( ppt->xp ) {
 #warning add only the "true" xpoints (not those linked to the interfaces)
-      pxp  = &mesh->xpoint[ppt->xp];
-      ppt0 = &mesh0->point[ip];
-      pxp0 = &mesh0->xpoint[ppt0->xp];
+      pxp  = &meshJ->xpoint[ppt->xp];
+      ppt0 = &meshI->point[ip];
+      pxp0 = &meshI->xpoint[ppt0->xp];
       memcpy(pxp0,pxp,sizeof(MMG5_xPoint));
     }
-    if ( met0->m ) {
-      assert(met->m);
-      memcpy(&met0->m[met0->size*ip],&met->m[met->size*k],met->size*sizeof(double));
+    if ( metI->m ) {
+      assert(metJ->m);
+      memcpy(&metI->m[metI->size*ip],&metJ->m[metJ->size*k],metJ->size*sizeof(double));
     }
   }
   return 1;
@@ -608,7 +608,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     grp = &listgrp[imsh];
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrps_internalPoints(parmesh,mesh0,met0,grp) )
+    if ( !PMMG_mergeGrpJinI_internalPoints(parmesh,&listgrp[0],grp) )
       goto fail_comms;
 
     /** Step 3: Merge interfaces tetras of the imsh mesh into the mesh0 mesh */
@@ -627,16 +627,12 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
     if ( !PMMG_mergeGrps_interfaceTetra(parmesh,mesh0,grp) ) goto fail_comms;
 
-    /** Step 4: Merge internal tetras of the mesh mesh into the mesh0 mesh */
+    /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrps_internalTetra(parmesh,mesh0,grp) ) goto fail_comms;
 
     /* Free merged mesh and increase mesh0->memMax*/
-    mesh = grp->mesh;
-    met  = grp->met;
-    mesh0->memMax += mesh->memCur;
-    MMG3D_Free_all(MMG5_ARG_start,
-                   MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
-                   MMG5_ARG_end);
+    mesh0->memMax += grp->mesh->memCur;
+    PMMG_grp_free(parmesh,&parmesh->listgrp[imsh]);
   }
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
