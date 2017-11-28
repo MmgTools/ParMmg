@@ -135,7 +135,7 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
  *
  * Free any parmesh members that are allocated
  */
-void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
+void PMMG_parmesh_Free( PMMG_pParMesh parmesh )
 {
   PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
 
@@ -168,9 +168,9 @@ void PMMG_PMesh_Free( PMMG_pParMesh parmesh )
 #warning NIKOS: MPI_Finalize might not be desirable here
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
-  PMMG_PMesh_Free( parmesh );
+  PMMG_parmesh_Free( parmesh );
   if ( val != PMMG_SUCCESS )
-	  MPI_Abort( MPI_COMM_WORLD, val );
+    MPI_Abort( MPI_COMM_WORLD, val );
   MPI_Finalize();
   exit( val );
 }
@@ -212,7 +212,7 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
                              MMG5_ARG_end ) )
     goto fail_mesh;
 
-  PMMG_PMesh_SetMemGloMax( *parmesh, 0 );
+  PMMG_parmesh_SetMemGloMax( *parmesh, 0 );
 
   return PMMG_SUCCESS;
 

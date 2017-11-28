@@ -119,7 +119,7 @@ int main( int argc, char *argv[] )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   // Init memMax sizes. Only one mesh for now => pmmg structs do not need much
-  if ( !PMMG_PMesh_SetMemMax(parmesh, 20) )
+  if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -145,7 +145,7 @@ int main( int argc, char *argv[] )
     if ( MMG3D_loadMesh( mesh, mesh->namein ) != 1 )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
     // SetMemMax is used again here because loadMesh overwrites memMax
-    PMMG_PMesh_SetMemMax(parmesh, 20);
+    PMMG_parmesh_SetMemMax(parmesh, 20);
 
     if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );

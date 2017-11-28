@@ -70,7 +70,7 @@ PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
  *  This includes both the memory used for the parmmg struct and the mmg structs
  *  in listgrp
  */
-void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
+void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
 {
   long long int maxAvail = 0;
   MPI_Comm comm_shm = 0;
@@ -265,7 +265,7 @@ int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
  *   percent % of the available mem is assigned to pmesh.memMax
  *   (100-percent)/100 are assigned to the mesh[i].memMax
  */
-int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
+int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
   MMG5_pMesh mesh;
   long long  available;
@@ -317,7 +317,7 @@ int PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
  * Update the memory repartition between the communicators and the groups.
  *
  */
-int PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
+int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -454,8 +454,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                      "Erroneous mem size requested, using default: %lld\n",
                      parmesh->memGloMax );
           else
-            PMMG_PMesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
-          PMMG_PMesh_SetMemMax( parmesh, 20 );
+            PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
+          PMMG_parmesh_SetMemMax( parmesh, 20 );
         } else {
           fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
           PMMG_usage( parmesh, argv[0] );

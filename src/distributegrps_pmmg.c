@@ -262,7 +262,7 @@ end:
   parmesh->listgrp = grps;
   parmesh->ngrp    = ngrp;
 
-  if ( !PMMG_parMesh_updateMemMax(parmesh, 105, 1) ) {
+  if ( !PMMG_parmesh_updateMemMax(parmesh, 105, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
             " between meshes and communicators.\n",__func__);
     return -1;

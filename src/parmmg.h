@@ -161,9 +161,9 @@ int PMMG_packTetra ( PMMG_pParMesh parmesh, int igrp );
 int  PMMG_link_mesh( MMG5_pMesh mesh );
 void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
-int  PMMG_PMesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
-int  PMMG_parMesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
-void PMMG_PMesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
+int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
+int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
+void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus
