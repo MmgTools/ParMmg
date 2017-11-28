@@ -148,10 +148,11 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp grps,
  */
 static inline
 int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
-  PMMG_pGrp grps,grp,listgrp;
-  long long memAv;
-  idx_t     *tmpPart;
-  int       nprocs,ngrp,ngrpOld,ncomm,k,j,ier;
+  PMMG_pGrp  grps,grp,listgrp,grpI,grpJ;
+  MMG5_pMesh meshI,meshJ;
+  long long  memAv;
+  idx_t      *tmpPart;
+  int        nprocs,ngrp,ngrpOld,ncomm,k,j,ier;
 
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
@@ -187,15 +188,25 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
     if ( !listgrp[k].mesh ) continue;
 
-    grps[(*part)[k]].mesh->memMax = memAv;
-    if ( !PMMG_merge_grpJinI(&grps[(*part)[k]],&listgrp[k]) )
-      goto fail;
+    grpI = &grps[(*part)[k]];
+    grpJ = &listgrp[k];
 
-    memAv -= grps[(*part)[k]].mesh->memCur;
-    grps[(*part)[k]].mesh->memMax = grps[(*part)[k]].mesh->memCur;
+    /* Free the adja arrays */
+    meshI = grpI->mesh;
+    meshJ = grpJ->mesh;
+    if ( meshI->adja )
+      PMMG_DEL_MEM(meshI, meshI->adja, 4*meshI->nemax+5, int, "adjacency table" );
+    if ( meshJ->adja )
+      PMMG_DEL_MEM(meshJ, meshJ->adja, 4*meshJ->nemax+5, int, "adjacency table" );
+
+    meshI->memMax = memAv;
+    if ( !PMMG_merge_grpJinI(grpI,grpJ) ) goto fail;
+
+    memAv -= meshI->memCur;
+    meshI->memMax = meshI->memCur;
 
     /* Delete the useless group to gain memory space */
-    memAv += listgrp[k].mesh->memCur;
+    memAv += meshJ->memCur;
     PMMG_grp_free(parmesh,&listgrp[k]);
   }
   ngrp = nprocs;
