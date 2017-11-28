@@ -632,7 +632,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
     /* Free merged mesh and increase mesh0->memMax*/
     mesh0->memMax += grp->mesh->memCur;
-    PMMG_grp_free(parmesh,&parmesh->listgrp[imsh]);
+    PMMG_grp_free(parmesh,grp);
   }
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 

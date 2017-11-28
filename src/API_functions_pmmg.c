@@ -80,10 +80,10 @@ static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
  * Deallocate all the MMG3D meshes and their communicators and zero the size
  */
 static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
-                                        int *idx1, int *idx2, int *n )
+                                        int **idx1, int **idx2, int *n )
 {
-  PMMG_DEL_MEM(parmesh,idx1,*n,int,"group communicator");
-  PMMG_DEL_MEM(parmesh,idx2,*n,int,"group communicator");
+  PMMG_DEL_MEM(parmesh,*idx1,*n,int,"group communicator");
+  PMMG_DEL_MEM(parmesh,*idx2,*n,int,"group communicator");
   *n = 0;
 }
 
@@ -113,16 +113,16 @@ void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
 {
   PMMG_parmesh_grp_comm_free( parmesh,
-                              grp->node2int_node_comm_index1,
-                              grp->node2int_node_comm_index2,
+                              &grp->node2int_node_comm_index1,
+                              &grp->node2int_node_comm_index2,
                               &grp->nitem_int_node_comm);
   PMMG_parmesh_grp_comm_free( parmesh,
-                              grp->edge2int_edge_comm_index1,
-                              grp->edge2int_edge_comm_index2,
+                              &grp->edge2int_edge_comm_index1,
+                              &grp->edge2int_edge_comm_index2,
                               &grp->nitem_int_edge_comm);
   PMMG_parmesh_grp_comm_free( parmesh,
-                              grp->face2int_face_comm_index1,
-                              grp->face2int_face_comm_index2,
+                              &grp->face2int_face_comm_index1,
+                              &grp->face2int_face_comm_index2,
                               &grp->nitem_int_face_comm);
   MMG3D_Free_all( MMG5_ARG_start,
                   MMG5_ARG_ppMesh, &grp->mesh,
