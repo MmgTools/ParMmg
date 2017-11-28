@@ -992,7 +992,7 @@ fail_part:
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGroups(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
 
   /** Merge the parmesh groups into 1 group */
   if ( !PMMG_merge_grps(parmesh) ) {
