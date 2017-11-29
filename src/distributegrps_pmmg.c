@@ -107,26 +107,26 @@ int PMMG_merge_grpJinI(PMMG_pGrp grpI, PMMG_pGrp grpJ) {
  */
 
 static inline
-int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp grps,
-                            int *ngrp,idx_t *part ) {
+int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
+                            int *ngrp,idx_t **part ) {
   int k,nbl;
 
   nbl   = 0;
   for ( k=0; k<*ngrp; ++k ) {
-    if ( !grps[k].mesh ) continue;
+    if ( !(*grps)[k].mesh ) continue;
 
     if ( k!=nbl )
-      grps[nbl] = PMMG_assign_grp( &grps[k] );
+      (*grps)[nbl] = PMMG_assign_grp( &(*grps)[k] );
 
-    part[nbl] = k;
+    (*part)[nbl] = k;
 
     ++nbl;
   }
   /* Here we should never fail (nbl <= ngrp) so we can ignore the fact that if
    * the part array realloc fail, we have different sizez for the grps and the
    * part array and the grps size is not stored. */
-  PMMG_REALLOC( parmesh,grps,nbl,*ngrp,PMMG_Grp,"Groups to send", return 0 );
-  PMMG_REALLOC( parmesh,part,nbl,*ngrp,idx_t,"parmetis partition",return 0 );
+  PMMG_REALLOC( parmesh,*grps,nbl,*ngrp,PMMG_Grp,"Groups to send", return 0 );
+  PMMG_REALLOC( parmesh,*part,nbl,*ngrp,idx_t,"parmetis partition",return 0 );
 
   *ngrp = nbl;
 
@@ -211,7 +211,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   }
   ngrp = nprocs;
 
-  if ( !PMMG_pack_grpsAndPart( parmesh,grps,&ngrp,(*part) ) ) {
+  if ( !PMMG_pack_grpsAndPart( parmesh,&grps,&ngrp,part ) ) {
     ier = -1;
     goto end;
   }
