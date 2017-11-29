@@ -164,7 +164,6 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
  * Merge the internal nodes of the group \a grpJ into the group grpI.
  *
  */
-static inline
 int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                       PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
@@ -225,7 +224,6 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  * mesh. An interface tetra is a tetra that has at least 1 interface triangle.
  *
  */
-static inline
 int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                   PMMG_pGrp grpJ) {
   MMG5_pMesh     meshI,meshJ;
@@ -324,7 +322,6 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  * Merge the tetra of the \a grpJ->mesh mesh into the \a grpI->mesh mesh.
  *
  */
-static inline
 int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                      PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
