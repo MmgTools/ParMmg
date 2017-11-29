@@ -13,6 +13,95 @@
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param grpI pointer toward the group in which we want to merge.
+ * \param grpJ pointer toward the group that we merge.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Add the interface points of the group \a grpJ in the group \a grpI (mesh +
+ * communicator).
+ *
+ */
+int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
+                                               PMMG_pGrp grpI,PMMG_pGrp grpJ ) {
+  MMG5_pMesh     meshI,meshJ;
+  MMG5_pSol      metI,metJ;
+  MMG5_pPoint    pptI,pptJ;
+  MMG5_pxPoint   pxpI,pxpJ;
+  int            *intvalues,nitem_int_node_comm;
+  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
+  int            size,k,poi_id_glo,ip;
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  meshI                     = grpI->mesh;
+  metI                      = grpI->met;
+
+  meshJ                     = grpJ->mesh;
+  metJ                      = grpJ->met;
+  nitem_int_node_comm       = grpJ->nitem_int_node_comm;
+  node2int_node_comm_index1 = grpJ->node2int_node_comm_index1;
+  node2int_node_comm_index2 = grpJ->node2int_node_comm_index2;
+
+  for ( k=0; k<nitem_int_node_comm; ++k ) {
+    poi_id_glo = node2int_node_comm_index2[k];
+    assert(   ( 0 <= poi_id_glo )
+              && ( poi_id_glo < parmesh->int_node_comm->nitem )
+              && "check intvalues indices"  );
+
+    // location in currently working mesh where point data actually are
+    assert ( node2int_node_comm_index1[ k ] <= meshJ->np );
+    pptJ = &meshJ->point[ node2int_node_comm_index1[ k ] ];
+
+    if ( !MG_VOK(pptJ) ) continue;
+
+    /* point pptJ is not found in the merged mesh. add it */
+    if ( !intvalues[ poi_id_glo ] ) {
+      ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
+      if ( !ip ) {
+        /* reallocation of point table */
+        _MMG5_POINT_REALLOC(meshI,metI,ip,meshI->gap,
+                            printf("  ## Error: unable to merge group points\n");
+                            _MMG5_INCREASE_MEM_MESSAGE();
+                            return 0;,
+                            pptJ->c,pptJ->tag,0);
+
+      }
+      assert( (ip < meshI->npmax) && "run out of points" );
+
+      //NIKOS TODO: Remember location in merged mesh in mesh, meshI and
+      //communicator tmp fields
+      pptJ->tmp = ip;
+      intvalues[ poi_id_glo ] = ip;
+
+      /* Add xpoint if needed */
+      if ( pptJ->xp ) {
+        pxpJ = &meshJ->xpoint[pptJ->xp];
+        pptI = &meshI->point[ip];
+        pxpI = &meshI->xpoint[pptI->xp];
+        assert( (pptI->xp <= meshI->xpmax) && "increase xpoints" );
+        assert( (pptI->xp > 0) && "negative xpoints?!?!?!?!?" );
+        memcpy(pxpI,pxpJ,sizeof(MMG5_xPoint));
+      }
+      if ( metI->m ) {
+        size = metI->size;
+        assert(metJ->m);
+        assert( ((size==1||size==6) && size==metJ->size) && "met size issues" );
+        memcpy(&metI->m[size*ip],&metJ->m[size*k],size*sizeof(double));
+      }
+    } else {
+      /* point already exists in merged mesh. update his tmp field to point to
+       * its meshI index */
+      pptJ->tmp = intvalues[ poi_id_glo ];
+    }
+  }
+
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -20,7 +109,6 @@
  * communicator) into the mesh0 mesh.
  *
  */
-static inline
 int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   PMMG_pGrp      listgrp;
   MMG5_pMesh     meshI,meshJ;
@@ -59,65 +147,10 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   /** Step 2: add points referenced by the rest of the groups meshes' internal
    * communicators to the merging mesh (meshI) and in intvalues */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
-    meshJ                     = listgrp[imsh].mesh;
-    metJ                      = listgrp[imsh].met;
-    nitem_int_node_comm       = listgrp[imsh].nitem_int_node_comm;
-    node2int_node_comm_index1 = listgrp[imsh].node2int_node_comm_index1;
-    node2int_node_comm_index2 = listgrp[imsh].node2int_node_comm_index2;
-
-    for ( k=0; k<nitem_int_node_comm; ++k ) {
-      poi_id_glo = node2int_node_comm_index2[k];
-      assert(   ( 0 <= poi_id_glo )
-             && ( poi_id_glo < parmesh->int_node_comm->nitem )
-             && "check intvalues indices"  );
-
-      // location in currently working mesh where point data actually are
-      assert ( node2int_node_comm_index1[ k ] <= meshJ->np );
-      pptJ = &meshJ->point[ node2int_node_comm_index1[ k ] ];
-
-      if ( !MG_VOK(pptJ) ) continue;
-
-      /* point pptJ is not found in the merged mesh. add it */
-      if ( !intvalues[ poi_id_glo ] ) {
-        ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
-        if ( !ip ) {
-          /* reallocation of point table */
-          _MMG5_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                              printf("  ## Error: unable to merge group points\n");
-                              _MMG5_INCREASE_MEM_MESSAGE();
-                              return 0;,
-                              pptJ->c,pptJ->tag,0);
-
-        }
-        assert( (ip < meshI->npmax) && "run out of points" );
-
-        //NIKOS TODO: Remember location in merged mesh in mesh, meshI and
-        //communicator tmp fields
-        pptJ->tmp = ip;
-        intvalues[ poi_id_glo ] = ip;
-
-        /* Add xpoint if needed */
-        if ( pptJ->xp ) {
-          pxpJ = &meshJ->xpoint[pptJ->xp];
-          pptI = &meshI->point[ip];
-          pxpI = &meshI->xpoint[pptI->xp];
-          assert( (pptI->xp <= meshI->xpmax) && "increase xpoints" );
-          assert( (pptI->xp > 0) && "negative xpoints?!?!?!?!?" );
-          memcpy(pxpI,pxpJ,sizeof(MMG5_xPoint));
-        }
-        if ( metI->m ) {
-          size = metI->size;
-          assert(metJ->m);
-          assert( ((size==1||size==6) && size==metJ->size) && "met size issues" );
-          memcpy(&metI->m[size*ip],&metJ->m[size*k],size*sizeof(double));
-        }
-      } else {
-        /* point already exists in merged mesh. update his tmp field to point to
-         * its meshI index */
-        pptJ->tmp = intvalues[ poi_id_glo ];
-      }
-    }
+    if ( !PMMG_mergeGrpJinI_interfacePoints_addGrpJ(parmesh,grpI,&listgrp[imsh]) )
+      return 0;
   }
+
   return 1;
 }
 

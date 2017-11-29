@@ -149,7 +149,9 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh);
 int PMMG_split_n2mGrps(PMMG_pParMesh,int,int);
 
 /* Mesh merge */
-int  PMMG_merge_grps ( PMMG_pParMesh parmesh );
+int PMMG_mergeGrpJinI_interfacePoints_addGrpJ(PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
+int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI );
+int PMMG_merge_grps ( PMMG_pParMesh parmesh );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
