@@ -224,8 +224,8 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  * mesh. An interface tetra is a tetra that has at least 1 interface triangle.
  *
  */
-int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                  PMMG_pGrp grpJ) {
+int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                     PMMG_pGrp grpJ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pTetra    ptI,ptJ;
   MMG5_pxTetra   pxtI,pxtJ;
@@ -661,7 +661,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     }
 
     /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
-    if ( !PMMG_mergeGrps_interfaceTetra(parmesh,&listgrp[0],grp) )
+    if ( !PMMG_mergeGrpJinI_interfaceTetra(parmesh,&listgrp[0],grp) )
       goto fail_comms;
 
     /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
