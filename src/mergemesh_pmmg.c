@@ -376,6 +376,7 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -384,10 +385,8 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  *
  */
 static inline
-int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
-  PMMG_pGrp      grp;
-  MMG5_pMesh     mesh0;
-  MMG5_pSol      met0;
+int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
+  MMG5_pMesh     meshI;
   MMG5_pPoint    ppt;
   PMMG_pext_comm ext_node_comm;
   PMMG_pint_comm int_node_comm;
@@ -397,20 +396,17 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
   int            poi_id_int,poi_id_glo,idx,k,i,ip;
   int            new_nitem_int_node_comm;
 
-  grp  = parmesh->listgrp;
-
   int_node_comm              = parmesh->int_node_comm;
   intvalues                  = int_node_comm->intvalues;
-  mesh0                      = grp[0].mesh;
-  met0                       = grp[0].met;
-  nitem_int_node_comm0       = grp[0].nitem_int_node_comm;
-  node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
-  node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
+  meshI                      = grpI->mesh;
+  nitem_int_node_comm0       = grpI->nitem_int_node_comm;
+  node2int_node_comm0_index1 = grpI->node2int_node_comm_index1;
+  node2int_node_comm0_index2 = grpI->node2int_node_comm_index2;
 
   /** Reset the tmp field of the point: it will be used to store the position of
    * a point in the internal communicator */
-  for ( k=1; k<=mesh0->np; k++ )
-    mesh0->point[k].tmp = 0;
+  for ( k=1; k<=meshI->np; k++ )
+    meshI->point[k].tmp = 0;
 
   /** Travel through the external communicators and udpate all the communicators */
   poi_id_int = 0;
@@ -424,40 +420,42 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
       idx = ext_node_comm->int_comm_index[i];
       assert( ( 0 <= idx ) && ( idx < parmesh->int_node_comm->nitem ) && "check intvalues indices" );
       ip  = intvalues[idx];
-      ppt = &mesh0->point[ip];
+
+      /* The point belong to the merged mesh */
+      ppt = &meshI->point[ip];
 
       /* New point in the internal communicator */
       if ( !ppt->tmp ) {
-        if ( poi_id_int == grp[0].nitem_int_node_comm ) {
-          new_nitem_int_node_comm = (int)(1.2*grp[0].nitem_int_node_comm);
-          PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,
+        if ( poi_id_int == grpI->nitem_int_node_comm ) {
+          new_nitem_int_node_comm = (int)(1.2*grpI->nitem_int_node_comm);
+          PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index1,
                        new_nitem_int_node_comm,
-                       grp[0].nitem_int_node_comm,int,
+                       grpI->nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index1",
-                       grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
+                       grpI->nitem_int_node_comm = new_nitem_int_node_comm;
                        return 0);
-          PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,
+          PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index2,
                        new_nitem_int_node_comm,
-                       grp[0].nitem_int_node_comm,int,
+                       grpI->nitem_int_node_comm,int,
                        "(mergeGrps) node2int_node_comm_index2",
-                       grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
+                       grpI->nitem_int_node_comm = new_nitem_int_node_comm;
                        return 0);
-          grp[0].nitem_int_node_comm = new_nitem_int_node_comm;
-          node2int_node_comm0_index1 = grp[0].node2int_node_comm_index1;
-          node2int_node_comm0_index2 = grp[0].node2int_node_comm_index2;
+          grpI->nitem_int_node_comm = new_nitem_int_node_comm;
+          node2int_node_comm0_index1 = grpI->node2int_node_comm_index1;
+          node2int_node_comm0_index2 = grpI->node2int_node_comm_index2;
         }
         node2int_node_comm0_index1[ poi_id_int ]     = ip;
         node2int_node_comm0_index2[ poi_id_int ]     = poi_id_int;
 
         ext_node_comm->int_comm_index[ poi_id_glo++ ]= poi_id_int;
-        ppt->tmp                                     = poi_id_int + k*mesh0->np;
+        ppt->tmp                                     = poi_id_int + k*meshI->np;
         poi_id_int++;
       } else {
         /* The point has already a position in the internal comm */
-        if ( ppt->tmp < k * mesh0->np ) {
+        if ( ppt->tmp < k * meshI->np ) {
           /* The point has been stored in the internal comm by another external
            * comm: update its position in our external comm */
-          ext_node_comm->int_comm_index[ poi_id_glo++] = ppt->tmp%mesh0->np;
+          ext_node_comm->int_comm_index[ poi_id_glo++] = ppt->tmp%meshI->np;
         }
       }
     }
@@ -471,13 +469,13 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
     // ext_node_comm->nitem = poi_id_glo;
   }
 
-  PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,poi_id_int,
-               grp[0].nitem_int_node_comm,int,
+  PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index1,poi_id_int,
+               grpI->nitem_int_node_comm,int,
                "(mergeGrps) node2int_node_comm_index1",return 0);
-  PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index2,poi_id_int,
-               grp[0].nitem_int_node_comm,int,
+  PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index2,poi_id_int,
+               grpI->nitem_int_node_comm,int,
                "(mergeGrps) node2int_node_comm_index2",return 0);
-  grp[0].nitem_int_node_comm = poi_id_int;
+  grpI->nitem_int_node_comm = poi_id_int;
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
                "free int_node_comm intvalues");
   int_node_comm->nitem       = poi_id_int;
@@ -580,7 +578,8 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
 static inline
 int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
-  if ( !PMMG_mergeGrps_nodeCommunicators(parmesh) ) return 0;
+  if ( !PMMG_mergeGrps_nodeCommunicators(parmesh,&parmesh->listgrp[0]) )
+    return 0;
 
   if ( !PMMG_mergeGrps_faceCommunicators(parmesh) ) return 0;
 
