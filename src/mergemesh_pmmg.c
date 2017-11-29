@@ -216,21 +216,21 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param mesh0 pointer toward a MMG5 mesh structure.
- * \param grp pointer toward the group that we want to merge
+ * \param grpI pointer toward the group in which we want to merge
+ * \param grpJ pointer toward the group that we want to merge
  *
  * \return 0 if fail, 1 otherwise
  *
- * Merge the interfaces tetra of the lisgrp[imsh].mesh mesh into the mesh0
+ * Merge the interfaces tetra of \a grpJ->mesh mesh into the \a grpI->mesh
  * mesh. An interface tetra is a tetra that has at least 1 interface triangle.
  *
  */
 static inline
-int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
-                                  PMMG_pGrp grp) {
-  MMG5_pMesh     mesh;
-  MMG5_pTetra    pt0,pt;
-  MMG5_pxTetra   pxt0,pxt;
+int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                  PMMG_pGrp grpJ) {
+  MMG5_pMesh     meshI,meshJ;
+  MMG5_pTetra    ptI,ptJ;
+  MMG5_pxTetra   pxtI,pxtJ;
   int            nitem_int_face_comm;
   int            *intvalues;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
@@ -239,13 +239,15 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
 
   intvalues = parmesh->int_face_comm->intvalues;
 
-  /** Add the interfaces tetra to the mesh0 mesh */
-  mesh                      = grp->mesh;
-  nitem_int_face_comm       = grp->nitem_int_face_comm;
-  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
-  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+  meshI                     = grpI->mesh;
 
-  ++mesh->base;
+  /** Add the interfaces tetra to the meshI mesh */
+  meshJ                     = grpJ->mesh;
+  nitem_int_face_comm       = grpJ->nitem_int_face_comm;
+  face2int_face_comm_index1 = grpJ->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grpJ->face2int_face_comm_index2;
+
+  ++meshJ->base;
   for ( k=0; k<nitem_int_face_comm; ++k ) {
     face_id_glo = face2int_face_comm_index2[k];
     assert( 0 <= face_id_glo );
@@ -254,57 +256,57 @@ int PMMG_mergeGrps_interfaceTetra(PMMG_pParMesh parmesh,MMG5_pMesh mesh0,
     /* Index of the interface tetra in the mesh */
     iel  = face2int_face_comm_index1[k]/4;
     ifac = face2int_face_comm_index1[k]%4;
-    assert ( iel && iel<=mesh->ne );
-    pt       = &mesh->tetra[iel];
+    assert ( iel && iel<=meshJ->ne );
+    ptJ       = &meshJ->tetra[iel];
 
-    assert ( MG_EOK(pt) );
+    assert ( MG_EOK(ptJ) );
 
-    /* If the tetra has already been added to mesh0 */
-    if ( pt->base == mesh->base ) {
+    /* If the tetra has already been added to meshI */
+    if ( ptJ->base == meshJ->base ) {
       /* Store the interface face if it has not been seen from another group */
-      assert( pt->flag );
+      assert( ptJ->flag );
 
       if ( !intvalues[face_id_glo] )
-        intvalues[face_id_glo] = 4*pt->flag+ifac;
+        intvalues[face_id_glo] = 4*ptJ->flag+ifac;
       continue;
     }
 
     /* Else */
-    pt->base = mesh->base;
+    ptJ->base = meshJ->base;
 
-    /* Add the tetra iel to mesh0 */
-    ie = _MMG3D_newElt(mesh0);
+    /* Add the tetra iel to meshI */
+    ie = _MMG3D_newElt(meshI);
     if ( !ie ) {
-      _MMG5_TETRA_REALLOC(mesh0,ie,mesh0->gap,
+      _MMG5_TETRA_REALLOC(meshI,ie,meshI->gap,
                           fprintf(stderr,"  ## Error: unable to merge group elts.\n");
                           _MMG5_INCREASE_MEM_MESSAGE();
                           return 0;,
                           0);
     }
-    pt0 = &mesh0->tetra[ie];
+    ptI = &meshI->tetra[ie];
 
-    for ( i=0; i<4; ++i ) pt0->v[i] = mesh->point[pt->v[i]].tmp;
-    pt0->ref  = pt->ref;
-    pt->flag  = ie;
+    for ( i=0; i<4; ++i ) ptI->v[i] = meshJ->point[ptJ->v[i]].tmp;
+    ptI->ref  = ptJ->ref;
+    ptJ->flag = ie;
 
     /* Store the interface face if it has not been seen from another group */
     if ( !intvalues[face_id_glo] )
       intvalues[face_id_glo] = 4*ie+ifac;
 
     /** Add xtetra if needed */
-    if ( pt->xt ) {
+    if ( ptJ->xt ) {
 #warning add only the "true" xtetras (not those linked to the interfaces)
-      pxt = &mesh->xtetra[pt->xt];
-      mesh0->xt++;
-      if ( mesh0->xt > mesh0->xtmax ) {
-        PMMG_RECALLOC(mesh0, mesh0->xtetra, 1.2 * mesh0->xtmax + 1,
-                      mesh0->xtmax + 1, MMG5_xTetra,
-                      "larger xtetra table", mesh0->xt--; goto fail_ncomm);
-        mesh0->xtmax = 1.2 * mesh0->xtmax;
+      pxtJ = &meshJ->xtetra[ptJ->xt];
+      meshI->xt++;
+      if ( meshI->xt > meshI->xtmax ) {
+        PMMG_RECALLOC(meshI, meshI->xtetra, 1.2 * meshI->xtmax + 1,
+                      meshI->xtmax + 1, MMG5_xTetra,
+                      "larger xtetra table", meshI->xt--; goto fail_ncomm);
+        meshI->xtmax = 1.2 * meshI->xtmax;
       }
-      pt0->xt = mesh0->xt;
-      pxt0 = &mesh0->xtetra[pt0->xt];
-      memcpy(pxt0,pxt,sizeof(MMG5_xTetra));
+      ptI->xt = meshI->xt;
+      pxtI = &meshI->xtetra[ptI->xt];
+      memcpy(pxtI,pxtJ,sizeof(MMG5_xTetra));
     }
   }
 
@@ -662,7 +664,8 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     }
 
     /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
-    if ( !PMMG_mergeGrps_interfaceTetra(parmesh,mesh0,grp) ) goto fail_comms;
+    if ( !PMMG_mergeGrps_interfaceTetra(parmesh,&listgrp[0],grp) )
+      goto fail_comms;
 
     /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalTetra(parmesh,&listgrp[0],grp) )
