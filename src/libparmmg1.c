@@ -150,7 +150,12 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     disp                      = grp->disp;
 
     /* Pack tetrahedra */
-    if ( !PMMG_packTetra(parmesh,igrp) ) return 0;
+    if ( mesh->adja ) {
+      if ( !MMG3D_pack_tetraAndAdja(mesh) ) return 0;
+    }
+    else {
+      if ( !MMG3D_pack_tetra(mesh) ) return 0;
+    }
 
     /* update prisms and quads vertex indices */
     if ( !MMG3D_pack_prismsAndQuads(mesh) ) return 0;
@@ -482,6 +487,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
 #endif
       /** Pack the tetra */
+      if ( mesh->adja )
+        PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table");
+
       if ( !_MMG5_paktet(mesh) ) {
         fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
         goto strong_failed;
