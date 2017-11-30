@@ -154,24 +154,25 @@ int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param grpI pointer toward the group in which we want to merge.
  *
  * \return 0 if fail, 1 otherwise
  *
  * Merge the interface points of all the parmesh groups (and listed inside the
- * internal communicator) into the \a grpI group.
+ * internal communicator) into the group 0.
  *
  */
-int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
-
+int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      listgrp,grpI;
   MMG5_pMesh     meshI;
   MMG5_pSol      metI;
   int            *intvalues;
   int            poi_id_int,poi_id_glo,imsh,k;
 
+  listgrp   = parmesh->listgrp;
+
+  grpI      = &listgrp[0];
   meshI     = grpI->mesh;
   metI      = grpI->met;
-
   intvalues = parmesh->int_node_comm->intvalues;
 
   /** Use the tmp field of points in meshes to remember the id in the merged mesh
@@ -687,7 +688,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   }
 
    /** Step 1: Merge interface points from all meshes into mesh0->points */
-  if ( !PMMG_mergeGrps_interfacePoints(parmesh,&listgrp[0]) ) goto fail_comms;
+  if ( !PMMG_mergeGrps_interfacePoints(parmesh) ) goto fail_comms;
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];

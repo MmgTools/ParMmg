@@ -149,8 +149,8 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh);
 int PMMG_split_n2mGrps(PMMG_pParMesh,int,int);
 
 /* Mesh merge */
-int PMMG_mergeGrpJinI_interfacePoints_addGrpJ(PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
-int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI );
+int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
+int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh );
 int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp grpJ );
 int PMMG_mergeGrpJinI_interfaceTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
 int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
