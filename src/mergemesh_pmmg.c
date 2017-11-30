@@ -374,7 +374,7 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
   /** Reset the tmp field of the point: it will be used to store the position of
    * a point in the internal communicator */
   for ( k=1; k<=mesh0->np; k++ )
-    mesh0->point[k].tmp = 0;
+    mesh0->point[k].tmp = -1;
 
   /** Travel through the external communicators and udpate all the communicators */
   poi_id_int = 0;
@@ -386,12 +386,15 @@ int PMMG_mergeGrps_nodeCommunicators(PMMG_pParMesh parmesh) {
     poi_id_glo = 0;
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
       idx = ext_node_comm->int_comm_index[i];
-      assert( ( 0 <= idx ) && ( idx < parmesh->int_node_comm->nitem ) && "check intvalues indices" );
+      assert( (0<=idx ) && (idx<parmesh->int_node_comm->nitem) &&
+              "check intvalues indices" );
       ip  = intvalues[idx];
+
+      assert ( ip && ip < mesh0->np );
       ppt = &mesh0->point[ip];
 
       /* New point in the internal communicator */
-      if ( !ppt->tmp ) {
+      if ( ppt->tmp<0 ) {
         if ( poi_id_int == grp[0].nitem_int_node_comm ) {
           new_nitem_int_node_comm = (int)(1.2*grp[0].nitem_int_node_comm);
           PMMG_REALLOC(parmesh,grp[0].node2int_node_comm_index1,
