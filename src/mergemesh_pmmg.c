@@ -52,7 +52,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
     assert ( node2int_node_comm_index1[ k ] <= meshJ->np );
     pptJ = &meshJ->point[ node2int_node_comm_index1[ k ] ];
 
-    if ( !MG_VOK(pptJ) ) continue;
+    if ( (!MG_VOK(pptJ)) || pptJ->tmp ) continue;
 
     /* point pptJ is not found in the merged mesh. add it */
     if ( !intvalues[ poi_id_glo ] ) {
@@ -68,8 +68,6 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       }
       assert( (ip < meshI->npmax) && "run out of points" );
 
-      //NIKOS TODO: Remember location in merged mesh in mesh, meshI and
-      //communicator tmp fields
       pptJ->tmp = ip;
       intvalues[ poi_id_glo ] = ip;
 
@@ -79,7 +77,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
         pptI = &meshI->point[ip];
         pxpI = &meshI->xpoint[pptI->xp];
         assert( (pptI->xp <= meshI->xpmax) && "increase xpoints" );
-        assert( (pptI->xp > 0) && "negative xpoints?!?!?!?!?" );
+        assert( (pptI->xp > 0) && "negative xpoints" );
         memcpy(pxpI,pxpJ,sizeof(MMG5_xPoint));
       }
       if ( metI->m ) {
@@ -91,7 +89,8 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
     } else {
       /* point already exists in merged mesh. update his tmp field to point to
        * its meshI index */
-      pptJ->tmp = intvalues[ poi_id_glo ];
+      pptJ->tmp = abs(intvalues[ poi_id_glo ]);
+      intvalues[ poi_id_glo ] *= -1;
     }
   }
 
@@ -469,7 +468,7 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
       idx = ext_node_comm->int_comm_index[i];
       assert( (0<=idx ) && (idx<parmesh->int_node_comm->nitem) &&
               "check intvalues indices" );
-      ip  = intvalues[idx];
+      ip  = abs(intvalues[idx]);
       assert ( ip && ip<=meshI->np );
 
       /* The point belong to the merged mesh */
