@@ -259,8 +259,9 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       /* Store the interface face if it has not been seen from another group */
       assert( ptJ->flag );
 
-      if ( !intvalues[face_id_glo] )
-        intvalues[face_id_glo] = 4*ptJ->flag+ifac;
+      if ( !intvalues[face_id_glo] ) intvalues[face_id_glo] = 4*ptJ->flag+ifac;
+      else intvalues[face_id_glo] *= -1;
+
       continue;
     }
 
@@ -283,8 +284,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     ptJ->flag = ie;
 
     /* Store the interface face if it has not been seen from another group */
-    if ( !intvalues[face_id_glo] )
-      intvalues[face_id_glo] = 4*ie+ifac;
+    if ( !intvalues[face_id_glo] ) intvalues[face_id_glo] = 4*ie+ifac;
+    else intvalues[face_id_glo] *= -1;
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
@@ -458,12 +459,6 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
     }
     assert( (poi_id_glo != 0)  && "empty communicator?????" );
     assert(poi_id_glo==ext_node_comm->nitem);
-
-    // To remove if the assertion is always true.
-    // PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index, poi_id_glo,
-    //              ext_node_comm->nitem,int,"(mergeGrps) ext_node_comm",
-    //              ext_node_comm->nitem = poi_id_glo;return 0);
-    // ext_node_comm->nitem = poi_id_glo;
   }
 
   PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index1,poi_id_int,
@@ -521,7 +516,7 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
 
     for ( i=0; i<ext_face_comm->nitem; ++i ) {
       idx = ext_face_comm->int_comm_index[i];
-      iel = intvalues[idx];
+      iel = abs(intvalues[idx]);
       assert(iel);
 
       /* Add this face to the face communicators */

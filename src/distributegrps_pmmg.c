@@ -498,8 +498,7 @@ fail:
  * processors and send and recieve the groups from the other processors.
  *
  */
-int PMMG_distribute_grps( PMMG_pParMesh parmesh )
-{
+int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
 
   /** Get the new partition of groups (1 group = 1 metis node) */
