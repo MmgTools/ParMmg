@@ -646,7 +646,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     for ( k=0; k<listgrp[0].nitem_int_face_comm; ++k ) {
       iel = face2int_face_comm_index1[k];
       assert(   ( 0 <= face2int_face_comm_index2[k] )
-             && ( face2int_face_comm_index2[k] < parmesh->int_node_comm->nitem )
+             && ( face2int_face_comm_index2[k] < parmesh->int_face_comm->nitem )
              && "check intvalues indices" );
       parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
     }
