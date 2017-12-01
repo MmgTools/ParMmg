@@ -92,6 +92,7 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
 /**
  * \param parmesh parmmg struct pointer
  * \param grp     working group pointer
+ * \param max     pointer toward the size of the node2int_node_comm arrays
  * \param idx1    index1 value
  * \param idx2    index2 value
  *
@@ -101,7 +102,8 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
  *  Append new values in  group's internal communitor, resizing the buffers if
  *  required
  */
-static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int idx1, int idx2 )
+static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
+                             int idx1, int idx2 )
 {
   assert( (max != 0) && "null pointer passed" );
   // Adjust the value of scale to reallocate memory more or less agressively
@@ -124,6 +126,7 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max, int
 /**
  * \param parmesh pointer toward the parmmg structure
  * \param grp     pointer toward the working group
+ * \param max     pointer toward the size of the node2int_face_comm arrays
  * \param idx1    \f$ 4\times iel + ifac \f$ with \a iel the index of the
  * element to which the face belong and \a ifac the local index of the face in
  * \a iel
