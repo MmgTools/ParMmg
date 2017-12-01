@@ -97,7 +97,7 @@ int PMMG_checkIntComm( PMMG_pParMesh mesh )
     meshCur = grpCur->mesh;
     commSizeLoc = grpCur->nitem_int_node_comm;
 
-    for ( commIdx = 0; commIdx < commSizeGlo + 1; ++commIdx )
+    for ( commIdx = 0; commIdx < commSizeGlo; ++commIdx )
       check[ commIdx ].tmp = 0;
 
     for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {

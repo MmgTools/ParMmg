@@ -385,7 +385,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
  * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
  * \param part metis partition
- * \param posInIntFaceComm poisition of each tetra face in the internal face
+ * \param posInIntFaceComm position of each tetra face in the internal face
  * communicator (-1 if not in the internal face comm)
  *
  * \return 0 if fail, 1 if success

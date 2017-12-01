@@ -78,8 +78,265 @@ PMMG_Grp PMMG_move_grp(PMMG_pGrp group) {
 }
 
 /**
- * \param grpI group in which we want to merge
- * \param grpJ group that we want to merge with group \a grpI
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge.
+ * \param grpJ pointer toward the group that we want to merge.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the node communicators when merging the group \a grpJ into the group
+ * \a grpI.
+ *
+ */
+static inline
+int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                         PMMG_pGrp grpJ ) {
+  PMMG_pext_comm ext_node_comm;
+  int            nitem_int_node_commI,nitem_int_node_commJ,*intvalues;
+  int           *node2int_node_commI_index1;
+  int           *node2int_node_commI_index2,*node2int_node_commJ_index2;
+  int            idx,k,i,ip;
+  int            new_nitem;
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  /** Step 1: Travel through the external communicators and mark their points as
+   * used in the intvalues array (set a poisitive value even if the point is
+   * shared between the merged groups (negative)) */
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+
+    /* currently working external communicator */
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx = ext_node_comm->int_comm_index[i];
+      assert( (0<=idx ) && (idx<parmesh->int_node_comm->nitem) &&
+              "check ext_comm index" );
+      intvalues[idx] = abs(intvalues[idx]);
+    }
+  }
+
+  /** Step 2: Process the interface points of the group \a grpI and delete the
+   * points that will be removed from the internal communicator (points shared
+   * with the group \a grpJ and that doesn't belong to the external
+   * communicators) */
+  nitem_int_node_commJ        = grpJ->nitem_int_node_comm;
+  nitem_int_node_commI        = grpI->nitem_int_node_comm;
+
+  /* Worst case allocation */
+  PMMG_REALLOC(parmesh, grpI->node2int_node_comm_index1,
+               nitem_int_node_commI+nitem_int_node_commJ,
+               nitem_int_node_commI, int,"node2int_node_comm_index1",
+               return 0);
+  PMMG_REALLOC(parmesh, grpI->node2int_node_comm_index2,
+               nitem_int_node_commI+nitem_int_node_commJ,
+               nitem_int_node_commI, int,"node2int_node_comm_index2",
+               return 0);
+  node2int_node_commI_index1  = grpI->node2int_node_comm_index1;
+  node2int_node_commI_index2  = grpI->node2int_node_comm_index2;
+
+  new_nitem = 0;
+  for ( k=0; k<nitem_int_node_commI; ++k ) {
+    idx = node2int_node_commI_index2[k];
+    if ( intvalues[idx]<0 ) continue;
+
+    /* Mark the position of intvalue as already treated */
+    intvalues[idx] *=-1;
+
+    node2int_node_commI_index1[new_nitem] = node2int_node_commI_index1[k];
+    node2int_node_commI_index2[new_nitem] = node2int_node_commI_index2[k];
+    ++new_nitem;
+  }
+
+  /** Step 3: Process the interface points of the group \a grpJ and add the
+   * points used by the internal communicator in the list of interface points of
+   * the group \a grpI */
+  node2int_node_commJ_index2  = grpJ->node2int_node_comm_index2;
+
+  for ( k=0; k<nitem_int_node_commJ; ++k ) {
+    idx = node2int_node_commJ_index2[k];
+    if ( intvalues[idx]<0 ) continue;
+
+    /* Mark the position of intvalue as already treated */
+    intvalues[idx] *=-1;
+
+    /* recover the point index in grpI from the point in grpJ */
+    ip = grpJ->node2int_node_comm_index1[k];
+    assert ( MG_VOK(&grpJ->mesh->point[ip]) );
+
+    node2int_node_commI_index1[new_nitem] = grpJ->mesh->point[ip].tmp;
+    node2int_node_commI_index2[new_nitem] = node2int_node_commJ_index2[k];
+    ++new_nitem;
+  }
+  PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index1,new_nitem,
+               nitem_int_node_commI+nitem_int_node_commJ,
+               int,"node2int_node_comm_index1",return 0);
+  PMMG_REALLOC(parmesh, grpI->node2int_node_comm_index2,new_nitem,
+               nitem_int_node_commI+nitem_int_node_commJ,
+               int,"node2int_node_comm_index2",return 0);
+  grpI->nitem_int_node_comm = new_nitem;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge.
+ * \param grpJ pointer toward the group that we want to merge.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the face communicators when merging the group \a grpJ into the group
+ * \a grpI.
+ *
+ */
+static inline
+int PMMG_mergeGrpJinI_faceCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                         PMMG_pGrp grpJ ) {
+  int            nitem_int_face_commI,nitem_int_face_commJ,*intvalues;
+  int           *face2int_face_commI_index1;
+  int           *face2int_face_commI_index2,*face2int_face_commJ_index2;
+  int            idx,k,iel;
+  int            new_nitem;
+
+  intvalues = parmesh->int_face_comm->intvalues;
+
+  /** Step 1: Process the interface points of the group \a grpI and delete the
+   * points that will be removed from the internal communicator (points shared
+   * with the group \a grpJ and that doesn't belong to the external
+   * communicators) */
+  nitem_int_face_commJ        = grpJ->nitem_int_face_comm;
+  nitem_int_face_commI        = grpI->nitem_int_face_comm;
+
+  /* Worst case allocation */
+  PMMG_REALLOC(parmesh, grpI->face2int_face_comm_index1,
+               nitem_int_face_commI+nitem_int_face_commJ,
+               nitem_int_face_commI, int,"face2int_face_comm_index1",
+               return 0);
+  PMMG_REALLOC(parmesh, grpI->face2int_face_comm_index2,
+               nitem_int_face_commI+nitem_int_face_commJ,
+               nitem_int_face_commI, int,"face2int_face_comm_index2",
+               return 0);
+
+  face2int_face_commI_index1  = grpI->face2int_face_comm_index1;
+  face2int_face_commI_index2  = grpI->face2int_face_comm_index2;
+  new_nitem = 0;
+  for ( k=0; k<nitem_int_face_commI; ++k ) {
+    idx = face2int_face_commI_index2[k];
+    if ( intvalues[idx]<0 ) continue;
+
+    face2int_face_commI_index1[new_nitem] = face2int_face_commI_index1[k];
+    face2int_face_commI_index2[new_nitem] = face2int_face_commI_index2[k];
+    ++new_nitem;
+  }
+
+  /** Step 2: Process the interface points of the group \a grpJ and add the
+   * points used by the internal communicator in the list of interface points of
+   * the group \a grpI */
+  face2int_face_commJ_index2  = grpJ->face2int_face_comm_index2;
+
+  for ( k=0; k<nitem_int_face_commJ; ++k ) {
+    idx = face2int_face_commJ_index2[k];
+    iel = intvalues[idx];
+
+    assert ( iel );
+    if ( iel<0 ) continue;
+
+    assert ( MG_EOK(&grpI->mesh->tetra[iel/4]) );
+    face2int_face_commI_index1[new_nitem] = iel;
+    face2int_face_commI_index2[new_nitem] = face2int_face_commJ_index2[k];
+    ++new_nitem;
+  }
+  PMMG_REALLOC(parmesh,grpI->face2int_face_comm_index1,new_nitem,
+               nitem_int_face_commI+nitem_int_face_commJ,
+               int,"face2int_face_comm_index1",return 0);
+  PMMG_REALLOC(parmesh,grpI->face2int_face_comm_index2,new_nitem,
+               nitem_int_face_commI+nitem_int_face_commJ,
+               int,"face2int_face_comm_index2",return 0);
+  grpI->nitem_int_face_comm = new_nitem;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge
+ * \param grpJ pointer toward the group that we want to merge with group \a grpI
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the communicators when merging the group \a grpJ into the group \a
+ * grpI.
+ *
+ */
+static inline
+int PMMG_mergeGrpJinI_communicators(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                    PMMG_pGrp grpJ) {
+
+  if ( !PMMG_mergeGrpJinI_nodeCommunicators(parmesh,grpI,grpJ) ) return 0;
+
+  if ( !PMMG_mergeGrpJinI_faceCommunicators(parmesh,grpI,grpJ) ) return 0;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge.
+ * \param grpJ pointer toward the group that we want to merge.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Merge the interface points of the group \a grpJ (listed inside the
+ * internal communicator) into the \a grpI group.
+ *
+ */
+static inline
+int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
+                                       PMMG_pGrp grpJ ) {
+  MMG5_pMesh     meshI,meshJ;
+  MMG5_pSol      metI,metJ;
+  int            *intvalues;
+  int            poi_id_int,poi_id_glo,k;
+
+  meshI     = grpI->mesh;
+  metI      = grpI->met;
+
+  meshJ     = grpJ->mesh;
+  metJ      = grpJ->met;
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  /** Use the tmp field of points in meshes to remember the id in the merged mesh
+   * of points that have already been added to the merged mesh or 0 if they
+   * haven't been merged yet */
+  for ( k = 1; k <= meshI->np; ++k )
+    meshI->point[k].tmp = 0;
+
+  for ( k = 1; k <= meshJ->np; ++k )
+    meshJ->point[k].tmp = 0;
+
+  /** Step 1: store the indices of the interface entities of meshI into the
+   * internal communicators */
+  for ( k = 0; k < grpI->nitem_int_node_comm; ++k ) {
+    poi_id_int = grpI->node2int_node_comm_index1[k];
+    poi_id_glo = grpI->node2int_node_comm_index2[k];
+    assert(   ( 0 <= poi_id_glo )
+           && ( poi_id_glo < parmesh->int_node_comm->nitem )
+           && "check intvalues indices" );
+    intvalues[ poi_id_glo ] = poi_id_int;
+  }
+
+  /** Step 2: add the interface points of the group grpJ into the group grpI */
+  if ( !PMMG_mergeGrpJinI_interfacePoints_addGrpJ(parmesh,grpI,grpJ ) )
+    return 0;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpI pointer toward the group in which we want to merge
+ * \param grpJ pointer toward the group that we want to merge with group \a grpI
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -92,8 +349,6 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
   PMMG_pint_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            k,iel;
-
-  return 0;
 
   /** Use the internal communicators to mark the interface entities indices: a
    * null entitie means that the point belongs to another group or to an
@@ -187,6 +442,63 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
  */
 static inline
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
+  PMMG_pGrp      grp;
+  PMMG_pint_comm int_node_comm;
+  PMMG_pext_comm ext_node_comm;
+  int            *intvalues;
+  int            *node2int_node_comm_index2;
+  int            k,nitem,idx,i;
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  /** Step 1: initialization of the communicator */
+  int_node_comm = parmesh->int_node_comm;
+  for ( k=0; k<int_node_comm->nitem; ++k )
+    intvalues[k] = PMMG_UNSET;
+
+  /** Step 2: Process the interface points of each group and store in intvalue
+   * their new position in the internal communicator */
+  nitem = 0;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp = &parmesh->listgrp[k];
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i )
+      if ( intvalues[grp->node2int_node_comm_index2[i]]<0 )
+        intvalues[grp->node2int_node_comm_index2[i]] = nitem++;
+  }
+
+  /** Step 3: Update the group communicators arrays with the new points
+   * position */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp                       = &parmesh->listgrp[k];
+    node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+      idx = intvalues[node2int_node_comm_index2[i]];
+      assert ( idx>=0 && "Deleted position in internal communicator" );
+
+      node2int_node_comm_index2[i] = idx;
+    }
+  }
+
+  /** Step 4: Update the external communicators arrays with the new points
+   * position */
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx = intvalues[ext_node_comm->int_comm_index[i]];
+      assert ( idx>=0 && "Deleted position in internal communicator" );
+
+      ext_node_comm->int_comm_index[i] = idx;
+    }
+  }
+
+  /** Step 5: unallocate intvalues array and set the nitem field of the internal
+   * communicator to the suitable value */
+  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
+                "node communicator");
+  int_node_comm->nitem = nitem;
 
   return 1;
 }
@@ -202,6 +514,63 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
  */
 static inline
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
+  PMMG_pGrp      grp;
+  PMMG_pint_comm int_face_comm;
+  PMMG_pext_comm ext_face_comm;
+  int            *intvalues;
+  int            *face2int_face_comm_index2;
+  int            k,nitem,idx,i;
+
+  intvalues = parmesh->int_face_comm->intvalues;
+
+  /** Step 1: initialization of the communicator */
+  int_face_comm = parmesh->int_face_comm;
+  for ( k=0; k<int_face_comm->nitem; ++k )
+    intvalues[k] = PMMG_UNSET;
+
+  /** Step 2: Process the interface points of each group and store in intvalue
+   * their new position in the internal communicator */
+  nitem = 0;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp = &parmesh->listgrp[k];
+
+    for ( i=0; i<grp->nitem_int_face_comm; ++i )
+      if ( intvalues[grp->face2int_face_comm_index2[i]]<0 )
+        intvalues[grp->face2int_face_comm_index2[i]] = nitem++;
+  }
+
+  /** Step 3: Update the group communicators arrays with the new points
+   * position */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp                       = &parmesh->listgrp[k];
+    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+      idx = intvalues[face2int_face_comm_index2[i]];
+      assert ( idx>=0 && "Deleted position in internal communicator" );
+
+      face2int_face_comm_index2[i] = idx;
+    }
+  }
+
+  /** Step 4: Update the external communicators arrays with the new points
+   * position */
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+
+    for ( i=0; i<ext_face_comm->nitem; ++i ) {
+      idx = intvalues[ext_face_comm->int_comm_index[i]];
+      assert ( idx>=0 && "Deleted position in internal communicator" );
+
+      ext_face_comm->int_comm_index[i] = idx;
+    }
+  }
+
+  /** Step 5: unallocate intvalues array and set the nitem field of the internal
+   * communicator to the suitable value */
+  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+                "face communicator");
+  int_face_comm->nitem = nitem;
 
   return 1;
 }
@@ -311,7 +680,8 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   assert ( memAv >=0 );
 
   /** Step 1: New groups allocation and initialization: move the groups to have
-   * a group that will be send to proc k stored in grps[k] */
+   * a group that will be send to proc k stored in grps[k]. Free the adja
+   * array. */
 
   // If this step is too expensive in memory, we can count the number of procs
   // with which we will communicate and fill directly the pack array.
@@ -319,6 +689,12 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   j = 0;
   for ( k=0; k<ngrp; ++k ) {
+    /* Free the adja array */
+    meshI = parmesh->listgrp[k].mesh;
+    if ( meshI->adja )
+      PMMG_DEL_MEM(meshI, meshI->adja, 4*meshI->nemax+5, int, "adjacency table" );
+
+    /* Group initialization */
     if ( grps[(*part)[k]].mesh ) continue;
 
     grps[(*part)[k]] = PMMG_move_grp(&parmesh->listgrp[k]);
@@ -383,19 +759,16 @@ low_fail:
   else ier = 0;
 
 end:
-  /* Pack the communicators */
-  if ( !PMMG_pack_nodeCommunicators(parmesh) ) ier = -1;
-  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
-              "node communicator");
 
-  if ( !PMMG_pack_faceCommunicators(parmesh) ) ier = -1;
-  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int_node_comm->nitem,int,
-                "face communicator");
-
-  /** Step 3: Update listgrp */
+  /** Step 3: Update the parmesh */
   PMMG_DEL_MEM(parmesh,parmesh->listgrp,parmesh->ngrp,PMMG_Grp,"listgrp");
   parmesh->listgrp = grps;
   parmesh->ngrp    = ngrp;
+
+  /* Pack the communicators */
+  if ( !PMMG_pack_nodeCommunicators(parmesh) ) ier = -1;
+
+  if ( !PMMG_pack_faceCommunicators(parmesh) ) ier = -1;
 
   if ( !PMMG_parmesh_updateMemMax(parmesh, 105, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"

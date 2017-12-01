@@ -49,7 +49,8 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
               && "check intvalues indices"  );
 
     // location in currently working mesh where point data actually are
-    assert ( node2int_node_comm_index1[ k ] <= meshJ->np );
+    ip =  node2int_node_comm_index1[ k ];
+    assert ( ip && ip <= meshJ->np );
     pptJ = &meshJ->point[ node2int_node_comm_index1[ k ] ];
 
     if ( (!MG_VOK(pptJ)) || pptJ->tmp ) continue;
@@ -628,7 +629,19 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     mesh0->memMax += (mesh->memMax - mesh->memCur);
   }
 
-   /** Step 1: Merge interface points from all meshes into mesh0->points */
+  /** Step 0: Store the indices of the interface faces of mesh0 into the
+   * internal face communicator */
+  face2int_face_comm_index1 = listgrp[0].face2int_face_comm_index1;
+  face2int_face_comm_index2 = listgrp[0].face2int_face_comm_index2;
+  for ( k=0; k<listgrp[0].nitem_int_face_comm; ++k ) {
+    iel = face2int_face_comm_index1[k];
+    assert(   ( 0 <= face2int_face_comm_index2[k] )
+              && ( face2int_face_comm_index2[k] < parmesh->int_face_comm->nitem )
+              && "check intvalues indices" );
+    parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
+  }
+
+  /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh) ) goto fail_comms;
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
@@ -638,20 +651,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     if ( !PMMG_mergeGrpJinI_internalPoints(parmesh,&listgrp[0],grp) )
       goto fail_comms;
 
-    /** Step 3: Merge interfaces tetras of the imsh mesh into the mesh0 mesh */
-    /* 1) Store the indices of the interface faces of mesh0 into the internal
-     * face communicator */
-    face2int_face_comm_index1 = listgrp[0].face2int_face_comm_index1;
-    face2int_face_comm_index2 = listgrp[0].face2int_face_comm_index2;
-    for ( k=0; k<listgrp[0].nitem_int_face_comm; ++k ) {
-      iel = face2int_face_comm_index1[k];
-      assert(   ( 0 <= face2int_face_comm_index2[k] )
-             && ( face2int_face_comm_index2[k] < parmesh->int_face_comm->nitem )
-             && "check intvalues indices" );
-      parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
-    }
-
-    /* 2) Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
+    /* Step 3: Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_interfaceTetra(parmesh,&listgrp[0],grp) )
       goto fail_comms;
 
