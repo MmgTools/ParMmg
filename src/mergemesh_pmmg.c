@@ -100,59 +100,6 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param grpI pointer toward the group in which we want to merge.
- * \param grpJ pointer toward the group that we want to merge.
- *
- * \return 0 if fail, 1 otherwise
- *
- * Merge the interface points of the group \a grpJ (listed inside the
- * internal communicator) into the \a grpI group.
- *
- */
-int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                       PMMG_pGrp grpJ ) {
-  MMG5_pMesh     meshI,meshJ;
-  MMG5_pSol      metI,metJ;
-  int            *intvalues;
-  int            poi_id_int,poi_id_glo,k;
-
-  meshI     = grpI->mesh;
-  metI      = grpI->met;
-
-  meshJ     = grpJ->mesh;
-  metJ      = grpJ->met;
-
-  intvalues = parmesh->int_node_comm->intvalues;
-
-  /** Use the tmp field of points in meshes to remember the id in the merged mesh
-   * of points that have already been added to the merged mesh or 0 if they
-   * haven't been merged yet */
-  for ( k = 1; k <= meshI->np; ++k )
-    meshI->point[k].tmp = 0;
-
-  for ( k = 1; k <= meshJ->np; ++k )
-    meshJ->point[k].tmp = 0;
-
-  /** Step 1: store the indices of the interface entities of meshI into the
-   * internal communicators */
-  for ( k = 0; k < grpI->nitem_int_node_comm; ++k ) {
-    poi_id_int = grpI->node2int_node_comm_index1[k];
-    poi_id_glo = grpI->node2int_node_comm_index2[k];
-    assert(   ( 0 <= poi_id_glo )
-           && ( poi_id_glo < parmesh->int_node_comm->nitem )
-           && "check intvalues indices" );
-    intvalues[ poi_id_glo ] = poi_id_int;
-  }
-
-  /** Step 2: add the interface points of the group grpJ into the group grpI */
-  if ( !PMMG_mergeGrpJinI_interfacePoints_addGrpJ(parmesh,grpI,grpJ ) )
-    return 0;
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
  *
  * \return 0 if fail, 1 otherwise
  *
