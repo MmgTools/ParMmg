@@ -1229,8 +1229,12 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
                   return 0);
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
 
-    if ( rcv_met )
+    if ( rcv_met ) {
+      _MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
+                    fprintf(stderr,"  Exit program.\n");
+                    return 0);
       _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
+    }
 
     for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
 
