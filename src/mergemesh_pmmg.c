@@ -986,8 +986,16 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
   _MMG5_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1)*sizeof(MMG5_xPoint));
   _MMG5_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1)*sizeof(MMG5_xTetra));
+  if ( mesh->adja ) {
+    _MMG5_DEL_MEM( mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
+  }
   if(isMet)
     _MMG5_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size*sizeof(double));
+
+  mesh->np = mesh->npmax = 0;
+  mesh->ne = mesh->nemax = 0;
+  mesh->xp = mesh->xpmax = 0;
+  mesh->xt = mesh->xtmax = 0;
 
   /* 2: communicators */
   _MMG5_SAFE_FREE(grp->edge2int_edge_comm_index1);
