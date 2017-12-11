@@ -1173,10 +1173,17 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
     mesh->nemax  = mesh->ne = ne_tot;
     mesh->nenil  = 0;
-    _MMG5_SAFE_CALLOC(mesh->xtetra,xt_tot+1,MMG5_xTetra,0);
+    mesh->xtmax = mesh->xt = xt_tot;
+
+    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"merge tetra",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+    _MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"merge xtetra",
+                  fprintf(stderr,"  Exit program.\n");
+                  return 0);
+    _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,0);
     _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
 
-    mesh->xt = xt_tot;
     ne = idx = 0;
     for ( k=0; k<nprocs; ++k ) {
       xtetra      = &rcv_xtetra[xtetra_displs[k]];
@@ -1217,7 +1224,11 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
     mesh->np = met->np = np;
     mesh->npmax = met->npmax = mesh->np;
     mesh->npnil = 0;
+    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
+                  fprintf(stderr,"  Exit program.\n");
+                  return 0);
     _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
+
     if ( rcv_met )
       _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
 
@@ -1252,7 +1263,11 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
     }
 
     /** xPoints */
-    _MMG5_SAFE_CALLOC(mesh->xpoint,np+1,MMG5_xPoint,0);
+    mesh->xpmax = mesh->xp = np;
+    _MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
+                  fprintf(stderr,"  Exit program.\n");
+                  return 0);
+    _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,0);
     np = 0;
     for ( k=0; k<nprocs; ++k ) {
       point_1     = &rcv_point[point_displs[k]];
