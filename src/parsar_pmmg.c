@@ -116,8 +116,8 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   long       castedVal;
   int        ctri,npadd,bytes;
 
-  /* init allocation need 38 Mo */
-  reservedMem = 38*million +  (long long)
+  /* init allocation need 38 octets */
+  reservedMem = 38 +  (long long)
     (mesh->nprism*sizeof(MMG5_Prism) + mesh->xpr*sizeof(MMG5_Prism) );
 
   /* Compute the needed initial memory */
