@@ -29,4 +29,16 @@ IF( BUILD_TESTING )
                 -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
     endforeach()
   endforeach()
+
+  # remesh a non constant anisotropic test case: a torus with a planar shock
+  # on 1,2,4,6,8 processors
+  foreach( TYPE anisotropic-test )
+    foreach( NP 1 2 4 6 8 )
+	    add_test( NAME ${TYPE}-torus-with-planar-shock-${NP}
+                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+                ${CI_DIR_INPUTS}/Torus/torusholes.mesh
+                -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
+                -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh )
+    endforeach()
+  endforeach()
 ENDIF()
