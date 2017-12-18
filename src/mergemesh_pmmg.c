@@ -764,21 +764,23 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
 
   /** Memory alloc */
   /* 1: Mesh data */
-  _MMG5_SAFE_CALLOC( (*rcv_np)        ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*point_displs)  ,nprocs,int,0);
+  if ( !parmesh->myrank ) {
+    _MMG5_SAFE_CALLOC( (*rcv_np)        ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*point_displs)  ,nprocs,int,0);
 
-  _MMG5_SAFE_CALLOC( (*rcv_xp)        ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*xpoint_displs) ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*rcv_xp)        ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*xpoint_displs) ,nprocs,int,0);
 
-  _MMG5_SAFE_CALLOC( (*rcv_ne)        ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*tetra_displs)  ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*rcv_ne)        ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*tetra_displs)  ,nprocs,int,0);
 
-  _MMG5_SAFE_CALLOC( (*rcv_xt)        ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*xtetra_displs) ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*rcv_xt)        ,nprocs,int,0);
+    _MMG5_SAFE_CALLOC( (*xtetra_displs) ,nprocs,int,0);
 
-  if(isMet) {
-    _MMG5_SAFE_CALLOC( (*rcv_nmet)    ,nprocs,int,0);
-    _MMG5_SAFE_CALLOC( (*met_displs)  ,nprocs,int,0);
+    if(isMet) {
+      _MMG5_SAFE_CALLOC( (*rcv_nmet)    ,nprocs,int,0);
+      _MMG5_SAFE_CALLOC( (*met_displs)  ,nprocs,int,0);
+    }
   }
 
   /* 2: Communicators */
@@ -808,62 +810,69 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   /* Points */
   for ( k=1; k<=mesh->np; ++k ) mesh->point[k].tmp = 0;
 
-  (*point_displs)[0] = 0;
-  for ( k=1; k<nprocs; ++k ) {
-    (*point_displs)[k] += (*point_displs)[k-1] + (*rcv_np)[k-1];
+  if ( !parmesh->myrank ) {
+    (*point_displs)[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      (*point_displs)[k] += (*point_displs)[k-1] + (*rcv_np)[k-1];
+    }
+    np_tot       = (*point_displs)[nprocs-1]+(*rcv_np)[nprocs-1];
+    (*rcv_point) = (MMG5_pPoint)calloc(np_tot+1,sizeof(MMG5_Point));
   }
-  np_tot       = (*point_displs)[nprocs-1]+(*rcv_np)[nprocs-1];
-  (*rcv_point) = (MMG5_pPoint)calloc(np_tot+1,sizeof(MMG5_Point));
-
   MPI_CHECK( MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
                          (*rcv_np),(*point_displs),mpi_point,0,comm),return 0);
 
   /* xPoints */
-  (*xpoint_displs)[0] = 0;
-  for ( k=1; k<nprocs; ++k ) {
-    (*xpoint_displs)[k] += (*xpoint_displs)[k-1] + (*rcv_xp)[k-1];
+  if ( !parmesh->myrank ) {
+    (*xpoint_displs)[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      (*xpoint_displs)[k] += (*xpoint_displs)[k-1] + (*rcv_xp)[k-1];
+    }
+    xp_tot        = (*xpoint_displs)[nprocs-1]+(*rcv_xp)[nprocs-1];
+    (*rcv_xpoint) = (MMG5_pxPoint)calloc(xp_tot+1,sizeof(MMG5_xPoint));
   }
-  xp_tot        = (*xpoint_displs)[nprocs-1]+(*rcv_xp)[nprocs-1];
-  (*rcv_xpoint) = (MMG5_pxPoint)calloc(xp_tot+1,sizeof(MMG5_xPoint));
-
   MPI_CHECK( MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
                          (*rcv_xp),(*xpoint_displs),mpi_xpoint,0,comm),return 0);
 
   /* Tetra */
-  (*tetra_displs)[0] = 0;
-  for ( k=1; k<nprocs; ++k ) {
-    (*tetra_displs)[k] += (*tetra_displs)[k-1] + (*rcv_ne)[k-1];
+  if ( !parmesh->myrank ) {
+    (*tetra_displs)[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      (*tetra_displs)[k] += (*tetra_displs)[k-1] + (*rcv_ne)[k-1];
+    }
+    ne_tot       = (*tetra_displs)[nprocs-1]+(*rcv_ne)[nprocs-1];
+    (*rcv_tetra) = (MMG5_pTetra)calloc(ne_tot+1,sizeof(MMG5_Tetra));
   }
-  ne_tot       = (*tetra_displs)[nprocs-1]+(*rcv_ne)[nprocs-1];
-  (*rcv_tetra) = (MMG5_pTetra)calloc(ne_tot+1,sizeof(MMG5_Tetra));
   MPI_CHECK( MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&(*rcv_tetra)[1],
                          (*rcv_ne),(*tetra_displs),mpi_tetra,0,comm),return 0);
 
   /* xTetra */
-  (*xtetra_displs)[0] = 0;
-  for ( k=1; k<nprocs; ++k ) {
-    (*xtetra_displs)[k] += (*xtetra_displs)[k-1] + (*rcv_xt)[k-1];
+  if ( !parmesh->myrank ) {
+    (*xtetra_displs)[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      (*xtetra_displs)[k] += (*xtetra_displs)[k-1] + (*rcv_xt)[k-1];
+    }
+    xt_tot        = (*xtetra_displs)[nprocs-1]+(*rcv_xt)[nprocs-1];
+    (*rcv_xtetra) = (MMG5_pxTetra)calloc(xt_tot+1,sizeof(MMG5_xTetra));
   }
-  xt_tot        = (*xtetra_displs)[nprocs-1]+(*rcv_xt)[nprocs-1];
-  (*rcv_xtetra) = (MMG5_pxTetra)calloc(xt_tot+1,sizeof(MMG5_xTetra));
-
   MPI_CHECK( MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&(*rcv_xtetra)[1],
                          (*rcv_xt),(*xtetra_displs),mpi_xtetra,0,comm),return 0);
 
   /* Solutions */
   *rcv_met = NULL;
   if(isMet) {
-    for ( k=0; k<nprocs; ++k ) {
-      (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
-    }
 
-    (*met_displs)[0] = 0;
-    for ( k=1; k<nprocs; ++k ) {
-      (*met_displs)[k] += (*met_displs)[k-1] + (*rcv_nmet)[k-1];
-    }
-    nmet_tot   = (*met_displs)[nprocs-1]+(*rcv_nmet)[nprocs-1];
-    (*rcv_met) = (double*)calloc(nmet_tot+met->size,sizeof(double));
+    if ( !parmesh->myrank ) {
+      for ( k=0; k<nprocs; ++k ) {
+        (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
+      }
 
+      (*met_displs)[0] = 0;
+      for ( k=1; k<nprocs; ++k ) {
+        (*met_displs)[k] += (*met_displs)[k-1] + (*rcv_nmet)[k-1];
+      }
+      nmet_tot   = (*met_displs)[nprocs-1]+(*rcv_nmet)[nprocs-1];
+      (*rcv_met) = (double*)calloc(nmet_tot+met->size,sizeof(double));
+    }
     MPI_CHECK( MPI_Gatherv(&met->m[met->size],mesh->np*met->size,MPI_DOUBLE,
                            &(*rcv_met)[met->size],(*rcv_nmet),(*met_displs),
                            MPI_DOUBLE,0,comm),return 0);
@@ -1368,26 +1377,27 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 fail:
   /* Free memory */
   /* 1: Mesh data */
-  _MMG5_SAFE_FREE(rcv_np);
-  _MMG5_SAFE_FREE(rcv_point);
-  _MMG5_SAFE_FREE(point_displs);
+  if ( !parmesh->myrank ) {
+    _MMG5_SAFE_FREE(rcv_np);
+    _MMG5_SAFE_FREE(rcv_point);
+    _MMG5_SAFE_FREE(point_displs);
 
-  _MMG5_SAFE_FREE(rcv_xp);
-  _MMG5_SAFE_FREE(rcv_xpoint);
-  _MMG5_SAFE_FREE(xpoint_displs);
+    _MMG5_SAFE_FREE(rcv_xp);
+    _MMG5_SAFE_FREE(rcv_xpoint);
+    _MMG5_SAFE_FREE(xpoint_displs);
 
-  _MMG5_SAFE_FREE(rcv_ne);
-  _MMG5_SAFE_FREE(rcv_tetra);
-  _MMG5_SAFE_FREE(tetra_displs);
+    _MMG5_SAFE_FREE(rcv_ne);
+    _MMG5_SAFE_FREE(rcv_tetra);
+    _MMG5_SAFE_FREE(tetra_displs);
 
-  _MMG5_SAFE_FREE(rcv_xt);
-  _MMG5_SAFE_FREE(rcv_xtetra);
-  _MMG5_SAFE_FREE(xtetra_displs);
+    _MMG5_SAFE_FREE(rcv_xt);
+    _MMG5_SAFE_FREE(rcv_xtetra);
+    _MMG5_SAFE_FREE(xtetra_displs);
 
-  _MMG5_SAFE_FREE(rcv_nmet);
-  _MMG5_SAFE_FREE(rcv_met);
-  _MMG5_SAFE_FREE(met_displs);
-
+    _MMG5_SAFE_FREE(rcv_nmet);
+    _MMG5_SAFE_FREE(rcv_met);
+    _MMG5_SAFE_FREE(met_displs);
+  }
   /* 2: communicators data */
   _MMG5_SAFE_FREE(rcv_int_comm_index);
   _MMG5_SAFE_FREE(rcv_intvalues);
