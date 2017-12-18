@@ -788,13 +788,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   _MMG5_SAFE_CALLOC( (*rcv_next_node_comm)     ,nprocs,int,0);
   _MMG5_SAFE_CALLOC( (*ext_comm_displs)        ,nprocs,int,0);
 
-  /* if ( parmesh->ddebug ) { */
-  /*   sprintf(filename,"Before_Gather_proc%d.mesh",parmesh->myrank); */
-  /*   _MMG3D_bdryBuild(parmesh->listgrp[0].mesh); */
-  /*   MMG3D_saveMesh(mesh,filename); */
-  /*   MMG3D_saveSol(mesh,met,filename); */
-  /* } */
-
   /** Gather parmesh size infos on proc 0 */
   MPI_CHECK( MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,0,comm),return 0);
   MPI_CHECK( MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,0,comm),return 0);
