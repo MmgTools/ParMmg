@@ -480,6 +480,12 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
         if ( met->m ) {
+          if ( *np >= met->npmax ) {
+            PMMG_REALLOC(mesh,met->m,2*met->size*mesh->npmax+1,
+                         met->size*met->npmax+1,double,
+                         "metric array",return 0);
+            met->npmax = 2 * mesh->npmax;
+          }
           memcpy( &met->m[ (*np) * met->size ],
                   &grpOld->met->m[pt->v[poi] * met->size],
                   met->size * sizeof( double ) );
