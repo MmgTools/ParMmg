@@ -103,7 +103,6 @@ INCLUDE_DIRECTORIES( MPI_INCLUDE_PATH )
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
 SET( LIBRARIES ${MPI_LIBRARIES} ${LIBRARIES} )
-SET( CMAKE_C_COMPILER  ${MPI_C_COMPILER} )
 
 ############################################################################
 #####
@@ -120,7 +119,9 @@ IF(NOT MMG_FOUND )
     "(see https://github.com/MmgTools/mmg and  download the branch develop)."
     "If you have already installed Mmg and want to use it, "
     "please set the CMake variable or environment variable MMG_DIR "
-    "to your mmg directory.")
+    "to your mmg directory and the CMake variable or environment variable"
+    " MMG_BUILDDIR "
+    "to your mmg build directory.")
 ELSE()
   INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
 
