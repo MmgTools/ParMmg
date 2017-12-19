@@ -485,7 +485,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
                          met->size*met->npmax+1,double,
                          "metric array",return 0);
             met->npmax = 2 * mesh->npmax;
-					}
+          }
           memcpy( &met->m[ (*np) * met->size ],
                   &grpOld->met->m[pt->v[poi] * met->size],
                   met->size * sizeof( double ) );
