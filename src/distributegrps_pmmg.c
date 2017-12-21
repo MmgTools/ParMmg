@@ -433,6 +433,43 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \param grps pointer toward the list of groups to pack.
+ * \param ngrp pointer toward the number of groups (to update)
+ * \param part pointer toward the metis array containing the partitions to
+ * update and pack.
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Pack the group array \a grps filled such as grps[k] must be send to the proc
+ * k and update the parmetis partition array.
+ *
+ */
+static inline
+int PMMG_pack_grps( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
+                    int *ngrp ) {
+  int k,nbl;
+
+  nbl   = 0;
+  for ( k=0; k<*ngrp; ++k ) {
+    if ( !(*grps)[k].mesh ) continue;
+
+    if ( k!=nbl )
+      (*grps)[nbl] = PMMG_assign_grp( &(*grps)[k] );
+
+    ++nbl;
+  }
+  /* Here we should never fail (nbl <= ngrp) so we can ignore the fact that if
+   * the part array realloc fail, we have different sizez for the grps and the
+   * part array and the grps size is not stored. */
+  PMMG_REALLOC( parmesh,*grps,nbl,*ngrp,PMMG_Grp,"Groups to send", return 0 );
+
+  *ngrp = nbl;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
  *
  * \return 0 if fail, 1 if success.
  *
@@ -780,34 +817,745 @@ end:
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
- * \param part pointer toward the metis array containing the partitions.
+ * \param mesh pointer toward a mesh structure.
+ * \param met pointer toward a metric structure.
+ * \param dest rank of destination.
+ * \param tag message tag
+ * \param comm communicator
  *
- * \return 0 if fail, 1 otherwise
+ * \return 0 if fail, 1 if success.
  *
- * Send each group to the suitable processor.
+ * Send mesh and metric to proc \a dest.
+ *
+ * \remark the prisms are not treated.
  *
  */
-static inline
-int PMMG_send_grps(PMMG_pParMesh parmesh,idx_t *part) {
+int PMMG_send_mesh( MMG5_pMesh mesh,MMG5_pSol met,int dest,int tag,MPI_Comm comm)
+{
+  MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
+  int            ier,ismet;
 
-  return 1;
+  /* Fit the mesh and metric at their minimal sizes */
+  PMMG_REALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
+               "points",return 0);
+  mesh->npmax = mesh->np;
+  PMMG_REALLOC(mesh,mesh->xpoint,mesh->xp+1,mesh->xpmax+1,MMG5_xPoint,
+               "xpoints",return 0);
+  mesh->xpmax = mesh->xp;
+  PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
+               "tetra",return 0);
+  mesh->nemax = mesh->ne;
+  PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xpmax+1,MMG5_xTetra,
+               "xtetra",return 0);
+  mesh->xtmax = mesh->xt;
+
+  assert(met->npmax==mesh->npmax);
+  assert(met->np   == met->np);
+  PMMG_REALLOC(mesh,met->m,met->size*met->np+1,met->size*met->npmax+1,double,
+               "metric array",return 0);
+  met->npmax = met->np;
+
+  /* Send the mesh size */
+  mesh->memMax = mesh->memCur;
+  MPI_CHECK( MPI_Send( &mesh->memMax, 1, MPI_LONG_LONG, dest, tag, comm ),
+             return 0 );
+  MPI_CHECK( MPI_Send( &mesh->np, 1, MPI_INT, dest, tag, comm ), return 0 );
+  MPI_CHECK( MPI_Send( &mesh->ne, 1, MPI_INT, dest, tag, comm ), return 0 );
+  MPI_CHECK( MPI_Send( &mesh->xp, 1, MPI_INT, dest, tag, comm ), return 0 );
+  MPI_CHECK( MPI_Send( &mesh->xt, 1, MPI_INT, dest, tag, comm ), return 0 );
+
+  ier = 0;
+  /* Create mesh type */
+  if ( !PMMG_create_MPI_Point( mesh->point,  &mpi_point ) ) goto end_5;
+  if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) goto end_4;
+  if ( !PMMG_create_MPI_Tetra( mesh->tetra,  &mpi_tetra ) ) goto end_3;
+  if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) goto end_2;
+
+  /* Send mesh */
+  MPI_CHECK( MPI_Send( &mesh->point[1] ,mesh->np,mpi_point, dest,tag,comm),
+             goto end_1;);
+  MPI_CHECK( MPI_Send( &mesh->xpoint[1],mesh->xp,mpi_xpoint,dest,tag,comm),
+             goto end_1;);
+  MPI_CHECK( MPI_Send( &mesh->tetra[1] ,mesh->ne,mpi_tetra, dest,tag,comm),
+             goto end_1;);
+  MPI_CHECK( MPI_Send( &mesh->xtetra[1],mesh->xt,mpi_xtetra,dest,tag,comm),
+             goto end_1;);
+
+  /* Met size */
+  assert ( met->np == mesh->np );
+  MPI_CHECK( MPI_Send( &met->size, 1, MPI_INT, dest, tag, comm ),goto end_1 );
+  MPI_CHECK( MPI_Send( &met->type, 1, MPI_INT, dest, tag, comm ),goto end_1 );
+
+  /* Send metric */
+  ismet = met->m ? 1:0;
+  MPI_CHECK( MPI_Send( &ismet, 1, MPI_INT, dest, tag, comm ),
+             goto end_1 );
+
+  if ( ismet )
+    MPI_CHECK( MPI_Send( &met->m, met->size*met->np, MPI_DOUBLE, dest, tag, comm ),
+               goto end_1 );
+
+  ier = 1;
+
+  /* Free useless mesh */
+  /* 1: mesh */
+  PMMG_DEL_MEM(mesh,mesh->point, mesh->npmax+1,sizeof(MMG5_Point),"point");
+  PMMG_DEL_MEM(mesh,mesh->tetra, mesh->nemax+1,sizeof(MMG5_Tetra),"tetra");
+  PMMG_DEL_MEM(mesh,mesh->xpoint,mesh->xpmax+1,sizeof(MMG5_xPoint),"xpoint");
+  PMMG_DEL_MEM(mesh,mesh->xtetra,mesh->xtmax+1,sizeof(MMG5_xTetra),"xtetra");
+  if ( mesh->adja ) {
+    PMMG_DEL_MEM( mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table");
+  }
+  if ( ismet )
+    PMMG_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size,double,"metric");
+
+  mesh->np = mesh->npmax = 0;
+  mesh->xp = mesh->xpmax = 0;
+  mesh->ne = mesh->nemax = 0;
+  mesh->xt = mesh->xtmax = 0;
+
+end_1:
+  MPI_Type_free( &mpi_xtetra );
+end_2:
+  MPI_Type_free( &mpi_tetra );
+end_3:
+  MPI_Type_free( &mpi_xpoint );
+end_4:
+  MPI_Type_free( &mpi_point );
+end_5:
+  return ier;
+}
+
+/**
+ * \param mesh pointer toward a mesh structure.
+ * \param source rank of source.
+ * \param tag message tag
+ * \param comm communicator
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Receive mesh and metric from proc \a source.
+ *
+ * \remark the prism communication is not yet implemented
+ *
+ */
+int PMMG_recv_mesh( MMG5_pMesh mesh,MMG5_pSol met,int source,int tag,MPI_Comm comm)
+{
+  MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
+  int            ier,ismet,np,ne,xp,xt;
+
+  /* Get the mesh size */
+  MPI_CHECK( MPI_Recv( &mesh->memMax,1,MPI_LONG_LONG,source,tag,comm,
+                       MPI_STATUS_IGNORE),return 0 );
+  mesh->memMax = mesh->memCur;
+
+  /* Mesh size */
+  MPI_CHECK( MPI_Recv( &np,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
+  MPI_CHECK( MPI_Recv( &ne,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
+  MPI_CHECK( MPI_Recv( &xp,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
+  MPI_CHECK( MPI_Recv( &xt,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
+
+  if ( !PMMG_grpSplit_setMeshSize( mesh, np, ne, 0, xp, xt ) ) return 0;
+
+  /* Create mesh type */
+  if ( !PMMG_create_MPI_Point( mesh->point,  &mpi_point ) ) goto end_5;
+  if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) goto end_4;
+  if ( !PMMG_create_MPI_Tetra( mesh->tetra,  &mpi_tetra ) ) goto end_3;
+  if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) goto end_2;
+
+  /* Recv mesh */
+  MPI_CHECK( MPI_Recv(&mesh->point[1],mesh->np,mpi_point,source,tag,comm,
+                      MPI_STATUS_IGNORE),goto end_1;);
+  MPI_CHECK( MPI_Recv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,source,tag,comm,
+                      MPI_STATUS_IGNORE),goto end_1;);
+  MPI_CHECK( MPI_Recv( &mesh->tetra[1] ,mesh->ne,mpi_tetra, source,tag,comm,
+                       MPI_STATUS_IGNORE),goto end_1;);
+  MPI_CHECK( MPI_Recv( &mesh->xtetra[1],mesh->xt,mpi_xtetra,source,tag,comm,
+                       MPI_STATUS_IGNORE),goto end_1;);
+
+  /* Met size */
+  MPI_CHECK( MPI_Recv( &met->size,1,MPI_INT,source,tag,comm,
+                       MPI_STATUS_IGNORE ),goto end_1 );
+  MPI_CHECK( MPI_Recv( &met->type, 1, MPI_INT, source, tag, comm,
+                       MPI_STATUS_IGNORE ),goto end_1 );
+  if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,np,met->type) ) goto end_1;
+
+  /* Recv metric */
+  MPI_CHECK( MPI_Recv(&ismet,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ),
+             goto end_1 );
+
+  if ( ismet )
+    MPI_CHECK( MPI_Recv( &met->m,met->size*met->np,MPI_DOUBLE,source,tag,comm,
+                         MPI_STATUS_IGNORE ),goto end_1 );
+
+  ier = 1;
+
+end_1:
+  MPI_Type_free( &mpi_xtetra );
+end_2:
+  MPI_Type_free( &mpi_tetra );
+end_3:
+  MPI_Type_free( &mpi_xpoint );
+end_4:
+  MPI_Type_free( &mpi_point );
+end_5:
+  return ier;
 }
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ * \param recv_comm number of comms to wait from another proc.
  *
  * \return 0 if fail, 1 otherwise
  *
- * Recieve groups from other processors and update \a parmesh
- * (groups and communicators).
+ * Process the parmesh groups and send and receive the mesh and metrics over
+ * suitable processor.
  *
  */
 static inline
-int PMMG_recv_grps(PMMG_pParMesh parmesh) {
+int PMMG_mpiexchange_mesh(PMMG_pParMesh parmesh,idx_t *part,int *recv_comm) {
+  MMG5_pMesh     mesh;
+  MMG5_pSol      met;
+  int            tag,ier,nprocs,ngrp,new_ngrp,k,i;
+
+  ier    = 0;
+  nprocs = parmesh->nprocs;
+  ngrp   = parmesh->ngrp;
+
+  /** Process the groups and send/receive the mesh and metrics that need
+   * to be exchanged */
+  for ( i=0; i<ngrp; ++i ) {
+    if ( part[i] == i ) continue;
+
+    mesh = parmesh->listgrp[i].mesh;
+    met  = parmesh->listgrp[i].met;
+
+    tag = part[i]*nprocs + parmesh->myrank;
+    if ( !PMMG_send_mesh(mesh,met,part[i],tag,parmesh->comm) ) goto end;
+  }
+
+  /** Pack the used groups on the mesh */
+  new_ngrp = parmesh->ngrp;
+  if ( !PMMG_pack_grps( parmesh, &parmesh->listgrp, &new_ngrp ) )  goto end;
+
+  /** Count the final number of groups and reallocate the listgrp array */
+  k = 0;
+  for ( i=0; i<nprocs; ++i )
+    k += recv_comm[i];
+
+  PMMG_REALLOC(parmesh,parmesh->listgrp,k+new_ngrp,parmesh->ngrp,PMMG_Grp,
+               "listgrps",goto end);
+
+  /** Receive the groups */
+  for ( i=0; i<nprocs; ++i ) {
+    /* If !recv_comm[i], we have nothing to wait from this proc */
+    for ( k=0; k<recv_comm[i]; ++k ) {
+
+      mesh = parmesh->listgrp[new_ngrp].mesh;
+      met  = parmesh->listgrp[new_ngrp].met;
+
+      tag = parmesh->myrank*nprocs + i;
+      if ( !PMMG_recv_mesh(mesh,met,part[i],tag,parmesh->comm) ) goto end;
+    }
+  }
+
+  /* Success */
+  ier = 1;
+
+end:
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param idgrp index of the group that we process.
+ * \param dest rank of destination.
+ * \param tag message tag.
+ * \param comm communicator.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Send the wanted part of the node communicator to the suitable processor.
+ *
+ */
+static inline
+int PMMG_send_nodeCommunicators(PMMG_pParMesh parmesh,int idgrp,int dest,int tag,
+                                MPI_Comm comm) {
+  PMMG_pint_comm int_comm;
+  PMMG_pext_comm ext_comm;
+  PMMG_ext_comm  ext_comm_2send;
+  int            *intvalues,nitem;
+  int            *node2int_node_comm_idx1,*node2int_node_comm_idx2;
+  int            nitem_int_comm;
+  int            next_comm_2send,idx,max_idx;
+  int            ier,k,i,new_next_comm,old_next_comm,old_nitem;
+
+return 1;
+/*   ier    = 0; */
+
+/*   /\** Process the list of external node communicators to create a new external */
+/*    * communicator: if the node belong to this group (position in intvalue is */
+/*    * filled), stores the position in the external communicator in a pack */
+/*    * array and the intvalues value in another array. Both arrays will be */
+/*    * sended by the external communicator. *\/ */
+/*   int_comm  = parmesh->int_node_comm; */
+/*   nitem     = int_comm->nitem; */
+/*   intvalues = int_comm->intvalues; */
+
+/*   /\** Step 1: intvalues array initialisation with the position of the interface */
+/*    * points of the group in a packed intvalue array *\/ */
+/*   for ( k=0; k<nitem; ++k ) */
+/*     intvalues[k] = PMMG_UNSET; */
+
+/*   node2int_node_comm_idx1 = parmesh->listgrp[idgrp].node2int_node_comm_index1; */
+/*   node2int_node_comm_idx2 = parmesh->listgrp[idgrp].node2int_node_comm_index2; */
+/*   nitem_int_comm          = parmesh->listgrp[idgrp].nitem_int_node_comm; */
+
+/*   /\** Step 2: send the list of interface nodes of this group *\/ */
+/*   MPI_CHECK( MPI_Send(&nitem_int_comm,1,MPI_INT,dest,tag, */
+/*                       parmesh->comm),goto end ); */
+
+/*   MPI_CHECK( MPI_Send(node2int_node_comm_idx1,nitem_int_comm,MPI_INT,dest,tag, */
+/*                       parmesh->comm),goto end ); */
+
+/*   for ( k=0; k<nitem_int_comm; ++k ) */
+/*     intvalues[node2int_node_comm_idx2[k]] = k; */
+
+/*   /\** Step 3: Process all the groups and find the nodes at the interface between */
+/*    * the group that will move and other groups. Add this nodes to the external */
+/*    * communicator (myrank-dest) *\/ */
+/*   idx = 0; */
+/*   new_next_comm = parmesh->next_node_comm; */
+/*   old_next_comm = parmesh->next_node_comm; */
+/*   for ( i=0; i<parmesh->ngrp; ++i ) { */
+/*     if ( i==idgrp ) continue; */
+
+/*     node2int_node_comm_idx1 = parmesh->listgrp[i].node2int_node_comm_index1; */
+/*     node2int_node_comm_idx2 = parmesh->listgrp[i].node2int_node_comm_index2; */
+/*     nitem_int_comm          = parmesh->listgrp[i].nitem_int_node_comm; */
+
+/*     /\* Mark the nodes that already belong to the external comm to avoid */
+/*      * doublons *\/ */
+/*     for ( k=0; k<old_next_node_comm; ++k ) { */
+/*       ext_comm = &parmesh->ext_node_comm[k]; */
+/*       if ( ext_comm->color_out == dest ) { */
+/*         for ( j=0; j<ext_comm->nitem; ++j ) */
+/*           intvalues[ext_comm->int_comm_index[j]] *=-1; */
+/*         break; */
+/*       } */
+/*     } */
+
+/*     for ( j=0; j<nitem_int_comm; ++j ) */
+/*       if ( intvalues[node2int_node_comm_idx2[j]] >= 0 ) ++idx; */
+
+/*     /\* No common interfaces between the two groups: unmark the nodes and pass to */
+/*      * the next group *\/ */
+/*     if ( !idx ) { */
+/*       for ( j=0; j<ext_comm->nitem; ++j ) */
+/*         intvalues[ext_comm->int_comm_index[j]] *=-1; */
+/*       continue; */
+/*     } */
+
+/*     /\* Common interfaces: creation or completion of the external communicator *\/ */
+/*     if ( k==parmesh->next_node_comm ) { */
+/*       /\* Creation of a new external communicator *\/ */
+/*       ++new_next_comm; */
+/*       if ( new_next_comm >= parmesh->next_node_comm ) { */
+/*         PMMG_REALLOC(parmesh,parmesh->ext_node_comm, */
+/*                      (1+PMMG_GAP)*parmesh->next_node_comm,parmesh->next_node_comm, */
+/*                      PMMG_ext_comm,"list of external communicators",goto end); */
+/*         parmesh->next_node_comm = (1+PMMG_GAP)*parmesh->next_node_comm; */
+/*       } */
+/*       ext_comm = parmesh->ext_node_comm[new_next_comm-1]; */
+/*       ext_comm->color_in  = parmesh->myrank; */
+/*       ext_comm->color_out = dest; */
+/*     } */
+
+/*     PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+idx, */
+/*                  ext_comm->nitem,int,"int_comm_index",goto end); */
+/*     old_nitem = ext_comm->nitem; */
+/*     ext_comm->nitem += idx; */
+
+/*     idx = 0; */
+/*     for ( j=0; j<nitem_int_comm; ++j ) { */
+/*       if ( intvalues[node2int_node_comm_idx2[j]] < 0 ) continue; */
+/*       ext_comm->int_comm_index[old_nitem+idx] = node2int_node_comm_idx2[j]; */
+/*     } */
+
+/*     if ( k<parmesh->next_node_comm ) { */
+/*       /\* Unmark the nodes that were in the external comm before *\/ */
+/*       for ( j=0; j<old_nitem; ++j ) */
+/*           intvalues[ext_comm->int_comm_index[j]] *=-1; */
+/*     } */
+/*   } */
+/*   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,new_next_comm, */
+/*                parmesh->next_node_comm,PMMG_ext_comm, */
+/*                "list of external communicators",goto end); */
+/*   parmesh->next_node_comm = new_next_comm; */
+
+/*   /\** Step 4: Count the number of external communicators to send and the max */
+/*    * number of items in this communicators to allocate a new communicator */
+/*    * sufficiently large to store the wanted data *\/ */
+/*   for ( k=0; k<parmesh->next_node_comm; ++k ) { */
+/*     ext_comm = &parmesh->ext_node_comm[k]; */
+
+/*     /\* Count the number of items to send for this external comm *\/ */
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) ++idx; */
+
+/*     if ( !idx )  continue; */
+
+/*     max_idx = MG_MAX(idx,max_idx); */
+/*     ++next_comm_2send; */
+/*   } */
+
+/*   PMMG_MALLOC(parmesh,ext_comm_2send.int_comm_index,max_idx,int, */
+/*               "int_comm_index to send",goto end); */
+/*   PMMG_MALLOC(parmesh,ext_comm_2send.int_comm_index,max_idx,int,"i2send", */
+/*               goto end); */
+
+/*   MPI_CHECK( MPI_Send( &next_comm_2send, 1,MPI_INT,dest,tag,parmesh->comm ), */
+/*              goto end ); */
+
+/*   /\** Step 5: Fill the new external communicator with the data that we want to */
+/*    * communicate: the list of the position of the nodes of this group (in the */
+/*    * external communicator) in the packed internal communicator as well as their */
+/*    * positions positions int the external communicator *\/ */
+/*   next_comm_2send = 0; */
+/*   for ( k=0; k<parmesh->next_node_comm; ++k ) { */
+/*     ext_comm = &parmesh->ext_node_comm[k]; */
+
+/*     /\* Count the number of items to send for this external comm *\/ */
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) ++idx; */
+
+/*     if ( !idx ) continue; */
+
+/*     /\* Fill the ext_comm_2send array *\/ */
+/*     ext_comm_2send.nitem     = idx; */
+/*     ext_comm_2send.color_in  = ext_comm->color_in; */
+/*     ext_comm_2send.color_out = ext_comm->color_out; */
+
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) { */
+/*       if ( PMMG_UNSET != intvalues[ext_comm->int_comm_index[i]] ) { */
+/*         ext_comm_2send.int_comm_index[idx] = i; */
+/*         ext_comm_2send.itosend[idx] = */
+/*           intvalues[ext_comm->int_comm_index[i]]; */
+/*         ++idx; */
+/*       } */
+/*     } */
+/* #warning add the creation of an MPI_type to send all this data efficiently */
+/*     MPI_CHECK( MPI_Send(&ext_comm_2send.nitem,1,MPI_INT,dest,tag,parmesh->comm), */
+/*                goto end ); */
+/*     MPI_CHECK( MPI_Send(&ext_comm_2send.color_out,1,MPI_INT,dest,tag,parmesh->comm), */
+/*                goto end ); */
+/*     MPI_CHECK( MPI_Send(ext_comm_2send.int_comm_index,ext_comm_2send.nitem, */
+/*                         MPI_INT,dest,tag,parmesh->comm ),goto end ); */
+/*     MPI_CHECK( MPI_Send(ext_comm_2send.itosend,ext_comm_2send.nitem,MPI_INT, */
+/*                         dest,tag,parmesh->comm ),goto end ); */
+/*   } */
+/*   PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index,max_idx,int, */
+/*                "int_comm_index to send"); */
+/*   PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index,max_idx,int,"i2send"); */
+
+/*   /\* Success *\/ */
+/*   ier = 1; */
+
+/* end: */
+/*   if ( ext_comm_2send.int_comm_index ) */
+/*     PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index, */
+/*                  ext_comm_2send.nitem,int,"int_comm_index to send"); */
+
+/*   if ( ext_comm_2send.itosend ) */
+/*     PMMG_DEL_MEM(parmesh,ext_comm_2send.itosend, */
+/*                  ext_comm_2send.nitem,int,"i2send array to send"); */
+
+/*   return ier; */
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param source rank of source.
+ * \param tag message tag
+ * \param comm communicator
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Send the wanted part of the node communicator to the suitable processor.
+ *
+ */
+static inline
+int PMMG_recv_nodeCommunicators(PMMG_pParMesh parmesh,int source,int tag,
+                                MPI_Comm comm) {
+  PMMG_pint_comm int_comm;
+  PMMG_pext_comm ext_comm;
+  PMMG_ext_comm  ext_comm_2send;
+  int            *intvalues,nitem;
+  int            *node2int_node_comm_idx1,*node2int_node_comm_idx2;
+  int            nitem_int_comm;
+  int            next_comm_2recv,idx,max_idx;
+  int            ier,k,i,new_next_comm,old_next_comm;
+
+  return 1;
+
+/*   ier    = 0; */
+
+/*   /\** Step 1: recv the list of interface nodes of this group *\/ */
+/*   MPI_CHECK( MPI_Recv(&nitem_int_comm,1,MPI_INT,source,tag, */
+/*                       parmesh->comm,MPI_STATUS_IGNORE),goto end ); */
+/*   MPI_CHECK( MPI_Recv(node2int_node_comm_idx1,nitem_int_comm,MPI_INT,source,tag, */
+/*                       parmesh->comm,MPI_STATUS_IGNORE),goto end ); */
+
+/*   MPI_CHECK( MPI_Recv(&next_comm_2recv,1,MPI_INT,source,tag,parmesh->comm, */
+/*                       MPI_STATUS_IGNORE), goto end ); */
+
+/*   new_next_comm = parmesh->next_node_comm; */
+/*   old_next_comm = parmesh->next_node_comm; */
+
+/*   for ( i=0; i<next_comm_2recv; ++i ) { */
+/*     /\** Step 2: Receive the external communicator *\/ */
+/*     MPI_CHECK( MPI_Recv(&ext_comm_2send.nitem,1,MPI_INT,source,tag,parmesh->comm, */
+/*                         MPI_STATUS_IGNORE),goto end ); */
+/*     MPI_CHECK( MPI_Recv(&ext_comm_2send.color_out,1,MPI_INT,source,tag, */
+/*                         parmesh->comm,MPI_STATUS_IGNORE),goto end ); */
+/*     MPI_CHECK( MPI_Recv(ext_comm_2send.int_comm_index,ext_comm_2send.nitem, */
+/*                         MPI_INT,source,tag,parmesh->comm, */
+/*                         MPI_STATUS_IGNORE),goto end ); */
+/*     MPI_CHECK( MPI_Recv(ext_comm_2send.itosend,ext_comm_2send.nitem, */
+/*                         MPI_INT,source,tag,parmesh->comm, */
+/*                         MPI_STATUS_IGNORE),goto end ); */
+
+/*     /\** Step 2: Merge the external communicators *\/ */
+/*     if ( ext_comm_2send->color_out==parmesh->myrank ) { */
+/*       /\* External communicator for points between me and the proc that send me */
+/*        * the group: remove the points that are no longer in the external */
+/*        * communicator *\/ */
+/*       for ( k=0; k<old_next_node_comm; ++k ) { */
+/*         ext_comm = parmesh->ext_node_comm[k]; */
+/*         if ( ext_comm->color_out == source ) break; */
+/*       } */
+/*       if ( k==old_next_node_comm ) { */
+/*         printf("  ## Error: %s: unable to find the external communicator %d-%d.\n", */
+/*           __func__,parmesh->myrank,source); */
+/*         goto end; */
+/*       } */
+
+/*       for ( k=0; k<ext_comm_2send.nitem; ++k ) { */
+/*         idx = ext_comm_2send.i2send[k]; */
+        
+/*       } */
+
+/*     } */
+/*     else { */
+/*       /\* External communicator for points between me and an arbitrary proc *\/ */
+
+
+/*     } */
+
+
+/*     /\** Step 2: Search if this communicator already exists in the list of */
+/*      * external communicators or if we need to add it *\/ */
+/*     for ( k=0; k<old_next_node_comm; ++k ) { */
+/*       ext_comm = parmesh->ext_node_comm[k]; */
+/*       if ( ext_comm->color_out == source ) break; */
+/*     } */
+
+/*     if ( k==old_next_node_comm ) { */
+/*       ++new_next_comm; */
+/*       if ( new_next_comm >= parmesh->next_node_comm ) { */
+/*         PMMG_REALLOC(parmesh,parmesh->ext_node_comm, */
+/*                      (1+PMMG_GAP)*parmesh->next_node_comm,parmesh->next_node_comm, */
+/*                      PMMG_ext_comm,"list of external communicators",goto end); */
+/*         parmesh->next_node_comm = (1+PMMG_GAP)*parmesh->next_node_comm; */
+/*       } */
+/*       ext_comm = parmesh->ext_node_comm[new_next_comm-1]; */
+/*     } */
+
+/*     /\** Step 3: *\/ */
+
+/*   } */
+
+
+/*   /\** Process the list of external node communicators to create a new external */
+/*    * communicator: if the node belong to this group (position in intvalue is */
+/*    * filled), stores the position in the external communicator in a pack */
+/*    * array and the intvalues value in another array. Both arrays will be */
+/*    * sended by the external communicator. *\/ */
+/*   int_comm  = parmesh->int_node_comm; */
+/*   nitem     = int_comm->nitem; */
+/*   intvalues = int_comm->intvalues; */
+
+/*   /\** Step 1: intvalues array initialisation with the index of the interface */
+/*    * points of the group *\/ */
+/*   for ( k=0; k<nitem; ++k ) */
+/*     intvalues[k] = PMMG_UNSET; */
+
+/*   node2int_node_comm_idx1 = parmesh->listgrp[i].node2int_node_comm_index1; */
+/*   node2int_node_comm_idx2 = parmesh->listgrp[i].node2int_node_comm_index2; */
+/*   nitem_int_comm          = parmesh->listgrp[i].nitem_int_node_comm; */
+
+/*   for ( k=0; k<nitem_int_comm; ++k ) */
+/*     intvalues[node2int_node_comm_idx2[k]] = node2int_node_comm_idx1[k]; */
+
+/*   /\** Step 2: Count the number of external communicators to send and the max */
+/*    * number of items in this communicators to allocate a new communicator */
+/*    * sufficiently large to store the wanted data *\/ */
+/*   max_idx = 0; */
+/*   next_comm_2send = 0; */
+/*   for ( k=0; k<parmesh->next_node_comm; ++k ) { */
+/*     ext_comm = &parmesh->ext_node_comm[k]; */
+
+/*     /\* Count the number of items to send for this external comm *\/ */
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) ++idx; */
+
+/*     if ( !idx )  continue; */
+
+/*     max_idx = MG_MAX(idx,max_idx); */
+/*     ++next_comm_2send; */
+/*   } */
+
+/*   PMMG_MALLOC(parmesh,ext_comm_2send.int_comm_index,max_idx,int, */
+/*               "int_comm_index to send",goto end); */
+/*   PMMG_MALLOC(parmesh,ext_comm_2send.int_comm_index,max_idx,int,"i2send", */
+/*               goto end); */
+
+
+/*   /\** Step 3: Fill the new external communicator with the data that we want to */
+/*    * communicate: the list of nodes of this group that are in the external */
+/*    * communicator and their positions int this communicator *\/ */
+/*   next_comm_2send = 0; */
+/*   for ( k=0; k<parmesh->next_node_comm; ++k ) { */
+/*     ext_comm = &parmesh->ext_node_comm[k]; */
+
+/*     /\* Count the number of items to send for this external comm *\/ */
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) ++idx; */
+
+/*     if ( !idx ) continue; */
+
+/*     /\* Fill the ext_comm_2send array *\/ */
+/*     ext_comm_2send.nitem     = idx; */
+/*     ext_comm_2send.color_in  = ext_comm->color_in; */
+/*     ext_comm_2send.color_out = ext_comm->color_out; */
+
+/*     idx = 0; */
+/*     for ( i=0; i<ext_comm->nitem; ++i ) { */
+/*       if ( PMMG_UNSET != intvalues[ext_comm->int_comm_index[i]] ) { */
+/*         ext_comm_2send.int_comm_index[idx] = i; */
+/*         ext_comm_2send.itosend[idx] = */
+/*           intvalues[ext_comm->int_comm_index[i]]; */
+/*         ++idx; */
+/*       } */
+/*     } */
+/*     MPI_CHECK( MPI_Recv(ext_comm_2send.int_comm_index,idx,MPI_INT, */
+/*                         part[i],tag,parmesh->comm ),goto end ); */
+/*     MPI_CHECK( MPI_Recv(ext_comm_2send.itosend,idx,MPI_INT, */
+/*                         part[i],tag,parmesh->comm ),goto end ); */
+/*   } */
+/*   PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index,max_idx,int, */
+/*                "int_comm_index to send"); */
+/*   PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index,max_idx,int,"i2send"); */
+
+/*   /\* Success *\/ */
+/*   ier = 1; */
+
+/* end: */
+/*   if ( ext_comm_2send.int_comm_index ) */
+/*     PMMG_DEL_MEM(parmesh,ext_comm_2send.int_comm_index, */
+/*                  ext_comm_2send.nitem,int,"int_comm_index to send"); */
+
+/*   if ( ext_comm_2send.itosend ) */
+/*     PMMG_DEL_MEM(parmesh,ext_comm_2send.itosend, */
+/*                  ext_comm_2send.nitem,int,"i2send array to send"); */
+
+/*   return ier; */
+}
+
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ * \param recv_comm number of comms to wait from another proc.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Process the parmesh groups and send and receive the wanted part of the node
+ * communicators over the suitable processor.
+ *
+ */
+static inline
+int PMMG_mpiexchange_nodeCommunicators(PMMG_pParMesh parmesh,idx_t *part,
+                                       int* recv_comm) {
+  PMMG_pint_comm int_comm;
+  int            nitem,*intvalues;
+  int            tag,ier,nprocs,ngrp,k,i;
+
+  ier    = 0;
+  nprocs = parmesh->nprocs;
+  ngrp   = parmesh->ngrp;
+
+  /** Step 1: Process the groups and send the node communicators that
+   * need to be sended */
+  int_comm = parmesh->int_node_comm;
+  nitem    = int_comm->nitem;
+
+  PMMG_MALLOC(parmesh,int_comm->intvalues,nitem,int,"intvalues",goto end);
+
+  for ( i=0; i<ngrp; ++i ) {
+    if ( part[i] == i ) continue;
+
+    /* Send the wanted data of the external node communicator of this group */
+    tag = part[i]*nprocs + parmesh->myrank;
+    if ( !PMMG_send_nodeCommunicators(parmesh,i,part[i],tag,parmesh->comm) )
+      goto end;
+  }
+  PMMG_DEL_MEM(parmesh,intvalues,nitem,int,"intvalues");
+
+  /** Step 2: Process the groups and received the node communicators that
+   * need to be received */
+  for ( i=0; i<nprocs; ++i ) {
+    /* If !recv_comm[i], we have nothing to wait from this proc */
+    for ( k=0; k<recv_comm[i]; ++k ) {
+
+      tag = parmesh->myrank*nprocs + i;
+      if ( !PMMG_recv_nodeCommunicators(parmesh,part[i],tag,parmesh->comm) )
+        goto end;
+    }
+  }
+
+  /* Success */
+  ier = 1;
+
+end:
+  if ( intvalues )
+    PMMG_DEL_MEM(parmesh,intvalues,nitem,int,"intvalues");
+
+  return ier;
+
+}
+
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ * \param recv_comm number of comms to wait from another proc.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Process the parmesh groups and send and receive the wanted part of the face
+ * communicators over the suitable processor.
+ *
+ */
+static inline
+int PMMG_mpiexchange_faceCommunicators(PMMG_pParMesh parmesh,idx_t *part,
+                                       int* recv_comm) {
 
   return 1;
 }
+
 
 /**
  * \param parmesh pointer toward the mesh structure.
@@ -821,7 +1569,8 @@ int PMMG_recv_grps(PMMG_pParMesh parmesh) {
  */
 static inline
 int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
-  int ier,ier_glob;
+  int *send_comm,*recv_comm,nprocs;
+  int ier,ier_glob,k;
 
   /** Merge all the groups that must be send to a given proc into 1 group */
   ier = PMMG_merge_grps2send(parmesh,&part);
@@ -830,7 +1579,7 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   if ( ier_glob < 0 ) {
     fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
     ier = 0;
-    goto fail;
+    goto end;
   }
   else if ( !ier_glob ) {
     fprintf(stderr,"\n  ## Unable to compute the new group partition."
@@ -838,26 +1587,57 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   }
 
   /** Send each group to the suitable processor */
-  if ( !PMMG_send_grps(parmesh,part) ) {
-    fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
-    ier = 0;
-    goto fail;
-  }
-  PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+  /* Send a logical to say the number of comms that we will receive from this
+   * proc */
+  PMMG_CALLOC(parmesh,send_comm,nprocs+1,int,"sended comm with other procs",
+              goto end);
+  PMMG_CALLOC(parmesh,recv_comm,nprocs+1,int,"received comm with other procs",
+              goto end);
 
-  /** Recieve the groups */
-  if ( !PMMG_recv_grps(parmesh) ) {
-    fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
+  for ( k=0; k<parmesh->ngrp; ++k )
+    if ( part[k] != k ) ++send_comm[part[k]];
+
+  MPI_CHECK( MPI_Alltoall(send_comm,1,MPI_INT,recv_comm,1,MPI_INT,parmesh->comm),
+             goto end);
+
+  PMMG_DEL_MEM(parmesh,send_comm,nprocs+1,int,"send_comm");
+
+  /* Exchange the meshes and metrics */
+  if ( !PMMG_mpiexchange_mesh(parmesh,part,recv_comm) ) {
+    fprintf(stderr,"\n  ## Unable to move meshes and metrics over"
+            " the suitable proc.\n");
     ier = 0;
-    goto fail;
+    goto end;
   }
+
+  /* Exchange the needed part of the node communicators */
+  /* if ( !PMMG_mpiexchange_nodeCommunicators(parmesh,part,recv_comm) ) { */
+  /*   fprintf(stderr,"\n  ## Unable to move node communicators over" */
+  /*           " the suitable proc.\n"); */
+  /*   ier = 0; */
+  /*   goto end; */
+  /* } */
+
+  /* Exchange the needed part of the face communicators */
+  /* if ( !PMMG_mpiexchange_faceCommunicators(parmesh,part,recv_comm) ) { */
+  /*   fprintf(stderr,"\n  ## Unable to move face communicators over" */
+  /*           " the suitable proc.\n"); */
+  /*   ier = 0; */
+  /*   goto end; */
+  /* } */
+
+  PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
 
   /** Success */
   ier = 1;
 
-fail:
+end:
   if ( part )
     PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+  if ( send_comm )
+    PMMG_DEL_MEM(parmesh,send_comm,nprocs+1,int,"send_comm");
+  if ( recv_comm )
+    PMMG_DEL_MEM(parmesh,recv_comm,nprocs+1,int,"recv_comm");
 
   return ier;
 }
