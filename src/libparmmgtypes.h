@@ -89,6 +89,13 @@
  *
  */
 #define PMMG_UNSET     -1
+/**
+ * \def PMMG_GAP
+ *
+ * Gap value for reallocation
+ *
+ */
+#define PMMG_GAP     0.2
 
 
 /**
@@ -100,7 +107,6 @@
  */
 typedef struct {
   int     nitem; /*!< Nb items in the communicator */
-
   int*    intvalues;  /*!< Array of integer */
   double* doublevalues;  /*!< Array of double */
 
@@ -159,7 +165,7 @@ typedef PMMG_Grp  * PMMG_pGrp;
  */
 typedef struct {
 
-  /* mpi info*/
+  /* mpi info */
   MPI_Comm comm;   /*!< Global communicator of all parmmg processes */
   int      nprocs; /*!< Number of processes in global communicator */
   int      myrank; /*!< Rank in global communicator */

@@ -100,7 +100,8 @@ static void PMMG_swapPoint( MMG5_pPoint point, double* met,int* perm,
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward a parmesh structure.
+ *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
@@ -307,7 +308,7 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward a PMMG parmesh structure.
  * \param part pointer toward the metis array containing the partitions.
  * \param mesh pointer a MMG5 mesh structure.
  * \param np  number of point inside the local mesh.
@@ -399,13 +400,13 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         if ( !pt->xt ) {
           if ( (mesh->xt + 1) > mesh->xtmax ) {
             /* realloc of xtetras table */
-            PMMG_RECALLOC(mesh,mesh->xtetra,1.2*mesh->xtmax+1,mesh->xtmax+1,int,
-                          "larger xtetra ",
+            PMMG_RECALLOC(mesh,mesh->xtetra,(1.+mesh->gap)*mesh->xtmax+1,
+                          mesh->xtmax+1,int,"larger xtetra ",
                           ret_val = 0;goto fail_alloc7);
-            PMMG_RECALLOC(parmesh,(*xTetraPerm),1.2*mesh->xtmax+1,mesh->xtmax+1,
-                          int,"larger xtetra permutation table ",
+            PMMG_RECALLOC(parmesh,(*xTetraPerm),(1.+mesh->gap)*mesh->xtmax+1,
+                          mesh->xtmax+1,int,"larger xtetra permutation table ",
                           ret_val = 0; goto fail_alloc7);
-            mesh->xtmax = 1.2 * mesh->xtmax;
+            mesh->xtmax = (1.+mesh->gap) * mesh->xtmax;
           }
           ++mesh->xt;
           pt->xt = mesh->xt;
@@ -437,13 +438,13 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
           if ( !ppt->xp ) {
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
-              PMMG_RECALLOC(mesh,mesh->xpoint,1.2*mesh->xpmax+1,mesh->xpmax+1,int,
-                            "larger xpoint ",
+              PMMG_RECALLOC(mesh,mesh->xpoint,(1.+mesh->gap)*mesh->xpmax+1,
+                            mesh->xpmax+1,int,"larger xpoint ",
                             ret_val = 0;goto fail_alloc7);
-              PMMG_RECALLOC(parmesh,(*xPointPerm),1.2*mesh->xpmax+1,mesh->xpmax+1,
-                            int,"larger xpoint permutation table ",
+              PMMG_RECALLOC(parmesh,(*xPointPerm),(1.+mesh->gap)*mesh->xpmax+1,
+                            mesh->xpmax+1,int,"larger xpoint permutation table ",
                             ret_val = 0; goto fail_alloc7);
-              mesh->xpmax = 1.2 * mesh->xpmax;
+              mesh->xpmax = (1.+mesh->gap) * mesh->xpmax;
             }
             ++mesh->xp;
             ppt->xp = mesh->xp;
@@ -496,7 +497,7 @@ fail_alloc2:
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward a PMMG parmesh structure.
  * \param part pointer toward the metis array containing the partitions.
  * \param shared_pt pointer toward the array of the number of points shared
  * with each other procs.
@@ -759,7 +760,7 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward a PMMG parmesh structure.
  * \param part pointer toward the metis array containing the partitions.
  *
  * \return 0 if fail, 1 otherwise
