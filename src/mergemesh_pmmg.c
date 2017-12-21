@@ -294,10 +294,10 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
-        PMMG_RECALLOC(meshI, meshI->xtetra, 1.2 * meshI->xtmax + 1,
+        PMMG_RECALLOC(meshI, meshI->xtetra, (1+meshI->gap) * meshI->xtmax + 1,
                       meshI->xtmax + 1, MMG5_xTetra,
                       "larger xtetra table", meshI->xt--; goto fail_ncomm);
-        meshI->xtmax = 1.2 * meshI->xtmax;
+        meshI->xtmax = (1.+meshI->gap) * meshI->xtmax;
       }
       ptI->xt = meshI->xt;
       pxtI = &meshI->xtetra[ptI->xt];
@@ -357,10 +357,10 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
-        PMMG_RECALLOC(meshI, meshI->xtetra, 1.2 * meshI->xtmax + 1,
+        PMMG_RECALLOC(meshI, meshI->xtetra, (1.+meshI->gap) * meshI->xtmax + 1,
                       meshI->xtmax + 1, MMG5_xTetra,
                       "larger xtetra table", meshI->xt--; goto fail_ncomm);
-        meshI->xtmax = 1.2 * meshI->xtmax;
+        meshI->xtmax = (1.+meshI->gap) * meshI->xtmax;
       }
       ptI->xt = meshI->xt;
       pxtI = &meshI->xtetra[ptI->xt];
@@ -426,7 +426,7 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
       /* New point in the internal communicator */
       if ( ppt->tmp<0 ) {
         if ( poi_id_int == grpI->nitem_int_node_comm ) {
-          new_nitem_int_node_comm = (int)(1.2*grpI->nitem_int_node_comm);
+          new_nitem_int_node_comm = (int)(1+PMMG_GAP)*grpI->nitem_int_node_comm;
           PMMG_REALLOC(parmesh,grpI->node2int_node_comm_index1,
                        new_nitem_int_node_comm,
                        grpI->nitem_int_node_comm,int,
@@ -522,7 +522,7 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
 
       /* Add this face to the face communicators */
       if ( face_id_int == grp[0].nitem_int_face_comm ) {
-        new_nitem_int_face_comm = (int)(1.2*grp[0].nitem_int_face_comm);
+        new_nitem_int_face_comm = (int)((1+PMMG_GAP)*grp[0].nitem_int_face_comm);
         PMMG_REALLOC(parmesh,grp[0].face2int_face_comm_index1,
                      new_nitem_int_face_comm,
                      grp[0].nitem_int_face_comm,int,
