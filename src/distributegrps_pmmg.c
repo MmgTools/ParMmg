@@ -435,37 +435,28 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
  * \param parmesh pointer toward the mesh structure.
  * \param grps pointer toward the list of groups to pack.
  * \param ngrp pointer toward the number of groups (to update)
- * \param part pointer toward the metis array containing the partitions to
- * update and pack.
  *
- * \return 0 if fail, 1 if success.
+ * \return the new number of groups
  *
- * Pack the group array \a grps filled such as grps[k] must be send to the proc
- * k and update the parmetis partition array.
+ * Pack the group array \a grps. A group is unused if its mesh is NULL.
  *
  */
 static inline
-int PMMG_pack_grps( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
-                    int *ngrp ) {
+int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
+                              int ngrp ) {
   int k,nbl;
 
   nbl   = 0;
-  for ( k=0; k<*ngrp; ++k ) {
+  for ( k=0; k<ngrp; ++k ) {
     if ( !(*grps)[k].mesh ) continue;
 
     if ( k!=nbl )
-      (*grps)[nbl] = PMMG_assign_grp( &(*grps)[k] );
+      (*grps)[nbl] = PMMG_move_grp( &(*grps)[k] );
 
     ++nbl;
   }
-  /* Here we should never fail (nbl <= ngrp) so we can ignore the fact that if
-   * the part array realloc fail, we have different sizez for the grps and the
-   * part array and the grps size is not stored. */
-  PMMG_REALLOC( parmesh,*grps,nbl,*ngrp,PMMG_Grp,"Groups to send", return 0 );
 
-  *ngrp = nbl;
-
-  return 1;
+  return nbl;
 }
 
 /**
@@ -892,7 +883,7 @@ int PMMG_send_mesh( MMG5_pMesh mesh,MMG5_pSol met,int dest,int tag,MPI_Comm comm
              goto end_1 );
 
   if ( ismet )
-    MPI_CHECK( MPI_Send( &met->m, met->size*met->np, MPI_DOUBLE, dest, tag, comm ),
+    MPI_CHECK( MPI_Send( met->m, met->size*met->np, MPI_DOUBLE, dest, tag, comm ),
                goto end_1 );
 
   ier = 1;
@@ -942,18 +933,19 @@ end_5:
 int PMMG_recv_mesh( MMG5_pMesh mesh,MMG5_pSol met,int source,int tag,MPI_Comm comm)
 {
   MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
+  MPI_Status     *status;
   int            ier,ismet,np,ne,xp,xt;
 
   /* Get the mesh size */
   MPI_CHECK( MPI_Recv( &mesh->memMax,1,MPI_LONG_LONG,source,tag,comm,
-                       MPI_STATUS_IGNORE),return 0 );
-  mesh->memMax = mesh->memCur;
+                       status),return 0 );
+  mesh->memCur = 0;
 
   /* Mesh size */
-  MPI_CHECK( MPI_Recv( &np,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
-  MPI_CHECK( MPI_Recv( &ne,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
-  MPI_CHECK( MPI_Recv( &xp,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
-  MPI_CHECK( MPI_Recv( &xt,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ), return 0 );
+  MPI_CHECK( MPI_Recv( &np,1,MPI_INT,source,tag,comm,status ), return 0 );
+  MPI_CHECK( MPI_Recv( &ne,1,MPI_INT,source,tag,comm,status ), return 0 );
+  MPI_CHECK( MPI_Recv( &xp,1,MPI_INT,source,tag,comm,status ), return 0 );
+  MPI_CHECK( MPI_Recv( &xt,1,MPI_INT,source,tag,comm,status ), return 0 );
 
   if ( !PMMG_grpSplit_setMeshSize( mesh, np, ne, 0, xp, xt ) ) return 0;
 
@@ -965,28 +957,28 @@ int PMMG_recv_mesh( MMG5_pMesh mesh,MMG5_pSol met,int source,int tag,MPI_Comm co
 
   /* Recv mesh */
   MPI_CHECK( MPI_Recv(&mesh->point[1],mesh->np,mpi_point,source,tag,comm,
-                      MPI_STATUS_IGNORE),goto end_1;);
+                      status),goto end_1;);
   MPI_CHECK( MPI_Recv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,source,tag,comm,
-                      MPI_STATUS_IGNORE),goto end_1;);
+                      status),goto end_1;);
   MPI_CHECK( MPI_Recv( &mesh->tetra[1] ,mesh->ne,mpi_tetra, source,tag,comm,
-                       MPI_STATUS_IGNORE),goto end_1;);
+                       status),goto end_1;);
   MPI_CHECK( MPI_Recv( &mesh->xtetra[1],mesh->xt,mpi_xtetra,source,tag,comm,
-                       MPI_STATUS_IGNORE),goto end_1;);
+                       status),goto end_1;);
 
   /* Met size */
   MPI_CHECK( MPI_Recv( &met->size,1,MPI_INT,source,tag,comm,
-                       MPI_STATUS_IGNORE ),goto end_1 );
+                       status ),goto end_1 );
   MPI_CHECK( MPI_Recv( &met->type, 1, MPI_INT, source, tag, comm,
-                       MPI_STATUS_IGNORE ),goto end_1 );
+                       status ),goto end_1 );
   if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,np,met->type) ) goto end_1;
 
   /* Recv metric */
-  MPI_CHECK( MPI_Recv(&ismet,1,MPI_INT,source,tag,comm,MPI_STATUS_IGNORE ),
+  MPI_CHECK( MPI_Recv(&ismet,1,MPI_INT,source,tag,comm,status ),
              goto end_1 );
 
   if ( ismet )
-    MPI_CHECK( MPI_Recv( &met->m,met->size*met->np,MPI_DOUBLE,source,tag,comm,
-                         MPI_STATUS_IGNORE ),goto end_1 );
+    MPI_CHECK( MPI_Recv( met->m,met->size*met->np,MPI_DOUBLE,source,tag,comm,
+                         status ),goto end_1 );
 
   ier = 1;
 
@@ -1026,7 +1018,7 @@ int PMMG_mpiexchange_mesh(PMMG_pParMesh parmesh,idx_t *part,int *recv_comm) {
   /** Process the groups and send/receive the mesh and metrics that need
    * to be exchanged */
   for ( i=0; i<ngrp; ++i ) {
-    if ( part[i] == i ) continue;
+    if ( part[i] == parmesh->myrank ) continue;
 
     mesh = parmesh->listgrp[i].mesh;
     met  = parmesh->listgrp[i].met;
@@ -1036,16 +1028,21 @@ int PMMG_mpiexchange_mesh(PMMG_pParMesh parmesh,idx_t *part,int *recv_comm) {
   }
 
   /** Pack the used groups on the mesh */
-  new_ngrp = parmesh->ngrp;
-  if ( !PMMG_pack_grps( parmesh, &parmesh->listgrp, &new_ngrp ) )  goto end;
+  new_ngrp = PMMG_pack_grps_norealloc( parmesh,&parmesh->listgrp,parmesh->ngrp);
 
   /** Count the final number of groups and reallocate the listgrp array */
   k = 0;
   for ( i=0; i<nprocs; ++i )
     k += recv_comm[i];
 
-  PMMG_REALLOC(parmesh,parmesh->listgrp,k+new_ngrp,parmesh->ngrp,PMMG_Grp,
-               "listgrps",goto end);
+  PMMG_RECALLOC(parmesh,parmesh->listgrp,k+new_ngrp,parmesh->ngrp,PMMG_Grp,
+                "listgrps",goto end);
+  parmesh->ngrp = k+new_ngrp;
+
+  for ( k=new_ngrp; k<parmesh->ngrp; ++k ) {
+    MMG3D_Init_mesh(MMG5_ARG_start,MMG5_ARG_ppMesh,&parmesh->listgrp[k].mesh,
+                    MMG5_ARG_ppMet,&parmesh->listgrp[k].met,MMG5_ARG_end);
+  }
 
   /** Receive the groups */
   for ( i=0; i<nprocs; ++i ) {
@@ -1056,7 +1053,7 @@ int PMMG_mpiexchange_mesh(PMMG_pParMesh parmesh,idx_t *part,int *recv_comm) {
       met  = parmesh->listgrp[new_ngrp].met;
 
       tag = parmesh->myrank*nprocs + i;
-      if ( !PMMG_recv_mesh(mesh,met,part[i],tag,parmesh->comm) ) goto end;
+      if ( !PMMG_recv_mesh(mesh,met,i,tag,parmesh->comm) ) goto end;
     }
   }
 
@@ -1505,7 +1502,7 @@ int PMMG_mpiexchange_nodeCommunicators(PMMG_pParMesh parmesh,idx_t *part,
   PMMG_MALLOC(parmesh,int_comm->intvalues,nitem,int,"intvalues",goto end);
 
   for ( i=0; i<ngrp; ++i ) {
-    if ( part[i] == i ) continue;
+    if ( part[i] == parmesh->myrank ) continue;
 
     /* Send the wanted data of the external node communicator of this group */
     tag = part[i]*nprocs + parmesh->myrank;
@@ -1521,7 +1518,7 @@ int PMMG_mpiexchange_nodeCommunicators(PMMG_pParMesh parmesh,idx_t *part,
     for ( k=0; k<recv_comm[i]; ++k ) {
 
       tag = parmesh->myrank*nprocs + i;
-      if ( !PMMG_recv_nodeCommunicators(parmesh,part[i],tag,parmesh->comm) )
+      if ( !PMMG_recv_nodeCommunicators(parmesh,i,tag,parmesh->comm) )
         goto end;
     }
   }
@@ -1589,13 +1586,14 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   /** Send each group to the suitable processor */
   /* Send a logical to say the number of comms that we will receive from this
    * proc */
+  nprocs = parmesh->nprocs;
   PMMG_CALLOC(parmesh,send_comm,nprocs+1,int,"sended comm with other procs",
               goto end);
   PMMG_CALLOC(parmesh,recv_comm,nprocs+1,int,"received comm with other procs",
               goto end);
 
   for ( k=0; k<parmesh->ngrp; ++k )
-    if ( part[k] != k ) ++send_comm[part[k]];
+    if ( part[k] != parmesh->myrank ) ++send_comm[part[k]];
 
   MPI_CHECK( MPI_Alltoall(send_comm,1,MPI_INT,recv_comm,1,MPI_INT,parmesh->comm),
              goto end);
