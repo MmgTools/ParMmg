@@ -110,16 +110,12 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
  */
 int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      listgrp,grpI;
-  MMG5_pMesh     meshI;
-  MMG5_pSol      metI;
   int            *intvalues;
   int            poi_id_int,poi_id_glo,imsh,k;
 
   listgrp   = parmesh->listgrp;
 
   grpI      = &listgrp[0];
-  meshI     = grpI->mesh;
-  metI      = grpI->met;
   intvalues = parmesh->int_node_comm->intvalues;
 
   /** Use the tmp field of points in meshes to remember the id in the merged mesh
@@ -160,17 +156,15 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
  * Merge the internal nodes of the group \a grpJ into the group grpI.
  *
  */
-int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                      PMMG_pGrp grpJ ) {
+int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pSol      metI,metJ;
   MMG5_pPoint    pptI,pptJ;
   MMG5_pxPoint   pxpI,pxpJ;
-  int            np,ip,k;
+  int            ip,k;
 
   meshI = grpI->mesh;
   metI  = grpI->met;
-  np    = meshI->np;
 
   /** Loop over points and add the ones that are not already in the merged
    * mesh (meshI) */
@@ -387,7 +381,7 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   MMG5_pPoint    ppt;
   PMMG_pext_comm ext_node_comm;
   PMMG_pint_comm int_node_comm;
-  int            nitem_int_node_comm0,*intvalues;
+  int            *intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
   int            poi_id_int,poi_id_glo,idx,k,i,ip;
@@ -396,7 +390,6 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   int_node_comm              = parmesh->int_node_comm;
   intvalues                  = int_node_comm->intvalues;
   meshI                      = grpI->mesh;
-  nitem_int_node_comm0       = grpI->nitem_int_node_comm;
   node2int_node_comm0_index1 = grpI->node2int_node_comm_index1;
   node2int_node_comm0_index2 = grpI->node2int_node_comm_index2;
 
@@ -488,11 +481,9 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
 static inline
 int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  MMG5_pMesh     mesh0;
-  MMG5_pSol      met0;
   PMMG_pext_comm ext_face_comm;
   PMMG_pint_comm int_face_comm;
-  int            nitem_int_face_comm0,*intvalues;
+  int            *intvalues;
   int           *face2int_face_comm0_index1;
   int           *face2int_face_comm0_index2;
   int            face_id_int,idx,k,i,iel;
@@ -502,9 +493,6 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
 
   int_face_comm              = parmesh->int_face_comm;
   intvalues                  = int_face_comm->intvalues;
-  mesh0                      = grp[0].mesh;
-  met0                       = grp[0].met;
-  nitem_int_face_comm0       = grp[0].nitem_int_face_comm;
   face2int_face_comm0_index1 = grp[0].face2int_face_comm_index1;
   face2int_face_comm0_index2 = grp[0].face2int_face_comm_index2;
 
@@ -593,7 +581,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
-  MMG5_pSol      met0,met;
   PMMG_pint_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
@@ -602,7 +589,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   /** Free the adjacency array: a possible improvement is to update it */
   mesh0 = listgrp[0].mesh;
-  met0  = listgrp[0].met;
 
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja, 4*mesh0->nemax+5, int, "adjacency table" );
@@ -625,7 +611,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
    * merged to mesh0 and freed, no more operations in them */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = listgrp[imsh].mesh;
-    met  = listgrp[imsh].met;
     mesh0->memMax += (mesh->memMax - mesh->memCur);
   }
 
@@ -1074,8 +1059,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   MMG5_pxTetra   xtetra,pxt;
   MMG5_pSol      met;
   double         *met_1;
-  int            *node2int_node_comm_index1  ,*node2int_node_comm_index2;
-  int            *node2int_node_comm_index1_2,*node2int_node_comm_index2_2;
   int            *int_comm_index,*int_comm_index_2;
   int            *intvalues_1,*intvalues_2,nitems_1,nitems_2;
   int            nprocs,k,i,j,idx,idx_2,cursor,color_in,color_out;
@@ -1096,8 +1079,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
       point_1     = &rcv_point[point_displs[k]];
       cursor      = intval_displs[k];
       intvalues_1 = &rcv_intvalues[cursor];
-      node2int_node_comm_index1 = &rcv_node2int_node_comm_index1[cursor];
-      node2int_node_comm_index2 = &rcv_node2int_node_comm_index2[cursor];
 
       /* Travel through the external communicators that lists the points at the
        * interface of the procs color_in and color_out: if color_in<color_out,
@@ -1150,8 +1131,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
           cursor      = intval_displs[color_out];
           intvalues_2 = &rcv_intvalues[cursor];
-          node2int_node_comm_index1_2 = &rcv_node2int_node_comm_index1[cursor];
-          node2int_node_comm_index2_2 = &rcv_node2int_node_comm_index2[cursor];
 
           /* Update point indices (stored in the tmp field) */
           for ( j=0; j<nitems_1; ++j ) {

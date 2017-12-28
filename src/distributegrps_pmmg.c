@@ -294,15 +294,12 @@ static inline
 int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                        PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
-  MMG5_pSol      metI,metJ;
   int            *intvalues;
   int            poi_id_int,poi_id_glo,k;
 
   meshI     = grpI->mesh;
-  metI      = grpI->met;
 
   meshJ     = grpJ->mesh;
-  metJ      = grpJ->met;
 
   intvalues = parmesh->int_node_comm->intvalues;
 

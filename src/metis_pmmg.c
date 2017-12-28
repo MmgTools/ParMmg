@@ -207,7 +207,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   MMG5_pTetra    pt;
   MPI_Comm       comm;
   MPI_Status     status;
-  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int            *face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            tag,found;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
@@ -271,7 +271,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
-    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
     for ( k=0; k<grp->nitem_int_face_comm; ++k )
