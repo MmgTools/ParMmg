@@ -300,6 +300,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
   }
 
   return 1;
+fail_ncomm:
+  return 0;
 }
 
 /**
@@ -362,6 +364,8 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   }
 
   return 1;
+fail_ncomm:
+  return 0;
 }
 
 /**

@@ -125,7 +125,7 @@ extern "C" {
 
 #define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
   int my_stat = PMMG_SUCCESS;                                            \
-  PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE);  \
+  PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure;my_stat=PMMG_FAILURE);  \
   if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) )           \
     memset( (ptr) + oldsize, 0, ((newsize)-(oldsize))*sizeof(type));     \
   } while(0)
