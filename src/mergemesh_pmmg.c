@@ -313,8 +313,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  * Merge the tetra of the \a grpJ->mesh mesh into the \a grpI->mesh mesh.
  *
  */
-int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                     PMMG_pGrp grpJ ) {
+int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pTetra    ptI,ptJ;
   MMG5_pxTetra   pxtI,pxtJ;
@@ -633,7 +632,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     grp = &listgrp[imsh];
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrpJinI_internalPoints(parmesh,&listgrp[0],grp) )
+    if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
       goto fail_comms;
 
     /* Step 3: Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
@@ -641,7 +640,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
       goto fail_comms;
 
     /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrpJinI_internalTetra(parmesh,&listgrp[0],grp) )
+    if ( !PMMG_mergeGrpJinI_internalTetra(&listgrp[0],grp) )
       goto fail_comms;
 
     /* Free merged mesh and increase mesh0->memMax*/
@@ -1009,8 +1008,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
  * \param rcv_nitem_ext_tab Buffer that gathers the number of item in the ext comm
  * \param rcv_color_in_tab Buffer that gathers the color_in field of the ext comm
  * \param rcv_color_out_tab Buffer that gathers the color_out field of the ext comm
- * \param rcv_node2int_node_comm_index1 Buffer that gathers node2int_node_comm_index1
- * \param rcv_node2int_node_comm_index2 Buffer that gathers node2int_node_comm_index2
  * \param point_displs Position of the 1st point of each mesh in rcv_point
  * \param xpoint_displs Position of the 1st xpoint of each mesh in rcv_xpoint
  * \param tetra_displs Position of the 1st tetra of each mesh in rcv_tetra
@@ -1022,13 +1019,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
  * \param int_comm_index_displs Position of the 1st data of each internal comm in
  * the rcv_node2int_node_comm_index arrays
  * \param rcv_np Buffer that gathers the number of points
- * \param rcv_xp Buffer that gathers the number of xPoints
  * \param rcv_ne Buffer that gathers the number of tetra
  * \param rcv_xt Buffer that gathers the number of xtetra
- * \param rcv_nmet Buffer that gathers the number of metrics
  * \param rcv_int_comm_index Buffer that gathers the internal comm sizes
  * \param rcv_next_node_comm Buffer that gathers the numbers of external comm
- * \param rcv_nitem_int_node_comm Buffer that gathers the node2int_node_comm arrays
  * sizes
  *
  * \return 0 if fail, 1 otherwise
@@ -1043,15 +1037,13 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
                          MMG5_pxTetra rcv_xtetra,double *rcv_met,
                          int *rcv_intvalues,int *rcv_nitem_ext_tab,
                          int *rcv_color_in_tab,int *rcv_color_out_tab,
-                         int *rcv_node2int_node_comm_index1,
-                         int *rcv_node2int_node_comm_index2,int *point_displs,
+                         int *point_displs,
                          int *xpoint_displs,int *tetra_displs,
                          int *xtetra_displs,int *met_displs,
                          int *intval_displs,int *ext_comm_displs,
-                         int *int_comm_index_displs,int *rcv_np,int *rcv_xp,
-                         int *rcv_ne,int *rcv_xt,int *rcv_nmet,
-                         int *rcv_int_comm_index,int* rcv_next_node_comm,
-                         int *rcv_nitem_int_node_comm  ) {
+                         int *int_comm_index_displs,int *rcv_np,
+                         int *rcv_ne,int *rcv_xt,
+                         int *rcv_int_comm_index,int* rcv_next_node_comm) {
   MMG5_pMesh     mesh;
   MMG5_pPoint    point_1,point_2,ppt;
   MMG5_pxPoint   xpoint,pxp;
@@ -1342,14 +1334,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
    * proc. The other points are concatenated with the proc 0. */
   if ( !PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
                             rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
-                            rcv_color_in_tab,rcv_color_out_tab,
-                            rcv_node2int_node_comm_index1,
-                            rcv_node2int_node_comm_index2,point_displs,
+                            rcv_color_in_tab,rcv_color_out_tab,point_displs,
                             xpoint_displs,tetra_displs,xtetra_displs,
                             met_displs,intval_displs,ext_comm_displs,
-                            int_comm_index_displs,rcv_np,rcv_xp,rcv_ne,
-                            rcv_xt,rcv_nmet,rcv_int_comm_index,
-                            rcv_next_node_comm,rcv_nitem_int_node_comm) ) {
+                            int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
+                            rcv_int_comm_index,rcv_next_node_comm) ) {
     ier = 0;
   }
 

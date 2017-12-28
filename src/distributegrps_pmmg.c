@@ -360,7 +360,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
   if ( !PMMG_mergeGrpJinI_interfacePoints(parmesh,grpI,grpJ) ) return 0;
 
   /** Step 2: Merge internal points of grpJ into grpI */
-  if ( !PMMG_mergeGrpJinI_internalPoints(parmesh,grpI,grpJ) ) return 0;
+  if ( !PMMG_mergeGrpJinI_internalPoints(grpI,grpJ) ) return 0;
 
   /** Step 3: Merge interfaces tetras of the grpJ into the grpI mesh */
   /* 1) Store the indices of the interface faces of grpI into the internal
@@ -380,7 +380,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
   if ( !PMMG_mergeGrpJinI_interfaceTetra(parmesh,grpI,grpJ) ) return 0;
 
   /** Step 4: Merge internal tetras of the grpJ mesh mesh into the meshI mesh */
-  if ( !PMMG_mergeGrpJinI_internalTetra(parmesh,grpI,grpJ) ) return 0;
+  if ( !PMMG_mergeGrpJinI_internalTetra(grpI,grpJ) ) return 0;
 
   /** Step 5: Update the communicators */
   if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ) ) return 0;
