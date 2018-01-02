@@ -129,7 +129,7 @@ long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(
   int my_stat = PMMG_SUCCESS;                                            \
   PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure;my_stat=PMMG_FAILURE);\
   if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) )           \
-    memset( (ptr) + oldsize, 0, ((newsize)-(oldsize))*sizeof(type));     \
+    memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));     \
   } while(0)
 
 /* Input */
