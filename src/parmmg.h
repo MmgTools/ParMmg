@@ -47,28 +47,28 @@ extern "C" {
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
     int stat = PMMG_SUCCESS;                                \
-                                                            \
-    if ( size ) {                                           \
-      MEM_CHK_AVAIL(mesh,-(size)*sizeof(type),msg);         \
+    if ( (size) != 0 ) {                                    \
+      long long size_to_free = -(size)*sizeof(type);        \
+      MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
       if ( stat == PMMG_SUCCESS )                           \
-        (mesh)->memCur -= (size) * sizeof(type);            \
+        (mesh)->memCur += size_to_free;                     \
       free( ptr );                                          \
-      ptr = NULL;                                           \
+      (ptr) = NULL;                                         \
     }                                                       \
   } while(0)
 
 #define PMMG_MALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
-                                                            \
-  if ( size ) {                                             \
-    MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg );           \
+  if ( (size) != 0 ) {                                      \
+    long long size_to_allocate = (size)*sizeof(type);       \
+    MEM_CHK_AVAIL(mesh,size_to_allocate,msg );              \
     if ( stat == PMMG_SUCCESS ) {                           \
-      ptr = malloc( (size) * sizeof(type) );                \
-      if ( ptr == NULL ) {                                  \
+      (ptr) = malloc( size_to_allocate );                   \
+      if ( (ptr) == NULL ) {                                \
         ERROR_AT( msg, " malloc failed: " );                \
         on_failure;                                         \
       } else {                                              \
-        (mesh)->memCur += (size) * sizeof(type);            \
+        (mesh)->memCur += size_to_allocate;                 \
         stat = PMMG_SUCCESS;                                \
       }                                                     \
     } else {                                                \
@@ -78,16 +78,16 @@ extern "C" {
 
 #define PMMG_CALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
-                                                            \
-  if ( size ) {                                             \
-    MEM_CHK_AVAIL(mesh,(size)*sizeof(type),msg);            \
+  if ( (size) != 0 ) {                                      \
+    long long size_to_allocate = (size)*sizeof(type);       \
+    MEM_CHK_AVAIL(mesh,size_to_allocate,msg);               \
     if ( stat == PMMG_SUCCESS ) {                           \
-      ptr = calloc( (size), sizeof(type) );                 \
-      if ( ptr == NULL ) {                                  \
+      (ptr) = calloc( (size), sizeof(type) );               \
+      if ( (ptr) == NULL ) {                                \
         ERROR_AT(msg," calloc failed: ");                   \
         on_failure;                                         \
       } else {                                              \
-        (mesh)->memCur += (size) * sizeof(type);            \
+        (mesh)->memCur += size_to_allocate;                 \
       }                                                     \
     } else {                                                \
       on_failure;                                           \
@@ -96,28 +96,30 @@ extern "C" {
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
     int stat = PMMG_SUCCESS;                                            \
-    if ( ptr == NULL ) {                                                \
-      assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?"); \
+    if ( (ptr) == NULL ) {                                              \
+      assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?");\
       PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);              \
     } else if ((newsize)==0) {                                          \
       PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
     } else if ((newsize) < (oldsize)) {                                 \
-      ptr = realloc( ptr, (newsize) * sizeof(type));                    \
+      long long size_to_allocate = (newsize)*sizeof(type);              \
+      (ptr) = realloc( (ptr), size_to_allocate);                        \
       if ( ptr == NULL ) {                                              \
         ERROR_AT(msg," Realloc failed: ");                              \
         on_failure;                                                     \
       } else {                                                          \
-        (mesh)->memCur += ((newsize)-(oldsize)) * sizeof(type);         \
+        (mesh)->memCur += ((long long)((newsize)*sizeof(type))-size_to_allocate);\
       }                                                                 \
     } else if ((newsize) > (oldsize)) {                                 \
-      MEM_CHK_AVAIL(mesh,((newsize)-(oldsize))*sizeof(type),msg);       \
+long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(type);\
+      MEM_CHK_AVAIL(mesh,size_to_allocate,msg);                         \
       if ( stat == PMMG_SUCCESS ) {                                     \
-        ptr = realloc(ptr, (newsize) * sizeof(type));                   \
-        if ( ptr == NULL ) {                                            \
+        (ptr) = realloc((ptr), (long long)(newsize) * sizeof(type));    \
+        if ( (ptr) == NULL ) {                                          \
           ERROR_AT(msg, " Realloc failed: " );                          \
           on_failure;                                                   \
         } else {                                                        \
-          (mesh)->memCur += ( ((newsize)-(oldsize))*sizeof(type));      \
+          (mesh)->memCur += ( size_to_allocate );      \
         }                                                               \
       }                                                                 \
     }                                                                   \
@@ -125,9 +127,9 @@ extern "C" {
 
 #define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
   int my_stat = PMMG_SUCCESS;                                            \
-  PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE);  \
+  PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure;my_stat=PMMG_FAILURE);\
   if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) )           \
-    memset( (ptr) + oldsize, 0, ((newsize)-(oldsize))*sizeof(type));     \
+    memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));     \
   } while(0)
 
 /* Input */
@@ -151,9 +153,9 @@ int PMMG_split_n2mGrps(PMMG_pParMesh,int,int);
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
 int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh );
-int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp grpJ );
+int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp,PMMG_pGrp grpJ );
 int PMMG_mergeGrpJinI_interfaceTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
-int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
+int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp,PMMG_pGrp );
 int PMMG_merge_grps ( PMMG_pParMesh parmesh );
 
 /* Packing */

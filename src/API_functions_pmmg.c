@@ -348,6 +348,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
       met  = parmesh->listgrp[k].met;
       if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_anisosize,val) ) return 0;
     }
+    break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
     return(0);

@@ -107,7 +107,6 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
  * \param xadj pointer toward the position of the elt adjacents in adjncy
  * \param adjncy pointer toward the list of the adjacent of each elt
  * \param nadjncy number of data in adjncy array
- * \param nproc number of partitions asked
  *
  * \return  1 if success, 0 if fail
  *
@@ -118,7 +117,7 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                                idx_t **xadj,idx_t **adjncy,
-                               idx_t *nadjncy,idx_t nproc ) {
+                               idx_t *nadjncy) {
   int        *adja;
   int        j,k,iadr,jel,count,nbAdj;
 
@@ -207,7 +206,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   MMG5_pTetra    pt;
   MPI_Comm       comm;
   MPI_Status     status;
-  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int            *face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            tag,found;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
@@ -271,7 +270,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
-    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
     for ( k=0; k<grp->nitem_int_face_comm; ++k )
@@ -481,7 +479,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   int        ier = 0;
   int        status = 1;
 
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize,nproc) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize) )
     return 0;
 
   /** Call metis and get the partition array */

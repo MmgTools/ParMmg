@@ -110,16 +110,12 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
  */
 int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      listgrp,grpI;
-  MMG5_pMesh     meshI;
-  MMG5_pSol      metI;
   int            *intvalues;
   int            poi_id_int,poi_id_glo,imsh,k;
 
   listgrp   = parmesh->listgrp;
 
   grpI      = &listgrp[0];
-  meshI     = grpI->mesh;
-  metI      = grpI->met;
   intvalues = parmesh->int_node_comm->intvalues;
 
   /** Use the tmp field of points in meshes to remember the id in the merged mesh
@@ -160,17 +156,15 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
  * Merge the internal nodes of the group \a grpJ into the group grpI.
  *
  */
-int PMMG_mergeGrpJinI_internalPoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                      PMMG_pGrp grpJ ) {
+int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pSol      metI,metJ;
   MMG5_pPoint    pptI,pptJ;
   MMG5_pxPoint   pxpI,pxpJ;
-  int            np,ip,k;
+  int            ip,k;
 
   meshI = grpI->mesh;
   metI  = grpI->met;
-  np    = meshI->np;
 
   /** Loop over points and add the ones that are not already in the merged
    * mesh (meshI) */
@@ -306,6 +300,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
   }
 
   return 1;
+fail_ncomm:
+  return 0;
 }
 
 /**
@@ -319,8 +315,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  * Merge the tetra of the \a grpJ->mesh mesh into the \a grpI->mesh mesh.
  *
  */
-int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                     PMMG_pGrp grpJ ) {
+int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pTetra    ptI,ptJ;
   MMG5_pxTetra   pxtI,pxtJ;
@@ -369,6 +364,8 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
   }
 
   return 1;
+fail_ncomm:
+  return 0;
 }
 
 /**
@@ -387,7 +384,7 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   MMG5_pPoint    ppt;
   PMMG_pext_comm ext_node_comm;
   PMMG_pint_comm int_node_comm;
-  int            nitem_int_node_comm0,*intvalues;
+  int            *intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
   int            poi_id_int,poi_id_glo,idx,k,i,ip;
@@ -396,7 +393,6 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   int_node_comm              = parmesh->int_node_comm;
   intvalues                  = int_node_comm->intvalues;
   meshI                      = grpI->mesh;
-  nitem_int_node_comm0       = grpI->nitem_int_node_comm;
   node2int_node_comm0_index1 = grpI->node2int_node_comm_index1;
   node2int_node_comm0_index2 = grpI->node2int_node_comm_index2;
 
@@ -488,11 +484,9 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
 static inline
 int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  MMG5_pMesh     mesh0;
-  MMG5_pSol      met0;
   PMMG_pext_comm ext_face_comm;
   PMMG_pint_comm int_face_comm;
-  int            nitem_int_face_comm0,*intvalues;
+  int            *intvalues;
   int           *face2int_face_comm0_index1;
   int           *face2int_face_comm0_index2;
   int            face_id_int,idx,k,i,iel;
@@ -502,9 +496,6 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
 
   int_face_comm              = parmesh->int_face_comm;
   intvalues                  = int_face_comm->intvalues;
-  mesh0                      = grp[0].mesh;
-  met0                       = grp[0].met;
-  nitem_int_face_comm0       = grp[0].nitem_int_face_comm;
   face2int_face_comm0_index1 = grp[0].face2int_face_comm_index1;
   face2int_face_comm0_index2 = grp[0].face2int_face_comm_index2;
 
@@ -593,7 +584,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
-  MMG5_pSol      met0,met;
   PMMG_pint_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
@@ -602,7 +592,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   /** Free the adjacency array: a possible improvement is to update it */
   mesh0 = listgrp[0].mesh;
-  met0  = listgrp[0].met;
 
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja, 4*mesh0->nemax+5, int, "adjacency table" );
@@ -625,7 +614,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
    * merged to mesh0 and freed, no more operations in them */
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     mesh = listgrp[imsh].mesh;
-    met  = listgrp[imsh].met;
     mesh0->memMax += (mesh->memMax - mesh->memCur);
   }
 
@@ -648,7 +636,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     grp = &listgrp[imsh];
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrpJinI_internalPoints(parmesh,&listgrp[0],grp) )
+    if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
       goto fail_comms;
 
     /* Step 3: Add the interfaces tetra of the imsh mesh to the mesh0 mesh */
@@ -656,7 +644,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
       goto fail_comms;
 
     /** Step 4: Merge internal tetras of the imsh mesh into the mesh0 mesh */
-    if ( !PMMG_mergeGrpJinI_internalTetra(parmesh,&listgrp[0],grp) )
+    if ( !PMMG_mergeGrpJinI_internalTetra(&listgrp[0],grp) )
       goto fail_comms;
 
     /* Free merged mesh and increase mesh0->memMax*/
@@ -1024,8 +1012,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
  * \param rcv_nitem_ext_tab Buffer that gathers the number of item in the ext comm
  * \param rcv_color_in_tab Buffer that gathers the color_in field of the ext comm
  * \param rcv_color_out_tab Buffer that gathers the color_out field of the ext comm
- * \param rcv_node2int_node_comm_index1 Buffer that gathers node2int_node_comm_index1
- * \param rcv_node2int_node_comm_index2 Buffer that gathers node2int_node_comm_index2
  * \param point_displs Position of the 1st point of each mesh in rcv_point
  * \param xpoint_displs Position of the 1st xpoint of each mesh in rcv_xpoint
  * \param tetra_displs Position of the 1st tetra of each mesh in rcv_tetra
@@ -1037,13 +1023,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
  * \param int_comm_index_displs Position of the 1st data of each internal comm in
  * the rcv_node2int_node_comm_index arrays
  * \param rcv_np Buffer that gathers the number of points
- * \param rcv_xp Buffer that gathers the number of xPoints
  * \param rcv_ne Buffer that gathers the number of tetra
  * \param rcv_xt Buffer that gathers the number of xtetra
- * \param rcv_nmet Buffer that gathers the number of metrics
  * \param rcv_int_comm_index Buffer that gathers the internal comm sizes
  * \param rcv_next_node_comm Buffer that gathers the numbers of external comm
- * \param rcv_nitem_int_node_comm Buffer that gathers the node2int_node_comm arrays
  * sizes
  *
  * \return 0 if fail, 1 otherwise
@@ -1058,15 +1041,13 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
                          MMG5_pxTetra rcv_xtetra,double *rcv_met,
                          int *rcv_intvalues,int *rcv_nitem_ext_tab,
                          int *rcv_color_in_tab,int *rcv_color_out_tab,
-                         int *rcv_node2int_node_comm_index1,
-                         int *rcv_node2int_node_comm_index2,int *point_displs,
+                         int *point_displs,
                          int *xpoint_displs,int *tetra_displs,
                          int *xtetra_displs,int *met_displs,
                          int *intval_displs,int *ext_comm_displs,
-                         int *int_comm_index_displs,int *rcv_np,int *rcv_xp,
-                         int *rcv_ne,int *rcv_xt,int *rcv_nmet,
-                         int *rcv_int_comm_index,int* rcv_next_node_comm,
-                         int *rcv_nitem_int_node_comm  ) {
+                         int *int_comm_index_displs,int *rcv_np,
+                         int *rcv_ne,int *rcv_xt,
+                         int *rcv_int_comm_index,int* rcv_next_node_comm) {
   MMG5_pMesh     mesh;
   MMG5_pPoint    point_1,point_2,ppt;
   MMG5_pxPoint   xpoint,pxp;
@@ -1074,8 +1055,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   MMG5_pxTetra   xtetra,pxt;
   MMG5_pSol      met;
   double         *met_1;
-  int            *node2int_node_comm_index1  ,*node2int_node_comm_index2;
-  int            *node2int_node_comm_index1_2,*node2int_node_comm_index2_2;
   int            *int_comm_index,*int_comm_index_2;
   int            *intvalues_1,*intvalues_2,nitems_1,nitems_2;
   int            nprocs,k,i,j,idx,idx_2,cursor,color_in,color_out;
@@ -1096,8 +1075,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
       point_1     = &rcv_point[point_displs[k]];
       cursor      = intval_displs[k];
       intvalues_1 = &rcv_intvalues[cursor];
-      node2int_node_comm_index1 = &rcv_node2int_node_comm_index1[cursor];
-      node2int_node_comm_index2 = &rcv_node2int_node_comm_index2[cursor];
 
       /* Travel through the external communicators that lists the points at the
        * interface of the procs color_in and color_out: if color_in<color_out,
@@ -1150,8 +1127,6 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
           cursor      = intval_displs[color_out];
           intvalues_2 = &rcv_intvalues[cursor];
-          node2int_node_comm_index1_2 = &rcv_node2int_node_comm_index1[cursor];
-          node2int_node_comm_index2_2 = &rcv_node2int_node_comm_index2[cursor];
 
           /* Update point indices (stored in the tmp field) */
           for ( j=0; j<nitems_1; ++j ) {
@@ -1363,14 +1338,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
    * proc. The other points are concatenated with the proc 0. */
   if ( !PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
                             rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
-                            rcv_color_in_tab,rcv_color_out_tab,
-                            rcv_node2int_node_comm_index1,
-                            rcv_node2int_node_comm_index2,point_displs,
+                            rcv_color_in_tab,rcv_color_out_tab,point_displs,
                             xpoint_displs,tetra_displs,xtetra_displs,
                             met_displs,intval_displs,ext_comm_displs,
-                            int_comm_index_displs,rcv_np,rcv_xp,rcv_ne,
-                            rcv_xt,rcv_nmet,rcv_int_comm_index,
-                            rcv_next_node_comm,rcv_nitem_int_node_comm) ) {
+                            int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
+                            rcv_int_comm_index,rcv_next_node_comm) ) {
     ier = 0;
   }
 
