@@ -20,6 +20,7 @@
 #  PARMETIS_INCLUDE_DIRS    - parmetis include directories
 #  PARMETIS_LIBRARY_DIRS    - Link directories for parmetis libraries
 #  PARMETIS_LIBRARIES       - parmetis component libraries to be linked
+#  PARMETIS_INTSIZE         - Number of octets occupied by a parmetis idx_t
 #
 # The user can give specific paths where to find the libraries adding cmake
 # options at configure (ex: cmake path/to/project -DPARMETIS_DIR=path/to/parmetis):
@@ -277,6 +278,47 @@ if (PARMETIS_LIBRARIES)
 endif()
 mark_as_advanced(PARMETIS_DIR)
 mark_as_advanced(PARMETIS_DIR_FOUND)
+
+
+# Check the size of METIS idx_t
+# ---------------------------------
+set(CMAKE_REQUIRED_INCLUDES ${REQUIRED_INCDIRS})
+
+include(CheckCSourceRuns)
+set(PARMETIS_C_TEST_PARMETIS_idx_t_4 "
+#include <stdio.h>
+#include <parmetis.h>
+int main(int argc, char **argv) {
+  if (sizeof(idx_t) == 4)
+    return 0;
+  else
+    return 1;
+}
+")
+
+set(PARMETIS_C_TEST_PARMETIS_idx_t_8 "
+#include <parmetis.h>
+#include <stdio.h>
+int main(int argc, char **argv) {
+  if (sizeof(idx_t) == 8)
+    return 0;
+  else
+    return 1;
+}
+")
+
+check_c_source_runs("${PARMETIS_C_TEST_PARMETIS_idx_t_4}" PARMETIS_idx_t_4)
+if(NOT PARMETIS_idx_t_4)
+  check_c_source_runs("${PARMETIS_C_TEST_PARMETIS_idx_t_8}" PARMETIS_idx_t_8)
+  if(NOT PARMETIS_idx_t_8)
+    set(PARMETIS_INTSIZE -1)
+  else()
+    set(PARMETIS_INTSIZE 8)
+  endif()
+else()
+  set(PARMETIS_INTSIZE 4)
+endif()
+set(CMAKE_REQUIRED_INCLUDES)
 
 # check that PARMETIS has been found
 # ----------------------------------
