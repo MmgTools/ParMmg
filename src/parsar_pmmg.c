@@ -203,7 +203,7 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
     mesh->npnil = 0;
   }
 
-  if ( mesh->npmax > mesh->np ) {
+  if ( mesh->nemax > mesh->ne ) {
     mesh->nenil = mesh->ne + 1;
     for (k=mesh->nenil; k<mesh->nemax-1; k++)
       mesh->tetra[k].v[3] = k+1;
