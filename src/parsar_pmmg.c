@@ -184,18 +184,19 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
  *
  */
 int PMMG_link_mesh( MMG5_pMesh mesh ) {
-  int k;
+  MMG5_pTetra pt;
+  int k,iadr;
 
   /* keep track of empty links */
   if ( mesh->npmax > mesh->np ) {
     mesh->npnil = mesh->np + 1;
-    for (k=mesh->npnil; k<mesh->npmax-1; k++) {
+    for (k=mesh->npnil; k<=mesh->npmax; k++) {
       /* Set tangent field of point to 0 */
       mesh->point[k].n[0] = 0;
       mesh->point[k].n[1] = 0;
       mesh->point[k].n[2] = 0;
       /* link */
-      mesh->point[k].tmp  = k+1;
+      if(k<mesh->npmax-1) mesh->point[k].tmp  = k+1;
     }
   }
   else {
@@ -205,8 +206,15 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
 
   if ( mesh->nemax > mesh->ne ) {
     mesh->nenil = mesh->ne + 1;
-    for (k=mesh->nenil; k<mesh->nemax-1; k++)
-      mesh->tetra[k].v[3] = k+1;
+    for (k=mesh->nenil; k<=mesh->nemax; k++) {
+      pt = &mesh->tetra[k];
+      memset(pt,0,sizeof(MMG5_Tetra));
+      iadr = 4*(k-1) + 1;
+      if ( mesh->adja )
+        memset(&mesh->adja[iadr],0,4*sizeof(int));
+      
+      if(k<mesh->nemax-1) pt->v[3] = k+1;
+    }
   }
   else {
     assert ( mesh->ne == mesh->nemax );
