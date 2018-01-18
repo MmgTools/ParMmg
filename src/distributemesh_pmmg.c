@@ -732,7 +732,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 static inline
 int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
                           int nxt,int *pointPerm,int *xPointPerm,int*xTetraPerm) {
-
+  int k;
+  
   /** Compact tetrahedra on the proc */
   if ( !PMMG_packTetraOnProc(mesh,rank) ) return 0;
 
@@ -744,6 +745,8 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
   met->np  = np;
   mesh->xp = nxp;
   mesh->xt = nxt;
+
+  if ( !PMMG_link_mesh( mesh ) ) return 0;
 
   /** Update xtetra edge tags */
   if ( PMMG_SUCCESS != PMMG_bdryUpdate( mesh ) ) return 0;
