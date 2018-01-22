@@ -191,6 +191,11 @@ ELSE ( )
     "to your metis directory.")
 ENDIF ( )
 
+IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
+  MESSAGE ( STATUS "Metis integer uses ${METIS_INTSIZE} bytes."
+    " Parmetis must be build with the same integer size." )
+ENDIF ( )
+
 ############################################################################
 #####
 #####        ParMetis
@@ -248,7 +253,6 @@ ENDIF ()
 ###############################################################################
 # Header files
 INCLUDE_DIRECTORIES(${PMMG_SOURCE_DIR})
-INCLUDE_DIRECTORIES(${MMG_BUILD_DIR})
 
 # Source files
 FILE(
