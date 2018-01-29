@@ -108,7 +108,7 @@ extern "C" {
         ERROR_AT(msg," Realloc failed: ");                              \
         on_failure;                                                     \
       } else {                                                          \
-        (mesh)->memCur += ((long long)((newsize)*sizeof(type))-size_to_allocate);\
+        (mesh)->memCur -= ((long long)((oldsize)*sizeof(type))-size_to_allocate);\
       }                                                                 \
     } else if ((newsize) > (oldsize)) {                                 \
 long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(type);\

@@ -472,7 +472,7 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pext_comm ext_node_comm;
   int            *intvalues;
   int            *node2int_node_comm_index2;
-  int            k,nitem,idx,i;
+  int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
 
   intvalues = parmesh->int_node_comm->intvalues;
 
@@ -483,13 +483,13 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 2: Process the interface points of each group and store in intvalue
    * their new position in the internal communicator */
-  nitem = 0;
+  nitem_int = 0;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
 
     for ( i=0; i<grp->nitem_int_node_comm; ++i )
       if ( intvalues[grp->node2int_node_comm_index2[i]]<0 )
-        intvalues[grp->node2int_node_comm_index2[i]] = nitem++;
+        intvalues[grp->node2int_node_comm_index2[i]] = nitem_int++;
   }
 
   /** Step 3: Update the group communicators arrays with the new points
@@ -499,10 +499,10 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
     node2int_node_comm_index2 = grp->node2int_node_comm_index2;
 
     for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
-      idx = intvalues[node2int_node_comm_index2[i]];
-      assert ( idx>=0 && "Deleted position in internal communicator" );
+      idx_int = intvalues[node2int_node_comm_index2[i]];
+      assert ( idx_int>=0 && "Deleted position in internal communicator" );
 
-      node2int_node_comm_index2[i] = idx;
+      node2int_node_comm_index2[i] = idx_int;
     }
   }
 
@@ -511,19 +511,26 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
 
+    nitem_ext = 0;
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx = intvalues[ext_node_comm->int_comm_index[i]];
-      assert ( idx>=0 && "Deleted position in internal communicator" );
+      idx_ext = ext_node_comm->int_comm_index[i];
+      if ( idx_ext<0 ) continue;
 
-      ext_node_comm->int_comm_index[i] = idx;
+      idx_int = intvalues[idx_ext];
+      assert ( idx_int>=0 && "Deleted position in internal communicator" );
+
+      ext_node_comm->int_comm_index[nitem_ext++] = idx_int;
     }
+    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,nitem_ext,
+                 ext_node_comm->nitem,int,"int_comm_index",return 0);
+    ext_node_comm->nitem = nitem_ext;
   }
 
   /** Step 5: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
                 "node communicator");
-  int_node_comm->nitem = nitem;
+  int_node_comm->nitem = nitem_int;
 
   return 1;
 }
@@ -544,7 +551,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pext_comm ext_face_comm;
   int            *intvalues;
   int            *face2int_face_comm_index2;
-  int            k,nitem,idx,i;
+  int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
 
   intvalues = parmesh->int_face_comm->intvalues;
 
@@ -555,13 +562,13 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 2: Process the interface points of each group and store in intvalue
    * their new position in the internal communicator */
-  nitem = 0;
+  nitem_int = 0;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
 
     for ( i=0; i<grp->nitem_int_face_comm; ++i )
       if ( intvalues[grp->face2int_face_comm_index2[i]]<0 )
-        intvalues[grp->face2int_face_comm_index2[i]] = nitem++;
+        intvalues[grp->face2int_face_comm_index2[i]] = nitem_int++;
   }
 
   /** Step 3: Update the group communicators arrays with the new points
@@ -571,31 +578,39 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
-      idx = intvalues[face2int_face_comm_index2[i]];
-      assert ( idx>=0 && "Deleted position in internal communicator" );
+      idx_int = intvalues[face2int_face_comm_index2[i]];
+      assert ( idx_int>=0 && "Deleted position in internal communicator" );
 
-      face2int_face_comm_index2[i] = idx;
+      face2int_face_comm_index2[i] = idx_int;
     }
   }
 
   /** Step 4: Update the external communicators arrays with the new points
-   * position */
+   * position and delete the unused position in ext_face_comm */
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
 
+    nitem_ext = 0;
     for ( i=0; i<ext_face_comm->nitem; ++i ) {
-      idx = intvalues[ext_face_comm->int_comm_index[i]];
-      assert ( idx>=0 && "Deleted position in internal communicator" );
 
-      ext_face_comm->int_comm_index[i] = idx;
+      idx_ext = ext_face_comm->int_comm_index[i];
+      if ( idx_ext < 0 ) continue;
+
+      idx_int = intvalues[idx_ext];
+      assert ( idx_int>=0 && "Deleted position in internal communicator" );
+
+      ext_face_comm->int_comm_index[nitem_ext++] = idx_int;
     }
+    PMMG_REALLOC(parmesh,ext_face_comm->int_comm_index,nitem_ext,
+                 ext_face_comm->nitem,int,"int_comm_index",return 0);
+    ext_face_comm->nitem = nitem_ext;
   }
 
   /** Step 5: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
   PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                 "face communicator");
-  int_face_comm->nitem = nitem;
+  int_face_comm->nitem = nitem_int;
 
   return 1;
 }

@@ -83,6 +83,8 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
                     " (on true cases (more than 20 procs)), it means"
                     " that the hmax value is not a good estimation of the"
                     " interprocessor adjacency... TO CHANGE",return 0);
+      hash->max *= 1.2;
+
       /* ph pointer may be false after realloc */
       ph        = &hash->item[hash->nxt];
 

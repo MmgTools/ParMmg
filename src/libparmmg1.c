@@ -441,7 +441,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it, i, *facesData;
+  int        it, i,k, *facesData;
 
   /** Groups creation */
   if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 ) )
@@ -455,7 +455,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     mesh         = parmesh->listgrp[i].mesh;
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
-
+    /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
   }
 
@@ -471,6 +471,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                 " Exit program.\n");
         goto failed;
       }
+
+      /*mark reinitialisation in order to be able to remesh all the mesh*/
+      mesh->mark = 0;
+      for ( k=1 ; k<=mesh->ne ; k++ )
+        mesh->tetra[k].mark = mesh->mark;
 
       /** Call the remesher */
 #ifdef PATTERN
