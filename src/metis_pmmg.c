@@ -296,8 +296,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       intvalues[idx] = PMMG_UNSET;
     }
 
-    tag = myrank*nproc + ext_face_comm->color_out;
-    MPI_CHECK( MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,tag,comm),
+    MPI_CHECK( MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,1,comm),
                goto fail_6 );
   }
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
@@ -308,9 +307,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
                 goto fail_7);
     itorecv       = ext_face_comm->itorecv;
 
-    tag = ext_face_comm->color_out*nproc + myrank;
     MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,
-                        MPI_ANY_TAG,comm,&status),goto fail_7 );
+                        1,comm,&status),goto fail_7 );
   }
 
    /** Step 5: Process the external communicators to count for each group the

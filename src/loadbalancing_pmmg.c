@@ -70,11 +70,11 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     ier=0;
   }
 
-  /** Distribute the groups over the processor to load balance the meshes */
-  if ( !PMMG_distribute_grps(parmesh) ) {
-    fprintf(stderr,"\n  ## Group distribution problem.\n");
-    ier = 0;
-  }
+  /* /\** Distribute the groups over the processor to load balance the meshes *\/ */
+  /* if ( !PMMG_distribute_grps(parmesh) ) { */
+  /*   fprintf(stderr,"\n  ## Group distribution problem.\n"); */
+  /*   ier = 0; */
+  /* } */
 
   /** Redistribute the ngrp groups of listgrp into a higher number of groups */
   if ( !PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
