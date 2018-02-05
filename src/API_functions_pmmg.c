@@ -99,7 +99,7 @@ void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
   int k;
 
   for ( k = 0; k < ngrp; ++k )
-    PMMG_grp_free( parmesh, listgrp[k] );
+    PMMG_grp_free( parmesh, listgrp[0] + k );
 
   PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
 }
