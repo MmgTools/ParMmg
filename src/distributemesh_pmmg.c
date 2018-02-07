@@ -518,7 +518,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
                               int *shared_face,int8_t *seen_shared_pt) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
-  MMG5_pTetra     pt;
+  MMG5_pTetra     pt,ptvois;
   PMMG_pext_comm  pext_node_comm,pext_face_comm;
   int             rank,nprocs,rankCur,rankVois;
   int             next_node_comm,next_face_comm;
@@ -526,8 +526,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int             inIntComm;
-  int            *idx,kvois,k,i,j;
-  int8_t          ifac,ifacVois;
+  int            *idx,kvois,k,i,j,ip,iploc, iplocvois;
+  int8_t          ifac,ifacvois;
 
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
@@ -676,23 +676,33 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
       rankVois = part[kvois-1];
       if ( rankCur == rankVois ) continue;
 
+      ptvois = &mesh->tetra[kvois];
+
+      /* Find a common starting point inside the face for both tetra */
+      iploc = 0; // We impose the starting point in k
+      ip    = pt->v[_MMG5_idir[ifac][iploc]];
+
+      ifacvois = mesh->adja[4*k-3+ifac]%4;
+      for ( iplocvois=0; iplocvois < 3; ++iplocvois )
+        if ( ptvois->v[_MMG5_idir[ifacvois][iplocvois]] == ip ) break;
+      assert ( iplocvois < 3 );
+
       if ( rankCur == rank ) {
         /* Add the elt k to communicators */
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        face2int_face_comm_index1[i] = 4*pt->flag + ifac;
+        face2int_face_comm_index1[i] = 12*pt->flag + 3*ifac + iploc ;
         face2int_face_comm_index2[i] = i;
         ++i;
       }
       else if ( rankVois == rank ) {
         /* Add the elt kvois to communicators */
-        ifacVois = mesh->adja[4*k-3+ifac]%4;
-
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        face2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
+        face2int_face_comm_index1[i] = 12*mesh->tetra[kvois].flag +
+          3*ifacvois + iplocvois;
         face2int_face_comm_index2[i] = i;
         ++i;
       }
@@ -732,8 +742,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 static inline
 int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
                           int nxt,int *pointPerm,int *xPointPerm,int*xTetraPerm) {
-  int k;
-  
+
   /** Compact tetrahedra on the proc */
   if ( !PMMG_packTetraOnProc(mesh,rank) ) return 0;
 

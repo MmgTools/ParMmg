@@ -73,18 +73,19 @@ int PMMG_mark_packedTetra(MMG5_pMesh mesh,int *ne) {
 int PMMG_update_face2intPackedTetra( PMMG_pGrp grp ) {
   MMG5_pTetra pt;
   int         *face2int_face_comm_index1;
-  int         k,iel,ifac;
+  int         k,iel,ifac,iploc;
 
   face2int_face_comm_index1 = grp->face2int_face_comm_index1;
 
   for (k=0; k<grp->nitem_int_face_comm; ++k) {
-    iel  = face2int_face_comm_index1[k]/4;
-    ifac = face2int_face_comm_index1[k]%4;
+    iel   =  face2int_face_comm_index1[k]/12;
+    ifac  = (face2int_face_comm_index1[k]%12)/3;
+    iploc = (face2int_face_comm_index1[k]%12)%3;
 
     pt = &grp->mesh->tetra[iel];
     assert ( MG_EOK(pt) && pt->flag );
 
-    face2int_face_comm_index1[k] = 4*pt->flag+ifac;
+    face2int_face_comm_index1[k] = 12*pt->flag+3*ifac+iploc;
   }
 
   return 1;
@@ -308,7 +309,7 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
   int         *face2int_face_comm_index1,nitem_int_face_comm;
-  int         iel,ifac,ia,ib,ic;
+  int         iel,ifac,iploc,ia,ib,ic;
   int         k;
 
   grp                 = &parmesh->listgrp[igrp];
@@ -320,17 +321,19 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
   mesh                      = parmesh->listgrp[igrp].mesh;
   for ( k=0; k<nitem_int_face_comm; ++k ) {
     /** Get the vertices indices of the interface triangles */
-    iel  = face2int_face_comm_index1[k]/4;
-    ifac = face2int_face_comm_index1[k]%4;
+    iel   =  face2int_face_comm_index1[k]/12;
+    ifac  = (face2int_face_comm_index1[k]%12)/3;
+    iploc = (face2int_face_comm_index1[k]%12)%3;
+
 
     pt = &mesh->tetra[iel];
 
     assert( MG_EOK(pt) );
     assert( pt->xt && ( mesh->xtetra[pt->xt].ftag[ifac] & MG_PARBDY ) );
 
-    ia = pt->v[_MMG5_idir[ifac][0]];
-    ib = pt->v[_MMG5_idir[ifac][1]];
-    ic = pt->v[_MMG5_idir[ifac][2]];
+    ia = pt->v[_MMG5_idir[ifac][iploc]];
+    ib = pt->v[_MMG5_idir[ifac][(iploc+1)%3]];
+    ic = pt->v[_MMG5_idir[ifac][(iploc+2)%3]];
 
     /** Store the face vertices */
     (*facesData)[3*k]   = ia;
@@ -364,7 +367,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   MMG5_pxTetra pxt;
   _MMG5_Hash   hash;
   int          *face2int_face_comm_index1,nitem;
-  int          iel,ia,ib,ic;
+  int          hashVal,iel,ifac,iploc,ia,ib,ic;
   int          k,i,ier;
 
   grp   = &parmesh->listgrp[igrp];
@@ -389,7 +392,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
       ia = pt->v[_MMG5_idir[i][0]];
       ib = pt->v[_MMG5_idir[i][1]];
       ic = pt->v[_MMG5_idir[i][2]];
-      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,4*k+i)  ) {
+      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,12*k+3*i)  ) {
         ier = 0;
         goto hash;
       }
@@ -407,12 +410,22 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     ib = facesData[3*k+1];
     ic = facesData[3*k+2];
 
-    iel = _MMG5_hashGetFace(&hash,ia,ib,ic);
-    assert( iel );
-    assert( MG_EOK(&mesh->tetra[iel/4]) );
+    hashVal = _MMG5_hashGetFace(&hash,ia,ib,ic);
+    assert( hashVal );
+
+    iel  =  hashVal/12;
+    ifac = (hashVal%12)/3;
+
+    assert( MG_EOK(&mesh->tetra[iel]) );
+
+    pt = &mesh->tetra[iel];
+
+    for ( iploc=0; iploc<3; ++iploc )
+      if ( pt->v[_MMG5_idir[ifac][iploc]] == ia ) break;
+    assert ( iploc < 3 );
 
     /* Update the face communicator */
-    face2int_face_comm_index1[k] = iel;
+    face2int_face_comm_index1[k] = hashVal+iploc;
   }
 
 hash:

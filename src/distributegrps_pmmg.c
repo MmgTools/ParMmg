@@ -241,7 +241,7 @@ int PMMG_mergeGrpJinI_faceCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     assert ( iel );
     if ( iel<0 ) continue;
 
-    assert ( MG_EOK(&grpI->mesh->tetra[iel/4]) );
+    assert ( MG_EOK(&grpI->mesh->tetra[iel/12]) );
     face2int_face_commI_index1[new_nitem] = iel;
     face2int_face_commI_index2[new_nitem] = face2int_face_commJ_index2[k];
     ++new_nitem;
