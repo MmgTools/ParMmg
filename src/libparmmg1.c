@@ -3,9 +3,8 @@
  * \brief Parallel remeshing library
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (Inria/UBordeaux)
- * \version
- * \copyright
- *
+ * \version 5
+ * \copyright GNU Lesser General Public License.
  */
 #include "parmmg.h"
 

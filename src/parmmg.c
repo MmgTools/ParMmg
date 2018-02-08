@@ -1,3 +1,12 @@
+/**
+ * \file parmmg.c
+ * \brief main file for the parmmg application
+ * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \author Algiane Froehly (Inria)
+ * \version 5
+ * \copyright GNU Lesser General Public License.
+ */
+
 #include "parmmg.h"
 
 /**

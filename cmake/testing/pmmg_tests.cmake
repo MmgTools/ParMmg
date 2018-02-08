@@ -42,3 +42,33 @@ IF( BUILD_TESTING )
     endforeach()
   endforeach()
 ENDIF()
+
+###############################################################################
+#####
+#####        Tests that needs the PARMMG LIBRARY
+#####
+###############################################################################
+
+SET ( PMMG_LIB_TESTS LnkdList_unitTest )
+SET ( PMMG_LIB_TESTS_MAIN_PATH ${CI_DIR_INPUTS}/LnkdList_unitTest/main.c )
+
+IF ( LIBPARMMG_STATIC )
+  SET ( lib_name lib${PROJECT_NAME}_a )
+ELSEIF ( LIBPARMMG_SHARED )
+  SET ( lib_name lib${PROJECT_NAME}_so )
+ELSE ()
+  MESSAGE(WARNING "You must activate the compilation of the static or"
+    " shared ${PROJECT_NAME} library to compile this tests." )
+ENDIF ( )
+
+LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
+MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+FOREACH ( test_idx RANGE ${nbTests} )
+  LIST ( GET PMMG_LIB_TESTS           ${test_idx} test_name )
+  LIST ( GET PMMG_LIB_TESTS_MAIN_PATH ${test_idx} main_path )
+
+  ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers ${lib_name} )
+
+  ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+ENDFOREACH ( )

@@ -247,6 +247,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     iploc = (face2int_face_comm_index1[k]%12)%3;
 
     assert ( iel && iel<=meshJ->ne );
+    assert ( 0<=ifac && ifac<4 );
+
     ptJ       = &meshJ->tetra[iel];
 
     assert ( MG_EOK(ptJ) );

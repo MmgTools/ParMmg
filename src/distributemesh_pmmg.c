@@ -834,6 +834,10 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
     goto fail_alloc2;
 
+
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
+               parmesh->int_node_comm->nitem,int,"intvalues");
+
   /** Local mesh creation */
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;

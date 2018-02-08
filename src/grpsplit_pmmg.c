@@ -6,7 +6,6 @@
  * \author Nikos Pattakos (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
- * \todo doxygen documentation.
  */
 #include "parmmg.h"
 #include "metis_pmmg.h"
