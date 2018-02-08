@@ -75,12 +75,22 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
   long long int maxAvail = 0;
   MPI_Comm comm_shm = 0;
   int size_shm = 1;
+  int flag;
   const int million = 1024 * 1024;
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
-  MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
-                       &comm_shm );
-  MPI_Comm_size( comm_shm, &size_shm );
+
+  MPI_Initialized( &flag );
+
+  if ( flag ) {
+#warning here we must use parmesh->comm and not MPI_COMM_WORLD
+    MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+                         &comm_shm );
+    MPI_Comm_size( comm_shm, &size_shm );
+  }
+  else {
+    size_shm = 1;
+  }
 
   maxAvail = _MMG5_memSize();
   // if detection failed => default value of _MMG5_MEMMAX Mo

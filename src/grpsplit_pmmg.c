@@ -6,12 +6,9 @@
  * \author Nikos Pattakos (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
- * \todo doxygen documentation.
  */
 #include "parmmg.h"
 #include "metis_pmmg.h"
-#include "chkmesh_pmmg.h"
-
 
 /**
  * \param nelem number of elements in the initial group
@@ -949,13 +946,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
 
-#ifndef NDEBUG
-  if ( PMMG_checkIntComm ( parmesh ) ) {
-    fprintf ( stderr, " INTERNAL COMMUNICATOR CHECK FAILED \n" );
-    ret_val = PMMG_FAILURE;
-    goto fail_sgrp;
-  }
-#endif
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node communicator" );
 
   PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
   parmesh->listgrp = grpsNew;

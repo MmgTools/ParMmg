@@ -247,6 +247,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     iploc = (face2int_face_comm_index1[k]%12)%3;
 
     assert ( iel && iel<=meshJ->ne );
+    assert ( 0<=ifac && ifac<4 );
+
     ptJ       = &meshJ->tetra[iel];
 
     assert ( MG_EOK(ptJ) );
@@ -771,6 +773,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     if(isMet) {
       _MMG5_SAFE_CALLOC( (*rcv_nmet)    ,nprocs,int,0);
       _MMG5_SAFE_CALLOC( (*met_displs)  ,nprocs,int,0);
+    }
+    else {
+      *rcv_nmet   = NULL;
+      *met_displs = NULL;
     }
   }
 

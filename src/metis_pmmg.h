@@ -1,3 +1,12 @@
+/**
+ * \file metis_pmmg.h
+ * \brief metis_pmmg.c header file
+ * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \author Algiane Froehly (Inria)
+ * \version 5
+ * \copyright GNU Lesser General Public License.
+ */
+
 #ifndef METIS_PMMG_H
 
 #define METIS_PMMG_H

@@ -789,8 +789,10 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
-  int            ret_val=1;
+  int            ret_val;
   MPI_Datatype   metis_dt;
+
+  ret_val = 0;
 
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
@@ -803,10 +805,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   /** Call metis for partionning */
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
-              ret_val=0;goto fail_alloc0);
+              goto fail_alloc0);
   if ( (!parmesh->myrank) && nprocs > 1 ) {
     if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs) ) {
-      ret_val = 0;
       goto fail_alloc1;
     }
   }
@@ -837,6 +838,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   /** Local mesh creation */
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;
+
+  /* Success */
+  ret_val = 1;
 
 fail_alloc2:
   PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
