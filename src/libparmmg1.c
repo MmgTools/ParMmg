@@ -474,9 +474,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       /*mark reinitialisation in order to be able to remesh all the mesh*/
       mesh->mark = 0;
-      for ( k=1 ; k<=mesh->ne ; k++ )
+      mesh->base = 0;
+      for ( k=1 ; k<=mesh->nemax ; k++ ) {
         mesh->tetra[k].mark = mesh->mark;
-
+        mesh->tetra[k].flag = mesh->base;
+      }
       /** Call the remesher */
 #ifdef PATTERN
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
