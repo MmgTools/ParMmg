@@ -487,6 +487,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         idx  = ext_node_comm->int_comm_index[i];
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
+      assert ( pos==nitem2comm );
       MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,0,parmesh->comm,
                            &request[color]),goto end );
     }

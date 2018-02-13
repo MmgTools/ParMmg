@@ -142,6 +142,165 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
 
 
 /**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Check the internal face communicator consitency by comparing the coordinates
+ * of the vertices of the faces that are in the same position in the
+ * communicator. By the same time, check that we don't have more than 2 faces
+ * per position in the face communicator.
+ *
+ * For each group, check the unicity of the position in the internal
+ * communicator.
+ *
+ */
+
+int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pPoint    ppt;
+  double         coor[3],*doublevalues,x,y,z;
+  int            *intvalues;
+  int            k,i,j,l,iel,ifac,iploc,ip,idx,idx_ori,nitem,ier;
+
+  ier = 0;
+
+  /** Step 1: Fill int_face_comm->doublevalues with the (unscaled) coordinates
+   * of the boundary points. If the position is already used, check the
+   * coordinates consistency and check that it is used only 2 times. */
+  nitem = parmesh->int_face_comm->nitem;
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm->doublevalues,9*nitem,double,
+              "face communicator",goto end);
+  doublevalues = parmesh->int_face_comm->doublevalues;
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm->intvalues,nitem,int,
+              "face communicator",goto end);
+  intvalues = parmesh->int_face_comm->intvalues;
+
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp  = &parmesh->listgrp[k];
+    mesh = parmesh->listgrp[k].mesh;
+    assert ( mesh->info.delta && "missing scaling infos");
+
+    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+      iel   =  grp->face2int_face_comm_index1[i]/12;
+      ifac  = (grp->face2int_face_comm_index1[i]%12)/3;
+      iploc = (grp->face2int_face_comm_index1[i]%12)%3;
+
+      assert ( iel && iel<=mesh->ne );
+      assert ( 0<=ifac && ifac<4 );
+      pt = &mesh->tetra[iel];
+
+      idx = grp->face2int_face_comm_index2[i];
+
+      for ( l=0; l<3; ++l ) {
+        /* List the face points from iploc to ensure that we start from the same
+         * face point for the 2 mathing comminicators */
+        ip = pt->v[_MMG5_idir[ifac][(l+iploc)%3]];
+
+        assert ( ip && ip<=mesh->np );
+        ppt = &mesh->point[ip];
+
+        for ( j=0; j<3; ++j )
+          coor[j] = ppt->c[j]*mesh->info.delta + mesh->info.min[j];
+
+        if ( intvalues[idx] ) {
+          /* Travel the face in opposite direction for the two groups */
+          switch(l)
+          {
+          case 0:
+            idx_ori = 9*idx;
+            break;
+          case 1:
+            idx_ori = 9*idx+6;
+            break;
+          case 2:
+            idx_ori = 9*idx+3;
+            break;
+          }
+          x = doublevalues[idx_ori  ]-coor[0];
+          y = doublevalues[idx_ori+1]-coor[1];
+          z = doublevalues[idx_ori+2]-coor[2];
+
+          if ( x*x + y*y + z*z > _MMG5_EPSD ) {
+            printf("  ## Error: %s: rank %d: item %d of the internal"
+                   " communicator:\n %e %e %e -- %e %e %e (dist = %e)\n",
+                   __func__,parmesh->myrank,idx,doublevalues[idx_ori],
+                   doublevalues[idx_ori+1],doublevalues[idx_ori+2],coor[0],
+                   coor[1],coor[2],x*x + y*y + z*z);
+            goto end;
+          }
+        }
+        else {
+          for ( j=0; j<3; ++j )
+            doublevalues[9*idx+3*l+j] = coor[j];
+        }
+      }
+      if ( ++intvalues[idx]>2 ) {
+        printf("  ## Error: %s: rank %d: more than 2 faces stored in the"
+               " same position (%d) of the nodal communicator.\n",
+               __func__,parmesh->myrank,idx );
+        assert(0);
+        goto end;
+      }
+    }
+  }
+
+  /** Step 2: check that for a given group, each face has a unique position in
+   * the internal face communicator */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    grp  = &parmesh->listgrp[k];
+    mesh = parmesh->listgrp[k].mesh;
+
+    for ( i=0; i<parmesh->int_face_comm->nitem; ++i )
+      intvalues[i] = PMMG_UNSET;
+
+    /* Reset the tetra flag, it will be used to store if a tetra face as been
+     * listed in the communicator */
+    for ( i=1; i<=mesh->ne; ++i )
+      mesh->tetra[i].flag = 0;
+
+    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+      iel   =  grp->face2int_face_comm_index1[i]/12;
+      ifac  = (grp->face2int_face_comm_index1[i]%12)/3;
+      idx = grp->face2int_face_comm_index2[i];
+      if ( intvalues[idx]>=0 ) {
+        printf("  ## Error: %s: grp %d: 2 faces of the group stored in the"
+               " same position (%d) of the nodal communicator: tetra %d (face %d)"
+               " -- %d (face %d).\n",__func__,k,idx,iel,ifac,
+               intvalues[idx]/12,(intvalues[idx]%12)/3 );
+        goto end;
+      }
+      intvalues[idx] = grp->face2int_face_comm_index1[i];
+
+      pt = &mesh->tetra[iel];
+      if ( MG_GET(pt->flag,ifac ) ) {
+        printf("  ## Error: %s: grp %d: face %d of the tetra %d is stored twice"
+               " in the internal communicator\n",__func__,k,ifac,iel);
+        goto end;
+
+      }
+      MG_SET ( pt->flag,ifac );
+    }
+  }
+
+  /* Success */
+  ier = 1;
+
+end:
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->doublevalues,9*nitem,double,
+               "face communicator");
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,nitem,int,
+               "face communicator");
+
+
+  return ier;
+}
+
+
+/**
  * \param parmesh pointer to current parmesh stucture
  *
  * \return 0 if fail, 1 otherwise

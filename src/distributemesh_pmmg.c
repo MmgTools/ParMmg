@@ -843,6 +843,35 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;
 
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
+
+
+  for (int k=0; k<parmesh->ngrp;++k ) {
+      PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1,
+                   parmesh->listgrp[k].nitem_int_node_comm,int,"index1");
+      PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1,
+                   parmesh->listgrp[k].nitem_int_node_comm,int,"index2");
+  }
+
+  for ( int k=0; k<parmesh->next_node_comm; ++k ) {
+    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[k].int_comm_index,
+                 parmesh->ext_node_comm[k].nitem, int,"ext_comm");
+  }
+  PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,
+               parmesh->next_node_comm, PMMG_ext_comm,"ext_comm");
+  parmesh->next_node_comm = 0;
+
+  if ( !PMMG_build_nodeCommFromFaces( parmesh ) ) {
+    puts("FAILED IN BUILD NODE COMM\n");
+  }
+
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
+
+  return ( 1 );
+
   /* Success */
   ret_val = 1;
 
