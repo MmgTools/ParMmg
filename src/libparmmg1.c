@@ -484,13 +484,19 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
         fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
                 " Exit program.\n");
-        goto strong_failed;
+        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
+          goto strong_failed;
+        }
       }
 #else
       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) {
         fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem."
                 " Exit program.\n");
-        goto strong_failed;
+        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
+          goto strong_failed;
+        }
       }
 #endif
       /** Pack the tetra */
