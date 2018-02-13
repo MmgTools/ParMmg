@@ -91,6 +91,7 @@ int main( int argc, char *argv[] )
   MMG5_pSol     met = NULL;
   int           rank = 0;
   int           ier = 0;
+  long int      tmpmem;
 
   // Shared memory communicator: processes that are on the same node, sharing
   //    local memory and can potentially communicate without using the network
@@ -226,12 +227,21 @@ int main( int argc, char *argv[] )
     if (  mesh->info.imprim )
       fprintf( stdout,"\n   -- PHASE 5 : MESH PACKED UP\n" );
 
-    if ( 1 != MMG3D_hashTetra( mesh, 0 ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    /** All the memory is devoted to the mesh **/
+    PMMG_parmesh_Free_Comm(parmesh);
+    tmpmem = parmesh->memMax - parmesh->memCur;
+    parmesh->memMax = parmesh->memCur;
+    parmesh->listgrp[0].mesh->memMax += tmpmem;
 
-    if ( -1 == MMG3D_bdryBuild( mesh ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-
+    if ( MMG3D_hashTetra( mesh, 0 ) ) {
+      if ( -1 == MMG3D_bdryBuild( mesh ) ) {
+        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      }
+    } else {
+      /** Impossible to rebuild the triangle **/
+      fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO SAVE THE BDRY TRIANGLE\n\n\n");
+    }
+    
     if (  mesh->info.imprim )
       fprintf( stdout,"   -- PHASE 5 COMPLETED.\n" );
 
