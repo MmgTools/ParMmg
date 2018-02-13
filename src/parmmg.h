@@ -171,6 +171,8 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
+void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
+void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus
