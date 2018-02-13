@@ -12,10 +12,10 @@ IF( BUILD_TESTING )
   foreach( MESH cube-unit-dual_density cube-unit-int_sphere )
     foreach( NP 1 2 4 6 8 )
       add_test( NAME ${MESH}-${NP}
-                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-                ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
-                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
-                -m 11000 )
+        COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
+        -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
+        -m 11000 )
     endforeach()
   endforeach()
 
@@ -23,10 +23,10 @@ IF( BUILD_TESTING )
   foreach( MESH dual_density int_sphere )
     foreach( NP 1 2 4 6 8 )
       add_test( NAME cube-unit-coarse-${MESH}-${NP}
-                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-                ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
-                -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
-                -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
+        COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
+        -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
+        -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
     endforeach()
   endforeach()
 
@@ -35,10 +35,10 @@ IF( BUILD_TESTING )
   foreach( TYPE anisotropic-test )
     foreach( NP 1 2 4 6 8 )
 	    add_test( NAME ${TYPE}-torus-with-planar-shock-${NP}
-                COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-                ${CI_DIR_INPUTS}/Torus/torusholes.mesh
-                -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
-                -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh )
+        COMMAND ${MPIEXEC} -np ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR_INPUTS}/Torus/torusholes.mesh
+        -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
+        -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh )
     endforeach()
   endforeach()
 
