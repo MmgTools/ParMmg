@@ -17,7 +17,19 @@
  * Build the node communicators (externals and internals) from the faces ones.
  *
  */
+// BUG quand on a plusieurs groupes et plusieurs procs (voir yales2->grid_comm_m.f90).
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
+
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intFaceComm ( parmesh ) );
+
+  /** Build the internal node communicator from the faces ones */
+  if ( !PMMG_build_intNodeComm(parmesh) ) {
+    fprintf(stderr,"\n  ## Error: %s: unable to build the internal node"
+            " communicators from the internal faces communicators.\n",__func__);
+    return 0;
+  }
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
 
   /** Build the external node communicators from the faces ones without looking
    * at the possibility to miss a processor that is not visible from the face
@@ -28,19 +40,15 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
             " communicators from the external faces communicators.\n",__func__);
     return 0;
   }
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
 
-  /** Build the internal node communicator from the faces ones */
-  if ( !PMMG_build_intNodeComm(parmesh) ) {
-    fprintf(stderr,"\n  ## Error: %s: unable to build the internal node"
-            " communicators from the internal faces communicators.\n",__func__);
-    return 0;
-  }
-
+  /** Fill the external node communicator */
   if ( !PMMG_build_completeExtNodeComm(parmesh) ) {
     fprintf(stderr,"\n  ## Error: %s: unable to complete the external node"
             " communicators.\n",__func__);
     return 0;
   }
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
 
   return 1;
 }
@@ -59,13 +67,14 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_pGrp       grp;
   PMMG_pext_comm  ext_node_comm,ext_face_comm;
-  PMMG_pint_comm  int_face_comm;
+  PMMG_pint_comm  int_node_comm,int_face_comm;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pPoint     ppt;
-  int             *intvalues,*meshId,idx1,idx2;
+  int             *face_vertices,*flag,idx1,idx2;
+  int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             *face2int_face_comm_index1,*face2int_face_comm_index2;
-  int             next_face_comm,next_node_comm,nitem_ext_comm,nitem_int_comm;
+  int             next_face_comm,next_node_comm,nitem_ext_comm;
   int             color_out,ier,i,j,k,iel,ifac,ip,iploc,grpid;
 
   ier = 0;
@@ -78,16 +87,11 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
               "ext_node_comm ",return 0);
   parmesh->next_node_comm = next_node_comm;
 
-  /** Store in the internal communicator the index of the interface faces and
-   * initialize the tmp field of the group points */
+  /** Step 1: For each face, store the position of its vertices in the internal
+   * communicator */
   int_face_comm = parmesh->int_face_comm;
-  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "face communicator",goto end);
-  intvalues     = int_face_comm->intvalues;
-
-  PMMG_CALLOC(parmesh,meshId,int_face_comm->nitem,int,
-              "id of the mesh associated to the face stored in intvalues",
-              goto end);
+  PMMG_CALLOC(parmesh,face_vertices,3*int_face_comm->nitem,int,
+              "position of face vertices in int_node_comm",goto end);
 
   for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
     grp  = &parmesh->listgrp[grpid];
@@ -96,19 +100,40 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
     for ( k=1; k<=mesh->np; ++k )
       mesh->point[k].tmp = PMMG_UNSET;
 
+    node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+    node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+      idx1 = node2int_node_comm_index1[i];
+      idx2 = node2int_node_comm_index2[i];
+
+      assert ( mesh->point[idx1].tmp < 0 && "node is not unique in the comm" );
+      mesh->point[idx1].tmp = idx2;
+    }
+
     face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
-      idx1 = face2int_face_comm_index1[i];
-      idx2 = face2int_face_comm_index2[i];
-      if ( intvalues[idx2] ) continue;
+      iel   =  face2int_face_comm_index1[i]/12;
+      ifac  = (face2int_face_comm_index1[i]%12)/3;
+      iploc = (face2int_face_comm_index1[i]%12)%3;
 
-      intvalues[idx2] = idx1;
-      meshId[idx2]    = grpid;
+      idx2 = face2int_face_comm_index2[i];
+
+      pt = &mesh->tetra[iel];
+      for ( j=0; j<3; ++j ) {
+        ip  = pt->v[_MMG5_idir[ifac][(j+iploc)%3]];
+        ppt = &mesh->point[ip];
+        assert ( ppt->tmp>=0 && "missing node in the communicator" );
+
+        face_vertices[3*idx2+j] = ppt->tmp;
+      }
     }
   }
 
-  nitem_int_comm = 0;
+  /** Step 2: fill the external communicators */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,flag,int_node_comm->nitem,int,"node flag",goto end);
+
   for ( k=0; k<next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     color_out = ext_face_comm->color_out;
@@ -116,83 +141,75 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
     parmesh->ext_node_comm[k].color_in  = ext_face_comm->color_in;
     parmesh->ext_node_comm[k].color_out = color_out;
 
-    /** Initialisation of the vertices of the interface faces */
-    for ( i=0; i<ext_face_comm->nitem; ++i ) {
-      idx2  = ext_face_comm->int_comm_index[i];
-      iel   =  intvalues[idx2]/12;
-      ifac  = (intvalues[idx2]%12)/3;
-      grpid = meshId[idx2];
+    if ( ext_face_comm->nitem )
+      /* Reset the node flags */
+      for ( j=0; j<int_node_comm->nitem; ++j ) flag[j] = 0;
 
-      assert ( iel && iel<=mesh->ne );
-      assert ( 0<=ifac && ifac<4 );
-
-      mesh  = parmesh->listgrp[grpid].mesh;
-      pt    = &mesh->tetra[iel];
-      for ( j=0; j<3; ++j ) {
-        ip  = pt->v[_MMG5_idir[ifac][j]];
-
-        assert ( ip && ip<=mesh->np );
-
-        ppt = &mesh->point[ip];
-        ppt->flag = PMMG_UNSET;
-      }
-    }
-
-    /** Worst case allocation of the node communicator */
-    parmesh->ext_node_comm[k].nitem = 3*ext_face_comm->nitem;
-    PMMG_CALLOC(parmesh,parmesh->ext_node_comm[k].int_comm_index,
-                parmesh->ext_node_comm[k].nitem,int,
-                "external node communicator",goto end);
-    ext_node_comm = &parmesh->ext_node_comm[k];
-
-
-    /** Process the external face communicator and fill the node one */
+    /* Count the number of nodes in the communicator */
     nitem_ext_comm = 0;
     for ( i=0; i<ext_face_comm->nitem; ++i ) {
       idx2  = ext_face_comm->int_comm_index[i];
-      iel   =  intvalues[idx2]/12;
-      ifac  = (intvalues[idx2]%12)/3;
-      iploc = (intvalues[idx2]%12)%3;
-      grpid = meshId[idx2];
 
-      assert ( iel && iel<=mesh->ne );
-      assert ( 0<=ifac && ifac<4 );
+      for ( j=0; j<3; ++j ) {
+        ip = face_vertices[3*idx2+j];
+        assert ( ip >=0 );
 
-      mesh  = parmesh->listgrp[grpid].mesh;
-      pt    = &mesh->tetra[iel];
+        if ( flag[ip] > 0 ) continue;
 
-      for  ( j=0; j<3; ++j ) {
+        flag[ip] = 1;
+        ++nitem_ext_comm;
+      }
+    }
 
-        /* Ensure that we travel the face in opposite direction on the 2
-         * processors */
-        if ( color_out > parmesh->ext_node_comm[k].color_in )
-          ip  = pt->v[_MMG5_idir[ifac][(iploc+j)%3]];
-        else
-          ip  = pt->v[_MMG5_idir[ifac][(iploc+3-j)%3]];
+    /* External communicator allocation */
+    PMMG_CALLOC(parmesh,parmesh->ext_node_comm[k].int_comm_index,nitem_ext_comm,
+                int,"external node communicator",goto end);
+    parmesh->ext_node_comm[k].nitem = nitem_ext_comm;
+    ext_node_comm = &parmesh->ext_node_comm[k];
 
-        assert ( ip && ip<=mesh->np );
+    /* Process the external face communicator and fill the node one */
+    if ( ext_face_comm->nitem )
+      /* Reset the node flags */
+      for ( j=0; j<int_node_comm->nitem; ++j ) flag[j] = 0;
 
-        ppt = &mesh->point[ip];
+    nitem_ext_comm = 0;
 
-        if ( ppt->tmp < 0 ) {
-          /* Give a position to this point in the internal communicator */
-          ppt->tmp = nitem_int_comm++;
+    if ( color_out > parmesh->ext_node_comm[k].color_in ) {
+      /* Travel the face vertices in the natural direction */
+      for ( i=0; i<ext_face_comm->nitem; ++i ) {
+        idx2  = ext_face_comm->int_comm_index[i];
+
+        if ( nitem_ext_comm==100 ) {
+          puts("coucou");
         }
-        if ( ppt->flag < 0 ) {
-          /* Add this point to the current external communicator */
-          ppt->flag = 1;
-          ext_node_comm->int_comm_index[nitem_ext_comm++] = ppt->tmp;
+
+        for  ( j=0; j<3; ++j ) {
+          ip = face_vertices[3*idx2+j];
+          assert ( ip>=0 );
+
+          if ( flag[ip] > 0 ) continue;
+          flag[ip] = 1;
+          ext_node_comm->int_comm_index[nitem_ext_comm++] = ip;
         }
       }
     }
-    assert ( nitem_ext_comm <= ext_node_comm->nitem );
-    PMMG_REALLOC(parmesh,parmesh->ext_node_comm[k].int_comm_index,nitem_ext_comm,
-                 parmesh->ext_node_comm[k].nitem,int,
-                 "external node communicator",goto end);
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    ext_node_comm->nitem = nitem_ext_comm;
+    else {
+      /* Travel the face vertices in the opposite direction */
+      for ( i=0; i<ext_face_comm->nitem; ++i ) {
+        idx2  = ext_face_comm->int_comm_index[i];
+
+        for  ( j=0; j<3; ++j ) {
+          ip = face_vertices[3*idx2+(3-j)%3];
+          assert ( ip>=0 );
+
+          if ( flag[ip] > 0 ) continue;
+          flag[ip] = 1;
+          ext_node_comm->int_comm_index[nitem_ext_comm++] = ip;
+        }
+      }
+    }
+    assert ( nitem_ext_comm == ext_node_comm->nitem );
   }
-  parmesh->int_node_comm->nitem = nitem_int_comm;
 
   /* Success */
   ier = 1;
@@ -210,12 +227,11 @@ end:
                  ,PMMG_ext_comm, "ext_node_comm ");
   }
 
-  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,
-               parmesh->int_face_comm->nitem,int,
-               "internal face communicator");
+  PMMG_DEL_MEM(parmesh,flag,int_node_comm->nitem,int,"node flag");
 
-  PMMG_DEL_MEM(parmesh,meshId,parmesh->int_face_comm->nitem,int,
-               "id of the mesh associated to the face stored in intvalues");
+  PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
+               "position of face vertices in int_node_comm");
+
   return ier;
 }
 
@@ -232,100 +248,244 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pPoint     ppt;
-  int             idx1;
-  int             *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int             *face2int_face_comm_index1;
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int             nitem_node,nitem_int_node_comm,nitem_tmp;
-  int             ier,i,j,iel,ifac,ip,grpid;
+  int             *shared_fac,*new_pos,nitem_node,first_nitem_node,pos;
+  int             *face_vertices,ier,i,j,iel,ifac,ip,iploc,grpid,idx,fac_idx;
+  int8_t          update;
 
   ier = 0;
 
-  nitem_node = parmesh->int_node_comm->nitem;
+  /** Step 1: give a unique position in the internal communicator for each mesh
+   * point but don't care about the unicity of the position for a point shared
+   * by multiple groups */
+  assert ( !parmesh->int_node_comm->nitem );
+  nitem_node = 0;
+
+  PMMG_MALLOC(parmesh,shared_fac,parmesh->int_face_comm->nitem,int,
+              "Faces shared by 2 groups",goto end);
+  for ( i=0; i<parmesh->int_face_comm->nitem; ++i )
+    shared_fac[i] = PMMG_UNSET;
 
   for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
-    /** Reset the flag field of the nodes of the group */
+    /* Reset the flag field of the nodes of the group */
     grp  = &parmesh->listgrp[grpid];
     mesh = grp->mesh;
 
-    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
-    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+    for ( ip=1; ip<=mesh->np; ++ip )
+      mesh->point[ip].tmp  = PMMG_UNSET;
 
-    /** Worst case allocation for the node2int_node arrays */
-    grp->nitem_int_node_comm = 3*grp->nitem_int_face_comm;
-    PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,grp->nitem_int_node_comm,
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+
+    first_nitem_node = nitem_node;
+    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+      idx  = face2int_face_comm_index1[i];
+      iel  =  idx/12;
+      ifac = (idx%12)/3;
+
+      assert ( iel && iel<=mesh->ne );
+      assert ( 0<=ifac && ifac<4 );
+
+      pt    = &mesh->tetra[iel];
+      for ( j=0; j<3; ++j ) {
+        ip  = pt->v[_MMG5_idir[ifac][j]];
+
+        assert ( ip && ip<=mesh->np );
+
+        ppt = &mesh->point[ip];
+        if ( ppt->tmp < 0 )
+          /** Give a position int the internal communicator to this point */
+          ppt->tmp = nitem_node++;
+      }
+
+      /* Mark the face as seen */
+      ++shared_fac[grp->face2int_face_comm_index2[i]];
+    }
+
+    /* Allocations of the node2int_node arrays */
+    PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_node-first_nitem_node,
                 int,"node2int_node_comm_index1",goto end);
 
-    PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,grp->nitem_int_node_comm,
+    grp->nitem_int_node_comm = nitem_node-first_nitem_node;
+    PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,nitem_node-first_nitem_node,
                 int,"node2int_node_comm_index2",goto end);
 
+    /* Fill this arrays */
     node2int_node_comm_index1 = grp->node2int_node_comm_index1;
     node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+    idx = 0;
+    for ( ip=1; ip<=mesh->np; ++ip ) {
+      ppt = &mesh->point[ip];
+      if ( ppt->tmp < 0 ) continue;
 
-    nitem_int_node_comm = 0;
-
-    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
-      idx1 = face2int_face_comm_index1[i];
-      iel  =  idx1/12;
-      ifac = (idx1%12)/3;
-
-      assert ( iel && iel<=mesh->ne );
-      assert ( 0<=ifac && ifac<4 );
-
-      pt    = &mesh->tetra[iel];
-      for ( j=0; j<3; ++j ) {
-        ip  = pt->v[_MMG5_idir[ifac][j]];
-
-        assert ( ip && ip<=mesh->np );
-
-        ppt = &mesh->point[ip];
-        ppt->flag = PMMG_UNSET;
-      }
+      node2int_node_comm_index1[idx] = ip;
+      node2int_node_comm_index2[idx] = first_nitem_node+idx;
+      ++idx;
     }
+    assert ( idx == nitem_node-first_nitem_node && "missing item");
+  }
 
-    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
-      idx1 = face2int_face_comm_index1[i];
-      iel  =  idx1/12;
-      ifac = (idx1%12)/3;
 
-      assert ( iel && iel<=mesh->ne );
-      assert ( 0<=ifac && ifac<4 );
+  /** Step 2: remove some of the multiple positions and pack communicators */
+  PMMG_MALLOC(parmesh,new_pos,nitem_node,int,"new pos in int_node_comm",goto end);
+  PMMG_MALLOC(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
+              "pos of face vertices in int_node_comm",goto end);
 
-      pt    = &mesh->tetra[iel];
-      for ( j=0; j<3; ++j ) {
-        ip  = pt->v[_MMG5_idir[ifac][j]];
+  /* Initialisation of the new_pos array with the current position */
+ for ( i=0; i<nitem_node; ++i )
+    new_pos[i] = i;
 
-        assert ( ip && ip<=mesh->np );
+ /* Initialisation of the face_vertices array */
+ for ( i=0; i<3*parmesh->int_face_comm->nitem; ++i )
+   face_vertices[i]   = PMMG_UNSET;
 
-        ppt = &mesh->point[ip];
-        if ( ppt->tmp < 0 ) {
-          /** Give a position int he internal communicator to this point */
-          ppt->tmp = nitem_node++;
+#ifndef NDEBUG
+ double *coor;
+
+ PMMG_CALLOC(parmesh,coor,3*nitem_node,double,"node coordinates",goto end);
+
+ /* Store the node coordinates of the nodes */
+ for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+   grp  = &parmesh->listgrp[grpid];
+   mesh = grp->mesh;
+   assert ( mesh->info.delta && "unable to unscale the mesh");
+
+   for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+     ip      = grp->node2int_node_comm_index1[i];
+     idx     = grp->node2int_node_comm_index2[i];
+     for ( j=0; j<3; ++j )
+       coor[3*idx+j] = mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j];
+   }
+ }
+#endif
+
+
+  do {
+    update = 0;
+    /* Mark all the interface faces as not seen */
+    for ( i=0; i<parmesh->int_face_comm->nitem; ++i )
+      shared_fac[i] = -abs(shared_fac[i]);
+
+    for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+      grp  = &parmesh->listgrp[grpid];
+      mesh = grp->mesh;
+
+      /* Reset tmp to the old position in the communicator */
+      for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+        ip = grp->node2int_node_comm_index1[i];
+        mesh->point[ip].tmp  = grp->node2int_node_comm_index2[i];;
+      }
+
+      for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+        idx   = grp->face2int_face_comm_index1[i];
+        iel   =  idx/12;
+        ifac  = (idx%12)/3;
+        iploc = (idx%12)%3;
+
+        fac_idx = grp->face2int_face_comm_index2[i];
+
+        pt = &mesh->tetra[iel];
+        if ( shared_fac[fac_idx]<=0 ) {
+          /* First time that we see this face: store it in the natural direction
+           * and mark it as seen */
+          shared_fac[fac_idx] = abs(shared_fac[fac_idx]);
+          for ( j=0; j<3; ++j ) {
+            ip  = pt->v[_MMG5_idir[ifac][j]];
+            ppt = &mesh->point[ip];
+            assert ( ppt->tmp>=0 );
+
+            pos = 3*fac_idx+j;
+            if ( face_vertices[pos] < 0 ) {
+              face_vertices[pos] = new_pos[mesh->point[ip].tmp];
+              update = 1;
+            }
+            else if ( new_pos[face_vertices[pos]]>new_pos[mesh->point[ip].tmp] ) {
+              new_pos[face_vertices[pos]] = new_pos[mesh->point[ip].tmp];
+              update = 1;
+            }
+            else if ( new_pos[face_vertices[pos]]<new_pos[mesh->point[ip].tmp] ) {
+              new_pos[mesh->point[ip].tmp] = new_pos[face_vertices[pos]];
+              update = 1;
+            }
+
+#ifndef NDEBUG
+            double dist[3],sum;
+
+            sum = 0;
+            for ( j=0; j<3; ++j ) {
+              dist[j] = coor[3*new_pos[mesh->point[ip].tmp]+j]
+                - (mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j]);
+              sum += dist[j]*dist[j];
+            }
+            assert ( sum<_MMG5_EPSD );
+#endif
+          }
         }
         else {
-          if ( ppt->flag!=PMMG_UNSET ) continue;
-          ppt->flag = 1;
+          /* Second time we see this face: store it in the opposite direction */
+          for ( j=0; j<3; ++j ) {
+            ip  = pt->v[_MMG5_idir[ifac][(iploc+3-j)%3]];
+            ppt = &mesh->point[ip];
+            assert ( ppt->tmp>=0 );
+
+            pos = 3*fac_idx+j;
+            if ( face_vertices[pos] < 0 ) {
+              face_vertices[pos] = new_pos[mesh->point[ip].tmp];
+              update = 1;
+            }
+            else if ( new_pos[face_vertices[pos]]>new_pos[mesh->point[ip].tmp] ) {
+              new_pos[face_vertices[pos]] = new_pos[mesh->point[ip].tmp];
+              update = 1;
+            }
+            else if ( new_pos[face_vertices[pos]]<new_pos[mesh->point[ip].tmp] ) {
+              new_pos[mesh->point[ip].tmp] = new_pos[face_vertices[pos]];
+              update = 1;
+            }
+#ifndef NDEBUG
+            double dist[3],sum;
+
+            sum = 0;
+            for ( j=0; j<3; ++j ) {
+              dist[j] = coor[3*new_pos[mesh->point[ip].tmp]+j]
+                - (mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j]);
+              sum += dist[j]*dist[j];
+            }
+            assert ( sum<_MMG5_EPSD );
+#endif
+          }
         }
-        /** Update the nod2int_node_comm arrays */
-        node2int_node_comm_index1[nitem_int_node_comm] = ip;
-        node2int_node_comm_index2[nitem_int_node_comm] = ppt->tmp;
-        ++nitem_int_node_comm;
       }
     }
+  } while ( update );
 
-    assert ( nitem_int_node_comm <= grp->nitem_int_node_comm );
+  /* Update node2int_node_comm arrays */
+  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+    grp  = &parmesh->listgrp[grpid];
 
-    nitem_tmp = grp->nitem_int_node_comm;
-    PMMG_REALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,
-                 nitem_tmp,int,"node2int_node_comm_index1",
-                 goto end);
-    grp->nitem_int_node_comm = nitem_int_node_comm;
-
-    PMMG_REALLOC(parmesh,grp->node2int_node_comm_index2,nitem_int_node_comm,
-                 nitem_tmp,int,"node2int_node_comm_index2",
-                 PMMG_DEL_MEM(parmesh,node2int_node_comm_index2,nitem_tmp,
-                              int,"node2int_node_comm_index2");
-                 goto end);
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+      idx = grp->node2int_node_comm_index2[i];
+      grp->node2int_node_comm_index2[i] = new_pos[idx];
+    }
   }
+
+  /* Repove the empty positions in int_node_comm */
+  for ( i=0; i<nitem_node; ++i )
+    new_pos[i] = PMMG_UNSET;
+
+  j = 0;
+  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+    grp  = &parmesh->listgrp[grpid];
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+
+      idx = grp->node2int_node_comm_index2[i];
+      if ( new_pos[idx]<0 ) new_pos[idx] = j++;
+
+      grp->node2int_node_comm_index2[i] = new_pos[idx];
+    }
+  }
+  nitem_node = j;
+
   parmesh->int_node_comm->nitem = nitem_node;
 
   /* Success */
@@ -343,6 +503,18 @@ end:
                    grp->nitem_int_node_comm,int,"node2int_node_comm_index2");
     }
   }
+
+  PMMG_DEL_MEM(parmesh,coor,3*nitem_node,double,"node coordinates");
+
+  PMMG_DEL_MEM(parmesh,new_pos,nitem_node,int,"new pos in int_node_comm");
+  PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
+              "pos of face vertices in int_node_comm");
+  PMMG_DEL_MEM(parmesh,shared_fac,parmesh->int_face_comm->nitem,int,
+               "Faces shared by 2 groups");
+
+#ifndef NDEBUG
+  PMMG_DEL_MEM(parmesh,coor,3*nitem_node,double,"node coordinates");
+#endif
 
   return ier;
 }

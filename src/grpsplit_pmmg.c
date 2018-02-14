@@ -1009,6 +1009,40 @@ fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
 fail_part:
   PMMG_DEL_MEM(parmesh,part,meshOld_ne,idx_t,"free metis buffer ");
+
+// UNCOMMENT TO DEBUG THE BUILD OF THE NODE COMMUNICATOR FROM THE FACE ONE. (AND
+// DELETE IT WHEN THE FUNCTION WIL WORKS)
+  /* assert ( PMMG_check_extFaceComm ( parmesh ) ); */
+  /* assert ( PMMG_check_intNodeComm ( parmesh ) ); */
+  /* assert ( PMMG_check_extNodeComm ( parmesh ) ); */
+
+  /* for (int k=0; k<parmesh->ngrp;++k ) { */
+  /*     PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1, */
+  /*                  parmesh->listgrp[k].nitem_int_node_comm,int,"index1"); */
+  /*     PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1, */
+  /*                  parmesh->listgrp[k].nitem_int_node_comm,int,"index2"); */
+  /* } */
+
+  /* for ( int k=0; k<parmesh->next_node_comm; ++k ) { */
+  /*   PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[k].int_comm_index, */
+  /*                parmesh->ext_node_comm[k].nitem, int,"ext_comm"); */
+  /* } */
+  /* PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm, */
+  /*              parmesh->next_node_comm, PMMG_ext_comm,"ext_comm"); */
+  /* parmesh->next_node_comm = 0; */
+
+  /* parmesh->int_node_comm->nitem = 0; */
+
+  /* if ( !PMMG_build_nodeCommFromFaces( parmesh ) ) { */
+  /*   puts("FAILED IN BUILD NODE COMM\n"); */
+  /* } */
+
+  /* assert ( PMMG_check_extFaceComm ( parmesh ) ); */
+  /* assert ( PMMG_check_intNodeComm ( parmesh ) ); */
+  /* assert ( PMMG_check_extNodeComm ( parmesh ) ); */
+
+  /* return ( 0 ); */
+
   return ret_val;
 }
 

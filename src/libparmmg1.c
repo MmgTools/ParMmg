@@ -472,67 +472,67 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
-/*   for ( it = 0; it < parmesh->niter; ++it ) { */
-/*     for ( i=0; i<parmesh->ngrp; ++i ) { */
-/*       mesh         = parmesh->listgrp[i].mesh; */
-/*       met          = parmesh->listgrp[i].met; */
+  for ( it = 0; it < parmesh->niter; ++it ) {
+    for ( i=0; i<parmesh->ngrp; ++i ) {
+      mesh         = parmesh->listgrp[i].mesh;
+      met          = parmesh->listgrp[i].met;
 
-/*       /\** Store the vertices of interface faces in the internal communicator *\/ */
-/*       if ( !PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) { */
-/*         fprintf(stderr,"\n  ## Interface faces storage problem." */
-/*                 " Exit program.\n"); */
-/*         goto failed; */
-/*       } */
+      /** Store the vertices of interface faces in the internal communicator */
+      if ( !PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) {
+        fprintf(stderr,"\n  ## Interface faces storage problem."
+                " Exit program.\n");
+        goto failed;
+      }
 
-/*       /\*mark reinitialisation in order to be able to remesh all the mesh*\/ */
-/*       mesh->mark = 0; */
-/*       mesh->base = 0; */
-/*       for ( k=1 ; k<=mesh->nemax ; k++ ) { */
-/*         mesh->tetra[k].mark = mesh->mark; */
-/*         mesh->tetra[k].flag = mesh->base; */
-/*       } */
-/*       /\** Call the remesher *\/ */
-/* #ifdef PATTERN */
-/*       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) { */
-/*         fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem." */
-/*                 " Exit program.\n"); */
-/*         if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) { */
-/*           fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n"); */
-/*           goto strong_failed; */
-/*         } */
-/*       } */
-/* #else */
-/*       if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) { */
-/*         fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem." */
-/*                 " Exit program.\n"); */
-/*         if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) { */
-/*           fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n"); */
-/*           goto strong_failed; */
-/*         } */
-/*       } */
-/* #endif */
-/*       /\** Pack the tetra *\/ */
-/*       if ( mesh->adja ) */
-/*         PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table"); */
+      /*mark reinitialisation in order to be able to remesh all the mesh*/
+      mesh->mark = 0;
+      mesh->base = 0;
+      for ( k=1 ; k<=mesh->nemax ; k++ ) {
+        mesh->tetra[k].mark = mesh->mark;
+        mesh->tetra[k].flag = mesh->base;
+      }
+      /** Call the remesher */
+#ifdef PATTERN
+      if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
+        fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
+                " Exit program.\n");
+        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
+          goto strong_failed;
+        }
+      }
+#else
+      if ( 1 != _MMG5_mmg3d1_delone( mesh, met ) ) {
+        fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem."
+                " Exit program.\n");
+        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
+          goto strong_failed;
+        }
+      }
+#endif
+      /** Pack the tetra */
+      if ( mesh->adja )
+        PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table");
 
-/*       if ( !_MMG5_paktet(mesh) ) { */
-/*         fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n"); */
-/*         goto strong_failed; */
-/*       } */
+      if ( !_MMG5_paktet(mesh) ) {
+        fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
+        goto strong_failed;
+      }
 
-/*       /\** Update interface tetra indices in the face communicator *\/ */
-/*       if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) { */
-/*         fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n"); */
-/*         goto strong_failed; */
-/*       } */
-/*     } */
-/*     /\** load Balancing at group scale and communicators reconstruction *\/ */
-/*     if ( !PMMG_loadBalancing(parmesh) ) { */
-/*       if ( !parmesh->myrank ) */
-/*         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n"); */
-/*       goto strong_failed; */
-/*     } */
-/*   } */
+      /** Update interface tetra indices in the face communicator */
+      if ( !PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) {
+        fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+        goto strong_failed;
+      }
+    }
+    /** load Balancing at group scale and communicators reconstruction */
+    if ( !PMMG_loadBalancing(parmesh) ) {
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
+      goto strong_failed;
+    }
+  }
 
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
