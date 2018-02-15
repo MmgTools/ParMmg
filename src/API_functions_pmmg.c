@@ -133,12 +133,10 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * Free any parmesh members that are allocated
+ * Free parmesh communicators that are allocated
  */
-void PMMG_parmesh_Free( PMMG_pParMesh parmesh )
+void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
 {
-  PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
-
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_node_comm );
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_face_comm );
@@ -152,7 +150,30 @@ void PMMG_parmesh_Free( PMMG_pParMesh parmesh )
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
             PMMG_ext_comm, "ext face comm");
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Free parmesh listgrp that are allocated
+ */
+void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh )
+{
+  PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+
   PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Free any parmesh members that are allocated
+ */
+void PMMG_parmesh_Free( PMMG_pParMesh parmesh )
+{
+  PMMG_parmesh_Free_Comm( parmesh );
+
+  PMMG_parmesh_Free_Listgrp( parmesh );
 }
 
 
