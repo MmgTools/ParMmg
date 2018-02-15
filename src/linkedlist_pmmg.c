@@ -8,6 +8,7 @@
  */
 
 #include "linkedlist_pmmg.h"
+#include "coorcell_pmmg.h"
 
 /**
  * \param parmesh   pointer toward the parmesh structure.

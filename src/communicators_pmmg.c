@@ -179,10 +179,6 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
       for ( i=0; i<ext_face_comm->nitem; ++i ) {
         idx2  = ext_face_comm->int_comm_index[i];
 
-        if ( nitem_ext_comm==100 ) {
-          puts("coucou");
-        }
-
         for  ( j=0; j<3; ++j ) {
           ip = face_vertices[3*idx2+j];
           assert ( ip>=0 );
@@ -245,9 +241,11 @@ end:
  */
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_pGrp       grp;
+  PMMG_coorCell   *coor_list;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pPoint     ppt;
+  double          bb_min[3],bb_max[3],delta,dist[3],dd;
   int             *face2int_face_comm_index1;
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             *shared_fac,*new_pos,nitem_node,first_nitem_node,pos;
@@ -339,11 +337,11 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
  for ( i=0; i<3*parmesh->int_face_comm->nitem; ++i )
    face_vertices[i]   = PMMG_UNSET;
 
+
+ PMMG_CALLOC(parmesh,coor_list,nitem_node,PMMG_coorCell,"node coordinates",
+             goto end);
+
 #ifndef NDEBUG
- double *coor;
-
- PMMG_CALLOC(parmesh,coor,3*nitem_node,double,"node coordinates",goto end);
-
  /* Store the node coordinates of the nodes */
  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
    grp  = &parmesh->listgrp[grpid];
@@ -354,9 +352,13 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
      ip      = grp->node2int_node_comm_index1[i];
      idx     = grp->node2int_node_comm_index2[i];
      for ( j=0; j<3; ++j )
-       coor[3*idx+j] = mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j];
+       coor_list[idx].coor[j] = mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j];
    }
  }
+ /* Scale the coordinates depending to the bounding box ofthe internal comm */
+ if ( !PMMG_scale_coorCellList(coor_list,nitem_node,bb_min,bb_max,&delta) )
+   goto end;
+
 #endif
 
 
@@ -409,15 +411,27 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
             }
 
 #ifndef NDEBUG
-            double dist[3],sum;
+            double scaled_coor[3];
 
-            sum = 0;
+            /* Unscale the corrdinates that has been scaled by the mesh */
+            for ( j=0; j<3; ++j )
+              scaled_coor[j] = mesh->info.delta*mesh->point[ip].c[j]
+                + mesh->info.min[j];
+
+            /* Scale it using the internal node comm scaling data */
+            assert ( delta );
+            dd = 1./delta;
+            for ( j=0; j<3; ++j )
+              scaled_coor[j] = dd*(scaled_coor[j]-bb_min[j]);
+
+            /* Compute the distance between the points */
+            dd = 0;
             for ( j=0; j<3; ++j ) {
-              dist[j] = coor[3*new_pos[mesh->point[ip].tmp]+j]
-                - (mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j]);
-              sum += dist[j]*dist[j];
+              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].coor[j]
+                - scaled_coor[j];
+              dd += dist[j]*dist[j];
             }
-            assert ( sum<_MMG5_EPSD );
+            assert ( dd<_MMG5_EPSD );
 #endif
           }
         }
@@ -442,15 +456,27 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
               update = 1;
             }
 #ifndef NDEBUG
-            double dist[3],sum;
+            double scaled_coor[3];
 
-            sum = 0;
+            /* Unscale the corrdinates that has been scaled by the mesh */
+            for ( j=0; j<3; ++j )
+              scaled_coor[j] = mesh->info.delta*mesh->point[ip].c[j]
+                + mesh->info.min[j];
+
+            /* Scale it using the internal node comm scaling data */
+            assert ( delta );
+            dd = 1./delta;
+            for ( j=0; j<3; ++j )
+              scaled_coor[j] = dd*(scaled_coor[j]-bb_min[j]);
+
+            /* Compute the distance between the points */
+            dd = 0;
             for ( j=0; j<3; ++j ) {
-              dist[j] = coor[3*new_pos[mesh->point[ip].tmp]+j]
-                - (mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j]);
-              sum += dist[j]*dist[j];
+              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].coor[j]
+                -scaled_coor[j];
+              dd += dist[j]*dist[j];
             }
-            assert ( sum<_MMG5_EPSD );
+            assert ( dd<_MMG5_EPSD );
 #endif
           }
         }
@@ -486,6 +512,79 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   }
   nitem_node = j;
 
+  /** Step 3: Remove the last doublon by comparing the listed coordinates */
+  /* Store the node coordinates of the nodes */
+  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+    grp  = &parmesh->listgrp[grpid];
+    mesh = grp->mesh;
+    assert ( mesh->info.delta && "unable to unscale the mesh");
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+      ip      = grp->node2int_node_comm_index1[i];
+      idx     = grp->node2int_node_comm_index2[i];
+      for ( j=0; j<3; ++j )
+        coor_list[idx].coor[j] = mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j];
+    }
+  }
+  /* Scale the coordinates depending to the bounding box ofthe internal comm */
+  if ( !PMMG_scale_coorCellList(coor_list,nitem_node,bb_min,bb_max,&delta) )
+    goto end;
+
+  /* Store the point position in the internal communicator */
+  for ( i=0; i<nitem_node; ++i ) {
+    new_pos[i]       = i;
+    coor_list[i].pos = i;
+  }
+
+  /* Sort coor_list depending on its coordinates */
+  qsort(coor_list,nitem_node,sizeof(PMMG_coorCell),PMMG_compare_coorCell);
+
+  /* Travel the list and remove the identic nodes */
+  idx = 0;
+  new_pos[coor_list[0].pos] = 0;
+  for ( i=1; i<nitem_node; ++i ) {
+    if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
+      ++idx;
+      if ( idx != i ) {
+        coor_list[idx] = coor_list[i];
+      }
+      new_pos[coor_list[i].pos] = idx;
+    }
+    else
+      new_pos[coor_list[i].pos] = new_pos[coor_list[idx].pos];
+  }
+  nitem_node = idx+1;
+
+  /* Update node2int_node_comm arrays */
+  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+    grp  = &parmesh->listgrp[grpid];
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+
+      idx = grp->node2int_node_comm_index2[i];
+      grp->node2int_node_comm_index2[i] = new_pos[idx];
+    }
+  }
+
+  /* Repove the empty positions in int_node_comm */
+  for ( i=0; i<nitem_node; ++i )
+    new_pos[i] = PMMG_UNSET;
+
+  j = 0;
+  for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
+    grp  = &parmesh->listgrp[grpid];
+
+    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
+
+      idx = grp->node2int_node_comm_index2[i];
+      if ( new_pos[idx]<0 ) new_pos[idx] = j++;
+
+      grp->node2int_node_comm_index2[i] = new_pos[idx];
+    }
+  }
+  nitem_node = j;
+
+  /** Step 4: Update the number of items in the internal node communicator */
   parmesh->int_node_comm->nitem = nitem_node;
 
   /* Success */
@@ -504,17 +603,13 @@ end:
     }
   }
 
-  PMMG_DEL_MEM(parmesh,coor,3*nitem_node,double,"node coordinates");
-
   PMMG_DEL_MEM(parmesh,new_pos,nitem_node,int,"new pos in int_node_comm");
   PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
               "pos of face vertices in int_node_comm");
   PMMG_DEL_MEM(parmesh,shared_fac,parmesh->int_face_comm->nitem,int,
                "Faces shared by 2 groups");
 
-#ifndef NDEBUG
-  PMMG_DEL_MEM(parmesh,coor,3*nitem_node,double,"node coordinates");
-#endif
+  PMMG_DEL_MEM(parmesh,coor_list,nitem_node,PMMG_coorCell,"node coordinates");
 
   return ier;
 }
