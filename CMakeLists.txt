@@ -1,5 +1,8 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
 
+INCLUDE(CMakeDependentOption)
+INCLUDE(cmake/modules/macros.cmake)
+
 PROJECT (parmmg)
 
 ###############################################################################
@@ -20,6 +23,10 @@ SET (CMAKE_RELEASE_VERSION
 #####         Main CMake compilation variables
 #####
 ###############################################################################
+
+SET(PMMG_BINARY_DIR      ${CMAKE_BINARY_DIR}/src/parmmg)
+SET(PMMG_SHRT_INCLUDE    parmmg )
+SET(PMMG_INCLUDE         ${CMAKE_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
 
 # To see flags and options of compilation
 #SET(CMAKE_VERBOSE_MAKEFILE TRUE)
@@ -257,25 +264,18 @@ INCLUDE_DIRECTORIES(${PMMG_SOURCE_DIR})
 # Source files
 FILE(
   GLOB
-  source_files
-  ${PMMG_SOURCE_DIR}/*.c   ${PMMG_SOURCE_DIR}/*.h
+  pmmg_library_files
+  ${PMMG_SOURCE_DIR}/*.c
   )
-LIST(REMOVE_ITEM source_files
+LIST(REMOVE_ITEM pmmg_library_files
   ${PMMG_SOURCE_DIR}/parmmg.c
   ${REMOVE_FILE})
 FILE(
   GLOB
-  main_file
+  pmmg_main_file
   ${PMMG_SOURCE_DIR}/parmmg.c
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.c
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.c
   )
-FILE(
-  GLOB
-  lib_file
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.c
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.c
-  )
+
 IF (NOT WIN32)
   FIND_LIBRARY(M_LIB m)
   SET( LIBRARIES ${LIBRARIES} ${M_LIB})
@@ -318,38 +318,35 @@ SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
 OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 IF ( LIBPARMMG_STATIC )
-  ADD_LIBRARY(${PROJECT_NAME}_a  STATIC
-    ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-    ${source_files} ${lib_file} )
-  SET_TARGET_PROPERTIES(${PROJECT_NAME}_a PROPERTIES OUTPUT_NAME
-    ${PROJECT_NAME})
-  TARGET_LINK_LIBRARIES(${PROJECT_NAME}_a ${LIBRARIES})
-  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h DESTINATION
-    ${CMAKE_BINARY_DIR}/include)
-  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h DESTINATION
-    ${CMAKE_BINARY_DIR}/include)
-  INSTALL(TARGETS ${PROJECT_NAME}_a
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)
+  ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
+    "${pmmg_library_files}" ${PROJECT_NAME} )
 ENDIF()
 
 # Compile shared library
 OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 IF ( LIBPARMMG_SHARED )
-  ADD_LIBRARY(${PROJECT_NAME}_so SHARED
-    ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-    ${source_files} ${lib_file})
-  SET_TARGET_PROPERTIES(${PROJECT_NAME}_so PROPERTIES
-    OUTPUT_NAME ${PROJECT_NAME})
-  TARGET_LINK_LIBRARIES(${PROJECT_NAME}_so ${LIBRARIES})
-  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-    DESTINATION ${CMAKE_BINARY_DIR}/include)
-  INSTALL(FILES ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
-    DESTINATION ${CMAKE_BINARY_DIR}/include)
-  INSTALL(TARGETS ${PROJECT_NAME}_so
-    ARCHIVE DESTINATION
-    LIBRARY DESTINATION lib)
+  ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
+    "${pmmg_library_files}" ${PROJECT_NAME} )
 ENDIF()
+
+# mmg2d header files needed for library
+SET( pmmg_headers
+  ${PMMG_SOURCE_DIR}/libparmmg.h
+#  ${PMMG_SOURCE_DIR}/libparmmgf.h
+  ${PMMG_SOURCE_DIR}/libparmmgtypes.h
+#  ${PMMG_SOURCE_DIR}/libparmmgtypesf.h
+  )
+
+# Install header files in /usr/local or equivalent
+INSTALL(FILES ${pmmg_headers} DESTINATION include/parmmg COMPONENT headers )
+
+COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
+
+# Copy header files in project directory at configuration step
+# (generated file don't exists yet or are outdated)
+FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
+  PATTERN "libparmmg*f.h"  EXCLUDE)
+
 
 ############################################################################
 #####
@@ -365,7 +362,7 @@ ENDIF()
 ADD_EXECUTABLE(${PROJECT_NAME}
   ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
   ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
-  ${source_files} ${main_file})
+  ${pmmg_library_files} ${pmmg_main_file})
 TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LIBRARIES})
 INSTALL(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
 

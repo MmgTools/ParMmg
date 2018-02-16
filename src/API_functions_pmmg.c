@@ -99,7 +99,7 @@ void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
   int k;
 
   for ( k = 0; k < ngrp; ++k )
-    PMMG_grp_free( parmesh, listgrp[k] );
+    PMMG_grp_free( parmesh, listgrp[0] + k );
 
   PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
 }
@@ -233,12 +233,14 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
                              MMG5_ARG_end ) )
     goto fail_mesh;
 
+#warning dirty : this function guess that we use MPI_COMM_WORLD while user may set to parmmg another communicator. I think that the size of the parmesh (as memGloMax, memMax, memCur) must not be setted here but in a further step (as in Mmg).
   PMMG_parmesh_SetMemGloMax( *parmesh, 0 );
 
   return PMMG_SUCCESS;
 
 fail_mesh:
-    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,"deallocating groups container");
+    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
+                 "deallocating groups container");
 fail_grplst:
   (*parmesh)->ngrp = 0;
   (*parmesh)->memMax = 0;

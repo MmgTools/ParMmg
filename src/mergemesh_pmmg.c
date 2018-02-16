@@ -223,7 +223,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
   int            *intvalues;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            face_id_glo;
-  int            k,iel,ie,ifac,i;
+  int            k,iel,ie,ifac,iploc,i;
 
   intvalues = parmesh->int_face_comm->intvalues;
 
@@ -242,9 +242,13 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     assert(face_id_glo < (parmesh->int_face_comm->nitem));
 
     /* Index of the interface tetra in the mesh */
-    iel  = face2int_face_comm_index1[k]/4;
-    ifac = face2int_face_comm_index1[k]%4;
+    iel   =  face2int_face_comm_index1[k]/12;
+    ifac  = (face2int_face_comm_index1[k]%12)/3;
+    iploc = (face2int_face_comm_index1[k]%12)%3;
+
     assert ( iel && iel<=meshJ->ne );
+    assert ( 0<=ifac && ifac<4 );
+
     ptJ       = &meshJ->tetra[iel];
 
     assert ( MG_EOK(ptJ) );
@@ -254,7 +258,8 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       /* Store the interface face if it has not been seen from another group */
       assert( ptJ->flag );
 
-      if ( !intvalues[face_id_glo] ) intvalues[face_id_glo] = 4*ptJ->flag+ifac;
+      if ( !intvalues[face_id_glo] )
+        intvalues[face_id_glo] = 12*ptJ->flag+3*ifac+iploc;
       else intvalues[face_id_glo] *= -1;
 
       continue;
@@ -279,7 +284,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     ptJ->flag = ie;
 
     /* Store the interface face if it has not been seen from another group */
-    if ( !intvalues[face_id_glo] ) intvalues[face_id_glo] = 4*ie+ifac;
+    if ( !intvalues[face_id_glo] ) intvalues[face_id_glo] = 12*ie+3*ifac+iploc;
     else intvalues[face_id_glo] *= -1;
 
     /** Add xtetra if needed */
@@ -768,6 +773,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     if(isMet) {
       _MMG5_SAFE_CALLOC( (*rcv_nmet)    ,nprocs,int,0);
       _MMG5_SAFE_CALLOC( (*met_displs)  ,nprocs,int,0);
+    }
+    else {
+      *rcv_nmet   = NULL;
+      *met_displs = NULL;
     }
   }
 
