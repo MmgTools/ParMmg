@@ -492,6 +492,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         mesh->tetra[k].flag = mesh->base;
       }
       /** Call the remesher */
+      /* Here we need to scale the mesh */
+      if ( !_MMG5_scaleMesh(mesh,met) ) goto failed;
+
 #ifdef PATTERN
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
         fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
@@ -525,6 +528,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
         goto strong_failed;
       }
+      if ( !_MMG5_unscaleMesh(mesh,met) ) goto failed;
     }
     /** load Balancing at group scale and communicators reconstruction */
     if ( !PMMG_loadBalancing(parmesh) ) {

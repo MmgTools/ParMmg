@@ -425,16 +425,20 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 #ifndef NDEBUG
             double scaled_coor[3];
 
-            /* Unscale the corrdinates that has been scaled by the mesh */
-            for ( j=0; j<3; ++j )
-              scaled_coor[j] = mesh->info.delta*mesh->point[ip].c[j]
-                + mesh->info.min[j];
+            assert ( mesh->info.delta && "missing scaling infos" );
 
-            /* Scale it using the internal node comm scaling data */
+            dd = mesh->info.min[0]*mesh->info.min[0]
+              + mesh->info.min[1]*mesh->info.min[1]
+              + mesh->info.min[2]*mesh->info.min[2];
+
+            assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+                     "scaled mesh... need to unscale it");
+
+            /* Scale the point coor using the internal node comm scaling data */
             assert ( delta );
             dd = 1./delta;
             for ( j=0; j<3; ++j )
-              scaled_coor[j] = dd*(scaled_coor[j]-bb_min[j]);
+              scaled_coor[j] = dd*(mesh->point[ip].c[j]-bb_min[j]);
 
             /* Compute the distance between the points */
             dd = 0;
@@ -470,16 +474,12 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 #ifndef NDEBUG
             double scaled_coor[3];
 
-            /* Unscale the corrdinates that has been scaled by the mesh */
-            for ( j=0; j<3; ++j )
-              scaled_coor[j] = mesh->info.delta*mesh->point[ip].c[j]
-                + mesh->info.min[j];
-
-            /* Scale it using the internal node comm scaling data */
+            /* Unscale the point coordinates using the internal node comm
+             * scaling data */
             assert ( delta );
             dd = 1./delta;
             for ( j=0; j<3; ++j )
-              scaled_coor[j] = dd*(scaled_coor[j]-bb_min[j]);
+              scaled_coor[j] = dd*(mesh->point[ip].c[j]-bb_min[j]);
 
             /* Compute the distance between the points */
             dd = 0;
@@ -529,13 +529,12 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {
     grp  = &parmesh->listgrp[grpid];
     mesh = grp->mesh;
-    assert ( mesh->info.delta && "unable to unscale the mesh");
 
     for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
       ip      = grp->node2int_node_comm_index1[i];
       idx     = grp->node2int_node_comm_index2[i];
       for ( j=0; j<3; ++j )
-        coor_list[idx].coor[j] = mesh->info.delta*mesh->point[ip].c[j]+mesh->info.min[j];
+        coor_list[idx].coor[j] = mesh->point[ip].c[j];
     }
   }
   /* Scale the coordinates depending to the bounding box ofthe internal comm */

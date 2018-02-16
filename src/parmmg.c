@@ -68,6 +68,10 @@ static int PMMG_preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
     if ( mesh->info.imprim > 1 && met->m )
       _MMG3D_prilen(mesh,met,0);
 
+  /** Mesh unscaling */
+  if ( !_MMG5_unscaleMesh(mesh,met) )
+    return PMMG_STRONGFAILURE;
+
   if ( !rank && mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 2 COMPLETED.\n");
 
