@@ -371,7 +371,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
   for ( k=0; k<grpI->nitem_int_face_comm; ++k ) {
     iel = face2int_face_comm_index1[k];
     assert(   ( 0 <= face2int_face_comm_index2[k] )
-              && ( face2int_face_comm_index2[k] < parmesh->int_node_comm->nitem )
+              && ( face2int_face_comm_index2[k] < parmesh->int_face_comm->nitem )
               && "check intvalues indices" );
     parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
   }
