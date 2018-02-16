@@ -843,9 +843,11 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;
 
-  assert ( PMMG_check_extFaceComm ( parmesh ) );
-  assert ( PMMG_check_intNodeComm ( parmesh ) );
-  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  if ( parmesh->nprocs > 1 ) {
+    assert ( PMMG_check_extFaceComm ( parmesh ) );
+    assert ( PMMG_check_intNodeComm ( parmesh ) );
+    assert ( PMMG_check_extNodeComm ( parmesh ) );
+  }
 
   /* Success */
   ret_val = 1;

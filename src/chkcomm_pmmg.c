@@ -1,4 +1,5 @@
 #include "parmmg.h"
+#include "coorcell_pmmg.h"
 
 /**
  * \param parmesh pointer to current parmesh stucture
@@ -31,8 +32,8 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
 {
   //NIKOS TODO: could try using std::vector<bool> and std::map in these tests to speed up things
   //NIKOS TODO: BOUND CHECK ARRAY ACCESSES: can't rely that the contents of the communicators are valid
-  struct point { double c[3]; int tmp; };
-  struct point *check = NULL;
+  PMMG_coorCell   *coor_list;
+  double dd,dd_mesh,bb_min[3],bb_max[3],delta,dist[3];
   int ret_val = 1;
   int ngrp = parmesh->ngrp;
   PMMG_pGrp grpCur = NULL;
@@ -44,16 +45,58 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
   int commSizeLoc = 0;
 
   // Loop counter(s)
-  int commIdx, grpId;
+  int commIdx, grpId,i,j,ip,idx;
 
   // FIRST TEST:
-  PMMG_CALLOC(parmesh,check,commSizeGlo+1,struct point,"Allocating check space: ", return PMMG_FAILURE);
+  PMMG_CALLOC(parmesh,coor_list,commSizeGlo,PMMG_coorCell,"node coordinates",
+              return 0);
+
+  /* Store the node coordinates of the nodes */
+  for ( grpId=0; grpId<parmesh->ngrp; ++grpId ) {
+    grpCur  = &parmesh->listgrp[grpId];
+    meshCur = grpCur->mesh;
+    assert ( meshCur->info.delta &&  "missing scaling infos");
+
+    dd = meshCur->info.min[0]*meshCur->info.min[0]
+      + meshCur->info.min[1]*meshCur->info.min[1]
+      + meshCur->info.min[2]*meshCur->info.min[2];
+
+    assert ( fabs(meshCur->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+             "scaled mesh... need to unscale it");
+
+    for ( i=0; i<grpCur->nitem_int_node_comm; ++i ) {
+      ip      = grpCur->node2int_node_comm_index1[i];
+      idx     = grpCur->node2int_node_comm_index2[i];
+      for ( j=0; j<3; ++j )
+        coor_list[idx].coor[j] = meshCur->point[ip].c[j];
+    }
+  }
+
+  for ( commIdx = 0; commIdx<commSizeGlo; commIdx++ )
+    coor_list[commIdx].pos = 0;
+
+  /* Scale the coordinates depending to the bounding box ofthe internal comm */
+  if ( !PMMG_scale_coorCellList(coor_list,commSizeGlo,bb_min,bb_max,&delta) )
+    return 0;
+
+  dd = 1./delta;
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
 
     grpCur = parmesh->listgrp + grpId;
     meshCur = grpCur->mesh;
     numFailed = 0;
+
+    assert ( meshCur->info.delta &&  "missing scaling infos");
+
+    dd_mesh = meshCur->info.min[0]*meshCur->info.min[0]
+      + meshCur->info.min[1]*meshCur->info.min[1]
+      + meshCur->info.min[2]*meshCur->info.min[2];
+
+    assert ( fabs(meshCur->info.delta-1.)<_MMG5_EPSD && dd_mesh<_MMG5_EPSD &&
+             "scaled mesh... need to unscale it");
+
+
 
     commSizeLoc = grpCur->nitem_int_node_comm;
     for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {
@@ -62,26 +105,32 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
       commIdx1 = grpCur->node2int_node_comm_index1[ commIdx ];
 //      printf( "+++++NIKOS[%d/%d]+++:: CIC: commSizeGlo = %d, i = %d, n2i_idx2(check position) = %d ",
 //              grpId + 1, ngrp, commSizeGlo, commIdx, commIdx2);
-      if ( check[ commIdx2 ].tmp == 0. ) {
+      if ( !coor_list[ commIdx2 ].pos ) {
 //        printf( "+++adding (%f,%f,%f) to (%f,%f,%f) \n",
-//                meshCur->point[ commIdx1 ].c[0],
-//                meshCur->point[ commIdx1 ].c[1],
-//                meshCur->point[ commIdx1 ].c[2],
-//                check[ commIdx2 ].c[0], check[ commIdx2 ].c[1], check[ commIdx2 ].c[2] );
-        check[ commIdx2 ].c[0] = meshCur->point[ commIdx1 ].c[0];
-        check[ commIdx2 ].c[1] = meshCur->point[ commIdx1 ].c[1];
-        check[ commIdx2 ].c[2] = meshCur->point[ commIdx1 ].c[2];
-        check[ commIdx2 ].tmp = 1.;
+//                meshCur->point[ commIdx1 ].c[0]-min[0]),
+//                meshCur->point[ commIdx1 ].c[1]-min[1]),
+//                meshCur->point[ commIdx1 ].c[2]-min[2]),
+//                coor_list[ commIdx2 ].coor[0], coor_list[ commIdx2 ].coor[1],
+//                coor_list[ commIdx2 ].coor[2] );
+        coor_list[ commIdx2 ].coor[0] = dd*(meshCur->point[ commIdx1 ].c[0]-bb_min[0]);
+        coor_list[ commIdx2 ].coor[1] = dd*(meshCur->point[ commIdx1 ].c[1]-bb_min[1]);
+        coor_list[ commIdx2 ].coor[2] = dd*(meshCur->point[ commIdx1 ].c[2]-bb_min[2]);
+        coor_list[ commIdx2 ].pos = 1;
       } else {
 //        printf( "---checking (%f,%f,%f) to (%f,%f,%f) \n",
-//                meshCur->point[ commIdx1 ].c[0],
-//                meshCur->point[ commIdx1 ].c[1],
-//                meshCur->point[ commIdx1 ].c[2],
-//                check[ commIdx2 ].c[0], check[ commIdx2 ].c[1], check[ commIdx2 ].c[2] );
+//                dd*(meshCur->point[ commIdx1 ].c[0]-min[0]),
+//                dd*(meshCur->point[ commIdx1 ].c[1]-min[1]),
+//                dd*(meshCur->point[ commIdx1 ].c[2]-min[2]),
+//                coor_list[ commIdx2 ].coor[0], coor_list[ commIdx2 ].coor[1],
+//                coor_list[ commIdx2 ].coor[2] );
         for ( int j = 0; j < 3; ++j )
-          if ( check[ commIdx2 ].c[j] != meshCur->point[ commIdx1 ].c[j] ) {
-            ++numFailed;
-            ret_val = 0;
+          dist[j] = coor_list[ commIdx2 ].coor[j]
+            -dd*(meshCur->point[ commIdx1 ].c[j]-bb_min[j]);
+
+        if ( dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]>_MMG5_EPSD ) {
+          ++numFailed;
+          ret_val = 0;
+          assert(0);
         }
       }
     }
@@ -97,18 +146,15 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
     commSizeLoc = grpCur->nitem_int_node_comm;
 
     for ( commIdx = 0; commIdx < commSizeGlo; ++commIdx )
-      check[ commIdx ].tmp = 0;
+      coor_list[ commIdx ].pos = -1;
 
     for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {
       commIdx2 = grpCur->node2int_node_comm_index2[ commIdx ];
-      if ( check[ commIdx2 ].tmp == 0. )
-        check[ commIdx2 ].tmp = 1.;
-      else
-        ret_val = 0;
+      assert ( coor_list[ commIdx2 ].pos<0 );
+
+      coor_list[ commIdx2 ].pos = commIdx;
     }
   }
-
-
 
   // THIRD TEST:
   //   all elements in commSizeGlo
@@ -136,7 +182,9 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
 
   // NIKOS TODO: CHECK THE idx1/idx2 pairs ?
 
-  PMMG_DEL_MEM(parmesh,check,commSizeGlo+1,struct point,"Deallocating check space:");
+  PMMG_DEL_MEM(parmesh,coor_list,commSizeGlo+1,PMMG_coorCell,
+               "Deallocating check space:");
+
   return ret_val;
 }
 
