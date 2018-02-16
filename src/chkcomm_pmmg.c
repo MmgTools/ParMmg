@@ -137,7 +137,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
   // NIKOS TODO: CHECK THE idx1/idx2 pairs ?
 
   PMMG_DEL_MEM(parmesh,check,commSizeGlo+1,struct point,"Deallocating check space:");
-  return 1;
+  return ret_val;
 }
 
 
