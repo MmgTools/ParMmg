@@ -8,6 +8,7 @@
  * \copyright GNU Lesser General Public License.
  */
 #include "linkedlist_pmmg.h"
+#include "coorcell_pmmg.h"
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -19,35 +20,46 @@
  */
 // BUG quand on a plusieurs groupes et plusieurs procs (voir yales2->grid_comm_m.f90).
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
+  int ier, ier_glob;
 
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intFaceComm ( parmesh ) );
 
   /** Build the internal node communicator from the faces ones */
-  if ( !PMMG_build_intNodeComm(parmesh) ) {
+  ier = PMMG_build_intNodeComm(parmesh);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: unable to build the internal node"
             " communicators from the internal faces communicators.\n",__func__);
-    return 0;
   }
-  assert ( PMMG_check_intNodeComm ( parmesh ) );
+  else {
+    /* The internal comm is filled, try to begin to fill the external one */
+    assert ( PMMG_check_intNodeComm ( parmesh ) );
 
-  /** Build the external node communicators from the faces ones without looking
-   * at the possibility to miss a processor that is not visible from the face
-   * communicators: _0_\1/_2_ configuration ( from 0 it is not possible to say
-   * that the node at edge intersction belongs to 2 */
-  if ( !PMMG_build_simpleExtNodeComm(parmesh) ) {
-    fprintf(stderr,"\n  ## Error: %s: unable to build the simple externals node"
-            " communicators from the external faces communicators.\n",__func__);
-    return 0;
+    /** Build the external node communicators from the faces ones without looking
+     * at the possibility to miss a processor that is not visible from the face
+     * communicators: _0_\1/_2_ configuration ( from 0 it is not possible to say
+     * that the node at edge intersction belongs to 2 */
+    ier = PMMG_build_simpleExtNodeComm(parmesh);
+    if ( !ier ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to build the simple externals node"
+              " communicators from the external faces communicators.\n",__func__);
+    }
   }
-  assert ( PMMG_check_extNodeComm ( parmesh ) );
+
+  /* Check that all steps have successed until here (because the next function
+   * involves MPI comms) */
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( !ier_glob ) return 0;
 
   /** Fill the external node communicator */
-  if ( !PMMG_build_completeExtNodeComm(parmesh) ) {
+  ier = PMMG_build_completeExtNodeComm(parmesh);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: unable to complete the external node"
             " communicators.\n",__func__);
-    return 0;
   }
+  if ( !ier_glob ) return 0;
+
   assert ( PMMG_check_extNodeComm ( parmesh ) );
 
   return 1;

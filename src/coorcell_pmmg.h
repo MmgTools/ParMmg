@@ -11,6 +11,8 @@
 
 #define COORCELL_PMMG_H
 
+#include "parmmg.h"
+
 /**
  * \struct PMMG_coorCell
  *
