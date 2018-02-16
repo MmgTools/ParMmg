@@ -950,10 +950,11 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
+  /* Check the internal node communicators (not the external one because if one
+   * proc returns at the begining of the function (1 group needed only), it will
+   * deadlock in the mpi comms */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
-  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
-  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
 
   if ( PMMG_parmesh_updateMemMax(parmesh, 105, fitMesh) ) {
     // No error so far, skip deallocation of lstgrps
