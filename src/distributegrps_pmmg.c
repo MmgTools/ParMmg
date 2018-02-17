@@ -887,6 +887,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
 
   /** Get the new partition of groups (1 group = 1 metis node) */
+  part = NULL;
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
