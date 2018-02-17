@@ -16,16 +16,17 @@
 /**
  * \struct PMMG_coorCell
  *
- * \brief Cell containing a point coordinate and its position in an array
+ * \brief Cell containing a point coordinate and an index
  *
  */
 typedef struct {
-  double  coor[3]; /*!< point coordinates */
-  int     pos;     /*!< position of the coordinate in array */
+  double  c[3]; /*!< point coordinates */
+  int     idx;  /*!< index associated to the point */
 } PMMG_coorCell;
 
 
 int PMMG_compare_coorCell (const void * a, const void * b);
+int PMMG_find_coorCellListBoundingBox(PMMG_coorCell*,int,double*,double*,double*);
 int PMMG_scale_coorCellList (PMMG_coorCell*,int,double*,double*,double*);
 int PMMG_unscale_coorCellList (PMMG_coorCell*,int,double*,double*,double);
 

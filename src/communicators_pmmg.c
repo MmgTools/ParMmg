@@ -18,7 +18,6 @@
  * Build the node communicators (externals and internals) from the faces ones.
  *
  */
-// BUG quand on a plusieurs groupes et plusieurs procs (voir yales2->grid_comm_m.f90).
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
   int ier, ier_glob;
 
@@ -371,7 +370,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
      ip      = grp->node2int_node_comm_index1[i];
      idx     = grp->node2int_node_comm_index2[i];
      for ( j=0; j<3; ++j )
-       coor_list[idx].coor[j] = mesh->point[ip].c[j];
+       coor_list[idx].c[j] = mesh->point[ip].c[j];
    }
  }
  /* Scale the coordinates depending to the bounding box ofthe internal comm */
@@ -450,7 +449,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
             /* Compute the distance between the points */
             dd = 0;
             for ( j=0; j<3; ++j ) {
-              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].coor[j]
+              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].c[j]
                 - scaled_coor[j];
               dd += dist[j]*dist[j];
             }
@@ -491,7 +490,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
             /* Compute the distance between the points */
             dd = 0;
             for ( j=0; j<3; ++j ) {
-              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].coor[j]
+              dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].c[j]
                 -scaled_coor[j];
               dd += dist[j]*dist[j];
             }
@@ -541,7 +540,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
       ip      = grp->node2int_node_comm_index1[i];
       idx     = grp->node2int_node_comm_index2[i];
       for ( j=0; j<3; ++j )
-        coor_list[idx].coor[j] = mesh->point[ip].c[j];
+        coor_list[idx].c[j] = mesh->point[ip].c[j];
     }
   }
   /* Scale the coordinates depending to the bounding box ofthe internal comm */
@@ -551,7 +550,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   /* Store the point position in the internal communicator */
   for ( i=0; i<nitem_node; ++i ) {
     new_pos[i]       = i;
-    coor_list[i].pos = i;
+    coor_list[i].idx = i;
   }
 
   /* Sort coor_list depending on its coordinates */
@@ -559,17 +558,17 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 
   /* Travel the list and remove the identic nodes */
   idx = 0;
-  new_pos[coor_list[0].pos] = 0;
+  new_pos[coor_list[0].idx] = 0;
   for ( i=1; i<nitem_node; ++i ) {
     if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
       ++idx;
       if ( idx != i ) {
         coor_list[idx] = coor_list[i];
       }
-      new_pos[coor_list[i].pos] = idx;
+      new_pos[coor_list[i].idx] = idx;
     }
     else
-      new_pos[coor_list[i].pos] = new_pos[coor_list[idx].pos];
+      new_pos[coor_list[i].idx] = new_pos[coor_list[idx].idx];
   }
   nitem_node = idx+1;
 

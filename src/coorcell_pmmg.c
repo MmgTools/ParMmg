@@ -17,7 +17,8 @@
  * equals.
  *
  * Compare 2 coor cells (can be used inside the qsort C fnuction), first on
- * their x-coordinates, second ond their y-coordiantes then on their z-coordinates.
+ * their x-coordinates, second ond their y-coordinates then on their
+ * z-coordinates.
  *
  */
 int PMMG_compare_coorCell (const void * a, const void * b) {
@@ -29,7 +30,7 @@ int PMMG_compare_coorCell (const void * a, const void * b) {
   cell2 = (PMMG_coorCell*)b;
 
   for ( k=0; k<3; ++k ) {
-    dist[k] = cell1->coor[k]-cell2->coor[k];
+    dist[k] = cell1->c[k]-cell2->c[k];
 
     if ( dist[k] >  _MMG5_EPSD ) return 1;
 
@@ -51,13 +52,13 @@ int PMMG_compare_coorCell (const void * a, const void * b) {
  *
  * \return 1 if success, 0 if fail;
  *
- * Scale the coordinates listed in the \a list array and fill the scaling data
- * (\a min \a max \a delta).
+ * Find the bounding box and fill the scaling data (\a min \a max \a delta) for
+ * the points listed in the \a list array.
  *
  */
-int PMMG_scale_coorCellList (PMMG_coorCell *list,int nitem,double min[3],
-                             double max[3],double *delta) {
-  double dd;
+int PMMG_find_coorCellListBoundingBox (PMMG_coorCell *list,int nitem,
+                                       double min[3],double max[3],
+                                       double *delta) {
   int    i,j;
 
   /* Bounding box computation */
@@ -67,8 +68,8 @@ int PMMG_scale_coorCellList (PMMG_coorCell *list,int nitem,double min[3],
   }
   for ( i=0; i<nitem; ++i ) {
     for (j=0; j<3; j++) {
-      if ( list[i].coor[j] > max[j] ) max[j] = list[i].coor[j];
-      if ( list[i].coor[j] < min[j] ) min[j] = list[i].coor[j];
+      if ( list[i].c[j] > max[j] ) max[j] = list[i].c[j];
+      if ( list[i].c[j] < min[j] ) min[j] = list[i].c[j];
     }
   }
   (*delta) = 0.0;
@@ -79,11 +80,35 @@ int PMMG_scale_coorCellList (PMMG_coorCell *list,int nitem,double min[3],
     fprintf(stderr,"\n  ## Error: %s: unable to scale the list.",__func__);
     return 0 ;
   }
+  return 1;
+}
+
+/**
+ * \param list   array of PMMG_coorCell
+ * \param nitem  number of items in the list
+ * \param min    minimal coordinates in each direction
+ * \param max    maximal coordinates in each direction
+ * \param delta  scaling value
+ *
+ * \return 1 if success, 0 if fail;
+ *
+ * Scale the coordinates listed in the \a list array and fill the scaling data
+ * (\a min \a max \a delta).
+ *
+ */
+int PMMG_scale_coorCellList (PMMG_coorCell *list,int nitem,double min[3],
+                             double max[3],double *delta) {
+  double dd;
+  int    i,j;
+
+  /* Bounding box computation */
+  if ( !PMMG_find_coorCellListBoundingBox(list,nitem,min,max,delta) )
+    return 0;
 
   /* Coordinate scaling */
   dd = 1./(*delta);
   for ( i=0; i<nitem; ++i ) {
-    for (j=0; j<3; j++) list[i].coor[j] = dd*(list[i].coor[j]-min[j]);
+    for (j=0; j<3; j++) list[i].c[j] = dd*(list[i].c[j]-min[j]);
   }
 
   return 1;
@@ -107,7 +132,7 @@ int PMMG_unscale_coorCellList (PMMG_coorCell *list,int nitem,double min[3],
 
   /* Coordinate scaling */
   for ( i=0; i<nitem; ++i )
-    for (j=0; j<3; j++) list[i].coor[j] = delta*list[i].coor[j]+min[j];
+    for (j=0; j<3; j++) list[i].c[j] = delta*list[i].c[j]+min[j];
 
   return 1;
 }
