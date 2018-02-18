@@ -803,7 +803,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
-    return PMMG_SUCCESS;
+    ret_val = PMMG_SUCCESS;
+    goto end;
+
   } else {
     if ( parmesh->ddebug )
       fprintf( stdout,
@@ -950,12 +952,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
-  /* Check the internal node communicators (not the external one because if one
-   * proc returns at the begining of the function (1 group needed only), it will
-   * deadlock in the mpi comms */
-  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
-  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
-
   if ( PMMG_parmesh_updateMemMax(parmesh, 105, fitMesh) ) {
     // No error so far, skip deallocation of lstgrps
     goto fail_facePos;
@@ -1011,42 +1007,15 @@ fail_counters:
 fail_part:
   PMMG_DEL_MEM(parmesh,part,meshOld_ne,idx_t,"free metis buffer ");
 
-// UNCOMMENT TO DEBUG THE BUILD OF THE NODE COMMUNICATOR FROM THE FACE ONE. (AND
-// DELETE IT WHEN THE FUNCTION WIL WORKS)
-  /* assert ( PMMG_check_extFaceComm ( parmesh ) ); */
-  /* assert ( PMMG_check_intNodeComm ( parmesh ) ); */
-  /* assert ( PMMG_check_extNodeComm ( parmesh ) ); */
-
-  /* for (int k=0; k<parmesh->ngrp;++k ) { */
-  /*     PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1, */
-  /*                  parmesh->listgrp[k].nitem_int_node_comm,int,"index1"); */
-  /*     PMMG_DEL_MEM(parmesh,parmesh->listgrp[k].node2int_node_comm_index1, */
-  /*                  parmesh->listgrp[k].nitem_int_node_comm,int,"index2"); */
-  /* } */
-
-  /* for ( int k=0; k<parmesh->next_node_comm; ++k ) { */
-  /*   PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[k].int_comm_index, */
-  /*                parmesh->ext_node_comm[k].nitem, int,"ext_comm"); */
-  /* } */
-  /* PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm, */
-  /*              parmesh->next_node_comm, PMMG_ext_comm,"ext_comm"); */
-  /* parmesh->next_node_comm = 0; */
-
-  /* parmesh->int_node_comm->nitem = 0; */
-
-  /* if ( !PMMG_build_nodeCommFromFaces( parmesh ) ) { */
-  /*   puts("FAILED IN BUILD NODE COMM\n"); */
-  /* } */
-
-  /* assert ( PMMG_check_extFaceComm ( parmesh ) ); */
-  /* assert ( PMMG_check_intNodeComm ( parmesh ) ); */
-  /* assert ( PMMG_check_extNodeComm ( parmesh ) ); */
-
-  /* return ( 0 ); */
+end:
+  /* Check the communicators */
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
+  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
 
   return ret_val;
 }
-
 
 /**
  * \param parmesh pointer toward the parmesh structure.
