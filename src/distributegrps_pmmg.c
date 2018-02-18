@@ -78,9 +78,11 @@ PMMG_Grp PMMG_move_grp(PMMG_pGrp group) {
 }
 
 /**
- * \param parmesh pointer toward the parmesh structure.
- * \param grpI pointer toward the group in which we want to merge.
- * \param grpJ pointer toward the group that we want to merge.
+ * \param parmesh pointer toward the parmesh structure.  \param grpI pointer
+ * toward the group in which we want to merge.  \param grpJ pointer toward the
+ * group that we want to merge.  \param grps pointer toward the new list of
+ * groups \param first_idx index of the first group that has not been treated in
+ * \a listgrp
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -90,7 +92,8 @@ PMMG_Grp PMMG_move_grp(PMMG_pGrp group) {
  */
 static inline
 int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                         PMMG_pGrp grpJ ) {
+                                         PMMG_pGrp grpJ,PMMG_pGrp grps,
+                                         int first_idx ) {
   PMMG_pext_comm ext_node_comm;
   int            nitem_int_node_commI,nitem_int_node_commJ,*intvalues;
   int           *node2int_node_commI_index1;
@@ -115,7 +118,36 @@ int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     }
   }
 
-  /** Step 2: Process the interface points of the group \a grpI and delete the
+  /** Step 2: Process all the other groups to detec if a point marked as
+   * interface between J in I is at the interface of another group and must be
+   * keeped in the internal communicator */
+
+  /* Groups stored in the grps array */
+  for ( k=0; k<parmesh->nprocs; ++k ) {
+    if ( !grps[k].node2int_node_comm_index2 ) continue;
+
+    if ( &grps[k] == grpI )  continue;
+
+    for ( i=0; i<grps[k].nitem_int_node_comm; ++i ) {
+      idx = grps[k].node2int_node_comm_index2[i];
+      intvalues[idx] = abs(intvalues[idx]);
+    }
+  }
+
+  /* Groups remaining in the listgroup array */
+  for ( k=first_idx; k<parmesh->ngrp; ++k ) {
+    /* Empty group */
+    if ( !parmesh->listgrp[k].node2int_node_comm_index2 ) continue;
+
+    if ( &parmesh->listgrp[k] == grpJ ) continue;
+
+    for ( i=0; i<parmesh->listgrp[k].nitem_int_node_comm; ++i ) {
+      idx = parmesh->listgrp[k].node2int_node_comm_index2[i];
+      intvalues[idx] = abs(intvalues[idx]);
+    }
+  }
+
+  /** Step 3: Process the interface points of the group \a grpI and delete the
    * points that will be removed from the internal communicator (points shared
    * with the group \a grpJ and that doesn't belong to the external
    * communicators) */
@@ -147,7 +179,7 @@ int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     ++new_nitem;
   }
 
-  /** Step 3: Process the interface points of the group \a grpJ and add the
+  /** Step 4: Process the interface points of the group \a grpJ and add the
    * points used by the internal communicator in the list of interface points of
    * the group \a grpI */
   node2int_node_commJ_index2  = grpJ->node2int_node_comm_index2;
@@ -270,11 +302,13 @@ int PMMG_mergeGrpJinI_faceCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
  */
 static inline
 int PMMG_mergeGrpJinI_communicators(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
-                                    PMMG_pGrp grpJ) {
-
-  if ( !PMMG_mergeGrpJinI_nodeCommunicators(parmesh,grpI,grpJ) ) return 0;
+                                    PMMG_pGrp grpJ, PMMG_pGrp grps,
+                                    int first_idx) {
 
   if ( !PMMG_mergeGrpJinI_faceCommunicators(parmesh,grpI,grpJ) ) return 0;
+
+  if ( !PMMG_mergeGrpJinI_nodeCommunicators(parmesh,grpI,grpJ,grps,first_idx) )
+    return 0;
 
   return 1;
 }
@@ -381,9 +415,6 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
 
   /** Step 4: Merge internal tetras of the grpJ mesh mesh into the meshI mesh */
   if ( !PMMG_mergeGrpJinI_internalTetra(grpI,grpJ) ) return 0;
-
-  /** Step 5: Update the communicators */
-  if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ) ) return 0;
 
   return 1;
 }
@@ -744,6 +775,9 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
     meshI->memMax = memAv;
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
+
+    /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
+    if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 
     memAv -= meshI->memCur;
     meshI->memMax = meshI->memCur;

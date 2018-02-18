@@ -563,7 +563,10 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
     if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
       ++idx;
       if ( idx != i ) {
-        coor_list[idx] = coor_list[i];
+        coor_list[idx].c[0] = coor_list[i].c[0];
+        coor_list[idx].c[1] = coor_list[i].c[1];
+        coor_list[idx].c[2] = coor_list[i].c[2];
+        coor_list[idx].idx  = coor_list[i].idx;
       }
       new_pos[coor_list[i].idx] = idx;
     }

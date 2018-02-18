@@ -1060,6 +1060,11 @@ fail_part:
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
 
+  assert ( PMMG_check_intFaceComm ( parmesh ) );
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
+
   /** Merge the parmesh groups into 1 group */
   if ( !PMMG_merge_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
@@ -1072,11 +1077,15 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
     return 0;
   }
 
-  /** Split the group into the suitable number of groups */
   if ( PMMG_split_grps(parmesh,target_mesh_size,fitMesh) ) {
     fprintf(stderr,"\n  ## Split group problem.\n");
     return 0;
   }
+
+  assert ( PMMG_check_intFaceComm ( parmesh ) );
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
 
   return 1;
 }

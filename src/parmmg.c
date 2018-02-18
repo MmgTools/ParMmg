@@ -32,7 +32,6 @@ static int PMMG_preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
   _MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-#warning Do we need to scale here (for the analysis step) ?
   if ( !_MMG5_scaleMesh(mesh,met) )
     return PMMG_LOWFAILURE;
 
