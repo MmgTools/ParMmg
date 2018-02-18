@@ -775,7 +775,8 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
-      MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,0,parmesh->comm,
+      MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
+                           MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
                            &request[color]),goto end );
     }
 
@@ -787,7 +788,8 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
       color         = ext_node_comm->color_out;
 
-      MPI_CHECK( MPI_Probe(color,0,parmesh->comm,&status[0] ),goto end);
+      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                           &status[0] ),goto end);
       MPI_CHECK( MPI_Get_count(&status[0],MPI_INT,&nitem2comm),goto end);
 
       if ( i2recv_size[k] < nitem2comm ) {
@@ -796,7 +798,8 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         i2recv_size[k] = nitem2comm;
       }
       itorecv       = ext_node_comm->itorecv;
-      MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,0,parmesh->comm,
+      MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
+                          MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
                           &status[0]), goto end );
 
       pos     = 0;

@@ -569,11 +569,13 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
     }
 
     request[ireq]    = MPI_REQUEST_NULL;
-    MPI_CHECK( MPI_Isend(&ext_node_comm->nitem,1,MPI_INT,color,0,
+    MPI_CHECK( MPI_Isend(&ext_node_comm->nitem,1,MPI_INT,color,
+                         MPI_CHKCOMM_NODE_TAG,
                          parmesh->comm,&request[ireq++]),goto end );
 
     request[ireq]    = MPI_REQUEST_NULL;
-    MPI_CHECK( MPI_Isend(rtosend,3*ext_node_comm->nitem,MPI_DOUBLE,color,1,
+    MPI_CHECK( MPI_Isend(rtosend,3*ext_node_comm->nitem,MPI_DOUBLE,color,
+                         MPI_CHKCOMM_NODE_TAG+1,
                          parmesh->comm,&request[ireq++]),
                goto end );
   }
@@ -591,7 +593,8 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
     ext_node_comm = &parmesh->ext_node_comm[k];
     color         = ext_node_comm->color_out;
 
-    MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,0,parmesh->comm,
+    MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
+                        MPI_CHKCOMM_NODE_TAG,parmesh->comm,
                         &status[0]), goto end );
 
     /* Check the size of the communicators */
@@ -609,7 +612,8 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
       r2recv_size[k] = 3*nitem_color_out;
     }
     rtorecv       = ext_node_comm->rtorecv;
-    MPI_CHECK( MPI_Recv(rtorecv,3*nitem_color_out,MPI_DOUBLE,color,1,parmesh->comm,
+    MPI_CHECK( MPI_Recv(rtorecv,3*nitem_color_out,MPI_DOUBLE,color,
+                        MPI_CHKCOMM_NODE_TAG+1,parmesh->comm,
                         &status[0]), goto end );
 
     /* Check the values of the node in the communicator */
@@ -779,11 +783,13 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
     }
 
     request[ireq]    = MPI_REQUEST_NULL;
-    MPI_CHECK( MPI_Isend(&ext_face_comm->nitem,1,MPI_INT,color,0,
+    MPI_CHECK( MPI_Isend(&ext_face_comm->nitem,1,MPI_INT,color,
+                         MPI_CHKCOMM_FACE_TAG,
                          parmesh->comm,&request[ireq++]),goto end );
 
     request[ireq]    = MPI_REQUEST_NULL;
-    MPI_CHECK( MPI_Isend(rtosend,9*ext_face_comm->nitem,MPI_DOUBLE,color,1,
+    MPI_CHECK( MPI_Isend(rtosend,9*ext_face_comm->nitem,MPI_DOUBLE,color,
+                         MPI_CHKCOMM_FACE_TAG+1,
                          parmesh->comm,&request[ireq++]),
                goto end );
   }
@@ -801,7 +807,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
     ext_face_comm = &parmesh->ext_face_comm[k];
     color         = ext_face_comm->color_out;
 
-    MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,0,parmesh->comm,
+    MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
+                        MPI_CHKCOMM_FACE_TAG,parmesh->comm,
                         &status[0]), goto end );
 
     /* Check the size of the communicators */
@@ -818,7 +825,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       r2recv_size[k] = 9*nitem_color_out;
     }
     rtorecv       = ext_face_comm->rtorecv;
-    MPI_CHECK( MPI_Recv(rtorecv,9*nitem_color_out,MPI_DOUBLE,color,1,parmesh->comm,
+    MPI_CHECK( MPI_Recv(rtorecv,9*nitem_color_out,MPI_DOUBLE,color,
+                        MPI_CHKCOMM_FACE_TAG+1,parmesh->comm,
                         &status[0]), goto end );
 
     /* Check the values of the face in the communicator */
