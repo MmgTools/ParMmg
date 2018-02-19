@@ -38,8 +38,8 @@ static int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
  * \param from     mesh to copy xtetra item from
  * \param location location of xtetra to copy in original mesh
  *
- * \return PMMG_SUCCESS if tetra is successfully appended
- *         PMMG_FAILURE if tetra is not successfully appended
+ * \return 1 if tetra is successfully appended
+ *         0 if tetra is not successfully appended
  *
  *  Append a tetraedron to the mesh, increasing the array if the allocated
  *  array is not big enough.
@@ -50,13 +50,13 @@ static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
   const float scale = 2.f;
   if ( (to->xt + 1) >= to->xtmax ) {
     PMMG_REALLOC(to, to->xtetra, scale*to->xtmax+1, to->xtmax+1,MMG5_xTetra,
-                  "larger xtetra table",return PMMG_FAILURE);
+                  "larger xtetra table",return 0);
     to->xtmax = scale * to->xtmax;
   }
   ++to->xt;
   memcpy( &to->xtetra[ to->xt ],
           &from->xtetra[ from->tetra[ location ].xt ], sizeof(MMG5_xTetra) );
-  return PMMG_SUCCESS;
+  return 1;
 }
 
 /**
@@ -65,8 +65,8 @@ static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
  * \param location location of xpoint to copy in original mesh
  * \param point    xpoint's number in tetrahedron
  *
- * \return PMMG_SUCCESS if tetra is successfully appended
- *         PMMG_FAILURE if tetra is not successfully appended
+ * \return 1 if tetra is successfully appended
+ *         0 if tetra is not successfully appended
  *
  *  Append a point in the point list, increasing the array if the allocated
  *  array is not big enough.
@@ -77,14 +77,14 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
   const float scale = 2.f;
   if ( (to->xp + 1) >= to->xpmax + 1 ) {
     PMMG_RECALLOC(to, to->xpoint, scale*to->xpmax+1, to->xpmax+1,MMG5_xPoint,
-                  "larger xpoint table",return PMMG_FAILURE);
+                  "larger xpoint table",return 0);
     to->xpmax = scale * to->xpmax;
   }
   ++to->xp;
   memcpy( &to->xpoint[ to->xp ],
           &from->xpoint[ from->point[ from->tetra[tetrahedron].v[point] ].xp ],
           sizeof(MMG5_xPoint) );
-  return PMMG_SUCCESS;
+  return 1;
 }
 /**
  * \param parmesh parmmg struct pointer
@@ -93,8 +93,8 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
  * \param idx1    index1 value
  * \param idx2    index2 value
  *
- * \return PMMG_SUCCESS if tetra is successfully appended
- *         PMMG_FAILURE if tetra is not successfully appended
+ * \return 1 if tetra is successfully appended
+ *         0 if tetra is not successfully appended
  *
  *  Append new values in  group's internal communitor, resizing the buffers if
  *  required
@@ -108,16 +108,16 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
   if ( (grp->nitem_int_node_comm + 1) >= *max ) {
     PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1,
                   scale * *max, *max, int,
-                  "increasing node2int_node_comm_index1",return PMMG_FAILURE);
+                  "increasing node2int_node_comm_index1",return 0);
     PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index2,
                   scale * *max, *max, int,
-                  "increasing node2int_node_comm_index2",return PMMG_FAILURE);
+                  "increasing node2int_node_comm_index2",return 0);
     *max  = *max * scale;
   }
   grp->node2int_node_comm_index1[ grp->nitem_int_node_comm ] = idx1;
   grp->node2int_node_comm_index2[ grp->nitem_int_node_comm ] = idx2;
   ++grp->nitem_int_node_comm;
-  return PMMG_SUCCESS;
+  return 1;
 }
 
 /**
@@ -130,8 +130,8 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * the node communicators from the face ones)
  * \param idx2    position of the face in the internal face communicator.
  *
- * \return PMMG_SUCCESS if tetra is successfully appended
- *         PMMG_FAILURE if tetra is not successfully appended
+ * \return 1 if tetra is successfully appended
+ *         0 if tetra is not successfully appended
  *
  *  Append new values in the face internal communicator, resizing the buffers if
  *  required.
@@ -147,10 +147,10 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
   if ( (grp->nitem_int_face_comm + 1) >= *max ) {
     PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index1,
                   scale * *max, *max, int,
-                  "increasing face2int_face_comm_index1",return PMMG_FAILURE);
+                  "increasing face2int_face_comm_index1",return 0);
     PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index2,
                   scale * *max, *max, int,
-                  "increasing face2int_face_comm_index2",return PMMG_FAILURE);
+                  "increasing face2int_face_comm_index2",return 0);
     *max  = *max * scale;
   }
 
@@ -158,7 +158,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
   grp->face2int_face_comm_index2[ grp->nitem_int_face_comm ] = idx2;
   ++grp->nitem_int_face_comm;
 
-  return PMMG_SUCCESS;
+  return 1;
 }
 
 /**
@@ -450,7 +450,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
     // xTetra: this element was already an xtetra (in meshOld)
     if ( tetraCur->xt != 0 ) {
-      if ( PMMG_SUCCESS != PMMG_xtetraAppend( mesh, meshOld, tet ) )
+      if ( !PMMG_xtetraAppend( mesh, meshOld, tet ) )
         return 0;
       tetraCur->xt = mesh->xt;
     }
@@ -496,16 +496,15 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         // ommunicator
         ppt = &mesh->point[*np];
         if ( ppt->tmp != -1 ) {
-          if (  PMMG_n2incAppend( parmesh, grp, n2inc_max,
-                                  *np, ppt->tmp )
-                != PMMG_SUCCESS ) {
+          if (  !PMMG_n2incAppend( parmesh, grp, n2inc_max,
+                                  *np, ppt->tmp ) ) {
             return 0;
           }
           ++parmesh->int_node_comm->nitem;
         }
         // xPoints: this was already a boundary point
         if ( mesh->point[*np].xp != 0 ) {
-          if ( PMMG_SUCCESS != PMMG_xpointAppend(mesh,meshOld,tet,poi) ) {
+          if ( !PMMG_xpointAppend(mesh,meshOld,tet,poi) ) {
             return 0;
           }
           mesh->point[*np].xp = mesh->xp;
@@ -541,8 +540,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         iploc = iplocFaceComm[pos];
         assert ( iploc >=0 );
 
-        if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                               posInIntFaceComm[pos] ) != PMMG_SUCCESS ) {
+        if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                               posInIntFaceComm[pos] ) ) {
           return 0;
         }
         continue;
@@ -558,7 +557,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
         /* creation of the interface faces : ref 0 and tag MG_PARBDY */
         if( !mesh->tetra[tetPerGrp].xt ) {
-          if ( PMMG_SUCCESS != PMMG_xtetraAppend( mesh, meshOld, tet ) ) {
+          if ( !PMMG_xtetraAppend( mesh, meshOld, tet ) ) {
             return 0;
           }
           tetraCur->xt = mesh->xt;
@@ -589,8 +588,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
           iplocFaceComm[4*(adjidx-1)+1+vidx] = iplocadj;
 
           /* 2) Add the face in the list of interface faces of the group */
-          if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                                 posInIntFaceComm[pos] ) != PMMG_SUCCESS ) {
+          if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                                 posInIntFaceComm[pos] ) ) {
+
             return 0;
           }
           ++parmesh->int_face_comm->nitem;
@@ -601,8 +601,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
           /* 2) Add the face in the list of interface faces of the group */
           iploc = iplocFaceComm[pos];
-          if ( PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                                 posInIntFaceComm[pos] ) != PMMG_SUCCESS ) {
+          if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                                 posInIntFaceComm[pos] ) ) {
+
             return 0;
           }
         }
@@ -649,10 +650,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         for ( poi = 0; poi < 3; ++poi ) {
           ppt = & mesh->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ];
           if ( ppt->tmp == -1 ) {
-            if (   PMMG_n2incAppend( parmesh, grp, n2inc_max,
+            if (   !PMMG_n2incAppend( parmesh, grp, n2inc_max,
                                      tetraCur->v[ _MMG5_idir[fac][poi] ],
-                                     parmesh->int_node_comm->nitem + 1 )
-                   != PMMG_SUCCESS ) {
+                                     parmesh->int_node_comm->nitem + 1 ) ) {
               return 0;
             }
 
@@ -753,8 +753,9 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
  * \param target_mesh_size wanted number of elements per group
  * \param fitMesh alloc the meshes at their exact sizes
  *
- * \return PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return -1 : no possibility to save the mesh
+ *         0  : failed but the mesh is correct
+ *         1  : success
  *
  * if the existing group of only one mesh is too big, split it into into several
  * meshes.
@@ -770,7 +771,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   MMG5_pMesh const meshOld = parmesh->listgrp->mesh;
   MMG5_pMesh meshCur = NULL;
   int *countPerGrp = NULL;
-  int ret_val = PMMG_SUCCESS; // returned value (unless set otherwise)
+  int ret_val = 1; // returned value (unless set otherwise)
   /** remember meshOld->ne to correctly free the metis buffer */
   int meshOld_ne = 0;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
@@ -803,7 +804,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
-    ret_val = PMMG_SUCCESS;
+    ret_val = 1;
     goto end;
 
   } else {
@@ -816,21 +817,21 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   // Crude check whether there is enough free memory to allocate the new group
   if ( parmesh->memCur+2*parmesh->listgrp[0].mesh->memCur>parmesh->memGloMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
-    return PMMG_FAILURE;
+    return 0;
   }
 
   // use metis to partition the mesh into the computed number of groups needed
   // part array contains the groupID computed by metis for each tetra
-  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return PMMG_FAILURE);
+  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
   if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
-    ret_val = PMMG_FAILURE;
+    ret_val = 0;
     goto fail_part;
   }
 
   /* count_per_grp: how many elements per group are there? */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
-              ret_val = PMMG_FAILURE;goto fail_part);
+              ret_val = 0;goto fail_part);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
 
@@ -842,14 +843,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   /* Allocate list of subgroups struct and allocate memory */
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
-              ret_val = PMMG_FAILURE; goto fail_counters);
+              ret_val = 0; goto fail_counters);
 
   /* Use the posInIntFaceComm array to remember the position of the tetra faces
    * in the internal face communicator */
   posInIntFaceComm = NULL;
   PMMG_MALLOC(parmesh,posInIntFaceComm,4*meshOld->ne+1,int,
               "array of faces position in the internal face commmunicator ",
-              ret_val = PMMG_FAILURE;goto fail_facePos);
+              ret_val = 0;goto fail_facePos);
   for ( i=0; i<=4*meshOld->ne; ++i )
     posInIntFaceComm[i] = PMMG_UNSET;
 
@@ -890,7 +891,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
               " group (%d).\n",__func__,grpId);
-      ret_val = PMMG_FAILURE;
+      ret_val = 0;
       goto fail_sgrp;
     }
     meshCur = grpCur->mesh;
@@ -901,7 +902,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                                    iplocFaceComm) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to fill new group (%d).\n",
               __func__,grpId);
-      ret_val = PMMG_FAILURE;
+      ret_val = 0;
       goto fail_sgrp;
     }
 
@@ -909,7 +910,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
-      ret_val = PMMG_FAILURE;
+      ret_val = 0;
       goto fail_sgrp;
     }
     /* Remove the memory used by this mesh from the available memory */
@@ -924,20 +925,20 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
                   grpCur->nitem_int_node_comm, n2inc_max, int,
                   "subgroup internal1 communicator ",
-                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+                  ret_val = 0;goto fail_sgrp );
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index2,
                   grpCur->nitem_int_node_comm, n2inc_max, int,
                   "subgroup internal2 communicator ",
-                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+                  ret_val = 0;goto fail_sgrp );
     n2inc_max = grpCur->nitem_int_node_comm;
     PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index1,
                   grpCur->nitem_int_face_comm, f2ifc_max, int,
                   "subgroup interface faces communicator ",
-                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+                  ret_val = 0;goto fail_sgrp );
     PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index2,
                   grpCur->nitem_int_face_comm, f2ifc_max, int,
                   "subgroup interface faces communicator ",
-                  ret_val = PMMG_FAILURE;goto fail_sgrp );
+                  ret_val = 0;goto fail_sgrp );
 
     if ( parmesh->ddebug )
       printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra."
@@ -957,7 +958,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     goto fail_facePos;
   }
   else
-    ret_val = PMMG_FAILURE;
+    ret_val = -1;
 
   // fail_sgrp deallocates any mesh that has been allocated in listgroup.
   // Should be executed only if an error has occured
@@ -1022,12 +1023,13 @@ end:
  * \param target_mesh_size wanted number of elements per group
  * \param fitMesh alloc the meshes at their exact sizes
  *
- * \return 0 if fail, 1 if success
+ * \return 0 if fail, 1 if success, -1 if the mesh is not correct
  *
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
+  int     ier;
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
@@ -1035,20 +1037,24 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   assert ( PMMG_check_extNodeComm ( parmesh ) );
 
   /** Merge the parmesh groups into 1 group */
-  if ( !PMMG_merge_grps(parmesh) ) {
+  ier = PMMG_merge_grps(parmesh);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
-    return 0;
+    return ier;
   }
 
   /** Pack the tetra and update the face communicator */
-  if ( !PMMG_packTetra(parmesh,0) ) {
+  ier = PMMG_packTetra(parmesh,0);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Pack tetrahedra and face communicators problem.\n");
-    return 0;
+    return ier;
   }
 
-  if ( PMMG_split_grps(parmesh,target_mesh_size,fitMesh) ) {
+  /** Split the group into the suitable number of groups */
+  ier = PMMG_split_grps(parmesh,target_mesh_size,fitMesh);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Split group problem.\n");
-    return 0;
+    return ier;
   }
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
