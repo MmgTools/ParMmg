@@ -12,6 +12,11 @@
  */
 #include <mpi.h>
 
+#define MPI_COMMUNICATORS_NODE_TAG 10
+#define MPI_CHKCOMM_NODE_TAG       20
+#define MPI_CHKCOMM_FACE_TAG       30
+
+
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \
                                                                         \

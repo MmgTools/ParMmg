@@ -1,3 +1,12 @@
+/**
+ * \file parmmg.c
+ * \brief main file for the parmmg application
+ * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \author Algiane Froehly (Inria)
+ * \version 5
+ * \copyright GNU Lesser General Public License.
+ */
+
 #include "parmmg.h"
 
 /**
@@ -23,7 +32,6 @@ static int PMMG_preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
   _MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-#warning Do we need to scale here (for the analysis step) ?
   if ( !_MMG5_scaleMesh(mesh,met) )
     return PMMG_LOWFAILURE;
 
@@ -58,6 +66,10 @@ static int PMMG_preprocessMesh( MMG5_pMesh mesh, MMG5_pSol met, int rank )
   if ( !rank )
     if ( mesh->info.imprim > 1 && met->m )
       _MMG3D_prilen(mesh,met,0);
+
+  /** Mesh unscaling */
+  if ( !_MMG5_unscaleMesh(mesh,met) )
+    return PMMG_STRONGFAILURE;
 
   if ( !rank && mesh->info.imprim )
     fprintf(stdout,"   -- PHASE 2 COMPLETED.\n");
@@ -239,7 +251,7 @@ int main( int argc, char *argv[] )
     /* Write mesh */
     if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-    if ( 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
+    if ( met->m && 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
       PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
   }
 

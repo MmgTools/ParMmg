@@ -518,7 +518,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
                               int *shared_face,int8_t *seen_shared_pt) {
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
-  MMG5_pTetra     pt;
+  MMG5_pTetra     pt,ptvois;
   PMMG_pext_comm  pext_node_comm,pext_face_comm;
   int             rank,nprocs,rankCur,rankVois;
   int             next_node_comm,next_face_comm;
@@ -526,8 +526,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int             inIntComm;
-  int            *idx,kvois,k,i,j;
-  int8_t          ifac,ifacVois;
+  int            *idx,kvois,k,i,j,ip,iploc, iplocvois;
+  int8_t          ifac,ifacvois;
 
   rank   = parmesh->myrank;
   nprocs = parmesh->nprocs;
@@ -676,23 +676,33 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
       rankVois = part[kvois-1];
       if ( rankCur == rankVois ) continue;
 
+      ptvois = &mesh->tetra[kvois];
+
+      /* Find a common starting point inside the face for both tetra */
+      iploc = 0; // We impose the starting point in k
+      ip    = pt->v[_MMG5_idir[ifac][iploc]];
+
+      ifacvois = mesh->adja[4*k-3+ifac]%4;
+      for ( iplocvois=0; iplocvois < 3; ++iplocvois )
+        if ( ptvois->v[_MMG5_idir[ifacvois][iplocvois]] == ip ) break;
+      assert ( iplocvois < 3 );
+
       if ( rankCur == rank ) {
         /* Add the elt k to communicators */
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankVois]];
         pext_face_comm->int_comm_index[idx[shared_face[rankVois]]++] = i;
 
-        face2int_face_comm_index1[i] = 4*pt->flag + ifac;
+        face2int_face_comm_index1[i] = 12*pt->flag + 3*ifac + iploc ;
         face2int_face_comm_index2[i] = i;
         ++i;
       }
       else if ( rankVois == rank ) {
         /* Add the elt kvois to communicators */
-        ifacVois = mesh->adja[4*k-3+ifac]%4;
-
         pext_face_comm = &parmesh->ext_face_comm[shared_face[rankCur]];
         pext_face_comm->int_comm_index[idx[shared_face[rankCur]]++] = i;
 
-        face2int_face_comm_index1[i] = 4*mesh->tetra[kvois].flag+ifacVois;
+        face2int_face_comm_index1[i] = 12*mesh->tetra[kvois].flag +
+          3*ifacvois + iplocvois;
         face2int_face_comm_index2[i] = i;
         ++i;
       }
@@ -779,8 +789,10 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   int            *shared_pt,*shared_face;
   int            *pointPerm = NULL, *xTetraPerm = NULL, *xPointPerm = NULL;
   int8_t         *seen_shared_pt = NULL;
-  int            ret_val=1;
+  int            ret_val;
   MPI_Datatype   metis_dt;
+
+  ret_val = 0;
 
   /** Proc 0 send the mesh to the other procs */
   nprocs = parmesh->nprocs;
@@ -793,10 +805,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   /** Call metis for partionning */
   PMMG_CALLOC(parmesh,part,mesh->ne,idx_t,"allocate metis buffer",
-              ret_val=0;goto fail_alloc0);
+              goto fail_alloc0);
   if ( (!parmesh->myrank) && nprocs > 1 ) {
     if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs) ) {
-      ret_val = 0;
       goto fail_alloc1;
     }
   }
@@ -824,9 +835,22 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
     goto fail_alloc2;
 
+
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
+               parmesh->int_node_comm->nitem,int,"intvalues");
+
   /** Local mesh creation */
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     goto fail_alloc2;
+
+  if ( parmesh->nprocs > 1 ) {
+    assert ( PMMG_check_extFaceComm ( parmesh ) );
+    assert ( PMMG_check_intNodeComm ( parmesh ) );
+    assert ( PMMG_check_extNodeComm ( parmesh ) );
+  }
+
+  /* Success */
+  ret_val = 1;
 
 fail_alloc2:
   PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");

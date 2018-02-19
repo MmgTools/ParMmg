@@ -1,10 +1,10 @@
 /**
  * \file parmmg.h
  * \brief internal functions headers for parmmg
- * \author
- * \version
- * \date 11 2016
- * \copyright
+ * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \author Algiane Froehly (Inria)
+ * \version 5
+ * \copyright GNU Lesser General Public License.
  */
 
 #ifndef _PARMMG_H
@@ -132,6 +132,7 @@ long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(
     memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));     \
   } while(0)
 
+
 /* Input */
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
@@ -147,8 +148,20 @@ int PMMG_split_grps( PMMG_pParMesh,int,int );
 
 /* Load Balancing */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
-int PMMG_loadBalancing(PMMG_pParMesh parmesh);
-int PMMG_split_n2mGrps(PMMG_pParMesh,int,int);
+int PMMG_loadBalancing( PMMG_pParMesh parmesh );
+int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
+
+/* Communicators building */
+int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh );
+int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
+int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
+int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
+
+/* Communicators checks */
+int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
+int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
+int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
+int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
 
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);

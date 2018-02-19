@@ -1,3 +1,13 @@
+/**
+ * \file libparmmgtypes.h
+ * \brief parmmg types and functions that must be accessible to the library users
+ * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \author Algiane Froehly (Inria)
+ * \version 5
+ * \copyright GNU Lesser General Public License.
+ */
+
+
 #include "mmg/mmg3d/libmmgtypes.h"
 #include <mpi.h>
 
@@ -166,9 +176,9 @@ typedef PMMG_Grp  * PMMG_pGrp;
 typedef struct {
 
   /* mpi info */
-  MPI_Comm comm;   /*!< Global communicator of all parmmg processes */
-  int      nprocs; /*!< Number of processes in global communicator */
-  int      myrank; /*!< Rank in global communicator */
+  MPI_Comm    comm;   /*!< Global communicator of all parmmg processes */
+  int         nprocs; /*!< Number of processes in global communicator */
+  int         myrank; /*!< Rank in global communicator */
 
   /* mem info */
   long long memGloMax; /*!< Maximum memory available to all structs */
