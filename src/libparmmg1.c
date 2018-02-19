@@ -453,10 +453,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it, i,k, *facesData;
+  int        it,ier,i,k, *facesData;
 
   /** Groups creation */
-  if ( PMMG_SUCCESS != PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 ) )
+  ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
+  if ( !ier )
+    return PMMG_LOWFAILURE;
+  else if ( ier<0 )
     return PMMG_STRONGFAILURE;
 
   //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
@@ -531,7 +534,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( !_MMG5_unscaleMesh(mesh,met) ) goto failed;
     }
     /** load Balancing at group scale and communicators reconstruction */
-    if ( !PMMG_loadBalancing(parmesh) ) {
+    ier = PMMG_loadBalancing(parmesh);
+    if ( !ier ) {
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Load balancing problem. Try to save the mesh and exit program.\n");
+      goto failed;
+    } else if( ier < 0 ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       goto strong_failed;
