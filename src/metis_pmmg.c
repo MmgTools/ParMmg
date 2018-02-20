@@ -78,12 +78,12 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
     ph        = &hash->item[hash->nxt];
 
     if ( hash->nxt >= hash->max-1 ) {
-      PMMG_RECALLOC(parmesh,hash->item,(int)(1.2*hash->max),hash->max,PMMG_hgrp,
+      PMMG_RECALLOC(parmesh,hash->item,(int)((1+PMMG_GAP)*hash->max),hash->max,PMMG_hgrp,
                     "grp hash table: if we pass too much time here"
                     " (on true cases (more than 20 procs)), it means"
                     " that the hmax value is not a good estimation of the"
                     " interprocessor adjacency... TO CHANGE",return 0);
-      hash->max *= 1.2;
+      hash->max *= (1+PMMG_GAP);
 
       /* ph pointer may be false after realloc */
       ph        = &hash->item[hash->nxt];
@@ -320,7 +320,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     * list of adjacency */
 
   /* hash is used to store the sorted list of adjacent groups to a group */
-  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,10*ngrp+1) ) goto fail_6;
+  if ( !PMMG_hashNew(parmesh,&hash,ngrp+1,PMMG_NBADJA_GRPS*ngrp+1) )
+    goto fail_6;
 
   for (  k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];

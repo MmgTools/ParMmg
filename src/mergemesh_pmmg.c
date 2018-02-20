@@ -85,7 +85,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
         size = metI->size;
         assert(metJ->m);
         assert( ((size==1||size==6) && size==metJ->size) && "met size issues" );
-        memcpy(&metI->m[size*ip],&metJ->m[size*k],size*sizeof(double));
+        memcpy(&metI->m[size*ip],&metJ->m[size*node2int_node_comm_index1[ k ]],size*sizeof(double));
       }
     } else {
       /* point already exists in merged mesh. update his tmp field to point to

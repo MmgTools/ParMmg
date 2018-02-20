@@ -24,6 +24,14 @@
 #define PMMG_UBVEC_DEF     1.05
 
 /**
+ * \def PMMG_NBADJA_GRPS
+ *
+ * Supposed maximum number of groups adjacent to one given group
+ *
+ */
+#define PMMG_NBADJA_GRPS   30
+
+/**
  * \struct PMMG_hgrp
  *
  * \brief Cell of the hastable HGrp
