@@ -308,3 +308,40 @@ int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra)
 
   return 1;
 }
+
+/**
+ * \param mpi_point  pointer toward an MPI_Datatype
+ * \param mpi_xpoint pointer toward an MPI_Datatype
+ * \param mpi_tetra  pointer toward an MPI_Datatype
+ * \param mpi_xtetra pointer toward an MPI_Datatype
+ *
+ * If used, free the \a mpi_point, \a mpi_xpoint, ... MPI_Datatype
+ *
+ */
+int PMMG_Free_MPI_meshDatatype( MPI_Datatype *mpi_point,
+                                MPI_Datatype *mpi_xpoint,
+                                MPI_Datatype *mpi_tetra,
+                                MPI_Datatype *mpi_xtetra ) {
+
+  if ( *mpi_xtetra ) {
+    MPI_Type_free( mpi_xtetra );
+    *mpi_xtetra = NULL;
+  }
+
+  if ( *mpi_tetra ) {
+    MPI_Type_free( mpi_tetra );
+    *mpi_tetra = NULL;
+  }
+
+  if ( *mpi_xpoint ) {
+    MPI_Type_free( mpi_xpoint );
+    *mpi_xpoint = NULL;
+  }
+
+  if ( *mpi_point ) {
+    MPI_Type_free( mpi_point );
+    *mpi_point = NULL;
+  }
+
+  return 1;
+}

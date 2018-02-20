@@ -28,4 +28,7 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria);
 
 int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra);
 
+int PMMG_Free_MPI_meshDatatype( MPI_Datatype*,MPI_Datatype*,
+                                MPI_Datatype*,MPI_Datatype*);
+
 #endif

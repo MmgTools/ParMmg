@@ -90,6 +90,33 @@ void PMMG_grp_comm_free( PMMG_pParMesh parmesh,int **idx1,int **idx2,
 /**
  * \param parmesh pointer toward a parmesh structure
  *
+ * Deallocate the nodal communicatorsof the parmesh
+ *
+ */
+void PMMG_node_comm_free( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp grp;
+  int       k;
+
+  for ( k=0; k<parmesh->ngrp;++k ) {
+    grp = &parmesh->listgrp[k];
+    PMMG_grp_comm_free( parmesh,&grp->node2int_node_comm_index1,
+                        &grp->node2int_node_comm_index2,
+                        &grp->nitem_int_node_comm );
+  }
+
+  PMMG_int_comm_free( parmesh,parmesh->int_node_comm);
+  PMMG_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
+               PMMG_ext_comm, "ext node comm");
+
+  parmesh->next_node_comm       = 0;
+  parmesh->int_node_comm->nitem = 0;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
  * \return 1 if success, 0 if fail.
  *
  * Build the node communicators (externals and internals) from the faces ones.
@@ -425,7 +452,6 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
  for ( i=0; i<3*parmesh->int_face_comm->nitem; ++i )
    face_vertices[i]   = PMMG_UNSET;
 
-
  PMMG_CALLOC(parmesh,coor_list,nitem_node,PMMG_coorCell,"node coordinates",
              goto end);
 
@@ -635,22 +661,25 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 
   /* Travel the list and remove the identic nodes */
   idx = 0;
-  new_pos[coor_list[0].idx] = 0;
-  for ( i=1; i<nitem_node; ++i ) {
-    if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
-      ++idx;
-      if ( idx != i ) {
-        coor_list[idx].c[0] = coor_list[i].c[0];
-        coor_list[idx].c[1] = coor_list[i].c[1];
-        coor_list[idx].c[2] = coor_list[i].c[2];
-        coor_list[idx].idx  = coor_list[i].idx;
+  if ( nitem_node ) {
+    new_pos[coor_list[0].idx] = 0;
+
+    for ( i=1; i<nitem_node; ++i ) {
+      if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
+        ++idx;
+        if ( idx != i ) {
+          coor_list[idx].c[0] = coor_list[i].c[0];
+          coor_list[idx].c[1] = coor_list[i].c[1];
+          coor_list[idx].c[2] = coor_list[i].c[2];
+          coor_list[idx].idx  = coor_list[i].idx;
+        }
+        new_pos[coor_list[i].idx] = idx;
       }
-      new_pos[coor_list[i].idx] = idx;
+      else
+        new_pos[coor_list[i].idx] = new_pos[coor_list[idx].idx];
     }
-    else
-      new_pos[coor_list[i].idx] = new_pos[coor_list[idx].idx];
+    nitem_node = idx+1;
   }
-  nitem_node = idx+1;
 
   /* Update node2int_node_comm arrays */
   for ( grpid=0; grpid<parmesh->ngrp; ++grpid ) {

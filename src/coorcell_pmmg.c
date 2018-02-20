@@ -66,6 +66,7 @@ int PMMG_find_coorCellListBoundingBox (PMMG_coorCell *list,int nitem,
     min[i] =  DBL_MAX;
     max[i] = -DBL_MAX;
   }
+
   for ( i=0; i<nitem; ++i ) {
     for (j=0; j<3; j++) {
       if ( list[i].c[j] > max[j] ) max[j] = list[i].c[j];
@@ -76,7 +77,7 @@ int PMMG_find_coorCellListBoundingBox (PMMG_coorCell *list,int nitem,
   for (i=0; i<3; i++)
     if ( max[i]-min[i] > (*delta) )  (*delta) = max[i]-min[i];
 
-  if ( (*delta) < _MMG5_EPSD ) {
+  if ( nitem && (*delta) < _MMG5_EPSD ) {
     fprintf(stderr,"\n  ## Error: %s: unable to scale the list.",__func__);
     return 0 ;
   }
