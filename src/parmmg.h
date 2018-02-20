@@ -151,7 +151,11 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
 
-/* Communicators building */
+/* Communicators building and unallocation */
+void PMMG_int_comm_free( PMMG_pParMesh,PMMG_pint_comm);
+void PMMG_ext_comm_free( PMMG_pParMesh,PMMG_pext_comm,int);
+void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
+
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
