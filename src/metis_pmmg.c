@@ -210,7 +210,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   MPI_Status     status;
   int            *face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
-  int            tag,found;
+  int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
 
   *wgtflag = 2; /* Weights applies on vertices */
@@ -284,6 +284,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
                 goto fail_6);
@@ -300,19 +301,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       intvalues[idx] = PMMG_UNSET;
     }
 
-    if ( myrank < ext_face_comm->color_out ) {
-
-      MPI_CHECK( MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,
-                          0,comm),goto fail_6 );
-      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,
-                          MPI_ANY_TAG,comm,&status),goto fail_6 );
-    }
-    else {
-      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,ext_face_comm->color_out,
-                          MPI_ANY_TAG,comm,&status),goto fail_6 );
-      MPI_CHECK( MPI_Send(itosend,nitem,MPI_INT,ext_face_comm->color_out,
-                          0,comm),goto fail_6 );
-    }
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   comm,&status),goto fail_6 );
   }
 
    /** Step 5: Process the external communicators to count for each group the

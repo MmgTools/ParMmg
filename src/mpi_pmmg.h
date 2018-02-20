@@ -16,7 +16,7 @@
 #define MPI_CHKCOMM_NODE_TAG            20
 #define MPI_CHKCOMM_FACE_TAG            30
 #define MPI_DISTRIBUTEGRPS_MESHSIZE_TAG 40
-
+#define MPI_PARMESHGRPS2PARMETIS_TAG    50
 
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \
