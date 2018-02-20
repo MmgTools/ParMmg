@@ -1040,27 +1040,26 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   ier = PMMG_merge_grps(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
-    return ier;
+    goto end;
   }
 
   /** Pack the tetra and update the face communicator */
   ier = PMMG_packTetra(parmesh,0);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Pack tetrahedra and face communicators problem.\n");
-    return ier;
+    goto end;
   }
 
   /** Split the group into the suitable number of groups */
   ier = PMMG_split_grps(parmesh,target_mesh_size,fitMesh);
-  if ( !ier ) {
+  if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");
-    return ier;
-  }
 
+end:
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
   assert ( PMMG_check_extNodeComm ( parmesh ) );
 
-  return 1;
+  return ier;
 }

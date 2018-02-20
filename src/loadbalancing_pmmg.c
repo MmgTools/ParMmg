@@ -48,7 +48,7 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * \return 1 if success, 0 if fail.
+ * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *
  * Load balancing of the mesh groups over the processors.
  *
@@ -56,35 +56,31 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   int ier,ier_glob;
 
-  ier = 1;
-
   /** Count the number of interface faces per tetra and store it in mark */
-  if ( !PMMG_count_parBdy(parmesh) ) {
+  ier = PMMG_count_parBdy(parmesh);
+  if ( !ier ) {
     fprintf(stderr,"\n  ## Problem when counting the number of interface faces.\n");
-    ier=0;
     goto reduce;
   }
 
   /** Split the ngrp groups of listgrp into a higher number of groups */
   ier = PMMG_split_n2mGrps(parmesh,METIS_TARGET_MESH_SIZE,1);
-  if ( (ier < 0) || !ier ) {
+  if ( ier <= 0) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     goto reduce;
   }
 
   /** Distribute the groups over the processor to load balance the meshes */
-  if ( !PMMG_distribute_grps(parmesh) ) {
+  ier = PMMG_distribute_grps(parmesh);
+  if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
-    ier = 0;
     goto reduce;
  }
 
   /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-  if ( !PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0) ) {
+  ier = PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0);
+  if ( ier<=0 )
     fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
-    ier=0;
-    goto reduce;
-  }
 
  reduce :
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
