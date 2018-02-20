@@ -99,6 +99,7 @@
  *
  */
 #define PMMG_UNSET     -1
+
 /**
  * \def PMMG_GAP
  *
@@ -106,7 +107,6 @@
  *
  */
 #define PMMG_GAP     0.2
-
 
 /**
  * Types
