@@ -1631,8 +1631,8 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
    *
    * Fill items_next_idx[k] with the position of the first item to communicate to
    * the proc k+1 (position in extComms_grpFaces arrayx) */
-  ext_comms_next_idx[0] = next_comm2send[0];
-  items_next_idx[0]     =    nitems2send[0];
+  (*ext_comms_next_idx)[0] = (*next_comm2send)[0];
+  (*items_next_idx)[0]     =    (*nitems2send)[0];
   for ( k=1; k<nprocs; ++k ) {
     (*ext_comms_next_idx)[k] = (*ext_comms_next_idx)[k-1] +(*next_comm2send)[k];
     (*items_next_idx)[k]     =     (*items_next_idx)[k-1] +   (*nitems2send)[k];
