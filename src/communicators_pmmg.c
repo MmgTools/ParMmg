@@ -766,6 +766,15 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   int_node_comm = parmesh->int_node_comm;
   nitem         = int_node_comm->nitem;
 
+  proclists       = NULL;
+  comm_ptr        = NULL;
+  request         = NULL;
+  status          = NULL;
+  i2send_size     = NULL;
+  i2recv_size     = NULL;
+  nitem_ext_comm  = NULL;
+  list.item       = NULL;
+
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,nitem,int,"node communicator",
     return 0);
   intvalues     = int_node_comm->intvalues;
@@ -774,7 +783,6 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
    * initialization to 0.  */
   for ( k=0; k<nitem; ++k ) intvalues[k] = 0;
 
-  proclists = NULL;
   PMMG_CALLOC(parmesh,proclists,nitem,PMMG_lnkdList*,"array of linked lists",
               goto end);
 
@@ -794,7 +802,6 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     ext_node_comm->color_out      = -1;
   }
 
-  comm_ptr = NULL;
   PMMG_CALLOC(parmesh,comm_ptr,parmesh->nprocs,PMMG_pext_comm,
               "array of pointers toward the external communicators",
               goto end);
