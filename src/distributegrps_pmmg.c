@@ -1012,7 +1012,9 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
   int            *face2int_face_comm_idx1,*face2int_face_comm_idx2,nitem;
   int            size[7],send_count,send_count2,tag,myrank,color_out;
   int            grp_id_prev,grp_id,k,i,j,idx,idx_next,ext_comm_idx,item_idx;
-  int            ier,ismet;
+  int            ier,ismet,old_nitem;
+
+  if ( !nsend ) return 0;
 
   ier = 1;
   send_count = 0;
@@ -1131,6 +1133,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
   MPI_CHECK( MPI_Send(&extComm_next_idx[ext_comm_idx],next_comm2send[dest],
                       MPI_INT,dest,tag,comm),ier = 0 );
   ++tag;
+
   MPI_CHECK( MPI_Send(&extComm_grpFaces2face2int[item_idx],nitems2send[dest],
                       MPI_INT,dest,tag,comm),ier = 0 );
   ++tag;
@@ -1138,7 +1141,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
   /* Update of the communicator */
   /* Search the external comm myrank-dest */
   ext_comm_dest = NULL;
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
     if ( parmesh->ext_face_comm[k].color_out == dest ) {
       ext_comm_dest = &parmesh->ext_face_comm[k];
       break;
@@ -1162,7 +1165,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
     if ( grp_id != grp_id_prev ) {
       /* Avoid the update of the communicator for a group that has not been
        * sended */
-      if ( ++send_count2==send_count ) break;
+      if ( send_count2++==send_count ) break;
     }
 
     if ( color_out == myrank ) {
@@ -1176,10 +1179,11 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
         parmesh->next_face_comm = parmesh->next_face_comm+1;
 
         ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
-        ext_comm->color_in  = myrank;
-        ext_comm->color_out = dest;
-        ext_comm->nitem     = 0;
-        ext_comm_dest       = ext_comm;
+        ext_comm->color_in       = myrank;
+        ext_comm->color_out      = dest;
+        ext_comm->nitem          = 0;
+        ext_comm->int_comm_index = NULL;
+        ext_comm_dest            = ext_comm;
       }
       else ext_comm = ext_comm_dest;
 
@@ -1188,12 +1192,12 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
 
       PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem,
                    ext_comm->nitem,int,"int_comm_index",ier=-1);
+      old_nitem = ext_comm->nitem;
       ext_comm->nitem += nitem;
 
       for ( j=0; j<nitem; ++j ) {
-        i = face2int_face_comm_idx2[extComm_grpFaces2extComm[j+idx-item_idx]];
-        ext_comm->int_comm_index[ext_comm->nitem+j] = i;
-        assert ( extComm_grpFaces2extComm[j+idx-item_idx]==ext_comm->nitem+j );
+        i = face2int_face_comm_idx2[extComm_grpFaces2face2int[j+idx-item_idx]];
+        ext_comm->int_comm_index[old_nitem+j] = i;
       }
     }
     else {
@@ -1260,8 +1264,8 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
   int            *extComm_next_idx_recv,*extComm_grpFaces2face2int_recv;
   int            *extComm_grpFaces2extComm_recv;
   int            size[7],tag,next_comm2recv,nitems2recv,nitem_recv,color_out;
-  int            grp_id,ier,ismet,k,j,cur_grp_id,idx,idx_next,grp_idx;
-  int            idx_in_face2int,pos_in_int_comm;
+  int            grp_id,ier,ismet,k,j,irecv,cur_grp_id,idx,idx_next,grp_idx;
+  int            idx_in_face2int,pos_in_int_comm,old_nitem;
   MPI_Status     status;
 
   if ( !nrecv ) return 0;
@@ -1281,9 +1285,9 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
 
   tag = MPI_SENDGRP_TAG;
 
-  for ( k=0; k<nrecv; ++k ) {
+  for ( irecv=0; irecv<nrecv; ++irecv ) {
 
-    grp_id = (*first_grp_id)+k;
+    grp_id = (*first_grp_id)+irecv;
 
     /** Get the mesh size */
     if ( !PMMG_mpirecv_meshSize( parmesh,grp_id,source,&tag,size,&ismet ) )
@@ -1322,7 +1326,7 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
     PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
 
     /** Recv the internal face communicator of the group */
-    MPI_Probe(source,tag,parmesh->comm,&status);
+    MPI_Probe(source,tag,comm,&status);
     MPI_Get_count(&status,MPI_INT,&nitem);
 
     PMMG_MALLOC(parmesh,parmesh->listgrp[grp_id].face2int_face_comm_index1,nitem,
@@ -1347,13 +1351,13 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
 
   /** Recv the list of external commnicators that comes from source because
    * source send us groups */
-  MPI_Probe(source,tag,parmesh->comm,&status);
+  MPI_Probe(source,tag,comm,&status);
   MPI_Get_count(&status,MPI_INT,&next_comm2recv);
 
   PMMG_MALLOC(parmesh,extComm_next_idx_recv,next_comm2recv,int,
               "extComm_next_idx",goto end);
 
-  MPI_CHECK( MPI_Recv(&extComm_next_idx_recv,next_comm2recv,
+  MPI_CHECK( MPI_Recv(extComm_next_idx_recv,next_comm2recv,
                       MPI_INT,source,tag,comm,&status),ier = 0 );
   ++tag;
 
@@ -1362,7 +1366,8 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
 
   PMMG_MALLOC(parmesh,extComm_grpFaces2face2int_recv,nitems2recv,int,
               "extComm_grpFaces2face2int",goto end);
-  MPI_CHECK( MPI_Recv(&extComm_grpFaces2face2int_recv,nitems2recv,
+
+  MPI_CHECK( MPI_Recv(extComm_grpFaces2face2int_recv,nitems2recv,
                       MPI_INT,source,tag,comm,&status),ier = 0 );
   ++tag;
 
@@ -1419,6 +1424,7 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
       for ( k=0; k<nitem_recv-2; ++k ) {
         idx_in_face2int = extComm_grpFaces2face2int_recv[k+idx];
         pos_in_int_comm = ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]];
+
         face2int_face_comm_idx2[idx_in_face2int] = pos_in_int_comm;
         ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]] = PMMG_UNSET;
       }
@@ -1458,26 +1464,19 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
       assert(nitem && "nothing to add... weird");
       PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem-2,
                    ext_comm->nitem,int,"int_comm_index",goto end);
+      old_nitem = ext_comm->nitem;
       ext_comm->nitem += nitem-2;
 
       /* Assign a position in the internal comm to the face */
       for ( k=0; k<nitem-2; ++k ) {
         idx_in_face2int = extComm_grpFaces2face2int_recv[k+idx];
         face2int_face_comm_idx2[idx_in_face2int]    = int_comm->nitem;
-        ext_comm->int_comm_index[ext_comm->nitem+k] = int_comm->nitem++;
+        ext_comm->int_comm_index[old_nitem+k]       = int_comm->nitem++;
       }
     }
     idx = idx_next;
   }
-  assert ( grp_id==(*first_grp_id)+nrecv );
-
-#ifndef NDEBUG
-  for ( grp_id=(*first_grp_id); grp_id<(*first_grp_id)+nrecv; ++grp_id ) {
-    face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-    for ( j=0; j<parmesh->listgrp[grp_id].nitem_int_face_comm; ++j )
-      assert( face2int_face_comm_idx2[j]>=0 && "face2int_face_comm not filled.");
-  }
-#endif
+  assert ( grp_id==(*first_grp_id)+nrecv-1 );
 
 end:
   if ( extComm_next_idx_recv )
@@ -1489,9 +1488,9 @@ end:
 
   PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
 
-  (*first_grp_id) += k;
+  (*first_grp_id) += irecv;
 
-  return k;
+  return irecv;
 }
 
 /**
@@ -1530,6 +1529,7 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
 
   comm   = parmesh->comm;
   nprocs = parmesh->nprocs;
+  myrank = parmesh->myrank;
 
   /** Step 1: Process the external communicators and:
    *
@@ -1574,6 +1574,9 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
 
   for ( grp_id=0; grp_id<parmesh->ngrp; ++grp_id ) {
 
+    dest = part[grp_id];
+    if ( dest==myrank ) continue;
+
     /* intvalues array initialisation with the face index (ensure that intvalues
      * is strictly greater than 0 for a face of this group and strictly lower
      * for the other faces */
@@ -1586,20 +1589,19 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
     for ( k=0; k<nitem_int_comm; ++k )
       intvalues[face2int_face_comm_idx2[k]] = face2int_face_comm_idx1[k];
 
-    dest                       = part[grp_id];
     next_comm                  = 0;
     nitems_tot                 = 0;
-    for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    for ( k=0; k<parmesh->next_face_comm; ++k ) {
       ext_comm = &parmesh->ext_face_comm[k];
       idx      = (*max_ngrp) * ext_comm->color_out + grp_id;
 
       for ( j=0; j<ext_comm->nitem; ++j ) {
         if ( intvalues[ext_comm->int_comm_index[j]] > 0 ) {
           intvalues[ext_comm->int_comm_index[j]] *= -1;
-          ++(*nfaces2send[idx]);
+          ++(*nfaces2send)[idx];
         }
       }
-      if ( nfaces2send[idx] ) {
+      if ( (*nfaces2send)[idx] ) {
         ++next_comm;
         nitems_tot += (*nfaces2send)[idx];
       }
@@ -1620,10 +1622,10 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
     }
 
     /* Number of external comm to send to the proc dest */
-    (*next_comm2send[dest]) += next_comm;
+    (*next_comm2send)[dest] += next_comm;
     /* Number of items (integers) to send to dest (list of external comms
      * (int_comm_index and colour_out + group id) */
-    (*nitems2send[dest])    += nitems_tot+2*next_comm;
+    (*nitems2send)[dest]    += nitems_tot+2*next_comm;
   }
 
   /* Fill ext_comms_next_idx[k] with the position of the first external
@@ -1674,15 +1676,6 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
               "extComm_grpFaces2face2int",
               goto end);
 
-  /* Search the external communicator myrank-dest */
-  myrank       = parmesh->myrank;
-  ext_comm_ptr = NULL;
-  for ( k=0; k<parmesh->next_face_comm; ++k ) {
-    if ( parmesh->ext_face_comm[k].color_out==dest ) {
-      ext_comm_ptr = &parmesh->ext_face_comm[k];
-    }
-  }
-
   idx      = 0;
   idx_glob = 0;
 
@@ -1691,7 +1684,17 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
     idx_per_dest_proc = 0;
     for ( grp_id=0; grp_id<parmesh->ngrp; ++grp_id ) {
 
-      if ( part[grp_id] != proc ) continue;
+      dest = part[grp_id];
+
+      if ( dest != proc || dest==myrank ) continue;
+
+      /* Search the external communicator myrank-dest */
+      ext_comm_ptr = NULL;
+      for ( k=0; k<parmesh->next_face_comm; ++k ) {
+        if ( parmesh->ext_face_comm[k].color_out==dest ) {
+          ext_comm_ptr = &parmesh->ext_face_comm[k];
+        }
+      }
 
       face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
       face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
@@ -1721,9 +1724,8 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
         ++idx_per_dest_proc;
         (*extComm_grpFaces2face2int)[idx_glob] = myrank;
         (*extComm_grpFaces2extComm )[idx_glob] = myrank;
-        (*extComm_next_idx)[idx++] = idx_per_dest_proc ;
+        (*extComm_next_idx)[idx++] = ++idx_per_dest_proc ;
         ++idx_glob;
-        ++idx_per_dest_proc;
       }
 
       /* Process the external faces: fill intvalues by the position of the face
@@ -1732,7 +1734,7 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
       for ( k=0; k<nitem_int_comm; ++k )
         intvalues[face2int_face_comm_idx2[k]] = k;
 
-      for ( k=0; k<parmesh->next_node_comm; ++k ) {
+      for ( k=0; k<parmesh->next_face_comm; ++k ) {
         ext_comm = &parmesh->ext_face_comm[k];
 
         nfaces_in_grp[grp_id] = 0;
@@ -1755,9 +1757,8 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
           (*extComm_grpFaces2face2int)[idx_glob] = ext_comm->color_out;
           /* Store the id of the proc on which the group move */
           (*extComm_grpFaces2extComm )[idx_glob] = dest;
-          (*extComm_next_idx)[idx++] = idx_per_dest_proc;
+          (*extComm_next_idx)[idx++] = ++idx_per_dest_proc;
           ++idx_glob;
-          ++idx_per_dest_proc;
         }
       }
     }
@@ -2186,6 +2187,15 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
             " between meshes and communicators.\n",__func__);
     goto end;
   }
+
+#ifndef NDEBUG
+  for ( k=0; k<=parmesh->ngrp; ++k ) {
+    for ( int j=0; j<parmesh->listgrp[k].nitem_int_face_comm; ++j )
+      assert( parmesh->listgrp[k].face2int_face_comm_index2[j]>=0 &&
+              "face2int_face_comm not filled.");
+  }
+#endif
+
 
   /** Success */
   if ( !err )  ier = 1;
