@@ -12,13 +12,13 @@
  */
 #include <mpi.h>
 
-#define MPI_COMMUNICATORS_NODE_TAG      10
-#define MPI_CHKCOMM_NODE_TAG            20
-#define MPI_CHKCOMM_FACE_TAG            30
-#define MPI_DISTRIBUTEGRPS_MESHSIZE_TAG 40
-#define MPI_PARMESHGRPS2PARMETIS_TAG    50
-#define MPI_SENDGRP_TAG                 60
-#define MPI_SENDEXTFACECOMM_TAG         80
+#define MPI_COMMUNICATORS_NODE_TAG      1000
+#define MPI_CHKCOMM_NODE_TAG            2000
+#define MPI_CHKCOMM_FACE_TAG            3000
+#define MPI_DISTRIBUTEGRPS_MESHSIZE_TAG 4000
+#define MPI_PARMESHGRPS2PARMETIS_TAG    5000
+#define MPI_SENDGRP_TAG                 6000
+#define MPI_SENDEXTFACECOMM_TAG         7000
 
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \
