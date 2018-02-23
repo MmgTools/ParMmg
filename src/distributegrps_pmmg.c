@@ -981,6 +981,27 @@ int PMMG_mpisend_meshSize( PMMG_pParMesh parmesh,int grp_id,int dest,int *tag,
  * \param nsend number of mesh to send from \a source to \a dest
  * \param part pointer toward the metis array containing the partitions.
  *
+ * \param next_comm2send number of external communicator to send to each proc
+ *
+ * \param ext_comms_next_idx[k] position of the external communicators to send
+ * to the proc \a k+1 in the \a extComm_next_idx array.
+ *
+ * \param nitems2send number of items to send to each proc
+ *
+ * \param items_next_idx positions of the items to send to each proc in the
+ * \a extComm_grpFaces* arrays
+ *
+ * \param extComm_next_idx \a extComm_next_idx[k] position of the external
+ * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
+ * that goes to a given proc (so for each proc, the communicator number 0 is at
+ * position 0)
+ *
+ * \param extComm_grpFaces2face2int for each group, position of the group faces
+ * that belongs to the external communicators in the face2int* arrays
+ *
+ * \param extComm_grpFaces2extComm for each group, position of the group faces
+ * that belongs to the external communicators in the external communicators.
+ *
  * \return -1 if fail, the number of groups successfully sended otherwise
  *
  * Send mesh, metric and internal face communicator of the groups that must go
@@ -1244,7 +1265,7 @@ end:
  * success)
  *
  * Receive mesh, metric and internal face communicator from proc \a source.
- * Last, recv the list of external communicators that comes from \a dest
+ * Last, recv the list of external communicators that comes from \a dest.
  *
  * \remark the prism communication is not yet implemented
  *
@@ -1495,9 +1516,36 @@ end:
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \param part pointer toward the metis partitions.
  * \param max_ngrp maximum number of groups per proc
- * \param nfaces2send \a nfaces2send[k*max_ngrp+id_grp] is incremented if
- * the group \a id_grp send an external face communicator to the proc k.
+ *
+ * \param nfaces2send \a nfaces2send[k*max_ngrp+id_grp] contains the number of
+ * faces of the group \a group_id that belongs to the external communicator
+ * myrank-k (so the number of faces of \a grp_id that must be sended to \a k)
+ *
+ * \param nfaces2recv \a nfaces2recv[k*max_ngrp+id_grp] contains the number of
+ * faces that we must receive from the proc \a and for a given group
+ *
+ * \param next_comm2send number of external communicator to send to each proc
+ *
+ * \param ext_comms_next_idx[k] position of the external communicators to send
+ * to the proc \a k+1 in the \a extComm_next_idx array.
+ *
+ * \param nitems2send number of items to send to each proc
+ *
+ * \param items_next_idx positions of the items to send to each proc in the
+ * \a extComm_grpFaces* arrays
+ *
+ * \param extComm_next_idx \a extComm_next_idx[k] position of the external
+ * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
+ * that goes to a given proc (so for each proc, the communicator number 0 is at
+ * position 0)
+ *
+ * \param extComm_grpFaces2face2int for each group, position of the group faces
+ * that belongs to the external communicators in the face2int* arrays
+ *
+ * \param extComm_grpFaces2extComm for each group, position of the group faces
+ * that belongs to the external communicators in the external communicators.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -1513,8 +1561,8 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
                               int **next_comm2send,int **ext_comms_next_idx,
                               int **nitems2send,int **items_next_idx,
                               int **extComm_next_idx,
-                              int **extComm_grpFaces2extComm,
-                              int **extComm_grpFaces2face2int) {
+                              int **extComm_grpFaces2face2int,
+                              int **extComm_grpFaces2extComm) {
   PMMG_pint_comm int_comm;
   PMMG_pext_comm ext_comm,ext_comm_ptr;
   MPI_Comm       comm;
@@ -1778,8 +1826,27 @@ end:
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param dest rank of destination.
- * \param nfaces2send array that stores the number of communicators to send to
- * each proc.
+ * \param max_ngrp maximum number of groups per proc
+ *
+ * \param nfaces2send \a nfaces2send[k*max_ngrp+id_grp] contains the number of
+ * faces of the group \a group_id that belongs to the external communicator
+ * myrank-k (so the number of faces of \a grp_id that must be sended to \a k)
+ *
+ * \param next_comm2send number of external communicator to send to each proc
+ *
+ * \param ext_comms_next_idx[k] position of the external communicators to send
+ * to the proc \a k+1 in the \a extComm_next_idx array.
+ *
+ * \param extComm_next_idx \a extComm_next_idx[k] position of the external
+ * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
+ * that goes to a given proc (so for each proc, the communicator number 0 is at
+ * position 0)
+ *
+ * \param extComm_grpFaces2face2int for each group, position of the group faces
+ * that belongs to the external communicators in the face2int* arrays
+ *
+ * \param extComm_grpFaces2extComm for each group, position of the group faces
+ * that belongs to the external communicators in the external communicators.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -1853,6 +1920,7 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
  * \param source source rank.
  * \param nfaces2recv array that stores the number of communicators to receive
  * from each group and from each proc
+ * \param recv_array buffer to receive the external communicators
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -2044,8 +2112,8 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
                                   &nfaces2send,&nfaces2recv,
                                   &next_comm2send,&ext_comms_next_idx,
                                   &nitems2send,&items_next_idx,
-                                  &extComm_next_idx,&extComm_grpFaces2extComm,
-                                  &extComm_grpFaces2face2int);
+                                  &extComm_next_idx,&extComm_grpFaces2face2int,
+                                  &extComm_grpFaces2extComm);
 
   if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to compute the sended data of"
@@ -2189,13 +2257,12 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   }
 
 #ifndef NDEBUG
-  for ( k=0; k<=parmesh->ngrp; ++k ) {
+  for ( k=0; k<parmesh->ngrp; ++k ) {
     for ( int j=0; j<parmesh->listgrp[k].nitem_int_face_comm; ++j )
       assert( parmesh->listgrp[k].face2int_face_comm_index2[j]>=0 &&
               "face2int_face_comm not filled.");
   }
 #endif
-
 
   /** Success */
   if ( !err )  ier = 1;
