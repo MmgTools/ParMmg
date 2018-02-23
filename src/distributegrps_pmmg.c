@@ -1897,14 +1897,14 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
       nitem       = idx_next-idx-2;
 
       grp_id_prev = grp_id;
-      grp_id      = extComm_grpFaces2extComm[item_idx+nitem];
-      color_out   = extComm_grpFaces2face2int[item_idx+nitem+1];
+      grp_id      = extComm_grpFaces2extComm[item_idx+idx_next-2];
+      color_out   = extComm_grpFaces2face2int[item_idx+idx_next-1];
 
       if ( color_out != dest ) continue;
 
-      assert ( nitem-2 == nfaces2send [ max_ngrp * dest + grp_id ] );
+      assert ( nitem == nfaces2send [ max_ngrp * dest + grp_id ] );
 
-      MPI_CHECK( MPI_Send(&extComm_grpFaces2extComm[idx],nitem,MPI_INT,dest,
+      MPI_CHECK( MPI_Send(&extComm_grpFaces2extComm[idx],nitem+2,MPI_INT,dest,
                           tag,comm),ier = 0 );
       ++tag;
     }
@@ -1937,7 +1937,7 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
   PMMG_pext_comm ext_comm_color_out,ext_comm_source,ext_comm;
   MPI_Comm       comm;
   MPI_Status     status;
-  int            myrank,tag,color_out;
+  int            myrank,tag,color_out,old_nitem;
   int            k,i,idx,nitem,ier;
 
   ier = 0;
@@ -1962,10 +1962,11 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
     if ( !nfaces2recv[ source * max_ngrp + k ] ) continue;
 
     /** Step 1: reception */
+    printf("Recv tag = %d\n",tag);
     MPI_Probe(source,tag,parmesh->comm,&status);
     MPI_Get_count(&status,MPI_INT,&nitem);
 
-    assert ( nitem == nfaces2recv[source*max_ngrp+2] );
+    assert ( nitem == nfaces2recv[source*max_ngrp+k]+2 );
 
     MPI_CHECK( MPI_Recv(recv_array,nitem,MPI_INT,source,tag,comm,&status),goto end );
 
@@ -2001,13 +2002,14 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
 
     PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem-2,
                  ext_comm->nitem,int,"int_comm_index",goto end);
+    old_nitem = ext_comm->nitem;
     ext_comm->nitem += nitem-2;
 
     /* Move the faces from ext_comm_source toward ext_comm */
     assert ( ext_comm_source );
     for ( i=0; i<nitem-2; ++i ) {
       idx = recv_array[i];
-      ext_comm->int_comm_index[ext_comm->nitem+i] =
+      ext_comm->int_comm_index[old_nitem+i] =
         ext_comm_source->int_comm_index[idx];
       ext_comm_source->int_comm_index[idx] = PMMG_UNSET;
     }
@@ -2139,7 +2141,8 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   for ( k=0; k<max_ngrp*nprocs; ++k ) {
     nfaces2recv_max = MG_MAX(nfaces2recv_max,nfaces2recv[k]);
   }
-  PMMG_MALLOC(parmesh,recv_array,nfaces2recv_max,int,"recv_array",goto end);
+  if ( nfaces2recv_max )
+    PMMG_MALLOC(parmesh,recv_array,nfaces2recv_max+2,int,"recv_array",goto end);
 
   /** Step 5: exchange the groups */
   for ( k=1; k<nprocs; ++k ) {
@@ -2239,6 +2242,11 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   parmesh->ngrp = new_ngrp;
 
   /* Pack the face communicators */
+  /* Reallocation because we have added faces in the communicator but not yet
+   * deleted it */
+  PMMG_REALLOC(parmesh,int_comm->intvalues,int_comm->nitem,nitem,int,
+               "intvalues",goto end);
+
   if ( !PMMG_pack_faceCommunicators(parmesh) ) goto end;
 
   /** Step 7: Node communicators reconstruction from the face ones */
@@ -2266,7 +2274,6 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
   /** Success */
   if ( !err )  ier = 1;
-  puts("NO DEADLOCK!!!!");
 
 end:
   if ( part )
@@ -2278,7 +2285,7 @@ end:
   if ( parmesh->int_face_comm->intvalues )
     PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,nitem,int,"intvalues");
   if ( recv_array )
-    PMMG_DEL_MEM(parmesh,recv_array,nfaces2recv_max,int,"recv_array");
+    PMMG_DEL_MEM(parmesh,recv_array,nfaces2recv_max+2,int,"recv_array");
 
   /* Arrays allocated in fill_extFaceComm2send */
   if ( nfaces2send )
