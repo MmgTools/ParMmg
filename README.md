@@ -1,0 +1,1 @@
+ [![Build status](https://gitlab.inria.fr/<userGitlab>/<nameOfTheProjectOnGitlab>/badges/master/build.svg)](https://gitlab.inria.fr/<userGitlab>/<nameOfTheProjectOnGitlab>/commits/master) 
