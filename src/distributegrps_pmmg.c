@@ -905,6 +905,9 @@ int PMMG_mpirecv_meshSize( PMMG_pParMesh parmesh,int grp_id,int source,int *tag,
 
   if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,mesh->np,met->type) ) return 0;
 
+  /** Mark the mesh as not scaled */
+  mesh->info.delta = 1.;
+
   return 1;
 }
 
@@ -1445,6 +1448,11 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
       for ( k=0; k<nitem_recv-2; ++k ) {
         idx_in_face2int = extComm_grpFaces2face2int_recv[k+idx];
         pos_in_int_comm = ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]];
+
+        if ( pos_in_int_comm < 0 ) {
+          /* This position has been deleted by the migration of another group */
+          pos_in_int_comm = int_comm->nitem++;
+        }
 
         face2int_face_comm_idx2[idx_in_face2int] = pos_in_int_comm;
         ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]] = PMMG_UNSET;

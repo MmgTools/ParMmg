@@ -116,7 +116,7 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
       + mesh->info.min[1]*mesh->info.min[1]
       + mesh->info.min[2]*mesh->info.min[2];
 
-    assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+    assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
              "scaled mesh... need to unscale it");
 
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
