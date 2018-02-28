@@ -513,7 +513,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
            * and mark it as seen */
           shared_fac[fac_idx] = abs(shared_fac[fac_idx]);
           for ( j=0; j<3; ++j ) {
-            ip  = pt->v[_MMG5_idir[ifac][j]];
+            ip  = pt->v[_MMG5_idir[ifac][(j+iploc)%3]];
             ppt = &mesh->point[ip];
             assert ( ppt->tmp>=0 );
 
@@ -597,7 +597,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
                 -scaled_coor[j];
               dd += dist[j]*dist[j];
             }
-            assert ( dd<_MMG5_EPSD );
+            assert ( dd < _MMG5_EPSD );
 #endif
           }
         }
