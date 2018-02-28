@@ -466,7 +466,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
      + mesh->info.min[1]*mesh->info.min[1]
      + mesh->info.min[2]*mesh->info.min[2];
 
-   assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+   assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
             "scaled mesh... need to unscale it");
 
    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
@@ -540,7 +540,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
               + mesh->info.min[1]*mesh->info.min[1]
               + mesh->info.min[2]*mesh->info.min[2];
 
-            assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+            assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
                      "scaled mesh... need to unscale it");
 
             /* Scale the point coor using the internal node comm scaling data */
@@ -591,7 +591,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
               scaled_coor[j] = dd*(mesh->point[ip].c[j]-bb_min[j]);
 
             /* Compute the distance between the points */
-            dd = 0;
+            dd = 0.;
             for ( j=0; j<3; ++j ) {
               dist[j] = coor_list[new_pos[mesh->point[ip].tmp]].c[j]
                 -scaled_coor[j];
