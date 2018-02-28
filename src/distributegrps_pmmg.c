@@ -1238,7 +1238,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
         ext_comm = &parmesh->ext_face_comm[i];
         if ( ext_comm->color_out == color_out ) break;
       }
-      for ( j=idx; j<idx_next-1; ++j ) {
+      for ( j=idx; j<idx_next-2; ++j ) {
         ext_comm->int_comm_index[extComm_grpFaces2extComm[j]] = PMMG_UNSET;
       }
     }
