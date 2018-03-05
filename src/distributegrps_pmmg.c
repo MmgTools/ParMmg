@@ -1758,6 +1758,19 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
 
       new = 0;
       if ( nfaces_in_grp[grp_id] ) {
+        for ( k=0; k<nitem_int_comm; ++k )
+          intvalues[face2int_face_comm_idx2[k]] = face2int_face_comm_idx1[k];
+
+        for ( k=0; k<parmesh->next_face_comm; ++k ) {
+          ext_comm = &parmesh->ext_face_comm[k];
+
+          for ( j=0; j<ext_comm->nitem; ++j ) {
+            if ( intvalues[ext_comm->int_comm_index[j]] > 0 ) {
+              intvalues[ext_comm->int_comm_index[j]] *= -1;
+            }
+          }
+        }
+
         /* Process the internal faces first: store the position of the group
            interfaces in the external comm and in the face2intface_comm_index
            array: It will allows the creation of the new external faces between
