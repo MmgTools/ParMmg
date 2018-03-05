@@ -21,6 +21,13 @@ int PMMG_find_intNodeCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
   double         dd;
   int            ier,nitem,*intvalues,k,i,j,idx,ip;
 
+  if ( !parmesh->next_node_comm ) {
+    *delta = 0;
+    min[0] = min[1] = min[2] =  DBL_MAX;
+    max[0] = max[1] = max[2] = -DBL_MAX;
+    return 1;
+  }
+
   ier = 0;
 
   nitem = parmesh->int_node_comm->nitem;
@@ -95,6 +102,13 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
   MMG5_pPoint    ppt;
   double         dd;
   int            ier,nitem,iel,ifac,*intvalues,k,i,j,l,idx,ip;
+
+  if ( !parmesh->next_face_comm ) {
+    *delta = 0;
+    min[0] = min[1] = min[2] =  DBL_MAX;
+    max[0] = max[1] = max[2] = -DBL_MAX;
+    return 1;
+  }
 
   ier = 0;
 
@@ -499,17 +513,20 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   int            *r2send_size,*r2recv_size,color;
   int            k,i,j,ip,idx,ireq,nitem,nitem_color_out,ier;
 
-  if ( !parmesh->next_node_comm ) return 1;
-
   ier = 0;
+
   r2send_size = NULL;
   r2recv_size = NULL;
   request     = NULL;
   status      = NULL;
 
   /** Step 1: Find the internal communicator bounding box */
-  if ( !PMMG_find_intNodeCommBoundingBox(parmesh,bb_min,bb_max,&delta) )
+  if ( !PMMG_find_intNodeCommBoundingBox(parmesh,bb_min,bb_max,&delta) ) {
+    fprintf(stderr,"  ## Error: %s: rank %d: unable to compute communicator"
+            " bounding box.\n",__func__,parmesh->myrank);
     return 0;
+  }
+
   MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm);
   MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm);
 
@@ -695,8 +712,6 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   int            *r2send_size,*r2recv_size,color;
   int            k,i,j,l,ireq,ip,iploc,iel,ifac,idx,nitem,nitem_color_out,ier;
 
-  if ( !parmesh->next_face_comm ) return 1;
-
   ier = 0;
 
   r2send_size = NULL;
@@ -705,8 +720,12 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   status      = NULL;
 
   /** Step 0: Find the internal communicator bounding box */
-  if ( !PMMG_find_intFaceCommBoundingBox(parmesh,bb_min,bb_max,&delta) )
+  if ( !PMMG_find_intFaceCommBoundingBox(parmesh,bb_min,bb_max,&delta) ) {
+    fprintf(stderr,"  ## Error: %s: rank %d: unable to compute communicator"
+            " bounding box.\n",__func__,parmesh->myrank);
     return 0;
+  }
+
   MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm);
   MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm);
 
