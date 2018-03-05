@@ -1193,7 +1193,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
   /* Process the external communicators */
   myrank   = parmesh->myrank;
   idx_next = item_idx;
-  grp_id   = extComm_grpFaces2extComm[item_idx];
+  grp_id   = PMMG_UNSET;
 
   for ( k=0; k<next_comm2send[dest]; ++k ) {
     idx         = idx_next;
@@ -1207,7 +1207,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
     if ( grp_id != grp_id_prev ) {
       /* Avoid the update of the communicator for a group that has not been
        * sended */
-      if ( send_count2++==send_count ) break;
+      if ( send_count2==send_count ) break;
     }
 
     if ( color_out == myrank ) {
@@ -1260,6 +1260,8 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
         ext_comm->int_comm_index[extComm_grpFaces2extComm[j]] = PMMG_UNSET;
       }
     }
+
+    if ( grp_id != grp_id_prev ) ++send_count2;
 
     if ( ier<=0 ) goto end;
   }
