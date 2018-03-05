@@ -1909,9 +1909,10 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
                           int *extComm_next_idx,int *extComm_grpFaces2face2int,
                           int *extComm_grpFaces2extComm) {
 
-  MPI_Comm    comm;
-  int         myrank,tag,grp_id,nprocs,color_out;
-  int         k,idx,idx_next,item_idx,nitem,ier,ext_comm_idx,proc;
+  PMMG_pext_comm ext_comm_color_out;
+  MPI_Comm       comm;
+  int            myrank,tag,grp_id,nprocs,color_out;
+  int            k,i,j,idx,idx_next,item_idx,nitem,ier,ext_comm_idx,proc;
 
   ier = 1;
 
@@ -1922,7 +1923,7 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
 
   if ( dest == myrank ) return 1;
 
-  /* Process all the external communicators that are listed and send those ones
+  /** Process all the external communicators that are listed and send those ones
    * that must go on dest */
   idx_next     = 0;
   item_idx     = 0;
@@ -1947,6 +1948,20 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
       MPI_CHECK( MPI_Send(&extComm_grpFaces2extComm[idx],nitem+2,MPI_INT,dest,
                           tag,comm),ier = 0 );
       ++tag;
+
+      /** Remove the old interface faces from the external communicator */
+      /* Find the communicator myrank-color_out */
+      ext_comm_color_out = NULL;
+      for ( i=0; i<parmesh->next_face_comm; ++i ) {
+        ext_comm_color_out = &parmesh->ext_face_comm[i];
+        if ( ext_comm_color_out->color_out==color_out ) break;
+      }
+      assert ( ext_comm_color_out );
+
+      for ( i=0; i<nitem; ++i ) {
+        j = extComm_grpFaces2extComm[idx+i];
+        ext_comm_color_out->int_comm_index[j] = PMMG_UNSET;
+      }
     }
     ext_comm_idx = ext_comms_next_idx[proc];
     ++proc;
@@ -2280,6 +2295,12 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   PMMG_RECALLOC(parmesh,parmesh->listgrp,new_ngrp,parmesh->ngrp,PMMG_Grp,
                 "listgrps",goto end);
   parmesh->ngrp = new_ngrp;
+
+  if ( !parmesh->ngrp ) {
+    fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
+            __func__,myrank);
+
+  }
 
   /* Pack the face communicators */
   /* Reallocation because we have added faces in the communicator but not yet
