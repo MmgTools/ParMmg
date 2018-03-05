@@ -831,8 +831,12 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     }
   }
   /* Fill the missing pointer toward the empty external communicators */
+  next_comm = 0;
   for ( k=0; k<parmesh->nprocs; ++k ) {
     if ( !comm_ptr[k] ) {
+
+      assert ( next_comm < parmesh->nprocs );
+
       comm_ptr[k] = &parmesh->ext_node_comm[next_comm++];
       comm_ptr[k]->color_out = k;
     }
