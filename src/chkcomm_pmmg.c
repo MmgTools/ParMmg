@@ -198,7 +198,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
 
   /** Step 2: Fill coor_list (of size in_node_comm->nitem) with the (scaled)
    * coordinates of the boundary points. If the position is already used, check
-   * the coordinates consistency and check that it is used only 2 times. */
+   * the coordinates consistency. */
   PMMG_CALLOC(parmesh,coor_list,nitem,PMMG_coorCell,"node coordinates",
               goto end);
 

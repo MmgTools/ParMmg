@@ -646,7 +646,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
         coor_list[idx].c[j] = mesh->point[ip].c[j];
     }
   }
-  /* Scale the coordinates depending to the bounding box ofthe internal comm */
+  /* Scale the coordinates depending to the bounding box of the internal comm */
   if ( !PMMG_scale_coorCellList(coor_list,nitem_node,bb_min,bb_max,&delta) )
     goto end;
 
