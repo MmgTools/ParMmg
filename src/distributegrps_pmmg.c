@@ -1572,11 +1572,11 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
                               int **extComm_grpFaces2face2int,
                               int **extComm_grpFaces2extComm) {
   PMMG_pint_comm int_comm;
-  PMMG_pext_comm ext_comm,ext_comm_ptr;
+  PMMG_pext_comm ext_comm;
   MPI_Comm       comm;
   int            *intvalues,intval,nitem,nprocs;
   int            *face2int_face_comm_idx1,*face2int_face_comm_idx2;
-  int            nitem_int_comm;
+  int            nitem_int_comm,nitem_myrank_dest;
   int            myrank,*nfaces_in_grp;
   int            next_comm,idx,idx_glob,new,idx_per_dest_proc;
   int            ier,proc,k,j,grp_id,dest,next_comm_tot,nitems_tot;
@@ -1745,10 +1745,10 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
       if ( dest != proc || dest==myrank ) continue;
 
       /* Search the external communicator myrank-dest */
-      ext_comm_ptr = NULL;
+      nitem_myrank_dest = 0;
       for ( k=0; k<parmesh->next_face_comm; ++k ) {
         if ( parmesh->ext_face_comm[k].color_out==dest ) {
-          ext_comm_ptr = &parmesh->ext_face_comm[k];
+          nitem_myrank_dest = parmesh->ext_face_comm[k].nitem;
         }
       }
 
@@ -1768,7 +1768,7 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
 
           if ( intvalues[face2int_face_comm_idx2[k]] > 0 ) {
             (*extComm_grpFaces2face2int)[idx_glob] = k;
-            (*extComm_grpFaces2extComm)[idx_glob]  = ext_comm_ptr->nitem+new;
+            (*extComm_grpFaces2extComm)[idx_glob]  = nitem_myrank_dest+new;
             ++idx_glob;
             ++new;
             ++idx_per_dest_proc;
