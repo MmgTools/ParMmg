@@ -637,7 +637,25 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     ext_face_comm->nitem = nitem_ext;
   }
 
-  /** Step 5: unallocate intvalues array and set the nitem field of the internal
+  /** Step 5: Remove the empty external communicators */
+  i = 0;
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+
+    if ( !ext_face_comm->nitem ) continue;
+
+    if ( i!=k ) {
+      parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
+      parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
+      parmesh->ext_face_comm[i].int_comm_index = ext_face_comm->int_comm_index;
+    }
+    ++i;
+  }
+  PMMG_REALLOC(parmesh,parmesh->ext_face_comm,i,
+               parmesh->next_face_comm,int,"int_comm_index",return 0);
+  parmesh->next_face_comm = i;
+
+  /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
   PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                 "face communicator");
