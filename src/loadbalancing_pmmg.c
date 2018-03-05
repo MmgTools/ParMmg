@@ -82,7 +82,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
 
- reduce :
+reduce :
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
   return ier_glob;

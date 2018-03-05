@@ -1890,7 +1890,7 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
                           int *extComm_grpFaces2extComm) {
 
   MPI_Comm    comm;
-  int         myrank,tag,grp_id,grp_id_prev,nprocs,color_out;
+  int         myrank,tag,grp_id,nprocs,color_out;
   int         k,idx,idx_next,item_idx,nitem,ier,ext_comm_idx,proc;
 
   ier = 1;
@@ -1910,16 +1910,15 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
   proc         = 0;
   while ( proc<nprocs ) {
 
-    item_idx += idx_next;
+    if ( next_comm2send[proc] )  item_idx += idx_next;
 
     for ( k=0; k<next_comm2send[proc]; ++k ) {
       idx         = idx_next;
       idx_next    = item_idx + extComm_next_idx[ext_comm_idx+k];
       nitem       = idx_next-idx-2;
 
-      grp_id_prev = grp_id;
-      grp_id      = extComm_grpFaces2extComm[item_idx+idx_next-2];
-      color_out   = extComm_grpFaces2face2int[item_idx+idx_next-1];
+      grp_id      = extComm_grpFaces2extComm[idx_next-2];
+      color_out   = extComm_grpFaces2face2int[idx_next-1];
 
       if ( color_out != dest ) continue;
 
