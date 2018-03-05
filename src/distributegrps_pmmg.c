@@ -652,7 +652,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     ++i;
   }
   PMMG_REALLOC(parmesh,parmesh->ext_face_comm,i,
-               parmesh->next_face_comm,int,"int_comm_index",return 0);
+               parmesh->next_face_comm,PMMG_ext_comm,"ext_face_comm",return 0);
   parmesh->next_face_comm = i;
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
