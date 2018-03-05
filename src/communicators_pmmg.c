@@ -892,9 +892,10 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
-      MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
-                           MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
-                           &request[color]),goto end );
+      if ( nitem2comm )
+        MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
+                             MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                             &request[color]),goto end );
     }
 
     /** Recv the list of procs to which belong each point of the communicator */
