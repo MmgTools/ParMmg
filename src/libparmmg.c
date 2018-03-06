@@ -24,7 +24,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   MMG5_pSol        met;
   int              k,ier;
 
-  if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim ) {
+  if ( !parmesh->myrank && parmesh->imprim ) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
@@ -35,7 +35,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   if ( !PMMG_check_inputData(parmesh) )
     return PMMG_STRONGFAILURE;
 
-  if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank &&  parmesh->imprim )
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
 
 
@@ -94,11 +94,11 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
       _MMG3D_prilen(mesh,met,0);
   }
 
-  if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank &&  parmesh->imprim )
     fprintf(stdout,"\n  -- PHASE 1 COMPLETED\n");
 
   /** Remeshing */
-  if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank &&  parmesh->imprim )
     fprintf(stdout,"\n  -- PHASE 2 : %s MESHING\n",
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
 
@@ -109,10 +109,10 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     return PMMG_STRONGFAILURE;
 
   /** Boundaries reconstruction */
-  if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank &&  parmesh->imprim )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
-  if ( MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
+  if ( parmesh->ngrp && MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;
@@ -122,7 +122,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     return PMMG_LOWFAILURE;
   }
 
-  if ( !parmesh->myrank &&  parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank &&  parmesh->imprim )
     fprintf(stdout,"\n   -- PHASE 3 COMPLETED.\n");
 
   /** Mesh unscaling */

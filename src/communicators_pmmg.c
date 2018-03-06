@@ -163,7 +163,14 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
   }
   if ( !ier_glob ) return 0;
 
-  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  PMMG_MALLOC(parmesh,parmesh->int_node_comm->intvalues,
+              parmesh->int_node_comm->nitem,int,"intvalues",return 0);
+
+  if ( !PMMG_pack_nodeCommunicators(parmesh) ) return 0;
+
+  if ( parmesh->int_node_comm->intvalues )
+    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
+                 parmesh->int_node_comm->nitem,int,"intvalues");
 
   return 1;
 }
@@ -798,8 +805,10 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     ext_node_comm->nitem          = 0;
     ext_node_comm->int_comm_index = NULL;
+    ext_node_comm->itosend        = NULL;
+    ext_node_comm->itorecv        = NULL;
     ext_node_comm->color_in       = rank;
-    ext_node_comm->color_out      = -1;
+    ext_node_comm->color_out      = PMMG_UNSET;
   }
 
   PMMG_CALLOC(parmesh,comm_ptr,parmesh->nprocs,PMMG_pext_comm,
@@ -892,7 +901,8 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
-      if ( nitem2comm )
+
+      if ( color >=0 )
         MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
                              MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
                              &request[color]),goto end );
@@ -915,26 +925,30 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
                      int,"itorecv",goto end);
         i2recv_size[k] = nitem2comm;
       }
-      itorecv       = ext_node_comm->itorecv;
-      MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
-                          MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
-                          &status[0]), goto end );
 
-      pos     = 0;
-      for ( i=0; i<ext_node_comm->nitem; ++i ) {
-        idx  = ext_node_comm->int_comm_index[i];
-        assert ( idx>=0 );
+      if ( nitem2comm ) {
 
-        PMMG_reset_lnkdList( parmesh,&list );
-        ier2 = PMMG_unpackArray_inLnkdList(parmesh,&list,&itorecv[pos]);
+        itorecv       = ext_node_comm->itorecv;
+        MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
+                            MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                            &status[0]), goto end );
 
-        if ( ier2 < 0 ) goto end;
-        pos += ier2;
+        pos     = 0;
+        for ( i=0; i<ext_node_comm->nitem; ++i ) {
+          idx  = ext_node_comm->int_comm_index[i];
+          assert ( idx>=0 );
 
-        ier2 = PMMG_merge_lnkdList(parmesh,proclists[idx],&list);
-        if ( !ier2 ) goto end;
+          PMMG_reset_lnkdList( parmesh,&list );
+          ier2 = PMMG_unpackArray_inLnkdList(parmesh,&list,&itorecv[pos]);
 
-        loc_update |= (ier2%2);
+          if ( ier2 < 0 ) goto end;
+          pos += ier2;
+
+          ier2 = PMMG_merge_lnkdList(parmesh,proclists[idx],&list);
+          if ( !ier2 ) goto end;
+
+          loc_update |= (ier2%2);
+        }
       }
     }
 
@@ -1035,7 +1049,6 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     }
     else {
       assert ( ext_node_comm->color_out>=0 && ext_node_comm->color_out!=rank );
-      assert ( nitem_ext_comm[ext_node_comm->color_out] );
 
       PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
                    nitem_ext_comm[ext_node_comm->color_out],

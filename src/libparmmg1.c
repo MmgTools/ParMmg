@@ -105,6 +105,8 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
   MMG5_pMesh  mesh;
   int         ne;
 
+  assert ( igrp < parmesh->ngrp );
+
   grp                       = &parmesh->listgrp[igrp];
   mesh                      = grp->mesh;
 
@@ -228,7 +230,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pSol  met;
   int        k;
 
-  if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -282,7 +284,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       return PMMG_FAILURE;
     }
   }
-  if ( !parmesh->myrank && parmesh->listgrp[0].mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED\n");
 
   return PMMG_SUCCESS;
@@ -310,6 +312,8 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
   int         *face2int_face_comm_index1,nitem_int_face_comm;
   int         iel,ifac,iploc,ia,ib,ic;
   int         k;
+
+  assert ( igrp < parmesh->ngrp );
 
   grp                 = &parmesh->listgrp[igrp];
   nitem_int_face_comm = grp->nitem_int_face_comm;
@@ -368,6 +372,8 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   int          *face2int_face_comm_index1,nitem;
   int          hashVal,iel,ifac,iploc,ia,ib,ic;
   int          k,i,ier;
+
+  assert ( igrp < parmesh->ngrp );
 
   grp   = &parmesh->listgrp[igrp];
   nitem = grp->nitem_int_face_comm;
@@ -533,6 +539,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
       if ( !_MMG5_unscaleMesh(mesh,met) ) goto failed;
     }
+
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
     if ( !ier ) {

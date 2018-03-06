@@ -496,7 +496,6 @@ int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
  * the other communicators (external communicator, group communicators).
  *
  */
-static inline
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   PMMG_pint_comm int_node_comm;
@@ -557,7 +556,25 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
     ext_node_comm->nitem = nitem_ext;
   }
 
-  /** Step 5: unallocate intvalues array and set the nitem field of the internal
+  /** Step 5: Remove the empty external communicators */
+  i = 0;
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    if ( !ext_node_comm->nitem ) continue;
+
+    if ( i!=k ) {
+      parmesh->ext_node_comm[i].nitem          = ext_node_comm->nitem;
+      parmesh->ext_node_comm[i].color_out      = ext_node_comm->color_out;
+      parmesh->ext_node_comm[i].int_comm_index = ext_node_comm->int_comm_index;
+    }
+    ++i;
+  }
+  PMMG_REALLOC(parmesh,parmesh->ext_node_comm,i,
+               parmesh->next_node_comm,PMMG_ext_comm,"ext_node_comm",return 0);
+  parmesh->next_node_comm = i;
+
+  /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
                 "node communicator");
@@ -575,7 +592,6 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
  * the other communicators (external communicator, group communicators).
  *
  */
-static inline
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
   PMMG_pint_comm int_face_comm;
@@ -861,6 +877,9 @@ end:
   if ( !PMMG_pack_nodeCommunicators(parmesh) ) ier = -1;
 
   if ( !PMMG_pack_faceCommunicators(parmesh) ) ier = -1;
+
+  assert ( PMMG_check_extFaceComm(parmesh) );
+  assert ( PMMG_check_extNodeComm(parmesh) );
 
   if ( !PMMG_parmesh_updateMemMax(parmesh, 105, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
@@ -2017,7 +2036,6 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
     if ( !nfaces2recv[ source * max_ngrp + k ] ) continue;
 
     /** Step 1: reception */
-    printf("Recv tag = %d\n",tag);
     MPI_Probe(source,tag,parmesh->comm,&status);
     MPI_Get_count(&status,MPI_INT,&nitem);
 

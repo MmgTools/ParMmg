@@ -125,11 +125,13 @@ int main( int argc, char *argv[] )
   MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
 
   /* reset default values for file names */
+  assert ( parmesh->ngrp );
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+
 
   // Init memMax sizes. Only one mesh for now => pmmg structs do not need much
   if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
@@ -148,7 +150,7 @@ int main( int argc, char *argv[] )
   if ( PMMG_SUCCESS != PMMG_parsar( argc, argv, parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf(stdout,"\n   -- PHASE 0 : LOADING MESH ON rank 0\n");
 
   if ( !parmesh->myrank ) {
@@ -171,7 +173,7 @@ int main( int argc, char *argv[] )
   if ( PMMG_SUCCESS != PMMG_check_inputData( parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
 
   /** Send mesh to other procs */
@@ -194,11 +196,11 @@ int main( int argc, char *argv[] )
       PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
     PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
   }
-  if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
+  if ( (!parmesh->myrank) && parmesh->imprim )
     fprintf(stdout,"   -- PHASE 1 COMPLETED.\n");
 
   /** Remeshing */
-  if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
+  if ( (!parmesh->myrank) && parmesh->imprim )
     fprintf( stdout,
              "\n  -- PHASE 3 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
@@ -206,53 +208,60 @@ int main( int argc, char *argv[] )
   ier = PMMG_parmmglib1(parmesh);
   if ( ier == PMMG_STRONGFAILURE )
     PMMG_exit_and_free( parmesh, ier );
-  else if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
+  else if ( (!parmesh->myrank) && parmesh->imprim )
     fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
 
   /** Unscaling */
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+  if ( parmesh->ngrp ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
+      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+  }
 
   /** Merge all the meshes on the proc 0 */
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf( stdout,"\n   -- PHASE 4 : MERGE MESHES OVER PROCESSORS\n" );
 
 #warning NIKOS: this is the only function that hasnt been revised in regards to error handling/returned values.Lots of unaccounted allocations
   if ( !PMMG_merge_parmesh( parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-  if ( !parmesh->myrank && mesh->info.imprim )
+  if ( !parmesh->myrank && parmesh->imprim )
     fprintf( stdout,"   -- PHASE 4 COMPLETED.\n" );
 
   if ( !parmesh->myrank ) {
-    if (  mesh->info.imprim )
+    if ( parmesh->imprim )
       fprintf( stdout,"\n   -- PHASE 5 : MESH PACKED UP\n" );
 
     /** All the memory is devoted to the mesh **/
     PMMG_parmesh_Free_Comm(parmesh);
     tmpmem = parmesh->memMax - parmesh->memCur;
     parmesh->memMax = parmesh->memCur;
-    parmesh->listgrp[0].mesh->memMax += tmpmem;
 
-    if ( MMG3D_hashTetra( mesh, 0 ) ) {
-      if ( -1 == MMG3D_bdryBuild( mesh ) ) {
-        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    if ( parmesh->ngrp ) {
+      parmesh->listgrp[0].mesh->memMax += tmpmem;
+
+      if ( MMG3D_hashTetra( mesh, 0 ) ) {
+        if ( -1 == MMG3D_bdryBuild( mesh ) ) {
+          PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+        }
+      } else {
+        /** Impossible to rebuild the triangle **/
+        fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO SAVE THE BDRY TRIANGLE\n\n\n");
       }
-    } else {
-      /** Impossible to rebuild the triangle **/
-      fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO SAVE THE BDRY TRIANGLE\n\n\n");
     }
-    
-    if (  mesh->info.imprim )
+
+    if (  parmesh->imprim )
       fprintf( stdout,"   -- PHASE 5 COMPLETED.\n" );
 
     /* Write mesh */
-    if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-    if ( met->m && 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+    if ( parmesh->ngrp ) {
+      if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
+        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      if ( met->m && 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
+        PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+    }
   }
 
   PMMG_exit_and_free( parmesh, ier );

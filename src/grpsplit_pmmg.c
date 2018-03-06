@@ -768,7 +768,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
   PMMG_pGrp grpCur = NULL;
-  MMG5_pMesh const meshOld = parmesh->listgrp->mesh;
+  MMG5_pMesh meshOld;
   MMG5_pMesh meshCur = NULL;
   int *countPerGrp = NULL;
   int ret_val = 1; // returned value (unless set otherwise)
@@ -789,6 +789,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   // Loop counter vars
   int i, grpId, poi, tet, fac, ie;
 
+  if ( !parmesh->ngrp ) goto end;
+
+  meshOld = parmesh->listgrp[0].mesh;
+
   n2inc_max = f2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
@@ -804,7 +808,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
-    ret_val = 1;
     goto end;
 
   } else {
@@ -857,7 +860,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   iplocFaceComm = NULL;
   PMMG_MALLOC(parmesh,iplocFaceComm,4*meshOld->ne+1,int,
               "starting vertices of the faces of face2int_face_comm_index1",
-              ret_val = PMMG_FAILURE;goto fail_facePos);
+              ret_val = 0;goto fail_facePos);
   for ( i=0; i<=4*meshOld->ne; ++i )
     iplocFaceComm[i] = PMMG_UNSET;
 
@@ -1044,10 +1047,12 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   }
 
   /** Pack the tetra and update the face communicator */
-  ier = PMMG_packTetra(parmesh,0);
-  if ( !ier ) {
-    fprintf(stderr,"\n  ## Pack tetrahedra and face communicators problem.\n");
-    goto end;
+  if ( parmesh->ngrp ) {
+    ier = PMMG_packTetra(parmesh,0);
+    if ( !ier ) {
+      fprintf(stderr,"\n  ## Pack tetrahedra and face communicators problem.\n");
+      goto end;
+    }
   }
 
   /** Split the group into the suitable number of groups */

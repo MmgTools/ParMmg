@@ -593,6 +593,8 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
+  if ( !parmesh->ngrp ) return 1;
+
   listgrp  = parmesh->listgrp;
 
   /** Free the adjacency array: a possible improvement is to update it */

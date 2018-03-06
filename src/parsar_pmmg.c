@@ -34,6 +34,10 @@ PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
     fprintf( stdout, "\n\n\tMMG");
     _MMG5_mmgDefaultValues( parmesh->listgrp[0].mesh );
   }
+
+  parmesh->niter  = 1;
+  parmesh->imprim = 1;
+
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
@@ -481,12 +485,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       break;
 
       case 'n':  // number of adaptation iterations
-        if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
+        if ( ( !strncmp(argv[i],"-niter",5) ) && (i+1<argc) ) {
           ++i;
           if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
             parmesh->niter = atoi( argv[i] );
           } else {
-            parmesh->niter = 1;
             fprintf( stderr,
                      "Erroneous adaptation iterations requested, using default: %d\n",
                      parmesh->niter );
@@ -504,6 +507,22 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                     " adding to mmgArgv for mmg: ",
                     ret_val = PMMG_FAILURE; goto fail_proc );
       break;
+
+      case 'v':  /* verbosity */
+        if ( i+1 < argc ) {
+          if ( argv[i+1][0] == '-' || isdigit(argv[i+1][0]) ) {
+            parmesh->imprim = atoi(argv[i+1]);
+          }
+        }
+        else {
+          fprintf(stderr,"Missing argument option %c\n",argv[i][1]);
+          PMMG_usage(parmesh,argv[0]);
+          return 0;
+        }
+        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                    " adding to mmgArgv for mmg: ",
+                    ret_val = PMMG_FAILURE; goto fail_proc );
+        break;
 
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
