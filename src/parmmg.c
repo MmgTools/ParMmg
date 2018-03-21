@@ -115,8 +115,8 @@ int main( int argc, char *argv[] )
   }
 
   /* Allocate the main pmmg struct and assign default values */
-  if ( PMMG_SUCCESS != PMMG_Init_parMesh( &parmesh ) ) {
-    MPI_Abort( MPI_COMM_WORLD, PMMG_FAILURE );
+  if ( 1 != PMMG_Init_parMesh( &parmesh ) ) {
+    MPI_Abort( MPI_COMM_WORLD, PMMG_STRONGFAILURE );
     MPI_Finalize();
     return PMMG_FAILURE;
   }
@@ -146,7 +146,7 @@ int main( int argc, char *argv[] )
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
-  if ( PMMG_SUCCESS != PMMG_parsar( argc, argv, parmesh ) )
+  if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && mesh->info.imprim )
@@ -188,7 +188,7 @@ check_mesh_loading:
     fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
 
   /** Send mesh to other procs */
-  if ( PMMG_SUCCESS != PMMG_bcast_mesh( parmesh ) )
+  if ( 1 != PMMG_bcast_mesh( parmesh ) )
     PMMG_exit_and_free( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
