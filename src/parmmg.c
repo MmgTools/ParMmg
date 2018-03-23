@@ -176,7 +176,7 @@ int main( int argc, char *argv[] )
       ier = 0;
   }
 check_mesh_loading:
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( iresult != 1 )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
