@@ -165,7 +165,10 @@ int main( int argc, char *argv[] )
       goto check_mesh_loading;
     }
     // SetMemMax is used again here because loadMesh overwrites memMax
-    PMMG_parmesh_SetMemMax(parmesh, 20);
+    if ( 1 != PMMG_parmesh_SetMemMax(parmesh, 20) ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
 
     if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 ) {
       ier = 0;
