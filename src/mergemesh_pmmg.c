@@ -577,6 +577,92 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the tag on the points and tetra in case of ngrp=1
+ *
+ */
+static inline
+int PMMG_updateTag(PMMG_pParMesh parmesh) {
+  MMG5_pMesh      mesh;
+  MMG5_pTetra     pt;
+  MMG5_pxTetra    pxt;
+  MMG5_pPoint     ppt;
+  int             *node2int_node_comm0_index1;
+  int             k,j,i,nparbdy,nfbdy,nabdy;
+
+  if ( parmesh->ngrp != 1 ) return 0;
+
+  mesh                       = parmesh->listgrp[0].mesh;
+  node2int_node_comm0_index1 = parmesh->listgrp[0].node2int_node_comm_index1;
+
+  /** First : update the points : if the point is not in the internal communicator
+              that means the point is not PARBDY */
+  for ( k=1 ; k<=mesh->np ; k++ ) {
+    ppt = &mesh->point[k];
+
+    if ( !(ppt->tag & MG_PARBDY) ) continue;
+
+    for ( j=0 ; j< parmesh->listgrp[0].nitem_int_node_comm ; j++ ) {
+      if(node2int_node_comm0_index1[j]==k) break;
+    }
+    if ( j==parmesh->listgrp[0].nitem_int_node_comm ) {
+      //printf("point not found, remove the tag\n");
+      ppt->tag &= ~MG_PARBDY;
+    }
+  }
+
+  /** Second : update the xt */
+  for ( k=1 ; k<= mesh->ne ; k++) {
+    pt = &mesh->tetra[k];
+    if ( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    /*check the faces*/
+    nfbdy = 0;
+    for ( j=0 ; j<4 ; j++) {
+      if ( !pxt->ftag[j] ) continue;
+      nfbdy++;
+      if ( !(pxt->ftag[j] & MG_PARBDY) ) continue;
+
+      nparbdy = 0;
+      for ( i=0 ; i<3 ; i++) {
+        ppt = &mesh->point[pt->v[_MMG5_idir[j][i]]];
+        if ( ppt->tag & MG_PARBDY ) nparbdy++;
+      }
+      if ( nparbdy!=3 ) {
+        pxt->ftag[j] = 0;
+        nfbdy--;
+      }
+    }
+    /*check the edges*/
+    nabdy = 0;
+    for ( j=0 ; j<6 ; j++) {
+      if ( !pxt->tag[j] ) continue;
+      nabdy++;
+      if ( !(pxt->tag[j] & MG_PARBDY) ) continue;
+
+      nparbdy = 0;
+      for ( i=0 ; i<2 ; i++) {
+        ppt = &mesh->point[pt->v[_MMG5_iare[j][i]]];
+        if ( ppt->tag & MG_PARBDY ) {
+          nparbdy++;
+        }
+      }
+      if ( nparbdy!=2 ) {
+        pxt->tag[j] &= ~MG_PARBDY;;
+        nabdy--;
+      }
+    }
+    if ( !nfbdy && !nabdy ) pt->xt = 0;
+  }
+  /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax; */
+  /* if ( !_MMG3D_analys(mesh) ) return -1; */
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \return 0 if fail, 1 if success
  *
  * Merge all meshes (mesh elements + internal communicator) of a group into the
@@ -663,6 +749,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   _MMG5_SAFE_REALLOC(parmesh->listgrp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->ngrp = 1;
+
+  /** Step 6: Update tag on points, tetra */
+  if ( !PMMG_updateTag(parmesh) ) goto fail_comms;
+
 
   return 1;
 
