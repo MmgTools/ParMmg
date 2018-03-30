@@ -208,6 +208,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
       /* link */
       if(k<mesh->npmax-1) mesh->point[k].tmp  = k+1;
     }
+    /*if this point has already been used we have to reset tmp*/
+    mesh->point[mesh->npmax].tmp = 0;
   }
   else {
     assert ( mesh->np == mesh->npmax );
@@ -225,6 +227,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
       
       if(k<mesh->nemax-1) pt->v[3] = k+1;
     }
+    /*if this tetra has already been used, we have to put v[3]=0*/
+    mesh->tetra[mesh->nemax].v[3] = 0;
   }
   else {
     assert ( mesh->ne == mesh->nemax );
