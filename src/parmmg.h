@@ -187,6 +187,9 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 
+/* Scaling */
+int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
+  
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus
 }

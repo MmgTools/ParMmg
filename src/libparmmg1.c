@@ -496,7 +496,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
       /** Call the remesher */
       /* Here we need to scale the mesh */
-      if ( !_MMG5_scaleMesh(mesh,met) ) goto failed;
+      if ( !PMMG_scaleMesh(mesh,met) ) goto failed;
 
 #ifdef PATTERN
       if ( 1 != _MMG5_mmg3d1_pattern( mesh, met ) ) {
