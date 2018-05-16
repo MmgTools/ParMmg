@@ -94,7 +94,7 @@ static inline
 int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                          PMMG_pGrp grpJ,PMMG_pGrp grps,
                                          int first_idx ) {
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   int            nitem_int_node_commI,nitem_int_node_commJ,*intvalues;
   int           *node2int_node_commI_index1;
   int           *node2int_node_commI_index2,*node2int_node_commJ_index2;
@@ -377,7 +377,7 @@ int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 static inline
 int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
 
-  PMMG_pint_comm int_node_comm,int_face_comm;
+  PMMG_pInt_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            k,iel;
 
@@ -471,8 +471,8 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 static inline
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pint_comm int_node_comm;
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   int            *intvalues;
   int            *node2int_node_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
@@ -550,8 +550,8 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 static inline
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pint_comm int_face_comm;
-  PMMG_pext_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
   int            *intvalues;
   int            *face2int_face_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
@@ -705,7 +705,7 @@ int PMMG_mergeGrps2Send_errorHandler( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 static inline
 int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
-  PMMG_int_comm *int_node_comm,*int_face_comm;
+  PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
   long long     memAv;
   int           nprocs,ngrp,k,j,ier;

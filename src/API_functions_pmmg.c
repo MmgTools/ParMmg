@@ -16,7 +16,7 @@
  * deallocate all internal communicator's fields
  */
 static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
-                                        PMMG_pint_comm comm )
+                                        PMMG_pInt_comm comm )
 {
   if ( comm == NULL )
     return;
@@ -40,7 +40,7 @@ static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
  * deallocate all external communicators's fields
  */
 static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
-                                        PMMG_pext_comm comm, int ncomm )
+                                        PMMG_pExt_comm comm, int ncomm )
 {
   int i = 0;
 
@@ -143,13 +143,13 @@ void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
 
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
-            PMMG_ext_comm, "ext node comm");
+            PMMG_Ext_comm, "ext node comm");
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
-            PMMG_ext_comm, "ext edge comm");
+            PMMG_Ext_comm, "ext edge comm");
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
-            PMMG_ext_comm, "ext face comm");
+            PMMG_Ext_comm, "ext face comm");
 }
 
 /**

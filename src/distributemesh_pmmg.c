@@ -515,7 +515,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt,ptvois;
-  PMMG_pext_comm  pext_node_comm,pext_face_comm;
+  PMMG_pExt_comm  pext_node_comm,pext_face_comm;
   int             rank,nprocs,rankCur,rankVois;
   int             next_node_comm,next_face_comm;
   int             nitem_int_node_comm,nitem_int_face_comm;
@@ -537,10 +537,10 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
     if ( shared_face[k] ) ++next_face_comm;
   }
 
-  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_Ext_comm,
               "allocate ext_node_comm ",return 0);
   parmesh->next_node_comm = next_node_comm;
-  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_ext_comm,
+  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_Ext_comm,
               "allocate ext_face_comm ",return 0);
   parmesh->next_face_comm = next_face_comm;
 
@@ -707,9 +707,9 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
   PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
 
-  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
               "allocating int_node_comm",return 0);
-  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_int_comm,
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
               "allocating int_face_comm",return 0);
 
   /* We have 1 Grp per proc, thus : int_*_comm->nitem : nitem_int_*_comm */
