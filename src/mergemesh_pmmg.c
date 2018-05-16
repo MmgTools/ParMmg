@@ -387,8 +387,8 @@ static inline
 int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   MMG5_pMesh     meshI;
   MMG5_pPoint    ppt;
-  PMMG_pext_comm ext_node_comm;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
   int            *intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
@@ -489,8 +489,8 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
 static inline
 int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pext_comm ext_face_comm;
-  PMMG_pint_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
   int            *intvalues;
   int           *face2int_face_comm0_index1;
   int           *face2int_face_comm0_index2;
@@ -675,7 +675,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
-  PMMG_pint_comm int_node_comm,int_face_comm;
+  PMMG_pInt_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
@@ -825,8 +825,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
-  PMMG_pint_comm int_node_comm;
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
   int            nmet_tot,ne_tot,nitem_int_node_comm_tot;
@@ -1383,7 +1383,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   MMG5_pxPoint   rcv_xpoint;
   MMG5_pTetra    rcv_tetra;
   MMG5_pxTetra   rcv_xtetra;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pInt_comm int_node_comm;
   double         *rcv_met;
   int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nmet;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;

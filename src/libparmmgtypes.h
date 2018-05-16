@@ -120,8 +120,8 @@ typedef struct {
   int*    intvalues;  /*!< Array of integer */
   double* doublevalues;  /*!< Array of double */
 
-} PMMG_int_comm;
-typedef PMMG_int_comm  * PMMG_pint_comm;
+} PMMG_Int_comm;
+typedef PMMG_Int_comm  * PMMG_pInt_comm;
 
 /**
  * \struct PARMMG_ext_comm
@@ -139,8 +139,8 @@ typedef struct {
   int*       itorecv; /*!< Array to receive the data to the remote processor */
   double*    rtosend; /*!< Array to send the data to the remote processor */
   double*    rtorecv; /*!< Array to receive the data to the remote processor */
-} PMMG_ext_comm;
-typedef PMMG_ext_comm  * PMMG_pext_comm;
+} PMMG_Ext_comm;
+typedef PMMG_Ext_comm  * PMMG_pExt_comm;
 
 /**
  * \struct PARMMG_Grp
@@ -190,17 +190,17 @@ typedef struct {
   PMMG_pGrp listgrp;    /*!< List of grp */
 
   /* internal communicators */
-  PMMG_pint_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_int_comm, it is not an array) */
-  PMMG_pint_comm  int_edge_comm; /*!< Internal edge communicator */
-  PMMG_pint_comm  int_face_comm; /*!< Internal face communicator */
+  PMMG_pInt_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_Int_comm, it is not an array) */
+  PMMG_pInt_comm  int_edge_comm; /*!< Internal edge communicator */
+  PMMG_pInt_comm  int_face_comm; /*!< Internal face communicator */
 
   /* external communicators */
   int            next_node_comm; /*!< Number of external node communicator */
-  PMMG_pext_comm ext_node_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+  PMMG_pExt_comm ext_node_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
   int            next_edge_comm; /*!< Number of external edge communicator */
-  PMMG_pext_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+  PMMG_pExt_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
   int            next_face_comm; /*!< Number of external face communicator */
-  PMMG_pext_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+  PMMG_pExt_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
 
   /* global variables */
   int            ddebug; //! Debug level
