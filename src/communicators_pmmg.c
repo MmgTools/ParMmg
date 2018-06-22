@@ -16,7 +16,7 @@
  *
  * deallocate all internal communicator's fields
  */
-void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pint_comm comm )
+void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 {
   if ( comm == NULL )
     return;
@@ -39,7 +39,7 @@ void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pint_comm comm )
  *
  * deallocate all external communicators's fields
  */
-void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pext_comm comm,
+void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm comm,
                                  int ncomm )
 {
   int i = 0;
@@ -108,7 +108,7 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   PMMG_int_comm_free( parmesh,parmesh->int_node_comm);
   PMMG_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
-               PMMG_ext_comm, "ext node comm");
+               PMMG_Ext_comm, "ext node comm");
 
   parmesh->next_node_comm       = 0;
   parmesh->int_node_comm->nitem = 0;
@@ -188,8 +188,8 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
  */
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_pGrp       grp;
-  PMMG_pext_comm  ext_node_comm,ext_face_comm;
-  PMMG_pint_comm  int_node_comm,int_face_comm;
+  PMMG_pExt_comm  ext_node_comm,ext_face_comm;
+  PMMG_pInt_comm  int_node_comm,int_face_comm;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pPoint     ppt;
@@ -205,7 +205,7 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
   next_face_comm = parmesh->next_face_comm;
   next_node_comm = next_face_comm;
 
-  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_Ext_comm,
               "ext_node_comm ",return 0);
   parmesh->next_node_comm = next_node_comm;
 
@@ -342,7 +342,7 @@ end:
       }
     }
     PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,parmesh->next_node_comm
-                 ,PMMG_ext_comm, "ext_node_comm ");
+                 ,PMMG_Ext_comm, "ext_node_comm ");
   }
 
   PMMG_DEL_MEM(parmesh,flag,int_node_comm->nitem,int,"node flag");
@@ -757,8 +757,8 @@ end:
  *
  */
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
-  PMMG_pext_comm  ext_node_comm,*comm_ptr;
-  PMMG_pint_comm  int_node_comm;
+  PMMG_pExt_comm  ext_node_comm,*comm_ptr;
+  PMMG_pInt_comm  int_node_comm;
   PMMG_lnkdList   **proclists,list;
   int             *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
   int             *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
@@ -796,7 +796,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   /* Reallocation of the list of external comms at maximal size (nprocs) to
    * avoid tricky treatment when filling it.*/
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,parmesh->nprocs,
-               parmesh->next_node_comm,PMMG_ext_comm,
+               parmesh->next_node_comm,PMMG_Ext_comm,
                "list of external communicators",goto end);
   next_comm = parmesh->next_node_comm;
   parmesh->next_node_comm = parmesh->nprocs;
@@ -811,7 +811,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     ext_node_comm->color_out      = PMMG_UNSET;
   }
 
-  PMMG_CALLOC(parmesh,comm_ptr,parmesh->nprocs,PMMG_pext_comm,
+  PMMG_CALLOC(parmesh,comm_ptr,parmesh->nprocs,PMMG_pExt_comm,
               "array of pointers toward the external communicators",
               goto end);
 
@@ -901,11 +901,9 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
-
-      if ( color >=0 )
-        MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
-                             MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
-                             &request[color]),goto end );
+      MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
+                           MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                           &request[color]),goto end );
     }
 
     /** Recv the list of procs to which belong each point of the communicator */
@@ -1062,7 +1060,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     ++next_comm;
   }
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,
-               next_comm,parmesh->next_node_comm,PMMG_ext_comm,
+               next_comm,parmesh->next_node_comm,PMMG_Ext_comm,
                "list of external communicator",goto end);
   parmesh->next_node_comm = next_comm;
 
@@ -1082,7 +1080,7 @@ end:
     }
     PMMG_DEL_MEM(parmesh,proclists,nitem,PMMG_lnkdList*,"array of linked lists");
   }
-  PMMG_DEL_MEM(parmesh,comm_ptr,parmesh->nprocs,PMMG_pext_comm,
+  PMMG_DEL_MEM(parmesh,comm_ptr,parmesh->nprocs,PMMG_pExt_comm,
               "array of pointers toward the external communicators");
 
   for ( k=0; k<parmesh->next_node_comm; ++k ) {

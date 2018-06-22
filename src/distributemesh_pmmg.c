@@ -102,8 +102,8 @@ static void PMMG_swapPoint( MMG5_pPoint point, double* met,int* perm,
 /**
  * \param parmesh pointer toward a parmesh structure.
  *
- * \return PMMG_FAILURE
- *         PMMG_SUCCESS
+ * \return 0 failure
+ *         1 success
  *
  * Send the initial mesh from proc 0 toward the other procs.
  */
@@ -123,23 +123,23 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 
   /* Mesh */
    MPI_CHECK( MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
    MPI_CHECK( MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
    MPI_CHECK( MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
    MPI_CHECK( MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
    MPI_CHECK( MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
    MPI_CHECK( MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm ),
-              return PMMG_FAILURE);
+              return 0);
 
   if ( !rank ) {
     PMMG_RECALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
-                  "vertices array", return PMMG_FAILURE);
+                  "vertices array", return 0);
     PMMG_RECALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
-                  "tetra array", return PMMG_FAILURE);
+                  "tetra array", return 0);
   }
 
   mesh->npmax = mesh->npi = mesh->np;
@@ -151,14 +151,10 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   mesh->xtmax = mesh->ntmax;
 
   /* Metric */
-  MPI_CHECK( MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm ),
-             return PMMG_FAILURE);
-  MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm ),
-             return PMMG_FAILURE);
-  MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm ),
-             return PMMG_FAILURE);
-  MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm ),
-             return PMMG_FAILURE);
+  MPI_CHECK( MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm ), return 0);
 
   met->npi = met->np;
   met->ver = mesh->ver;
@@ -166,22 +162,22 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 
   if ( rank ) {
     PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices",
-                return PMMG_FAILURE);
+                return 0);
 
     PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,"initial tetrahedra",
-                return PMMG_FAILURE);
+                return 0);
 
     if ( mesh->nt )
       PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,"initial triangles",
-                  return PMMG_SUCCESS);
+                  return 0);
 
     if ( mesh->na )
       PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges",
-                  return PMMG_FAILURE);
+                  return 0);
 
     if ( met->npmax )
       PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges",
-                  return PMMG_FAILURE);
+                  return 0);
   }
 
   if ( !PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point ) )
@@ -214,7 +210,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   if ( mesh->na )
     MPI_Type_free( &mpi_edge );
 
-  return PMMG_SUCCESS;
+  return 1;
 
 fail_1:
   if ( mesh->na )
@@ -227,7 +223,7 @@ fail_3:
 fail_4:
   MPI_Type_free( &mpi_light_point );
 fail_5:
-  return PMMG_FAILURE;
+  return 0;
 }
 
 /**
@@ -519,7 +515,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt,ptvois;
-  PMMG_pext_comm  pext_node_comm,pext_face_comm;
+  PMMG_pExt_comm  pext_node_comm,pext_face_comm;
   int             rank,nprocs,rankCur,rankVois;
   int             next_node_comm,next_face_comm;
   int             nitem_int_node_comm,nitem_int_face_comm;
@@ -541,10 +537,10 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
     if ( shared_face[k] ) ++next_face_comm;
   }
 
-  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_ext_comm,
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_node_comm,PMMG_Ext_comm,
               "allocate ext_node_comm ",return 0);
   parmesh->next_node_comm = next_node_comm;
-  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_ext_comm,
+  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_Ext_comm,
               "allocate ext_face_comm ",return 0);
   parmesh->next_face_comm = next_face_comm;
 
@@ -711,9 +707,9 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
   PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
   PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
 
-  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_int_comm,
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
               "allocating int_node_comm",return 0);
-  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_int_comm,
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
               "allocating int_face_comm",return 0);
 
   /* We have 1 Grp per proc, thus : int_*_comm->nitem : nitem_int_*_comm */

@@ -94,7 +94,7 @@ static inline
 int PMMG_mergeGrpJinI_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
                                          PMMG_pGrp grpJ,PMMG_pGrp grps,
                                          int first_idx ) {
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   int            nitem_int_node_commI,nitem_int_node_commJ,*intvalues;
   int           *node2int_node_commI_index1;
   int           *node2int_node_commI_index2,*node2int_node_commJ_index2;
@@ -377,7 +377,7 @@ int PMMG_mergeGrpJinI_interfacePoints( PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 static inline
 int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
 
-  PMMG_pint_comm int_node_comm,int_face_comm;
+  PMMG_pInt_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            k,iel;
 
@@ -498,8 +498,8 @@ int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
  */
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pint_comm int_node_comm;
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   int            *intvalues;
   int            *node2int_node_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
@@ -571,7 +571,7 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
     ++i;
   }
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,i,
-               parmesh->next_node_comm,PMMG_ext_comm,"ext_node_comm",return 0);
+               parmesh->next_node_comm,PMMG_Ext_comm,"ext_node_comm",return 0);
   parmesh->next_node_comm = i;
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
@@ -594,8 +594,8 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
  */
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pint_comm int_face_comm;
-  PMMG_pext_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
   int            *intvalues;
   int            *face2int_face_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
@@ -668,7 +668,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     ++i;
   }
   PMMG_REALLOC(parmesh,parmesh->ext_face_comm,i,
-               parmesh->next_face_comm,PMMG_ext_comm,"ext_face_comm",return 0);
+               parmesh->next_face_comm,PMMG_Ext_comm,"ext_face_comm",return 0);
   parmesh->next_face_comm = i;
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
@@ -767,7 +767,7 @@ int PMMG_mergeGrps2Send_errorHandler( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 static inline
 int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
-  PMMG_int_comm *int_node_comm,*int_face_comm;
+  PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
   long long     memAv;
   int           nprocs,ngrp,k,j,ier;
@@ -1065,7 +1065,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
                    int *extComm_next_idx,int *extComm_grpFaces2face2int,
                    int *extComm_grpFaces2extComm)
 {
-  PMMG_pext_comm ext_comm,ext_comm_dest;
+  PMMG_pExt_comm ext_comm,ext_comm_dest;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
   MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
@@ -1236,7 +1236,7 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
         /* Creation of a new external communicator */
         PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
                      parmesh->next_face_comm+1,parmesh->next_face_comm,
-                     PMMG_ext_comm,"list of external communicators",ier=-1);
+                     PMMG_Ext_comm,"list of external communicators",ier=-1);
         parmesh->next_face_comm = parmesh->next_face_comm+1;
 
         ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
@@ -1316,8 +1316,8 @@ end:
  */
 int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
 {
-  PMMG_pext_comm ext_comm_col_out_ptr,ext_comm;
-  PMMG_pint_comm int_comm;
+  PMMG_pExt_comm ext_comm_col_out_ptr,ext_comm;
+  PMMG_pInt_comm int_comm;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
   MPI_Comm       comm;
@@ -1515,7 +1515,7 @@ int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
         /* Creation of a new external communicator */
         PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
                      parmesh->next_face_comm+1,parmesh->next_face_comm,
-                     PMMG_ext_comm,"list of external communicators",goto end);
+                     PMMG_Ext_comm,"list of external communicators",goto end);
         parmesh->next_face_comm = parmesh->next_face_comm+1;
         ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm];
         ext_comm->color_in  = parmesh->myrank;
@@ -1610,8 +1610,8 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
                               int **extComm_next_idx,
                               int **extComm_grpFaces2face2int,
                               int **extComm_grpFaces2extComm) {
-  PMMG_pint_comm int_comm;
-  PMMG_pext_comm ext_comm;
+  PMMG_pInt_comm int_comm;
+  PMMG_pExt_comm ext_comm;
   MPI_Comm       comm;
   int            *intvalues,intval,nitem,nprocs;
   int            *face2int_face_comm_idx1,*face2int_face_comm_idx2;
@@ -1928,7 +1928,7 @@ int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
                           int *extComm_next_idx,int *extComm_grpFaces2face2int,
                           int *extComm_grpFaces2extComm) {
 
-  PMMG_pext_comm ext_comm_color_out;
+  PMMG_pExt_comm ext_comm_color_out;
   MPI_Comm       comm;
   int            myrank,tag,grp_id,nprocs,color_out;
   int            k,i,j,idx,idx_next,item_idx,nitem,ier,ext_comm_idx,proc;
@@ -2008,7 +2008,7 @@ static inline
 int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
                           int *nfaces2recv,int *recv_array) {
 
-  PMMG_pext_comm ext_comm_color_out,ext_comm_source,ext_comm;
+  PMMG_pExt_comm ext_comm_color_out,ext_comm_source,ext_comm;
   MPI_Comm       comm;
   MPI_Status     status;
   int            myrank,tag,color_out,old_nitem;
@@ -2062,7 +2062,7 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
       /* Creation of a new external communicator */
       PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
                    parmesh->next_face_comm+1,parmesh->next_face_comm,
-                   PMMG_ext_comm,"list of external communicators",goto end);
+                   PMMG_Ext_comm,"list of external communicators",goto end);
       parmesh->next_face_comm = parmesh->next_face_comm+1;
 
       ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm];
@@ -2108,7 +2108,7 @@ end:
  */
 static inline
 int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
-  PMMG_pint_comm int_comm;
+  PMMG_pInt_comm int_comm;
   MPI_Comm       comm;
   int            nitem,myrank,nprocs;
   int            *send_grps,*recv_grps,*nfaces2send,*nfaces2recv;

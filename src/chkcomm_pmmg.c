@@ -502,7 +502,7 @@ end:
  */
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
 {
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
@@ -700,7 +700,7 @@ end:
  */
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
 {
-  PMMG_pext_comm ext_face_comm;
+  PMMG_pExt_comm ext_face_comm;
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;

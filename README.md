@@ -1,0 +1,1 @@
+ [![Build status](https://gitlab.inria.fr/dobrzyns/ParMmg/badges/master/build.svg)](https://gitlab.inria.fr/dobrzyns/ParMmg/commits/master) 

@@ -387,8 +387,8 @@ static inline
 int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
   MMG5_pMesh     meshI;
   MMG5_pPoint    ppt;
-  PMMG_pext_comm ext_node_comm;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
   int            *intvalues;
   int           *node2int_node_comm0_index1;
   int           *node2int_node_comm0_index2;
@@ -489,8 +489,8 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
 static inline
 int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
   PMMG_pGrp      grp;
-  PMMG_pext_comm ext_face_comm;
-  PMMG_pint_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
   int            *intvalues;
   int           *face2int_face_comm0_index1;
   int           *face2int_face_comm0_index2;
@@ -577,6 +577,92 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Update the tag on the points and tetra in case of ngrp=1
+ *
+ */
+static inline
+int PMMG_updateTag(PMMG_pParMesh parmesh) {
+  MMG5_pMesh      mesh;
+  MMG5_pTetra     pt;
+  MMG5_pxTetra    pxt;
+  MMG5_pPoint     ppt;
+  int             *node2int_node_comm0_index1;
+  int             k,j,i,nparbdy,nfbdy,nabdy;
+
+  if ( parmesh->ngrp != 1 ) return 0;
+
+  mesh                       = parmesh->listgrp[0].mesh;
+  node2int_node_comm0_index1 = parmesh->listgrp[0].node2int_node_comm_index1;
+
+  /** First : update the points : if the point is not in the internal communicator
+              that means the point is not PARBDY */
+  for ( k=1 ; k<=mesh->np ; k++ ) {
+    ppt = &mesh->point[k];
+
+    if ( !(ppt->tag & MG_PARBDY) ) continue;
+
+    for ( j=0 ; j< parmesh->listgrp[0].nitem_int_node_comm ; j++ ) {
+      if(node2int_node_comm0_index1[j]==k) break;
+    }
+    if ( j==parmesh->listgrp[0].nitem_int_node_comm ) {
+      //printf("point not found, remove the tag\n");
+      ppt->tag &= ~MG_PARBDY;
+    }
+  }
+
+  /** Second : update the xt */
+  for ( k=1 ; k<= mesh->ne ; k++) {
+    pt = &mesh->tetra[k];
+    if ( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    /*check the faces*/
+    nfbdy = 0;
+    for ( j=0 ; j<4 ; j++) {
+      if ( !pxt->ftag[j] ) continue;
+      nfbdy++;
+      if ( !(pxt->ftag[j] & MG_PARBDY) ) continue;
+
+      nparbdy = 0;
+      for ( i=0 ; i<3 ; i++) {
+        ppt = &mesh->point[pt->v[_MMG5_idir[j][i]]];
+        if ( ppt->tag & MG_PARBDY ) nparbdy++;
+      }
+      if ( nparbdy!=3 ) {
+        pxt->ftag[j] = 0;
+        nfbdy--;
+      }
+    }
+    /*check the edges*/
+    nabdy = 0;
+    for ( j=0 ; j<6 ; j++) {
+      if ( !pxt->tag[j] ) continue;
+      nabdy++;
+      if ( !(pxt->tag[j] & MG_PARBDY) ) continue;
+
+      nparbdy = 0;
+      for ( i=0 ; i<2 ; i++) {
+        ppt = &mesh->point[pt->v[_MMG5_iare[j][i]]];
+        if ( ppt->tag & MG_PARBDY ) {
+          nparbdy++;
+        }
+      }
+      if ( nparbdy!=2 ) {
+        pxt->tag[j] &= ~MG_PARBDY;;
+        nabdy--;
+      }
+    }
+    if ( !nfbdy && !nabdy ) pt->xt = 0;
+  }
+  /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax; */
+  /* if ( !_MMG3D_analys(mesh) ) return -1; */
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \return 0 if fail, 1 if success
  *
  * Merge all meshes (mesh elements + internal communicator) of a group into the
@@ -589,7 +675,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
-  PMMG_pint_comm int_node_comm,int_face_comm;
+  PMMG_pInt_comm int_node_comm,int_face_comm;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
@@ -666,6 +752,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   _MMG5_SAFE_REALLOC(parmesh->listgrp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
   parmesh->ngrp = 1;
 
+  /** Step 6: Update tag on points, tetra */
+  if ( !PMMG_updateTag(parmesh) ) goto fail_comms;
+
+
   return 1;
 
 fail_comms:
@@ -737,8 +827,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
-  PMMG_pint_comm int_node_comm;
-  PMMG_pext_comm ext_node_comm;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
   int            nmet_tot,ne_tot,nitem_int_node_comm_tot;
@@ -1295,7 +1385,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   MMG5_pxPoint   rcv_xpoint;
   MMG5_pTetra    rcv_tetra;
   MMG5_pxTetra   rcv_xtetra;
-  PMMG_pint_comm int_node_comm;
+  PMMG_pInt_comm int_node_comm;
   double         *rcv_met;
   int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nmet;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;

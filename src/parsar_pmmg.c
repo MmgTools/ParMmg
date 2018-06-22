@@ -212,6 +212,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
       /* link */
       if(k<mesh->npmax-1) mesh->point[k].tmp  = k+1;
     }
+    /*if this point has already been used we have to reset tmp*/
+    mesh->point[mesh->npmax].tmp = 0;
   }
   else {
     assert ( mesh->np == mesh->npmax );
@@ -229,6 +231,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
       
       if(k<mesh->nemax-1) pt->v[3] = k+1;
     }
+    /*if this tetra has already been used, we have to put v[3]=0*/
+    mesh->tetra[mesh->nemax].v[3] = 0;
   }
   else {
     assert ( mesh->ne == mesh->nemax );
@@ -428,8 +432,8 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 * \param argv the argument values parameter from main
 * \param parmesh pointer to active parmesh
 *
-* \return PMMG_SUCCESS
-*         PMMG_FAILURE
+* \return 1 on success
+*         0 on failure
 *
 * PARSe ARguments from the command line function
 * it works on top of the MMG3D_parsar function, ie:
@@ -443,7 +447,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int i = 0;
-  int ret_val = PMMG_SUCCESS;
+  int ret_val = 1;
   int mmgArgc = 0;
   char** mmgArgv = NULL;
 
@@ -458,12 +462,12 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   // Overallocating as they are at most argc. Trying to avoid the overallocation
   // is not worth any effort, these are ~kb
   PMMG_MALLOC(parmesh, mmgArgv, argc, char*, " copy of argv for mmg: ",
-              ret_val = PMMG_FAILURE; goto fail_mmgargv);
+              ret_val = 0; goto fail_mmgargv);
 
   // First argument is always argv[0] ie prog name
   i = 0;
   ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc, " mmgArgv[0] for mmg: ",
-              ret_val = PMMG_FAILURE; goto fail_proc);
+              ret_val = 0; goto fail_proc);
 
   i = 1;
   while ( i < argc ) {
@@ -497,7 +501,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
-                      ret_val = PMMG_FAILURE; goto fail_proc );
+                      ret_val = 0; goto fail_proc );
         }
       break;
 
@@ -505,7 +509,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         parmesh->ddebug = 1;
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                     " adding to mmgArgv for mmg: ",
-                    ret_val = PMMG_FAILURE; goto fail_proc );
+                    ret_val = 0; goto fail_proc );
       break;
 
       case 'v':  /* verbosity */
@@ -527,14 +531,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                     " adding to mmgArgv for mmg: ",
-                    ret_val = PMMG_FAILURE; goto fail_proc);
+                    ret_val = 0; goto fail_proc);
 
       break;
       }
     } else {
       ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                   " adding to mmgArgv for mmg: ",
-                  ret_val = PMMG_FAILURE; goto fail_proc);
+                  ret_val = 0; goto fail_proc);
     }
     ++i;
   }
@@ -543,7 +547,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
                           parmesh->listgrp[0].met ) ) {
-    ret_val = PMMG_FAILURE;
+    ret_val = 0;
     goto fail_proc;
   }
 

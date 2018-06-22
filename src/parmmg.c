@@ -94,6 +94,7 @@ int main( int argc, char *argv[] )
   MMG5_pSol     met = NULL;
   int           rank = 0;
   int           ier = 0;
+  int           iresult;
   long int      tmpmem;
 
   // Shared memory communicator: processes that are on the same node, sharing
@@ -114,8 +115,8 @@ int main( int argc, char *argv[] )
   }
 
   /* Allocate the main pmmg struct and assign default values */
-  if ( PMMG_SUCCESS != PMMG_Init_parMesh( &parmesh ) ) {
-    MPI_Abort( MPI_COMM_WORLD, PMMG_FAILURE );
+  if ( 1 != PMMG_Init_parMesh( &parmesh ) ) {
+    MPI_Abort( MPI_COMM_WORLD, PMMG_STRONGFAILURE );
     MPI_Finalize();
     return PMMG_FAILURE;
   }
@@ -147,27 +148,42 @@ int main( int argc, char *argv[] )
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
-  if ( PMMG_SUCCESS != PMMG_parsar( argc, argv, parmesh ) )
+  if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   if ( !parmesh->myrank && parmesh->imprim )
     fprintf(stdout,"\n   -- PHASE 0 : LOADING MESH ON rank 0\n");
 
+  iresult = 1;
+  ier = 1;
   if ( !parmesh->myrank ) {
-    if ( 1 != MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    if ( 1 != MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,5) ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
 
-    if ( MMG3D_loadMesh( mesh, mesh->namein ) != 1 )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    if ( MMG3D_loadMesh( mesh, mesh->namein ) != 1 ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
     // SetMemMax is used again here because loadMesh overwrites memMax
-    PMMG_parmesh_SetMemMax(parmesh, 20);
+    if ( 1 != PMMG_parmesh_SetMemMax(parmesh, 20) ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
 
-    if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    if ( MMG3D_loadSol( mesh, met, met->namein ) == -1 ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
   } else {
     if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,0) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      ier = 0;
   }
+check_mesh_loading:
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( iresult != 1 )
+    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
   /** Check input data */
   if ( PMMG_SUCCESS != PMMG_check_inputData( parmesh ) )
@@ -177,7 +193,7 @@ int main( int argc, char *argv[] )
     fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
 
   /** Send mesh to other procs */
-  if ( PMMG_SUCCESS != PMMG_bcast_mesh( parmesh ) )
+  if ( 1 != PMMG_bcast_mesh( parmesh ) )
     PMMG_exit_and_free( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh

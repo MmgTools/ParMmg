@@ -200,8 +200,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
                                      idx_t *ncon,idx_t nproc,real_t **tpwgts,
                                      real_t **ubvec) {
   PMMG_pGrp      grp;
-  PMMG_pext_comm ext_face_comm;
-  PMMG_pint_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
   PMMG_HGrp      hash;
   PMMG_hgrp      *ph;
   MMG5_pMesh     mesh;
