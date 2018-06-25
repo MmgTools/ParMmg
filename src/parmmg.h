@@ -189,7 +189,10 @@ void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 
 /* Scaling */
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
-  
+
+/* Quality */
+int PMMG_outqua( PMMG_pParMesh parmesh );
+
 void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
 #ifdef __cplusplus
 }

@@ -546,6 +546,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
+  PMMG_outqua( parmesh );
+
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
     return PMMG_STRONGFAILURE;
