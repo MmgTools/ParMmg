@@ -61,14 +61,14 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &min, &min_result, 1, MPI_DOUBLE, MPI_MIN, 0, parmesh->comm );
   MPI_Reduce( his, his_result, HIS_SIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-  if ( parmesh->myrank == 0 )
-    if ( MMG3D_displayQualHisto( parmesh->listgrp[ 0 ].mesh,
-                                 parmesh->listgrp[ 0 ].met,
-                                 ne_result, max_result, avg_result, min_result,
+  if ( parmesh->myrank == 0 ) {
+    grp = &parmesh->listgrp[0];
+    if ( MMG3D_displayQualHisto( ne_result, max_result, avg_result, min_result,
                                  iel_cur, good_result, med_result, his_result,
-                                 nrid_result ) )
-	    return 0;
-
+                                 nrid_result,grp->mesh->info.optimLES,
+                                 grp->mesh->info.imprim) )
+      return 0;
+  }
   return 1;
 }
 
