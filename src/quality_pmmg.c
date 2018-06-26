@@ -1,55 +1,26 @@
 #include "parmmg.h"
 
 /**
- * \param parmesh pointer toward a parmesh structure
- * \param 
- * \param
- * \param
+ * \param parmesh pointer to parmesh structure
  *
  * \return 1 if success, 0 if fail;
  *
- * 
- *
+ * Print quality histogram among all group meshes and all processors
  */
-//NIKOS DEL ME: int PMMG_print_lengths_histogram( PMMG_pParMesh parmesh )
-int PMMG_prilen( PMMG_pParMesh parmesh )
-{
-  //PMMG_pGrp grp = parmesh->listgrp;
-  //MMG5_pMesh mesh = grp->mesh;
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param rapmin the minimal (normalized) element quality (over the multiple parmeshes)
- * \param rapmax the maximal one
- * \param rapavg the average one
- * \param his    the number of element per quality span (0-0.2,0.2-0.4...0.8-1)
- *
- * \return 1 if success, 0 if fail;
- *
- * 
- *
- */
-int PMMG_computeOutqua( PMMG_pParMesh parmesh, int* rapmin, int* rapmax, int* rapavg, int his[5] )
-{
-}
-
-//NIKOS DEL ME int PMMG_print_quality_histogram( PMMG_pParMesh parmesh )
 int PMMG_outqua( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp grp;
   int i, j;
-  int ne, ne_cur;
-  double max, max_cur;
-  double avg, avg_cur;
-  double min, min_cur;
+  int ne, ne_cur, ne_result;
+  double max, max_cur, max_result;
+  double avg, avg_cur, avg_result;
+  double min, min_cur, min_result;
   int iel, iel_cur;
-  int good, good_cur;
-  int med, med_cur;
-  int his[ 5 ], his_cur[ 5 ];
-  int nrid, nrid_cur;
+  int good, good_cur, good_result;
+  int med, med_cur, med_result;
+  const int HIS_SIZE = 5;
+  int his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
+  int nrid, nrid_cur, nrid_result;
 
   // Calculate the quality values for local process
   ne = 0;
@@ -59,40 +30,45 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   iel = 0;
   good = 0;
   med = 0;
-  for ( i = 0; i < 5; ++i )
+  for ( i = 0; i < HIS_SIZE; ++i )
     his[ i ] = 0;
   nrid = 0;
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     grp  = &parmesh->listgrp[ i ];
- //   PMMG_computeOutqua( parmesh, mesh, &rapmin_cur, &rapmax_cur, &rapavg_cur, his_cur );
     MMG3D_computeOutqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
                          &iel_cur, &good_cur, &med_cur, his_cur, &nrid_cur );
- //   printf(" %d - grp %d: ne %d, max %f, avg %f, min %f, iel %8d, good %8d, med %8d,"
-   //        "his %5d-%5d-%5d-%5d-%5d, nrid %d\n",
-     //      parmesh->myrank, i, ne_cur, max_cur, avg_cur, min_cur, iel_cur, good_cur, 
-       //    med_cur, his_cur[0], his_cur[1], his_cur[2], his_cur[3], his_cur[4], nrid_cur );
     ne += ne_cur;
     avg += avg_cur;
     med += med_cur;
     good += good_cur;
     if ( max_cur > max )
       max = max_cur;
-    if ( min_cur < min )
+    if ( min_cur < min ) {
       min = min_cur;
-    for ( j = 0; j < 5; ++j )
+      iel = iel_cur;
+    }
+    for ( j = 0; j < HIS_SIZE; ++j )
       his[ j ] += his_cur[ j ];
     nrid += nrid_cur;
   }
 
-  //MPI_Bcast( MPI_MIN, rapmin );
-  //MPI_Bcast( MPI_MAX, rapmax );
-if ( parmesh->myrank == 1 ){
-  printf(" %d : max %f, min %f, avg: %f, good(> 0.12): %f \n", parmesh->myrank, max, min, avg/ne, 100.*((float)good/(float)ne) );
-   Αυτό εδώ δεν μπορεί να μείνει ως έχει γιατί τα references στο mesh/met δεν είναι σωστά. ειτε μπορώ να δοκιμάσω σε ποιο mesh/met αναφέρεται το iel (που είναι προβληματικό με απλο MPI_Bcast(MPI_MAX/MIN/klp) είτε να αλλάξει η συνάρτηση ε
-ίτε να κάνω copy paste σε κάτι που να μην τα έχει μέσα.
-  MMG3D_displayQualHisto( parmesh->listgrp[ 0 ].mesh, parmesh->listgrp[ 0 ].met, ne, max, avg, min, iel, good, med, his, nrid );
-}
+  // Calculate the quality values for all processes
+  MPI_Reduce( &ne, &ne_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
+  MPI_Reduce( &min, &min_result, 1, MPI_DOUBLE, MPI_MIN, 0, parmesh->comm );
+  MPI_Reduce( his, his_result, HIS_SIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  if ( parmesh->myrank == 0 )
+    if ( MMG3D_displayQualHisto( parmesh->listgrp[ 0 ].mesh,
+                                 parmesh->listgrp[ 0 ].met,
+                                 ne_result, max_result, avg_result, min_result,
+                                 iel_cur, good_result, med_result, his_result,
+                                 nrid_result ) )
+	    return 0;
+
   return 1;
 }
-
 
