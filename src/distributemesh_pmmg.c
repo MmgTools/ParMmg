@@ -334,7 +334,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
-  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc,ne;
+  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc,ne,newsize;
   int8_t       ifac;
 
   ret_val = 1;
@@ -396,13 +396,14 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         if ( !pt->xt ) {
           if ( (mesh->xt + 1) > mesh->xtmax ) {
             /* realloc of xtetras table */
-            PMMG_RECALLOC(mesh,mesh->xtetra,(1.+mesh->gap)*mesh->xtmax+1,
+            newsize = MG_MAX((1.+mesh->gap)*mesh->xtmax,mesh->xtmax+1);
+            PMMG_RECALLOC(mesh,mesh->xtetra,newsize+1,
                           mesh->xtmax+1,int,"larger xtetra ",
                           ret_val = 0;goto fail_alloc7);
-            PMMG_RECALLOC(parmesh,(*xTetraPerm),(1.+mesh->gap)*mesh->xtmax+1,
+            PMMG_RECALLOC(parmesh,(*xTetraPerm),newsize+1,
                           mesh->xtmax+1,int,"larger xtetra permutation table ",
                           ret_val = 0; goto fail_alloc7);
-            mesh->xtmax = (1.+mesh->gap) * mesh->xtmax;
+            mesh->xtmax = newsize;
           }
           ++mesh->xt;
           pt->xt = mesh->xt;
@@ -434,13 +435,14 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
           if ( !ppt->xp ) {
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
-              PMMG_RECALLOC(mesh,mesh->xpoint,(1.+mesh->gap)*mesh->xpmax+1,
+              newsize = MG_MAX((1.+mesh->gap)*mesh->xpmax,mesh->xpmax+1);
+              PMMG_RECALLOC(mesh,mesh->xpoint,newsize,
                             mesh->xpmax+1,int,"larger xpoint ",
                             ret_val = 0;goto fail_alloc7);
-              PMMG_RECALLOC(parmesh,(*xPointPerm),(1.+mesh->gap)*mesh->xpmax+1,
+              PMMG_RECALLOC(parmesh,(*xPointPerm),newsize,
                             mesh->xpmax+1,int,"larger xpoint permutation table ",
                             ret_val = 0; goto fail_alloc7);
-              mesh->xpmax = (1.+mesh->gap) * mesh->xpmax;
+              mesh->xpmax = newsize;
             }
             ++mesh->xp;
             ppt->xp = mesh->xp;

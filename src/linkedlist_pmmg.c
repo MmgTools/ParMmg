@@ -67,7 +67,7 @@ void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list ) {
 int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
                               int val1,int val2 ) {
   PMMG_lnkdCell *cell;
-  int           k,id,prevId;
+  int           k,id,prevId,newsize;
 
   /** Start from the first cell of the list */
 
@@ -97,9 +97,10 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
        ( (k<list->nitem) && ( (cell->val1 != val1) || (cell->val2!=val2) ) ) ) {
     /** The cell has not be founded, add it */
     if ( list->nitem >= list->nitem_max ) {
-      PMMG_REALLOC(parmesh,list->item,(int)(1.2*list->nitem_max),
+      newsize = MG_MAX((int)(1.2*list->nitem_max),list->nitem_max+1);
+      PMMG_REALLOC(parmesh,list->item,newsize,
                    list->nitem_max,PMMG_lnkdList,"linked list",return 0);
-      list->nitem_max *= 1.2;
+      list->nitem_max = newsize;
     }
     cell          = &list->item[list->nitem];
     cell->id      = list->nitem++;

@@ -223,7 +223,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
   int            *intvalues;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            face_id_glo;
-  int            k,iel,ie,ifac,iploc,i;
+  int            k,iel,ie,ifac,iploc,i,newsize;
 
   intvalues = parmesh->int_face_comm->intvalues;
 
@@ -293,10 +293,11 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
-        PMMG_RECALLOC(meshI, meshI->xtetra, (1+meshI->gap) * meshI->xtmax + 1,
-                      meshI->xtmax + 1, MMG5_xTetra,
+        newsize = MG_MAX((1+meshI->gap) * meshI->xtmax,meshI->xtmax+1);
+        PMMG_RECALLOC(meshI, meshI->xtetra, newsize+1,
+                      meshI->xtmax+1, MMG5_xTetra,
                       "larger xtetra table", meshI->xt--; goto fail_ncomm);
-        meshI->xtmax = (1.+meshI->gap) * meshI->xtmax;
+        meshI->xtmax = newsize;
       }
       ptI->xt = meshI->xt;
       pxtI = &meshI->xtetra[ptI->xt];
@@ -324,7 +325,7 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pTetra    ptI,ptJ;
   MMG5_pxTetra   pxtI,pxtJ;
-  int            k,ie,i;
+  int            k,ie,i,newsize;
 
   meshI = grpI->mesh;
 
@@ -357,10 +358,11 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
-        PMMG_RECALLOC(meshI, meshI->xtetra, (1.+meshI->gap) * meshI->xtmax + 1,
-                      meshI->xtmax + 1, MMG5_xTetra,
+        newsize =  MG_MAX((1.+meshI->gap) * meshI->xtmax,meshI->xtmax+1);
+        PMMG_RECALLOC(meshI, meshI->xtetra,newsize+1,
+                      meshI->xtmax+1, MMG5_xTetra,
                       "larger xtetra table", meshI->xt--; goto fail_ncomm);
-        meshI->xtmax = (1.+meshI->gap) * meshI->xtmax;
+        meshI->xtmax = newsize;
       }
       ptI->xt = meshI->xt;
       pxtI = &meshI->xtetra[ptI->xt];
