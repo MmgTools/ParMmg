@@ -133,7 +133,6 @@ int main( int argc, char *argv[] )
                              MMG5_ARG_end) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
 
-
   // Init memMax sizes. Only one mesh for now => pmmg structs do not need much
   if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
     PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
@@ -222,10 +221,15 @@ check_mesh_loading:
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
 
   ier = PMMG_parmmglib1(parmesh);
-  if ( ier == PMMG_STRONGFAILURE )
+  if ( ier == PMMG_STRONGFAILURE ) {
     PMMG_exit_and_free( parmesh, ier );
-  else if ( (!parmesh->myrank) && parmesh->imprim )
-    fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
+  } else if ( ier == PMMG_LOWFAILURE ) {
+#warning SAVE THE MESH?
+    PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
+  } else {
+    if ( (!parmesh->myrank) && parmesh->imprim )
+      fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
+  }
 
   /** Unscaling */
   if ( parmesh->ngrp ) {

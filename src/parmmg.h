@@ -96,6 +96,7 @@ extern "C" {
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
     int stat = PMMG_SUCCESS;                                            \
+                                                                        \
     if ( (ptr) == NULL ) {                                              \
       assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?");\
       PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);              \

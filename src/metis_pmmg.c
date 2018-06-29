@@ -60,7 +60,7 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
 static inline
 int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
   PMMG_hgrp  *ph;
-  int        tmp_nxt,j;
+  int        tmp_nxt,j,newsize;
 
   ph  = &hash->item[k+1];
 
@@ -78,12 +78,13 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
     ph        = &hash->item[hash->nxt];
 
     if ( hash->nxt >= hash->max-1 ) {
-      PMMG_RECALLOC(parmesh,hash->item,(int)((1+PMMG_GAP)*hash->max),hash->max,PMMG_hgrp,
+      newsize = MG_MAX((int)((1+PMMG_GAP)*hash->max),hash->max+1);
+      PMMG_RECALLOC(parmesh,hash->item,newsize,hash->max,PMMG_hgrp,
                     "grp hash table: if we pass too much time here"
                     " (on true cases (more than 20 procs)), it means"
                     " that the hmax value is not a good estimation of the"
                     " interprocessor adjacency... TO CHANGE",return 0);
-      hash->max *= (1+PMMG_GAP);
+      hash->max = newsize;
 
       /* ph pointer may be false after realloc */
       ph        = &hash->item[hash->nxt];

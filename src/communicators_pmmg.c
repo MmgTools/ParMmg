@@ -762,7 +762,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_lnkdList   **proclists,list;
   int             *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
   int             *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
-  int             *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;;
+  int             *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;
   int8_t          glob_update,loc_update;
   MPI_Request     *request;
   MPI_Status      *status;

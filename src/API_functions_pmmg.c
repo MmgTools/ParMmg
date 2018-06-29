@@ -233,7 +233,7 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
 #warning dirty : this function guess that we use MPI_COMM_WORLD while user may set to parmmg another communicator. I think that the size of the parmesh (as memGloMax, memMax, memCur) must not be setted here but in a further step (as in Mmg).
   PMMG_parmesh_SetMemGloMax( *parmesh, 0 );
 
-  return PMMG_SUCCESS;
+  return 1;
 
 fail_mesh:
     PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
@@ -245,7 +245,7 @@ fail_grplst:
    free( *parmesh );
    *parmesh = NULL;
 fail_pmesh:
-  return PMMG_FAILURE;
+  return 0;
 }
 
 /**
@@ -371,8 +371,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
-    return(0);
+    return 0;
   }
 
-  return(1);
+  return 1;
 }
