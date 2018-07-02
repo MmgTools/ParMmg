@@ -1,7 +1,7 @@
 #include "parmmg.h"
 
 typedef struct {
-  double min, iel, iel_grp;
+  double min, iel, iel_grp, cpu;
 } min_iel_t;
 
 static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype *dptr )
@@ -9,7 +9,7 @@ static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype 
   int i;
   min_iel_t *in;
   min_iel_t *out;
-  min_iel_t c = { DBL_MAX, 0., 0. };
+  min_iel_t c = { DBL_MAX, 0., 0., 0. };
 
   (void)dptr;
   in = (min_iel_t*) in1;
@@ -95,12 +95,13 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
 
-  MPI_Type_contiguous( 3, MPI_DOUBLE, &mpi_iel_min_t );
+  MPI_Type_contiguous( 4, MPI_DOUBLE, &mpi_iel_min_t );
   MPI_Type_commit( &mpi_iel_min_t );
   MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
   min_iel.min = min;
   min_iel.iel = iel;
   min_iel.iel_grp = iel_grp;
+  min_iel.cpu = parmesh->myrank;
   MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
   MPI_Op_free( &iel_min_op );
 
@@ -108,11 +109,25 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
 
   if ( parmesh->myrank == 0 ) {
+
+    fprintf(stdout,"\n  -- PARMESH QUALITY");
+
     grp = &parmesh->listgrp[0];
-    if ( MMG3D_displayQualHisto( ne_result, max_result, avg_result, min_iel_result.min,
-                                 min_iel_result.iel, good_result, med_result, his_result,
-                                 nrid_result,grp->mesh->info.optimLES,
-                                 grp->mesh->info.imprim) )
+    if ( grp->mesh->info.imprim )
+      fprintf( stdout," (LES)" );
+    fprintf( stdout, "  %d\n", ne_result );
+
+    fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (GROUP %d"
+             " - CPU  %d - ELT %d)\n",
+             max_result, avg_result / ne_result, min_iel_result.min,
+             (int)min_iel_result.iel_grp, (int)min_iel_result.cpu,
+             (int)min_iel_result.iel );
+
+    if ( MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
+                                          min_iel_result.min, min_iel_result.iel,
+                                          good_result, med_result, his_result,
+                                          nrid_result,grp->mesh->info.optimLES,
+                                          grp->mesh->info.imprim ) )
       return 0;
   }
 
