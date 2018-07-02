@@ -1,7 +1,9 @@
 #include "parmmg.h"
+#include <stddef.h>
 
 typedef struct {
-  double min, iel, iel_grp, cpu;
+  double min;
+  int iel, iel_grp, cpu;
 } min_iel_t;
 
 static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype *dptr )
@@ -9,11 +11,11 @@ static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype 
   int i;
   min_iel_t *in;
   min_iel_t *out;
-  min_iel_t c = { DBL_MAX, 0., 0., 0. };
+  min_iel_t c = { DBL_MAX, 0, 0, 0 };
 
-  (void)dptr;
   in = (min_iel_t*) in1;
   out = (min_iel_t*) out1;
+  (void)dptr;
   for ( i = 0; i < *len; ++i ) {
     if ( c.min > in->min )
       c = *in;
@@ -46,8 +48,13 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   int nrid, nrid_cur, nrid_result;
   MPI_Op        iel_min_op;
   MPI_Datatype  mpi_iel_min_t;
-  min_iel_t     min_iel;
-  min_iel_t     min_iel_result;
+  MPI_Datatype types[ 4 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
+  min_iel_t     min_iel, min_iel_result;
+  MPI_Aint disps[ 4 ] = { offsetof( min_iel_t, min ),
+                          offsetof( min_iel_t, iel ),
+                          offsetof( min_iel_t, iel_grp ),
+                          offsetof( min_iel_t, cpu ) };
+  int lens[ 4 ] = { 1, 1, 1, 1 };
 
   // Calculate the quality values for local process
   iel_grp = 0;
@@ -95,7 +102,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
 
-  MPI_Type_contiguous( 4, MPI_DOUBLE, &mpi_iel_min_t );
+  MPI_Type_create_struct( 4, lens, disps, types, &mpi_iel_min_t );
   MPI_Type_commit( &mpi_iel_min_t );
   MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
   min_iel.min = min;
@@ -112,7 +119,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf(stdout,"\n  -- PARMESH QUALITY");
 
-    grp = &parmesh->listgrp[0];
+    grp = &parmesh->listgrp[ 0 ];
     if ( grp->mesh->info.imprim )
       fprintf( stdout," (LES)" );
     fprintf( stdout, "  %d\n", ne_result );
@@ -120,8 +127,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (GROUP %d"
              " - CPU  %d - ELT %d)\n",
              max_result, avg_result / ne_result, min_iel_result.min,
-             (int)min_iel_result.iel_grp, (int)min_iel_result.cpu,
-             (int)min_iel_result.iel );
+             min_iel_result.iel_grp, min_iel_result.cpu, min_iel_result.iel );
 
     if ( MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
                                           min_iel_result.min, min_iel_result.iel,
