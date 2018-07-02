@@ -11,17 +11,17 @@ static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype 
   int i;
   min_iel_t *in;
   min_iel_t *out;
-  min_iel_t c = { DBL_MAX, 0, 0, 0 };
 
   in = (min_iel_t*) in1;
   out = (min_iel_t*) out1;
   (void)dptr;
-  for ( i = 0; i < *len; ++i ) {
-    if ( c.min > in->min )
-      c = *in;
-    *out = c;
-    ++in;
-    ++out;
+  for (int i=0; i<*len; i++) {
+    if ( in[ i ].min < out[ i ]. min ) {
+      out[ i ].min = in[ i ].min;
+      out[ i ].iel = in[ i ].iel;
+      out[ i ].iel_grp = in[ i ].iel_grp;
+      out[ i ].cpu = in[ i ].cpu;
+    }
   }
 }
 
@@ -49,7 +49,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Op        iel_min_op;
   MPI_Datatype  mpi_iel_min_t;
   MPI_Datatype types[ 4 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
-  min_iel_t     min_iel, min_iel_result;
+  min_iel_t     min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
   MPI_Aint disps[ 4 ] = { offsetof( min_iel_t, min ),
                           offsetof( min_iel_t, iel ),
                           offsetof( min_iel_t, iel_grp ),
