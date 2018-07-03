@@ -220,10 +220,15 @@ check_mesh_loading:
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
 
   ier = PMMG_parmmglib1(parmesh);
-  if ( ier == PMMG_STRONGFAILURE )
+  if ( ier == PMMG_STRONGFAILURE ) {
     PMMG_exit_and_free( parmesh, ier );
-  else if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
-    fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
+  } else if ( ier == PMMG_LOWFAILURE ) {
+#warning SAVE THE MESH?
+    PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
+  } else {
+    if ( (!parmesh->myrank) && parmesh->listgrp[0].mesh->info.imprim )
+      fprintf(stdout,"  -- PHASE 3 COMPLETED.\n");
+  }
 
   /** Unscaling */
   mesh = parmesh->listgrp[0].mesh;

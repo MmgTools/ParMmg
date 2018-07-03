@@ -46,12 +46,15 @@ static int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
  */
 static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
 {
+  int newsize;
+
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
   if ( (to->xt + 1) >= to->xtmax ) {
-    PMMG_REALLOC(to, to->xtetra, scale*to->xtmax+1, to->xtmax+1,MMG5_xTetra,
+    newsize = MG_MAX(scale*to->xtmax,to->xtmax+1);
+    PMMG_REALLOC(to, to->xtetra, newsize+1, to->xtmax+1,MMG5_xTetra,
                   "larger xtetra table",return 0);
-    to->xtmax = scale * to->xtmax;
+    to->xtmax = newsize;
   }
   ++to->xt;
   memcpy( &to->xtetra[ to->xt ],
@@ -73,12 +76,15 @@ static int PMMG_xtetraAppend( MMG5_pMesh to, MMG5_pMesh from, int location )
  */
 static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, int point )
 {
+  int newsize;
+
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
   if ( (to->xp + 1) >= to->xpmax + 1 ) {
-    PMMG_RECALLOC(to, to->xpoint, scale*to->xpmax+1, to->xpmax+1,MMG5_xPoint,
+    newsize = MG_MAX(scale*to->xpmax,to->xpmax+1);
+    PMMG_RECALLOC(to, to->xpoint, newsize+1, to->xpmax+1,MMG5_xPoint,
                   "larger xpoint table",return 0);
-    to->xpmax = scale * to->xpmax;
+    to->xpmax = newsize;
   }
   ++to->xp;
   memcpy( &to->xpoint[ to->xp ],
@@ -102,17 +108,18 @@ static int PMMG_xpointAppend( MMG5_pMesh to, MMG5_pMesh from, int tetrahedron, i
 static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                              int idx1, int idx2 )
 {
+  int newsize;
+
   assert( (max != 0) && "null pointer passed" );
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
   if ( (grp->nitem_int_node_comm + 1) >= *max ) {
-    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1,
-                  scale * *max, *max, int,
+    newsize = MG_MAX(scale * (*max),(*max)+1);
+    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index1, newsize, *max, int,
                   "increasing node2int_node_comm_index1",return 0);
-    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index2,
-                  scale * *max, *max, int,
+    PMMG_RECALLOC(parmesh, grp->node2int_node_comm_index2, newsize, *max, int,
                   "increasing node2int_node_comm_index2",return 0);
-    *max  = *max * scale;
+    *max  = newsize;
   }
   grp->node2int_node_comm_index1[ grp->nitem_int_node_comm ] = idx1;
   grp->node2int_node_comm_index2[ grp->nitem_int_node_comm ] = idx2;
@@ -139,19 +146,20 @@ static int PMMG_n2incAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
                         int idx1, int idx2 )
 {
+  int newsize;
+
   assert( (max != 0) && "null pointer passed" );
 
   // Adjust the value of scale to reallocate memory more or less agressively
   const float scale = 2.f;
 
   if ( (grp->nitem_int_face_comm + 1) >= *max ) {
-    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index1,
-                  scale * *max, *max, int,
+    newsize = MG_MAX(scale * (*max),(*max)+1);
+    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index1,newsize, *max, int,
                   "increasing face2int_face_comm_index1",return 0);
-    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index2,
-                  scale * *max, *max, int,
+    PMMG_RECALLOC(parmesh, grp->face2int_face_comm_index2,newsize, *max, int,
                   "increasing face2int_face_comm_index2",return 0);
-    *max  = *max * scale;
+    *max  = newsize;
   }
 
   grp->face2int_face_comm_index1[ grp->nitem_int_face_comm ] = idx1;
@@ -407,7 +415,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
   MMG5_pxTetra     pxt;
   MMG5_pPoint      ppt;
   int              *adja,adjidx,vidx,fac,pos,ip,iploc,iplocadj;
-  int              tetPerGrp,tet,poi,j;
+  int              tetPerGrp,tet,poi,j,newsize;
 
   mesh = grp->mesh;
   met  = grp->met;
@@ -464,9 +472,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         ++(*np);
 
         if ( *np > mesh->npmax ) {
-          PMMG_RECALLOC(mesh,mesh->point,(int)((1+mesh->gap)*mesh->npmax)+1,
-                        mesh->npmax+1,MMG5_Point,"point array",return 0);
-          mesh->npmax = (int)((1+mesh->gap)*mesh->npmax);
+          newsize = MG_MAX((int)((1+mesh->gap)*mesh->npmax),mesh->npmax+1);
+          PMMG_RECALLOC(mesh,mesh->point,newsize+1,mesh->npmax+1,MMG5_Point,
+                        "point array",return 0);
+          mesh->npmax = newsize;
           mesh->npnil = (*np)+1;;
           for (j=mesh->npnil; j<mesh->npmax-1; j++)
             mesh->point[j].tmp  = j+1;
@@ -477,6 +486,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
                          "metric array",return 0);
           }
           met->npmax = mesh->npmax;
+          assert ( *np<=mesh->npmax );
         }
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
@@ -619,10 +629,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
           if ( !ppt->xp ) {
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
-              PMMG_RECALLOC(mesh,mesh->xpoint,(int)((1+mesh->gap)*mesh->xpmax+1),
-                            mesh->xpmax+1,MMG5_xPoint, "larger xpoint ",
-                            return 0);
-              mesh->xpmax = (int)((1+mesh->gap) * mesh->xpmax);
+              newsize = MG_MAX((int)((1+mesh->gap)*mesh->xpmax),mesh->xpmax+1);
+              PMMG_RECALLOC(mesh,mesh->xpoint,newsize+1,mesh->xpmax+1,MMG5_xPoint,
+                            "larger xpoint ",return 0);
+              mesh->xpmax = newsize;
             }
             ++mesh->xp;
             ppt->xp = mesh->xp;
