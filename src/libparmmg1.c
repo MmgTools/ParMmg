@@ -558,6 +558,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
+  PMMG_outqua( parmesh );
+
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
