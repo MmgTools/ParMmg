@@ -66,7 +66,18 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
 
 
 /* API_functions_pmmg.c */
-int PMMG_Init_parMesh( PMMG_pParMesh *parmesh );
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param comm MPI communicator for ParMmg
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
+ * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
+ * the mesh.
+ *
+ * Allocation of the parmesh structure and initialisation of the parameters
+ *
+ **/
+int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
 
 /* libparmmg.c */
 /**
@@ -84,16 +95,18 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param comm MPI communicator for ParMmg
  *
  * Initialization of the input parameters (stored in the Info structure).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh)\n
+ * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm)\n
  * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MPI_Comm,INTENT(IN)           :: comm\n
  * >   END SUBROUTINE\n
  *
  */
-void  PMMG_Init_parameters(PMMG_pParMesh parmesh);
+void  PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm);
 
 /**
  * \param parmesh pointer toward the parmesh structure.

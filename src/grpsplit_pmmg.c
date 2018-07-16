@@ -365,7 +365,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
               "subgroup internal2 communicator ",return 0);
 
   if ( parmesh->ddebug ) {
-    printf( "+++++NIKOS+++++[%d/%d]:\t mesh %p,\t xtmax %d - xtetra:%p,\t"
+    printf( "[%d/%d]:\t mesh %p,\t xtmax %d - xtetra:%p,\t"
             "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
             " index2 %p \n",
             parmesh->myrank + 1, parmesh->nprocs,mesh, mesh->xtmax,
@@ -803,7 +803,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
   if ( parmesh->ddebug )
-    printf( "+++++NIKOS+++++[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
+    printf( "[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
             parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi,
             meshOld->ne, meshOld->nei );
 
@@ -847,7 +847,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   if ( parmesh->ddebug )
     for ( i = 0; i < ngrp ; i++ )
-      printf( "+++++NIKOS+++++[%d/%d]: group[%d] has %d elements\n",
+      printf( "[%d/%d]: group[%d] has %d elements\n",
               parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
 
 
@@ -951,7 +951,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
                   ret_val = 0;goto fail_sgrp );
 
     if ( parmesh->ddebug )
-      printf( "+++++NIKOS[%d/%d]:: %d points in group, %d tetra."
+      printf( "[%d/%d]: %d points in group, %d tetra."
               " %d nitem in int communicator\n",
               ngrp, grpId+1, meshCur->np, meshCur->ne,
               grpCur->nitem_int_node_comm );
