@@ -137,11 +137,11 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
 
-    if ( MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
-                                          min_iel_result.min, min_iel_result.iel,
-                                          good_result, med_result, his_result,
-                                          nrid_result,grp->mesh->info.optimLES,
-                                          parmesh->info.imprim ) )
+    if ( !MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
+                                           min_iel_result.min, min_iel_result.iel,
+                                           good_result, med_result, his_result,
+                                           nrid_result,grp->mesh->info.optimLES,
+                                           parmesh->info.imprim ) )
       return 0;
   }
 
