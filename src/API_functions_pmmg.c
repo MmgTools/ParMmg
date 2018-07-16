@@ -198,7 +198,7 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param comm MPI communicator for ParMmg (NULL for MPI_COMM_WORLD)
+ * \param comm MPI communicator for ParMmg
  *
  * Initialization of the input parameters.
  *
@@ -220,12 +220,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
 
   /* Init MPI data */
-  if ( !comm ) {
-    parmesh->comm = MPI_COMM_WORLD;
-  }
-  else {
-    parmesh->comm   = comm;
-  }
+  parmesh->comm   = comm;
+
   MPI_Initialized(&flag);
   if ( flag ) {
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
@@ -251,7 +247,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
 /**
  * \param parmesh pointer toward a parmesh structure
- * \param comm MPI communicator for ParMmg (NULL for MPI_COMM_WORLD)
+ * \param comm MPI communicator for ParMmg
  *
  * \return 0 on error
  *         1 on success

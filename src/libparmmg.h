@@ -68,7 +68,7 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
 /* API_functions_pmmg.c */
 /**
  * \param parmesh pointer toward the parmesh structure
- * \param comm MPI communicator for ParMmg (NULL for MPI_COMM_WORLD)
+ * \param comm MPI communicator for ParMmg
  *
  * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
  * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
@@ -95,7 +95,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param comm MPI communicator for ParMmg (NULL for MPI_COMM_WORLD)
+ * \param comm MPI communicator for ParMmg
  *
  * Initialization of the input parameters (stored in the Info structure).
  *
