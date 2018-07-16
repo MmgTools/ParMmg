@@ -23,20 +23,32 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   int              k,ier;
+  mytime           ctim[TIMEMAX];
+  char             stim[32];
 
-  if ( !parmesh->myrank && parmesh->imprim ) {
+
+  if ( parmesh->info.imprim ) {
     fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
-    fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
-    fprintf(stdout,"     %s %s\n",__DATE__,__TIME__);
+    fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
+
+    fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
+    fprintf(stdout,"     %s\n",MG_CPY);
   }
+
+  tminit(ctim,TIMEMAX);
+  chrono(ON,&(ctim[0]));
 
   /** Check input data */
   if ( !PMMG_check_inputData(parmesh) )
     return PMMG_STRONGFAILURE;
 
-  if ( !parmesh->myrank &&  parmesh->imprim )
+  chrono(ON,&(ctim[1]));
+  if ( parmesh->info.imprim ) {
+    fprintf(stdout,"\n  %s\n   MODULE PARMMG3D: IMB-LJLL : %s (%s)\n  %s\n",
+            PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
+  }
 
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -47,7 +59,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     /** Function setters (must be assigned before quality computation) */
     _MMG3D_Set_commonFunc();
 
-    /** Mesh scaling and qualisty histogram */
+    /** Mesh scaling and quality histogram */
     if ( !_MMG5_scaleMesh(mesh,met) )
       return PMMG_STRONGFAILURE;
 
@@ -94,25 +106,36 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
       _MMG3D_prilen(mesh,met,0);
   }
 
-  if ( !parmesh->myrank &&  parmesh->imprim )
-    fprintf(stdout,"\n  -- PHASE 1 COMPLETED\n");
+  chrono(OFF,&(ctim[1]));
+  if ( parmesh->info.imprim )
+    fprintf(stdout,"\n  -- PHASE 1 COMPLETED.     %s\n",stim);
 
   /** Remeshing */
-  if ( !parmesh->myrank &&  parmesh->imprim )
+  chrono(ON,&(ctim[2]));
+  if ( parmesh->info.imprim )
     fprintf(stdout,"\n  -- PHASE 2 : %s MESHING\n",
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
 
   ier = PMMG_parmmglib1(parmesh);
-  fprintf(stdout,"  -- PHASE 2 COMPLETED.\n");
+
+  chrono(OFF,&(ctim[2]));
+  printim(ctim[2].gdif,stim);
+  if ( parmesh->info.imprim ) {
+    fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+    fprintf(stdout,"\n  %s\n   END OF MODULE PARMMG3d: IMB-LJLL \n  %s\n",
+            PMMG_STR,PMMG_STR);
+  }
+
 
   if ( ier == MMG5_STRONGFAILURE )
     return PMMG_STRONGFAILURE;
 
   /** Boundaries reconstruction */
-  if ( !parmesh->myrank &&  parmesh->imprim )
+  chrono(ON,&(ctim[1]));
+  if ( parmesh->info.imprim )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
-  if ( parmesh->ngrp && MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
+  if ( MMG3D_bdryBuild(parmesh->listgrp[0].mesh)<0 ) {
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;
@@ -122,16 +145,25 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     return PMMG_LOWFAILURE;
   }
 
-  if ( !parmesh->myrank &&  parmesh->imprim )
-    fprintf(stdout,"\n   -- PHASE 3 COMPLETED.\n");
+  chrono(OFF,&(ctim[1]));
+  printim(ctim[1].gdif,stim);
+
+  if ( parmesh->info.imprim )
+    fprintf(stdout,"\n   -- PHASE 3 COMPLETED.     %s\n",stim);
 
   /** Mesh unscaling */
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     met  = parmesh->listgrp[k].met;
-    if ( !_MMG5_unscaleMesh(mesh,met) )
-      return PMMG_STRONGFAILURE;
+    if ( !_MMG5_unscaleMesh(mesh,met) ) {
+      ier = MG_MAX(PMMG_STRONGFAILURE,ier);
+    }
   }
+
+  chrono(OFF,&ctim[0]);
+  printim(ctim[0].gdif,stim);
+  if ( parmesh->info.imprim )
+    fprintf(stdout,"\n   PARMMG3DLIB: ELAPSED TIME  %s\n",stim);
 
   return(ier);
 }

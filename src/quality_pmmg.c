@@ -120,8 +120,10 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
     grp = &parmesh->listgrp[ 0 ];
-    if ( grp->mesh->info.imprim )
+    if ( parmesh->info.imprim && grp->mesh->info.optimLES ) {
       fprintf( stdout," (LES)" );
+    }
+
     fprintf( stdout, "  %d\n", ne_result );
 
     fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (",

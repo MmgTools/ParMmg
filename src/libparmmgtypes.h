@@ -168,6 +168,16 @@ typedef struct {
 } PMMG_Grp;
 typedef PMMG_Grp  * PMMG_pGrp;
 
+/**
+ * \struct PMMG_Info
+ * \brief Store input parameters of the run.
+ */
+typedef struct {
+
+  int imprim; /*!< ParMmg verbosity */
+
+} PMMG_Info;
+
 
 /**
  * \struct PMMG_ParMesh
@@ -208,6 +218,10 @@ typedef struct {
   /* global variables */
   int            ddebug; //! Debug level
   int            niter;  //! Number of adaptation iterations
+
+  /* parameters of the run */
+  MMG5_Info      info; /*!< \ref MMG5_Info structure */
+
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 #endif

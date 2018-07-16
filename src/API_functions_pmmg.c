@@ -188,20 +188,72 @@ void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
 {
   PMMG_parmesh_Free( parmesh );
   if ( val != PMMG_SUCCESS )
-    MPI_Abort( MPI_COMM_WORLD, val );
+    MPI_Abort( parmesh->comm, val );
   MPI_Finalize();
   exit( val );
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param comm MPI communicator for ParMmg
+ *
+ * Initialization of the input parameters.
+ *
+ */
+void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
+  MMG5_pMesh mesh;
+  int        k,flag;
+
+  memset(&parmesh->info,0, sizeof(PMMG_Info));
+
+  parmesh->info.mem    = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
+  parmesh->ddebug      = 0;
+  parmesh->niter       = 1;
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[0].mesh;
+    /* Set Mmg verbosity to 0 */
+    mesh->info.imprim = 0;
+  }
+
+  /* Init MPI data */
+  parmesh->comm   = comm;
+
+  MPI_Initialized(&flag);
+  if ( flag ) {
+    MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
+    MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
+  }
+  else {
+    parmesh->nprocs = 1;
+    parmesh->myrank = 0;
+  }
+
+  /* ParMmg verbosity */
+  if ( !parmesh->myrank ) {
+    parmesh->info.imprim = 1;
+  }
+  else {
+    parmesh->info.imprim = 0;
+  }
+
+  /* Default memory */
+  PMMG_parmesh_SetMemGloMax( parmesh, 0 );
+}
+
+
+/**
  * \param parmesh pointer toward a parmesh structure
+ * \param comm MPI communicator for ParMmg
  *
  * \return 0 on error
  *         1 on success
+ *
  * allocate a parmesh struct with a single mesh struct and initialize
  * some of the struct fields
+ *
  */
-int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
+int PMMG_Init_parMesh( PMMG_pParMesh *parmesh ,MPI_Comm comm)
 {
   PMMG_pGrp grp = NULL;
 
@@ -230,20 +282,22 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh )
                              MMG5_ARG_end ) )
     goto fail_mesh;
 
-#warning dirty : this function guess that we use MPI_COMM_WORLD while user may set to parmmg another communicator. I think that the size of the parmesh (as memGloMax, memMax, memCur) must not be setted here but in a further step (as in Mmg).
-  PMMG_parmesh_SetMemGloMax( *parmesh, 0 );
+
+  PMMG_Init_parameters(*parmesh,comm);
 
   return 1;
 
 fail_mesh:
     PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
                  "deallocating groups container");
+
 fail_grplst:
   (*parmesh)->ngrp = 0;
   (*parmesh)->memMax = 0;
   (*parmesh)->memCur = 0;
    free( *parmesh );
    *parmesh = NULL;
+
 fail_pmesh:
   return 0;
 }
@@ -256,7 +310,8 @@ fail_pmesh:
  * \return 0 on error
  *         1 on success
  *
- * set parameters
+ * Set integer parameters.
+ *
  */
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
@@ -264,12 +319,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   int         k,mem;
 
   switch ( iparam ) {
-    /* Integer parameters */
   case PMMG_IPARAM_verbose :
-    for ( k=0; k<parmesh->ngrp; ++k ) {
-      mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter( mesh, NULL, MMG3D_IPARAM_verbose, val ) )
-        return 0;
+    if ( !parmesh->myrank ) {
+      parmesh->info.imprim = val;
     }
     break;
   case PMMG_IPARAM_mem :
@@ -296,10 +348,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     break;
 #endif
   case PMMG_IPARAM_debug :
-    for ( k=0; k<parmesh->ngrp; ++k ) {
-      mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_debug,val) ) return 0;
-    }
+    parmesh->ddebug = val;
     break;
   case PMMG_IPARAM_angle :
     for ( k=0; k<parmesh->ngrp; ++k ) {

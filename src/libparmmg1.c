@@ -229,8 +229,14 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        k;
+  mytime     ctim[TIMEMAX];
+  char       stim[32];
 
-  if ( !parmesh->myrank && parmesh->imprim )
+
+  tminit(ctim,TIMEMAX);
+  chrono(ON,&(ctim[0]));
+
+  if ( parmesh->info.imprim )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -284,8 +290,8 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       return PMMG_FAILURE;
     }
   }
-  if ( !parmesh->myrank && parmesh->imprim )
-    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED\n");
+  if ( parmesh->info.imprim )
+    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
 
   return PMMG_SUCCESS;
 }
