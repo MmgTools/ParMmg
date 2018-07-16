@@ -29,11 +29,26 @@ static void
 PMMG_defaultValues( PMMG_pParMesh parmesh, const int rank )
 {
   if ( rank == 0 ) {
-    fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
-    fprintf( stdout,"# of remeshing iterations (-niter)  : 1\n");
-    fprintf( stdout, "\n\n\tMMG");
-    _MMG5_mmgDefaultValues( parmesh->listgrp[0].mesh );
+    fprintf(stdout,"\n\n");
+    fprintf(stdout,"  --- ParMMG ---\n");
+    fprintf(stdout,"default parameter values:\n");
+    fprintf(stdout,"\n** Generic options\n");
+    fprintf(stdout,"verbosity                 (-v)      : %d\n",
+            parmesh->info.imprim);
+
+    fprintf(stdout,"maximal memory size       (-m)      : %lld MB\n",
+            parmesh->memGloMax/_MMG5_MILLION);
+    fprintf(stdout,"\n** Parameters\n");
+    fprintf( stdout,"# of remeshing iterations (-niter)  : %d\n",parmesh->niter);
+
+    if ( parmesh->listgrp[0].mesh ) {
+      fprintf(stdout,"\n  --- MMG ---");
+      if ( !MMG3D_defaultValues( parmesh->listgrp[0].mesh ) ) {
+        PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+      }
+    }
   }
+
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
 
@@ -47,10 +62,59 @@ static void
 PMMG_usage( PMMG_pParMesh parmesh, char * const progname )
 {
   if ( parmesh->myrank == 0 ) {
-    fprintf( stdout, "\n\n\tParMMG\nDefault parameter values:\n\n");
-    fprintf( stdout, "-niter n  Number of remeshing iterations\n");
-    fprintf( stdout, "\n\n\tMMG");
-    MMG3D_usage( progname );
+    fprintf(stdout,"\nUsage: %s [-v [n]] [opts..] filein [fileout]\n",
+            progname);
+
+    fprintf(stdout,"\n** Generic options :\n");
+    fprintf(stdout,"-h         Print this message\n");
+    fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
+    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
+    fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
+    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    fprintf(stdout,"-val       Print the default parameters values\n");
+    //fprintf(stdout,"-default  Save a local parameters file for default parameters"
+    //        " values\n");
+
+    fprintf(stdout,"\n**  File specifications\n");
+    fprintf(stdout,"-in  file  input triangulation\n");
+    fprintf(stdout,"-out file  output triangulation\n");
+    fprintf(stdout,"-sol file  load solution or metric file\n");
+
+    fprintf(stdout,"\n**  Parameters\n");
+    fprintf(stdout,"-niter  val  number of remeshing iterations\n");
+    fprintf(stdout,"-ar     val  angle detection\n");
+    fprintf(stdout,"-nr          no angle detection\n");
+    fprintf(stdout,"-hmin   val  minimal mesh size\n");
+    fprintf(stdout,"-hmax   val  maximal mesh size\n");
+    fprintf(stdout,"-hsiz   val  constant mesh size\n");
+    fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
+    fprintf(stdout,"-hgrad  val  control gradation\n");
+    fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
+    fprintf(stdout,"-A           enable anisotropy (without metric file).\n");
+    fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
+            " two domains of the same reference.\n");
+
+#ifdef USE_ELAS
+    fprintf(stdout,"-lag [0/1/2] Lagrangian mesh displacement according to mode 0/1/2\n");
+#endif
+#ifndef PATTERN
+    fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
+#endif
+#ifdef USE_SCOTCH
+    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+#endif
+    fprintf(stdout,"\n");
+
+    fprintf(stdout,"-nofem       do not force Mmg to create a finite element mesh \n");
+    fprintf(stdout,"-optim       mesh optimization\n");
+    fprintf(stdout,"-optimLES    strong mesh optimization for LES computations\n");
+    fprintf(stdout,"-noinsert    no point insertion/deletion \n");
+    fprintf(stdout,"-noswap      no edge or face flipping\n");
+    fprintf(stdout,"-nomove      no point relocation\n");
+    fprintf(stdout,"-nosurf      no surface modifications\n");
+    fprintf(stdout,"\n\n");
+
   }
   PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
 }
@@ -76,15 +140,13 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
   MPI_Comm comm_shm = 0;
   int size_shm = 1;
   int flag;
-  const int million = 1024 * 1024;
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
 
   MPI_Initialized( &flag );
 
   if ( flag ) {
-#warning here we must use parmesh->comm and not MPI_COMM_WORLD
-    MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+    MPI_Comm_split_type( parmesh->comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
     MPI_Comm_size( comm_shm, &size_shm );
   }
@@ -98,14 +160,15 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
     maxAvail = _MMG5_MEMMAX << 20;
 
   // Multiple MPI processes may be running on the same node => distribute equally
-  if ( (memReq > 0) && ((memReq * million) < maxAvail) )
-    parmesh->memGloMax = (memReq * million) / size_shm;
+  if ( (memReq > 0) && ((memReq * _MMG5_MILLION) < maxAvail) )
+    parmesh->memGloMax = (memReq * _MMG5_MILLION) / size_shm;
   else
     parmesh->memGloMax = (maxAvail * 50) / (size_shm * 100);
 
-  fprintf ( stdout,
-            "Requested %lld Mb max memory usage. Max memory limit set to %lld Mb\n",
-            memReq, parmesh->memGloMax/million );
+  if ( abs(parmesh->info.imprim) > 4 || parmesh->ddebug ) {
+    fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED FOR PARMMG (MB)    %lld\n",
+            parmesh->memGloMax/_MMG5_MILLION);
+  }
 }
 
 
@@ -121,7 +184,6 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq )
  */
 static inline
 int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
-  long long  million = 1048576L;
   long long  usedMem,avMem,reservedMem;
   long       castedVal;
   int        ctri,npadd,bytes;
@@ -142,8 +204,8 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
     usedMem += met->size*(mesh->np+1)*sizeof(double);
 
   if ( usedMem > mesh->memMax  ) {
-    fprintf(stderr,"\n  ## Error: %s: %lld Mo of memory ",__func__,mesh->memMax/million);
-    castedVal =  _MMG5_SAFELL2LCAST(usedMem/million+1);
+    fprintf(stderr,"\n  ## Error: %s: %lld Mo of memory ",__func__,mesh->memMax/_MMG5_MILLION);
+    castedVal =  _MMG5_SAFELL2LCAST(usedMem/_MMG5_MILLION+1);
     fprintf(stderr,"is not enough to load mesh. You need to ask %ld Mo minimum\n",
             castedVal);
     return 0;
@@ -172,7 +234,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   met->npmax  = mesh->npmax;
 
   if ( abs(mesh->info.imprim) > 5 || mesh->info.ddebug ) {
-    castedVal = _MMG5_SAFELL2LCAST(mesh->memMax/million);
+    castedVal = _MMG5_SAFELL2LCAST(mesh->memMax/_MMG5_MILLION);
     fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED (Mo)    %ld\n",
             castedVal);
 
@@ -224,7 +286,7 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
       iadr = 4*(k-1) + 1;
       if ( mesh->adja )
         memset(&mesh->adja[iadr],0,4*sizeof(int));
-      
+
       if(k<mesh->nemax-1) pt->v[3] = k+1;
     }
     /*if this tetra has already been used, we have to put v[3]=0*/
@@ -291,7 +353,6 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 {
   MMG5_pMesh mesh;
   long long  available;
-  long long  million = 1048576L;
   int        remaining_ngrps;
   int        i = 0;
 
@@ -316,7 +377,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
       mesh->memMax = mesh->memCur;
     }
     /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/million;
+    mesh->info.mem = mesh->memMax/_MMG5_MILLION;
 
     /* Count the remaining available memory */
     available -= mesh->memMax;
@@ -344,7 +405,6 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   long long  available;
-  long long  million = 1048576L;
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
   int        i = 0;
 
@@ -369,7 +429,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->memMax = mesh->memCur;
     }
     /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/million;
+    mesh->info.mem = mesh->memMax/_MMG5_MILLION;
 
     /* Memory repartition for the MMG meshes arrays */
     npmax_old = mesh->npmax;
@@ -442,10 +502,12 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 */
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
-  int i = 0;
-  int ret_val = 1;
-  int mmgArgc = 0;
-  char** mmgArgv = NULL;
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        val,k,i = 0;
+  int        ret_val = 1;
+  int        mmgArgc = 0;
+  char**     mmgArgv = NULL;
 
   for ( i = 1; i < argc; ++i )
     if ( !strcmp( argv[ i ],"-val" ) )
@@ -453,14 +515,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
       PMMG_usage( parmesh, argv[0] );
 
-  // Create a new set of argc/argv variables adding only the the cl options that
-  // mmg has to process
-  // Overallocating as they are at most argc. Trying to avoid the overallocation
-  // is not worth any effort, these are ~kb
+  /* Create a new set of argc/argv variables adding only the the cl options that
+     mmg has to process
+     Overallocating as they are at most argc. Trying to avoid the overallocation
+     is not worth any effort, these are ~kb */
   PMMG_MALLOC(parmesh, mmgArgv, argc, char*, " copy of argv for mmg: ",
               ret_val = 0; goto fail_mmgargv);
 
-  // First argument is always argv[0] ie prog name
+  /* First argument is always argv[0] ie prog name */
   i = 0;
   ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc, " mmgArgv[0] for mmg: ",
               ret_val = 0; goto fail_proc);
@@ -469,22 +531,65 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
-      case 'm':  /* memory */
-        if ( ++i < argc && isdigit( argv[i][0] ) ) {
-          if ( ( atoi(argv[ i ]) > _MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
-            fprintf( stderr,
-                     "Erroneous mem size requested, using default: %lld\n",
-                     parmesh->memGloMax );
-          else
-            PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
-          PMMG_parmesh_SetMemMax( parmesh, 20 );
-        } else {
-          fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-          PMMG_usage( parmesh, argv[0] );
+      case 'm':
+        if ( !strcmp(argv[i],"-mmg-v") ) {
+
+          /* Mmg verbosity */
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ||
+                 (argv[i][0]=='-' && isdigit(argv[i][1])) ) {
+              val = atoi(argv[i]);
+
+              for ( k=0; k<parmesh->ngrp; ++k ) {
+                mesh = parmesh->listgrp[0].mesh;
+                met  = parmesh->listgrp[0].met;
+                if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,val) ) {
+                  ret_val = 0;
+                  goto fail_proc;
+                }
+              }
+            }
+            else {
+              i--;
+            }
+          }
+          else {
+            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
+            PMMG_usage( parmesh, argv[0] );
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-mmg-d") ) {
+          for ( k=0; k<parmesh->ngrp; ++k ) {
+            /* Mmg debug */
+            mesh = parmesh->listgrp[0].mesh;
+            met  = parmesh->listgrp[0].met;
+            if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_debug,1) ) {
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+
+        }
+        else {
+          /* memory */
+          if ( ++i < argc && isdigit( argv[i][0] ) ) {
+            if ( ( atoi(argv[ i ]) > _MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
+              fprintf( stderr,
+                       "Erroneous mem size requested, using default: %lld\n",
+                       parmesh->memGloMax );
+            else
+              PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
+            PMMG_parmesh_SetMemMax( parmesh, 20 );
+          } else {
+            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
+            PMMG_usage( parmesh, argv[0] );
+          }
         }
       break;
 
-      case 'n':  // number of adaptation iterations
+      case 'n':  /* number of adaptation iterations */
         if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
           ++i;
           if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
@@ -502,12 +607,32 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
       break;
 
-      case 'd':  // number of adaptation iterations
-        parmesh->ddebug = 1;
-        //ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-        //            " adding to mmgArgv for mmg: ",
-        //            ret_val = 0; goto fail_proc );
-      break;
+      case 'd':  /* debug */
+        if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+          ret_val = 0;
+          goto fail_proc;
+        }
+        break;
+
+      case 'v':  /* verbosity */
+        if ( ++i < argc ) {
+          if ( isdigit(argv[i][0]) ||
+               (argv[i][0]=='-' && isdigit(argv[i][1])) ) {
+            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_verbose,atoi(argv[i])) ) {
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else
+            i--;
+        }
+        else {
+          fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+          PMMG_usage ( parmesh, argv[0] );
+          ret_val = 0;
+          goto fail_proc;
+        }
+        break;
 
       default:
         ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,

@@ -120,7 +120,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
     grp = &parmesh->listgrp[ 0 ];
-    if ( grp->mesh->info.imprim )
+    if ( parmesh->info.imprim )
       fprintf( stdout," (LES)" );
     fprintf( stdout, "  %d\n", ne_result );
 
