@@ -34,27 +34,27 @@ static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype 
  */
 int PMMG_outqua( PMMG_pParMesh parmesh )
 {
-  PMMG_pGrp grp;
-  int i, j, iel_grp;
-  int ne, ne_cur, ne_result;
-  double max, max_cur, max_result;
-  double avg, avg_cur, avg_result;
-  double min, min_cur;
-  int iel, iel_cur;
-  int good, good_cur, good_result;
-  int med, med_cur, med_result;
-  const int HIS_SIZE = 5;
-  int his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
-  int nrid, nrid_cur, nrid_result;
-  MPI_Op        iel_min_op;
-  MPI_Datatype  mpi_iel_min_t;
-  MPI_Datatype types[ 4 ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
-  min_iel_t     min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
-  MPI_Aint disps[ 4 ] = { offsetof( min_iel_t, min ),
+  PMMG_pGrp    grp;
+  int          i, j, iel_grp;
+  int          ne, ne_cur, ne_result;
+  double       max, max_cur, max_result;
+  double       avg, avg_cur, avg_result;
+  double       min, min_cur;
+  int          iel, iel_cur;
+  int          good, good_cur, good_result;
+  int          med, med_cur, med_result;
+  const int    HIS_SIZE                = 5;
+  int          his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
+  int          nrid, nrid_cur, nrid_result;
+  MPI_Op       iel_min_op;
+  MPI_Datatype mpi_iel_min_t;
+  MPI_Datatype types[ 4 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
+  min_iel_t    min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
+  MPI_Aint     disps[ 4 ]              = { offsetof( min_iel_t, min ),
                           offsetof( min_iel_t, iel ),
                           offsetof( min_iel_t, iel_grp ),
                           offsetof( min_iel_t, cpu ) };
-  int lens[ 4 ] = { 1, 1, 1, 1 };
+  int lens[ 4 ]                        = { 1, 1, 1, 1 };
 
   // Calculate the quality values for local process
   iel_grp = 0;
@@ -137,14 +137,13 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
 
-    if ( MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
-                                          min_iel_result.min, min_iel_result.iel,
-                                          good_result, med_result, his_result,
-                                          nrid_result,grp->mesh->info.optimLES,
-                                          grp->mesh->info.imprim ) )
+    if ( !MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
+                                           min_iel_result.min, min_iel_result.iel,
+                                           good_result, med_result, his_result,
+                                           nrid_result,grp->mesh->info.optimLES,
+                                           parmesh->info.imprim ) )
       return 0;
   }
 
   return 1;
 }
-
