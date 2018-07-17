@@ -4,3 +4,7 @@ build*/
 bin/
 lib/
 doc/
+*.swp
+cscope.files
+cscope.out
+tags
