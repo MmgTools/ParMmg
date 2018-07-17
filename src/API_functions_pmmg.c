@@ -301,32 +301,3 @@ int PMMG_Free_all( PMMG_pParMesh *parmesh )
 
   return 1;
 }
-
-
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param val     exit value
- *
- * Controlled parmmg termination:
- *   Deallocate parmesh struct and its allocated members
- *   If this is an unsuccessful exit call abort to cancel any remaining processes
- *   Call MPI_Finalize / exit
- */
-#warning NIKOS: MPI_Finalize might not be desirable here
-void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
-{
-  MPI_Comm comm;
-
-  comm = parmesh->comm;
-
-  if ( !PMMG_Free_all( &parmesh ) ) {
-    fprintf(stderr,"  ## Warning: unable to clean the parmmg memory.\n"
-            " Possible memory leak.\n");
-  }
-
-  if ( val != PMMG_SUCCESS )
-    MPI_Abort( parmesh->comm, val );
-
-  MPI_Finalize();
-  exit( val );
-}

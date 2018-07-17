@@ -38,6 +38,8 @@ PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc 
 
 int PMMG_defaultValues( PMMG_pParMesh parmesh )
 {
+  int ier = 1;
+
   if ( !parmesh->myrank ) {
     fprintf(stdout,"\n\n");
     fprintf(stdout,"  --- ParMMG ---\n");
@@ -54,14 +56,12 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
     if ( parmesh->listgrp[0].mesh ) {
       fprintf(stdout,"\n  --- MMG ---");
       if ( !MMG3D_defaultValues( parmesh->listgrp[0].mesh ) ) {
-        PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+        ier = 0;
       }
     }
   }
 
-  PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
-  return 1;
-
+  return ier;
 }
 
 int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
@@ -121,7 +121,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n\n");
 
   }
-  PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
+
   return 1;
 }
 
@@ -134,17 +134,17 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   int        mmgArgc = 0;
   char**     mmgArgv = NULL;
 
-  /**
-   *
-   * Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
-   * and call the mmg3d parser.
-   *
-   */
+  /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
+   * and call the mmg3d parser. */
   for ( i = 1; i < argc; ++i )
-    if ( !strcmp( argv[ i ],"-val" ) )
-      PMMG_defaultValues( parmesh );
-    else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) )
-      PMMG_usage( parmesh, argv[0] );
+    if ( !strcmp( argv[ i ],"-val" ) ) {
+      RUN_ON_ROOT_AND_BCAST( PMMG_defaultValues(parmesh),0,
+                             parmesh->myrank,ret_val=0; goto fail_mmgargv);
+    }
+    else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
+      RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                             parmesh->myrank,ret_val=0; goto fail_mmgargv);
+    }
 
   /* Create a new set of argc/argv variables adding only the the cl options that
      mmg has to process
@@ -186,7 +186,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
           else {
             fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-            PMMG_usage( parmesh, argv[0] );
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
             ret_val = 0;
             goto fail_proc;
           }
@@ -215,7 +216,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             PMMG_parmesh_SetMemMax( parmesh, 20 );
           } else {
             fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-            PMMG_usage( parmesh, argv[0] );
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
           }
         }
       break;
@@ -259,7 +261,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         else {
           fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
-          PMMG_usage ( parmesh, argv[0] );
+          RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                 parmesh->myrank,ret_val=0; goto fail_proc );
           ret_val = 0;
           goto fail_proc;
         }
