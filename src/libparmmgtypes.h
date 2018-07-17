@@ -174,7 +174,9 @@ typedef PMMG_Grp  * PMMG_pGrp;
  */
 typedef struct {
 
-  int imprim; /*!< ParMmg verbosity */
+  int imprim;  /*!< ParMmg verbosity (may be non-null only on zero rank) */
+  int imprim0; /*!< ParMmg verbosity of the zero rank */
+  int mem;     /*!< memory asked by user */
 
 } PMMG_Info;
 
@@ -220,7 +222,7 @@ typedef struct {
   int            niter;  //! Number of adaptation iterations
 
   /* parameters of the run */
-  MMG5_Info      info; /*!< \ref MMG5_Info structure */
+  PMMG_Info      info; /*!< \ref PMMG_Info structure */
 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;

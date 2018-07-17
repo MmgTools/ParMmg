@@ -236,6 +236,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   else {
     parmesh->info.imprim = 0;
   }
+  parmesh->info.imprim0  = 1;
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh, 0 );
@@ -323,6 +324,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     if ( !parmesh->myrank ) {
       parmesh->info.imprim = val;
     }
+    parmesh->info.imprim0 = val;
+
     break;
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
