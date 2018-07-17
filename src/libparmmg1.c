@@ -459,7 +459,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
-  int        it,ier,ieresult,i,k, *facesData;
+  int        it,ier,ier_end,ieresult,i,k, *facesData;
+
+  ier_end = PMMG_SUCCESS;
 
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
@@ -564,7 +566,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-  PMMG_outqua( parmesh );
+  ier = PMMG_outqua( parmesh );
+  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( !ieresult ) {
+    ier_end = PMMG_LOWFAILURE;
+  }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -579,8 +585,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     return PMMG_STRONGFAILURE;
   }
-
-  return PMMG_SUCCESS;
+  return ier_end;
 
   /** mmg3d1_delone failure */
 failed:
