@@ -11,35 +11,6 @@
 
 mytime         PMMG_ctim[TIMEMAX];
 
-
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param val     exit value
- *
- * Controlled parmmg termination:
- *   Deallocate parmesh struct and its allocated members
- *   If this is an unsuccessful exit call abort to cancel any remaining processes
- *   Call MPI_Finalize / exit
- */
-#warning NIKOS: MPI_Finalize might not be desirable here
-static void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
-{
-  MPI_Comm comm;
-
-  comm = parmesh->comm;
-
-  if ( !PMMG_Free_all( &parmesh ) ) {
-    fprintf(stderr,"  ## Warning: unable to clean the parmmg memory.\n"
-            " Possible memory leak.\n");
-  }
-
-  if ( val != PMMG_SUCCESS )
-    MPI_Abort( comm, val );
-
-  MPI_Finalize();
-  exit( val );
-}
-
 /**
  *
  * Print elapsed time at end of process.
@@ -186,17 +157,17 @@ int main( int argc, char *argv[] )
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /* Init memMax sizes. Only one mesh for now => pmmg structs do not need much */
   if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( parmesh->ddebug ) {
     MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -249,11 +220,11 @@ int main( int argc, char *argv[] )
 check_mesh_loading:
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( iresult != 1 )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /** Check input data */
   if ( PMMG_SUCCESS != PMMG_check_inputData( parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   chrono(ON,&PMMG_ctim[2]);
   if ( parmesh->info.imprim ) {
@@ -265,22 +236,22 @@ check_mesh_loading:
 
   /** Send mesh to other procs */
   if ( 1 != PMMG_bcast_mesh( parmesh ) )
-    PMMG_exit_and_free( parmesh,PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
   ier = PMMG_preprocessMesh( parmesh, parmesh->myrank );
   if ( ier != PMMG_SUCCESS ) {
     if ( ( ier == PMMG_LOWFAILURE ) || !(_MMG5_unscaleMesh( mesh, met )) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     return PMMG_LOWFAILURE;
   }
 
   /** Send mesh partionning to other procs */
   if ( !PMMG_distribute_mesh( parmesh ) ) {
     if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-    PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
   }
 
   chrono(OFF,&PMMG_ctim[2]);
@@ -300,10 +271,10 @@ check_mesh_loading:
 
   chrono(OFF,&PMMG_ctim[3]);
   if ( ier == PMMG_STRONGFAILURE ) {
-    PMMG_exit_and_free( parmesh, ier );
+    PMMG_RETURN_AND_FREE( parmesh, ier );
   } else if ( ier == PMMG_LOWFAILURE ) {
 #warning SAVE THE MESH?
-    PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_SUCCESS );
   } else {
     if ( parmesh->info.imprim ) {
       printim(PMMG_ctim[3].gdif,stim);
@@ -317,7 +288,7 @@ check_mesh_loading:
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
   if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /** Merge all the meshes on the proc 0 */
   chrono(ON,&PMMG_ctim[4]);
@@ -326,7 +297,7 @@ check_mesh_loading:
   }
 
   if ( !PMMG_merge_parmesh( parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   chrono(OFF,&PMMG_ctim[4]);
   if ( parmesh->info.imprim ) {
@@ -348,7 +319,7 @@ check_mesh_loading:
 
     if ( MMG3D_hashTetra( mesh, 0 ) ) {
       if ( -1 == MMG3D_bdryBuild( mesh ) ) {
-        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+        PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
       }
     } else {
       /** Impossible to rebuild the triangle **/
@@ -367,9 +338,9 @@ check_mesh_loading:
       fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",mesh->nameout);
 
     if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     if ( met->m && 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
 
    chrono(OFF,&PMMG_ctim[6]);
     if ( parmesh->info.imprim )
@@ -377,5 +348,5 @@ check_mesh_loading:
 
   }
 
-  PMMG_exit_and_free( parmesh, ier );
+  PMMG_RETURN_AND_FREE( parmesh, ier );
 }

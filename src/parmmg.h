@@ -28,6 +28,33 @@
 extern "C" {
 #endif
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param val     exit value
+ *
+ * Controlled parmmg termination:
+ *   Deallocate parmesh struct and its allocated members
+ *   If this is an unsuccessful exit call abort to cancel any remaining processes
+ *   Call MPI_Finalize / exit
+ */
+
+#define PMMG_RETURN_AND_FREE(parmesh,val) do                            \
+  {                                                                     \
+    MPI_Comm comm = parmesh->comm;                                      \
+                                                                        \
+    if ( !PMMG_Free_all( &parmesh ) ) {                                 \
+      fprintf(stderr,"  ## Warning: unable to clean the parmmg memory.\n" \
+              " Possible memory leak.\n");                              \
+    }                                                                   \
+                                                                        \
+    if ( val ) {                                                        \
+      MPI_Abort(comm,val);                                              \
+    }                                                                   \
+                                                                        \
+    MPI_Finalize();                                                     \
+    return(val);                                                        \
+                                                                        \
+  }while(0)
 
 #define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
