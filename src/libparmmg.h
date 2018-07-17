@@ -76,6 +76,13 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  *
  * Allocation of the parmesh structure and initialisation of the parameters
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_INIT_PARAMESH(parmesh,comm,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MPI_Comm,INTENT(IN)           :: comm\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
  **/
 int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
 
@@ -89,6 +96,13 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
  * the mesh.
  *
  * Main program for the parallel remesh library.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MPI_Comm,INTENT(IN)           :: comm\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
  *
  **/
 int PMMG_parmmglib(PMMG_pParMesh parmesh);
@@ -155,6 +169,55 @@ int PMMG_distribute_mesh(PMMG_pParMesh);
  *
  */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh );
+
+/* libparmmg_tools.c: Tools for the library */
+/**
+ * \param parmesh pointer to pmmg structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Print the default parameters values
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_DEFAULTVALUES(parmesh,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_defaultValues( PMMG_pParMesh parmesh );
+
+/**
+ * \param argc number of command line arguments.
+ * \param argv command line arguments.
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 1 on success
+ *         0 on failure
+ *
+ * Parse command line arguments.
+ *
+ * \remark no matching fortran function.
+ *
+ */
+int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param prog pointer toward the program name.
+ * \param return 1 if success, 0 if fail.
+ *
+ * Print help for parmmg options.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_USAGE(parmesh,prog,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: prog\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 #ifdef __cplusplus
 }
