@@ -1,5 +1,5 @@
 /**
- * \file API_functionsf.c
+ * \file API_functionsf_pmmg.c
  * \brief Fortran API functions for PARMMG library.
  *
  * Define the Fortran API functions for PARMMG library: adds function
@@ -9,6 +9,134 @@
  */
 #include "libparmmg.h"
 #include "mmgcommon.h"
+
+/**
+ * See \ref PMMG_Init_parMesh function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_INIT_PARMESH,pmmg_init_parmesh,
+             (PMMG_pParMesh *parmesh,MPI_Comm *comm,int *retval),
+             (parmesh,comm,retval)) {
+
+  *retval = PMMG_Init_parMesh(parmesh,*comm);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Init_parameters function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_INIT_PARAMETERS,pmmg_init_parameters,
+             (PMMG_pParMesh *parmesh,MPI_Comm *comm),
+             (parmesh,comm)) {
+
+  PMMG_Init_parameters(*parmesh,*comm);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_inputMeshName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTMESHNAME, pmmg_set_inputmeshname,
+             (PMMG_pParMesh *parmesh, char* meshin, int *strlen, int* retval),
+             (parmesh,meshin,strlen,retval)) {
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,meshin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputMeshName(*parmesh,tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_inputSolName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTSOLNAME, pmmg_set_inputsolname,
+             (PMMG_pParMesh *parmesh,char* solin, int* strlen, int* retval),
+             (parmesh,solin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,solin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputSolName(*parmesh,tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_inputMetName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTMETNAME, pmmg_set_inputmetname,
+             (PMMG_pParMesh *parmesh,char* metin, int* strlen, int* retval),
+             (parmesh,metin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,metin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputMetName(*parmesh,tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_outputMeshName function in libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
+             (PMMG_pParMesh *parmesh, char* meshout, int* strlen,int* retval),
+             (parmesh,meshout,strlen,retval)){
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,meshout,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_outputMeshName(*parmesh, tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_outputSolName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_OUTPUTSOLNAME,pmmg_set_outputsolname,
+             (PMMG_pParMesh *parmesh, char* solout,int* strlen, int* retval),
+             (parmesh,solout,strlen,retval)){
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,solout,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_outputSolName(*parmesh,tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_outputMetName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_OUTPUTMETNAME,pmmg_set_outputmetname,
+             (PMMG_pParMesh *parmesh, char* metout,int* strlen, int* retval),
+             (parmesh,metout,strlen,retval)){
+  char *tmp = NULL;
+
+  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  strncpy(tmp,metout,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_outputMetName(*parmesh,tmp);
+  _MMG5_SAFE_FREE(tmp);
+
+  return;
+}
 
 /**
  * See \ref PMMG_Set_grpSize function in \ref libparmmg.h file.

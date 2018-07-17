@@ -57,6 +57,86 @@ fail_pmesh:
   return 0;
 }
 
+int PMMG_Set_inputMeshName(PMMG_pParMesh parmesh, const char* meshin) {
+  MMG5_pMesh mesh;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ier  = MG_MIN( ier, MMG3D_Set_inputMeshName(mesh,meshin) );
+  }
+  return ier;
+}
+
+int PMMG_Set_inputSolName(PMMG_pParMesh parmesh, const char* solin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    sol  = parmesh->listgrp[k].sol;
+    ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,sol,solin) );
+  }
+  return ier;
+}
+
+int PMMG_Set_inputMetName(PMMG_pParMesh parmesh, const char* metin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    met  = parmesh->listgrp[k].met;
+    ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,met,metin) );
+  }
+  return ier;
+}
+
+int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
+  MMG5_pMesh mesh;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ier  = MG_MIN( ier, MMG3D_Set_outputMeshName(mesh,meshout) );
+  }
+  return ier;
+}
+
+int PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    sol  = parmesh->listgrp[k].sol;
+    ier  = MG_MIN( ier, MMG3D_Set_outputSolName(mesh,sol,solout) );
+  }
+  return ier;
+}
+
+int PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    met  = parmesh->listgrp[k].met;
+    ier  = MG_MIN( ier, MMG3D_Set_outputSolName(mesh,met,metout) );
+  }
+  return ier;
+}
+
 void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   MMG5_pMesh mesh;
   int        k,flag;
@@ -68,7 +148,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->niter       = 1;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[0].mesh;
+    mesh = parmesh->listgrp[k].mesh;
     /* Set Mmg verbosity to 0 */
     mesh->info.imprim = 0;
   }

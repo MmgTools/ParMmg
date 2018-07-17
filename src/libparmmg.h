@@ -123,6 +123,110 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh);
  */
 void  PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm);
 
+/* init file names */
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param meshin input mesh name.
+ * \return 1.
+ *
+ * Set the name of input mesh.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_INPUTMESHNAME(parmesh,meshin,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: meshin\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_inputMeshName(PMMG_pParMesh parmesh,const char* meshin);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param meshout name of the output mesh file.
+ * \return 1.
+ *
+ * Set the name of output mesh file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_OUTPUTMESHNAME(parmesh,meshout,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: meshout\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param solin name of the input solution file.
+ * \return 1.
+ *
+ * Set the name of input solution file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_INPUTSOLNAME(parmesh,solin,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: solin\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_inputSolName(PMMG_pParMesh parmesh,const char* solin);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param metin name of the input metric file.
+ * \return 1.
+ *
+ * Set the name of input metric file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_INPUTMETNAME(parmesh,metin,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: metin\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_inputMetName(PMMG_pParMesh parmesh,const char* metin);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param solout name of the output solution file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ *  Set the name of output solution file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_OUTPUTSOLNAME(mesh,solout,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: solout\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param metout name of the output metric file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ *  Set the name of output metric file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(mesh,metout,strlen,retval)\n
+ * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: metout\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param iparam integer parameter to set (see \a MMG3D_Param structure).
