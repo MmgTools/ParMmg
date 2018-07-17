@@ -3,7 +3,7 @@
  * \brief Memory management
  * \copyright GNU Lesser General Public License.
  *
- * C API for PARMMG library.
+ * Memory management for PARMMG library.
  *
  */
 

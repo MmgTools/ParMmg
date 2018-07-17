@@ -52,6 +52,7 @@ enum PMMG_Param {
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */
   PMMG_DPARAM_hmax,              /*!< [val], Maximal mesh size */
+  PMMG_DPARAM_hsiz,              /*!< [val], Constant mesh size */
   PMMG_DPARAM_hausd,             /*!< [val], Control global Hausdorff distance (on all the boundary surfaces of the mesh) */
   PMMG_DPARAM_hgrad,             /*!< [val], Control gradation */
   PMMG_DPARAM_ls,                /*!< [val], Value of level-set */
@@ -142,6 +143,39 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param dparam double parameter to set (see \a MMG3D_Param structure).
+ * \param val value for the parameter.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set double parameter \a dparam at value \a val.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_DPARAMETER(parmesh,dparam,val,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: dparam,val\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
+
+/**
+ * \param parmesh pointer toward a pointer toward a parmesh structure
+ * \return 1 if success, 0 if fail.
+ *
+ * Deallocations of the parmmg structures before return
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_FREE_ALL(parmesh,retval)\n
+ * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Free_all( PMMG_pParMesh *parmesh );
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \return 0 if failed, 1 otherwise.
  *
  * Set integer parameter \a iparam at value \a val.
@@ -217,7 +251,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
+int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 #ifdef __cplusplus
 }
