@@ -781,3 +781,33 @@ FORTRAN_NAME(PMMG_GET_TENSORMETS,pmmg_get_tensormets,
   *retval = PMMG_Get_tensorMets(*parmesh,mets);
   return;
 }
+
+/**
+ * See \ref PMMG_Free_all function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_FREE_ALL,pmmg_free_all,
+             (PMMG_pParMesh *parmesh,int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_Free_all(parmesh);
+  return;
+}
+
+/**
+ * See \ref PMMG_parmmglib_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_PARMMGLIB_DISTRIBUTED,pmmg_parmmglib_distributed,
+             (PMMG_pParMesh *parmesh,int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_parmmglib_distributed(*parmesh);
+  return;
+}
+
+/**
+ * See \ref PMMG_parmmglib_centralized function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_PARMMGLIB_CENTRALIZED,pmmg_parmmglib_centralized,
+             (PMMG_pParMesh *parmesh,int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_parmmglib_centralized(*parmesh);
+  return;
+}

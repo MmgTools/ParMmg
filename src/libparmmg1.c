@@ -455,7 +455,7 @@ facesData:
  *         PMMG_LOWFAILURE    if  we can save the mesh
  *         PMMG_SUCCESS
  */
-int PMMG_parmmglib1( PMMG_pParMesh parmesh )
+int PMMG_parmmglib_centralized( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;

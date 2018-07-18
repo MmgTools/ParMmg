@@ -96,17 +96,35 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
  * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
  * the mesh.
  *
- * Main program for the parallel remesh library.
+ * Main program for the parallel remesh library for distributed meshes.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm,retval)\n
+ * >   SUBROUTINE PMMG_parmmglib_distributed(parmesh,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     MPI_Comm,INTENT(IN)           :: comm\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  **/
-int PMMG_parmmglib(PMMG_pParMesh parmesh);
+int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh);
+
+/**
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
+ * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
+ * the mesh.
+ *
+ * Main program for the parallel remesh library for centralized meshes
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_parmmglib_centralized(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ **/
+int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh);
 
 /* init file names */
 /**

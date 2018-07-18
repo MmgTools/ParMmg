@@ -267,7 +267,7 @@ check_mesh_loading:
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
+  ier = PMMG_parmmglib_centralized(parmesh);
 
   chrono(OFF,&PMMG_ctim[3]);
   if ( ier == PMMG_STRONGFAILURE ) {
