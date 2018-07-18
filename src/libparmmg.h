@@ -79,7 +79,7 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_INIT_PARAMESH(parmesh,comm,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     MPI_Comm,INTENT(IN)           :: comm\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
@@ -100,28 +100,13 @@ int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     MPI_Comm,INTENT(IN)           :: comm\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  **/
 int PMMG_parmmglib(PMMG_pParMesh parmesh);
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param comm MPI communicator for ParMmg
- *
- * Initialization of the input parameters (stored in the Info structure).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     MPI_Comm,INTENT(IN)           :: comm\n
- * >   END SUBROUTINE\n
- *
- */
-void  PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm);
 
 /* init file names */
 /**
@@ -133,7 +118,7 @@ void  PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_INPUTMESHNAME(parmesh,meshin,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: meshin\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -150,7 +135,7 @@ int  PMMG_Set_inputMeshName(PMMG_pParMesh parmesh,const char* meshin);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_OUTPUTMESHNAME(parmesh,meshout,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: meshout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -167,7 +152,7 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_INPUTSOLNAME(parmesh,solin,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solin\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -184,7 +169,7 @@ int  PMMG_Set_inputSolName(PMMG_pParMesh parmesh,const char* solin);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_INPUTMETNAME(parmesh,metin,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: metin\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -201,7 +186,7 @@ int  PMMG_Set_inputMetName(PMMG_pParMesh parmesh,const char* metin);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_OUTPUTSOLNAME(mesh,solout,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -218,7 +203,7 @@ int  PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(mesh,metout,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: metout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -226,6 +211,91 @@ int  PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout);
  *
  */
 int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param comm MPI communicator for ParMmg
+ *
+ * Initialization of the input parameters (stored in the Info structure).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MPI_Comm,INTENT(IN)           :: comm\n
+ * >   END SUBROUTINE\n
+ *
+ */
+void  PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm);
+
+/**
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param np        Number of vertices.
+ * \param ne        Number of tetrahedra.
+ * \param nprism    Number of prisms.
+ * \param nt        Number of triangles.
+ * \param nquad     Number of quads.
+ * \param na        Number of edges.
+ * \return          0 if failed, 1 otherwise.
+ *
+ * Set the number of vertices, tetrahedra, prisms, triangles, quadrilaterals and
+ * edges of the mesh and allocate the associated tables.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_MESHSIZE(parmesh, np, ne, nprism, nt, nquad, na, &\n
+ * >                                retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: np, ne, nprism, nt, nquad, na\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
+                      int nquad, int na);
+/**
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param nsol      Number of solutions per entity.
+ * \param typEntity Array (of size nsol) listing the type of entities to which
+ *                  apply the solutions (vertices, triangles...).
+ * \param np        number of vertices
+ * \param typSol    Array of size nsol listing the type of the solutions
+ *                  (scalar, vectorial...).
+ * \return          0 if failed, 1 otherwise.
+ *
+ * Set the number of solutions per entity, the type of entity to which applies
+ * each solution and the type of each solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_ALLSOLSSIZES(parmesh, nsol,typEntity,np,typSol,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: nsol,np\n
+ * >     INTEGER, INTENT(IN)           :: typEntity(*), typSol(*)\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Set_allSolsSizes(PMMG_pParMesh parmesh,int nsol,int *typEntity,int np,
+                          int *typSol);
+
+/**
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param typEntity Type of entity to which applies the metric (vertices, triangles...).
+ * \param np        number of vertices
+ * \param typMet    Type of the metric (scalar, vectorial...).
+ * \return          0 if failed, 1 otherwise.
+ *
+ * Set the type of entity to which applies the metric and the type of the metric.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_METSIZE(parmesh,typEntity,np,typMet,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: np\n
+ * >     INTEGER, INTENT(IN)           :: typEntity, typMet\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Set_metSize(PMMG_pParMesh parmesh,int typEntity,int np,int typMet);
+
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -237,7 +307,7 @@ int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_IPARAMETER(parmesh,iparam,val,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: iparam,val\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
@@ -255,7 +325,7 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_DPARAMETER(parmesh,dparam,val,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: dparam,val\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
@@ -271,7 +341,7 @@ int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_FREE_ALL(parmesh,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -286,7 +356,7 @@ int PMMG_Free_all( PMMG_pParMesh *parmesh );
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_DISTRIBUTE_MESH(parmesh,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -301,47 +371,16 @@ int PMMG_distribute_mesh(PMMG_pParMesh);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_MERGE_PARMESH(parmesh,retval)\n
- * >     PMMG_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh );
 
-/**
- * \param grp       Pointer towards the group structure.
- * \param np        Number of vertices.
- * \param ne        Number of tetrahedra.
- * \param nprism    Number of prisms.
- * \param nt        Number of triangles.
- * \param nquad     Number of quads.
- * \param na        Number of edges.
- * \param typEntity Type of solution/metrics entities (vertices, triangles...).
- * \param typSol    Type of solution (scalar, vectorial...).
- * \param typMet    Type of metrics (scalar, vectorial...).
- * \param loc2glob  Local-to-global enumeration.
- * \return          0 if failed, 1 otherwise.
- *
- * Set the group mesh, solution, metrics size by calling MMG3D functions.
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_GRPSIZE(grp, np, ne, nprism, nt, nquad, na, &\n
- * >                               typEntity, typSol, typMet, loc2glob, &\n
- * >                               retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
- * >     INTEGER, INTENT(IN)           :: np, ne, nprism, nt, nquad, na, &\n
- * >                                      typEntity, typSol, typMet, &\n
- * >                                      loc2glob(*)\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Set_grpSize(PMMG_pGrp grp, int np, int ne, int nprism, int nt,
-                     int nquad, int na, int typEntity, int typSol, int typMet,
-                     int *loc2glob);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param c0   coordinate of the point along the first dimension.
  * \param c1   coordinate of the point along the second dimension.
  * \param c2   coordinate of the point along the third dimension.
@@ -353,19 +392,19 @@ int PMMG_Set_grpSize(PMMG_pGrp grp, int np, int ne, int nprism, int nt,
  * at position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VERTEX(grp,c0,c1,c2,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_VERTEX(parmesh,c0,c1,c2,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: c0,c1,c2\n
  * >     INTEGER, INTENT(IN)           :: ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_vertex(PMMG_pGrp grp, double c0, double c1, double c2,
+int PMMG_Set_vertex(PMMG_pParMesh parmesh, double c0, double c1, double c2,
                     int ref, int pos);
 
 /**
- * \param grp      pointer toward the group structure.
+ * \param parmesh      pointer toward the group structure.
  * \param vertices table of the points coor.
  * The coordinates of the \f$i^{th}\f$ point are stored in
  * vertices[(i-1)*3]\@3.
@@ -379,18 +418,18 @@ int PMMG_Set_vertex(PMMG_pGrp grp, double c0, double c1, double c2,
  * \remark Fortran interface: (commentated in order to allow to pass
  * \%val(0) instead of the refs array)
  *
- * > !  SUBROUTINE PMMG_SET_VERTICES(grp,vertices,refs,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * > !  SUBROUTINE PMMG_SET_VERTICES(parmesh,vertices,refs,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * > !    REAL(KIND=8), INTENT(IN)      :: vertices(*)\n
  * > !    INTEGER,INTENT(IN)            :: refs(*)\n
  * > !    INTEGER, INTENT(OUT)          :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int PMMG_Set_vertices(PMMG_pGrp grp, double *vertices, int *refs);
+int PMMG_Set_vertices(PMMG_pParMesh parmesh, double *vertices, int *refs);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  first vertex of tetrahedron.
  * \param v1  second vertex of tetrahedron.
  * \param v2  third vertex of tetrahedron.
@@ -403,18 +442,18 @@ int PMMG_Set_vertices(PMMG_pGrp grp, double *vertices, int *refs);
  * \a ref at position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TETRAHEDRON(grp,v0,v1,v2,v3,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_TETRAHEDRON(parmesh,v0,v1,v2,v3,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: v0,v1,v2,v3,ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tetrahedron(PMMG_pGrp grp, int v0, int v1, int v2, int v3,
+int PMMG_Set_tetrahedron(PMMG_pParMesh parmesh, int v0, int v1, int v2, int v3,
                          int ref, int pos);
 
 /**
- * \param grp   pointer toward the group structure.
+ * \param parmesh   pointer toward the group structure.
  * \param tetra vertices of the tetras of the mesh
  * Vertices of the \f$i^{th}\f$ tetra are stored in tetra[(i-1)*4]\@4.
  * \param refs  table of the tetrahedra references.
@@ -426,17 +465,17 @@ int PMMG_Set_tetrahedron(PMMG_pGrp grp, int v0, int v1, int v2, int v3,
  * \remark Fortran interface: (commentated in
  * order to allow to pass \%val(0) instead of the refs array)
  *
- * > !  SUBROUTINE PMMG_SET_TETRAHEDRA(grp,tetra,refs,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: grp\n
+ * > !  SUBROUTINE PMMG_SET_TETRAHEDRA(parmesh,tetra,refs,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: parmesh\n
  * > !    INTEGER, DIMENSION(*), INTENT(IN) :: tetra,refs\n
  * > !    INTEGER, INTENT(OUT)              :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int PMMG_Set_tetrahedra(PMMG_pGrp grp, int *tetra, int *refs);
+int PMMG_Set_tetrahedra(PMMG_pParMesh parmesh, int *tetra, int *refs);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  first vertex of prism.
  * \param v1  second vertex of prism.
  * \param v2  third vertex of prism.
@@ -451,18 +490,18 @@ int PMMG_Set_tetrahedra(PMMG_pGrp grp, int *tetra, int *refs);
  * \a ref at position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_PRISM(grp,v0,v1,v2,v3,v4,v5,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_PRISM(parmesh,v0,v1,v2,v3,v4,v5,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: v0,v1,v2,v3,v4,v5,ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_prism(PMMG_pGrp grp, int v0, int v1, int v2,
+int PMMG_Set_prism(PMMG_pParMesh parmesh, int v0, int v1, int v2,
                    int v3, int v4, int v5, int ref, int pos);
 
 /**
- * \param grp    pointer toward the mesh structure.
+ * \param parmesh    pointer toward the mesh structure.
  * \param prisms vertices of the prisms of the mesh
  * Vertices of the \f$i^{th}\f$ prism are stored in prism[(i-1)*6]\@6.
  * \param refs   table of the prisms references.
@@ -475,17 +514,17 @@ int PMMG_Set_prism(PMMG_pGrp grp, int v0, int v1, int v2,
  * \remark Fortran interface: (commentated in
  * order to allow to pass \%val(0) instead of the refs array)
  *
- * > !  SUBROUTINE PMMG_SET_PRISMS(grp,prisms,refs,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: grp\n
+ * > !  SUBROUTINE PMMG_SET_PRISMS(parmesh,prisms,refs,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: parmesh\n
  * > !    INTEGER, DIMENSION(*), INTENT(IN) :: prisms,refs\n
  * > !    INTEGER, INTENT(OUT)              :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int PMMG_Set_prisms(PMMG_pGrp grp, int *prisms, int *refs);
+int PMMG_Set_prisms(PMMG_pParMesh parmesh, int *prisms, int *refs);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  first vertex of triangle.
  * \param v1  second vertex of triangle.
  * \param v2  third vertex of triangle.
@@ -497,18 +536,18 @@ int PMMG_Set_prisms(PMMG_pGrp grp, int *prisms, int *refs);
  * at position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TRIANGLE(grp,v0,v1,v2,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_TRIANGLE(parmesh,v0,v1,v2,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: v0,v1,v2,ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_triangle(PMMG_pGrp grp, int v0, int v1, int v2,
+int PMMG_Set_triangle(PMMG_pParMesh parmesh, int v0, int v1, int v2,
                       int ref,int pos);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param tria pointer toward the table of the tria vertices
  * Vertices of the \f$i^{th}\f$ tria are stored in tria[(i-1)*3]\@3.
  * \param refs pointer toward the table of the triangle references.
@@ -521,17 +560,17 @@ int PMMG_Set_triangle(PMMG_pGrp grp, int v0, int v1, int v2,
  * \remark Fortran interface: (commentated in
  * order to allow to pass \%val(0) instead of the refs array)
  *
- * > !  SUBROUTINE PMMG_SET_TRIANGLES(grp,tria,refs,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)    :: grp\n
+ * > !  SUBROUTINE PMMG_SET_TRIANGLES(parmesh,tria,refs,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)    :: parmesh\n
  * > !    INTEGER,DIMENSION(*), INTENT(IN) :: tria,refs\n
  * > !    INTEGER, INTENT(OUT)             :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int PMMG_Set_triangles(PMMG_pGrp grp, int *tria, int *refs);
+int PMMG_Set_triangles(PMMG_pParMesh parmesh, int *tria, int *refs);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  first vertex of quadrilateral.
  * \param v1  second vertex of quadrilateral.
  * \param v2  third vertex of quadrilateral.
@@ -544,18 +583,18 @@ int PMMG_Set_triangles(PMMG_pGrp grp, int *tria, int *refs);
  * at position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_QUADRILATERAL(grp,v0,v1,v2,v3,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_QUADRILATERAL(parmesh,v0,v1,v2,v3,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: v0,v1,v2,v3,ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_quadrilateral(PMMG_pGrp grp, int v0, int v1, int v2, int v3,
+int PMMG_Set_quadrilateral(PMMG_pParMesh parmesh, int v0, int v1, int v2, int v3,
                            int ref,int pos);
 
 /**
- * \param grp   pointer toward the group structure.
+ * \param parmesh   pointer toward the group structure.
  * \param quads pointer toward the table of the quads vertices
  * Vertices of the \f$i^{th}\f$ quad are stored in quads[(i-1)*3]\@3.
  * \param refs  pointer toward the table of the quadrilateral references.
@@ -568,17 +607,17 @@ int PMMG_Set_quadrilateral(PMMG_pGrp grp, int v0, int v1, int v2, int v3,
  * \remark Fortran interface: (commentated in
  * order to allow to pass \%val(0) instead of the refs array)
  *
- * > !  SUBROUTINE PMMG_SET_QUADRILATERALS(grp,quads,refs,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)    :: grp\n
+ * > !  SUBROUTINE PMMG_SET_QUADRILATERALS(parmesh,quads,refs,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)    :: parmesh\n
  * > !    INTEGER,DIMENSION(*), INTENT(IN) :: quads,refs\n
  * > !    INTEGER, INTENT(OUT)             :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int PMMG_Set_quadrilaterals(PMMG_pGrp grp, int *quads, int *refs);
+int PMMG_Set_quadrilaterals(PMMG_pParMesh parmesh, int *quads, int *refs);
 
 /**
- * \param grp pointer toward the grp structure.
+ * \param parmesh pointer toward the parmesh structure.
  * \param v0  first extremity of the edge.
  * \param v1  second extremity of the edge.
  * \param ref edge reference.
@@ -589,68 +628,68 @@ int PMMG_Set_quadrilaterals(PMMG_pGrp grp, int *quads, int *refs);
  * position \a pos in mesh structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_EDGE(grp,v0,v1,ref,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_EDGE(parmesh,v0,v1,ref,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: v0,v1,ref,pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_edge(PMMG_pGrp grp, int v0, int v1, int ref, int pos);
+int PMMG_Set_edge(PMMG_pParMesh parmesh, int v0, int v1, int ref, int pos);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   vertex index.
  * \return 1.
  *
  * Set corner at point \a pos.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_CORNER(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_CORNER(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_corner(PMMG_pGrp grp, int k);
+int PMMG_Set_corner(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   vertex index.
  * \return 1.
  *
  * Set point \a k as required (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDVERTEX(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDVERTEX(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredVertex(PMMG_pGrp grp, int k);
+int PMMG_Set_requiredVertex(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   element index.
  * \return 1.
  *
  * Set element \a k as required (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDTETRAHEDRON(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDTETRAHEDRON(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredTetrahedron(PMMG_pGrp grp, int k);
+int PMMG_Set_requiredTetrahedron(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp    pointer toward the group structure.
+ * \param parmesh    pointer toward the group structure.
  * \param reqIdx table of the indices of the required elements.
  * \param nreq   number of required elements
  * \return 1.
@@ -658,35 +697,35 @@ int PMMG_Set_requiredTetrahedron(PMMG_pGrp grp, int k);
  * Set the required Tetra (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDTETRAHEDRA(grp,reqIdx,nreq,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)    :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDTETRAHEDRA(parmesh,reqIdx,nreq,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)    :: parmesh\n
  * >     INTEGER, DIMENSION(*),INTENT(IN) :: reqIdx\n
  * >     INTEGER, INTENT(IN)              :: nreq\n
  * >     INTEGER, INTENT(OUT)             :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredTetrahedra(PMMG_pGrp grp, int *reqIdx, int nreq);
+int PMMG_Set_requiredTetrahedra(PMMG_pParMesh parmesh, int *reqIdx, int nreq);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   triangle index.
  * \return 1.
  *
  * Set triangle \a k as required (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDTRIANGLE(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDTRIANGLE(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredTriangle(PMMG_pGrp grp, int k);
+int PMMG_Set_requiredTriangle(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp    pointer toward the group structure.
+ * \param parmesh    pointer toward the group structure.
  * \param reqIdx table of the indices of the required trias.
  * \param nreq   number of required trias
  * \return 1.
@@ -694,52 +733,52 @@ int PMMG_Set_requiredTriangle(PMMG_pGrp grp, int k);
  * Set the required triangles (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDTRIANGLES(grp,reqIdx,nreq,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)    :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDTRIANGLES(parmesh,reqIdx,nreq,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)    :: parmesh\n
  * >     INTEGER, DIMENSION(*),INTENT(IN) :: reqIdx\n
  * >     INTEGER, INTENT(IN)              :: nreq\n
  * >     INTEGER, INTENT(OUT)             :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredTriangles(PMMG_pGrp grp, int *reqIdx, int nreq);
+int PMMG_Set_requiredTriangles(PMMG_pParMesh parmesh, int *reqIdx, int nreq);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   edge index.
  * \return 1.
  *
  * Set ridge at edge \a k (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_RIDGE(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_RIDGE(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_ridge(PMMG_pGrp grp, int k);
+int PMMG_Set_ridge(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   edge index.
  * \return 1.
  *
  * Set edge \a k as required (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDEDGE(grp,k,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDEDGE(parmesh,k,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_requiredEdge(PMMG_pGrp grp, int k);
+int PMMG_Set_requiredEdge(PMMG_pParMesh parmesh, int k);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param k   point index
  * \param n0  x componant of the normal at point \a k.
  * \param n1  y componant of the normal at point \a k.
@@ -750,19 +789,19 @@ int PMMG_Set_requiredEdge(PMMG_pGrp grp, int k);
  * Set normals (n0,n1,n2) at point \a k (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_NORMALATVERTEX(grp,k,n0,n1,n2,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_NORMALATVERTEX(parmesh,k,n0,n1,n2,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     REAL(KIND=8), INTENT(IN)      :: n0,n1,n2\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_normalAtVertex(PMMG_pGrp grp, int k, double n0, double n1,
+int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
                               double n2);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param s   solution scalar value.
  * \param pos position of the solution in the mesh.
  * \return 0  if failed, 1 otherwise.
@@ -771,18 +810,18 @@ int PMMG_Set_normalAtVertex(PMMG_pGrp grp, int k, double n0, double n1,
  * for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARSOL(grp,s,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_SCALARSOL(parmesh,s,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: s\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_scalarSol(PMMG_pGrp grp, double s,int pos);
+int PMMG_Set_scalarSol(PMMG_pParMesh parmesh, double s,int pos);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param s   table of the scalar solutions values.
  * s[i-1] is the solution at vertex i.
  * \return 0  if failed, 1 otherwise.
@@ -790,17 +829,17 @@ int PMMG_Set_scalarSol(PMMG_pGrp grp, double s,int pos);
  * Set scalar solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARSOLS(grp,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_SCALARSOLS(parmesh,s,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: s\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_scalarSols(PMMG_pGrp grp, double *sol);
+int PMMG_Set_scalarSols(PMMG_pParMesh parmesh, double *sol);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param vx  x value of the vectorial solution.
  * \param vy  y value of the vectorial solution.
  * \param vz  z value of the vectorial solution.
@@ -811,19 +850,19 @@ int PMMG_Set_scalarSols(PMMG_pGrp grp, double *sol);
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORSOL(grp,vx,vy,vz,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_VECTORSOL(parmesh,vx,vy,vz,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: vx,vy,vz\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_vectorSol(PMMG_pGrp grp, double vx,double vy, double vz,
+int PMMG_Set_vectorSol(PMMG_pParMesh parmesh, double vx,double vy, double vz,
                         int pos);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param sols table of the vectorial solutions
  * sols[3*(i-1)]\@3 is the solution at vertex i
  * \return 0   if failed, 1 otherwise.
@@ -831,17 +870,17 @@ int PMMG_Set_vectorSol(PMMG_pGrp grp, double vx,double vy, double vz,
  * Set vectorial solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORSOLS(grp,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)              :: grp\n
+ * >   SUBROUTINE PMMG_SET_VECTORSOLS(parmesh,sols,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)              :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN)      :: sols\n
  * >     INTEGER, INTENT(OUT)                       :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_vectorSols(PMMG_pGrp grp, double *sols);
+int PMMG_Set_vectorSols(PMMG_pParMesh parmesh, double *sols);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m11 value of the tensorial solution at position (1,1) in the tensor
  * \param m12 value of the tensorial solution at position (1,2) in the tensor
  * \param m13 value of the tensorial solution at position (1,3) in the tensor
@@ -855,19 +894,19 @@ int PMMG_Set_vectorSols(PMMG_pGrp grp, double *sols);
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORSOL(grp,m11,m12,m13,m22,m23,m33,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_TENSORSOL(parmesh,m11,m12,m13,m22,m23,m33,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: m11,m12,m13,m22,m23,m33\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorSol(PMMG_pGrp grp, double m11,double m12, double m13,
+int PMMG_Set_tensorSol(PMMG_pParMesh parmesh, double m11,double m12, double m13,
                        double m22,double m23, double m33, int pos);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param sols table of the tensorial solutions.
  * sols[6*(i-1)]\@6 is the solution at vertex i
  * \return 0   if failed, 1 otherwise.
@@ -876,17 +915,17 @@ int PMMG_Set_tensorSol(PMMG_pGrp grp, double m11,double m12, double m13,
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORSOLS(grp,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: grp\n
+ * >   SUBROUTINE PMMG_SET_TENSORSOLS(parmesh,sols,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: sols\n
  * >     INTEGER, INTENT(OUT)                  :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorSols(PMMG_pGrp grp, double *sols);
+int PMMG_Set_tensorSols(PMMG_pParMesh parmesh, double *sols);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m   metrics scalar value.
  * \param pos position of the solution in the mesh.
  * \return 0  if failed, 1 otherwise.
@@ -895,18 +934,18 @@ int PMMG_Set_tensorSols(PMMG_pGrp grp, double *sols);
  * for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARMET(grp,m,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_SCALARMET(parmesh,m,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: m\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_scalarMet(PMMG_pGrp grp, double m, int pos);
+int PMMG_Set_scalarMet(PMMG_pParMesh parmesh, double m, int pos);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m   table of the metrics solutions values.
  * m[i-1] is the solution at vertex i.
  * \return 0  if failed, 1 otherwise.
@@ -914,17 +953,17 @@ int PMMG_Set_scalarMet(PMMG_pGrp grp, double m, int pos);
  * Set scalar metrics at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARMETS(grp,m,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: grp\n
+ * >   SUBROUTINE PMMG_SET_SCALARMETS(parmesh,m,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: m\n
  * >     INTEGER, INTENT(OUT)                  :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_scalarMets(PMMG_pGrp grp, double *m);
+int PMMG_Set_scalarMets(PMMG_pParMesh parmesh, double *m);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param vx  x value of the vectorial solution.
  * \param vy  y value of the vectorial solution.
  * \param vz  z value of the vectorial solution.
@@ -935,19 +974,19 @@ int PMMG_Set_scalarMets(PMMG_pGrp grp, double *m);
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORMET(grp,vx,vy,vz,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_VECTORMET(parmesh,vx,vy,vz,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: vx,vy,vz\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_vectorMet(PMMG_pGrp grp, double vx,double vy, double vz,
+int PMMG_Set_vectorMet(PMMG_pParMesh parmesh, double vx,double vy, double vz,
                         int pos);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param mets table of the vectorial metrics
  * mets[3*(i-1)]\@3 is the solution at vertex i
  * \return 0   if failed, 1 otherwise.
@@ -955,17 +994,17 @@ int PMMG_Set_vectorMet(PMMG_pGrp grp, double vx,double vy, double vz,
  * Set vectorial solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORMETS(grp,mets,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: grp\n
+ * >   SUBROUTINE PMMG_SET_VECTORMETS(parmesh,mets,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: mets\n
  * >     INTEGER, INTENT(OUT)                  :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_vectorMets(PMMG_pGrp grp, double *mets);
+int PMMG_Set_vectorMets(PMMG_pParMesh parmesh, double *mets);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m11 value of the tensorial metrics at position (1,1) in the tensor
  * \param m12 value of the tensorial metrics at position (1,2) in the tensor
  * \param m13 value of the tensorial metrics at position (1,3) in the tensor
@@ -979,19 +1018,19 @@ int PMMG_Set_vectorMets(PMMG_pGrp grp, double *mets);
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORMET(grp,m11,m12,m13,m22,m23,m33,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_SET_TENSORMET(parmesh,m11,m12,m13,m22,m23,m33,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(IN)      :: m11,m12,m13,m22,m23,m33\n
  * >     INTEGER, INTENT(IN)           :: pos\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorMet(PMMG_pGrp grp, double m11,double m12, double m13,
+int PMMG_Set_tensorMet(PMMG_pParMesh parmesh, double m11,double m12, double m13,
                        double m22,double m23, double m33, int pos);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param mets table of the tensorial solutions.
  * mets[6*(i-1)]\@6 is the solution at vertex i
  * \return 0   if failed, 1 otherwise.
@@ -1000,49 +1039,86 @@ int PMMG_Set_tensorMet(PMMG_pGrp grp, double m11,double m12, double m13,
  * structure (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORMETS(grp,mets,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: grp\n
+ * >   SUBROUTINE PMMG_SET_TENSORMETS(parmesh,mets,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: parmesh\n
  * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: mets\n
  * >     INTEGER, INTENT(OUT)                  :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorMets(PMMG_pGrp grp, double *mets);
+int PMMG_Set_tensorMets(PMMG_pParMesh parmesh, double *mets);
 
 /**
- * \param grp       pointer toward the group structure.
- * \param np        pointer toward the number of vertices.
- * \param ne        pointer toward the number of tetrahedra.
- * \param nprism    pointer toward the number of prisms.
- * \param nt        pointer toward the number of triangles.
- * \param nquad     pointer toward the number of quads.
- * \param na        pointer toward the number of edges.
- * \param typEntity pointer toward the type of entities to which solutions
- * are applied.
- * \param typSol    pointer toward the type of the solutions (scalar, vectorial,
- * ...)
- * \param typMet    pointer toward the type of the metrics (scalar, vectorial,
- * ...)
- * \return 1.
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param np        Number of vertices.
+ * \param ne        Number of tetrahedra.
+ * \param nprism    Number of prisms.
+ * \param nt        Number of triangles.
+ * \param nquad     Number of quads.
+ * \param na        Number of edges.
+ * \return          0 if failed, 1 otherwise.
  *
- * Get the solution number, dimension and type (wrapper for MMG3D functions).
+ * Get the number of vertices, tetrahedra, prisms, triangles, quadrilaterals and
+ * edges of the mesh and allocate the associated tables.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_GRPSIZE(grp,np,ne,nprism,nt,nquad,na,&\n
- * >                               typEntity,typSol,typMet,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
- * >     INTEGER                       :: np,ne,nprism,nt,nquad,na,&\n
- * >                                   :: typEntity,typSol,typMet\n
+ * >   SUBROUTINE PMMG_GET_MESHSIZE(parmesh, np, ne, nprism, nt, nquad, na, &\n
+ * >                                retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER                       :: np, ne, nprism, nt, nquad, na\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_grpSize(PMMG_pGrp grp, int* np, int* ne,
-                      int *nprism, int* nt, int* nquad, int* na,
-                      int* typEntity, int* typSol, int* typMet);
+int PMMG_Get_meshSize(PMMG_pParMesh parmesh,int *np,int *ne,int *nprism,int *nt,
+                      int *nquad, int *na);
+/**
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param nsol      Number of solutions per entity.
+ * \param typEntity Array (of size nsol) listing the type of entities to which
+ *                  apply the solutions (vertices, triangles...).
+ * \param np        number of vertices
+ * \param typSol    Array of size nsol listing the type of the solutions
+ *                  (scalar, vectorial...).
+ * \return          0 if failed, 1 otherwise.
+ *
+ * Get the number of solutions per entity, the type of entity to which applies
+ * each solution and the type of each solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ALLSOLSSIZES(parmesh, nsol,typEntity,np,typSol,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER                       :: nsol,np\n
+ * >     INTEGER                       :: typEntity(*), typSol(*)\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Get_allSolsSizes(PMMG_pParMesh parmesh,int *nsol,int *typEntity,int *np,
+                          int *typSol);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh   Pointer towards the parmesh structure.
+ * \param typEntity Type of entity to which applies the metric (vertices, triangles...).
+ * \param np        number of vertices
+ * \param typMet    Type of the metric (scalar, vectorial...).
+ * \return          0 if failed, 1 otherwise.
+ *
+ * Get the type of entity to which applies the metric and the type of the metric.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_METSIZE(parmesh,typEntity,np,typMet,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER                       :: np\n
+ * >     INTEGER                       :: typEntity, typMet\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Get_metSize(PMMG_pParMesh parmesh,int *typEntity,int *np,int *typMet);
+
+/**
+ * \param parmesh pointer toward the group structure.
  * \param c0  pointer toward the coordinate of the point along the first
  * dimension.
  * \param c1  pointer toward the coordinate of the point along the second
@@ -1058,20 +1134,20 @@ int  PMMG_Get_grpSize(PMMG_pGrp grp, int* np, int* ne,
  * vertex of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VERTEX(grp,c0,c1,c2,ref,isCorner,isRequired, &\n
+ * >   SUBROUTINE PMMG_GET_VERTEX(parmesh,c0,c1,c2,ref,isCorner,isRequired, &\n
  * >                               retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: c0,c1,c2\n
  * >     INTEGER                       :: ref,isCorner,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_vertex(PMMG_pGrp grp, double* c0, double* c1, double* c2,
+int  PMMG_Get_vertex(PMMG_pParMesh parmesh, double* c0, double* c1, double* c2,
                      int* ref,int* isCorner, int* isRequired);
 
 /**
- * \param grp      pointer toward the group structure.
+ * \param parmesh      pointer toward the group structure.
  * \param vertices pointer toward the table of the points coordinates.
  * The coordinates of the \f$i^{th}\f$ point are stored in
  * vertices[(i-1)*3]\@3.
@@ -1090,20 +1166,20 @@ int  PMMG_Get_vertex(PMMG_pGrp grp, double* c0, double* c1, double* c2,
  * \remark Fortran interface: (commentated in order to allow to pass \%val(0)
  * instead of the refs, areCorners or areRequired arrays)
  *
- * > ! SUBROUTINE PMMG_GET_VERTICES(grp,vertices,refs,areCorners,&\n
+ * > ! SUBROUTINE PMMG_GET_VERTICES(parmesh,vertices,refs,areCorners,&\n
  * > !                               areRequired,retval)\n
- * > !   MMG5_DATA_PTR_T,INTENT(INOUT)          :: grp\n
+ * > !   MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
  * > !   REAL(KIND=8),DIMENSION(*), INTENT(OUT) :: vertices\n
  * > !   INTEGER, DIMENSION(*)                  :: refs,areCorners,areRequired\n
  * > !   INTEGER, INTENT(OUT)                   :: retval\n
  * > ! END SUBROUTINE\n
  *
  */
-int  PMMG_Get_vertices(PMMG_pGrp grp, double* vertices, int* refs,
+int  PMMG_Get_vertices(PMMG_pParMesh parmesh, double* vertices, int* refs,
                        int* areCorners, int* areRequired);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  pointer toward the first vertex of tetrahedron.
  * \param v1  pointer toward the second vertex of tetrahedron.
  * \param v2  pointer toward the third vertex of tetrahedron.
@@ -1117,20 +1193,20 @@ int  PMMG_Get_vertices(PMMG_pGrp grp, double* vertices, int* refs,
  * next tetra of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TETRAHEDRON(grp,v0,v1,v2,v3,ref,isRequired,&\n
+ * >   SUBROUTINE PMMG_GET_TETRAHEDRON(parmesh,v0,v1,v2,v3,ref,isRequired,&\n
  * >                                    retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: v0,v1,v2,v3\n
  * >     INTEGER                       :: ref,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_tetrahedron(PMMG_pGrp grp, int* v0, int* v1, int* v2,
+int  PMMG_Get_tetrahedron(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,
                            int* v3,int* ref, int* isRequired);
 
 /**
- * \param grp   pointer toward the group structure.
+ * \param parmesh   pointer toward the group structure.
  * \param tetra pointer toward the table of the tetrahedra vertices.
  * Vertices of the \f$i^{th}\f$ tetra are stored in tetra[(i-1)*4]\@4.
  * \param refs  pointer toward the table of the tetrahedron references.
@@ -1146,20 +1222,20 @@ int  PMMG_Get_tetrahedron(PMMG_pGrp grp, int* v0, int* v1, int* v2,
  * \remark Fortran interface: (commentated in order to allow to pass \%val(0)
  * instead of the refs, areCorners or areRequired arrays)
  *
- * > !  SUBROUTINE PMMG_GET_TETRAHEDRA(grp,tetra,refs,areRequired,&\n
+ * > !  SUBROUTINE PMMG_GET_TETRAHEDRA(parmesh,tetra,refs,areRequired,&\n
  * > !                                   retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * > !    INTEGER, DIMENSION(*),INTENT(OUT) :: tetra\n
  * > !    INTEGER, DIMENSION(*)         :: refs,areRequired\n
  * > !    INTEGER, INTENT(OUT)          :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int  PMMG_Get_tetrahedra(PMMG_pGrp grp, int* tetra,int* refs,
+int  PMMG_Get_tetrahedra(PMMG_pParMesh parmesh, int* tetra,int* refs,
                           int* areRequired);
 
 /**
- * \param grp pointer toward the mesh structure.
+ * \param parmesh pointer toward the mesh structure.
  * \param v0  pointer toward the first vertex of prism.
  * \param v1  pointer toward the second vertex of prism.
  * \param v2  pointer toward the third vertex of prism.
@@ -1175,20 +1251,20 @@ int  PMMG_Get_tetrahedra(PMMG_pGrp grp, int* tetra,int* refs,
  * next prism of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_PRISM(grp,v0,v1,v2,v3,v4,v5,ref,isRequired,&\n
+ * >   SUBROUTINE PMMG_GET_PRISM(parmesh,v0,v1,v2,v3,v4,v5,ref,isRequired,&\n
  * >                                    retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: v0,v1,v2,v3,v4,v5\n
  * >     INTEGER                       :: ref,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_prism(PMMG_pGrp grp, int* v0, int* v1, int* v2,
+int  PMMG_Get_prism(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,
                     int* v3, int* v4, int* v5, int* ref, int* isRequired);
 
 /**
- * \param grp    pointer toward the group structure.
+ * \param parmesh    pointer toward the group structure.
  * \param prisms pointer toward the table of the prisms vertices.
  * Vertices of the \f$i^{th}\f$ prism are stored in prisms[(i-1)*6]\@6.
  * \param refs   pointer toward the table of the prism references.
@@ -1203,20 +1279,20 @@ int  PMMG_Get_prism(PMMG_pGrp grp, int* v0, int* v1, int* v2,
  * \remark Fortran interface: (commentated in order to allow to pass \%val(0)
  * instead of the refs, areCorners or areRequired arrays)
  *
- * > !  SUBROUTINE PMMG_GET_PRISMS(grp,prisms,refs,areRequired,&\n
+ * > !  SUBROUTINE PMMG_GET_PRISMS(parmesh,prisms,refs,areRequired,&\n
  * > !                              retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: grp\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: parmesh\n
  * > !    INTEGER, DIMENSION(*),INTENT(OUT) :: prisms\n
  * > !    INTEGER, DIMENSION(*)             :: refs,areRequired\n
  * > !    INTEGER, INTENT(OUT)              :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int  PMMG_Get_prisms(PMMG_pGrp grp, int* prisms,int* refs,
+int  PMMG_Get_prisms(PMMG_pParMesh parmesh, int* prisms,int* refs,
                           int* areRequired);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  pointer toward the first vertex of triangle.
  * \param v1  pointer toward the second vertex of triangle.
  * \param v2  pointer toward the third vertex of triangle.
@@ -1228,19 +1304,19 @@ int  PMMG_Get_prisms(PMMG_pGrp grp, int* prisms,int* refs,
  * triangle of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TRIANGLE(grp,v0,v1,v2,ref,isRequired,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_TRIANGLE(parmesh,v0,v1,v2,ref,isRequired,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: v0,v1,v2\n
  * >     INTEGER                       :: ref,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_triangle(PMMG_pGrp grp, int* v0, int* v1, int* v2, int* ref,
+int  PMMG_Get_triangle(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2, int* ref,
                        int* isRequired);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param tria pointer toward the table of the triangles vertices
  * Vertices of the \f$i^{th}\f$ tria are stored in tria[(i-1)*3]\@3.
  * \param refs pointer toward the table of the triangles references.
@@ -1255,19 +1331,19 @@ int  PMMG_Get_triangle(PMMG_pGrp grp, int* v0, int* v1, int* v2, int* ref,
  * \remark Fortran interface: (Commentated in order to allow to pass \%val(0)
  * instead of the refs or areRequired arrays)
  *
- * > !  SUBROUTINE PMMG_GET_TRIANGLES(grp,tria,refs,areRequired,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: grp\n
+ * > !  SUBROUTINE PMMG_GET_TRIANGLES(parmesh,tria,refs,areRequired,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: parmesh\n
  * > !    INTEGER, DIMENSION(*),INTENT(OUT) :: tria\n
  * > !    INTEGER, DIMENSION(*)             :: refs,areRequired\n
  * > !    INTEGER, INTENT(OUT)              :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int  PMMG_Get_triangles(PMMG_pGrp grp, int* tria, int* refs,
+int  PMMG_Get_triangles(PMMG_pParMesh parmesh, int* tria, int* refs,
                         int* areRequired);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param v0  pointer toward the first vertex of quadrilateral.
  * \param v1  pointer toward the second vertex of quadrilateral.
  * \param v2  pointer toward the third vertex of quadrilateral.
@@ -1280,19 +1356,19 @@ int  PMMG_Get_triangles(PMMG_pGrp grp, int* tria, int* refs,
  * quadrilateral of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_QUADRILATERAL(grp,v0,v1,v2,v3,ref,isRequired,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_QUADRILATERAL(parmesh,v0,v1,v2,v3,ref,isRequired,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: v0,v1,v2,v3\n
  * >     INTEGER                       :: ref,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_quadrilateral(PMMG_pGrp grp, int* v0, int* v1, int* v2,int* v3,
+int  PMMG_Get_quadrilateral(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,int* v3,
                             int* ref, int* isRequired);
 
 /**
- * \param grp   pointer toward the group structure.
+ * \param parmesh   pointer toward the group structure.
  * \param quads pointer toward the table of the quadrilaterals vertices
  * Vertices of the \f$i^{th}\f$ quad are stored in tria[(i-1)*4]\@4.
  * \param refs  pointer toward the table of the quadrilaterals references.
@@ -1308,19 +1384,19 @@ int  PMMG_Get_quadrilateral(PMMG_pGrp grp, int* v0, int* v1, int* v2,int* v3,
  * \remark Fortran interface: (Commentated in order to allow to pass \%val(0)
  * instead of the refs or areRequired arrays)
  *
- * > !  SUBROUTINE PMMG_GET_QUADRILATERALS(grp,quads,refs,areRequired,retval)\n
- * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: grp\n
+ * > !  SUBROUTINE PMMG_GET_QUADRILATERALS(parmesh,quads,refs,areRequired,retval)\n
+ * > !    MMG5_DATA_PTR_T,INTENT(INOUT)     :: parmesh\n
  * > !    INTEGER, DIMENSION(*),INTENT(OUT) :: quads\n
  * > !    INTEGER, DIMENSION(*)             :: refs,areRequired\n
  * > !    INTEGER, INTENT(OUT)              :: retval\n
  * > !  END SUBROUTINE\n
  *
  */
-int  PMMG_Get_quadrilaterals(PMMG_pGrp grp, int* quads, int* refs,
+int  PMMG_Get_quadrilaterals(PMMG_pParMesh parmesh, int* quads, int* refs,
                              int* areRequired);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param e0  pointer toward the first extremity of the edge.
  * \param e1  pointer toward the second  extremity of the edge.
  * \param ref pointer toward the edge reference.
@@ -1332,19 +1408,19 @@ int  PMMG_Get_quadrilaterals(PMMG_pGrp grp, int* quads, int* refs,
  * (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_EDGE(grp,e0,e1,ref,isRidge,isRequired,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_EDGE(parmesh,e0,e1,ref,isRidge,isRequired,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)          :: e0,e1\n
  * >     INTEGER                       :: ref,isRidge,isRequired\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_edge(PMMG_pGrp grp, int* e0, int* e1, int* ref,
+int  PMMG_Get_edge(PMMG_pParMesh parmesh, int* e0, int* e1, int* ref,
                    int* isRidge, int* isRequired);
 
 /**
- * \param grp pointer toward the mesh structure.
+ * \param parmesh pointer toward the mesh structure.
  * \param k   point index
  * \param n0  x componant of the normal at point \a k.
  * \param n1  y componant of the normal at point \a k.
@@ -1355,36 +1431,36 @@ int  PMMG_Get_edge(PMMG_pGrp grp, int* e0, int* e1, int* ref,
  * Get normals (n0,n1,n2) at point \a k (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_NORMALATVERTEX(grp,k,n0,n1,n2,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_NORMALATVERTEX(parmesh,k,n0,n1,n2,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: k\n
  * >     REAL(KIND=8)                  :: n0,n1,n2\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_normalAtVertex(PMMG_pGrp grp, int k, double *n0, double *n1,
+int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1,
                              double *n2) ;
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param s   pointer toward the scalar solution value.
  * \return 0  if failed, 1 otherwise.
  *
  * Get solution \a s of next vertex of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARSOL(grp,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_SCALARSOL(parmesh,s,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: s\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_scalarSol(PMMG_pGrp grp, double* s);
+int  PMMG_Get_scalarSol(PMMG_pParMesh parmesh, double* s);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param s   table of the scalar solutions at mesh vertices. s[i-1] is
  * the solution at vertex i.
  * \return 0 if failed, 1 otherwise.
@@ -1392,17 +1468,17 @@ int  PMMG_Get_scalarSol(PMMG_pGrp grp, double* s);
  * Get solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARSOLS(grp,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: grp\n
+ * >   SUBROUTINE PMMG_GET_SCALARSOLS(parmesh,s,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
  * >     INTEGER, INTENT(OUT)                   :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_scalarSols(PMMG_pGrp grp, double* s);
+int  PMMG_Get_scalarSols(PMMG_pParMesh parmesh, double* s);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param vx  x value of the vectorial solution.
  * \param vy  y value of the vectorial solution.
  * \param vz  z value of the vectorial solution.
@@ -1412,17 +1488,17 @@ int  PMMG_Get_scalarSols(PMMG_pGrp grp, double* s);
  * (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORSOL(grp,vx,vy,vz,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_VECTORSOL(parmesh,vx,vy,vz,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: vx,vy,vz\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_vectorSol(PMMG_pGrp grp, double* vx, double* vy, double* vz);
+int PMMG_Get_vectorSol(PMMG_pParMesh parmesh, double* vx, double* vy, double* vz);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param sols table of the solutions at mesh vertices. sols[3*(i-1)]\@3 is
  * the solution at vertex i.
  * \return 0   if failed, 1 otherwise.
@@ -1430,17 +1506,17 @@ int PMMG_Get_vectorSol(PMMG_pGrp grp, double* vx, double* vy, double* vz);
  * Get vectorial solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORSOLS(grp,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: grp\n
+ * >   SUBROUTINE PMMG_GET_VECTORSOLS(parmesh,sols,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: sols\n
  * >     INTEGER, INTENT(OUT)                   :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_vectorSols(PMMG_pGrp grp, double* sols);
+int PMMG_Get_vectorSols(PMMG_pParMesh parmesh, double* sols);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m11 pointer toward the position (1,1) in the solution tensor.
  * \param m12 pointer toward the position (1,2) in the solution tensor.
  * \param m13 pointer toward the position (1,3) in the solution tensor.
@@ -1452,18 +1528,18 @@ int PMMG_Get_vectorSols(PMMG_pGrp grp, double* sols);
  * Get tensorial solution of next vertex of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORSOL(grp,m11,m12,m13,m22,m23,m33,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_TENSORSOL(parmesh,m11,m12,m13,m22,m23,m33,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: m11,m12,m13,m22,m23,m33\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_tensorSol(PMMG_pGrp grp, double *m11,double *m12, double *m13,
+int PMMG_Get_tensorSol(PMMG_pParMesh parmesh, double *m11,double *m12, double *m13,
                        double *m22,double *m23, double *m33);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param sols table of the solutions at mesh vertices.
  * sols[6*(i-1)]\@6 is the solution at vertex i.
  * \return 0   if failed, 1 otherwise.
@@ -1471,34 +1547,34 @@ int PMMG_Get_tensorSol(PMMG_pGrp grp, double *m11,double *m12, double *m13,
  * Get tensorial solutions at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORSOLS(grp,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)           :: grp\n
+ * >   SUBROUTINE PMMG_GET_TENSORSOLS(parmesh,sols,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)           :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*), INTENT(OUT) :: sols\n
  * >     INTEGER, INTENT(OUT)                    :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_tensorSols(PMMG_pGrp grp, double *sols);
+int PMMG_Get_tensorSols(PMMG_pParMesh parmesh, double *sols);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m   pointer toward the scalar metrics value.
  * \return 0  if failed, 1 otherwise.
  *
  * Get solution \a m of next vertex of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARMET(grp,m,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_SCALARMET(parmesh,m,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: m\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_scalarMet(PMMG_pGrp grp, double* m);
+int  PMMG_Get_scalarMet(PMMG_pParMesh parmesh, double* m);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m   table of the scalar solutions at mesh vertices. s[i-1] is
  * the solution at vertex i.
  * \return 0  if failed, 1 otherwise.
@@ -1506,17 +1582,17 @@ int  PMMG_Get_scalarMet(PMMG_pGrp grp, double* m);
  * Get metrics at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARMETS(grp,m,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: grp\n
+ * >   SUBROUTINE PMMG_GET_SCALARMETS(parmesh,m,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: m\n
  * >     INTEGER, INTENT(OUT)                   :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Get_scalarMets(PMMG_pGrp grp, double* m);
+int  PMMG_Get_scalarMets(PMMG_pParMesh parmesh, double* m);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param vx  x value of the vectorial solution.
  * \param vy  y value of the vectorial solution.
  * \param vz  z value of the vectorial solution.
@@ -1526,17 +1602,17 @@ int  PMMG_Get_scalarMets(PMMG_pGrp grp, double* m);
  * (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORMET(grp,vx,vy,vz,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_VECTORMET(parmesh,vx,vy,vz,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: vx,vy,vz\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_vectorMet(PMMG_pGrp grp, double* vx, double* vy, double* vz);
+int PMMG_Get_vectorMet(PMMG_pParMesh parmesh, double* vx, double* vy, double* vz);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param mets table of the solutions at mesh vertices. mets[3*(i-1)]\@3 is
  * the solution at vertex i.
  * \return 0   if failed, 1 otherwise.
@@ -1544,17 +1620,17 @@ int PMMG_Get_vectorMet(PMMG_pGrp grp, double* vx, double* vy, double* vz);
  * Get vectorial metrics at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORMETS(grp,mets,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: grp\n
+ * >   SUBROUTINE PMMG_GET_VECTORMETS(parmesh,mets,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: mets\n
  * >     INTEGER, INTENT(OUT)                   :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_vectorMets(PMMG_pGrp grp, double* mets);
+int PMMG_Get_vectorMets(PMMG_pParMesh parmesh, double* mets);
 
 /**
- * \param grp pointer toward the group structure.
+ * \param parmesh pointer toward the group structure.
  * \param m11 pointer toward the position (1,1) in the metrics tensor.
  * \param m12 pointer toward the position (1,2) in the metrics tensor.
  * \param m13 pointer toward the position (1,3) in the metrics tensor.
@@ -1566,18 +1642,18 @@ int PMMG_Get_vectorMets(PMMG_pGrp grp, double* mets);
  * Get tensorial metrics of next vertex of mesh (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORMET(grp,m11,m12,m13,m22,m23,m33,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: grp\n
+ * >   SUBROUTINE PMMG_GET_TENSORMET(parmesh,m11,m12,m13,m22,m23,m33,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     REAL(KIND=8), INTENT(OUT)     :: m11,m12,m13,m22,m23,m33\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_tensorMet(PMMG_pGrp grp, double *m11,double *m12, double *m13,
+int PMMG_Get_tensorMet(PMMG_pParMesh parmesh, double *m11,double *m12, double *m13,
                        double *m22,double *m23, double *m33);
 
 /**
- * \param grp  pointer toward the group structure.
+ * \param parmesh  pointer toward the group structure.
  * \param mets table of the metrics at mesh vertices.
  * mets[6*(i-1)]\@6 is the solution at vertex i.
  * \return 0   if failed, 1 otherwise.
@@ -1585,14 +1661,14 @@ int PMMG_Get_tensorMet(PMMG_pGrp grp, double *m11,double *m12, double *m13,
  * Get tensorial metrics at mesh vertices (wrapper for MMG3D function).
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORMETS(grp,mets,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)           :: grp\n
+ * >   SUBROUTINE PMMG_GET_TENSORMETS(parmesh,mets,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT)           :: parmesh\n
  * >     REAL(KIND=8), DIMENSION(*), INTENT(OUT) :: mets\n
  * >     INTEGER, INTENT(OUT)                    :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_tensorMets(PMMG_pGrp grp, double *mets);
+int PMMG_Get_tensorMets(PMMG_pParMesh parmesh, double *mets);
 
 /* libparmmg_tools.c: Tools for the library */
 /**
@@ -1603,7 +1679,7 @@ int PMMG_Get_tensorMets(PMMG_pGrp grp, double *mets);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_DEFAULTVALUES(parmesh,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -1634,7 +1710,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_USAGE(parmesh,prog,strlen,retval)\n
- * >     PMMG_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: prog\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
