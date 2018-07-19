@@ -8,53 +8,17 @@
  */
 #include "parmmg.h"
 
-int PMMG_Init_parMesh( PMMG_pParMesh *parmesh ,MPI_Comm comm)
-{
-  PMMG_pGrp grp = NULL;
+int PMMG_Init_parMesh(const int starter,...) {
+  va_list argptr;
+  int     ier;
 
-  /* ParMesh allocation */
-  assert ( (*parmesh == NULL) && "trying to initialize non empty parmesh" );
-   *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
-  if ( *parmesh == NULL )
-    goto fail_pmesh;
+  va_start(argptr, starter);
 
-  /* Assign some values to memory related fields to begin working with */
-  (*parmesh)->memGloMax = 4 * 1024L * 1024L;
-  (*parmesh)->memMax = 4 * 1024L * 1024L;
-  (*parmesh)->memCur = sizeof(PMMG_ParMesh);
+  ier = PMMG_Init_parMesh_var(argptr);
 
-  /** Init Group */
-  (*parmesh)->ngrp = 1;
-  PMMG_CALLOC(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
-              "allocating groups container", goto fail_grplst );
-  grp = &(*parmesh)->listgrp[0];
-  grp->mesh = NULL;
-  grp->met  = NULL;
-  grp->disp = NULL;
-  if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
-                             MMG5_ARG_ppMesh, &grp->mesh,
-                             MMG5_ARG_ppMet, &grp->met,
-                             MMG5_ARG_end ) )
-    goto fail_mesh;
+  va_end(argptr);
 
-
-  PMMG_Init_parameters(*parmesh,comm);
-
-  return 1;
-
-fail_mesh:
-    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
-                 "deallocating groups container");
-
-fail_grplst:
-  (*parmesh)->ngrp = 0;
-  (*parmesh)->memMax = 0;
-  (*parmesh)->memCur = 0;
-  free( *parmesh );
-  *parmesh = NULL;
-
-fail_pmesh:
-  return 0;
+  return ier;
 }
 
 int PMMG_Set_inputMeshName(PMMG_pParMesh parmesh, const char* meshin) {
@@ -771,13 +735,16 @@ int PMMG_Get_tensorMets(PMMG_pParMesh parmesh, double *mets){
   return(MMG3D_Get_tensorSols(parmesh->listgrp[0].met, mets));
 }
 
-int PMMG_Free_all( PMMG_pParMesh *parmesh )
+int PMMG_Free_all(const int starter,...)
 {
-  PMMG_parmesh_Free_Comm( *parmesh );
+  va_list argptr;
+  int     ier;
 
-  PMMG_parmesh_Free_Listgrp( *parmesh );
+  va_start(argptr, starter);
 
-  _MMG5_SAFE_FREE(*parmesh);
+  ier = PMMG_Free_all_var(argptr);
 
-  return 1;
+  va_end(argptr);
+
+  return ier;
 }

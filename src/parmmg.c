@@ -145,7 +145,11 @@ int main( int argc, char *argv[] )
   chrono(ON,&PMMG_ctim[0]);
 
   /* Allocate the main pmmg struct and assign default values */
-  if ( 1 != PMMG_Init_parMesh( &parmesh,MPI_COMM_WORLD ) ) {
+  if ( 1 != PMMG_Init_parMesh( PMMG_ARG_start,
+                               PMMG_ARG_ppParMesh,&parmesh,
+                               PMMG_ARG_dim,3,
+                               PMMG_ARG_MPIComm,MPI_COMM_WORLD,
+                               PMMG_ARG_end) ) {
     MPI_Abort( MPI_COMM_WORLD, PMMG_STRONGFAILURE );
     MPI_Finalize();
     return PMMG_FAILURE;

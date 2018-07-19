@@ -7,20 +7,26 @@
  * any fortran compiler.
  *
  */
-#include "libparmmg.h"
-#include "mmgcommon.h"
+#include "parmmg.h"
 
 /**
- * See \ref PMMG_Init_parMesh function in \ref libparmmg.h file.
+ * See \ref PMMG_Init_parmesh function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_INIT_PARMESH,pmmg_init_parmesh,
-             (PMMG_pParMesh *parmesh,MPI_Comm *comm,int *retval),
-             (parmesh,comm,retval)) {
+FORTRAN_VARIADIC ( PMMG_INIT_PARMESH, pmmg_init_parmesh,
+                   (const int starter, ... ),
+                   va_list argptr;
+                   int     ier;
 
-  *retval = PMMG_Init_parMesh(parmesh,*comm);
+                   va_start(argptr, starter);
 
-  return;
-}
+                   ier = PMMG_Init_parMesh_var(argptr);
+
+                   va_end(argptr);
+
+                   if ( !ier ) exit(EXIT_FAILURE);
+
+                   return;
+  )
 
 /**
  * See \ref PMMG_Set_inputMeshName function in \ref libparmmg.h file.
@@ -783,14 +789,23 @@ FORTRAN_NAME(PMMG_GET_TENSORMETS,pmmg_get_tensormets,
 }
 
 /**
- * See \ref PMMG_Free_all function in \ref libparmmg.h file.
+ * See \ref PMMG_Free_all function in \ref mmg3d/libmmg3d.h file.
  */
-FORTRAN_NAME(PMMG_FREE_ALL,pmmg_free_all,
-             (PMMG_pParMesh *parmesh,int* retval),
-             (parmesh,retval)) {
-  *retval = PMMG_Free_all(parmesh);
-  return;
-}
+FORTRAN_VARIADIC(PMMG_FREE_ALL,pmmg_free_all,
+                 (const int starter,...),
+                 va_list argptr;
+                 int     ier;
+
+                 va_start(argptr, starter);
+
+                 ier = PMMG_Free_all_var(argptr);
+
+                 va_end(argptr);
+
+                 if ( !ier ) exit(EXIT_FAILURE);
+                 return;
+  )
+
 
 /**
  * See \ref PMMG_parmmglib_distributed function in \ref libparmmg.h file.

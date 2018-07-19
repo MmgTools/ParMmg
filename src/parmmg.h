@@ -42,7 +42,9 @@ extern "C" {
   {                                                                     \
     MPI_Comm comm = parmesh->comm;                                      \
                                                                         \
-    if ( !PMMG_Free_all( &parmesh ) ) {                                 \
+    if ( !PMMG_Free_all( PMMG_ARG_start,                                \
+                         PMMG_ARG_ppParMesh,&parmesh,                   \
+                         PMMG_ARG_end) ) {                              \
       fprintf(stderr,"  ## Warning: unable to clean the parmmg memory.\n" \
               " Possible memory leak.\n");                              \
     }                                                                   \
@@ -220,6 +222,13 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
 int PMMG_outqua( PMMG_pParMesh parmesh );
+
+/* Variadic_pmmg.c */
+int PMMG_Init_parMesh_var(va_list argptr);
+int PMMG_Free_all_var(va_list argptr);
+
+const char* PMMG_Get_pmmgArgName(int typArg);
+
 
 #ifdef __cplusplus
 }

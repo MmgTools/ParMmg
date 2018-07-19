@@ -64,6 +64,51 @@
  */
 #define PMMG_ARG_ppParMesh  2
 /**
+ * \def PMMG_ARG_pMesh
+ *
+ * PMMG_pMesh structure
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_pMesh  3
+/**
+ * \def PMMG_ARG_pMet
+ *
+ * PMMG_pSol structure storing a metric field
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_pMet   4
+/**
+ * \def PMMG_ARG_pSols
+ *
+ * PMMG_pSol structure storing an array of solutions
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_pSols  5
+/**
+ * \def PMMG_ARG_pDisp
+ *
+ * PMMG_pSol structure storing a displacement field
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_pDisp  6
+/**
+ * \def PMMG_ARG_pLs
+ *
+ * PMMG_pSol structure storing level-set function
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_pLs  7
+/**
  * \def PMMG_ARG_ngroups
  *
  * Number of groups per processor.
@@ -71,16 +116,26 @@
  * \remark we cannot use an enum because used in
  * variadic functions).
  */
-#define PMMG_ARG_ngroups  3
+
+#define PMMG_ARG_ngroups  8
 /**
- * \def PMMG_ARG_comm
+ * \def PMMG_ARG_MPIComm
  *
  * MPI Communicator
  *
  * \remark we cannot use an enum because used in
  * variadic functions).
  */
-#define PMMG_ARG_comm  4
+#define PMMG_ARG_MPIComm  9
+/**
+ * \def PMMG_ARG_dim
+ *
+ * mesh dimension
+ *
+ * \remark we cannot use an enum because used in
+ * variadic functions).
+ */
+#define PMMG_ARG_dim  10
 /**
  * \def PMMG_ARG_end
  *
@@ -90,7 +145,7 @@
  * \remark we cannot use an enum because used in
  * variadic functions).
  */
-#define PMMG_ARG_end    5
+#define PMMG_ARG_end    11
 
 /**
  * \def PMMG_UNSET

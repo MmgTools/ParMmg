@@ -67,25 +67,36 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
 
 
 /* API_functions_pmmg.c */
+/* init structures */
 /**
- * \param parmesh pointer toward the parmesh structure
- * \param comm MPI communicator for ParMmg
+ * \param starter dummy argument used to initialize the variadic argument list
+ * \param ... variadic arguments that depend to the parmesh fields that you want
+ * to init
  *
- * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
- * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
- * the mesh.
+ * You need to provide at least the folowing arguments:
+ * the \a PMMG_ARG_start keyword to start the list of variadic arguments
+ * the \a PMMG_ARG_ppParMesh keyword to say that the next argument is a pointer
+ *  toward a pointer toward a parmesh
+ * a pointer toward a pointer toward a parmesh
+ * the \a PMMG_ARG_pMesh keyword to initialize a \a mesh pointer inside your \a parmesh
+ * the \a PMMG_ARG_pMet keyword to initialize a \a metric pointer inside your \a parmesh
+ * the \a PMMG_ARG_dim keyword to set the mesh dimension
+ * the \a PMMG_ARG_MPIComm keyword to set the MPI Communicator in which parmmg will work
+ * the \a PMMG_ARG_end keyword to end the list of variadic args.
  *
- * Allocation of the parmesh structure and initialisation of the parameters
+ * Example :
+ * PMMG_Init_parmesh(PMMG_ARG_start,PMMG_ARG_ppParMesh,your_parmesh_address,
+ *   PMMG_ARG_pMesh,PMMG_ARG_pMet,PMMG_ARG_dim,mesh_dimension,
+ *   PMMG_ARG_MPIComm,mpi_communicator,PMMG_ARG_end)
  *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_INIT_PARAMESH(parmesh,comm,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     MPI_Comm,INTENT(IN)           :: comm\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
+ * \return 1 if success, 0 if fail
  *
- **/
-int PMMG_Init_parMesh( PMMG_pParMesh *parmesh,MPI_Comm comm );
+ * ParMMG structures allocation and initialization.
+ *
+ * \remark No fortran interface to allow variadic arguments.
+ *
+ */
+ int PMMG_Init_parMesh(const int starter,...);
 
 /* libparmmg.c */
 /**
@@ -352,19 +363,22 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
 int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
 
 /**
- * \param parmesh pointer toward a pointer toward a parmesh structure
- * \return 1 if success, 0 if fail.
+ * \param starter dummy argument used to initialize the variadic argument list.
+ * \param ... variadic arguments to list the structure that must be deallocated.
+ * For now, you must provide the PMMG_ARG_ppParMesh keyword and your parmesh
+ * address as arguments.
  *
- * Deallocations of the parmmg structures before return
+ * \return 1 if success, 0 if fail
  *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_FREE_ALL(parmesh,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
+ * Deallocations before return.
+ *
+ * \remark we pass the structures by reference in order to have argument
+ * compatibility between the library call from a Fortran code and a C code.
+ *
+ * \remark no Fortran interface to allow variadic args.
  *
  */
-int PMMG_Free_all( PMMG_pParMesh *parmesh );
+  int PMMG_Free_all(const int starter,...);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
