@@ -360,7 +360,7 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
     if ( val <=0 ) {
       fprintf(stderr,"\n  ## Error: %s: hausdorff number must be strictly"
               " positive.\n",__func__);
-      return(0);
+      return 0;
     }
     else {
       for ( k=0; k<parmesh->ngrp; ++k ) {

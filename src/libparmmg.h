@@ -1604,6 +1604,111 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
  */
 int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
+/* input/output functions */
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Read mesh data.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load metric field. The solution file must contains only 1 solution: the
+ * metric
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMET_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load 1 or more solutions in a solution file at medit file format.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename pointer toward the name of file.
+
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Save mesh data.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh, const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write isotropic or anisotropic metric.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMET_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMet_centralized(PMMG_pParMesh parmesh, const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write 1 or more than 1 solution in a file at medit format.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
+
 #ifdef __cplusplus
 }
 #endif
