@@ -493,36 +493,14 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
   return(MMG3D_Set_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
 }
 
-int PMMG_Set_scalarSol(PMMG_pParMesh parmesh, double s,int pos){
+int PMMG_Set_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_scalarSol(parmesh->listgrp[0].sol, s, pos));
+  return(MMG3D_Set_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
 }
 
-int PMMG_Set_scalarSols(PMMG_pParMesh parmesh, double *sol){
+int PMMG_Set_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double *s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_scalarSols(parmesh->listgrp[0].sol, sol));
-}
-
-int PMMG_Set_vectorSol(PMMG_pParMesh parmesh, double vx,double vy, double vz,
-                       int pos){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_vectorSol(parmesh->listgrp[0].sol, vx, vy, vz, pos));
-}
-
-int PMMG_Set_vectorSols(PMMG_pParMesh parmesh, double *sols){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_vectorSols(parmesh->listgrp[0].sol, sols));
-}
-
-int PMMG_Set_tensorSol(PMMG_pParMesh parmesh, double m11,double m12, double m13,
-                       double m22,double m23, double m33, int pos){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_tensorSol(parmesh->listgrp[0].sol, m11, m12, m13, m22, m23, m33, pos));
-}
-
-int PMMG_Set_tensorSols(PMMG_pParMesh parmesh, double *sols){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_tensorSols(parmesh->listgrp[0].sol, sols));
+  return(MMG3D_Set_ithSol_inAllSols(parmesh->listgrp[0].sol,i, s, pos));
 }
 
 int PMMG_Set_scalarMet(PMMG_pParMesh parmesh, double m,int pos){
@@ -673,35 +651,15 @@ int PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1
   return(MMG3D_Get_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
 }
 
-int PMMG_Get_scalarSol(PMMG_pParMesh parmesh, double* s){
+int PMMG_Get_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double* s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_scalarSol(parmesh->listgrp[0].sol, s));
+  return(MMG3D_Get_ithSol_inAllSols(parmesh->listgrp[0].sol,i,s,pos));
 }
 
-int PMMG_Get_scalarSols(PMMG_pParMesh parmesh, double* s){
+int PMMG_Get_ithSols_inAllSols(PMMG_pParMesh parmesh,int i,double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_scalarSols(parmesh->listgrp[0].sol, s));
-}
+  return(MMG3D_Get_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
 
-int PMMG_Get_vectorSol(PMMG_pParMesh parmesh, double* vx, double* vy, double* vz){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_vectorSol(parmesh->listgrp[0].sol, vx, vy, vz));
-}
-
-int PMMG_Get_vectorSols(PMMG_pParMesh parmesh, double* sols){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_vectorSols(parmesh->listgrp[0].sol, sols));
-}
-
-int PMMG_Get_tensorSol(PMMG_pParMesh parmesh, double *m11,double *m12, double *m13,
-                       double *m22,double *m23, double *m33){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_tensorSol(parmesh->listgrp[0].sol, m11, m12, m13, m22, m23, m33));
-}
-
-int PMMG_Get_tensorSols(PMMG_pParMesh parmesh, double *sols){
-  assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_tensorSols(parmesh->listgrp[0].sol, sols));
 }
 
 int PMMG_Get_scalarMet(PMMG_pParMesh parmesh, double* m){

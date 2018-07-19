@@ -833,128 +833,49 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
                               double n2);
 
 /**
- * \param parmesh pointer toward the group structure.
- * \param s   solution scalar value.
- * \param pos position of the solution in the mesh.
- * \return 0  if failed, 1 otherwise.
+ * \param parmesh pointer toward a parmesh structure
+ * \param i position of the solution field that we want to set.
+ * \param s table of the solutions at mesh vertices. The solution at vertex \a k
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * and s[6*(k-1)]\@6 for a tensor solution.
+ * \param pos position of the vertex to which applies the solution.
  *
- * Set scalar value \a s at position \a pos in solution structure (wrapper
- * for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARSOL(parmesh,s,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(IN)      :: s\n
- * >     INTEGER, INTENT(IN)           :: pos\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Set_scalarSol(PMMG_pParMesh parmesh, double s,int pos);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param s   table of the scalar solutions values.
- * s[i-1] is the solution at vertex i.
- * \return 0  if failed, 1 otherwise.
- *
- * Set scalar solutions at mesh vertices (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_SCALARSOLS(parmesh,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: s\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Set_scalarSols(PMMG_pParMesh parmesh, double *sol);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param vx  x value of the vectorial solution.
- * \param vy  y value of the vectorial solution.
- * \param vz  z value of the vectorial solution.
- * \param pos position of the solution in the mesh (begin to 1).
- * \return 0  if failed, 1 otherwise.
- *
- * Set vectorial value \f$(v_x,v_y,v_z)\f$ at position \a pos in solution
- * structure (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORSOL(parmesh,vx,vy,vz,pos,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(IN)      :: vx,vy,vz\n
- * >     INTEGER, INTENT(IN)           :: pos\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Set_vectorSol(PMMG_pParMesh parmesh, double vx,double vy, double vz,
-                        int pos);
-
-/**
- * \param parmesh  pointer toward the group structure.
- * \param sols table of the vectorial solutions
- * sols[3*(i-1)]\@3 is the solution at vertex i
- * \return 0   if failed, 1 otherwise.
- *
- * Set vectorial solutions at mesh vertices (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_VECTORSOLS(parmesh,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)              :: parmesh\n
- * >     REAL(KIND=8),DIMENSION(*), INTENT(IN)      :: sols\n
- * >     INTEGER, INTENT(OUT)                       :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Set_vectorSols(PMMG_pParMesh parmesh, double *sols);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param m11 value of the tensorial solution at position (1,1) in the tensor
- * \param m12 value of the tensorial solution at position (1,2) in the tensor
- * \param m13 value of the tensorial solution at position (1,3) in the tensor
- * \param m22 value of the tensorial solution at position (2,2) in the tensor
- * \param m23 value of the tensorial solution at position (2,3) in the tensor
- * \param m33 value of the tensorial solution at position (3,3) in the tensor
- * \param pos position of the solution in the mesh (begin to 1).
  * \return 0 if failed, 1 otherwise.
  *
- * Set tensorial values at position \a pos in solution
- * structure (wrapper for MMG3D function).
+ * Set values of the ith solution array at the vertex \a pos.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORSOL(parmesh,m11,m12,m13,m22,m23,m33,pos,retval)\n
+ * >   SUBROUTINE PMMG_SET_ITHSOL_INALLSOLS(parmesh,i,s,pos,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(IN)      :: m11,m12,m13,m22,m23,m33\n
- * >     INTEGER, INTENT(IN)           :: pos\n
+ * >     INTEGER, INTENT(IN)           :: i,pos\n
+ * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorSol(PMMG_pParMesh parmesh, double m11,double m12, double m13,
-                       double m22,double m23, double m33, int pos);
+  int PMMG_Set_ithSol_inAllSols(PMMG_pParMesh parmesh,int i, double* s,int pos);
 
 /**
- * \param parmesh  pointer toward the group structure.
- * \param sols table of the tensorial solutions.
- * sols[6*(i-1)]\@6 is the solution at vertex i
- * \return 0   if failed, 1 otherwise.
+ * \param parmesh pointer toward a parmesh structure
+ * \param i position of the solution field that we want to set.
+ * \param s table of the solutions at mesh vertices. The solution at vertex \a k
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * and s[6*(k-1)]\@6 for a tensor solution.
  *
- * Set tensorial values at position \a pos in solution
- * structure (wrapper for MMG3D function).
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set values of the solution at the ith field of the solution array.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_TENSORSOLS(parmesh,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)         :: parmesh\n
- * >     REAL(KIND=8),DIMENSION(*), INTENT(IN) :: sols\n
- * >     INTEGER, INTENT(OUT)                  :: retval\n
+ * >   SUBROUTINE PMMG_SET_ITHSOLS_INALLSOLS(parmesh,i,s,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: i\n
+ * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_tensorSols(PMMG_pParMesh parmesh, double *sols);
+  int PMMG_Set_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s);
 
 /**
  * \param parmesh pointer toward the group structure.
@@ -1475,118 +1396,50 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
                              double *n2) ;
 
 /**
- * \param parmesh pointer toward the group structure.
- * \param s   pointer toward the scalar solution value.
- * \return 0  if failed, 1 otherwise.
+ * \param parmesh pointer toward the array of solutions
+ * \param i position of the solution field that we want to get.
+ * \param s table of the solutions at mesh vertices. The solution at vertex \a k
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * and s[6*(k-1)]\@6 for a tensor solution.
+ * \param pos position of the vertew towhich applies the solution.
  *
- * Get solution \a s of next vertex of mesh (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARSOL(parmesh,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(OUT)     :: s\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int  PMMG_Get_scalarSol(PMMG_pParMesh parmesh, double* s);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param s   table of the scalar solutions at mesh vertices. s[i-1] is
- * the solution at vertex i.
  * \return 0 if failed, 1 otherwise.
  *
- * Get solutions at mesh vertices (wrapper for MMG3D function).
+ * Get values of the ith field of the solution array at vertex \a pos
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_SCALARSOLS(parmesh,s,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
+ * >   SUBROUTINE PMMG_GET_ITHSOL_INALLSOLS(parmesh,i,s,pos,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: i,pos\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
- * >     INTEGER, INTENT(OUT)                   :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int  PMMG_Get_scalarSols(PMMG_pParMesh parmesh, double* s);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param vx  x value of the vectorial solution.
- * \param vy  y value of the vectorial solution.
- * \param vz  z value of the vectorial solution.
- * \return 0  if failed, 1 otherwise.
- *
- * Get vectorial solution \f$(v_x,v_y,vz)\f$ of next vertex of mesh
- * (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORSOL(parmesh,vx,vy,vz,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(OUT)     :: vx,vy,vz\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_vectorSol(PMMG_pParMesh parmesh, double* vx, double* vy, double* vz);
+  int  PMMG_Get_ithSol_inAllSols(PMMG_pParMesh parmesh,int i, double* s,int pos);
+
 
 /**
- * \param parmesh  pointer toward the group structure.
- * \param sols table of the solutions at mesh vertices. sols[3*(i-1)]\@3 is
- * the solution at vertex i.
- * \return 0   if failed, 1 otherwise.
+ * \param parmesh pointer toward the array of solutions
+ * \param i position of the solution field that we want to get.
+ * \param s table of the solutions at mesh vertices. The solution at vertex \a k
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * and s[6*(k-1)]\@6 for a tensor solution.
  *
- * Get vectorial solutions at mesh vertices (wrapper for MMG3D function).
+ * \return 0 if failed, 1 otherwise.
  *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_VECTORSOLS(parmesh,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)          :: parmesh\n
- * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: sols\n
- * >     INTEGER, INTENT(OUT)                   :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Get_vectorSols(PMMG_pParMesh parmesh, double* sols);
-
-/**
- * \param parmesh pointer toward the group structure.
- * \param m11 pointer toward the position (1,1) in the solution tensor.
- * \param m12 pointer toward the position (1,2) in the solution tensor.
- * \param m13 pointer toward the position (1,3) in the solution tensor.
- * \param m22 pointer toward the position (2,2) in the solution tensor.
- * \param m23 pointer toward the position (2,3) in the solution tensor.
- * \param m33 pointer toward the position (3,3) in the solution tensor.
- * \return 0  if failed, 1 otherwise.
- *
- * Get tensorial solution of next vertex of mesh (wrapper for MMG3D function).
+ * Get values of the solution at the ith field of the solution array.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORSOL(parmesh,m11,m12,m13,m22,m23,m33,retval)\n
+ * >   SUBROUTINE PMMG_GET_ITHSOLS_INALLSOLS(parmesh,i,s,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     REAL(KIND=8), INTENT(OUT)     :: m11,m12,m13,m22,m23,m33\n
+ * >     INTEGER, INTENT(IN)           :: i\n
+ * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_tensorSol(PMMG_pParMesh parmesh, double *m11,double *m12, double *m13,
-                       double *m22,double *m23, double *m33);
-
-/**
- * \param parmesh  pointer toward the group structure.
- * \param sols table of the solutions at mesh vertices.
- * sols[6*(i-1)]\@6 is the solution at vertex i.
- * \return 0   if failed, 1 otherwise.
- *
- * Get tensorial solutions at mesh vertices (wrapper for MMG3D function).
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TENSORSOLS(parmesh,sols,retval)\n
- * >     MMG5_DATA_PTR_T,INTENT(INOUT)           :: parmesh\n
- * >     REAL(KIND=8), DIMENSION(*), INTENT(OUT) :: sols\n
- * >     INTEGER, INTENT(OUT)                    :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-int PMMG_Get_tensorSols(PMMG_pParMesh parmesh, double *sols);
+  int  PMMG_Get_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s);
 
 /**
  * \param parmesh pointer toward the group structure.

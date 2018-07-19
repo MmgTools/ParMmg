@@ -376,66 +376,24 @@ FORTRAN_NAME(PMMG_SET_NORMALATVERTEX,pmmg_set_normalatvertex,
   *retval = PMMG_Set_normalAtVertex(*parmesh,*k, *n0, *n1, *n2);
   return;
 }
-
 /**
- * See \ref PMMG_Set_scalarSol function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_ithSol_inAllSols function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_SCALARSOL,pmmg_set_scalarsol,
-             (PMMG_pParMesh *parmesh, double *s, int *pos, int* retval),
-             (parmesh,s,pos,retval)) {
-  *retval = PMMG_Set_scalarSol(*parmesh,*s,*pos);
+FORTRAN_NAME(PMMG_SET_ITHSOL_INALLSOLS,pmmg_set_ithsol_inallsols,
+             (PMMG_pParMesh *parmesh, int *i,double *s,int *pos,int* retval),
+             (parmesh,i,s,pos,retval)) {
+  int idx = *i-1;
+  *retval = PMMG_Set_ithSol_inAllSols(*parmesh,idx,s,*pos);
   return;
 }
-
 /**
- * See \ref PMMG_Set_scalarSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_ithSols_inAllSols function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_SCALARSOLS,pmmg_set_scalarsols,
-             (PMMG_pParMesh *parmesh, double *s, int* retval),
-             (parmesh,s,retval)) {
-  *retval = PMMG_Set_scalarSols(*parmesh,s);
-  return;
-}
-
-/**
- * See \ref PMMG_Set_vectorSol function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_SET_VECTORSOL,pmmg_set_vectorsol,
-             (PMMG_pParMesh *parmesh, double *vx, double *vy, double *vz,
-              int *pos, int* retval),
-             (parmesh,vx,vy,vz,pos,retval)) {
-  *retval = PMMG_Set_vectorSol(*parmesh,*vx,*vy,*vz,*pos);
-  return;
-}
-
-/**
- * See \ref PMMG_Set_vectorSols function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_SET_VECTORSOLS,pmmg_set_vectorsols,
-             (PMMG_pParMesh *parmesh, double *sols, int* retval),
-             (parmesh,sols,retval)) {
-  *retval = PMMG_Set_vectorSols(*parmesh,sols);
-  return;
-}
-
-/**
- * See \ref PMMG_Set_tensorSol function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_SET_TENSORSOL,pmmg_set_tensorsol,
-             (PMMG_pParMesh *parmesh, double* m11,double *m12, double *m13,
-              double* m22,double *m23, double *m33, int *pos, int* retval),
-             (parmesh,m11,m12,m13,m22,m23,m33,pos,retval)) {
-  *retval = PMMG_Set_tensorSol(*parmesh,*m11,*m12,*m13,*m22,*m23,*m33,*pos);
-  return;
-}
-
-/**
- * See \ref PMMG_Set_tensorSols function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_SET_TENSORSOLS,pmmg_set_tensorsols,
-             (PMMG_pParMesh *parmesh, double* sols,int* retval),
-             (parmesh,sols,retval)) {
-  *retval = PMMG_Set_tensorSols(*parmesh,sols);
+FORTRAN_NAME(PMMG_SET_ITHSOLS_INALLSOLS,pmmg_set_ithsols_inallsols,
+             (PMMG_pParMesh *parmesh, int *i,double *s, int* retval),
+             (parmesh,i,s,retval)) {
+  int idx = *i-1;
+  *retval = PMMG_Set_ithSols_inAllSols(*parmesh,idx,s);
   return;
 }
 
@@ -665,65 +623,25 @@ FORTRAN_NAME(PMMG_GET_NORMALATVERTEX,pmmg_get_normalatvertex,
   *retval = PMMG_Get_normalAtVertex(*parmesh,*k, n0, n1, n2);
   return;
 }
-
 /**
- * See \ref PMMG_Get_scalarSol function in \ref libparmmg.h file.
+ * See \ref PMMG_Get_ithSols_inAllSols function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_SCALARSOL,pmmg_get_scalarsol,
-             (PMMG_pParMesh *parmesh, double* s, int* retval),
-             (parmesh,s,retval)) {
-  *retval = PMMG_Get_scalarSol(*parmesh,s);
+FORTRAN_NAME(PMMG_GET_ITHSOL_INALLSOLS,pmmg_get_ithsol_inallsols,
+             (PMMG_pParMesh *parmesh, int *i,double *s,int *pos, int* retval),
+             (parmesh,i,s,pos,retval)) {
+  int idx = *i-1;
+  *retval = PMMG_Get_ithSol_inAllSols(*parmesh,idx,s,*pos);
   return;
 }
 
 /**
- * See \ref PMMG_Get_scalarSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Get_ithSols_inAllSols function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_SCALARSOLS,pmmg_get_scalarsols,
-             (PMMG_pParMesh *parmesh, double* s, int* retval),
-             (parmesh,s,retval)) {
-  *retval = PMMG_Get_scalarSols(*parmesh,s);
-  return;
-}
-
-/**
- * See \ref PMMG_Get_vectorSol function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_GET_VECTORSOL,pmmg_get_vectorsol,
-             (PMMG_pParMesh *parmesh, double* vx,double *vy, double *vz, int* retval),
-             (parmesh,vx,vy,vz,retval)) {
-  *retval = PMMG_Get_vectorSol(*parmesh,vx,vy,vz);
-  return;
-}
-
-/**
- * See \ref PMMG_Get_vectorSols function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_GET_VECTORSOLS,pmmg_get_vectorsols,
-             (PMMG_pParMesh *parmesh, double* sols, int* retval),
-             (parmesh,sols,retval)) {
-  *retval = PMMG_Get_vectorSols(*parmesh,sols);
-  return;
-}
-
-/**
- * See \ref PMMG_Get_tensorSol function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_GET_TENSORSOL,pmmg_get_tensorsol,
-             (PMMG_pParMesh *parmesh, double* m11,double *m12, double *m13,
-              double* m22,double *m23, double *m33, int* retval),
-             (parmesh,m11,m12,m13,m22,m23,m33,retval)) {
-  *retval = PMMG_Get_tensorSol(*parmesh,m11,m12,m13,m22,m23,m33);
-  return;
-}
-
-/**
- * See \ref PMMG_Get_tensorSols function in \ref libparmmg.h file.
- */
-FORTRAN_NAME(PMMG_GET_TENSORSOLS,pmmg_get_tensorsols,
-             (PMMG_pParMesh *parmesh, double* sols, int* retval),
-             (parmesh,sols,retval)) {
-  *retval = PMMG_Get_tensorSols(*parmesh,sols);
+FORTRAN_NAME(PMMG_GET_ITHSOLS_INALLSOLS,pmmg_get_ithsols_inallsols,
+             (PMMG_pParMesh *parmesh, int *i,double *s, int* retval),
+             (parmesh,i,s,retval)) {
+  int idx = *i-1;
+  *retval = PMMG_Get_ithSols_inAllSols(*parmesh,idx,s);
   return;
 }
 
