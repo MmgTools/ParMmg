@@ -46,9 +46,9 @@ FORTRAN_NAME(PMMG_SET_INPUTMESHNAME, pmmg_set_inputmeshname,
 }
 
 /**
- * See \ref PMMG_Set_inputSolName function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_inputSolsName function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_INPUTSOLNAME, pmmg_set_inputsolname,
+FORTRAN_NAME(PMMG_SET_INPUTSOLSNAME, pmmg_set_inputsolsname,
              (PMMG_pParMesh *parmesh,char* solin, int* strlen, int* retval),
              (parmesh,solin,strlen,retval)) {
 
@@ -57,7 +57,7 @@ FORTRAN_NAME(PMMG_SET_INPUTSOLNAME, pmmg_set_inputsolname,
   tmp = (char*)malloc((*strlen+1)*sizeof(char));
   strncpy(tmp,solin,*strlen);
   tmp[*strlen] = '\0';
-  *retval = PMMG_Set_inputSolName(*parmesh,tmp);
+  *retval = PMMG_Set_inputSolsName(*parmesh,tmp);
   _MMG5_SAFE_FREE(tmp);
 
   return;
@@ -99,9 +99,9 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
 }
 
 /**
- * See \ref PMMG_Set_outputSolName function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_outputSolsName function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_OUTPUTSOLNAME,pmmg_set_outputsolname,
+FORTRAN_NAME(PMMG_SET_OUTPUTSOLSNAME,pmmg_set_outputsolsname,
              (PMMG_pParMesh *parmesh, char* solout,int* strlen, int* retval),
              (parmesh,solout,strlen,retval)){
   char *tmp = NULL;
@@ -109,7 +109,7 @@ FORTRAN_NAME(PMMG_SET_OUTPUTSOLNAME,pmmg_set_outputsolname,
   tmp = (char*)malloc((*strlen+1)*sizeof(char));
   strncpy(tmp,solout,*strlen);
   tmp[*strlen] = '\0';
-  *retval = PMMG_Set_outputSolName(*parmesh,tmp);
+  *retval = PMMG_Set_outputSolsName(*parmesh,tmp);
   _MMG5_SAFE_FREE(tmp);
 
   return;

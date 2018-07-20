@@ -33,7 +33,7 @@ int PMMG_Set_inputMeshName(PMMG_pParMesh parmesh, const char* meshin) {
   return ier;
 }
 
-int PMMG_Set_inputSolName(PMMG_pParMesh parmesh, const char* solin) {
+int PMMG_Set_inputSolsName(PMMG_pParMesh parmesh, const char* solin) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
   int        k,i,ier;
@@ -77,7 +77,7 @@ int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   return ier;
 }
 
-int PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout) {
+int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
   int        k,i,ier;
