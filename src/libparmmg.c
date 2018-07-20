@@ -17,9 +17,10 @@
  *         PMMG_LOWFAILURE   error but a conformant mesh can be saved
  *         PMMG_SUCCESS      on success
  *
- *  main parmmh library call
+ *  main parmmg library call for distributed meshes
+ *
  */
-int PMMG_parmmglib(PMMG_pParMesh parmesh) {
+int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   int              k,ier;
@@ -116,7 +117,7 @@ int PMMG_parmmglib(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n  -- PHASE 2 : %s MESHING\n",
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC");
 
-  ier = PMMG_parmmglib1(parmesh);
+  ier = PMMG_parmmglib_centralized(parmesh);
 
   chrono(OFF,&(ctim[2]));
   printim(ctim[2].gdif,stim);

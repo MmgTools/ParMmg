@@ -8,201 +8,106 @@
  */
 #include "parmmg.h"
 
+int PMMG_Init_parMesh(const int starter,...) {
+  va_list argptr;
+  int     ier;
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param comm    external communicator to be freed
- *
- * deallocate all internal communicator's fields
- */
-static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
-                                        PMMG_pInt_comm comm )
-{
-  if ( comm == NULL )
-    return;
+  va_start(argptr, starter);
 
-  if ( NULL != comm->intvalues ) {
-    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(parmesh,comm->intvalues,comm->nitem,int,"int comm int array");
-  }
-  if ( NULL != comm->doublevalues ) {
-    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(parmesh,
-                 comm->doublevalues,comm->nitem,double,"int comm double array");
-  }
+  ier = PMMG_Init_parMesh_var(argptr);
+
+  va_end(argptr);
+
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param comm    external communicator to be freed
- * \param ncomm   parameter ncomm
- *
- * deallocate all external communicators's fields
- */
-static void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,
-                                        PMMG_pExt_comm comm, int ncomm )
-{
-  int i = 0;
+int PMMG_Set_inputMeshName(PMMG_pParMesh parmesh, const char* meshin) {
+  MMG5_pMesh mesh;
+  int        k,ier;
 
-  if ( comm == NULL )
-    return;
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ier  = MG_MIN( ier, MMG3D_Set_inputMeshName(mesh,meshin) );
+  }
+  return ier;
+}
 
-  for( i = 0; i < ncomm; ++i ) {
-    if ( NULL != comm->int_comm_index ) {
-      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
-    }
-    if ( NULL != comm->itosend ) {
-      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
-    }
-    if ( NULL != comm->itorecv ) {
-      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
-    }
-    if ( NULL != comm->rtosend ) {
-      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
-    }
-    if ( NULL != comm->rtorecv ) {
-      assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
+int PMMG_Set_inputSolName(PMMG_pParMesh parmesh, const char* solin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol,psl;
+  int        k,i,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    sol  = parmesh->listgrp[k].sol;
+
+    for ( i=0; i<mesh->nsols; ++i ) {
+      psl = sol + i;
+      ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,psl,solin) );
     }
   }
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param idx1    node2int_node_comm_index1 to be freed
- * \param idx2    node2int_node_comm_index2 to be freed
- * \param n       pointer to node2int_node_comm_nitem size
- *
- * Deallocate all the MMG3D meshes and their communicators and zero the size
- */
-static void PMMG_parmesh_grp_comm_free( PMMG_pParMesh parmesh,
-                                        int **idx1, int **idx2, int *n )
-{
-  PMMG_DEL_MEM(parmesh,*idx1,*n,int,"group communicator");
-  PMMG_DEL_MEM(parmesh,*idx2,*n,int,"group communicator");
-  *n = 0;
+int PMMG_Set_inputMetName(PMMG_pParMesh parmesh, const char* metin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        k,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    met  = parmesh->listgrp[k].met;
+    ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,met,metin) );
+  }
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param listgrp group of MMG3D meshes in parmesh
- * \param ngrp    number of mmg meshes in listgrp
- *
- * Deallocate all the MMG3D meshes and their communicators
- */
-void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp )
-{
-  int k;
+int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
+  MMG5_pMesh mesh;
+  int        k,ier;
 
-  for ( k = 0; k < ngrp; ++k )
-    PMMG_grp_free( parmesh, listgrp[0] + k );
-
-  PMMG_DEL_MEM(parmesh,*listgrp,ngrp,PMMG_Grp,"Deallocating listgrp container");
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ier  = MG_MIN( ier, MMG3D_Set_outputMeshName(mesh,meshout) );
+  }
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param grp     group to free
- *
- * Deallocate all the MMG3D meshes and their communicators
- */
-void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
-{
-  PMMG_parmesh_grp_comm_free( parmesh,
-                              &grp->node2int_node_comm_index1,
-                              &grp->node2int_node_comm_index2,
-                              &grp->nitem_int_node_comm);
-  PMMG_parmesh_grp_comm_free( parmesh,
-                              &grp->edge2int_edge_comm_index1,
-                              &grp->edge2int_edge_comm_index2,
-                              &grp->nitem_int_edge_comm);
-  PMMG_parmesh_grp_comm_free( parmesh,
-                              &grp->face2int_face_comm_index1,
-                              &grp->face2int_face_comm_index2,
-                              &grp->nitem_int_face_comm);
-  MMG3D_Free_all( MMG5_ARG_start,
-                  MMG5_ARG_ppMesh, &grp->mesh,
-                  MMG5_ARG_ppMet, &grp->met,
-                  MMG5_ARG_end );
+int PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol,psl;
+  int        k,i,ier;
+
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    sol  = parmesh->listgrp[k].sol;
+    for ( i=0; i<mesh->nsols; ++i ) {
+      psl = sol + i;
+      ier  = MG_MIN( ier, MMG3D_Set_outputSolName(mesh,psl,solout) );
+    }
+  }
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * Free parmesh communicators that are allocated
- */
-void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
-{
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_node_comm );
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_face_comm );
+int PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        k,ier;
 
-  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
-  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
-            PMMG_Ext_comm, "ext node comm");
-  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );
-  PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm,
-            PMMG_Ext_comm, "ext edge comm");
-  PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_face_comm, parmesh->next_face_comm );
-  PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm, parmesh->next_face_comm,
-            PMMG_Ext_comm, "ext face comm");
+  ier = 1;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    met  = parmesh->listgrp[k].met;
+    ier  = MG_MIN( ier, MMG3D_Set_outputSolName(mesh,met,metout) );
+  }
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * Free parmesh listgrp that are allocated
- */
-void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh )
-{
-  PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
-
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * Free any parmesh members that are allocated
- */
-void PMMG_parmesh_Free( PMMG_pParMesh parmesh )
-{
-  PMMG_parmesh_Free_Comm( parmesh );
-
-  PMMG_parmesh_Free_Listgrp( parmesh );
-}
-
-
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param val     exit value
- *
- * Controlled parmmg termination:
- *   Deallocate parmesh struct and its allocated members
- *   If this is an unsuccessful exit call abort to cancel any remaining processes
- *   Call MPI_Finalize / exit
- */
-#warning NIKOS: MPI_Finalize might not be desirable here
-void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val )
-{
-  PMMG_parmesh_Free( parmesh );
-  if ( val != PMMG_SUCCESS )
-    MPI_Abort( parmesh->comm, val );
-  MPI_Finalize();
-  exit( val );
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param comm MPI communicator for ParMmg
- *
- * Initialization of the input parameters.
- *
- */
 void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   MMG5_pMesh mesh;
   int        k,flag;
@@ -214,7 +119,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->niter       = 1;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[0].mesh;
+    mesh = parmesh->listgrp[k].mesh;
     /* Set Mmg verbosity to 0 */
     mesh->info.imprim = 0;
   }
@@ -245,78 +150,51 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   PMMG_parmesh_SetMemGloMax( parmesh, 0 );
 }
 
+int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
+                      int nquad, int na){
+  MMG5_pMesh mesh;
+  int        ier;
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param comm MPI communicator for ParMmg
- *
- * \return 0 on error
- *         1 on success
- *
- * allocate a parmesh struct with a single mesh struct and initialize
- * some of the struct fields
- *
- */
-int PMMG_Init_parMesh( PMMG_pParMesh *parmesh ,MPI_Comm comm)
-{
-  PMMG_pGrp grp = NULL;
+  assert ( parmesh->ngrp == 1 );
 
-  /* ParMesh allocation */
-  assert ( (*parmesh == NULL) && "trying to initialize non empty parmesh" );
-  *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
-  if ( *parmesh == NULL )
-    goto fail_pmesh;
+  ier = 1;
+  mesh = parmesh->listgrp[0].mesh;
+  ier = MMG3D_Set_meshSize(mesh,np,ne,nprism,nt,nquad,na);
 
-  /* Assign some values to memory related fields to begin working with */
-  (*parmesh)->memGloMax = 4 * 1024L * 1024L;
-  (*parmesh)->memMax = 4 * 1024L * 1024L;
-  (*parmesh)->memCur = sizeof(PMMG_ParMesh);
-
-  /** Init Group */
-  (*parmesh)->ngrp = 1;
-  PMMG_CALLOC(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
-              "allocating groups container", goto fail_grplst );
-  grp = &(*parmesh)->listgrp[0];
-  grp->mesh = NULL;
-  grp->met  = NULL;
-  grp->disp = NULL;
-  if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
-                             MMG5_ARG_ppMesh, &grp->mesh,
-                             MMG5_ARG_ppMet, &grp->met,
-                             MMG5_ARG_end ) )
-    goto fail_mesh;
-
-
-  PMMG_Init_parameters(*parmesh,comm);
-
-  return 1;
-
-fail_mesh:
-    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
-                 "deallocating groups container");
-
-fail_grplst:
-  (*parmesh)->ngrp = 0;
-  (*parmesh)->memMax = 0;
-  (*parmesh)->memCur = 0;
-   free( *parmesh );
-   *parmesh = NULL;
-
-fail_pmesh:
-  return 0;
+  return ier;
 }
 
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param iparam  parameter enumeration option
- * \param val     parameter value
- *
- * \return 0 on error
- *         1 on success
- *
- * Set integer parameters.
- *
- */
+int PMMG_Set_allSolsSizes(PMMG_pParMesh parmesh, int nsol,int *typEntity,int np,
+                          int *typSol){
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+
+  ier = 1;
+
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].sol;
+
+  ier  = MMG3D_Set_allSolsSizes(mesh,sol,nsol,typEntity,np,typSol);
+
+  return ier;
+}
+
+int PMMG_Set_metSize(PMMG_pParMesh parmesh,int typEntity,int np,int typSol){
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        ier;
+
+  ier = 1;
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
+  ier  = MMG3D_Set_solSize(mesh,met,typEntity,np,typSol);
+
+  return ier;
+}
+
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
@@ -426,8 +304,405 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
-    return(0);
+    return 0;
   }
 
-  return(1);
+  return 1;
+}
+
+int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
+  MMG5_pMesh  mesh;
+  MMG5_pSol   met;
+  int         k;
+
+  switch ( dparam ) {
+  case PMMG_DPARAM_angleDetection :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_angleDetection,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hmin :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hmin,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hmax :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hmax,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hsiz :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hsiz,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hgrad :
+   for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hgrad,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hausd :
+    if ( val <=0 ) {
+      fprintf(stderr,"\n  ## Error: %s: hausdorff number must be strictly"
+              " positive.\n",__func__);
+      return 0;
+    }
+    else {
+      for ( k=0; k<parmesh->ngrp; ++k ) {
+        mesh = parmesh->listgrp[k].mesh;
+        if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hausd,val) ) {
+          return 0;
+        }
+      }
+    }
+    break;
+  case PMMG_DPARAM_ls :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_ls,val) ) {
+        return 0;
+      }
+    }
+    break;
+  default :
+    fprintf(stderr,"  ## Error: unknown type of parameter\n");
+    return 0;
+  }
+
+  return 1;
+}
+
+int PMMG_Set_vertex(PMMG_pParMesh parmesh, double c0, double c1, double c2,
+                    int ref, int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_vertex(parmesh->listgrp[0].mesh, c0, c1, c2, ref, pos));
+}
+
+int PMMG_Set_vertices(PMMG_pParMesh parmesh, double *vertices,int *refs){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_vertices(parmesh->listgrp[0].mesh, vertices, refs));
+}
+
+int PMMG_Set_tetrahedron(PMMG_pParMesh parmesh, int v0, int v1, int v2, int v3,
+                         int ref, int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_tetrahedron(parmesh->listgrp[0].mesh, v0, v1, v2, v3, ref, pos));
+}
+
+int PMMG_Set_tetrahedra(PMMG_pParMesh parmesh, int *tetra, int *refs){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_tetrahedra(parmesh->listgrp[0].mesh, tetra, refs));
+}
+
+int PMMG_Set_prism(PMMG_pParMesh parmesh, int v0, int v1, int v2,
+                   int v3, int v4, int v5, int ref, int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_prism(parmesh->listgrp[0].mesh, v0, v1, v2, v3, v4, v5, ref, pos));
+}
+
+int PMMG_Set_prisms(PMMG_pParMesh parmesh, int *prisms, int *refs){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_prisms(parmesh->listgrp[0].mesh, prisms, refs));
+}
+
+int PMMG_Set_triangle(PMMG_pParMesh parmesh, int v0, int v1, int v2,
+                      int ref,int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_triangle(parmesh->listgrp[0].mesh, v0, v1, v2, ref, pos));
+}
+
+int PMMG_Set_triangles(PMMG_pParMesh parmesh, int *tria, int *refs){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_triangles(parmesh->listgrp[0].mesh, tria, refs));
+}
+
+int PMMG_Set_quadrilateral(PMMG_pParMesh parmesh, int v0, int v1,
+                           int v2, int v3, int ref,int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_quadrilateral(parmesh->listgrp[0].mesh, v0, v1, v2, v3, ref, pos));
+}
+
+int PMMG_Set_quadrilaterals(PMMG_pParMesh parmesh, int *quads, int *refs){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_quadrilaterals(parmesh->listgrp[0].mesh, quads, refs));
+}
+
+int PMMG_Set_edge(PMMG_pParMesh parmesh, int v0, int v1, int ref, int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_edge(parmesh->listgrp[0].mesh, v0, v1, ref, pos));
+}
+
+int PMMG_Set_corner(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_corner(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_requiredVertex(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredVertex(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_requiredTetrahedron(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredTetrahedron(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_requiredTetrahedra(PMMG_pParMesh parmesh, int *reqIdx, int nreq){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredTetrahedra(parmesh->listgrp[0].mesh, reqIdx, nreq));
+}
+
+int PMMG_Set_requiredTriangle(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredTriangle(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_requiredTriangles(PMMG_pParMesh parmesh, int *reqIdx, int nreq){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredTriangles(parmesh->listgrp[0].mesh, reqIdx, nreq));
+}
+
+int PMMG_Set_ridge(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_ridge(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_requiredEdge(PMMG_pParMesh parmesh, int k){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_requiredEdge(parmesh->listgrp[0].mesh, k));
+}
+
+int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
+                            double n2){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
+}
+
+int PMMG_Set_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
+}
+
+int PMMG_Set_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double *s,int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_ithSol_inAllSols(parmesh->listgrp[0].sol,i, s, pos));
+}
+
+int PMMG_Set_scalarMet(PMMG_pParMesh parmesh, double m,int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_scalarSol(parmesh->listgrp[0].met, m, pos));
+}
+
+int PMMG_Set_scalarMets(PMMG_pParMesh parmesh, double *met){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_scalarSols(parmesh->listgrp[0].met, met));
+}
+
+int PMMG_Set_vectorMet(PMMG_pParMesh parmesh, double vx,double vy, double vz,
+                       int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_vectorSol(parmesh->listgrp[0].met, vx, vy, vz, pos));
+}
+
+int PMMG_Set_vectorMets(PMMG_pParMesh parmesh, double *mets){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_vectorSols(parmesh->listgrp[0].met, mets));
+}
+
+int PMMG_Set_tensorMet(PMMG_pParMesh parmesh, double m11,double m12, double m13,
+                       double m22,double m23, double m33, int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_tensorSol(parmesh->listgrp[0].met, m11, m12, m13, m22, m23, m33, pos));
+}
+
+int PMMG_Set_tensorMets(PMMG_pParMesh parmesh, double *mets){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_tensorSols(parmesh->listgrp[0].met, mets));
+}
+
+int PMMG_Get_meshSize(PMMG_pParMesh parmesh,int *np,int *ne,int *nprism,int *nt,
+                      int *nquad,int *na){
+  MMG5_pMesh mesh;
+  int        ier;
+
+  assert ( parmesh->ngrp == 1 );
+
+  mesh = parmesh->listgrp[0].mesh;
+  ier = MMG3D_Get_meshSize(mesh,np,ne,nprism,nt,nquad,na);
+
+  return ier;
+}
+
+int PMMG_Get_allSolsSizes(PMMG_pParMesh parmesh, int *nsol,int *typEntity,int *np,
+                          int *typSol){
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+
+  ier = 1;
+
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].sol;
+
+  ier  = MMG3D_Get_allSolsSizes(mesh,sol,nsol,typEntity,np,typSol);
+
+  return ier;
+}
+
+int PMMG_Get_metSize(PMMG_pParMesh parmesh,int *typEntity,int *np,int *typSol){
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        ier;
+
+  ier = 1;
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
+  ier  = MMG3D_Get_solSize(mesh,met,typEntity,np,typSol);
+
+  return ier;
+}
+
+int PMMG_Get_vertex(PMMG_pParMesh parmesh, double* c0, double* c1, double* c2,
+                    int* ref,int* isCorner, int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_vertex(parmesh->listgrp[0].mesh, c0, c1, c2, ref, isCorner, isRequired));
+}
+
+int PMMG_Get_vertices(PMMG_pParMesh parmesh, double* vertices, int* refs,
+                      int* areCorners, int* areRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_vertices(parmesh->listgrp[0].mesh, vertices, refs, areCorners, areRequired));
+}
+
+int PMMG_Get_tetrahedron(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,
+                         int* v3,int* ref, int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetrahedron(parmesh->listgrp[0].mesh, v0, v1, v2, v3, ref, isRequired));
+}
+
+int PMMG_Get_tetrahedra(PMMG_pParMesh parmesh, int* tetra,int* refs,
+                        int* areRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetrahedra(parmesh->listgrp[0].mesh, tetra, refs, areRequired));
+}
+
+int PMMG_Get_prism(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,
+                   int* v3,int* v4,int* v5,int* ref, int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_prism(parmesh->listgrp[0].mesh, v0, v1, v2, v3, v4, v5, ref, isRequired));
+}
+
+int PMMG_Get_prisms(PMMG_pParMesh parmesh, int* prisms,int* refs,
+                    int* areRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_prisms(parmesh->listgrp[0].mesh, prisms, refs, areRequired));
+}
+
+int PMMG_Get_triangle(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2, int* ref,
+                      int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_triangle(parmesh->listgrp[0].mesh, v0, v1, v2, ref, isRequired));
+}
+
+int PMMG_Get_triangles(PMMG_pParMesh parmesh, int* tria, int* refs,
+                       int* areRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_triangles(parmesh->listgrp[0].mesh, tria, refs, areRequired));
+}
+
+int PMMG_Get_quadrilateral(PMMG_pParMesh parmesh, int* v0, int* v1, int* v2,int* v3,
+                            int* ref, int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_quadrilateral(parmesh->listgrp[0].mesh, v0, v1, v2, v3, ref, isRequired));
+}
+
+int PMMG_Get_quadrilaterals(PMMG_pParMesh parmesh, int* quads, int* refs,
+                            int* areRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_quadrilaterals(parmesh->listgrp[0].mesh, quads, refs, areRequired));
+}
+
+int PMMG_Get_edge(PMMG_pParMesh parmesh, int* e0, int* e1, int* ref,
+                   int* isRidge, int* isRequired){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_edge(parmesh->listgrp[0].mesh, e0, e1, ref, isRidge, isRequired));
+}
+
+int PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1,
+                              double *n2){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
+}
+
+int PMMG_Get_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double* s,int pos){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_ithSol_inAllSols(parmesh->listgrp[0].sol,i,s,pos));
+}
+
+int PMMG_Get_ithSols_inAllSols(PMMG_pParMesh parmesh,int i,double* s){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
+
+}
+
+int PMMG_Get_scalarMet(PMMG_pParMesh parmesh, double* m){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_scalarSol(parmesh->listgrp[0].met, m));
+}
+
+int PMMG_Get_scalarMets(PMMG_pParMesh parmesh, double* m){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_scalarSols(parmesh->listgrp[0].met, m));
+}
+
+int PMMG_Get_vectorMet(PMMG_pParMesh parmesh, double* vx, double* vy, double* vz){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_vectorSol(parmesh->listgrp[0].met, vx, vy, vz));
+}
+
+int PMMG_Get_vectorMets(PMMG_pParMesh parmesh, double* mets){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_vectorSols(parmesh->listgrp[0].met, mets));
+}
+
+int PMMG_Get_tensorMet(PMMG_pParMesh parmesh, double *m11,double *m12, double *m13,
+                       double *m22,double *m23, double *m33){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tensorSol(parmesh->listgrp[0].met, m11, m12, m13, m22, m23, m33));
+}
+
+int PMMG_Get_tensorMets(PMMG_pParMesh parmesh, double *mets){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tensorSols(parmesh->listgrp[0].met, mets));
+}
+
+int PMMG_Free_all(const int starter,...)
+{
+  va_list argptr;
+  int     ier;
+
+  va_start(argptr, starter);
+
+  ier = PMMG_Free_all_var(argptr);
+
+  va_end(argptr);
+
+  return ier;
 }

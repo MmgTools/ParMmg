@@ -63,3 +63,16 @@
     }                                                                   \
   } while(0)
 #endif
+
+#define RUN_ON_ROOT_AND_BCAST(func_call,root,myrank,on_failure) do {    \
+    int ierloc;                                                         \
+                                                                        \
+    if ( myrank == root ) {                                             \
+      ierloc = func_call;                                               \
+    }                                                                   \
+    MPI_CHECK( MPI_Bcast(&ierloc,1,MPI_INT,root,parmesh->comm),on_failure); \
+    if ( !ierloc ) {                                                    \
+      on_failure;                                                       \
+    }                                                                   \
+                                                                        \
+  } while(0)

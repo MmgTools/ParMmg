@@ -145,7 +145,11 @@ int main( int argc, char *argv[] )
   chrono(ON,&PMMG_ctim[0]);
 
   /* Allocate the main pmmg struct and assign default values */
-  if ( 1 != PMMG_Init_parMesh( &parmesh,MPI_COMM_WORLD ) ) {
+  if ( 1 != PMMG_Init_parMesh( PMMG_ARG_start,
+                               PMMG_ARG_ppParMesh,&parmesh,
+                               PMMG_ARG_dim,3,
+                               PMMG_ARG_MPIComm,MPI_COMM_WORLD,
+                               PMMG_ARG_end) ) {
     MPI_Abort( MPI_COMM_WORLD, PMMG_STRONGFAILURE );
     MPI_Finalize();
     return PMMG_FAILURE;
@@ -157,17 +161,17 @@ int main( int argc, char *argv[] )
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
                              MMG5_ARG_end) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /* Init memMax sizes. Only one mesh for now => pmmg structs do not need much */
   if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
 
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( parmesh->ddebug ) {
     MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
@@ -220,11 +224,11 @@ int main( int argc, char *argv[] )
 check_mesh_loading:
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( iresult != 1 )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /** Check input data */
   if ( PMMG_SUCCESS != PMMG_check_inputData( parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   chrono(ON,&PMMG_ctim[2]);
   if ( parmesh->info.imprim ) {
@@ -236,22 +240,22 @@ check_mesh_loading:
 
   /** Send mesh to other procs */
   if ( 1 != PMMG_bcast_mesh( parmesh ) )
-    PMMG_exit_and_free( parmesh,PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh,PMMG_STRONGFAILURE );
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
   ier = PMMG_preprocessMesh( parmesh, parmesh->myrank );
   if ( ier != PMMG_SUCCESS ) {
     if ( ( ier == PMMG_LOWFAILURE ) || !(_MMG5_unscaleMesh( mesh, met )) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     return PMMG_LOWFAILURE;
   }
 
   /** Send mesh partionning to other procs */
   if ( !PMMG_distribute_mesh( parmesh ) ) {
     if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
-    PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
   }
 
   chrono(OFF,&PMMG_ctim[2]);
@@ -267,14 +271,14 @@ check_mesh_loading:
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
+  ier = PMMG_parmmglib_centralized(parmesh);
 
   chrono(OFF,&PMMG_ctim[3]);
   if ( ier == PMMG_STRONGFAILURE ) {
-    PMMG_exit_and_free( parmesh, ier );
+    PMMG_RETURN_AND_FREE( parmesh, ier );
   } else if ( ier == PMMG_LOWFAILURE ) {
 #warning SAVE THE MESH?
-    PMMG_exit_and_free( parmesh, PMMG_SUCCESS );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_SUCCESS );
   } else {
     if ( parmesh->info.imprim ) {
       printim(PMMG_ctim[3].gdif,stim);
@@ -288,7 +292,7 @@ check_mesh_loading:
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
   if ( 1 != _MMG5_unscaleMesh( mesh, met ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /** Merge all the meshes on the proc 0 */
   chrono(ON,&PMMG_ctim[4]);
@@ -297,7 +301,7 @@ check_mesh_loading:
   }
 
   if ( !PMMG_merge_parmesh( parmesh ) )
-    PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   chrono(OFF,&PMMG_ctim[4]);
   if ( parmesh->info.imprim ) {
@@ -319,7 +323,7 @@ check_mesh_loading:
 
     if ( MMG3D_hashTetra( mesh, 0 ) ) {
       if ( -1 == MMG3D_bdryBuild( mesh ) ) {
-        PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+        PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
       }
     } else {
       /** Impossible to rebuild the triangle **/
@@ -338,9 +342,9 @@ check_mesh_loading:
       fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",mesh->nameout);
 
     if ( 1 != MMG3D_saveMesh( mesh, mesh->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_STRONGFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
     if ( met->m && 1 != MMG3D_saveSol( mesh, met, met->nameout ) )
-      PMMG_exit_and_free( parmesh, PMMG_LOWFAILURE );
+      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
 
    chrono(OFF,&PMMG_ctim[6]);
     if ( parmesh->info.imprim )
@@ -348,5 +352,5 @@ check_mesh_loading:
 
   }
 
-  PMMG_exit_and_free( parmesh, ier );
+  PMMG_RETURN_AND_FREE( parmesh, ier );
 }

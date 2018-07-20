@@ -28,6 +28,35 @@
 extern "C" {
 #endif
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param val     exit value
+ *
+ * Controlled parmmg termination:
+ *   Deallocate parmesh struct and its allocated members
+ *   If this is an unsuccessful exit call abort to cancel any remaining processes
+ *   Call MPI_Finalize / exit
+ */
+
+#define PMMG_RETURN_AND_FREE(parmesh,val) do                            \
+  {                                                                     \
+    MPI_Comm comm = parmesh->comm;                                      \
+                                                                        \
+    if ( !PMMG_Free_all( PMMG_ARG_start,                                \
+                         PMMG_ARG_ppParMesh,&parmesh,                   \
+                         PMMG_ARG_end) ) {                              \
+      fprintf(stderr,"  ## Warning: unable to clean the parmmg memory.\n" \
+              " Possible memory leak.\n");                              \
+    }                                                                   \
+                                                                        \
+    if ( val ) {                                                        \
+      MPI_Abort(comm,val);                                              \
+    }                                                                   \
+                                                                        \
+    MPI_Finalize();                                                     \
+    return(val);                                                        \
+                                                                        \
+  }while(0)
 
 #define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
@@ -194,7 +223,13 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 /* Quality */
 int PMMG_outqua( PMMG_pParMesh parmesh );
 
-void PMMG_exit_and_free( PMMG_pParMesh parmesh, const int val );
+/* Variadic_pmmg.c */
+int PMMG_Init_parMesh_var(va_list argptr);
+int PMMG_Free_all_var(va_list argptr);
+
+const char* PMMG_Get_pmmgArgName(int typArg);
+
+
 #ifdef __cplusplus
 }
 #endif
