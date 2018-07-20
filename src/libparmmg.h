@@ -180,7 +180,7 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  * Set the name of input solution file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_INPUTSOLNAME(parmesh,solin,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_INPUTSOLSNAME(parmesh,solin,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solin\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -188,7 +188,7 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Set_inputSolName(PMMG_pParMesh parmesh,const char* solin);
+int  PMMG_Set_inputSolsName(PMMG_pParMesh parmesh,const char* solin);
 /**
  * \param parmesh pointer toward a parmesh structure.
  * \param metin name of the input metric file.
