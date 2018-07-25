@@ -232,6 +232,7 @@ typedef struct {
   int imprim;  /*!< ParMmg verbosity (may be non-null only on zero rank) */
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
+  int root;    /*!< MPI root rank */
 
 } PMMG_Info;
 

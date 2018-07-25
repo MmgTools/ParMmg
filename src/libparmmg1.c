@@ -1,10 +1,14 @@
 /**
  * \file libparmmg1.c
- * \brief Parallel remeshing library
+ * \brief Wrapper for the parallel remeshing library.
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
- * \author Algiane Froehly (Inria/UBordeaux)
- * \version 5
+ * \author Algiane Froehly (InriaSoft)
+ * \author Nikos Pattakos (Inria)
+ * \version 1
  * \copyright GNU Lesser General Public License.
+ *
+ * Internal function that perform the parallel remeshing.
+ *
  */
 #include "parmmg.h"
 
@@ -211,89 +215,6 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   return 1;
 }
 
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- *
- * \return PMMG_SUCCESS
- *         PMMG_FAILURE
- *
- * Check the validity of the input mesh data (tetra orientation, solution
- * compatibility with respect to the provided mesh, Mmg options).
- *
- */
-int PMMG_check_inputData(PMMG_pParMesh parmesh)
-{
-  MMG5_pMesh mesh;
-  MMG5_pSol  met;
-  int        k;
-  mytime     ctim[TIMEMAX];
-  char       stim[32];
-
-
-  tminit(ctim,TIMEMAX);
-  chrono(ON,&(ctim[0]));
-
-  if ( parmesh->info.imprim )
-    fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
-
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
-    met  = parmesh->listgrp[k].met;
-
-    /* Check options */
-    if ( mesh->info.lag > -1 ) {
-      fprintf(stderr,
-              "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
-      return PMMG_FAILURE;
-    } else if ( mesh->info.iso ) {
-      fprintf(stderr,"  ## Error: level-set discretisation unavailable"
-              " (MMG3D_IPARAM_iso):\n");
-      return PMMG_FAILURE;
-    } else if ( mesh->info.optimLES && met->size==6 ) {
-      fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
-              " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
-      return PMMG_FAILURE;
-    }
-    /* specific meshing */
-    if ( met->np ) {
-      if ( mesh->info.optim ) {
-        printf("\n  ## ERROR: MISMATCH OPTIONS: OPTIM OPTION CAN NOT BE USED"
-               " WITH AN INPUT METRIC.\n");
-        return PMMG_FAILURE;
-      }
-
-      if ( mesh->info.hsiz>0. ) {
-        printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ OPTION CAN NOT BE USED"
-               " WITH AN INPUT METRIC.\n");
-        return PMMG_FAILURE;
-      }
-    }
-
-    if ( mesh->info.optim &&  mesh->info.hsiz>0. ) {
-      printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ AND OPTIM OPTIONS CAN NOT BE USED"
-             " TOGETHER.\n");
-      return PMMG_FAILURE;
-    }
-
-    /* load data */
-    _MMG5_warnOrientation(mesh);
-
-    if ( met->np && (met->np != mesh->np) ) {
-      fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
-      _MMG5_DEL_MEM(mesh,met->m,(met->size*(met->npmax+1))*sizeof(double));
-      met->np = 0;
-    } else if ( met->size!=1 && met->size!=6 ) {
-      fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
-      return PMMG_FAILURE;
-    }
-  }
-  if ( parmesh->info.imprim )
-    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
-
-  return PMMG_SUCCESS;
-}
-
 /**
  * \param parmesh pointer toward a parmesh structure
  * \param igrp index of the group that we want to treat
@@ -455,7 +376,7 @@ facesData:
  *         PMMG_LOWFAILURE    if  we can save the mesh
  *         PMMG_SUCCESS
  */
-int PMMG_parmmglib_centralized( PMMG_pParMesh parmesh )
+int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -567,10 +488,11 @@ int PMMG_parmmglib_centralized( PMMG_pParMesh parmesh )
   }
 
   ier = PMMG_outqua( parmesh );
-  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( !ieresult ) {
-    ier_end = PMMG_LOWFAILURE;
-  }
+  // Uncomment when ParMmg will create sufficiently good meshes */
+  /* MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm ); */
+  /* if ( !ieresult ) { */
+  /*   ier_end = PMMG_LOWFAILURE; */
+  /* } */
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

@@ -99,7 +99,7 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
     if ( list->nitem >= list->nitem_max ) {
       newsize = MG_MAX((int)(1.2*list->nitem_max),list->nitem_max+1);
       PMMG_REALLOC(parmesh,list->item,newsize,
-                   list->nitem_max,PMMG_lnkdList,"linked list",return 0);
+                   list->nitem_max,PMMG_lnkdCell,"linked list",return 0);
       list->nitem_max = newsize;
     }
     cell          = &list->item[list->nitem];
@@ -243,7 +243,7 @@ int PMMG_unpackArray_inLnkdList(  PMMG_pParMesh parmesh, PMMG_lnkdList *list,
 
   if ( list->nitem >= list->nitem_max ) {
     PMMG_REALLOC(parmesh,list->item,list->nitem,list->nitem_max,
-                 PMMG_lnkdList,"linked list",return -1);
+                 PMMG_lnkdCell,"linked list",return -1);
     list->nitem_max *= list->nitem;
   }
 

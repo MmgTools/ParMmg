@@ -103,9 +103,9 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  * \param parmesh pointer toward the parmesh structure (boundary entities are
  * stored into MMG5_Tria, MMG5_Edge... structures)
  *
- * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
- * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
- * the mesh.
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * one unscaled mesh per proc or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return one unscaled mesh per proc.
  *
  * Main program for the parallel remesh library for distributed meshes.
  *
@@ -122,9 +122,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh);
  * \param parmesh pointer toward the parmesh structure (boundary entities are
  * stored into MMG5_Tria, MMG5_Edge... structures)
  *
- * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
- * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
- * the mesh.
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
  *
  * Main program for the parallel remesh library for centralized meshes
  *

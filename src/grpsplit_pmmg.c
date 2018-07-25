@@ -4,7 +4,7 @@
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
  * \author Nikos Pattakos (Inria)
- * \version 5
+ * \version 1
  * \copyright GNU Lesser General Public License.
  */
 #include "parmmg.h"
@@ -368,10 +368,10 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,long long memAv,
     printf( "[%d/%d]:\t mesh %p,\t xtmax %d - xtetra:%p,\t"
             "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
             " index2 %p \n",
-            parmesh->myrank + 1, parmesh->nprocs,mesh, mesh->xtmax,
-            mesh->xtetra,mesh->xpmax, mesh->xpoint,mesh->nemax,
-            mesh->adja,*n2inc_max, grp->node2int_node_comm_index1,
-            grp->node2int_node_comm_index2);
+            parmesh->myrank + 1, parmesh->nprocs,(void*)mesh, mesh->xtmax,
+            (void*)mesh->xtetra,mesh->xpmax,(void*)mesh->xpoint,mesh->nemax,
+            (void*)mesh->adja,*n2inc_max,(void*)grp->node2int_node_comm_index1,
+            (void*)grp->node2int_node_comm_index2);
   }
 
   *f2ifc_max = mesh->xtmax;
