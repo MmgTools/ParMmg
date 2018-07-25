@@ -115,13 +115,15 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   memset(&parmesh->info,0, sizeof(PMMG_Info));
 
   parmesh->info.mem    = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
-  parmesh->ddebug      = 0;
-  parmesh->niter       = 1;
+  parmesh->info.root   = PMMG_NUL;
+
+  parmesh->ddebug      = PMMG_NUL;
+  parmesh->niter       = PMMG_NITER;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     /* Set Mmg verbosity to 0 */
-    mesh->info.imprim = 0;
+    mesh->info.imprim = PMMG_NUL;
   }
 
   /* Init MPI data */
@@ -134,17 +136,17 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
   else {
     parmesh->nprocs = 1;
-    parmesh->myrank = 0;
+    parmesh->myrank = PMMG_NUL;
   }
 
   /* ParMmg verbosity */
-  if ( !parmesh->myrank ) {
-    parmesh->info.imprim = 1;
+  if ( parmesh->myrank==parmesh->info.root ) {
+    parmesh->info.imprim = PMMG_IMPRIM;
   }
   else {
-    parmesh->info.imprim = 0;
+    parmesh->info.imprim = PMMG_NUL;
   }
-  parmesh->info.imprim0  = 1;
+  parmesh->info.imprim0  = PMMG_IMPRIM;
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh, 0 );
@@ -202,7 +204,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
 
   switch ( iparam ) {
   case PMMG_IPARAM_verbose :
-    if ( !parmesh->myrank ) {
+    if ( parmesh->myrank==parmesh->info.root ) {
       parmesh->info.imprim = val;
     }
     parmesh->info.imprim0 = val;

@@ -29,6 +29,31 @@ extern "C" {
 #endif
 
 /**
+ * \def PMMG_NUL
+ *
+ * Null value
+ *
+ */
+#define PMMG_NUL     0
+
+/**
+ * \def PMMG_NITER
+ *
+ * Default number of iterations
+ *
+ */
+#define PMMG_NITER   1
+
+/**
+ * \def PMMG_IMPRIM
+ *
+ * Default verbosity
+ *
+ */
+#define PMMG_IMPRIM   1
+
+
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param val     exit value
  *
@@ -49,14 +74,10 @@ extern "C" {
               " Possible memory leak.\n");                              \
     }                                                                   \
                                                                         \
-    if ( val ) {                                                        \
-      MPI_Abort(comm,val);                                              \
-    }                                                                   \
-                                                                        \
     MPI_Finalize();                                                     \
     return(val);                                                        \
                                                                         \
-  }while(0)
+  } while(0)
 
 #define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
@@ -124,7 +145,8 @@ extern "C" {
   } } while(0)
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
-    int stat = PMMG_SUCCESS;                                            \
+    int   stat = PMMG_SUCCESS;                                          \
+    type* tmp;                                                          \
                                                                         \
     if ( (ptr) == NULL ) {                                              \
       assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?");\
@@ -133,23 +155,27 @@ extern "C" {
       PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
     } else if ((newsize) < (oldsize)) {                                 \
       long long size_to_allocate = (newsize)*sizeof(type);              \
-      (ptr) = realloc( (ptr), size_to_allocate);                        \
-      if ( ptr == NULL ) {                                              \
+      tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type));   \
+      if ( tmp == NULL ) {                                              \
         ERROR_AT(msg," Realloc failed: ");                              \
+        PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                      \
         on_failure;                                                     \
       } else {                                                          \
+        (ptr) = tmp;                                                    \
         (mesh)->memCur -= ((long long)((oldsize)*sizeof(type))-size_to_allocate);\
       }                                                                 \
     } else if ((newsize) > (oldsize)) {                                 \
 long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(type);\
       MEM_CHK_AVAIL(mesh,size_to_allocate,msg);                         \
       if ( stat == PMMG_SUCCESS ) {                                     \
-        (ptr) = realloc((ptr), (long long)(newsize) * sizeof(type));    \
-        if ( (ptr) == NULL ) {                                          \
+        tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type)); \
+        if ( tmp == NULL ) {                                            \
           ERROR_AT(msg, " Realloc failed: " );                          \
+          PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                    \
           on_failure;                                                   \
         } else {                                                        \
-          (mesh)->memCur += ( size_to_allocate );      \
+          (ptr) = tmp;                                                  \
+          (mesh)->memCur += ( size_to_allocate );                       \
         }                                                               \
       }                                                                 \
     }                                                                   \

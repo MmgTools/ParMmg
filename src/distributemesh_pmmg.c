@@ -105,7 +105,9 @@ static void PMMG_swapPoint( MMG5_pPoint point, double* met,int* perm,
  * \return 0 failure
  *         1 success
  *
- * Send the initial mesh from proc 0 toward the other procs.
+ * Send the initial mesh (with tria and edges) from proc 0 toward the other
+ * procs.
+ *
  */
 int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 {
@@ -113,54 +115,57 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          rank;
+  int          rank,root;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
   met    = grp->met;
   rank   = parmesh->myrank;
+  root   = parmesh->info.root;
 
-  /* Mesh */
-   MPI_CHECK( MPI_Bcast( &mesh->np,     1, MPI_INT,       0, parmesh->comm ),
-              return 0);
-   MPI_CHECK( MPI_Bcast( &mesh->ne,     1, MPI_INT,       0, parmesh->comm ),
-              return 0);
-   MPI_CHECK( MPI_Bcast( &mesh->nt,     1, MPI_INT,       0, parmesh->comm ),
-              return 0);
-   MPI_CHECK( MPI_Bcast( &mesh->na,     1, MPI_INT,       0, parmesh->comm ),
-              return 0);
-   MPI_CHECK( MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       0, parmesh->comm ),
-              return 0);
-   MPI_CHECK( MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, 0, parmesh->comm ),
-              return 0);
-
-  if ( !rank ) {
+  /* Minimize the memory used by the mesh */
+  if ( rank == root ) {
     PMMG_RECALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
                   "vertices array", return 0);
     PMMG_RECALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
                   "tetra array", return 0);
+    mesh->npmax = mesh->np;
+    mesh->nemax = mesh->ne;
   }
+
+  /* Mesh */
+  MPI_CHECK( MPI_Bcast( &mesh->np,     1, MPI_INT,       root, parmesh->comm ),
+             return 0);
+  MPI_CHECK( MPI_Bcast( &mesh->ne,     1, MPI_INT,       root, parmesh->comm ),
+             return 0);
+  MPI_CHECK( MPI_Bcast( &mesh->nt,     1, MPI_INT,       root, parmesh->comm ),
+             return 0);
+  MPI_CHECK( MPI_Bcast( &mesh->na,     1, MPI_INT,       root, parmesh->comm ),
+             return 0);
+  MPI_CHECK( MPI_Bcast( &mesh->ntmax,  1, MPI_INT,       root, parmesh->comm ),
+             return 0);
+  MPI_CHECK( MPI_Bcast( &mesh->memMax, 1, MPI_LONG_LONG, root, parmesh->comm ),
+             return 0);
 
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
-
   mesh->nemax = mesh->nei = mesh->ne;
   mesh->nenil = 0;
-  mesh->nti   = mesh->nt;
+  mesh->ntmax = mesh->nti = mesh->nt;
   mesh->xtmax = mesh->ntmax;
 
   /* Metric */
-  MPI_CHECK( MPI_Bcast( &met->size,  1, MPI_INT, 0, parmesh->comm ), return 0);
-  MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, 0, parmesh->comm ), return 0);
-  MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, 0, parmesh->comm ), return 0);
-  MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, 0, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->size,  1, MPI_INT, root, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, root, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), return 0);
+  MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), return 0);
 
   met->npi = met->np;
   met->ver = mesh->ver;
   met->dim = mesh->dim;
 
-  if ( rank ) {
+  if ( rank != root ) {
     PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,"initial vertices",
                 return 0);
 
@@ -189,18 +194,19 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   if ( mesh->na && !PMMG_create_MPI_Edge( mesh->edge, &mpi_edge ) )
     goto fail_2;
 
-  MPI_CHECK( MPI_Bcast(mesh->point,mesh->np+1,mpi_light_point,0,parmesh->comm),
+  MPI_CHECK( MPI_Bcast(mesh->point,mesh->np+1,mpi_light_point,root,parmesh->comm),
              goto fail_1);
-  MPI_CHECK( MPI_Bcast(mesh->tetra,mesh->ne+1,mpi_light_tetra,0,parmesh->comm),
+  MPI_CHECK( MPI_Bcast(mesh->tetra,mesh->ne+1,mpi_light_tetra,root,parmesh->comm),
              goto fail_1);
   if ( mesh->nt )
-    MPI_CHECK( MPI_Bcast( mesh->tria,mesh->nt+1,mpi_tria,0,parmesh->comm ),
+    MPI_CHECK( MPI_Bcast( mesh->tria,mesh->nt+1,mpi_tria,root,parmesh->comm ),
                goto fail_1);
   if ( mesh->na )
-    MPI_CHECK( MPI_Bcast( mesh->edge,mesh->na+1,mpi_edge,0,parmesh->comm ),
+    MPI_CHECK( MPI_Bcast( mesh->edge,mesh->na+1,mpi_edge,root,parmesh->comm ),
                goto fail_1);
   if ( met->m )
-    MPI_CHECK( MPI_Bcast(met->m,met->size*(met->npmax+1),MPI_DOUBLE,0,parmesh->comm ),
+    MPI_CHECK( MPI_Bcast(met->m,met->size*(met->npmax+1),MPI_DOUBLE,root,
+                         parmesh->comm ),
                goto fail_1);
 
   MPI_Type_free( &mpi_light_point );
@@ -398,7 +404,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
             /* realloc of xtetras table */
             newsize = MG_MAX((1.+mesh->gap)*mesh->xtmax,mesh->xtmax+1);
             PMMG_RECALLOC(mesh,mesh->xtetra,newsize+1,
-                          mesh->xtmax+1,int,"larger xtetra ",
+                          mesh->xtmax+1,MMG5_xTetra,"larger xtetra ",
                           ret_val = 0;goto fail_alloc7);
             PMMG_RECALLOC(parmesh,(*xTetraPerm),newsize+1,
                           mesh->xtmax+1,int,"larger xtetra permutation table ",
@@ -437,7 +443,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
               /* realloc of xtetras table */
               newsize = MG_MAX((1.+mesh->gap)*mesh->xpmax,mesh->xpmax+1);
               PMMG_RECALLOC(mesh,mesh->xpoint,newsize,
-                            mesh->xpmax+1,int,"larger xpoint ",
+                            mesh->xpmax+1,MMG5_xPoint,"larger xpoint ",
                             ret_val = 0;goto fail_alloc7);
               PMMG_RECALLOC(parmesh,(*xPointPerm),newsize,
                             mesh->xpmax+1,int,"larger xpoint permutation table ",
@@ -851,7 +857,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   ret_val = 1;
 
 fail_alloc2:
-  PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xp+1,int,"deallocate metis buffer5");
+  PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xpmax+1,int,"deallocate metis buffer5");
   PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
   PMMG_DEL_MEM(parmesh,pointPerm,mesh->np+1,int,"deallocate pointPerm");
   PMMG_DEL_MEM(parmesh,shared_face,nprocs,int,"deallocate shared_face");

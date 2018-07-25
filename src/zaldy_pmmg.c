@@ -232,7 +232,7 @@ int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
  *
  * \return 1 if success, 0 if fail
  *
- * Set the maximum memory parmesh and the meshes in listgrp can use.
+ * Set the maximum memory that parmesh and the meshes in listgrp can use.
  * The total memory available is split between the parmesh structure and the
  * listgrp structures according to the percentage specified by the percent
  * input variable:
