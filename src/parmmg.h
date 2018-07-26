@@ -79,6 +79,33 @@ extern "C" {
                                                                         \
   } while(0)
 
+/**
+ * Clean the mesh, the metric and the solutions and return \a val.
+ */
+#define PMMG_CLEAN_AND_RETURN(parmesh,val)do                            \
+  {                                                                     \
+                                                                        \
+    for ( int kgrp=0; kgrp<parmesh->ngrp; ++kgrp ) {                      \
+      if ( parmesh->listgrp[kgrp].mesh ) {                              \
+        parmesh->listgrp[kgrp].mesh->npi = parmesh->listgrp[kgrp].mesh->np; \
+        parmesh->listgrp[kgrp].mesh->nti = parmesh->listgrp[kgrp].mesh->nt; \
+        parmesh->listgrp[kgrp].mesh->nai = parmesh->listgrp[kgrp].mesh->na; \
+        parmesh->listgrp[kgrp].mesh->nei = parmesh->listgrp[kgrp].mesh->ne; \
+      }                                                                 \
+                                                                        \
+      if ( parmesh->listgrp[kgrp].met )                                 \
+        parmesh->listgrp[kgrp].met->npi  = parmesh->listgrp[kgrp].met->np; \
+                                                                        \
+      for ( int ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
+        parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+      }                                                                 \
+    }                                                                   \
+                                                                        \
+    return val;                                                         \
+                                                                        \
+  }while(0)
+
+
 #define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
            __func__, __FILE__, __LINE__ )
