@@ -224,7 +224,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   /** Send mesh partionning to other procs */
   if ( !PMMG_distribute_mesh( parmesh ) ) {
-    return PMMG_LOWFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   chrono(OFF,&(ctim[1]));
@@ -263,7 +263,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   ier = PMMG_merge_parmesh( parmesh );
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !iresult ) {
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
   chrono(OFF,&(ctim[2]));
@@ -289,7 +289,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
       /** Impossible to rebuild the triangle **/
       fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-      return PMMG_LOWFAILURE;
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
     }
 
     chrono(OFF,&(ctim[3]));
@@ -304,7 +304,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   if ( parmesh->info.imprim )
     fprintf(stdout,"\n   PARMMGLIB_CENTRALIZED: ELAPSED TIME  %s\n",stim);
 
-  return ierlib;
+  PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
 }
 
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {

@@ -387,10 +387,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( !ieresult )
-    return PMMG_LOWFAILURE;
-  else if ( ieresult<0 )
-    return PMMG_STRONGFAILURE;
+  if ( !ieresult ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+  }
+  else if ( ieresult<0 ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+  }
 
   //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
 
@@ -401,7 +403,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
-    /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
+    /* if ( !_MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
 
   /** Mesh adaptation */
@@ -483,7 +485,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     } else if( ieresult < 0 ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
-      return PMMG_STRONGFAILURE;
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
   }
 
@@ -498,16 +500,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
-  return ier_end;
+  PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
 
   /** mmg3d1_delone failure */
 failed:
@@ -516,18 +518,18 @@ failed:
 
 strong_failed:
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  return PMMG_STRONGFAILURE;
+  PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
 
 failed_handling:
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
   if ( !PMMG_merge_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  return PMMG_LOWFAILURE;
+  PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
 }

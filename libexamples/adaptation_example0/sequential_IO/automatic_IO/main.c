@@ -59,14 +59,15 @@ int main(int argc,char *argv[]) {
   tmp     = NULL;
 
   if ( (argc<3) && !rank ) {
-    printf(" Usage: %s filein fileout [-met metfile] [-sol solfile] \n",argv[0]);
-    return(1);
+    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile] \n",argv[0]);
+    return 1;
   }
 
   /* Name and path of the mesh file */
   filename = (char *) calloc(strlen(argv[1]) + 1, sizeof(char));
   if ( filename == NULL ) {
     perror("  ## Memory problem: calloc");
+    MPI_Finalize();
     exit(EXIT_FAILURE);
   }
   strcpy(filename,argv[1]);
@@ -74,6 +75,7 @@ int main(int argc,char *argv[]) {
   fileout = (char *) calloc(strlen(argv[2]) + 1, sizeof(char));
   if ( fileout == NULL ) {
     perror("  ## Memory problem: calloc");
+    MPI_Finalize();
     exit(EXIT_FAILURE);
   }
   strcpy(fileout,argv[2]);
@@ -83,13 +85,13 @@ int main(int argc,char *argv[]) {
     tmp = (char *) calloc(strlen(argv[i]) + 1, sizeof(char));
     strcpy(tmp,argv[i]);
 
-    if ( !strcmp(tmp, "-met") ) {
+    if ( (!strcmp(tmp, "-met"))||(!strcmp(tmp, "-sol")) ) {
       metname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
       strcpy(metname,argv[i+1]);
       ++i;
     }
 
-    else if ( !strcmp(tmp,"-sol") ) {
+    else if ( !strcmp(tmp,"-solphys") ) {
       solname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
       strcpy(solname,argv[i+1]);
       ++i;
@@ -130,7 +132,10 @@ int main(int argc,char *argv[]) {
       PMMG_Set* functions */
 
   /** with PMMG_loadMesh_centralized function */
-  if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 )  exit(EXIT_FAILURE);
+  if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
   /** 3) Try to load a metric in PMMG format */
   /** Two solutions: just use the PMMG_loadMet_centralized function that will
@@ -142,15 +147,17 @@ int main(int argc,char *argv[]) {
     PMMG_loadMet_centralized(parmesh,filename);
 
   /** 4) Build solutions in PMMG format */
-  /** Two solutions: just use the PMMG_loadAllSols_centralized function that will
-      read a .sol(b) file formatted or manually set your metric using the PMMG_Set*
-      functions */
+  /** Two solutions: just use the PMMG_loadAllSols_centralized function that
+      will read a .sol(b) file formatted or manually set your solutions using
+      the PMMG_Set* functions */
 
   /** With PMMG_loadAllSols_centralized function */
 
   if ( solname ) {
-    if ( PMMG_loadAllSols_centralized(parmesh,filename) != 1 )
+    if ( PMMG_loadAllSols_centralized(parmesh,filename) != 1 ) {
+      MPI_Finalize();
       exit(EXIT_FAILURE);
+    }
   }
 
   /** ------------------------------ STEP  II -------------------------- */
@@ -159,7 +166,8 @@ int main(int argc,char *argv[]) {
 
   if ( ier == PMMG_STRONGFAILURE ) {
     fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
-    return(ier);
+    MPI_Finalize();
+    return ier;
   } else if ( ier == PMMG_LOWFAILURE )
     fprintf(stdout,"BAD ENDING OF PARMMGLIB\n");
 
@@ -172,21 +180,24 @@ int main(int argc,char *argv[]) {
   /** 1) Automatically save the mesh */
   if ( PMMG_saveMesh_centralized(parmesh,fileout) != 1 ) {
     fprintf(stdout,"UNABLE TO SAVE MESH\n");
-    return(PMMG_STRONGFAILURE);
+    MPI_Finalize();
+    return PMMG_STRONGFAILURE;
   }
 
   /** 2) Automatically save the metric */
   if ( PMMG_saveMet_centralized(parmesh,fileout) != 1 ) {
     fprintf(stdout,"UNABLE TO SAVE METRIC\n");
-    return(PMMG_LOWFAILURE);
+    MPI_Finalize();
+    return PMMG_LOWFAILURE;
   }
 
   /** 3) Automatically save the solutions if needed */
-  PMMG_Get_allSolsSizes(parmesh,&nsols,NULL,NULL,NULL);
+  PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
   if ( nsols ) {
     if ( PMMG_saveAllSols_centralized(parmesh,fileout) != 1 ) {
       fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
-      return(PMMG_LOWFAILURE);
+      MPI_Finalize();
+      return PMMG_LOWFAILURE;
     }
   }
 
@@ -203,5 +214,5 @@ int main(int argc,char *argv[]) {
 
   MPI_Finalize();
 
-  return(ier);
+  return ier;
 }
