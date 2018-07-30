@@ -112,6 +112,8 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
   grp                       = &parmesh->listgrp[igrp];
   mesh                      = grp->mesh;
 
+  if ( !mesh ) return 1;
+
   /** Store in flag the pack index of each tetra */
   if ( !PMMG_mark_packedTetra(mesh,&ne) ) return 0;
 
@@ -152,6 +154,8 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
+
+    if ( !mesh ) continue;
 
     /* Pack tetrahedra */
     if ( mesh->adja ) {
@@ -386,7 +390,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
-  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
+              PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+
   if ( !ieresult ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
@@ -400,6 +407,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
    * uses this fields assiming they are setted to 0)/ */
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
+
+    if ( !mesh ) continue;
+
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
@@ -412,6 +422,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
 
+      if ( (!mesh->np) && (!mesh->ne) ) {
+        /* Empty mesh */
+        continue;
+      }
+
       /** Store the vertices of interface faces in the internal communicator */
       ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData);
       if ( !ier ) {
@@ -420,13 +435,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         goto failed;
       }
 
-      /*mark reinitialisation in order to be able to remesh all the mesh*/
+      /* Mark reinitialisation in order to be able to remesh all the mesh */
       mesh->mark = 0;
       mesh->base = 0;
       for ( k=1 ; k<=mesh->nemax ; k++ ) {
         mesh->tetra[k].mark = mesh->mark;
         mesh->tetra[k].flag = mesh->base;
       }
+
       /** Call the remesher */
       /* Here we need to scale the mesh */
       if ( !(ier = PMMG_scaleMesh(mesh,met)) ) goto failed;
@@ -454,6 +470,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
       }
 #endif
+
       /** Pack the tetra */
       if ( mesh->adja )
         PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table");
@@ -477,6 +494,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
+
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !ieresult ) {
       if ( !parmesh->myrank )

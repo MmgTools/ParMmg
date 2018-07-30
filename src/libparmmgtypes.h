@@ -167,7 +167,7 @@
  * Types
  */
 /**
- * \struct PARMMG_int_comm
+ * \struct PMMG_int_comm
  * \brief internal communicator structure.
  */
 typedef struct {
@@ -179,7 +179,7 @@ typedef struct {
 typedef PMMG_Int_comm  * PMMG_pInt_comm;
 
 /**
- * \struct PARMMG_ext_comm
+ * \struct PMMG_ext_comm
  * \brief external communicator structure.
  */
 typedef struct {
@@ -198,7 +198,7 @@ typedef struct {
 typedef PMMG_Ext_comm  * PMMG_pExt_comm;
 
 /**
- * \struct PARMMG_Grp
+ * \struct PMMG_Grp
  * \brief Grp mesh structure.
  */
 typedef struct {
