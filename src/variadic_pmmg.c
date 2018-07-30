@@ -125,7 +125,7 @@ int PMMG_Init_parMesh_var( va_list argptr ) {
 
   /* ParMesh allocation */
   assert ( (*parmesh == NULL) && "trying to initialize non empty parmesh" );
-   *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
+  *parmesh = calloc( 1, sizeof(PMMG_ParMesh) );
 
   if ( *parmesh == NULL ) {
     return 0;
@@ -209,6 +209,11 @@ int PMMG_Free_all_var(va_list argptr)
 
   PMMG_parmesh_Free_Listgrp( *parmesh );
 
+  (*parmesh)->memCur -= sizeof(PMMG_ParMesh);
+
+  if ( (*parmesh)->info.imprim>5 || (*parmesh)->ddebug ) {
+    printf("  MEMORY USED AT END (Bytes) %lld\n",(*parmesh)->memCur);
+  }
   _MMG5_SAFE_FREE(*parmesh);
 
   return 1;

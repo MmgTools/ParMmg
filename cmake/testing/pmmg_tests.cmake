@@ -111,9 +111,45 @@ IF( BUILD_TESTING )
     ENABLE_LANGUAGE ( Fortran )
 
     SET ( PMMG_LIB_TESTS ${PMMG_LIB_TESTS}
+      libparmmg_fortran_centralized_auto_example0
+      # libparmmg_centralized_manual_example0_io_0
+      # libparmmg_centralized_manual_example0_io_1
       )
 
     SET ( PMMG_LIB_TESTS_MAIN_PATH ${PMMG_LIB_TESTS_MAIN_PATH}
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.F90
+     # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+     # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+      )
+
+    SET ( PMMG_LIB_TESTS_INPUTMESH ${PMMG_LIB_TESTS_INPUTMESH}
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+      #""
+      #""
+      )
+
+    SET ( PMMG_LIB_TESTS_INPUTMET ${PMMG_LIB_TESTS_INPUTMET}
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+     # ""
+     # ""
+      )
+
+    SET ( PMMG_LIB_TESTS_INPUTSOL ${PMMG_LIB_TESTS_INPUTSOL}
+      ""
+      #""
+      #""
+      )
+
+    SET ( PMMG_LIB_TESTS_OUTPUTMESH ${PMMG_LIB_TESTS_OUTPUTMESH}
+      ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
+      #${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
+      #${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
+      )
+
+    SET ( PMMG_LIB_TESTS_OPTIONS ${PMMG_LIB_TESTS_OPTIONS}
+      "-met"
+      #"0"
+      #"1"
       )
   ENDIF ( CMAKE_Fortran_COMPILER )
 
@@ -132,7 +168,7 @@ IF( BUILD_TESTING )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers ${lib_name} )
 
-    FOREACH( NP 1 2 8 )
+    FOREACH( NP 1 2 6 )
       ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} -np ${NP}
         $<TARGET_FILE:${test_name}>
         ${input_mesh} ${output_mesh} ${options} ${input_met} )

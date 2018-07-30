@@ -85,7 +85,7 @@ extern "C" {
 #define PMMG_CLEAN_AND_RETURN(parmesh,val)do                            \
   {                                                                     \
                                                                         \
-    for ( int kgrp=0; kgrp<parmesh->ngrp; ++kgrp ) {                      \
+    for ( int kgrp=0; kgrp<parmesh->ngrp; ++kgrp ) {                    \
       if ( parmesh->listgrp[kgrp].mesh ) {                              \
         parmesh->listgrp[kgrp].mesh->npi = parmesh->listgrp[kgrp].mesh->np; \
         parmesh->listgrp[kgrp].mesh->nti = parmesh->listgrp[kgrp].mesh->nt; \
@@ -96,8 +96,10 @@ extern "C" {
       if ( parmesh->listgrp[kgrp].met )                                 \
         parmesh->listgrp[kgrp].met->npi  = parmesh->listgrp[kgrp].met->np; \
                                                                         \
-      for ( int ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
-        parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+      if ( parmesh->listgrp[kgrp].mesh ) {                              \
+        for ( int ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
+          parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+        }                                                               \
       }                                                                 \
     }                                                                   \
                                                                         \
@@ -112,11 +114,11 @@ extern "C" {
 
 #define MEM_CHK_AVAIL(mesh,bytes,msg) do {                            \
   if ( (mesh)->memCur + (bytes) > (mesh)->memMax ) {                  \
-    ERROR_AT(msg," Exceeded max memory allowed: " );                  \
+    ERROR_AT(msg," Exceeded max memory allowed: ");      \
     stat = PMMG_FAILURE;                                              \
   } else if ( (mesh)->memCur + (bytes) < 0  ) {                       \
     ERROR_AT(msg," Tried to free more mem than allocated: " );        \
-    stat = PMMG_FAILURE;                                              \
+    stat = PMMG_SUCCESS;                                              \
   }                                                                   \
   else {                                                              \
     stat = PMMG_SUCCESS;                                              \
@@ -124,11 +126,13 @@ extern "C" {
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
     int stat = PMMG_SUCCESS;                                \
-    if ( (size) != 0 ) {                                    \
+    if ( (size) != 0 && ptr ) {                             \
       long long size_to_free = -(size)*sizeof(type);        \
       MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
       if ( stat == PMMG_SUCCESS )                           \
         (mesh)->memCur += size_to_free;                     \
+    }                                                       \
+    if ( ptr ) {                                            \
       free( ptr );                                          \
       (ptr) = NULL;                                         \
     }                                                       \
@@ -136,6 +140,7 @@ extern "C" {
 
 #define PMMG_MALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
+  (ptr) = NULL;                                             \
   if ( (size) != 0 ) {                                      \
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg );              \
@@ -155,6 +160,7 @@ extern "C" {
 
 #define PMMG_CALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
+  (ptr) = NULL;                                             \
   if ( (size) != 0 ) {                                      \
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg);               \
@@ -269,6 +275,7 @@ int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
+int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 
 /* Scaling */
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);

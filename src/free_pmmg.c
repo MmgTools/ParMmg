@@ -16,20 +16,22 @@
  * deallocate all internal communicator's fields
  */
 static void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,
-                                        PMMG_pInt_comm comm )
+                                        PMMG_pInt_comm *comm )
 {
-  if ( comm == NULL )
+  if ( *comm == NULL )
     return;
 
-  if ( NULL != comm->intvalues ) {
-    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(parmesh,comm->intvalues,comm->nitem,int,"int comm int array");
+  if ( NULL != (*comm)->intvalues ) {
+    assert ( (*comm)->nitem != 0 && "incorrect parameters in internal communicator" );
+    PMMG_DEL_MEM(parmesh,(*comm)->intvalues,(*comm)->nitem,int,"int comm int array");
   }
-  if ( NULL != comm->doublevalues ) {
-    assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
+  if ( NULL != (*comm)->doublevalues ) {
+    assert ( (*comm)->nitem != 0 && "incorrect parameters in internal communicator" );
     PMMG_DEL_MEM(parmesh,
-                 comm->doublevalues,comm->nitem,double,"int comm double array");
+                 (*comm)->doublevalues,(*comm)->nitem,double,"int comm double array");
   }
+  PMMG_DEL_MEM(parmesh,(*comm),1,PMMG_Int_comm,"int_comm");
+
 }
 
 /**
@@ -137,9 +139,9 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
  */
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
 {
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_node_comm );
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_edge_comm );
-  PMMG_parmesh_int_comm_free( parmesh, parmesh->int_face_comm );
+  PMMG_parmesh_int_comm_free( parmesh, &parmesh->int_node_comm );
+  PMMG_parmesh_int_comm_free( parmesh, &parmesh->int_edge_comm );
+  PMMG_parmesh_int_comm_free( parmesh, &parmesh->int_face_comm );
 
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
@@ -160,6 +162,31 @@ void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh )
 {
   PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+}
 
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,1,PMMG_Grp,"deallocating groups container");
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param listgrp pointer toward an array of groups.
+ * \param ngrp number of groups in the array.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Delete empty mesh and associated metrics and solutions in list of groups
+ *
+ */
+int PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp ) {
+  MMG5_pMesh mesh;
+  int        k;
+
+  for ( k=0; k<ngrp; ++k ) {
+    mesh = listgrp[k].mesh;
+
+    if ( !mesh ) continue;
+
+    if ( (!mesh->ne) && (!mesh->np) ) {
+      PMMG_grp_free( parmesh, &listgrp[k] );
+    }
+  }
+
+  return 1;
 }

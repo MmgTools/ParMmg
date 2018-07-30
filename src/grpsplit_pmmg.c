@@ -802,6 +802,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   n2inc_max = f2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
+
+  if ( !meshOld ) goto end;
+
   if ( parmesh->ddebug )
     printf( "[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
             parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi,

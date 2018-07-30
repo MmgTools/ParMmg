@@ -205,8 +205,8 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   /** Send mesh to other procs */
   ier = PMMG_bcast_mesh( parmesh );
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( iresult!=1 ) return PMMG_LOWFAILURE;
+  if ( ier!=1 ) return PMMG_LOWFAILURE;
+
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
@@ -260,8 +260,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
   }
 
-  ier = PMMG_merge_parmesh( parmesh );
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  iresult = PMMG_merge_parmesh( parmesh );
   if ( !iresult ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
@@ -332,7 +331,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[1]));
 
   ier = PMMG_check_inputData( parmesh );
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  MPI_CHECK( MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm ),
+             return PMMG_LOWFAILURE);
   if ( !iresult ) return PMMG_LOWFAILURE;
 
   chrono(OFF,&(ctim[1]));
