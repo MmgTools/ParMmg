@@ -73,7 +73,7 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  * \param ... variadic arguments that depend to the parmesh fields that you want
  * to init
  *
- * You need to provide at least the folowing arguments:
+ * You need to provide at least the following arguments:
  * the \a PMMG_ARG_start keyword to start the list of variadic arguments
  * the \a PMMG_ARG_ppParMesh keyword to say that the next argument is a pointer
  *  toward a pointer toward a parmesh
@@ -103,9 +103,9 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  * \param parmesh pointer toward the parmesh structure (boundary entities are
  * stored into MMG5_Tria, MMG5_Edge... structures)
  *
- * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
- * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
- * the mesh.
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * one unscaled mesh per proc or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return one unscaled mesh per proc.
  *
  * Main program for the parallel remesh library for distributed meshes.
  *
@@ -122,9 +122,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh);
  * \param parmesh pointer toward the parmesh structure (boundary entities are
  * stored into MMG5_Tria, MMG5_Edge... structures)
  *
- * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but a
- * conform mesh is saved or \ref PMMG_STRONGFAILURE if fail and we can't save
- * the mesh.
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
  *
  * Main program for the parallel remesh library for centralized meshes
  *
@@ -180,7 +180,7 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  * Set the name of input solution file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_INPUTSOLNAME(parmesh,solin,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_INPUTSOLSNAME(parmesh,solin,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solin\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -188,7 +188,7 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Set_inputSolName(PMMG_pParMesh parmesh,const char* solin);
+int  PMMG_Set_inputSolsName(PMMG_pParMesh parmesh,const char* solin);
 /**
  * \param parmesh pointer toward a parmesh structure.
  * \param metin name of the input metric file.
@@ -214,7 +214,7 @@ int  PMMG_Set_inputMetName(PMMG_pParMesh parmesh,const char* metin);
  *  Set the name of output solution file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(mesh,solout,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(parmesh,solout,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -231,7 +231,7 @@ int  PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout);
  *  Set the name of output metric file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(mesh,metout,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(parmesh,metout,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: metout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -250,7 +250,7 @@ int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     MPI_Comm,INTENT(IN)           :: comm\n
+ * >     INTEGER,INTENT(IN)            :: comm\n
  * >   END SUBROUTINE\n
  *
  */
@@ -282,10 +282,8 @@ int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
                       int nquad, int na);
 /**
  * \param parmesh   Pointer towards the parmesh structure.
- * \param nsol      Number of solutions per entity.
- * \param typEntity Array (of size nsol) listing the type of entities to which
- *                  apply the solutions (vertices, triangles...).
- * \param np        number of vertices
+ * \param nsols     Number of solutions per entity.
+ * \param nentities Number of entities.
  * \param typSol    Array of size nsol listing the type of the solutions
  *                  (scalar, vectorial...).
  * \return          0 if failed, 1 otherwise.
@@ -294,16 +292,16 @@ int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
  * each solution and the type of each solution.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_ALLSOLSSIZES(parmesh, nsol,typEntity,np,typSol,retval)\n
+ * >   SUBROUTINE PMMG_SET_SOLSATVERTICESSIZE(parmesh, nsols,nentities,typSol,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(IN)           :: nsol,np\n
- * >     INTEGER, INTENT(IN)           :: typEntity(*), typSol(*)\n
+ * >     INTEGER, INTENT(IN)           :: nsols,nentities\n
+ * >     INTEGER, INTENT(IN)           :: typSol(*)\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Set_allSolsSizes(PMMG_pParMesh parmesh,int nsol,int *typEntity,int np,
-                          int *typSol);
+int PMMG_Set_solsAtVerticesSize(PMMG_pParMesh parmesh,int nsols,
+                                   int nentities,int *typSol);
 
 /**
  * \param parmesh   Pointer towards the parmesh structure.
@@ -836,7 +834,7 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
  * \param parmesh pointer toward a parmesh structure
  * \param i position of the solution field that we want to set.
  * \param s table of the solutions at mesh vertices. The solution at vertex \a k
- * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@3 for a vectorial solution
  * and s[6*(k-1)]\@6 for a tensor solution.
  * \param pos position of the vertex to which applies the solution.
  *
@@ -845,7 +843,7 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
  * Set values of the ith solution array at the vertex \a pos.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_ITHSOL_INALLSOLS(parmesh,i,s,pos,retval)\n
+ * >   SUBROUTINE PMMG_SET_ITHSOL_INSOLSATVERTICES(parmesh,i,s,pos,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: i,pos\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
@@ -853,13 +851,13 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_ithSol_inAllSols(PMMG_pParMesh parmesh,int i, double* s,int pos);
+  int PMMG_Set_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s,int pos);
 
 /**
  * \param parmesh pointer toward a parmesh structure
  * \param i position of the solution field that we want to set.
  * \param s table of the solutions at mesh vertices. The solution at vertex \a k
- * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@3 for a vectorial solution
  * and s[6*(k-1)]\@6 for a tensor solution.
  *
  * \return 0 if failed, 1 otherwise.
@@ -867,7 +865,7 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
  * Set values of the solution at the ith field of the solution array.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_ITHSOLS_INALLSOLS(parmesh,i,s,retval)\n
+ * >   SUBROUTINE PMMG_SET_ITHSOLS_INSOLSATVERTICES(parmesh,i,s,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: i\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
@@ -875,7 +873,7 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s);
+  int PMMG_Set_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s);
 
 /**
  * \param parmesh pointer toward the group structure.
@@ -1027,10 +1025,8 @@ int PMMG_Get_meshSize(PMMG_pParMesh parmesh,int *np,int *ne,int *nprism,int *nt,
                       int *nquad, int *na);
 /**
  * \param parmesh   Pointer towards the parmesh structure.
- * \param nsol      Number of solutions per entity.
- * \param typEntity Array (of size nsol) listing the type of entities to which
- *                  apply the solutions (vertices, triangles...).
- * \param np        number of vertices
+ * \param nsols     Number of solutions per entity.
+ * \param nentities Number of entities.
  * \param typSol    Array of size nsol listing the type of the solutions
  *                  (scalar, vectorial...).
  * \return          0 if failed, 1 otherwise.
@@ -1039,16 +1035,16 @@ int PMMG_Get_meshSize(PMMG_pParMesh parmesh,int *np,int *ne,int *nprism,int *nt,
  * each solution and the type of each solution.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ALLSOLSSIZES(parmesh, nsol,typEntity,np,typSol,retval)\n
+ * >   SUBROUTINE PMMG_GET_SOLSATVERTICESSIZE(parmesh, nsols,nentities,typSol,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER                       :: nsol,np\n
- * >     INTEGER                       :: typEntity(*), typSol(*)\n
+ * >     INTEGER                       :: nsols,nentities\n
+ * >     INTEGER                       :: typSol(*)\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-int PMMG_Get_allSolsSizes(PMMG_pParMesh parmesh,int *nsol,int *typEntity,int *np,
-                          int *typSol);
+int PMMG_Get_solsAtVerticesSize(PMMG_pParMesh parmesh,int *nsols,
+                                int *nentities,int *typSol);
 
 /**
  * \param parmesh   Pointer towards the parmesh structure.
@@ -1371,7 +1367,46 @@ int  PMMG_Get_quadrilaterals(PMMG_pParMesh parmesh, int* quads, int* refs,
  */
 int  PMMG_Get_edge(PMMG_pParMesh parmesh, int* e0, int* e1, int* ref,
                    int* isRidge, int* isRequired);
-
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param edges pointer toward the array of edges.
+ * Vertices of the \f$i^{th}\f$ edge are stored in edge[(i-1)*2]\@2.
+ * \param refs edges references. refs[i-1] is the ref of the \f$i^{th}\f$ edge.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set vertices and references of the mesh edges.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_EDGES(parmesh,edges,refs,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: edges(*),refs(*)\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Set_edges(PMMG_pParMesh parmesh, int *edges, int* refs);
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param edges pointer toward the array of edges.
+ * Vertices of the \f$i^{th}\f$ edge are stored in edge[(i-1)*2]\@2.
+ * \param refs edges references. refs[i-1] is the ref of the \f$i^{th}\f$ edge.
+ * \param areRidges 1 if the edge is a ridge, 0 otherwise.
+ * \param areRequired 1 if the edge is required, 0 otherwise.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get vertices and references of the mesh edges.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_EDGES(parmesh,edges,refs,areRidges,areRequired,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: edges(*)\n
+ * >     INTEGER, INTENT(OUT)          :: refs(*),areRequired(*),areRidges(*)\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_edges(PMMG_pParMesh parmesh,int *edges,int* refs,
+                     int *areRidges,int *areRequired);
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param k   point index
@@ -1381,7 +1416,7 @@ int  PMMG_Get_edge(PMMG_pParMesh parmesh, int* e0, int* e1, int* ref,
  *
  * \return 1 if success.
  *
- * Get normals (n0,n1,n2) at point \a k (wrapper for MMG3D function).
+ * Get normals (n0,n1,n2) at point \a k (wrapper for PMMG function).
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_NORMALATVERTEX(parmesh,k,n0,n1,n2,retval)\n
@@ -1399,7 +1434,7 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
  * \param parmesh pointer toward the array of solutions
  * \param i position of the solution field that we want to get.
  * \param s table of the solutions at mesh vertices. The solution at vertex \a k
- * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@3 for a vectorial solution
  * and s[6*(k-1)]\@6 for a tensor solution.
  * \param pos position of the vertew towhich applies the solution.
  *
@@ -1408,7 +1443,7 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
  * Get values of the ith field of the solution array at vertex \a pos
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHSOL_INALLSOLS(parmesh,i,s,pos,retval)\n
+ * >   SUBROUTINE PMMG_GET_ITHSOL_INSOLSATVERTICES(parmesh,i,s,pos,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: i,pos\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
@@ -1416,14 +1451,14 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
  * >   END SUBROUTINE\n
  *
  */
-  int  PMMG_Get_ithSol_inAllSols(PMMG_pParMesh parmesh,int i, double* s,int pos);
+  int  PMMG_Get_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s,int pos);
 
 
 /**
  * \param parmesh pointer toward the array of solutions
  * \param i position of the solution field that we want to get.
  * \param s table of the solutions at mesh vertices. The solution at vertex \a k
- * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@6 for a vectorial solution
+ * is given by s[k-1] for a scalar sol, s[3*(k-1)]\@3 for a vectorial solution
  * and s[6*(k-1)]\@6 for a tensor solution.
  *
  * \return 0 if failed, 1 otherwise.
@@ -1431,7 +1466,7 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
  * Get values of the solution at the ith field of the solution array.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHSOLS_INALLSOLS(parmesh,i,s,retval)\n
+ * >   SUBROUTINE PMMG_GET_ITHSOLS_INSOLSATVERTICES(parmesh,i,s,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)           :: i\n
  * >     REAL(KIND=8), DIMENSION(*),INTENT(OUT) :: s\n
@@ -1439,7 +1474,7 @@ int  PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n
  * >   END SUBROUTINE\n
  *
  */
-  int  PMMG_Get_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s);
+  int  PMMG_Get_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s);
 
 /**
  * \param parmesh pointer toward the group structure.

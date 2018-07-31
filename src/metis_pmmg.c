@@ -239,6 +239,11 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( igrp=0; igrp<ngrp; ++igrp ) {
     mesh = parmesh->listgrp[igrp].mesh;
 
+    if ( !mesh ) {
+      (*vwgt)[igrp] = 1;
+      continue;
+    }
+
     for ( k=1; k<=mesh->ne; ++k ) {
       pt = &mesh->tetra[k];
       if ( !MG_EOK(pt) ) continue;

@@ -29,6 +29,8 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
 
+    if ( !mesh ) continue;
+
     for ( k=1; k<=mesh->ne; ++k ) {
       pt       = &mesh->tetra[k];
       pt->mark = 1;

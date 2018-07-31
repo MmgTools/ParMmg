@@ -29,6 +29,31 @@ extern "C" {
 #endif
 
 /**
+ * \def PMMG_NUL
+ *
+ * Null value
+ *
+ */
+#define PMMG_NUL     0
+
+/**
+ * \def PMMG_NITER
+ *
+ * Default number of iterations
+ *
+ */
+#define PMMG_NITER   1
+
+/**
+ * \def PMMG_IMPRIM
+ *
+ * Default verbosity
+ *
+ */
+#define PMMG_IMPRIM   1
+
+
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param val     exit value
  *
@@ -49,14 +74,39 @@ extern "C" {
               " Possible memory leak.\n");                              \
     }                                                                   \
                                                                         \
-    if ( val ) {                                                        \
-      MPI_Abort(comm,val);                                              \
-    }                                                                   \
-                                                                        \
     MPI_Finalize();                                                     \
     return(val);                                                        \
                                                                         \
+  } while(0)
+
+/**
+ * Clean the mesh, the metric and the solutions and return \a val.
+ */
+#define PMMG_CLEAN_AND_RETURN(parmesh,val)do                            \
+  {                                                                     \
+                                                                        \
+    for ( int kgrp=0; kgrp<parmesh->ngrp; ++kgrp ) {                    \
+      if ( parmesh->listgrp[kgrp].mesh ) {                              \
+        parmesh->listgrp[kgrp].mesh->npi = parmesh->listgrp[kgrp].mesh->np; \
+        parmesh->listgrp[kgrp].mesh->nti = parmesh->listgrp[kgrp].mesh->nt; \
+        parmesh->listgrp[kgrp].mesh->nai = parmesh->listgrp[kgrp].mesh->na; \
+        parmesh->listgrp[kgrp].mesh->nei = parmesh->listgrp[kgrp].mesh->ne; \
+      }                                                                 \
+                                                                        \
+      if ( parmesh->listgrp[kgrp].met )                                 \
+        parmesh->listgrp[kgrp].met->npi  = parmesh->listgrp[kgrp].met->np; \
+                                                                        \
+      if ( parmesh->listgrp[kgrp].mesh ) {                              \
+        for ( int ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
+          parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+        }                                                               \
+      }                                                                 \
+    }                                                                   \
+                                                                        \
+    return val;                                                         \
+                                                                        \
   }while(0)
+
 
 #define ERROR_AT(msg1,msg2)                                          \
   fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
@@ -64,11 +114,11 @@ extern "C" {
 
 #define MEM_CHK_AVAIL(mesh,bytes,msg) do {                            \
   if ( (mesh)->memCur + (bytes) > (mesh)->memMax ) {                  \
-    ERROR_AT(msg," Exceeded max memory allowed: " );                  \
+    ERROR_AT(msg," Exceeded max memory allowed: ");      \
     stat = PMMG_FAILURE;                                              \
   } else if ( (mesh)->memCur + (bytes) < 0  ) {                       \
     ERROR_AT(msg," Tried to free more mem than allocated: " );        \
-    stat = PMMG_FAILURE;                                              \
+    stat = PMMG_SUCCESS;                                              \
   }                                                                   \
   else {                                                              \
     stat = PMMG_SUCCESS;                                              \
@@ -76,11 +126,13 @@ extern "C" {
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
     int stat = PMMG_SUCCESS;                                \
-    if ( (size) != 0 ) {                                    \
+    if ( (size) != 0 && ptr ) {                             \
       long long size_to_free = -(size)*sizeof(type);        \
       MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
       if ( stat == PMMG_SUCCESS )                           \
         (mesh)->memCur += size_to_free;                     \
+    }                                                       \
+    if ( ptr ) {                                            \
       free( ptr );                                          \
       (ptr) = NULL;                                         \
     }                                                       \
@@ -88,6 +140,7 @@ extern "C" {
 
 #define PMMG_MALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
+  (ptr) = NULL;                                             \
   if ( (size) != 0 ) {                                      \
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg );              \
@@ -107,6 +160,7 @@ extern "C" {
 
 #define PMMG_CALLOC(mesh,ptr,size,type,msg,on_failure) do { \
   int stat = PMMG_SUCCESS;                                  \
+  (ptr) = NULL;                                             \
   if ( (size) != 0 ) {                                      \
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg);               \
@@ -124,7 +178,8 @@ extern "C" {
   } } while(0)
 
 #define PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
-    int stat = PMMG_SUCCESS;                                            \
+    int   stat = PMMG_SUCCESS;                                          \
+    type* tmp;                                                          \
                                                                         \
     if ( (ptr) == NULL ) {                                              \
       assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?");\
@@ -133,23 +188,27 @@ extern "C" {
       PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
     } else if ((newsize) < (oldsize)) {                                 \
       long long size_to_allocate = (newsize)*sizeof(type);              \
-      (ptr) = realloc( (ptr), size_to_allocate);                        \
-      if ( ptr == NULL ) {                                              \
+      tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type));   \
+      if ( tmp == NULL ) {                                              \
         ERROR_AT(msg," Realloc failed: ");                              \
+        PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                      \
         on_failure;                                                     \
       } else {                                                          \
+        (ptr) = tmp;                                                    \
         (mesh)->memCur -= ((long long)((oldsize)*sizeof(type))-size_to_allocate);\
       }                                                                 \
     } else if ((newsize) > (oldsize)) {                                 \
 long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(type);\
       MEM_CHK_AVAIL(mesh,size_to_allocate,msg);                         \
       if ( stat == PMMG_SUCCESS ) {                                     \
-        (ptr) = realloc((ptr), (long long)(newsize) * sizeof(type));    \
-        if ( (ptr) == NULL ) {                                          \
+        tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type)); \
+        if ( tmp == NULL ) {                                            \
           ERROR_AT(msg, " Realloc failed: " );                          \
+          PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                    \
           on_failure;                                                   \
         } else {                                                        \
-          (mesh)->memCur += ( size_to_allocate );      \
+          (ptr) = tmp;                                                  \
+          (mesh)->memCur += ( size_to_allocate );                       \
         }                                                               \
       }                                                                 \
     }                                                                   \
@@ -216,6 +275,7 @@ int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, long long int memReq );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
+int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 
 /* Scaling */
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
@@ -224,7 +284,7 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 int PMMG_outqua( PMMG_pParMesh parmesh );
 
 /* Variadic_pmmg.c */
-int PMMG_Init_parMesh_var(va_list argptr);
+int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);
 int PMMG_Free_all_var(va_list argptr);
 
 const char* PMMG_Get_pmmgArgName(int typArg);

@@ -14,7 +14,7 @@ int PMMG_Init_parMesh(const int starter,...) {
 
   va_start(argptr, starter);
 
-  ier = PMMG_Init_parMesh_var(argptr);
+  ier = PMMG_Init_parMesh_var_internal(argptr,1);
 
   va_end(argptr);
 
@@ -33,7 +33,7 @@ int PMMG_Set_inputMeshName(PMMG_pParMesh parmesh, const char* meshin) {
   return ier;
 }
 
-int PMMG_Set_inputSolName(PMMG_pParMesh parmesh, const char* solin) {
+int PMMG_Set_inputSolsName(PMMG_pParMesh parmesh, const char* solin) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
   int        k,i,ier;
@@ -77,7 +77,7 @@ int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   return ier;
 }
 
-int PMMG_Set_outputSolName(PMMG_pParMesh parmesh, const char* solout) {
+int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
   int        k,i,ier;
@@ -115,13 +115,15 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   memset(&parmesh->info,0, sizeof(PMMG_Info));
 
   parmesh->info.mem    = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
-  parmesh->ddebug      = 0;
-  parmesh->niter       = 1;
+  parmesh->info.root   = PMMG_NUL;
+
+  parmesh->ddebug      = PMMG_NUL;
+  parmesh->niter       = PMMG_NITER;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     /* Set Mmg verbosity to 0 */
-    mesh->info.imprim = 0;
+    mesh->info.imprim = PMMG_NUL;
   }
 
   /* Init MPI data */
@@ -134,17 +136,17 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
   else {
     parmesh->nprocs = 1;
-    parmesh->myrank = 0;
+    parmesh->myrank = PMMG_NUL;
   }
 
   /* ParMmg verbosity */
-  if ( !parmesh->myrank ) {
-    parmesh->info.imprim = 1;
+  if ( parmesh->myrank==parmesh->info.root ) {
+    parmesh->info.imprim = PMMG_IMPRIM;
   }
   else {
-    parmesh->info.imprim = 0;
+    parmesh->info.imprim = PMMG_NUL;
   }
-  parmesh->info.imprim0  = 1;
+  parmesh->info.imprim0  = PMMG_IMPRIM;
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh, 0 );
@@ -164,8 +166,8 @@ int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
   return ier;
 }
 
-int PMMG_Set_allSolsSizes(PMMG_pParMesh parmesh, int nsol,int *typEntity,int np,
-                          int *typSol){
+int PMMG_Set_solsAtVerticesSize(PMMG_pParMesh parmesh, int nsols,int nentities,
+                                int *typSol){
   MMG5_pMesh mesh;
   MMG5_pSol  *sol;
   int        ier;
@@ -175,7 +177,7 @@ int PMMG_Set_allSolsSizes(PMMG_pParMesh parmesh, int nsol,int *typEntity,int np,
   mesh = parmesh->listgrp[0].mesh;
   sol  = &parmesh->listgrp[0].sol;
 
-  ier  = MMG3D_Set_allSolsSizes(mesh,sol,nsol,typEntity,np,typSol);
+  ier  = MMG3D_Set_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
 
   return ier;
 }
@@ -202,7 +204,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
 
   switch ( iparam ) {
   case PMMG_IPARAM_verbose :
-    if ( !parmesh->myrank ) {
+    if ( parmesh->myrank==parmesh->info.root ) {
       parmesh->info.imprim = val;
     }
     parmesh->info.imprim0 = val;
@@ -446,7 +448,10 @@ int PMMG_Set_edge(PMMG_pParMesh parmesh, int v0, int v1, int ref, int pos){
   assert ( parmesh->ngrp == 1 );
   return(MMG3D_Set_edge(parmesh->listgrp[0].mesh, v0, v1, ref, pos));
 }
-
+int PMMG_Set_edges(PMMG_pParMesh parmesh, int *edges, int *refs) {
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_edges(parmesh->listgrp[0].mesh, edges, refs));
+}
 int PMMG_Set_corner(PMMG_pParMesh parmesh, int k){
   assert ( parmesh->ngrp == 1 );
   return(MMG3D_Set_corner(parmesh->listgrp[0].mesh, k));
@@ -493,14 +498,14 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
   return(MMG3D_Set_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
 }
 
-int PMMG_Set_ithSols_inAllSols(PMMG_pParMesh parmesh,int i, double* s){
+int PMMG_Set_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
+  return(MMG3D_Set_ithSols_inSolsAtVertices(parmesh->listgrp[0].sol,i,s));
 }
 
-int PMMG_Set_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double *s,int pos){
+int PMMG_Set_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double *s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_ithSol_inAllSols(parmesh->listgrp[0].sol,i, s, pos));
+  return(MMG3D_Set_ithSol_inSolsAtVertices(parmesh->listgrp[0].sol,i, s, pos));
 }
 
 int PMMG_Set_scalarMet(PMMG_pParMesh parmesh, double m,int pos){
@@ -548,8 +553,8 @@ int PMMG_Get_meshSize(PMMG_pParMesh parmesh,int *np,int *ne,int *nprism,int *nt,
   return ier;
 }
 
-int PMMG_Get_allSolsSizes(PMMG_pParMesh parmesh, int *nsol,int *typEntity,int *np,
-                          int *typSol){
+int PMMG_Get_solsAtVerticesSize(PMMG_pParMesh parmesh, int *nsols,int *nentities,
+                                int *typSol){
   MMG5_pMesh mesh;
   MMG5_pSol  *sol;
   int        ier;
@@ -559,7 +564,7 @@ int PMMG_Get_allSolsSizes(PMMG_pParMesh parmesh, int *nsol,int *typEntity,int *n
   mesh = parmesh->listgrp[0].mesh;
   sol  = &parmesh->listgrp[0].sol;
 
-  ier  = MMG3D_Get_allSolsSizes(mesh,sol,nsol,typEntity,np,typSol);
+  ier  = MMG3D_Get_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
 
   return ier;
 }
@@ -644,6 +649,10 @@ int PMMG_Get_edge(PMMG_pParMesh parmesh, int* e0, int* e1, int* ref,
   assert ( parmesh->ngrp == 1 );
   return(MMG3D_Get_edge(parmesh->listgrp[0].mesh, e0, e1, ref, isRidge, isRequired));
 }
+int PMMG_Get_edges(PMMG_pParMesh parmesh, int* edges,int *refs,int* areRidges,int* areRequired) {
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_edges(parmesh->listgrp[0].mesh,edges,refs,areRidges,areRequired));
+}
 
 int PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1,
                               double *n2){
@@ -651,14 +660,14 @@ int PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1
   return(MMG3D_Get_normalAtVertex(parmesh->listgrp[0].mesh, k, n0, n1, n2));
 }
 
-int PMMG_Get_ithSol_inAllSols(PMMG_pParMesh parmesh,int i,double* s,int pos){
+int PMMG_Get_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double* s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_ithSol_inAllSols(parmesh->listgrp[0].sol,i,s,pos));
+  return(MMG3D_Get_ithSol_inSolsAtVertices(parmesh->listgrp[0].sol,i,s,pos));
 }
 
-int PMMG_Get_ithSols_inAllSols(PMMG_pParMesh parmesh,int i,double* s){
+int PMMG_Get_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_ithSols_inAllSols(parmesh->listgrp[0].sol,i,s));
+  return(MMG3D_Get_ithSols_inSolsAtVertices(parmesh->listgrp[0].sol,i,s));
 
 }
 

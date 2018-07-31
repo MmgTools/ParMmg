@@ -19,7 +19,7 @@ FORTRAN_VARIADIC ( PMMG_INIT_PARMESH, pmmg_init_parmesh,
 
                    va_start(argptr, starter);
 
-                   ier = PMMG_Init_parMesh_var(argptr);
+                   ier = PMMG_Init_parMesh_var_internal(argptr,0);
 
                    va_end(argptr);
 
@@ -46,9 +46,9 @@ FORTRAN_NAME(PMMG_SET_INPUTMESHNAME, pmmg_set_inputmeshname,
 }
 
 /**
- * See \ref PMMG_Set_inputSolName function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_inputSolsName function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_INPUTSOLNAME, pmmg_set_inputsolname,
+FORTRAN_NAME(PMMG_SET_INPUTSOLSNAME, pmmg_set_inputsolsname,
              (PMMG_pParMesh *parmesh,char* solin, int* strlen, int* retval),
              (parmesh,solin,strlen,retval)) {
 
@@ -57,7 +57,7 @@ FORTRAN_NAME(PMMG_SET_INPUTSOLNAME, pmmg_set_inputsolname,
   tmp = (char*)malloc((*strlen+1)*sizeof(char));
   strncpy(tmp,solin,*strlen);
   tmp[*strlen] = '\0';
-  *retval = PMMG_Set_inputSolName(*parmesh,tmp);
+  *retval = PMMG_Set_inputSolsName(*parmesh,tmp);
   _MMG5_SAFE_FREE(tmp);
 
   return;
@@ -99,9 +99,9 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
 }
 
 /**
- * See \ref PMMG_Set_outputSolName function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_outputSolsName function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_OUTPUTSOLNAME,pmmg_set_outputsolname,
+FORTRAN_NAME(PMMG_SET_OUTPUTSOLSNAME,pmmg_set_outputsolsname,
              (PMMG_pParMesh *parmesh, char* solout,int* strlen, int* retval),
              (parmesh,solout,strlen,retval)){
   char *tmp = NULL;
@@ -109,7 +109,7 @@ FORTRAN_NAME(PMMG_SET_OUTPUTSOLNAME,pmmg_set_outputsolname,
   tmp = (char*)malloc((*strlen+1)*sizeof(char));
   strncpy(tmp,solout,*strlen);
   tmp[*strlen] = '\0';
-  *retval = PMMG_Set_outputSolName(*parmesh,tmp);
+  *retval = PMMG_Set_outputSolsName(*parmesh,tmp);
   _MMG5_SAFE_FREE(tmp);
 
   return;
@@ -158,13 +158,13 @@ FORTRAN_NAME(PMMG_SET_MESHSIZE, pmmg_set_meshsize,
 }
 
 /**
- * See \ref PMMG_Set_allSolsSizes function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_solsAtVerticesSize function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_ALLSOLSSIZES, pmmg_set_allsolssizes,
-    (PMMG_pParMesh *parmesh,int *nsol,int* typEntity,int *np,int* typSol,
+FORTRAN_NAME(PMMG_SET_SOLSATVERTICESSIZE, pmmg_set_solsatverticessize,
+    (PMMG_pParMesh *parmesh,int *nsols,int *nentities,int* typSol,
      int* retval),
-    (parmesh, nsol, typEntity, np, typSol, retval)) {
-  *retval = PMMG_Set_allSolsSizes(*parmesh,*nsol,typEntity,*np,typSol);
+    (parmesh, nsols, nentities, typSol, retval)) {
+  *retval = PMMG_Set_solsAtVerticesSize(*parmesh,*nsols,*nentities,typSol);
   return;
 }
 
@@ -287,6 +287,24 @@ FORTRAN_NAME(PMMG_SET_QUADRILATERALS,pmmg_set_quadrilaterals,
   *retval = PMMG_Set_quadrilaterals(*parmesh, quads, refs);
   return;
 }
+/**
+ * See \ref PMMG_Set_edge function in \ref parmmg/libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_EDGE,pmmg_set_edge,
+             (PMMG_pParMesh *parmesh, int *v0, int *v1, int *ref, int *pos, int* retval),
+             (parmesh,v0,v1,ref,pos,retval)){
+  *retval = PMMG_Set_edge(*parmesh,*v0,*v1,*ref,*pos);
+  return;
+}
+/**
+ * See \ref PMMG_Set_edges function in \ref parmmg/libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_EDGES,pmmg_set_edges,
+             (PMMG_pParMesh *parmesh, int *edges, int *refs,int* retval),
+             (parmesh,edges,refs,retval)){
+  *retval = PMMG_Set_edges(*parmesh,edges,refs);
+  return;
+}
 
 /**
  * See \ref PMMG_Set_corner function in \ref libparmmg.h file.
@@ -377,23 +395,23 @@ FORTRAN_NAME(PMMG_SET_NORMALATVERTEX,pmmg_set_normalatvertex,
   return;
 }
 /**
- * See \ref PMMG_Set_ithSol_inAllSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_ithSol_inSolsAtVertices function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_ITHSOL_INALLSOLS,pmmg_set_ithsol_inallsols,
+FORTRAN_NAME(PMMG_SET_ITHSOL_INSOLSATVERTICES,pmmg_set_ithsol_insolsatvertices,
              (PMMG_pParMesh *parmesh, int *i,double *s,int *pos,int* retval),
              (parmesh,i,s,pos,retval)) {
   int idx = *i-1;
-  *retval = PMMG_Set_ithSol_inAllSols(*parmesh,idx,s,*pos);
+  *retval = PMMG_Set_ithSol_inSolsAtVertices(*parmesh,idx,s,*pos);
   return;
 }
 /**
- * See \ref PMMG_Set_ithSols_inAllSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Set_ithSols_inSolsAtVertices function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_SET_ITHSOLS_INALLSOLS,pmmg_set_ithsols_inallsols,
+FORTRAN_NAME(PMMG_SET_ITHSOLS_INSOLSATVERTICES,pmmg_set_ithsols_insolsatvertices,
              (PMMG_pParMesh *parmesh, int *i,double *s, int* retval),
              (parmesh,i,s,retval)) {
   int idx = *i-1;
-  *retval = PMMG_Set_ithSols_inAllSols(*parmesh,idx,s);
+  *retval = PMMG_Set_ithSols_inSolsAtVertices(*parmesh,idx,s);
   return;
 }
 
@@ -473,13 +491,13 @@ FORTRAN_NAME(PMMG_GET_MESHSIZE, pmmg_get_meshsize,
 }
 
 /**
- * See \ref PMMG_Get_allSolsSizes function in \ref libparmmg.h file.
+ * See \ref PMMG_Get_solsAtVerticesSize function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_ALLSOLSSIZES, pmmg_get_allsolssizes,
-    (PMMG_pParMesh *parmesh,int *nsol,int* typEntity,int *np,int* typSol,
+FORTRAN_NAME(PMMG_GET_SOLSATVERTICESSIZE, pmmg_get_solsatverticessize,
+    (PMMG_pParMesh *parmesh,int *nsols,int *nentities,int* typSol,
      int* retval),
-    (parmesh, nsol, typEntity, np, typSol, retval)) {
-  *retval = PMMG_Get_allSolsSizes(*parmesh,nsol,typEntity,np,typSol);
+    (parmesh, nsols, nentities, typSol, retval)) {
+  *retval = PMMG_Get_solsAtVerticesSize(*parmesh,nsols,nentities,typSol);
   return;
 }
 
@@ -613,6 +631,15 @@ FORTRAN_NAME(PMMG_GET_EDGE,pmmg_get_edge,(PMMG_pParMesh *parmesh, int* e0, int* 
   *retval = PMMG_Get_edge(*parmesh,e0,e1,ref,isRidge,isRequired);
   return;
 }
+/**
+ * See \ref PMMG_Get_edges function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_EDGES,pmmg_get_edges,(PMMG_pParMesh *parmesh, int* edges, int* refs
+                                            ,int* areRidges, int* areRequired, int* retval),
+             (parmesh,edges,refs,areRidges,areRequired,retval)) {
+  *retval = PMMG_Get_edges(*parmesh,edges,refs,areRidges,areRequired);
+  return;
+}
 
 /**
  * See \ref PMMG_Get_normalAtVertex function in \ref libparmmg.h file.
@@ -624,24 +651,24 @@ FORTRAN_NAME(PMMG_GET_NORMALATVERTEX,pmmg_get_normalatvertex,
   return;
 }
 /**
- * See \ref PMMG_Get_ithSols_inAllSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Get_ithSols_inSolsAtVertices function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_ITHSOL_INALLSOLS,pmmg_get_ithsol_inallsols,
+FORTRAN_NAME(PMMG_GET_ITHSOL_INSOLSATVERTICES,pmmg_get_ithsol_insolsatvertices,
              (PMMG_pParMesh *parmesh, int *i,double *s,int *pos, int* retval),
              (parmesh,i,s,pos,retval)) {
   int idx = *i-1;
-  *retval = PMMG_Get_ithSol_inAllSols(*parmesh,idx,s,*pos);
+  *retval = PMMG_Get_ithSol_inSolsAtVertices(*parmesh,idx,s,*pos);
   return;
 }
 
 /**
- * See \ref PMMG_Get_ithSols_inAllSols function in \ref libparmmg.h file.
+ * See \ref PMMG_Get_ithSols_inSolsAtVertices function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_ITHSOLS_INALLSOLS,pmmg_get_ithsols_inallsols,
+FORTRAN_NAME(PMMG_GET_ITHSOLS_INSOLSATVERTICES,pmmg_get_ithsols_insolsatvertices,
              (PMMG_pParMesh *parmesh, int *i,double *s, int* retval),
              (parmesh,i,s,retval)) {
   int idx = *i-1;
-  *retval = PMMG_Get_ithSols_inAllSols(*parmesh,idx,s);
+  *retval = PMMG_Get_ithSols_inSolsAtVertices(*parmesh,idx,s);
   return;
 }
 
