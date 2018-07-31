@@ -284,7 +284,7 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 int PMMG_outqua( PMMG_pParMesh parmesh );
 
 /* Variadic_pmmg.c */
-int PMMG_Init_parMesh_var(va_list argptr);
+int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);
 int PMMG_Free_all_var(va_list argptr);
 
 const char* PMMG_Get_pmmgArgName(int typArg);

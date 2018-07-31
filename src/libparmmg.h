@@ -73,7 +73,7 @@ static const int METIS_TARGET_MESH_SIZE = 8000;
  * \param ... variadic arguments that depend to the parmesh fields that you want
  * to init
  *
- * You need to provide at least the folowing arguments:
+ * You need to provide at least the following arguments:
  * the \a PMMG_ARG_start keyword to start the list of variadic arguments
  * the \a PMMG_ARG_ppParMesh keyword to say that the next argument is a pointer
  *  toward a pointer toward a parmesh
@@ -214,7 +214,7 @@ int  PMMG_Set_inputMetName(PMMG_pParMesh parmesh,const char* metin);
  *  Set the name of output solution file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(mesh,solout,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(parmesh,solout,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: solout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -231,7 +231,7 @@ int  PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout);
  *  Set the name of output metric file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(mesh,metout,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_OUTPUTMETNAME(parmesh,metout,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: metout\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
@@ -250,7 +250,7 @@ int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_INIT_PARAMETERS(parmesh,comm)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     MPI_Comm,INTENT(IN)           :: comm\n
+ * >     INTEGER,INTENT(IN)            :: comm\n
  * >   END SUBROUTINE\n
  *
  */

@@ -19,7 +19,7 @@ FORTRAN_VARIADIC ( PMMG_INIT_PARMESH, pmmg_init_parmesh,
 
                    va_start(argptr, starter);
 
-                   ier = PMMG_Init_parMesh_var(argptr);
+                   ier = PMMG_Init_parMesh_var_internal(argptr,0);
 
                    va_end(argptr);
 
