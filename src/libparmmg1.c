@@ -1,10 +1,14 @@
 /**
  * \file libparmmg1.c
- * \brief Parallel remeshing library
+ * \brief Wrapper for the parallel remeshing library.
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
- * \author Algiane Froehly (Inria/UBordeaux)
- * \version 5
+ * \author Algiane Froehly (InriaSoft)
+ * \author Nikos Pattakos (Inria)
+ * \version 1
  * \copyright GNU Lesser General Public License.
+ *
+ * Internal function that perform the parallel remeshing.
+ *
  */
 #include "parmmg.h"
 
@@ -110,6 +114,8 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
   grp                       = &parmesh->listgrp[igrp];
   mesh                      = grp->mesh;
 
+  if ( !mesh ) return 1;
+
   /** Store in flag the pack index of each tetra */
   if ( !PMMG_mark_packedTetra(mesh,&ne) ) return 0;
 
@@ -150,6 +156,8 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
+
+    if ( !mesh ) continue;
 
     /* Pack tetrahedra */
     if ( mesh->adja ) {
@@ -211,89 +219,6 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   }
 
   return 1;
-}
-
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- *
- * \return PMMG_SUCCESS
- *         PMMG_FAILURE
- *
- * Check the validity of the input mesh data (tetra orientation, solution
- * compatibility with respect to the provided mesh, Mmg options).
- *
- */
-int PMMG_check_inputData(PMMG_pParMesh parmesh)
-{
-  MMG5_pMesh mesh;
-  MMG5_pSol  met;
-  int        k;
-  mytime     ctim[TIMEMAX];
-  char       stim[32];
-
-
-  tminit(ctim,TIMEMAX);
-  chrono(ON,&(ctim[0]));
-
-  if ( parmesh->info.imprim )
-    fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
-
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
-    met  = parmesh->listgrp[k].met;
-
-    /* Check options */
-    if ( mesh->info.lag > -1 ) {
-      fprintf(stderr,
-              "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
-      return PMMG_FAILURE;
-    } else if ( mesh->info.iso ) {
-      fprintf(stderr,"  ## Error: level-set discretisation unavailable"
-              " (MMG3D_IPARAM_iso):\n");
-      return PMMG_FAILURE;
-    } else if ( mesh->info.optimLES && met->size==6 ) {
-      fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
-              " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
-      return PMMG_FAILURE;
-    }
-    /* specific meshing */
-    if ( met->np ) {
-      if ( mesh->info.optim ) {
-        printf("\n  ## ERROR: MISMATCH OPTIONS: OPTIM OPTION CAN NOT BE USED"
-               " WITH AN INPUT METRIC.\n");
-        return PMMG_FAILURE;
-      }
-
-      if ( mesh->info.hsiz>0. ) {
-        printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ OPTION CAN NOT BE USED"
-               " WITH AN INPUT METRIC.\n");
-        return PMMG_FAILURE;
-      }
-    }
-
-    if ( mesh->info.optim &&  mesh->info.hsiz>0. ) {
-      printf("\n  ## ERROR: MISMATCH OPTIONS: HSIZ AND OPTIM OPTIONS CAN NOT BE USED"
-             " TOGETHER.\n");
-      return PMMG_FAILURE;
-    }
-
-    /* load data */
-    _MMG5_warnOrientation(mesh);
-
-    if ( met->np && (met->np != mesh->np) ) {
-      fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
-      _MMG5_DEL_MEM(mesh,met->m,(met->size*(met->npmax+1))*sizeof(double));
-      met->np = 0;
-    } else if ( met->size!=1 && met->size!=6 ) {
-      fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
-      return PMMG_FAILURE;
-    }
-  }
-  if ( parmesh->info.imprim )
-    fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
-
-  return PMMG_SUCCESS;
 }
 
 /**
@@ -471,11 +396,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
-  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( !ieresult )
-    return PMMG_LOWFAILURE;
-  else if ( ieresult<0 )
-    return PMMG_STRONGFAILURE;
+
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
+              PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+
+  if ( !ieresult ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+  }
+  else if ( ieresult<0 ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+  }
 
   //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
 
@@ -483,10 +413,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
    * uses this fields assiming they are setted to 0)/ */
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
+
+    if ( !mesh ) continue;
+
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
-    /* if ( !_MMG3D_analys(mesh) ) return PMMG_STRONGFAILURE; */
+    /* if ( !_MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
 
   /** Mesh adaptation */
@@ -494,6 +427,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+
+      if ( (!mesh->np) && (!mesh->ne) ) {
+        /* Empty mesh */
+        continue;
+      }
 
       /** Store the vertices of interface faces in the internal communicator */
       ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData);
@@ -503,13 +441,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         goto failed;
       }
 
-      /*mark reinitialisation in order to be able to remesh all the mesh*/
+      /* Mark reinitialisation in order to be able to remesh all the mesh */
       mesh->mark = 0;
       mesh->base = 0;
       for ( k=1 ; k<=mesh->nemax ; k++ ) {
         mesh->tetra[k].mark = mesh->mark;
         mesh->tetra[k].flag = mesh->base;
       }
+
       /** Call the remesher */
       /* Here we need to scale the mesh */
       if ( !(ier = PMMG_scaleMesh(mesh,met)) ) goto failed;
@@ -537,6 +476,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
       }
 #endif
+
       /** Pack the tetra */
       if ( mesh->adja )
         PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table");
@@ -560,6 +500,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
+
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !ieresult ) {
       if ( !parmesh->myrank )
@@ -568,30 +509,31 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     } else if( ieresult < 0 ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
-      return PMMG_STRONGFAILURE;
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
   }
 
   ier = PMMG_outqua( parmesh );
-  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( !ieresult ) {
-    ier_end = PMMG_LOWFAILURE;
-  }
+  // Uncomment when ParMmg will create sufficiently good meshes */
+  /* MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm ); */
+  /* if ( !ieresult ) { */
+  /*   ier_end = PMMG_LOWFAILURE; */
+  /* } */
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
-  return ier_end;
+  PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
 
   /** mmg3d1_delone failure */
 failed:
@@ -600,18 +542,18 @@ failed:
 
 strong_failed:
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  return PMMG_STRONGFAILURE;
+  PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
 
 failed_handling:
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
   if ( !PMMG_merge_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
-    return PMMG_STRONGFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  return PMMG_LOWFAILURE;
+  PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
 }

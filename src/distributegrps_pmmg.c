@@ -2406,7 +2406,15 @@ end:
  */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
-  int    ier,ier_glob;
+  int   ngrp,ier,ier_glob;
+
+  MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  if ( !ngrp ) {
+    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
+            __func__,__LINE__);
+    return 0;
+  }
 
   /** Get the new partition of groups (1 group = 1 metis node) */
   part = NULL;

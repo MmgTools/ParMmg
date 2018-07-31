@@ -688,6 +688,8 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   /** Free the adjacency array: a possible improvement is to update it */
   mesh0 = listgrp[0].mesh;
 
+  if ( !mesh0 ) return 1;
+
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja, 4*mesh0->nemax+5, int, "adjacency table" );
 
@@ -751,12 +753,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   /** Step 5: Update the communicators */
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
-  _MMG5_SAFE_REALLOC(parmesh->listgrp,1,PMMG_Grp,"(mergeGrps) listgrp",0);
+  PMMG_REALLOC(parmesh,parmesh->listgrp,1,parmesh->ngrp,PMMG_Grp,"listgrp",return 0;);
   parmesh->ngrp = 1;
 
   /** Step 6: Update tag on points, tetra */
   if ( !PMMG_updateTag(parmesh) ) goto fail_comms;
-
 
   return 1;
 
@@ -774,12 +775,20 @@ fail_ncomm:
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param rcv_point Buffer to gather points
+ * \param np_tot number of points in \a rcv_point
  * \param rcv_xpoint Buffer to gather xPoints
+ * \param xp_tot number of xpoints in \a rcv_xpoint
  * \param rcv_tetra Buffer to gather tetra
+ * \param ne_tot number of tetra in \a rcv_tetra
  * \param rcv_xtetra Buffer to gather xtetra
+ * \param xt_tot number of xtetra in \a rcv_xtetra
  * \param rcv_met buffer to gather metric
+ * \param nmet_tot number of metrics in \a rcv_met
+ * \param rcv_isMet met->size if we are waiting a metric
  * \param rcv_intvalues Buffer to gather the intvalue array of the internal comm
+ * \param nitem_int_node_comm_tot number of items in \a  rcv_intvalues
  * \param rcv_nitem_ext_tab Buffer to gather the number of item in the ext comm
+ * \param ext_comm_displs_tot number of items in \a rcv_nitem_ext_tab
  * \param rcv_color_in_tab Buffer to gather the color_in field of the ext comm
  * \param rcv_color_out_tab Buffer to gather the color_out field of the ext comm
  * \param rcv_node2int_node_comm_index1 Buffer to gather node2int_node_comm_index1
@@ -800,11 +809,12 @@ fail_ncomm:
  * \param rcv_xt Buffer to gather the number of xtetra
  * \param rcv_nmet Buffer to gather the number of metrics
  * \param rcv_int_comm_index Buffer to gather the internal comm sizes
+ * \param nitem_icidx_tot number of items in \a rcv_int_comm_index
  * \param rcv_next_node_comm Buffer to gather the numbers of external comm
  * \param rcv_nitem_int_node_comm Buffer to gather the node2int_node_comm arrays
  * sizes
  *
- * \return 0 if fail, 1 otherwise
+ * \return 0 if fail, 1 otherwise (on all procs)
  *
  * Gather the parmeshes on the proc 0.
  *
@@ -812,10 +822,14 @@ fail_ncomm:
  *
  */
 static inline
-int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
-                         MMG5_pxPoint *rcv_xpoint,MMG5_pTetra *rcv_tetra,
-                         MMG5_pxTetra *rcv_xtetra,double **rcv_met,
-                         int **rcv_intvalues,int **rcv_nitem_ext_tab,
+int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
+                         MMG5_pPoint  *rcv_point, int *np_tot,
+                         MMG5_pxPoint *rcv_xpoint,int *xp_tot,
+                         MMG5_pTetra  *rcv_tetra, int *ne_tot,
+                         MMG5_pxTetra *rcv_xtetra,int *xt_tot,
+                         double      **rcv_met,   int *nmet_tot,int *rcv_isMet,
+                         int **rcv_intvalues,int *nitem_int_node_comm_tot,
+                         int **rcv_nitem_ext_tab,int *ext_comm_displs_tot,
                          int **rcv_color_in_tab,int **rcv_color_out_tab,
                          int **rcv_node2int_node_comm_index1,
                          int **rcv_node2int_node_comm_index2,int **point_displs,
@@ -824,7 +838,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
                          int **intval_displs,int **ext_comm_displs,
                          int **int_comm_index_displs,int **rcv_np,int **rcv_xp,
                          int **rcv_ne,int **rcv_xt,int **rcv_nmet,
-                         int **rcv_int_comm_index,int** rcv_next_node_comm,
+                         int **rcv_int_comm_index,int *nitem_icidx_tot,
+                         int** rcv_next_node_comm,
                          int **rcv_nitem_int_node_comm ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
@@ -833,65 +848,107 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
-  int            nmet_tot,ne_tot,nitem_int_node_comm_tot;
   int            *color_in_tab,*color_out_tab,*nitem_ext_tab;
-  int            *int_comm_index,*nitems_ext_idx;
-  int            ext_comm_displs_tot,nitem_ext_tot;
-  int            nprocs,k,i,idx;
-  int            xt_tot,np_tot,xp_tot,isMet;
+  int            *int_comm_index,*nitems_ext_idx,nitem_ext_tot;
+  int            nprocs,root,k,i,idx;
+  int            isMet;
+  int            ier,ieresult;
   //  char           filename[32];
 
   nprocs        = parmesh->nprocs;
+  root          = parmesh->info.root;
   grp           = &parmesh->listgrp[0];
   mesh          = grp->mesh;
   met           = grp->met;
-  isMet         = (met->m)? 1 : 0;
+  isMet         = (met && (met->m) )? met->size : 0;
   comm          = parmesh->comm;
   int_node_comm = parmesh->int_node_comm;
+  ier           = 1;
+
+  (*rcv_np)        = NULL;
+  (*point_displs)  = NULL;
+  (*rcv_point)     = NULL;
+
+  (*rcv_xp)        = NULL;
+  (*xpoint_displs) = NULL;
+  (*rcv_xpoint)    = NULL;
+
+  (*rcv_ne)        = NULL;
+  (*tetra_displs)  = NULL;
+  (*rcv_tetra)     = NULL;
+
+  (*rcv_xt)        = NULL;
+  (*xtetra_displs) = NULL;
+  (*rcv_xtetra)    = NULL;
+
+  (*rcv_nmet)      = NULL;
+  (*met_displs)    = NULL;
+  (*rcv_met)       = NULL;
+
+  (*rcv_intvalues)                 = NULL;
+  (*rcv_node2int_node_comm_index1) = NULL;
+  (*rcv_node2int_node_comm_index2) = NULL;
+  (*rcv_int_comm_index)            = NULL;
+  (*rcv_next_node_comm)            = NULL;
+  (*rcv_nitem_ext_tab)             = NULL;
+
+  (*rcv_color_in_tab)  = NULL;
+  (*rcv_color_out_tab) = NULL;
+  (*ext_comm_displs )  = NULL;
+
+  color_in_tab   = NULL;
+  color_out_tab  = NULL;
+  nitem_ext_tab  = NULL;
+  nitems_ext_idx = NULL;
+  int_comm_index = NULL;
 
   /** Memory alloc */
   /* 1: Mesh data */
   if ( !parmesh->myrank ) {
-    _MMG5_SAFE_CALLOC( (*rcv_np)        ,nprocs,int,0);
-    _MMG5_SAFE_CALLOC( (*point_displs)  ,nprocs,int,0);
+    PMMG_CALLOC( parmesh, (*rcv_np)        ,nprocs,int,"rcv_np"       ,ier=0);
+    PMMG_CALLOC( parmesh, (*point_displs)  ,nprocs,int,"point_displs" ,ier=0);
 
-    _MMG5_SAFE_CALLOC( (*rcv_xp)        ,nprocs,int,0);
-    _MMG5_SAFE_CALLOC( (*xpoint_displs) ,nprocs,int,0);
+    PMMG_CALLOC( parmesh, (*rcv_xp)        ,nprocs,int,"rcv_xp"       ,ier=3);
+    PMMG_CALLOC( parmesh, (*xpoint_displs) ,nprocs,int,"xpoint_displs",ier=3);
 
-    _MMG5_SAFE_CALLOC( (*rcv_ne)        ,nprocs,int,0);
-    _MMG5_SAFE_CALLOC( (*tetra_displs)  ,nprocs,int,0);
+    PMMG_CALLOC( parmesh, (*rcv_ne)        ,nprocs,int,"rcv_ne"       ,ier=3);
+    PMMG_CALLOC( parmesh, (*tetra_displs)  ,nprocs,int,"tetra_displs" ,ier=3);
 
-    _MMG5_SAFE_CALLOC( (*rcv_xt)        ,nprocs,int,0);
-    _MMG5_SAFE_CALLOC( (*xtetra_displs) ,nprocs,int,0);
+    PMMG_CALLOC( parmesh, (*rcv_xt)        ,nprocs,int,"rcv_xt"       ,ier=3);
+    PMMG_CALLOC( parmesh, (*xtetra_displs) ,nprocs,int,"xtetra_displs",ier=3);
 
     if(isMet) {
-      _MMG5_SAFE_CALLOC( (*rcv_nmet)    ,nprocs,int,0);
-      _MMG5_SAFE_CALLOC( (*met_displs)  ,nprocs,int,0);
+      PMMG_CALLOC( parmesh, (*rcv_nmet)    ,nprocs,int,"rcv_nmet"     ,ier=3);
+      PMMG_CALLOC( parmesh, (*met_displs)  ,nprocs,int,"met_displs"   ,ier=3);
     }
     else {
-      *rcv_nmet   = NULL;
-      *met_displs = NULL;
+      rcv_nmet   = NULL;
+      met_displs = NULL;
     }
   }
 
   /* 2: Communicators */
-  _MMG5_SAFE_CALLOC( (*intval_displs)          ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*rcv_nitem_int_node_comm),nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*int_comm_index_displs)  ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*rcv_next_node_comm)     ,nprocs,int,0);
-  _MMG5_SAFE_CALLOC( (*ext_comm_displs)        ,nprocs,int,0);
+  PMMG_CALLOC( parmesh, (*intval_displs)          ,nprocs,int,"intval_displs"        ,ier=3);
+  PMMG_CALLOC( parmesh, (*rcv_nitem_int_node_comm),nprocs,int,"rcv_nitem_inc0"       ,ier=3);
+  PMMG_CALLOC( parmesh, (*int_comm_index_displs)  ,nprocs,int,"int_comm_index_displs",ier=3);
+  PMMG_CALLOC( parmesh, (*rcv_next_node_comm)     ,nprocs,int,"rcv_next_node_comm"   ,ier=3);
+  PMMG_CALLOC( parmesh, (*ext_comm_displs)        ,nprocs,int,"ext_comm_displs"      ,ier=3);
 
   /** Gather parmesh size infos on proc 0 */
-  MPI_CHECK( MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gather(&mesh->xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,0,comm),return 0);
+  MPI_CHECK( MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&mesh->xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Gather(&grp->nitem_int_node_comm,1,MPI_INT,
-                        (*rcv_nitem_int_node_comm),1,MPI_INT,0,comm),return 0);
+                        (*rcv_nitem_int_node_comm),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
-                        (*rcv_next_node_comm),1,MPI_INT,0,comm),return 0);
+                        (*rcv_next_node_comm),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Allreduce(&isMet,rcv_isMet,1,MPI_INT,MPI_MAX,comm),ier = 3);
 
-  /** Gather meshes on proc 0 */
+  MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MAX,comm),ieresult=3);
+  if ( ieresult>1 ) goto end;
+
+  /** Alloc arrays */
   /* Creation of MPI types for the mesh comm */
   PMMG_create_MPI_Point (mesh->point,  &mpi_point );
   PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint);
@@ -906,67 +963,48 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     for ( k=1; k<nprocs; ++k ) {
       (*point_displs)[k] += (*point_displs)[k-1] + (*rcv_np)[k-1];
     }
-    np_tot       = (*point_displs)[nprocs-1]+(*rcv_np)[nprocs-1];
-    (*rcv_point) = (MMG5_pPoint)calloc(np_tot+1,sizeof(MMG5_Point));
+    *np_tot       = (*point_displs)[nprocs-1]+(*rcv_np)[nprocs-1];
+    PMMG_CALLOC( parmesh,(*rcv_point),*np_tot+1,MMG5_Point,"rcv_point",ier=2);
   }
-  MPI_CHECK( MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
-                         (*rcv_np),(*point_displs),mpi_point,0,comm),return 0);
-
   /* xPoints */
   if ( !parmesh->myrank ) {
     (*xpoint_displs)[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
       (*xpoint_displs)[k] += (*xpoint_displs)[k-1] + (*rcv_xp)[k-1];
     }
-    xp_tot        = (*xpoint_displs)[nprocs-1]+(*rcv_xp)[nprocs-1];
-    (*rcv_xpoint) = (MMG5_pxPoint)calloc(xp_tot+1,sizeof(MMG5_xPoint));
+    *xp_tot        = (*xpoint_displs)[nprocs-1]+(*rcv_xp)[nprocs-1];
+    PMMG_CALLOC( parmesh,(*rcv_xpoint),*xp_tot+1,MMG5_xPoint,"rcv_xpoint",ier=2);
   }
-  MPI_CHECK( MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
-                         (*rcv_xp),(*xpoint_displs),mpi_xpoint,0,comm),return 0);
-
   /* Tetra */
   if ( !parmesh->myrank ) {
     (*tetra_displs)[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
       (*tetra_displs)[k] += (*tetra_displs)[k-1] + (*rcv_ne)[k-1];
     }
-    ne_tot       = (*tetra_displs)[nprocs-1]+(*rcv_ne)[nprocs-1];
-    (*rcv_tetra) = (MMG5_pTetra)calloc(ne_tot+1,sizeof(MMG5_Tetra));
+    *ne_tot       = (*tetra_displs)[nprocs-1]+(*rcv_ne)[nprocs-1];
+    PMMG_CALLOC( parmesh,(*rcv_tetra),*ne_tot+1,MMG5_Tetra,"rcv_tetra",ier=2);
   }
-  MPI_CHECK( MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&(*rcv_tetra)[1],
-                         (*rcv_ne),(*tetra_displs),mpi_tetra,0,comm),return 0);
-
   /* xTetra */
   if ( !parmesh->myrank ) {
     (*xtetra_displs)[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
       (*xtetra_displs)[k] += (*xtetra_displs)[k-1] + (*rcv_xt)[k-1];
     }
-    xt_tot        = (*xtetra_displs)[nprocs-1]+(*rcv_xt)[nprocs-1];
-    (*rcv_xtetra) = (MMG5_pxTetra)calloc(xt_tot+1,sizeof(MMG5_xTetra));
+    *xt_tot        = (*xtetra_displs)[nprocs-1]+(*rcv_xt)[nprocs-1];
+    PMMG_CALLOC( parmesh,(*rcv_xtetra),*xt_tot+1,MMG5_xTetra,"rcv_xtetra",ier=2);
   }
-  MPI_CHECK( MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&(*rcv_xtetra)[1],
-                         (*rcv_xt),(*xtetra_displs),mpi_xtetra,0,comm),return 0);
-
   /* Solutions */
-  *rcv_met = NULL;
-  if(isMet) {
-
-    if ( !parmesh->myrank ) {
-      for ( k=0; k<nprocs; ++k ) {
-        (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
-      }
-
-      (*met_displs)[0] = 0;
-      for ( k=1; k<nprocs; ++k ) {
-        (*met_displs)[k] += (*met_displs)[k-1] + (*rcv_nmet)[k-1];
-      }
-      nmet_tot   = (*met_displs)[nprocs-1]+(*rcv_nmet)[nprocs-1];
-      (*rcv_met) = (double*)calloc(nmet_tot+met->size,sizeof(double));
+  if ( *rcv_isMet && !parmesh->myrank ) {
+    for ( k=0; k<nprocs; ++k ) {
+      (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
     }
-    MPI_CHECK( MPI_Gatherv(&met->m[met->size],mesh->np*met->size,MPI_DOUBLE,
-                           &(*rcv_met)[met->size],(*rcv_nmet),(*met_displs),
-                           MPI_DOUBLE,0,comm),return 0);
+
+    (*met_displs)[0] = 0;
+    for ( k=1; k<nprocs; ++k ) {
+      (*met_displs)[k] += (*met_displs)[k-1] + (*rcv_nmet)[k-1];
+    }
+    *nmet_tot   = (*met_displs)[nprocs-1]+(*rcv_nmet)[nprocs-1]+*rcv_isMet;
+    PMMG_CALLOC( parmesh,(*rcv_met),*nmet_tot,double,"rcv_met",ier=2);
   }
 
   /* Internal communicator */
@@ -974,29 +1012,21 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   for ( k=1; k<nprocs; ++k ) {
     (*intval_displs)[k] += (*intval_displs)[k-1] + (*rcv_nitem_int_node_comm)[k-1];
   }
-  nitem_int_node_comm_tot = (*intval_displs)[nprocs-1]
+  *nitem_int_node_comm_tot = (*intval_displs)[nprocs-1]
     + (*rcv_nitem_int_node_comm)[nprocs-1];
 
-  (*rcv_intvalues)                 = malloc(nitem_int_node_comm_tot*sizeof(int));
-  (*rcv_node2int_node_comm_index1) = malloc(nitem_int_node_comm_tot*sizeof(int));
-  (*rcv_node2int_node_comm_index2) = malloc(nitem_int_node_comm_tot*sizeof(int));
-
-  MPI_CHECK( MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
-                         (*rcv_intvalues),(*rcv_nitem_int_node_comm),
-                         (*intval_displs),MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index1,int_node_comm->nitem,MPI_INT,
-                         (*rcv_node2int_node_comm_index1),(*rcv_nitem_int_node_comm),
-                         (*intval_displs),MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index2,int_node_comm->nitem,MPI_INT,
-                         (*rcv_node2int_node_comm_index2),(*rcv_nitem_int_node_comm),
-                         (*intval_displs),MPI_INT,0,comm),return 0);
-
+  PMMG_MALLOC(parmesh,(*rcv_intvalues)                ,*nitem_int_node_comm_tot,
+                int,"rcv_intvalues",ier=2 );
+  PMMG_MALLOC(parmesh,(*rcv_node2int_node_comm_index1),*nitem_int_node_comm_tot,
+                int,"rcv_n2inc_idx1",ier=2);
+  PMMG_MALLOC(parmesh,(*rcv_node2int_node_comm_index2),*nitem_int_node_comm_tot,
+                int,"rcv_n2inc_idx2",ier=2);
 
   /* External communicator */
   /* For each proc, we concatenate the external communicators fields into arrays */
-  color_in_tab  =(int*)malloc(parmesh->next_node_comm*sizeof(int));
-  color_out_tab =(int*)malloc(parmesh->next_node_comm*sizeof(int));
-  nitem_ext_tab =(int*)malloc(parmesh->next_node_comm*sizeof(int));
+  PMMG_MALLOC(parmesh,color_in_tab ,parmesh->next_node_comm,int,"color_in" ,ier=2);
+  PMMG_MALLOC(parmesh,color_out_tab,parmesh->next_node_comm,int,"color_out",ier=2);
+  PMMG_MALLOC(parmesh,nitem_ext_tab,parmesh->next_node_comm,int,"nitem_ext",ier=2);
 
   nitem_ext_tot = 0;
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
@@ -1007,7 +1037,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     nitem_ext_tot += ext_node_comm->nitem;
   }
 
-  int_comm_index = (int*)malloc(nitem_ext_tot*sizeof(int));
+  PMMG_MALLOC(parmesh,int_comm_index,nitem_ext_tot,int,"int_comm_idx",ier=2);
   idx = 0;
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
@@ -1020,24 +1050,16 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
   for ( k=1; k<nprocs; ++k ) {
     (*ext_comm_displs)[k] += (*ext_comm_displs)[k-1] + (*rcv_next_node_comm)[k-1];
   }
-  ext_comm_displs_tot = (*ext_comm_displs)[nprocs-1] + (*rcv_next_node_comm)[nprocs-1];
+  *ext_comm_displs_tot = (*ext_comm_displs)[nprocs-1] + (*rcv_next_node_comm)[nprocs-1];
 
-  (*rcv_color_in_tab)  = (int*)malloc(ext_comm_displs_tot*sizeof(int));
-  (*rcv_color_out_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
-  (*rcv_nitem_ext_tab) = (int*)malloc(ext_comm_displs_tot*sizeof(int));
+  PMMG_MALLOC(parmesh,(*rcv_color_in_tab) ,*ext_comm_displs_tot,int,"rcv_color_in" ,ier=2);
+  PMMG_MALLOC(parmesh,(*rcv_color_out_tab),*ext_comm_displs_tot,int,"rcv_color_out",ier=2);
+  PMMG_MALLOC(parmesh,(*rcv_nitem_ext_tab),*ext_comm_displs_tot,int,"rcv_nitem_ext",ier=2);
+  PMMG_MALLOC(parmesh,nitems_ext_idx,nprocs,int,"nitems_ext_idx",ier=2);
 
-  MPI_CHECK( MPI_Gatherv(color_in_tab,parmesh->next_node_comm,MPI_INT,
-                         (*rcv_color_in_tab),(*rcv_next_node_comm),
-                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
-  MPI_CHECK( MPI_Gatherv(color_out_tab,parmesh->next_node_comm,MPI_INT,
-                         (*rcv_color_out_tab),(*rcv_next_node_comm),
-                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
   MPI_CHECK( MPI_Gatherv(nitem_ext_tab,parmesh->next_node_comm,MPI_INT,
                          (*rcv_nitem_ext_tab),(*rcv_next_node_comm),
-                         (*ext_comm_displs),MPI_INT,0,comm),return 0);
-
-#warning NIKOS: the  return 0 in this macro results in leaking memory(if ever executed): int_comm_index
-  _MMG5_SAFE_CALLOC(nitems_ext_idx,nprocs,int,0);
+                         (*ext_comm_displs),MPI_INT,root,comm),ier=2);
 
   (*int_comm_index_displs)[0] = 0;
   nitems_ext_idx[0] = 0;
@@ -1052,55 +1074,111 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,MMG5_pPoint *rcv_point,
     }
     (*int_comm_index_displs)[k] = (*int_comm_index_displs)[k-1] + nitems_ext_idx[k-1];
   }
+  *nitem_icidx_tot = (*int_comm_index_displs)[nprocs-1]+nitems_ext_idx[nprocs-1];
 
-  (*rcv_int_comm_index) = (int*)malloc(((*int_comm_index_displs)[nprocs-1]+
-                                        nitems_ext_idx[nprocs-1])*sizeof(int));
-  MPI_Gatherv(int_comm_index,nitem_ext_tot,MPI_INT,
-              (*rcv_int_comm_index),nitems_ext_idx,(*int_comm_index_displs),MPI_INT,
-              0,comm);
+  PMMG_MALLOC(parmesh,(*rcv_int_comm_index),*nitem_icidx_tot,int,"rcv_int_comm_idx",ier=2);
 
+  MPI_CHECK( MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MAX, parmesh->comm ),
+             ieresult=2 );
+
+  if ( ieresult > 1 ) goto end;
+
+  /** Gathers data on root */
+  /* Points */
+  MPI_CHECK( MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
+                         (*rcv_np),(*point_displs),mpi_point,root,comm),ier=2);
+  /* xPoints */
+  MPI_CHECK( MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
+                         (*rcv_xp),(*xpoint_displs),mpi_xpoint,root,comm),ier=2);
+  /* Tetra */
+  MPI_CHECK( MPI_Gatherv(&mesh->tetra[1],mesh->ne,mpi_tetra,&(*rcv_tetra)[1],
+                         (*rcv_ne),(*tetra_displs),mpi_tetra,root,comm),ier=2);
+  /* xTetra */
+  MPI_CHECK( MPI_Gatherv(&mesh->xtetra[1],mesh->xt,mpi_xtetra,&(*rcv_xtetra)[1],
+                         (*rcv_xt),(*xtetra_displs),mpi_xtetra,root,comm),ier=2);
+  /* Solutions */
+  if(*rcv_isMet) {
+    MPI_CHECK( MPI_Gatherv(&met->m[met->size],mesh->np*met->size,MPI_DOUBLE,
+                           &(*rcv_met)[met->size],(*rcv_nmet),(*met_displs),
+                           MPI_DOUBLE,root,comm),ier=2);
+  }
+  /* Internal communicator */
+  MPI_CHECK( MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
+                         (*rcv_intvalues),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,root,comm),ier=2);
+  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index1,int_node_comm->nitem,MPI_INT,
+                         (*rcv_node2int_node_comm_index1),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,root,comm),ier=2);
+  MPI_CHECK( MPI_Gatherv(grp->node2int_node_comm_index2,int_node_comm->nitem,MPI_INT,
+                         (*rcv_node2int_node_comm_index2),(*rcv_nitem_int_node_comm),
+                         (*intval_displs),MPI_INT,root,comm),ier=2);
+
+
+  /* External communicator */
+  /* For each proc, we concatenate the external communicators fields into arrays */
+  MPI_CHECK( MPI_Gatherv(color_in_tab,parmesh->next_node_comm,MPI_INT,
+                         (*rcv_color_in_tab),(*rcv_next_node_comm),
+                         (*ext_comm_displs),MPI_INT,root,comm),ier=2);
+  MPI_CHECK( MPI_Gatherv(color_out_tab,parmesh->next_node_comm,MPI_INT,
+                         (*rcv_color_out_tab),(*rcv_next_node_comm),
+                         (*ext_comm_displs),MPI_INT,root,comm),ier=2);
+  MPI_CHECK( MPI_Gatherv(int_comm_index,nitem_ext_tot,MPI_INT,
+                         (*rcv_int_comm_index),nitems_ext_idx,(*int_comm_index_displs),MPI_INT,
+                         root,comm),ier=2);
+  MPI_CHECK( MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MAX, parmesh->comm ),
+             ieresult=2 );
+
+end:
   /** Free the memory */
-  /* Free MPI types */
-  MPI_Type_free(&mpi_point);
-  MPI_Type_free(&mpi_xpoint);
-  MPI_Type_free(&mpi_tetra);
-  MPI_Type_free(&mpi_xtetra);
+  if ( ieresult < 4 ) {
+    /* Free temporary arrays */
+    PMMG_DEL_MEM(parmesh,color_in_tab  ,parmesh->next_node_comm,int,"color_in");
+    PMMG_DEL_MEM(parmesh,color_out_tab ,parmesh->next_node_comm,int,"color_out");
+    PMMG_DEL_MEM(parmesh,nitem_ext_tab ,parmesh->next_node_comm,int,"nitem_ext");
+    PMMG_DEL_MEM(parmesh,nitems_ext_idx,nprocs       ,int,"nitems_ext_idx");
+    PMMG_DEL_MEM(parmesh,int_comm_index,nitem_ext_tot,int,"int_comm_idx");
 
-  /* Free temporary arrays */
-  _MMG5_SAFE_FREE(color_in_tab);
-  _MMG5_SAFE_FREE(color_out_tab);
-  _MMG5_SAFE_FREE(nitem_ext_tab);
-  _MMG5_SAFE_FREE(nitems_ext_idx);
-  _MMG5_SAFE_FREE(int_comm_index);
+    /* Free useless groups */
+    /* 1: mesh */
+    PMMG_DEL_MEM(mesh,mesh->point ,(mesh->npmax+1),MMG5_Point ,"point");
+    PMMG_DEL_MEM(mesh,mesh->tetra ,(mesh->nemax+1),MMG5_Tetra ,"tetra");
+    PMMG_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1),MMG5_xPoint,"xpoint");
+    PMMG_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1),MMG5_xTetra,"xtetra");
+    if ( mesh->adja ) {
+      PMMG_DEL_MEM( mesh,mesh->adja,(4*mesh->nemax+5),int,"adja");
+    }
+    if ( isMet )
+      PMMG_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size,double,"met");
 
-  /* Free useless groups */
-  /* 1: mesh */
-  _MMG5_DEL_MEM(mesh,mesh->point,(mesh->npmax+1)*sizeof(MMG5_Point));
-  _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
-  _MMG5_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1)*sizeof(MMG5_xPoint));
-  _MMG5_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1)*sizeof(MMG5_xTetra));
-  if ( mesh->adja ) {
-    _MMG5_DEL_MEM( mesh,mesh->adja,(4*mesh->nemax+5)*sizeof(int));
+    mesh->np = mesh->npmax = 0;
+    mesh->ne = mesh->nemax = 0;
+    mesh->xp = mesh->xpmax = 0;
+    mesh->xt = mesh->xtmax = 0;
+
+    /* 2: communicators */
+    PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index1,
+                 grp->nitem_int_edge_comm,int,"e2iec_idx1");
+    PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index2,
+                 grp->nitem_int_edge_comm,int,"e2iec_idx2");
+    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
+                 parmesh->int_node_comm->nitem,int,"intval");
+
+    for ( i=0; i<parmesh->next_node_comm; ++i ) {
+      PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[i].int_comm_index,
+                   parmesh->ext_node_comm[i].nitem,int,"int_comm_idx");
+    }
+    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,parmesh->next_node_comm,PMMG_Ext_comm,
+                 "ext_node_comm");
+
+    if ( ieresult < 3 ) {
+      /* Free MPI types */
+      MPI_Type_free(&mpi_point);
+      MPI_Type_free(&mpi_xpoint);
+      MPI_Type_free(&mpi_tetra);
+      MPI_Type_free(&mpi_xtetra);
+    }
   }
-  if(isMet)
-    _MMG5_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size*sizeof(double));
-
-  mesh->np = mesh->npmax = 0;
-  mesh->ne = mesh->nemax = 0;
-  mesh->xp = mesh->xpmax = 0;
-  mesh->xt = mesh->xtmax = 0;
-
-  /* 2: communicators */
-  _MMG5_SAFE_FREE(grp->edge2int_edge_comm_index1);
-  _MMG5_SAFE_FREE(grp->edge2int_edge_comm_index2);
-  _MMG5_SAFE_FREE(parmesh->int_node_comm->intvalues);
-
-  for ( i=0; i<parmesh->next_node_comm; ++i ) {
-    _MMG5_SAFE_FREE(parmesh->ext_node_comm->int_comm_index);
-  }
-  _MMG5_SAFE_FREE(parmesh->ext_node_comm);
-
-  return 1;
+  return ieresult==1;
 }
 
 
@@ -1167,208 +1245,208 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   mesh   = parmesh->listgrp[0].mesh;
   met    = parmesh->listgrp[0].met;
 
-  if ( !parmesh->myrank ) {
-    np = 0;
+  if ( parmesh->myrank ) return 1;
 
-    /** Mesh renumbering to have the same indices at points shared by multiple
-     * processors; The new indices are stored in the tmp field of the MMG5_Point
-     * structure. */
-    for ( k=0; k<nprocs; ++k ) {
-      /* Points and internal communicators for proc \a k */
-      point_1     = &rcv_point[point_displs[k]];
-      cursor      = intval_displs[k];
-      intvalues_1 = &rcv_intvalues[cursor];
+  np = 0;
 
-      /* Travel through the external communicators that lists the points at the
-       * interface of the procs color_in and color_out: if color_in<color_out,
-       * create new indices for the points over the color_in proc. If
-       * color_out<color_in, get the indices from the matching points over the
-       * proc color_out. */
-      idx = int_comm_index_displs[k];
+  /** Mesh renumbering to have the same indices at points shared by multiple
+   * processors; The new indices are stored in the tmp field of the MMG5_Point
+   * structure. */
+  for ( k=0; k<nprocs; ++k ) {
+    /* Points and internal communicators for proc \a k */
+    point_1     = &rcv_point[point_displs[k]];
+    cursor      = intval_displs[k];
+    intvalues_1 = &rcv_intvalues[cursor];
 
-      for ( i=0; i<rcv_next_node_comm[k]; ++i ) {
-        cursor   = ext_comm_displs[k]+i;
-        nitems_1 = rcv_nitem_ext_tab[cursor];
-        int_comm_index = &rcv_int_comm_index[idx];
-        idx     += nitems_1;
+    /* Travel through the external communicators that lists the points at the
+     * interface of the procs color_in and color_out: if color_in<color_out,
+     * create new indices for the points over the color_in proc. If
+     * color_out<color_in, get the indices from the matching points over the
+     * proc color_out. */
+    idx = int_comm_index_displs[k];
 
-        /* External communicator k->color_out */
-        color_in    = rcv_color_in_tab[cursor];
-        color_out   = rcv_color_out_tab[cursor];
+    for ( i=0; i<rcv_next_node_comm[k]; ++i ) {
+      cursor   = ext_comm_displs[k]+i;
+      nitems_1 = rcv_nitem_ext_tab[cursor];
+      int_comm_index = &rcv_int_comm_index[idx];
+      idx     += nitems_1;
 
-        assert( color_in==k );
-        assert( color_in!=color_out );
+      /* External communicator k->color_out */
+      color_in    = rcv_color_in_tab[cursor];
+      color_out   = rcv_color_out_tab[cursor];
 
-        if ( color_in < color_out ) {
-          /* New point */
-          for ( j=0; j<nitems_1; ++j ) {
-            if ( !point_1[intvalues_1[int_comm_index[j]]].tmp ) {
-              point_1[intvalues_1[int_comm_index[j]]].tmp = ++np;
-            }
-          }
-        }
-        else {
-          /* Get the point index from the neighbouring proc */
+      assert( color_in==k );
+      assert( color_in!=color_out );
 
-          /* Find the matching external communicator over proc color_out (->k) */
-          idx_2 =  int_comm_index_displs[color_out];
-          for ( j=0; j<rcv_next_node_comm[color_out]; ++j ) {
-            cursor   = ext_comm_displs[color_out]+j;
-            nitems_2 = rcv_nitem_ext_tab[cursor];
-            int_comm_index_2 = &rcv_int_comm_index[idx_2];
-            idx_2   += nitems_2;
-
-            if ( rcv_color_in_tab[cursor]  == color_out &&
-                 rcv_color_out_tab[cursor] == color_in  )  break;
-          }
-          assert(j<rcv_next_node_comm[color_out]);
-          assert(nitems_1 == nitems_2);
-
-
-          /* Points and internal communicators for proc \a color_out */
-          point_2     = &rcv_point[point_displs[color_out]];
-
-          cursor      = intval_displs[color_out];
-          intvalues_2 = &rcv_intvalues[cursor];
-
-          /* Update point indices (stored in the tmp field) */
-          for ( j=0; j<nitems_1; ++j ) {
-            point_1[intvalues_1[int_comm_index[j]]].tmp =
-              point_2[intvalues_2[int_comm_index_2[j]]].tmp;
+      if ( color_in < color_out ) {
+        /* New point */
+        for ( j=0; j<nitems_1; ++j ) {
+          if ( !point_1[intvalues_1[int_comm_index[j]]].tmp ) {
+            point_1[intvalues_1[int_comm_index[j]]].tmp = ++np;
           }
         }
       }
+      else {
+        /* Get the point index from the neighbouring proc */
 
-      /* Create new indices for the points that haven't been seen. */
-      for ( i=1; i<=rcv_np[k]; ++i ) {
-        if ( !point_1[i].tmp ) {
-          point_1[i].tmp = ++np;
+        /* Find the matching external communicator over proc color_out (->k) */
+        idx_2 =  int_comm_index_displs[color_out];
+        for ( j=0; j<rcv_next_node_comm[color_out]; ++j ) {
+          cursor   = ext_comm_displs[color_out]+j;
+          nitems_2 = rcv_nitem_ext_tab[cursor];
+          int_comm_index_2 = &rcv_int_comm_index[idx_2];
+          idx_2   += nitems_2;
+
+          if ( rcv_color_in_tab[cursor]  == color_out &&
+               rcv_color_out_tab[cursor] == color_in  )  break;
+        }
+        assert(j<rcv_next_node_comm[color_out]);
+        assert(nitems_1 == nitems_2);
+
+
+        /* Points and internal communicators for proc \a color_out */
+        point_2     = &rcv_point[point_displs[color_out]];
+
+        cursor      = intval_displs[color_out];
+        intvalues_2 = &rcv_intvalues[cursor];
+
+        /* Update point indices (stored in the tmp field) */
+        for ( j=0; j<nitems_1; ++j ) {
+          point_1[intvalues_1[int_comm_index[j]]].tmp =
+            point_2[intvalues_2[int_comm_index_2[j]]].tmp;
         }
       }
     }
 
-    /** Tetra + xTetra */
-    ne_tot       = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
-    xt_tot       = xtetra_displs[nprocs-1]+rcv_xt[nprocs-1];
+    /* Create new indices for the points that haven't been seen. */
+    for ( i=1; i<=rcv_np[k]; ++i ) {
+      if ( !point_1[i].tmp ) {
+        point_1[i].tmp = ++np;
+      }
+    }
+  }
 
-    mesh->nemax  = mesh->ne = ne_tot;
-    mesh->nenil  = 0;
-    mesh->xtmax = mesh->xt = xt_tot;
+  /** Tetra + xTetra */
+  ne_tot       = tetra_displs[nprocs-1]+rcv_ne[nprocs-1];
+  xt_tot       = xtetra_displs[nprocs-1]+rcv_xt[nprocs-1];
 
-    _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"merge tetra",
+  mesh->nemax  = mesh->ne = ne_tot;
+  mesh->nenil  = 0;
+  mesh->xtmax = mesh->xt = xt_tot;
+
+  _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"merge tetra",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-    _MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"merge xtetra",
-                  fprintf(stderr,"  Exit program.\n");
-                  return 0);
-    _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,0);
-    _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
+  _MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"merge xtetra",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,0);
+  _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
 
-    ne = idx = 0;
-    for ( k=0; k<nprocs; ++k ) {
-      xtetra      = &rcv_xtetra[xtetra_displs[k]];
-      tetra       = &rcv_tetra[tetra_displs[k]];
-      point_1     = &rcv_point[point_displs[k]];
+  ne = idx = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    xtetra      = &rcv_xtetra[xtetra_displs[k]];
+    tetra       = &rcv_tetra[tetra_displs[k]];
+    point_1     = &rcv_point[point_displs[k]];
 
-      for ( i=1; i<=rcv_ne[k]; ++i ) {
-        pt = &mesh->tetra[tetra_displs[k]+i];
+    for ( i=1; i<=rcv_ne[k]; ++i ) {
+      pt = &mesh->tetra[tetra_displs[k]+i];
 
-        for ( j=0; j<4; ++j ) {
-          tetra[i].v[j] = point_1[tetra[i].v[j]].tmp;
+      for ( j=0; j<4; ++j ) {
+        tetra[i].v[j] = point_1[tetra[i].v[j]].tmp;
+      }
+
+      memcpy(pt,&tetra[i],sizeof(MMG5_Tetra));
+
+      if ( tetra[i].xt ) {
+        nnpar = 0;
+        pxt = &xtetra[tetra[i].xt];
+        for ( l=0; l<4; ++l ) {
+          if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
+          if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
+            pxt->ftag[l] &= ~MG_REQ;
         }
 
-        memcpy(pt,&tetra[i],sizeof(MMG5_Tetra));
-
-        if ( tetra[i].xt ) {
-          nnpar = 0;
-          pxt = &xtetra[tetra[i].xt];
-          for ( l=0; l<4; ++l ) {
-            if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
-            if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
-              pxt->ftag[l] &= ~MG_REQ;
-          }
-
-          if ( !nnpar ) {
-            pt->xt = 0;
-          }
-          else {
-            memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
-            pt->xt = ne;
-          }
+        if ( !nnpar ) {
+          pt->xt = 0;
+        }
+        else {
+          memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
+          pt->xt = ne;
         }
       }
     }
-    mesh->xt=ne;
+  }
+  mesh->xt=ne;
 
-    /** Points and solutions */
-    mesh->np = met->np = np;
-    mesh->npmax = met->npmax = mesh->np;
-    mesh->npnil = 0;
-    _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
+  /** Points and solutions */
+  mesh->np = met->np = np;
+  mesh->npmax = met->npmax = mesh->np;
+  mesh->npnil = 0;
+  _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
+
+  if ( rcv_met ) {
+    _MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
                   fprintf(stderr,"  Exit program.\n");
                   return 0);
-    _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
+    _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
+  }
 
-    if ( rcv_met ) {
-      _MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
-                    fprintf(stderr,"  Exit program.\n");
-                    return 0);
-      _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
-    }
+  for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
 
-    for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
+  np = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    point_1     = &rcv_point[point_displs[k]];
+    if ( rcv_met )
+      met_1       = &rcv_met[met_displs[k]];
 
-    np = 0;
-    for ( k=0; k<nprocs; ++k ) {
-      point_1     = &rcv_point[point_displs[k]];
+    for ( i=1; i<=rcv_np[k]; ++i ) {
+      idx = point_1[i].tmp;
+      assert(idx);
+      ppt = &mesh->point[idx];
+
+      if ( MG_VOK(ppt) ) {
+        point_1[i].tmp = 0;
+        continue;
+      }
+
+      memcpy(ppt,&point_1[i],sizeof(MMG5_Point));
+      ppt->tmp = 0;
+
       if ( rcv_met )
-        met_1       = &rcv_met[met_displs[k]];
+        memcpy( &met->m[idx*met->size],
+                &met_1[i*met->size],
+                met->size*sizeof(double) );
 
-      for ( i=1; i<=rcv_np[k]; ++i ) {
-        idx = point_1[i].tmp;
-        assert(idx);
-        ppt = &mesh->point[idx];
-
-        if ( MG_VOK(ppt) ) {
-          point_1[i].tmp = 0;
-          continue;
-        }
-
-        memcpy(ppt,&point_1[i],sizeof(MMG5_Point));
-        ppt->tmp = 0;
-
-        if ( rcv_met )
-          memcpy( &met->m[idx*met->size],
-                  &met_1[i*met->size],
-                  met->size*sizeof(double) );
-
-        if ( point_1[i].xp ) ++np;
-      }
+      if ( point_1[i].xp ) ++np;
     }
+  }
 
-    /** xPoints */
-    mesh->xpmax = mesh->xp = np;
-    _MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
-                  fprintf(stderr,"  Exit program.\n");
-                  return 0);
-    _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,0);
-    np = 0;
-    for ( k=0; k<nprocs; ++k ) {
-      point_1     = &rcv_point[point_displs[k]];
-      xpoint      = &rcv_xpoint[xpoint_displs[k]];
+  /** xPoints */
+  mesh->xpmax = mesh->xp = np;
+  _MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,0);
+  np = 0;
+  for ( k=0; k<nprocs; ++k ) {
+    point_1     = &rcv_point[point_displs[k]];
+    xpoint      = &rcv_xpoint[xpoint_displs[k]];
 
-      for ( i=1; i<=rcv_np[k]; ++i ) {
-        idx = point_1[i].tmp;
+    for ( i=1; i<=rcv_np[k]; ++i ) {
+      idx = point_1[i].tmp;
 
-        if ( !idx ) continue;
-        ppt = &mesh->point[idx];
+      if ( !idx ) continue;
+      ppt = &mesh->point[idx];
 
-        if ( !point_1[i].xp ) continue;
+      if ( !point_1[i].xp ) continue;
 
-        pxp = &mesh->xpoint[++np];
-        memcpy(pxp, &xpoint[point_1[i].xp],sizeof(MMG5_xPoint));
-        ppt->xp = np;
-      }
+      pxp = &mesh->xpoint[++np];
+      memcpy(pxp, &xpoint[point_1[i].xp],sizeof(MMG5_xPoint));
+      ppt->xp = np;
     }
   }
 
@@ -1377,7 +1455,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \return 0 if fail, 1 if success
+ * \return 0 if fail, 1 if successc(on all procs)
  *
  *  merge all meshes to a single mesh in P0's parmesh
  */
@@ -1389,15 +1467,17 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   MMG5_pxTetra   rcv_xtetra;
   PMMG_pInt_comm int_node_comm;
   double         *rcv_met;
-  int            *rcv_np,*rcv_ne,*rcv_xp,*rcv_xt,*rcv_nmet;
+  int            *rcv_np,np_tot,*rcv_ne,ne_tot,*rcv_xp,xp_tot,*rcv_xt,xt_tot;
+  int            *rcv_nmet,nmet_tot;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
   int            *met_displs,*intval_displs,*ext_comm_displs;
   int            *int_comm_index_displs;
-  int            *rcv_intvalues,*rcv_int_comm_index;
+  int            *rcv_intvalues,nitem_inc_tot;
+  int            *rcv_int_comm_index,nitem_icidx_tot,ext_comm_displs_tot;
   int            *rcv_node2int_node_comm_index1,*rcv_node2int_node_comm_index2;
-  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm;
+  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm,rcv_isMet;
   int            *rcv_color_in_tab,*rcv_color_out_tab,*rcv_nitem_ext_tab;
-  int            k,idx,ier;
+  int            k,idx,ier,ieresult;
 
   ier = 1;
   grp = &parmesh->listgrp[0];
@@ -1411,9 +1491,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
    *  intvalues array contains the indices of the matching nodes on the proc. */
   int_node_comm = parmesh->int_node_comm;
 
-  if ( !int_node_comm->nitem ) return 1;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",ier=0);
+  MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
-  _MMG5_SAFE_CALLOC(int_node_comm->intvalues,int_node_comm->nitem,int,0);
+  if ( !ieresult ) return 0;
+
   assert(int_node_comm->nitem == grp->nitem_int_node_comm);
 
   for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
@@ -1422,74 +1504,78 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   }
 
   /** Step 2: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */
-  if ( !PMMG_gather_parmesh(parmesh,&rcv_point,&rcv_xpoint,&rcv_tetra,
-                            &rcv_xtetra,&rcv_met,&rcv_intvalues,&rcv_nitem_ext_tab,
+  ier = PMMG_gather_parmesh(parmesh,&rcv_point,&np_tot,&rcv_xpoint,&xp_tot,
+                            &rcv_tetra,&ne_tot,&rcv_xtetra,&xt_tot,
+                            &rcv_met,&nmet_tot,&rcv_isMet,&rcv_intvalues,
+                            &nitem_inc_tot,
+                            &rcv_nitem_ext_tab,&ext_comm_displs_tot,
                             &rcv_color_in_tab,&rcv_color_out_tab,
                             &rcv_node2int_node_comm_index1,
                             &rcv_node2int_node_comm_index2,&point_displs,
                             &xpoint_displs,&tetra_displs,&xtetra_displs,
                             &met_displs,&intval_displs,&ext_comm_displs,
                             &int_comm_index_displs,&rcv_np,&rcv_xp,&rcv_ne,
-                            &rcv_xt,&rcv_nmet,&rcv_int_comm_index,
-                            &rcv_next_node_comm,&rcv_nitem_int_node_comm) ) {
-    ier = 0;
-    goto fail;
+                            &rcv_xt,&rcv_nmet,&rcv_int_comm_index,&nitem_icidx_tot,
+                            &rcv_next_node_comm,&rcv_nitem_int_node_comm);
+
+
+  if ( ier ) {
+    /** Step 3: Proc 0 merges the meshes: We travel through the external
+     * communicators to recover the numbering of the points shared with a lower
+     * proc. The other points are concatenated with the proc 0. */
+    ier = PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
+                                         rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
+                                         rcv_color_in_tab,rcv_color_out_tab,point_displs,
+                                         xpoint_displs,tetra_displs,xtetra_displs,
+                                         met_displs,intval_displs,ext_comm_displs,
+                                         int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
+                                         rcv_int_comm_index,rcv_next_node_comm);
   }
 
-  /** Step 3: Proc 0 merges the meshes: We travel through the external
-   * communicators to recover the numbering of the points shared with a lower
-   * proc. The other points are concatenated with the proc 0. */
-  if ( !PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
-                            rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
-                            rcv_color_in_tab,rcv_color_out_tab,point_displs,
-                            xpoint_displs,tetra_displs,xtetra_displs,
-                            met_displs,intval_displs,ext_comm_displs,
-                            int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
-                            rcv_int_comm_index,rcv_next_node_comm) ) {
-    ier = 0;
-  }
+  MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
 fail:
   /* Free memory */
   /* 1: Mesh data */
   if ( !parmesh->myrank ) {
-    _MMG5_SAFE_FREE(rcv_np);
-    _MMG5_SAFE_FREE(rcv_point);
-    _MMG5_SAFE_FREE(point_displs);
+    PMMG_DEL_MEM(parmesh,rcv_np,parmesh->nprocs,int,"rcv_np");
+    PMMG_DEL_MEM(parmesh,rcv_point,np_tot+1,MMG5_Point,"rcv_pt");
+    PMMG_DEL_MEM(parmesh,point_displs,parmesh->nprocs,int,"pt_displs");
+    PMMG_DEL_MEM(parmesh,rcv_xp,parmesh->nprocs,int,"rcv_xp");
+    PMMG_DEL_MEM(parmesh,rcv_xpoint,xp_tot+1,MMG5_xPoint,"rcv_xpt");
+    PMMG_DEL_MEM(parmesh,xpoint_displs,parmesh->nprocs,int,"xp_displs");
 
-    _MMG5_SAFE_FREE(rcv_xp);
-    _MMG5_SAFE_FREE(rcv_xpoint);
-    _MMG5_SAFE_FREE(xpoint_displs);
+    PMMG_DEL_MEM(parmesh,rcv_ne,parmesh->nprocs,int,"rcv_ne");
+    PMMG_DEL_MEM(parmesh,rcv_tetra,ne_tot+1,MMG5_Tetra,"rcv_tetra");
+    PMMG_DEL_MEM(parmesh,tetra_displs,parmesh->nprocs,int,"ne_displs");
 
-    _MMG5_SAFE_FREE(rcv_ne);
-    _MMG5_SAFE_FREE(rcv_tetra);
-    _MMG5_SAFE_FREE(tetra_displs);
+    PMMG_DEL_MEM(parmesh,rcv_xt,parmesh->nprocs,int,"rcv_xt");
+    PMMG_DEL_MEM(parmesh,rcv_xtetra,xt_tot+1,MMG5_xTetra,"rcv_xtetra");
+    PMMG_DEL_MEM(parmesh,xtetra_displs,parmesh->nprocs,int,"xt_displs");
 
-    _MMG5_SAFE_FREE(rcv_xt);
-    _MMG5_SAFE_FREE(rcv_xtetra);
-    _MMG5_SAFE_FREE(xtetra_displs);
-
-    _MMG5_SAFE_FREE(rcv_nmet);
-    _MMG5_SAFE_FREE(rcv_met);
-    _MMG5_SAFE_FREE(met_displs);
+    if ( rcv_isMet ) {
+      PMMG_DEL_MEM(parmesh,rcv_nmet,parmesh->nprocs,int,"rcv_nmet");
+      PMMG_DEL_MEM(parmesh,rcv_met,nmet_tot,double,"rcv_met");
+      PMMG_DEL_MEM(parmesh,met_displs,parmesh->nprocs,int,"met_displs");
+    }
   }
   /* 2: communicators data */
-  _MMG5_SAFE_FREE(rcv_int_comm_index);
-  _MMG5_SAFE_FREE(rcv_intvalues);
-  _MMG5_SAFE_FREE(intval_displs);
+  PMMG_DEL_MEM(parmesh,rcv_int_comm_index,nitem_icidx_tot,int,"rcv_ic_idx");
+  PMMG_DEL_MEM(parmesh,rcv_intvalues,nitem_inc_tot,int,"rcv_intvalues");
+  PMMG_DEL_MEM(parmesh,intval_displs,parmesh->nprocs,int,"intval_displs");
 
-  _MMG5_SAFE_FREE(rcv_next_node_comm);
-  _MMG5_SAFE_FREE(rcv_nitem_ext_tab);
-  _MMG5_SAFE_FREE(rcv_color_in_tab);
-  _MMG5_SAFE_FREE(rcv_color_out_tab);
-  _MMG5_SAFE_FREE(ext_comm_displs);
+  PMMG_DEL_MEM(parmesh,rcv_next_node_comm,parmesh->nprocs,int,"rcv_next_nc");
+  PMMG_DEL_MEM(parmesh,rcv_nitem_ext_tab,ext_comm_displs_tot,int,"rcv_nitem_ext");
+  PMMG_DEL_MEM(parmesh,rcv_color_in_tab,ext_comm_displs_tot,int,"rcv_color_in");
+  PMMG_DEL_MEM(parmesh,rcv_color_out_tab,ext_comm_displs_tot,int,"rcv_colour_out");
+  PMMG_DEL_MEM(parmesh,ext_comm_displs,parmesh->nprocs,int,"ext_comm_displs");
 
-  _MMG5_SAFE_FREE(rcv_nitem_int_node_comm);
-  _MMG5_SAFE_FREE(rcv_node2int_node_comm_index1);
-  _MMG5_SAFE_FREE(rcv_node2int_node_comm_index2);
-  _MMG5_SAFE_FREE(int_comm_index_displs);
+  PMMG_DEL_MEM(parmesh,rcv_nitem_int_node_comm,parmesh->nprocs,int,"rcv_nitem_inc");
+  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index1,nitem_inc_tot,int,"rcv_inc_idx1");
+  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index2,nitem_inc_tot,int,"rcv_inc_idx2");
+  PMMG_DEL_MEM(parmesh,int_comm_index_displs,parmesh->nprocs,int,"icidx_displs");
 
-  _MMG5_SAFE_FREE(int_node_comm->intvalues);
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intval");
 
-  return(ier);
+  return ieresult;
 }
