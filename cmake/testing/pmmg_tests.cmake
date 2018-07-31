@@ -110,43 +110,54 @@ IF( BUILD_TESTING )
   IF ( CMAKE_Fortran_COMPILER )
     ENABLE_LANGUAGE ( Fortran )
 
-    SET ( PMMG_LIB_TESTS ${PMMG_LIB_TESTS}
-      libparmmg_fortran_centralized_auto_example0
+    FIND_PACKAGE( MPI COMPONENTS Fortran REQUIRED )
+
+    IF ( MPI_Fortran_FOUND )
+      SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+      SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+      SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
+
+    ELSE ( )
+      MESSAGE(FATAL_ERROR " Fortran MPI library not found")
+    ENDIF ( )
+
+
+    LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
       # libparmmg_centralized_manual_example0_io_0
       # libparmmg_centralized_manual_example0_io_1
       )
 
-    SET ( PMMG_LIB_TESTS_MAIN_PATH ${PMMG_LIB_TESTS_MAIN_PATH}
+    LIST ( APPEND PMMG_LIB_TESTS_MAIN_PATH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.F90
-     # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-     # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
       )
 
-    SET ( PMMG_LIB_TESTS_INPUTMESH ${PMMG_LIB_TESTS_INPUTMESH}
+    LIST ( APPEND PMMG_LIB_TESTS_INPUTMESH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
       #""
       #""
       )
 
-    SET ( PMMG_LIB_TESTS_INPUTMET ${PMMG_LIB_TESTS_INPUTMET}
+    LIST ( APPEND PMMG_LIB_TESTS_INPUTMET
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
      # ""
      # ""
-      )
+     )
 
-    SET ( PMMG_LIB_TESTS_INPUTSOL ${PMMG_LIB_TESTS_INPUTSOL}
+    LIST ( APPEND PMMG_LIB_TESTS_INPUTSOL
       ""
       #""
       #""
       )
 
-    SET ( PMMG_LIB_TESTS_OUTPUTMESH ${PMMG_LIB_TESTS_OUTPUTMESH}
+    LIST ( APPEND PMMG_LIB_TESTS_OUTPUTMESH
       ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
       #${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
       #${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
-      )
+       )
 
-    SET ( PMMG_LIB_TESTS_OPTIONS ${PMMG_LIB_TESTS_OPTIONS}
+     LIST ( APPEND PMMG_LIB_TESTS_OPTIONS
       "-met"
       #"0"
       #"1"
@@ -166,7 +177,9 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
 
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers ${lib_name} )
+    LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
+
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 
     FOREACH( NP 1 2 6 )
       ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} -np ${NP}

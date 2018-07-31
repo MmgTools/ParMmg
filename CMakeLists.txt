@@ -28,6 +28,8 @@ SET(PMMG_BINARY_DIR      ${CMAKE_BINARY_DIR}/src/parmmg)
 SET(PMMG_SHRT_INCLUDE    parmmg )
 SET(PMMG_INCLUDE         ${CMAKE_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
 
+FILE(MAKE_DIRECTORY ${PMMG_BINARY_DIR})
+
 # To see flags and options of compilation
 #SET(CMAKE_VERBOSE_MAKEFILE TRUE)
 
@@ -101,15 +103,16 @@ ENDIF()
 #####
 ############################################################################
 # compile parallel version
-FIND_PACKAGE( MPI REQUIRED )
+FIND_PACKAGE( MPI COMPONENTS C REQUIRED )
 
 SET( CMAKE_C_COMPILE_FLAGS "${CMAKE_C_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
 SET( CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+
 INCLUDE_DIRECTORIES( ${MPI_INCLUDE_PATH} )
 
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
-SET( LIBRARIES ${MPI_LIBRARIES} ${LIBRARIES} )
+SET( LIBRARIES ${MPI_C_LIBRARIES} ${LIBRARIES} )
 
 ############################################################################
 #####
@@ -242,15 +245,20 @@ ENDIF ( )
 IF (NOT WIN32)
 
   ADD_EXECUTABLE(genheader ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
+  TARGET_LINK_LIBRARIES ( genheader ${LIBRARIES}  )
 
-  ADD_CUSTOM_COMMAND(OUTPUT ${PMMG_SOURCE_DIR}/libparmmgf.h
-    COMMAND genheader ${PMMG_SOURCE_DIR}/libparmmgf.h
-    ${PMMG_SOURCE_DIR}/libparmmg.h ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS genheader ${PMMG_SOURCE_DIR}/libparmmg.h
-    ${CMAKE_SOURCE_DIR}/scripts/genfort.pl
-    COMMENT "Generating Fortran header"
+  GENERATE_FORTRAN_HEADER ( pmmgtypes
+    ${PMMG_SOURCE_DIR} libparmmgtypes.h
+    ${PMMG_SHRT_INCLUDE}
+    ${PMMG_BINARY_DIR} libparmmgtypesf.h
     )
+
+  GENERATE_FORTRAN_HEADER ( pmmg
+    ${PMMG_SOURCE_DIR} libparmmg.h
+    ${PMMG_SHRT_INCLUDE}
+    ${PMMG_BINARY_DIR} libparmmgf.h
+    )
+
 ENDIF ()
 
 ###############################################################################
@@ -283,31 +291,11 @@ ENDIF()
 
 ############################################################################
 #####
-#####Set the full RPATH to find libraries independently from LD_LIBRARY_PATH
+##### RPATH for MacOSX
 #####
 ############################################################################
-SET(CMAKE_MACOSX_RPATH TRUE)
 
-# use, i.e. don't skip the full RPATH for the build tree
-SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
-
-# when building, don't use the install RPATH already
-# (but later on when installing)
-SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-
-SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-
-# add the automatically determined parts of the RPATH
-# which point to directories outside the build tree to the install RPATH
-SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-# the RPATH to be used when installing, but only if it's not a system
-# directory
-LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-  "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-IF("${isSystemDir}" STREQUAL "-1")
-  SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-ENDIF("${isSystemDir}" STREQUAL "-1")
+SET(CMAKE_MACOSX_RPATH 1)
 
 ############################################################################
 #####

@@ -21,6 +21,8 @@
  * your parmesh and needed informations for ParMmg (mesh dimension and MPI
  * communicator).
  *
+ * \param callFromC 1 if called from C API, 0 if called from the Fortran one.
+ *
  * \a argptr contains at least a pointer toward a parmesh pointer preceeded by
  * the PMMG_ARG_pParMesh keyword and the mesh dimension preceeded by the
  * PMMG_ARG_dim keyword
@@ -41,10 +43,10 @@
  * Internal function for structure allocations (taking a va_list argument).
  *
  */
-int PMMG_Init_parMesh_var( va_list argptr ) {
+int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   PMMG_pParMesh  *parmesh;
   MPI_Comm       comm;
-  int            typArg,dim,nsol;
+  int            typArg,dim,nsol,comm_f;
   int            parmeshCount,meshCount,metCount,dimCount,solCount,commCount;
   PMMG_pGrp      grp;
 
@@ -78,7 +80,13 @@ int PMMG_Init_parMesh_var( va_list argptr ) {
       break;
     case(PMMG_ARG_MPIComm):
       ++commCount;
-      comm = va_arg(argptr,MPI_Comm);
+      if ( callFromC ) {
+        comm = va_arg(argptr,MPI_Comm);
+      }
+      else {
+        comm_f = va_arg(argptr,int);
+        comm = MPI_Comm_f2c(comm_f);
+      }
       break;
     default:
       fprintf(stderr,"\n  ## Error: PMMG_Init_parmesh:\n"
