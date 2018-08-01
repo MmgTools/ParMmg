@@ -124,7 +124,7 @@ int main( int argc, char *argv[] )
     goto check_mesh_loading;
   }
 
-  if ( 1 != PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
+  if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
     if ( parmesh->info.imprim ) {
       fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
     }
