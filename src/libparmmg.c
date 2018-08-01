@@ -29,8 +29,6 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        k;
-  mytime     ctim[TIMEMAX];
-  char       stim[32];
 
   if ( parmesh->info.imprim )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
@@ -353,7 +351,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
-    ier = PMMG_preprocessMesh( parmesh );
+    ier  = PMMG_preprocessMesh( parmesh );
+    mesh = parmesh->listgrp[k].mesh;
+    met  = parmesh->listgrp[k].met;
     if ( (ier==PMMG_STRONGFAILURE) && _MMG5_unscaleMesh( mesh, met ) ) {
       ier = PMMG_LOWFAILURE;
     }

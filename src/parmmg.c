@@ -39,7 +39,7 @@ int main( int argc, char *argv[] )
 {
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
-  int           i,rank;
+  int           rank;
   int           ier,iresult,ierSave,msh;
   char          stim[32];
 

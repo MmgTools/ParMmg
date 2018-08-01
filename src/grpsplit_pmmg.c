@@ -861,13 +861,13 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   /* Use the posInIntFaceComm array to remember the position of the tetra faces
    * in the internal face communicator */
   posInIntFaceComm = NULL;
+  iplocFaceComm    = NULL;
   PMMG_MALLOC(parmesh,posInIntFaceComm,4*meshOld->ne+1,int,
               "array of faces position in the internal face commmunicator ",
               ret_val = 0;goto fail_facePos);
   for ( i=0; i<=4*meshOld->ne; ++i )
     posInIntFaceComm[i] = PMMG_UNSET;
 
-  iplocFaceComm = NULL;
   PMMG_MALLOC(parmesh,iplocFaceComm,4*meshOld->ne+1,int,
               "starting vertices of the faces of face2int_face_comm_index1",
               ret_val = PMMG_FAILURE;goto fail_facePos);

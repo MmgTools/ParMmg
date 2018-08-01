@@ -65,7 +65,6 @@ extern "C" {
 
 #define PMMG_RETURN_AND_FREE(parmesh,val) do                            \
   {                                                                     \
-    MPI_Comm comm = parmesh->comm;                                      \
                                                                         \
     if ( !PMMG_Free_all( PMMG_ARG_start,                                \
                          PMMG_ARG_ppParMesh,&parmesh,                   \
