@@ -115,7 +115,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          rank,root,ier,ieresult;
+  int          rank,root,ier,ieresult,isMet;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -123,6 +123,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   met    = grp->met;
   rank   = parmesh->myrank;
   root   = parmesh->info.root;
+  isMet  = met->m ? 1 : 0;
 
   /* Minimize the memory used by the mesh */
   ier = 1;
@@ -131,12 +132,19 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
                   "vertices array", ier = 6);
     if ( ier ) {
       mesh->npmax = mesh->np;
+    }
+    if ( isMet ) {
+      PMMG_RECALLOC(mesh,met->m,met->size*(met->np+1),met->size*(met->npmax+1),double,
+                    "metric array", ier = 6);
+    }
+    if ( ier ) {
+      met->npmax = met->np;
+    }
 
-      PMMG_RECALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
-                    "tetra array", ier = 6);
-      if ( ier ) {
-        mesh->nemax = mesh->ne;
-      }
+    PMMG_RECALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
+                  "tetra array", ier = 6);
+    if ( ier ) {
+      mesh->nemax = mesh->ne;
     }
   }
 
@@ -152,6 +160,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_INT, root, parmesh->comm ), ier=6);
 
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
@@ -160,7 +169,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   mesh->ntmax = mesh->nti = mesh->nt;
   mesh->xtmax = mesh->ntmax;
 
-  met->npi = met->np;
+  met->npmax = met->npi = met->np;
   met->ver = mesh->ver;
   met->dim = mesh->dim;
 
@@ -174,7 +183,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
     if ( mesh->na )
       PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges", ier=6);
 
-    if ( met->npmax )
+    if ( isMet )
       PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges", ier=6);
   }
 

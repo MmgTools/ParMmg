@@ -83,6 +83,14 @@ IF(NOT CMAKE_COMPILER_IS_CLANG)
   ENDIF(PROFILING)
 ENDIF(NOT CMAKE_COMPILER_IS_CLANG)
 
+# CHeck memory activation
+OPTION(CHECK_ALLOC "Check that deallocation size matches allocation size
+ (require mmg to be built with the same option, calloc less efficient)" OFF)
+IF (CHECK_ALLOC)
+  ADD_DEFINITIONS(-DCHECK_ALLOC)
+ENDIF (CHECK_ALLOC)
+MARK_AS_ADVANCED ( CHECK_ALLOC )
+
 ###############################################################################
 #####
 #####         Choose executable target to compile

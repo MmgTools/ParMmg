@@ -1534,7 +1534,6 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
-fail:
   /* Free memory */
   /* 1: Mesh data */
   if ( !parmesh->myrank ) {

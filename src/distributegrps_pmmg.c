@@ -425,6 +425,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
  * \param ngrp pointer toward the number of groups (to update)
  * \param part pointer toward the metis array containing the partitions to
  * update and pack.
+ * \param partSize initial size of the part array.
  *
  * \return 0 if fail, 1 if success.
  *
@@ -434,7 +435,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
  */
 static inline
 int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
-                            int *ngrp,idx_t **part ) {
+                            int *ngrp,idx_t **part,int partSiz ) {
   int k,nbl;
 
   nbl   = 0;
@@ -452,7 +453,7 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
    * the part array realloc fail, we have different sizez for the grps and the
    * part array and the grps size is not stored. */
   PMMG_REALLOC( parmesh,*grps,nbl,*ngrp,PMMG_Grp,"Groups to send", return 0 );
-  PMMG_REALLOC( parmesh,*part,nbl,*ngrp,idx_t,"parmetis partition",return 0 );
+  PMMG_REALLOC( parmesh,*part,nbl,partSiz,idx_t,"parmetis partition",return 0 );
 
   *ngrp = nbl;
 
@@ -848,9 +849,9 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     memAv += meshJ->memCur;
     PMMG_grp_free(parmesh,&listgrp[k]);
   }
-  ngrp = nprocs;
 
-  if ( !PMMG_pack_grpsAndPart( parmesh,&grps,&ngrp,part ) ) ier = -1;
+  ngrp = nprocs;
+  if ( !PMMG_pack_grpsAndPart( parmesh,&grps,&ngrp,part,parmesh->ngrp ) ) ier = -1;
   else ier  = 1;
   goto end;
 

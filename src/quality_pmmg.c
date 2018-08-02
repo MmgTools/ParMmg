@@ -8,7 +8,6 @@ typedef struct {
 
 static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype *dptr )
 {
-  int i;
   min_iel_t *in;
   min_iel_t *out;
 

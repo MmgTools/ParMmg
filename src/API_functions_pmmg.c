@@ -314,7 +314,6 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
 
 int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
   MMG5_pMesh  mesh;
-  MMG5_pSol   met;
   int         k;
 
   switch ( dparam ) {

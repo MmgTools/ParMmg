@@ -65,7 +65,6 @@ extern "C" {
 
 #define PMMG_RETURN_AND_FREE(parmesh,val) do                            \
   {                                                                     \
-    MPI_Comm comm = parmesh->comm;                                      \
                                                                         \
     if ( !PMMG_Free_all( PMMG_ARG_start,                                \
                          PMMG_ARG_ppParMesh,&parmesh,                   \
@@ -126,14 +125,14 @@ extern "C" {
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
     int stat = PMMG_SUCCESS;                                \
+    long long size_to_free = -(size)*sizeof(type);          \
     if ( (size) != 0 && ptr ) {                             \
-      long long size_to_free = -(size)*sizeof(type);        \
       MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
       if ( stat == PMMG_SUCCESS )                           \
         (mesh)->memCur += size_to_free;                     \
     }                                                       \
     if ( ptr ) {                                            \
-      free( ptr );                                          \
+      myfree( ptr, -size_to_free);                          \
       (ptr) = NULL;                                         \
     }                                                       \
   } while(0)
@@ -145,7 +144,7 @@ extern "C" {
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg );              \
     if ( stat == PMMG_SUCCESS ) {                           \
-      (ptr) = malloc( size_to_allocate );                   \
+      (ptr) = (type*)mymalloc( size_to_allocate );          \
       if ( (ptr) == NULL ) {                                \
         ERROR_AT( msg, " malloc failed: " );                \
         on_failure;                                         \
@@ -165,7 +164,7 @@ extern "C" {
     long long size_to_allocate = (size)*sizeof(type);       \
     MEM_CHK_AVAIL(mesh,size_to_allocate,msg);               \
     if ( stat == PMMG_SUCCESS ) {                           \
-      (ptr) = calloc( (size), sizeof(type) );               \
+      (ptr) = (type*)mycalloc( (size), sizeof(type) );      \
       if ( (ptr) == NULL ) {                                \
         ERROR_AT(msg," calloc failed: ");                   \
         on_failure;                                         \
@@ -188,7 +187,8 @@ extern "C" {
       PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
     } else if ((newsize) < (oldsize)) {                                 \
       long long size_to_allocate = (newsize)*sizeof(type);              \
-      tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type));   \
+      tmp = (type *)myrealloc((ptr),size_to_allocate,                   \
+                              (oldsize)*sizeof(type));                  \
       if ( tmp == NULL ) {                                              \
         ERROR_AT(msg," Realloc failed: ");                              \
         PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                      \
@@ -198,17 +198,20 @@ extern "C" {
         (mesh)->memCur -= ((long long)((oldsize)*sizeof(type))-size_to_allocate);\
       }                                                                 \
     } else if ((newsize) > (oldsize)) {                                 \
-long long size_to_allocate = ((long long)(newsize)-(long long)(oldsize))*sizeof(type);\
-      MEM_CHK_AVAIL(mesh,size_to_allocate,msg);                         \
+      long long size_to_add = ((long long)(newsize)-(long long)(oldsize))*sizeof(type); \
+      long long size_to_allocate = (long long)(newsize)*sizeof(type);   \
+      long long size_to_increase = (long long)(oldsize)*sizeof(type);   \
+                                                                        \
+      MEM_CHK_AVAIL(mesh,size_to_add,msg);                              \
       if ( stat == PMMG_SUCCESS ) {                                     \
-        tmp = (type *)realloc((ptr),(long long)(newsize)*sizeof(type)); \
+        tmp = (type *)myrealloc((ptr),size_to_allocate,size_to_increase); \
         if ( tmp == NULL ) {                                            \
           ERROR_AT(msg, " Realloc failed: " );                          \
           PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                    \
           on_failure;                                                   \
         } else {                                                        \
           (ptr) = tmp;                                                  \
-          (mesh)->memCur += ( size_to_allocate );                       \
+          (mesh)->memCur += ( size_to_add );                            \
         }                                                               \
       }                                                                 \
     }                                                                   \
