@@ -36,7 +36,7 @@ FORTRAN_NAME(PMMG_SET_INPUTMESHNAME, pmmg_set_inputmeshname,
              (parmesh,meshin,strlen,retval)) {
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,meshin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputMeshName(*parmesh,tmp);
@@ -54,7 +54,7 @@ FORTRAN_NAME(PMMG_SET_INPUTSOLSNAME, pmmg_set_inputsolsname,
 
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,solin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputSolsName(*parmesh,tmp);
@@ -72,7 +72,7 @@ FORTRAN_NAME(PMMG_SET_INPUTMETNAME, pmmg_set_inputmetname,
 
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,metin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputMetName(*parmesh,tmp);
@@ -89,7 +89,7 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
              (parmesh,meshout,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,meshout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputMeshName(*parmesh, tmp);
@@ -106,7 +106,7 @@ FORTRAN_NAME(PMMG_SET_OUTPUTSOLSNAME,pmmg_set_outputsolsname,
              (parmesh,solout,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,solout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputSolsName(*parmesh,tmp);
@@ -123,7 +123,7 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMETNAME,pmmg_set_outputmetname,
              (parmesh,metout,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,metout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputMetName(*parmesh,tmp);
@@ -780,7 +780,7 @@ FORTRAN_NAME(PMMG_LOADMESH_CENTRALIZED,pmmg_loadmesh_centralized,
              (parmesh,filename,strlen, retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
@@ -799,7 +799,7 @@ FORTRAN_NAME(PMMG_LOADMET_CENTRALIZED,pmmg_loadmet_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
@@ -818,7 +818,7 @@ FORTRAN_NAME(PMMG_LOADALLSOLS_CENTRALIZED,pmmg_loadallsols_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
@@ -837,7 +837,7 @@ FORTRAN_NAME(PMMG_SAVEMESH_CENTRALIZED,pmmg_savemesh_centralized,
              (parmesh,filename,strlen, retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
@@ -856,7 +856,7 @@ FORTRAN_NAME(PMMG_SAVEMET_CENTRALIZED,pmmg_savemet_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
@@ -875,7 +875,7 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  tmp = (char*)malloc((*strlen+1)*sizeof(char));
+  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 

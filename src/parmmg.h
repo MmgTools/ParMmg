@@ -188,7 +188,7 @@ extern "C" {
     } else if ((newsize) < (oldsize)) {                                 \
       long long size_to_allocate = (newsize)*sizeof(type);              \
       tmp = (type *)myrealloc((ptr),size_to_allocate,                   \
-                              oldsize);                                 \
+                              (oldsize)*sizeof(type));                  \
       if ( tmp == NULL ) {                                              \
         ERROR_AT(msg," Realloc failed: ");                              \
         PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                      \

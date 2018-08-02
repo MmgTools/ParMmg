@@ -29,7 +29,7 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
   hash->max  = hmax + 2;
   hash->nxt  = hash->siz;
 
-  PMMG_CALLOC(parmesh,hash->item,hmax+2,PMMG_hgrp,"group hash table",return 0);
+  PMMG_CALLOC(parmesh,hash->item,hash->max+1,PMMG_hgrp,"group hash table",return 0);
 
   for (k=0; k<hash->siz; ++k )
     hash->item[k].adj = PMMG_UNSET;
@@ -424,12 +424,14 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem = ext_face_comm->nitem;
+
     if ( ext_face_comm->itorecv )
       PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
     if ( ext_face_comm->itosend )
       PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
   }
-  PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
+  PMMG_DEL_MEM(parmesh,hash.item,hash.max+1,PMMG_hgrp,"group hash table");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
                "face communicator");
 
@@ -565,7 +567,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, ngrp+1, idx_t, "deallocate xadj" );
   PMMG_DEL_MEM(parmesh, ubvec,ncon,real_t,"parmetis ubvec");
-  PMMG_DEL_MEM(parmesh, vwgt, ngrp+1, idx_t, "deallocate vwgt" );
+  PMMG_DEL_MEM(parmesh, vwgt, ngrp, idx_t, "deallocate vwgt" );
   PMMG_DEL_MEM(parmesh, tpwgts, ncon*nproc, real_t, "deallocate tpwgts" );
   PMMG_DEL_MEM(parmesh, vtxdist, nproc+1, idx_t, "deallocate vtxdist" );
 
