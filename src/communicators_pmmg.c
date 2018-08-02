@@ -763,6 +763,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   int             *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
   int             *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
   int             *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;
+  int             alloc_size;
   int8_t          glob_update,loc_update;
   MPI_Request     *request;
   MPI_Status      *status;
@@ -854,16 +855,11 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
    * recieve the proc list of all the nodes to/from the other processors. At the
    * end of this loop, each node has the entire list of the proc to which it
    * belongs */
-  PMMG_MALLOC(parmesh,request,parmesh->next_node_comm,MPI_Request,
-              "mpi request array",goto end);
-
-  PMMG_MALLOC(parmesh,status,parmesh->next_node_comm,MPI_Status,
-              "mpi status array",goto end);
-
-  PMMG_CALLOC(parmesh,i2send_size,parmesh->next_node_comm,int,
-              "size of the i2send array",goto end);
-  PMMG_CALLOC(parmesh,i2recv_size,parmesh->next_node_comm,int,
-              "size of the i2recv array",goto end);
+  alloc_size = parmesh->next_node_comm;
+  PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
+  PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
+  PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
+  PMMG_CALLOC(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array",goto end);
 
   if ( !PMMG_lnkdListNew(parmesh,&list,PMMG_LISTSIZE) ) goto end;
 
@@ -1092,16 +1088,10 @@ end:
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,i2recv_size[k],int,"i2recv");
   }
 
-  PMMG_DEL_MEM(parmesh,request,parmesh->next_node_comm,MPI_Request,
-               "mpi request array");
-  PMMG_DEL_MEM(parmesh,status,parmesh->next_node_comm,MPI_Status,
-               "mpi status array");
-
-  PMMG_DEL_MEM(parmesh,i2send_size,parmesh->next_node_comm,int,
-               "size of the i2send array");
-
-  PMMG_DEL_MEM(parmesh,i2recv_size,parmesh->next_node_comm,int,
-               "size of the i2recv array");
+  PMMG_DEL_MEM(parmesh,request,alloc_size,MPI_Request,"mpi request array");
+  PMMG_DEL_MEM(parmesh,status,alloc_size,MPI_Status,"mpi status array");
+  PMMG_DEL_MEM(parmesh,i2send_size,alloc_size,int,"size of the i2send array");
+  PMMG_DEL_MEM(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array");
 
   PMMG_DEL_MEM(parmesh,nitem_ext_comm,parmesh->nprocs,int,
                "number of items in each external communicator");
