@@ -130,6 +130,7 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
 
   /** Build the internal node communicator from the faces ones */
   ier = PMMG_build_intNodeComm(parmesh);
+
   if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: unable to build the internal node"
             " communicators from the internal faces communicators.\n",__func__);
@@ -372,6 +373,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             *shared_fac,*new_pos,nitem_node,first_nitem_node,pos;
   int             *face_vertices,ier,i,j,iel,ifac,ip,iploc,grpid,idx,fac_idx;
+  int             nitem_node_init;
   int8_t          update;
 
   ier = 0;
@@ -414,7 +416,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 
         ppt = &mesh->point[ip];
         if ( ppt->tmp < 0 )
-          /** Give a position int the internal communicator to this point */
+          /** Give a position in the internal communicator to this point */
           ppt->tmp = nitem_node++;
       }
 
@@ -447,7 +449,8 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 
 
   /** Step 2: remove some of the multiple positions and pack communicators */
-  PMMG_MALLOC(parmesh,new_pos,nitem_node,int,"new pos in int_node_comm",goto end);
+  nitem_node_init = nitem_node;
+  PMMG_MALLOC(parmesh,new_pos,nitem_node_init,int,"new pos in int_node_comm",goto end);
   PMMG_MALLOC(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
               "pos of face vertices in int_node_comm",goto end);
 
@@ -459,7 +462,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
  for ( i=0; i<3*parmesh->int_face_comm->nitem; ++i )
    face_vertices[i]   = PMMG_UNSET;
 
- PMMG_CALLOC(parmesh,coor_list,nitem_node,PMMG_coorCell,"node coordinates",
+ PMMG_CALLOC(parmesh,coor_list,nitem_node_init,PMMG_coorCell,"node coordinates",
              goto end);
 
 #ifndef NDEBUG
@@ -468,11 +471,6 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
    grp  = &parmesh->listgrp[grpid];
    mesh = grp->mesh;
    assert ( mesh->info.delta &&  "missing scaling infos");
-
-   dd = mesh->info.min[0]*mesh->info.min[0]
-     + mesh->info.min[1]*mesh->info.min[1]
-     + mesh->info.min[2]*mesh->info.min[2];
-
    assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
             "scaled mesh... need to unscale it");
 
@@ -488,7 +486,6 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
    goto end;
 
 #endif
-
 
   do {
     update = 0;
@@ -542,11 +539,6 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
             double scaled_coor[3];
 
             assert ( mesh->info.delta && "missing scaling infos" );
-
-            dd = mesh->info.min[0]*mesh->info.min[0]
-              + mesh->info.min[1]*mesh->info.min[1]
-              + mesh->info.min[2]*mesh->info.min[2];
-
             assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
                      "scaled mesh... need to unscale it");
 
@@ -736,13 +728,13 @@ end:
     }
   }
 
-  PMMG_DEL_MEM(parmesh,new_pos,nitem_node,int,"new pos in int_node_comm");
+  PMMG_DEL_MEM(parmesh,new_pos,nitem_node_init,int,"new pos in int_node_comm");
   PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
               "pos of face vertices in int_node_comm");
   PMMG_DEL_MEM(parmesh,shared_fac,parmesh->int_face_comm->nitem,int,
                "Faces shared by 2 groups");
 
-  PMMG_DEL_MEM(parmesh,coor_list,nitem_node,PMMG_coorCell,"node coordinates");
+  PMMG_DEL_MEM(parmesh,coor_list,nitem_node_init,PMMG_coorCell,"node coordinates");
 
   return ier;
 }

@@ -22,6 +22,7 @@
 typedef struct {
   double  c[3]; /*!< point coordinates */
   int     idx;  /*!< index associated to the point */
+  int     grp;  /*!< a group to which belong the point */
 } PMMG_coorCell;
 
 

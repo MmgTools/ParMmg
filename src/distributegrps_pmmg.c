@@ -566,6 +566,7 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 
     if ( i!=k ) {
       parmesh->ext_node_comm[i].nitem          = ext_node_comm->nitem;
+      parmesh->ext_node_comm[i].color_in       = ext_node_comm->color_in;
       parmesh->ext_node_comm[i].color_out      = ext_node_comm->color_out;
       parmesh->ext_node_comm[i].int_comm_index = ext_node_comm->int_comm_index;
     }
@@ -984,7 +985,7 @@ int PMMG_mpisend_meshSize( PMMG_pParMesh parmesh,int grp_id,int dest,int *tag,
   PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
                "tetra",return 0);
   mesh->nemax = mesh->ne;
-  PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xpmax+1,MMG5_xTetra,
+  PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,MMG5_xTetra,
                "xtetra",return 0);
   mesh->xtmax = mesh->xt;
 
@@ -1138,10 +1139,10 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
 
     /** Free useless mesh */
     /* 1: mesh */
-    PMMG_DEL_MEM(mesh,mesh->point, mesh->npmax+1,sizeof(MMG5_Point),"point");
-    PMMG_DEL_MEM(mesh,mesh->tetra, mesh->nemax+1,sizeof(MMG5_Tetra),"tetra");
-    PMMG_DEL_MEM(mesh,mesh->xpoint,mesh->xpmax+1,sizeof(MMG5_xPoint),"xpoint");
-    PMMG_DEL_MEM(mesh,mesh->xtetra,mesh->xtmax+1,sizeof(MMG5_xTetra),"xtetra");
+    PMMG_DEL_MEM(mesh,mesh->point, mesh->npmax+1,MMG5_Point,"point");
+    PMMG_DEL_MEM(mesh,mesh->tetra, mesh->nemax+1,MMG5_Tetra,"tetra");
+    PMMG_DEL_MEM(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,"xpoint");
+    PMMG_DEL_MEM(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,"xtetra");
     if ( mesh->adja ) {
       PMMG_DEL_MEM( mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table");
     }
@@ -2043,6 +2044,7 @@ int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
     assert ( nitem == nfaces2recv[source*max_ngrp+k]+2 );
 
     MPI_CHECK( MPI_Recv(recv_array,nitem,MPI_INT,source,tag,comm,&status),goto end );
+    ++tag;
 
     /** Step 2: update the matching external communicator: delete the faces from
      * the myrank-source communicator and add it in the myrank-color_out one (with

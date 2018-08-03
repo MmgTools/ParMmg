@@ -208,7 +208,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
   int commIdx2 = 0;
   int commIdx1 = 0;
   int commSizeLoc = 0;
-  int commIdx, k,j;
+  int commIdx,k,j;
 
   if ( !parmesh->int_node_comm->nitem ) return 1;
 
@@ -227,8 +227,10 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
               goto end);
 
   dd = 1./delta;
-  for ( commIdx = 0; commIdx<nitem; commIdx++ )
+  for ( commIdx = 0; commIdx<nitem; commIdx++ ) {
     coor_list[commIdx].idx = PMMG_UNSET;
+    coor_list[commIdx].grp = PMMG_UNSET;
+  }
 
   for ( k = 0; k < ngrp; ++k ) {
 
@@ -245,6 +247,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
         for ( j=0; j<3; ++j )
           coor_list[commIdx2].c[j] = dd*(mesh->point[commIdx1].c[j]-bb_min[j]);
         coor_list[ commIdx2 ].idx = commIdx;
+        coor_list[ commIdx2 ].grp = k;
       } else {
 
         dist_norm = 0.;
@@ -254,7 +257,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
           dist_norm += dist[j]*dist[j];
         }
 
-        if ( dist_norm>_MMG5_EPSD ) {
+        if ( dist_norm > _MMG5_EPSD ) {
           fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                  "       2 different points (dist %e) in the same position (%d)"
                  " of the internal communicator:\n"
@@ -272,8 +275,72 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
     }
   }
 
-  /** Step 3: check that for a given group, each face has a unique position in
+ /** Step 3: check that a point shared by 2 groups doesn't have 2 different
+   * positions in the internal communicator */
+  for ( commIdx1 = 0; commIdx1<nitem; commIdx1++ ) {
+
+    if ( coor_list[ commIdx1 ].grp == PMMG_UNSET ) continue;
+
+    for ( commIdx2 = commIdx1+1; commIdx2<nitem; ++commIdx2 ) {
+
+      if ( coor_list[ commIdx2 ].grp == PMMG_UNSET ) continue;
+
+      dist_norm = 0.;
+      for ( j = 0; j < 3; ++j ) {
+        dist[j] = coor_list[ commIdx2 ].c[j]-coor_list[ commIdx1 ].c[j];
+        dist_norm += dist[j]*dist[j];
+      }
+      if ( dist_norm < _MMG5_EPSD ) {
+        int grp1_id   = coor_list[ commIdx1 ].grp;
+        int grp2_id   = coor_list[ commIdx2 ].grp;
+        int pos1_idx  = coor_list[ commIdx1 ].idx;
+        int pos2_idx  = coor_list[ commIdx2 ].idx;
+        int pos1_idx1 = parmesh->listgrp[grp1_id].node2int_node_comm_index1[pos1_idx];
+        int pos2_idx1 = parmesh->listgrp[grp2_id].node2int_node_comm_index1[pos2_idx];
+        int pos1_idx2 = parmesh->listgrp[grp1_id].node2int_node_comm_index2[pos1_idx];
+        int pos2_idx2 = parmesh->listgrp[grp2_id].node2int_node_comm_index2[pos2_idx];
+        MMG5_pPoint ppt1 = &parmesh->listgrp[grp1_id].mesh->point[pos1_idx1];
+        MMG5_pPoint ppt2 = &parmesh->listgrp[grp2_id].mesh->point[pos2_idx1];
+
+        fprintf(stderr,"  ## Error: %s: rank %d:\n"
+                "       A point shared by at least 2 groups has 2 positions "
+                " (%d and %d) in the internal communicator (dist = %g):\n"
+                "       - grp %d: point %d at position %d (%d): %e %e %e\n"
+                "       - grp %d: point %d at position %d (%d): %e %e %e\n",
+                 __func__,parmesh->myrank,commIdx1,commIdx2,dist_norm,
+                grp1_id,pos1_idx1,pos1_idx,pos1_idx2,ppt1->c[0],ppt1->c[1],ppt1->c[2],
+                grp2_id,pos2_idx1,pos2_idx,pos2_idx2,ppt2->c[0],ppt2->c[1],ppt2->c[2] );
+          goto end;
+      }
+    }
+  }
+
+  /** Step 4: check that for a given group, each point has a unique position in
    * the internal node communicator */
+  for ( k = 0; k < ngrp; ++k ) {
+    grp = parmesh->listgrp + k;
+    mesh = grp->mesh;
+    commSizeLoc = grp->nitem_int_node_comm;
+
+    for ( commIdx = 0; commIdx < nitem; ++commIdx )
+      coor_list[ commIdx ].idx = -1;
+
+    for ( commIdx = 0; commIdx < commSizeLoc; ++commIdx ) {
+      commIdx2 = grp->node2int_node_comm_index2[ commIdx ];
+      if ( coor_list[ commIdx2 ].idx >= 0 ) {
+        fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
+                "       2 points of the same node2int_node_comm array (%d %d)"
+                " have the same position in the internal communicator (%d) ",
+                __func__,parmesh->myrank,k,commIdx,coor_list[ commIdx2 ].idx,
+                commIdx2);
+        goto end;
+      }
+      assert ( coor_list[ commIdx2 ].idx<0 );
+
+      coor_list[ commIdx2 ].idx = commIdx;
+    }
+  }
+
   for ( k = 0; k < ngrp; ++k ) {
     grp = parmesh->listgrp + k;
     mesh = grp->mesh;
@@ -297,6 +364,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
       coor_list[ commIdx2 ].idx = commIdx;
     }
   }
+
   /* Success */
   ier = 1;
 

@@ -244,7 +244,7 @@ int PMMG_unpackArray_inLnkdList(  PMMG_pParMesh parmesh, PMMG_lnkdList *list,
   if ( list->nitem >= list->nitem_max ) {
     PMMG_REALLOC(parmesh,list->item,list->nitem,list->nitem_max,
                  PMMG_lnkdCell,"linked list",return -1);
-    list->nitem_max *= list->nitem;
+    list->nitem_max = list->nitem;
   }
 
 
