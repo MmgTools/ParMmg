@@ -741,7 +741,7 @@ int PMMG_mergeGrps2Send_errorHandler( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
     tmpPart[k] = j;
     ++k;
   }
-  ngrpOld  = ngrp;
+  ngrpOld = ngrp;
   ngrp    = k;
   PMMG_REALLOC( parmesh,*grps,ngrp,ngrpOld,PMMG_Grp,"Groups to send",
                 return 0;);
@@ -2118,8 +2118,8 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   int            *next_comm2send,*ext_comms_next_idx,*nitems2send;
   int            *extComm_next_idx,*items_next_idx,*recv_array,nfaces2recv_max;
   int            *extComm_grpFaces2extComm,*extComm_grpFaces2face2int;
-  int            nrecv,nsend,max_ngrp,old_ngrp,new_ngrp,pleft,pright,comm_order;
-  int            ier,ier_glob,k,err;
+  int            nrecv,nsend,max_ngrp,prev_ngrp,new_ngrp,pleft,pright,comm_order;
+  int            ier,ier_glob,k,err,part_size;
 
   myrank    = parmesh->myrank;
   nprocs    = parmesh->nprocs;
@@ -2143,6 +2143,7 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   /** Step 1: Merge all the groups that must be send to a given proc into 1
    * group */
   ier = PMMG_merge_grps2send(parmesh,&part);
+  part_size = parmesh->ngrp;
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
 
   if ( ier_glob < 0 ) {
@@ -2202,13 +2203,14 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
   /** Step 4: Count the number of groups that we will received and reallocate
    * the listgrp array */
+  prev_ngrp = parmesh->ngrp;
+
   nrecv = 0;
   for ( k=0; k<nprocs; ++k )
     nrecv += recv_grps[k];
 
   PMMG_RECALLOC(parmesh,parmesh->listgrp,nrecv+parmesh->ngrp,parmesh->ngrp,
                 PMMG_Grp,"listgrps",goto end);
-  old_ngrp      = parmesh->ngrp;
   parmesh->ngrp = nrecv+parmesh->ngrp;
 
   /* Allocation of the array that will receive the external communicators at the
@@ -2237,7 +2239,7 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
                             items_next_idx,extComm_next_idx,
                             extComm_grpFaces2face2int,extComm_grpFaces2extComm);
 
-      nrecv = PMMG_recv_grp(parmesh,&old_ngrp,pleft,recv_grps[pleft]);
+      nrecv = PMMG_recv_grp(parmesh,&prev_ngrp,pleft,recv_grps[pleft]);
 
       if ( nsend != send_grps[pright] ) {
         fprintf(stderr,"\n  ## Error: %s: unable to send the %d th mesh from"
@@ -2271,7 +2273,7 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
     }
     else {
-      nrecv = PMMG_recv_grp(parmesh,&old_ngrp,pleft,recv_grps[pleft]);
+      nrecv = PMMG_recv_grp(parmesh,&prev_ngrp,pleft,recv_grps[pleft]);
 
       nsend = PMMG_send_grp(parmesh,pright,send_grps[pright],part,
                             next_comm2send,ext_comms_next_idx,nitems2send,
@@ -2359,7 +2361,7 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
 end:
   if ( part )
-    PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+    PMMG_DEL_MEM(parmesh,part,part_size,idx_t,"deallocate parmetis partition");
   if ( send_grps )
     PMMG_DEL_MEM(parmesh,send_grps,nprocs,int,"send_grps");
   if ( recv_grps )
