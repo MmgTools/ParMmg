@@ -1223,7 +1223,9 @@ int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
 
     grp_id_prev = grp_id;
     grp_id      = extComm_grpFaces2extComm[idx+nitem];
-    color_out   = extComm_grpFaces2extComm[idx+nitem+1];
+    /* Color_out of the external communicator to be able to detect the faces
+     * to remove (myrank-dest) */
+    color_out   = extComm_grpFaces2face2int[idx+nitem+1];
 
     if ( grp_id != grp_id_prev ) {
       /* Avoid the update of the communicator for a group that has not been
@@ -1863,7 +1865,7 @@ int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
           (*extComm_grpFaces2extComm )[idx_glob] = grp_id;
           ++idx_glob;
           ++idx_per_dest_proc;
-          /* Store the id of the proc with wich we list the interfaces */
+          /* Store the id of the proc with which we list the interfaces */
           (*extComm_grpFaces2face2int)[idx_glob] = ext_comm->color_out;
           /* Store the id of the proc on which the group move */
           (*extComm_grpFaces2extComm )[idx_glob] = dest;
