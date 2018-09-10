@@ -116,6 +116,72 @@ MACRO ( ADD_AND_INSTALL_LIBRARY
 
 ENDMACRO ( )
 
+###############################################################################
+#####
+#####         Add an executable to build and needed include dir, set its
+#####         postfix, add link dependencies and the install rule
+#####
+###############################################################################
+
+MACRO ( ADD_AND_INSTALL_EXECUTABLE
+    exec_name lib_files main_file )
+
+  IF ( NOT TARGET lib${exec_name}_a AND NOT TARGET lib${exec_name}_so )
+    ADD_EXECUTABLE ( ${exec_name} ${lib_files} ${main_file} )
+  ELSE ( )
+    ADD_EXECUTABLE ( ${exec_name} ${main_file})
+
+    SET_PROPERTY(TARGET ${exec_name} PROPERTY C_STANDARD 99)
+
+    IF ( NOT TARGET lib${exec_name}_a )
+      TARGET_LINK_LIBRARIES(${exec_name} lib${exec_name}_so)
+    ELSE ( )
+      TARGET_LINK_LIBRARIES(${exec_name} lib${exec_name}_a)
+    ENDIF ( )
+
+  ENDIF ( )
+
+  IF ( WIN32 AND NOT MINGW AND USE_SCOTCH )
+    my_add_link_flags ( ${exec_name} "/SAFESEH:NO")
+  ENDIF ( )
+
+ IF ( CMAKE_VERSION VERSION_LESS 2.8.12 )
+   INCLUDE_DIRECTORIES ( ${exec_name} PUBLIC
+     ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/include )
+ ELSE ( )
+   TARGET_INCLUDE_DIRECTORIES ( ${exec_name} PUBLIC
+     ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/include )
+ ENDIF ( )
+
+  TARGET_LINK_LIBRARIES ( ${exec_name} ${LIBRARIES}  )
+
+  INSTALL(TARGETS ${exec_name} RUNTIME DESTINATION bin COMPONENT appli)
+
+  ADD_TARGET_POSTFIX(${exec_name})
+
+ENDMACRO ( )
+
+###############################################################################
+#####
+#####         Add a target postfix depending on the build type
+#####
+###############################################################################
+
+MACRO ( ADD_TARGET_POSTFIX target_name )
+  IF ( CMAKE_BUILD_TYPE MATCHES "Debug" )
+    # in debug mode we name the executable mmgs_debug
+    SET_TARGET_PROPERTIES(${target_name} PROPERTIES DEBUG_POSTFIX _debug)
+  ELSEIF ( CMAKE_BUILD_TYPE MATCHES "Release" )
+    # in Release mode we name the executable mmgs_O3
+    SET_TARGET_PROPERTIES(${target_name} PROPERTIES RELEASE_POSTFIX _O3)
+  ELSEIF ( CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo" )
+    # in RelWithDebInfo mode we name the executable mmgs_O3d
+    SET_TARGET_PROPERTIES(${target_name} PROPERTIES RELWITHDEBINFO_POSTFIX _O3d)
+  ELSEIF ( CMAKE_BUILD_TYPE MATCHES "MinSizeRel" )
+    # in MinSizeRel mode we name the executable mmgs_O3
+    SET_TARGET_PROPERTIES(${target_name} PROPERTIES MINSIZEREL_POSTFIX _Os)
+  ENDIF ( )
+ENDMACRO ( )
 
 ###############################################################################
 #####
