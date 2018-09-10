@@ -343,13 +343,6 @@ COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
   PATTERN "libparmmg*f.h"  EXCLUDE)
 
-
-############################################################################
-#####
-#####         Compile program to test library
-#####
-############################################################################
-
 ###############################################################################
 #####
 #####         Compile PMMG executable
@@ -383,7 +376,7 @@ IF(DOXYGEN_FOUND)
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
 
-  ADD_CUSTOM_TARGET(fmg_doc
+  ADD_CUSTOM_TARGET(parmmg_doc
     COMMAND ${DOXYGEN_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
     # COMMAND ${CMAKE_COMMAND} -E chdir
@@ -396,7 +389,7 @@ IF(DOXYGEN_FOUND)
     )
 
   ADD_CUSTOM_TARGET(doc
-    DEPENDS fmg_doc
+    DEPENDS parmmg_doc
     COMMENT "Generating PARMMG API documentation with Doxygen.
      Open the doc/doxygen/html/index.html file to see it" VERBATIM
     )
