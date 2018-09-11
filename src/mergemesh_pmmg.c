@@ -67,7 +67,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
                             pptJ->c,pptJ->tag,0);
 
       }
-      assert( (ip < meshI->npmax) && "run out of points" );
+      assert( (ip <= meshI->npmax) && "run out of points" );
 
       pptJ->tmp = ip;
       intvalues[ poi_id_glo ] = ip;
@@ -851,15 +851,15 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   int            *color_in_tab,*color_out_tab,*nitem_ext_tab;
   int            *int_comm_index,*nitems_ext_idx,nitem_ext_tot;
   int            nprocs,root,k,i,idx;
-  int            isMet;
+  int            isMet,np,xp,ne,xt,size2send;
   int            ier,ieresult;
-  //  char           filename[32];
+  void           *tab2send;
 
   nprocs        = parmesh->nprocs;
   root          = parmesh->info.root;
   grp           = &parmesh->listgrp[0];
-  mesh          = grp->mesh;
-  met           = grp->met;
+  mesh          = grp ? grp->mesh : NULL;
+  met           = grp ? grp->met  : NULL;
   isMet         = (met && (met->m) )? met->size : 0;
   comm          = parmesh->comm;
   int_node_comm = parmesh->int_node_comm;
@@ -916,15 +916,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 
     PMMG_CALLOC( parmesh, (*rcv_xt)        ,nprocs,int,"rcv_xt"       ,ier=3);
     PMMG_CALLOC( parmesh, (*xtetra_displs) ,nprocs,int,"xtetra_displs",ier=3);
-
-    if(isMet) {
-      PMMG_CALLOC( parmesh, (*rcv_nmet)    ,nprocs,int,"rcv_nmet"     ,ier=3);
-      PMMG_CALLOC( parmesh, (*met_displs)  ,nprocs,int,"met_displs"   ,ier=3);
-    }
-    else {
-      rcv_nmet   = NULL;
-      met_displs = NULL;
-    }
   }
 
   /* 2: Communicators */
@@ -935,28 +926,43 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   PMMG_CALLOC( parmesh, (*ext_comm_displs)        ,nprocs,int,"ext_comm_displs"      ,ier=3);
 
   /** Gather parmesh size infos on proc 0 */
-  MPI_CHECK( MPI_Gather(&mesh->np,1,MPI_INT,(*rcv_np),1,MPI_INT,root,comm),ier = 3);
-  MPI_CHECK( MPI_Gather(&mesh->ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,root,comm),ier = 3);
-  MPI_CHECK( MPI_Gather(&mesh->xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,root,comm),ier = 3);
-  MPI_CHECK( MPI_Gather(&mesh->xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,root,comm),ier = 3);
-  MPI_CHECK( MPI_Gather(&grp->nitem_int_node_comm,1,MPI_INT,
+  np = mesh ? mesh->np : 0;
+  xp = mesh ? mesh->xp : 0;
+  ne = mesh ? mesh->ne : 0;
+  xt = mesh ? mesh->xt : 0;
+
+  MPI_CHECK( MPI_Gather(&np,1,MPI_INT,(*rcv_np),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&ne,1,MPI_INT,(*rcv_ne),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&xp,1,MPI_INT,(*rcv_xp),1,MPI_INT,root,comm),ier = 3);
+  MPI_CHECK( MPI_Gather(&xt,1,MPI_INT,(*rcv_xt),1,MPI_INT,root,comm),ier = 3);
+
+  size2send = grp ? grp->nitem_int_node_comm : 0;
+  MPI_CHECK( MPI_Gather(&size2send,1,MPI_INT,
                         (*rcv_nitem_int_node_comm),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
                         (*rcv_next_node_comm),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Allreduce(&isMet,rcv_isMet,1,MPI_INT,MPI_MAX,comm),ier = 3);
+
+  if ( (!parmesh->myrank) && rcv_isMet ) {
+    PMMG_CALLOC( parmesh, (*rcv_nmet)    ,nprocs,int,"rcv_nmet"     ,ier=3);
+    PMMG_CALLOC( parmesh, (*met_displs)  ,nprocs,int,"met_displs"   ,ier=3);
+  }
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MAX,comm),ieresult=3);
   if ( ieresult>1 ) goto end;
 
   /** Alloc arrays */
   /* Creation of MPI types for the mesh comm */
-  PMMG_create_MPI_Point (mesh->point,  &mpi_point );
-  PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint);
-  PMMG_create_MPI_Tetra (mesh->tetra,  &mpi_tetra );
-  PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra);
+  if ( mesh ) {
+    PMMG_create_MPI_Point (mesh->point,  &mpi_point );
+    PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint);
+    PMMG_create_MPI_Tetra (mesh->tetra,  &mpi_tetra );
+    PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra);
+  }
 
   /* Points */
-  for ( k=1; k<=mesh->np; ++k ) mesh->point[k].tmp = 0;
+  if ( mesh )
+    for ( k=1; k<=mesh->np; ++k ) mesh->point[k].tmp = 0;
 
   if ( !parmesh->myrank ) {
     (*point_displs)[0] = 0;
@@ -996,7 +1002,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   /* Solutions */
   if ( *rcv_isMet && !parmesh->myrank ) {
     for ( k=0; k<nprocs; ++k ) {
-      (*rcv_nmet)[k] = met->size*(*rcv_np)[k];
+      /* isMet = met->size here */
+      (*rcv_nmet)[k] = *rcv_isMet*(*rcv_np)[k];
     }
 
     (*met_displs)[0] = 0;
@@ -1084,9 +1091,16 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( ieresult > 1 ) goto end;
 
   /** Gathers data on root */
+
+  /* Here it fails if one proc doesn't have any groups (mpi_type aren't allocated */
+  if ( (!grp) || !parmesh->ngrp ) MPI_Abort(parmesh->comm,PMMG_STRONGFAILURE);
+
   /* Points */
-  MPI_CHECK( MPI_Gatherv(&mesh->point[1],mesh->np,mpi_point,&(*rcv_point)[1],
+  tab2send  = mesh ? &mesh->point[1] : NULL;
+  size2send = mesh ? mesh->np        : 0;
+  MPI_CHECK( MPI_Gatherv(&tab2send,size2send,mpi_point,&(*rcv_point)[1],
                          (*rcv_np),(*point_displs),mpi_point,root,comm),ier=2);
+
   /* xPoints */
   MPI_CHECK( MPI_Gatherv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,&(*rcv_xpoint)[1],
                          (*rcv_xp),(*xpoint_displs),mpi_xpoint,root,comm),ier=2);
@@ -1236,6 +1250,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   MMG5_pxTetra   xtetra,pxt;
   MMG5_pSol      met;
   double         *met_1;
+  size_t         memAv;
   int            *int_comm_index,*int_comm_index_2;
   int            *intvalues_1,*intvalues_2,nitems_1,nitems_2;
   int            nprocs,k,i,j,idx,idx_2,cursor,color_in,color_out;
@@ -1246,6 +1261,12 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   met    = parmesh->listgrp[0].met;
 
   if ( parmesh->myrank ) return 1;
+
+  /** Give all the memory to the mesh */
+  parmesh->memMax  = parmesh->memCur;
+  memAv            = parmesh->memGloMax - parmesh->memMax - mesh->memMax;
+
+  mesh->memMax    += memAv;
 
   np = 0;
 
@@ -1332,7 +1353,8 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
   mesh->nemax  = mesh->ne = ne_tot;
   mesh->nenil  = 0;
-  mesh->xtmax = mesh->xt = xt_tot;
+  mesh->xtmax  = mesh->xt = xt_tot;
+
 
   _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"merge tetra",
                 fprintf(stderr,"  Exit program.\n");
@@ -1482,7 +1504,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   ier = 1;
   grp = &parmesh->listgrp[0];
 
-  assert ( parmesh->ngrp==1 );
+  assert ( parmesh->ngrp <= 1 );
 
   //DEBUGGING:
   // saveGrpsToMeshes( PMMG_pGrp listgrp, 0, parmesh->myrank, "mesh" );
@@ -1496,11 +1518,16 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   if ( !ieresult ) return 0;
 
-  assert(int_node_comm->nitem == grp->nitem_int_node_comm);
+#ifndef NDEBUG
+  if ( grp )
+    assert(int_node_comm->nitem == grp->nitem_int_node_comm);
+#endif
 
-  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
-    idx = grp->node2int_node_comm_index2[k];
-    int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
+  if ( grp ) {
+    for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+      idx = grp->node2int_node_comm_index2[k];
+      int_node_comm->intvalues[idx] = grp->node2int_node_comm_index1[k];
+    }
   }
 
   /** Step 2: Procs send their parmeshes to Proc 0 and Proc 0 recieve the data */

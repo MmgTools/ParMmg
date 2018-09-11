@@ -325,12 +325,12 @@ IF ( LIBPARMMG_SHARED )
     "${pmmg_library_files}" ${PROJECT_NAME} )
 ENDIF()
 
-# mmg2d header files needed for library
+# parmmg header files needed for library
 SET( pmmg_headers
   ${PMMG_SOURCE_DIR}/libparmmg.h
-#  ${PMMG_SOURCE_DIR}/libparmmgf.h
+  ${PMMG_BINARY_DIR}/libparmmgf.h
   ${PMMG_SOURCE_DIR}/libparmmgtypes.h
-#  ${PMMG_SOURCE_DIR}/libparmmgtypesf.h
+  ${PMMG_BINARY_DIR}/libparmmgtypesf.h
   )
 
 # Install header files in /usr/local or equivalent
@@ -348,21 +348,8 @@ FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
 #####         Compile PMMG executable
 #####
 ###############################################################################
-ADD_EXECUTABLE(${PROJECT_NAME}
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}f.h
-  ${PMMG_SOURCE_DIR}/lib${PROJECT_NAME}.h
-  ${pmmg_library_files} ${pmmg_main_file})
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${LIBRARIES})
-INSTALL(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
-
-# in debug mode we name the executable parmmg_debug
-SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX _debug)
-# in Release mode we name the executable parmmg_O3
-SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELEASE_POSTFIX _O3)
-# in RelWithDebInfo mode we name the executable parmmg_d
-SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _O)
-# in MinSizeRel mode we name the executable parmmg_Os
-SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES MINSIZEREL_POSTFIX _Os)
+ADD_AND_INSTALL_EXECUTABLE ( ${PROJECT_NAME}
+  "${pmmg_library_files}" ${pmmg_main_file} )
 
 ###############################################################################
 #####
@@ -376,7 +363,7 @@ IF(DOXYGEN_FOUND)
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
 
-  ADD_CUSTOM_TARGET(parmmg_doc
+  ADD_CUSTOM_TARGET(fmg_doc
     COMMAND ${DOXYGEN_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
     # COMMAND ${CMAKE_COMMAND} -E chdir
@@ -389,7 +376,7 @@ IF(DOXYGEN_FOUND)
     )
 
   ADD_CUSTOM_TARGET(doc
-    DEPENDS parmmg_doc
+    DEPENDS fmg_doc
     COMMENT "Generating PARMMG API documentation with Doxygen.
      Open the doc/doxygen/html/index.html file to see it" VERBATIM
     )

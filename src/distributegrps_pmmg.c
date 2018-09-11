@@ -771,7 +771,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
   PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
-  long long     memAv;
+  size_t        memAv;
   int           nprocs,ngrp,k,j,ier;
 
   nprocs = parmesh->nprocs;
@@ -779,19 +779,21 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   /** Step 0: Set mesh sizes to their minimal size and count the available
    * memory */
+  assert ( parmesh->memGloMax > parmesh->memMax );
   memAv = parmesh->memGloMax - parmesh->memMax;
   for ( k=0; k<ngrp; ++k ) {
     parmesh->listgrp[k].mesh->memMax = parmesh->listgrp[k].mesh->memCur;
+    assert ( memAv > parmesh->listgrp[k].mesh->memMax );
     memAv -= parmesh->listgrp[k].mesh->memMax;
   }
-  assert ( memAv >=0 );
 
   /** Step 1: New groups allocation and initialization: move the groups to have
    * a group that will be send to proc k stored in grps[k]. Free the adja
    * array. */
 
-  // If this step is too expensive in memory, we can count the number of procs
-  // with which we will communicate and fill directly the pack array.
+  /* If this step is too expensive in memory, we can count the number of procs
+     with which we will communicate and fill directly the pack array. */
+  parmesh->memMax += memAv;
   PMMG_CALLOC( parmesh,grps,nprocs,PMMG_Grp,"Groups to send",return 0 );
 
   j = 0;

@@ -252,9 +252,9 @@ typedef struct {
   int         imprim;
 
   /* mem info */
-  long long memGloMax; /*!< Maximum memory available to all structs */
-  long long memMax; /*!< Maximum memory parmesh is allowed to allocate */
-  long long memCur; /*!< Currently allocated memory */
+  size_t memGloMax; /*!< Maximum memory available to all structs */
+  size_t memMax;    /*!< Maximum memory parmesh is allowed to allocate */
+  size_t memCur;    /*!< Currently allocated memory */
 
   /* grp */
   int       ngrp;       /*!< Number of grp */

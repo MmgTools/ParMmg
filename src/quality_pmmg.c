@@ -40,22 +40,22 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   double       avg, avg_cur, avg_result;
   double       min, min_cur;
   int          iel, iel_cur;
-  int          good, good_cur, good_result;
+  int          good, good_cur,good_result,optimLES,optimLES_result;
   int          med, med_cur, med_result;
   const int    HIS_SIZE                = 5;
   int          his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
-  int          nrid, nrid_cur, nrid_result;
+  int          nrid, nrid_cur, nrid_result,ier;
   MPI_Op       iel_min_op;
   MPI_Datatype mpi_iel_min_t;
   MPI_Datatype types[ 4 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
   min_iel_t    min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
   MPI_Aint     disps[ 4 ]              = { offsetof( min_iel_t, min ),
-                          offsetof( min_iel_t, iel ),
-                          offsetof( min_iel_t, iel_grp ),
-                          offsetof( min_iel_t, cpu ) };
+                                           offsetof( min_iel_t, iel ),
+                                           offsetof( min_iel_t, iel_grp ),
+                                           offsetof( min_iel_t, cpu ) };
   int lens[ 4 ]                        = { 1, 1, 1, 1 };
 
-  // Calculate the quality values for local process
+  /* Calculate the quality values for local process */
   iel_grp = 0;
   ne = 0;
   max = DBL_MIN;
@@ -64,6 +64,8 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   iel = 0;
   good = 0;
   med = 0;
+  grp = &parmesh->listgrp[0];
+  optimLES = ( grp && grp->mesh ) ? grp->mesh->info.optimLES : 0;
 
   for ( i = 0; i < HIS_SIZE; ++i )
     his[ i ] = 0;
@@ -94,12 +96,14 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
     nrid += nrid_cur;
   }
 
-  // Calculate the quality values for all processes
+  /* Calculate the quality values for all processes */
   MPI_Reduce( &ne, &ne_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
+  MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
+
 
   MPI_Type_create_struct( 4, lens, disps, types, &mpi_iel_min_t );
   MPI_Type_commit( &mpi_iel_min_t );
@@ -118,8 +122,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
-    grp = &parmesh->listgrp[ 0 ];
-    if ( parmesh->info.imprim && grp->mesh->info.optimLES ) {
+    if ( parmesh->info.imprim && optimLES_result ) {
       fprintf( stdout," (LES)" );
     }
 
@@ -136,12 +139,13 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
     fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
 
-    if ( !MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
-                                           min_iel_result.min, min_iel_result.iel,
-                                           good_result, med_result, his_result,
-                                           nrid_result,grp->mesh->info.optimLES,
-                                           parmesh->info.imprim ) )
-      return 0;
+    ier =
+      MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,
+                                       min_iel_result.min, min_iel_result.iel,
+                                       good_result, med_result, his_result,
+                                       nrid_result,optimLES_result,
+                                       parmesh->info.imprim );
+    if ( !ier ) return 0;
   }
 
   return 1;

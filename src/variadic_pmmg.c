@@ -220,7 +220,7 @@ int PMMG_Free_all_var(va_list argptr)
   (*parmesh)->memCur -= sizeof(PMMG_ParMesh);
 
   if ( (*parmesh)->info.imprim>5 || (*parmesh)->ddebug ) {
-    printf("  MEMORY USED AT END (Bytes) %lld\n",(*parmesh)->memCur);
+    printf("  MEMORY USED AT END (Bytes) %zu\n",(*parmesh)->memCur);
   }
   _MMG5_SAFE_FREE(*parmesh);
 
