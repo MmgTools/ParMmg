@@ -418,6 +418,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
+    /* Uncomment to debug tag errors */
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !_MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
@@ -514,11 +515,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   ier = PMMG_outqua( parmesh );
-  // Uncomment when ParMmg will create sufficiently good meshes */
-  /* MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm ); */
-  /* if ( !ieresult ) { */
-  /*   ier_end = PMMG_LOWFAILURE; */
-  /* } */
+
+  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( !ieresult ) {
+    ier_end = PMMG_LOWFAILURE;
+  }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

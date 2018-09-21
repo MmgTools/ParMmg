@@ -63,9 +63,7 @@ enum PMMG_Param {
 /**< Subgroups target size for a fast remeshing step */
 static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
 /**< Subgroups target size for parmetis */
-#warning HACK TO DEBUG ON COARSE.MESH... TO REMOVE/A JETER/ AJETER/TOTRASH
-#warning failure to debug : 8 / 100 / 200 / 700
-static const int METIS_TARGET_MESH_SIZE = 8;
+static const int METIS_TARGET_MESH_SIZE = 200;
 
 
 /* API_functions_pmmg.c */

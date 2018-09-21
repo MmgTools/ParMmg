@@ -17,42 +17,6 @@
 #include "mpitypes_pmmg.h"
 #include "metis_pmmg.h"
 
-static void printComm(PMMG_pParMesh parmesh,int ngrp_init) {
-
-// TOTRASH SAVE GRPS INFO
-  printf("ngrp init %d\n",ngrp_init);
-
-  if ( parmesh->myrank==3 ||parmesh->myrank==6 ||parmesh->myrank==2 ) {
-    printf("--- EXTERNAL COMM ---\n");
-    printf(" %d ext comm\n",parmesh->next_face_comm);
-
-  for ( int i=0; i<parmesh->next_face_comm; ++i ) {
-     printf("== EXTERNAL COMM %d: %d %d\n",i,parmesh->ext_face_comm[i].color_in,
-            parmesh->ext_face_comm[i].color_out);
-     printf(" %d items \n", parmesh->ext_face_comm[i].nitem);
-
-     for ( int j=0; j< parmesh->ext_face_comm[i].nitem; ++j ) {
-       printf(" %d",parmesh->ext_face_comm[i].int_comm_index[j]);
-     }
-     printf("\n");
-  }
-  }
-
-  /* printf("--- INTERNAL COMM ---\n"); */
-  /* printf(" %d items \n", parmesh->int_face_comm->nitem); */
-
-  /* printf("--- GRPS ---\n"); */
-  /* for ( int i=0; i<parmesh->ngrp; ++i ) { */
-  /*    printf("== GRP %d\n",i); */
-  /*    printf(" %d items \n", parmesh->listgrp[i].nitem_int_face_comm); */
-
-  /*    for ( int j=0; j< parmesh->listgrp[i].nitem_int_face_comm; ++j ) { */
-  /*      printf(" %d",parmesh->listgrp[i].face2int_face_comm_index2[j]); */
-  /*    } */
-  /*    printf("\n"); */
-  /* } */
-}
-
 /**
  * \param group pointer toward group to assign into another group structure
  *
@@ -1687,10 +1651,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   const int      ngrp        = parmesh->ngrp;
   const MPI_Comm comm        = parmesh->comm;
 
-#warning ajeter
-  printf("FROM ME TO J %d %d\n",myrank,recv);
-  //printComm( parmesh,parmesh->ngrp);
-
   ier = 1;
 
   int_comm = parmesh->int_face_comm;
@@ -1800,9 +1760,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   (*recv_ext_idx)[offset++] = nitem_recv_intcomm;
   (*recv_ext_idx)[offset++] = idx;
 
-#warning ajeter
-  printf("Send %d grps, %d items in recv_intcomm, %d faces 4 (old_nitem %d)\n",
-         count,nitem_recv_intcomm,idx,nitem);
   if ( idx ) {
     old_nitem = nitem;
 
@@ -1855,8 +1812,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
    * mark of the faces of the external communicator (0 if a face is
    * keeped, 1 otherwise). */
   old_offset = *nitem_recv_ext_idx;
-#warning ajeter
-    printf ( "before send f3 offset = %d\n",offset);
 
   nitem_ext_recv_comm = ext_recv_comm ? ext_recv_comm->nitem : 0;
   PMMG_REALLOC ( parmesh,*recv_ext_idx,*nitem_recv_ext_idx+nitem_ext_recv_comm+1,
@@ -1867,8 +1822,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
    * to recv_ext_idx and count the number of faces to remove from the external
    * communicator (faces flagged 3 ) */
   count = 0;
-#warning ajeter
-  printf("ICI ext_recv_comm-nitem %d (old_nitem %d)\n",nitem_ext_recv_comm,old_nitem);
 
   if ( *intcomm_flag && *recv_ext_idx ) {
     for ( k=0; k<nitem_ext_recv_comm; ++k ) {
@@ -1886,9 +1839,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
 
   if ( *recv_ext_idx )
     (*recv_ext_idx)[offset++] = count;
-#warning ajeter
-  printf("Delete %d faces in sndr-recv ext_comm\n",count);
-
 
   /* Remove the faces from the external communicator */
   nitem = 0;
@@ -1913,8 +1863,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
     }
   }
 
-#warning treatment of self passing communicators not done
-
   /** Step 4: When transferring the groups from myrank toward recv, the groups
    *   faces of the external communicators myrank-procB (procB != recv) becames
    *   faces of the external communicators (recv-procB):
@@ -1930,9 +1878,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
                 ier0 = 0; ier = MG_MIN(ier,ier0); );
   if ( ier0 )
     for ( k=0; k<nprocs+1; ++k ) (*trequest)[k] = MPI_REQUEST_NULL;
-
-#warning ajeter
-  printf ( " offset before ext_comm with other procs %d\n",offset);
 
   nextcomm = 0;
   count    = 0;
@@ -1976,9 +1921,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   if ( *recv_ext_idx )
     (*recv_ext_idx)[offset++] = nextcomm;
 
-#warning ajeter
-  printf("Send %d ext_comm with other procs ( offset = %d)\n",nextcomm,offset-1);
-
   old_offset = offset;
   /* Store in [old_offset:old_offset+2*nextcomm] the number of faces to send for
    * each communicator and the color_out of the external comm */
@@ -2013,12 +1955,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
       (*recv_ext_idx)[old_offset + nextcomm++] = count;
       (*recv_ext_idx)[old_offset + nextcomm++] = ext_face_comm->color_out;
     }
-
-    if ( myrank==2 && recv == 6 )
-      printf("Send %d items of ext_face with proc %d (offset %d)\n",count,
-             ext_face_comm->color_out,old_offset + nextcomm-2);
-
-
   }
 
   /** Step 5: send the buffer to the proc recv */
@@ -2026,9 +1962,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   assert ( *nitem_recv_ext_idx == offset );
   MPI_CHECK ( MPI_Isend(*recv_ext_idx,*nitem_recv_ext_idx,MPI_INT,recv,
                         MPI_TRANSFER_GRP_TAG+3, comm,irequest), ier = 0 );
-#warning ajeter
-  printf( "I am proc %d and I send %d to %d.\n",myrank,*nitem_recv_ext_idx,recv);
-
 
   /** Step 6: send and receive the groups */
   *pack_size = 0;
@@ -2054,8 +1987,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
     grp = &parmesh->listgrp[k];
 
     if ( grp->flag != recv ) continue;
-#warning ajeter
-    printf("send grp %d\n",k);
     PMMG_mpipack_grp(grp,&ptr);
   }
 
@@ -2117,10 +2048,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   const int      ngrp        = parmesh->ngrp;
   const MPI_Comm comm        = parmesh->comm;
 
-#warning ajeter
-  printf("FROM I TO ME %d %d\n",sndr,myrank);
-  //  printComm( parmesh,parmesh->ngrp);
-
   ier = 1;
 
   send2recv_int_comm = NULL;
@@ -2158,9 +2085,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
               ier = 0 );
   offset = 0;
 
-#warning ajeter
-  printf ( "I am %d and I receive %d from %d\n",myrank,*nitem_recv_ext_idx,sndr);
-
   /* Get the number of groups to receive */
   grpscount = (*recv_ext_idx)[offset++];
 
@@ -2175,9 +2099,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
    * external communicator myrank-sndr (due to the transfer of the groups from
    * sndr toward myrank) (intcomm_flag = 4 ) */
   n = (*recv_ext_idx)[offset++];
-#warning ajeter
-  printf("Send %d grps, %d items in recv_intcomm, %d faces 4 (old_nitem %d offset %d)\n",
-         grpscount,recv_int_nitem,n,*nitem_intcomm_flag-1,offset-1);
 
   if ( n ) {
 
@@ -2223,15 +2144,9 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
    * communicator myrank-sndr (intcomm_flag = 3) */
 #warning is the face orientation ok?
   /* New number of faces */
-#warning ajeter
-    printf ( "before recv f3 offset = %d\n",offset);
-
 
   n = 0;
   if ( ext_send_comm ) {
-#warning ajeter
-      printf("ICI ext_send_comm-nitem %d\n",ext_send_comm->nitem);
-
     for ( k=0; k<ext_send_comm->nitem; ++k ) {
       idx = ext_send_comm->int_comm_index[k];
 
@@ -2243,9 +2158,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
         ext_send_comm->int_comm_index[n++] = idx;
       }
     }
-
-#warning ajeter
-    printf("Delete %d faces in sndr-recv ext_comm\n", ext_send_comm->nitem-n);
 
     assert ( ext_send_comm->nitem-n==(*recv_ext_idx)[offset] );
 
@@ -2262,9 +2174,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
    * proc than myrank (flag 3) */
   /* number of external communicators */
   nextcomm   = (*recv_ext_idx)[offset++];
-#warning ajeter
-if ( myrank==6 && sndr == 2 )
-  printf("Recv %d ext_comm with other procs (offset=%d) \n",nextcomm,offset-1);
 
   /* position of the number of faces to update in each ext_comm */
   old_offset = offset;
@@ -2352,7 +2261,6 @@ if ( myrank==6 && sndr == 2 )
   ptr = buffer;
   if ( ier0 ) {
     for ( k=0; k<grpscount; ++k ) {
-      printf("recv grp %d\n",k);
       err = PMMG_mpiunpack_grp(parmesh,&parmesh->listgrp[ngrp+k],&ptr,&available);
       ier = MG_MIN(ier,err);
       parmesh->listgrp[ngrp+k].flag = PMMG_UNSET;
@@ -2393,10 +2301,6 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   const int      nprocs      = parmesh->nprocs;
 
   assert ( sndr != recv );
-
-#warning ajeter
-  printf("IAM %d : FROM I TO J %d %d\n",myrank,sndr,recv);
-  //printComm( parmesh,parmesh->ngrp);
 
   /* I am the receiver and I don't have any interactions with the sender */
   if ( ( recv == myrank ) && !interaction_map[sndr] ) return 1;
@@ -2670,9 +2574,6 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   for ( k=0; k<nprocs; ++k ) {
     for ( j=0; j<nprocs; ++j ) {
       if ( j==k ) continue;
-      if ( k>1 && parmesh->next_face_comm>3 ) {
-        printf("color_out %d\n",parmesh->ext_face_comm[3].color_out);
-      }
       err =  PMMG_transfer_grps_fromItoJ(parmesh,k,j,interaction_map);
       ier = MG_MIN ( ier,err );
     }
