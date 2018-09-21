@@ -166,28 +166,30 @@ check_mesh_loading:
     fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",grp->mesh->nameout);
   }
 
-  grp = &parmesh->listgrp[0];
-  MMG5_chooseOutputFormat(grp->mesh,&msh);
+  if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
+    grp = &parmesh->listgrp[0];
+    MMG5_chooseOutputFormat(grp->mesh,&msh);
 
-  if ( !msh ) {
-    ierSave = PMMG_saveMesh_centralized(parmesh,grp->mesh->nameout);
-  }
-  else {
-    printf("  ## Error: Gmsh output format not yet implemented.\n");
-    ierSave = 2;//PMMG_saveMshMesh_centralized(grp->mesh,grp->met,mesh->nameout);
-  }
+    if ( !msh ) {
+      ierSave = PMMG_saveMesh_centralized(parmesh,grp->mesh->nameout);
+    }
+    else {
+      printf("  ## Error: Gmsh output format not yet implemented.\n");
+      ierSave = 2;//PMMG_saveMshMesh_centralized(grp->mesh,grp->met,mesh->nameout);
+    }
 
-   if ( !ierSave ) {
-    PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-  }
-
-  if ( !msh ) {
-    if ( !PMMG_saveMet_centralized(parmesh,grp->mesh->nameout) ) {
+    if ( !ierSave ) {
       PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
     }
 
-    if ( grp->sol && !PMMG_saveAllSols_centralized(parmesh,grp->sol->nameout) ) {
-      PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+    if ( !msh ) {
+      if ( !PMMG_saveMet_centralized(parmesh,grp->mesh->nameout) ) {
+        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      }
+
+      if ( grp->sol && !PMMG_saveAllSols_centralized(parmesh,grp->sol->nameout) ) {
+        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      }
     }
   }
 

@@ -12,7 +12,6 @@
 #include "mpitypes_pmmg.h"
 
 /**
- * \param point pointer toward the point we want to communicate
  * \param mpi_light_point new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -21,8 +20,9 @@
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
+int PMMG_create_MPI_lightPoint(MPI_Datatype *mpi_light_point)
 {
+  MMG5_Point   point[2];
   int          i,blck_lengths[4] = {3, 3, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -51,7 +51,6 @@ int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
 }
 
 /**
- * \param point pointer toward the point we want to communicate
  * \param mpi_point new MPI data type
  *
  * Create an MPI data type named mpi_point to allow the communication of
@@ -59,8 +58,9 @@ int PMMG_create_MPI_lightPoint(MMG5_pPoint point, MPI_Datatype *mpi_light_point)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point)
+int PMMG_create_MPI_Point(MPI_Datatype *mpi_point)
 {
+  MMG5_Point   point[2];
   int          i,blck_lengths[5] = {3, 3, 1, 1, 1};
   MPI_Aint     displs[5],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -89,7 +89,6 @@ int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point)
 }
 
 /**
- * \param xPoint pointer toward the xPoint we want to communicate
  * \param mpi_xpoint new MPI data type
  *
  * Create an MPI data type named mpi_xpoint to allow the communication of
@@ -97,8 +96,9 @@ int PMMG_create_MPI_Point(MMG5_pPoint point, MPI_Datatype *mpi_point)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint)
+int PMMG_create_MPI_xPoint(MPI_Datatype *mpi_xpoint)
 {
+  MMG5_xPoint  xPoint[2];
   int          i,blck_lengths[2] = {3,3};
   MPI_Aint     displs[2],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -124,7 +124,6 @@ int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint)
 }
 
 /**
- * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_light_tetra new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -133,8 +132,9 @@ int PMMG_create_MPI_xPoint(MMG5_pxPoint xPoint, MPI_Datatype *mpi_xpoint)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
+int PMMG_create_MPI_lightTetra(MPI_Datatype *mpi_light_tetra)
 {
+  MMG5_Tetra   tetra[2];
   int          i,blck_lengths[3] = {4, 1, 1};
   MPI_Aint     displs[3],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -162,7 +162,6 @@ int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
 }
 
 /**
- * \param tetra pointer toward the tetra we want to communicate
  * \param mpi_tetra new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -170,8 +169,9 @@ int PMMG_create_MPI_lightTetra(MMG5_pTetra tetra, MPI_Datatype *mpi_light_tetra)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra)
+int PMMG_create_MPI_Tetra(MPI_Datatype *mpi_tetra)
 {
+  MMG5_Tetra   tetra[2];
   int          i,blck_lengths[4] = {4, 1, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -199,7 +199,6 @@ int PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra)
 }
 
 /**
- * \param edge pointer toward the edge we want to communicate
  * \param mpi_edge new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -207,8 +206,9 @@ int PMMG_create_MPI_Tetra(MMG5_pTetra tetra, MPI_Datatype *mpi_tetra)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge)
+int PMMG_create_MPI_Edge(MPI_Datatype *mpi_edge)
 {
+  MMG5_Edge    edge[2];
   int          i,blck_lengths[4] = {1, 1, 1, 1};
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -237,7 +237,6 @@ int PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge)
 }
 
 /**
- * \param tria pointer toward the tria we want to communicate
  * \param mpi_tria new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -245,8 +244,9 @@ int PMMG_create_MPI_Edge(MMG5_pEdge edge, MPI_Datatype *mpi_edge)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria)
+int PMMG_create_MPI_Tria(MPI_Datatype *mpi_tria)
 {
+  MMG5_Tria    tria[2];
   int          i,blck_lengths[3] = {3, 1, 3};
   MPI_Aint     displs[3],lb,ub;
   MPI_Datatype mpi_noextent;
@@ -273,7 +273,6 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria)
 }
 
 /**
- * \param xTetra pointer toward the xTetra we want to communicate
  * \param mpi_xtetra new MPI data type
  *
  * Create an MPI data type to allow the communication of
@@ -281,8 +280,9 @@ int PMMG_create_MPI_Tria(MMG5_pTria tria, MPI_Datatype *mpi_tria)
  *
  * \warning to fill when we need to communicate additional things
  */
-int PMMG_create_MPI_xTetra(MMG5_pxTetra xTetra, MPI_Datatype *mpi_xtetra)
+int PMMG_create_MPI_xTetra(MPI_Datatype *mpi_xtetra)
 {
+  MMG5_xTetra  xTetra[2];
   MPI_Aint     displs[4],lb,ub;
   MPI_Datatype mpi_noextent;
   MPI_Datatype types[4] = {MPI_INT,MPI_INT,MPI_INT16_T,MPI_INT16_T};

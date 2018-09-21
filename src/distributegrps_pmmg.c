@@ -3,15 +3,55 @@
  * \brief Group distribution on the processors
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
- * \author Nikos Pattakos (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
+ *
+ * \remark to not deaclock when 1 process fail, we continue the process even
+ * when allocations fail. To avoid memory error in this case, we check each time
+ * if the arrays are allocated. Try to remove this by dedicating one thread to
+ * the error management.
  *
  */
 #include <mpi.h>
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
 #include "metis_pmmg.h"
+
+static void printComm(PMMG_pParMesh parmesh,int ngrp_init) {
+
+// TOTRASH SAVE GRPS INFO
+  printf("ngrp init %d\n",ngrp_init);
+
+  if ( parmesh->myrank==3 ||parmesh->myrank==6 ||parmesh->myrank==2 ) {
+    printf("--- EXTERNAL COMM ---\n");
+    printf(" %d ext comm\n",parmesh->next_face_comm);
+
+  for ( int i=0; i<parmesh->next_face_comm; ++i ) {
+     printf("== EXTERNAL COMM %d: %d %d\n",i,parmesh->ext_face_comm[i].color_in,
+            parmesh->ext_face_comm[i].color_out);
+     printf(" %d items \n", parmesh->ext_face_comm[i].nitem);
+
+     for ( int j=0; j< parmesh->ext_face_comm[i].nitem; ++j ) {
+       printf(" %d",parmesh->ext_face_comm[i].int_comm_index[j]);
+     }
+     printf("\n");
+  }
+  }
+
+  /* printf("--- INTERNAL COMM ---\n"); */
+  /* printf(" %d items \n", parmesh->int_face_comm->nitem); */
+
+  /* printf("--- GRPS ---\n"); */
+  /* for ( int i=0; i<parmesh->ngrp; ++i ) { */
+  /*    printf("== GRP %d\n",i); */
+  /*    printf(" %d items \n", parmesh->listgrp[i].nitem_int_face_comm); */
+
+  /*    for ( int j=0; j< parmesh->listgrp[i].nitem_int_face_comm; ++j ) { */
+  /*      printf(" %d",parmesh->listgrp[i].face2int_face_comm_index2[j]); */
+  /*    } */
+  /*    printf("\n"); */
+  /* } */
+}
 
 /**
  * \param group pointer toward group to assign into another group structure
@@ -420,7 +460,7 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure.
  * \param grps pointer toward the list of groups to pack.
  * \param ngrp pointer toward the number of groups (to update)
  * \param part pointer toward the metis array containing the partitions to
@@ -461,7 +501,7 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 }
 
 /**
- * \param parmesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure.
  * \param grps pointer toward the list of groups to pack.
  * \param ngrp pointer toward the number of groups (to update)
  *
@@ -486,6 +526,35 @@ int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
   }
 
   return nbl;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grps pointer toward the list of groups to pack.
+ *
+ * \return 1 if success
+ *
+ * Pack the group array \a grps. A group is unused if its mesh is NULL.
+ *
+ */
+static inline
+int PMMG_pack_grps( PMMG_pParMesh parmesh,PMMG_pGrp *grps ) {
+  int k,nbl;
+
+  nbl   = 0;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    if ( !(*grps)[k].mesh ) continue;
+
+    if ( k!=nbl )
+      (*grps)[nbl] = PMMG_move_grp( &(*grps)[k] );
+
+    ++nbl;
+  }
+  PMMG_REALLOC( parmesh,*grps,nbl,parmesh->ngrp,PMMG_Grp,"grps array", return 0 );
+
+  parmesh->ngrp = nbl;
+
+  return 1;
 }
 
 /**
@@ -552,9 +621,9 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 
       ext_node_comm->int_comm_index[nitem_ext++] = idx_int;
     }
-    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,nitem_ext,
-                 ext_node_comm->nitem,int,"int_comm_index",return 0);
-    ext_node_comm->nitem = nitem_ext;
+
+    if ( !PMMG_resize_extComm(parmesh,ext_node_comm,nitem_ext,&ext_node_comm->nitem) )
+      return 0;
   }
 
   /** Step 5: Remove the empty external communicators */
@@ -572,9 +641,9 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
     }
     ++i;
   }
-  PMMG_REALLOC(parmesh,parmesh->ext_node_comm,i,
-               parmesh->next_node_comm,PMMG_Ext_comm,"ext_node_comm",return 0);
-  parmesh->next_node_comm = i;
+  if ( !PMMG_resize_extCommArray(parmesh,&parmesh->ext_node_comm,i,
+                                 &parmesh->next_node_comm) )
+    return 0;
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
@@ -606,6 +675,11 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 1: initialization of the communicator */
   int_face_comm = parmesh->int_face_comm;
+
+  if ( !intvalues )
+    PMMG_MALLOC(parmesh,intvalues,int_face_comm->nitem,int,"intvalues",
+                 assert(0); return 0;);
+
   for ( k=0; k<int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
 
@@ -650,9 +724,8 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
       ext_face_comm->int_comm_index[nitem_ext++] = idx_int;
     }
-    PMMG_REALLOC(parmesh,ext_face_comm->int_comm_index,nitem_ext,
-                 ext_face_comm->nitem,int,"int_comm_index",return 0);
-    ext_face_comm->nitem = nitem_ext;
+    if ( !PMMG_resize_extComm(parmesh,ext_face_comm,nitem_ext,&ext_face_comm->nitem) )
+      return 0;
   }
 
   /** Step 5: Remove the empty external communicators */
@@ -664,13 +737,19 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
     if ( i!=k ) {
       parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
+      parmesh->ext_face_comm[i].nitem_to_share = ext_face_comm->nitem_to_share;
       parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
       parmesh->ext_face_comm[i].int_comm_index = ext_face_comm->int_comm_index;
+      parmesh->ext_face_comm[i].itosend        = ext_face_comm->itosend;
+      parmesh->ext_face_comm[i].itorecv        = ext_face_comm->itorecv;
+      parmesh->ext_face_comm[i].rtosend        = ext_face_comm->rtosend;
+      parmesh->ext_face_comm[i].rtorecv        = ext_face_comm->rtorecv;
     }
     ++i;
   }
-  PMMG_REALLOC(parmesh,parmesh->ext_face_comm,i,
-               parmesh->next_face_comm,PMMG_Ext_comm,"ext_face_comm",return 0);
+
+  PMMG_REALLOC(parmesh,parmesh->ext_face_comm,i,parmesh->next_face_comm,
+               PMMG_Ext_comm,"ext_face_comm",return 0);
   parmesh->next_face_comm = i;
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
@@ -771,7 +850,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
   PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
-  size_t        memAv;
+  size_t        memAv,oldMemMax;
   int           nprocs,ngrp,k,j,ier;
 
   nprocs = parmesh->nprocs;
@@ -779,6 +858,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   /** Step 0: Set mesh sizes to their minimal size and count the available
    * memory */
+  parmesh->memMax = parmesh->memCur;
   assert ( parmesh->memGloMax > parmesh->memMax );
   memAv = parmesh->memGloMax - parmesh->memMax;
   for ( k=0; k<ngrp; ++k ) {
@@ -793,6 +873,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   /* If this step is too expensive in memory, we can count the number of procs
      with which we will communicate and fill directly the pack array. */
+  oldMemMax        = parmesh->memMax;
   parmesh->memMax += memAv;
   PMMG_CALLOC( parmesh,grps,nprocs,PMMG_Grp,"Groups to send",return 0 );
 
@@ -839,14 +920,22 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     if ( meshJ->adja )
       PMMG_DEL_MEM(meshJ, meshJ->adja, 4*meshJ->nemax+5, int, "adjacency table" );
 
-    meshI->memMax = memAv;
+    /* Update the available memory and give it to the mesh */
+    assert ( meshI->memMax >= meshI->memCur );
+    assert ( meshJ->memMax >= meshJ->memCur );
+    memAv += ( meshI->memMax-meshI->memCur );
+    memAv += ( meshJ->memMax-meshJ->memCur );
+    meshI->memMax = meshI->memCur;
+    meshJ->memMax = meshJ->memCur;
+
+    PMMG_GIVE_AVMEM_TO_MESH(parmesh,meshI,memAv,oldMemMax);
+
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
 
     /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
-    if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
+    PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,meshI,memAv,oldMemMax);
 
-    memAv -= meshI->memCur;
-    meshI->memMax = meshI->memCur;
+    if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 
     /* Delete the useless group to gain memory space */
     memAv += meshJ->memCur;
@@ -885,7 +974,7 @@ end:
   assert ( PMMG_check_extFaceComm(parmesh) );
   assert ( PMMG_check_extNodeComm(parmesh) );
 
-  if ( !PMMG_parmesh_updateMemMax(parmesh, 105, 1) ) {
+  if ( !PMMG_parmesh_updateMemMax(parmesh, 5, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
             " between meshes and communicators.\n",__func__);
     return -1;
@@ -895,162 +984,9 @@ end:
 }
 
 /**
- * \param parmesh pointer toward a parmesh structure
- * \param grp_id id of the current group
- * \param source id or the proc from which we receive
- * \param tag communication tag (updated by the number of comms
- * \param size array to store the mesh size data
- * \param ismet 1 if we must received a metric field
- *
- * \return 1 if success, 0 if fail.
- *
- * Receive the needed info to allocate a mesh and a metric and perform the
- * wanted allocations.
- *
- */
-static
-int PMMG_mpirecv_meshSize( PMMG_pParMesh parmesh,int grp_id,int source,int *tag,
-                           int size[7],int *ismet )
-{
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
-  MPI_Status     status;
-
-  MMG3D_Init_mesh(MMG5_ARG_start,
-                  MMG5_ARG_ppMesh,&(parmesh->listgrp[grp_id].mesh),
-                  MMG5_ARG_ppMet ,&(parmesh->listgrp[grp_id].met),
-                  MMG5_ARG_end);
-
-  mesh = parmesh->listgrp[grp_id].mesh;
-
-  /** Get the mesh maximal authorized memory */
-  MPI_CHECK( MPI_Recv( &mesh->memMax,1,MPI_LONG_LONG,source,*tag,parmesh->comm,
-               &status),return 0 );
-  ++(*tag);
-
-  /** Get the mesh and met size:
-   * size[]=[mesh->np,mesh->ne,mesh->xp,mesh->xt,met->size,met->type,ismet] */
-  MPI_CHECK( MPI_Recv( size,7,MPI_INT,source,*tag,parmesh->comm,&status),
-             return 0 );
-  ++(*tag);
-
-  /** Mesh and metric allocations */
-  mesh->memCur = 0;
-  if ( !PMMG_grpSplit_setMeshSize( mesh,size[0],size[1],0,size[2],size[3] ) )
-    return 0;
-
-  met       = parmesh->listgrp[grp_id].met;
-  met->size = size[4];
-  met->type = size[5];
-  *ismet    = size[6];
-
-  if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,mesh->np,met->type) ) return 0;
-
-  /** Mark the mesh as not scaled */
-  mesh->info.delta = 1.;
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- * \param grp_id id of the current group
- * \param dest id of the proc to which we send data
- * \param tag tag of the first communication (updated by the number of comms)
- * \param size array to store the mesh size data
- *
- * \return 1 if success, 0 if fail.
- *
- * Fit the mesh and metric to its minimal size and send the needed info to
- * allocate its.
- *
- */
-static
-int PMMG_mpisend_meshSize( PMMG_pParMesh parmesh,int grp_id,int dest,int *tag,
-                           int size[7] )
-{
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
-  MPI_Comm       comm;
-
-  mesh = parmesh->listgrp[grp_id].mesh;
-  met  = parmesh->listgrp[grp_id].met;
-  comm = parmesh->comm;
-
-  /** Fit the mesh and metric at their minimal sizes */
-  PMMG_REALLOC(mesh,mesh->point,mesh->np+1,mesh->npmax+1,MMG5_Point,
-               "points",return 0);
-  mesh->npmax = mesh->np;
-  PMMG_REALLOC(mesh,mesh->xpoint,mesh->xp+1,mesh->xpmax+1,MMG5_xPoint,
-               "xpoints",return 0);
-  mesh->xpmax = mesh->xp;
-  PMMG_REALLOC(mesh,mesh->tetra,mesh->ne+1,mesh->nemax+1,MMG5_Tetra,
-               "tetra",return 0);
-  mesh->nemax = mesh->ne;
-  PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,MMG5_xTetra,
-               "xtetra",return 0);
-  mesh->xtmax = mesh->xt;
-
-  assert(met->npmax==mesh->npmax);
-  assert(met->np   == met->np);
-  PMMG_REALLOC(mesh,met->m,met->size*met->np+1,met->size*met->npmax+1,double,
-               "metric array",return 0);
-  met->npmax = met->np;
-
-  /** Send the mesh/met size:
-   * meshsize[]=[mesh->np,mesh->ne,mesh->xp,mesh->xt,
-   *             met->size,met->type,ismet] */
-  mesh->memMax = mesh->memCur;
-  MPI_CHECK( MPI_Send( &mesh->memMax,1,MPI_LONG_LONG,dest,*tag,comm ),
-             return 0 );
-  ++(*tag);
-
-  size[0] = mesh->np;
-  size[1] = mesh->ne;
-  size[2] = mesh->xp;
-  size[3] = mesh->xt;
-  size[4] = met->size;
-  size[5] = met->type;
-  size[6] = met->m ? 1:0;
-
-  MPI_CHECK( MPI_Send( size,7,MPI_INT,dest,*tag,comm ), return 0 );
-  ++(*tag);
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure.
- * \param dest rank of destination.
- * \param nsend number of mesh to send from \a source to \a dest
- * \param part pointer toward the metis array containing the partitions.
- *
- * \param next_comm2send number of external communicator to send to each proc
- *
- * \param ext_comms_next_idx[k] position of the external communicators to send
- * to the proc \a k+1 in the \a extComm_next_idx array.
- *
- * \param nitems2send number of items to send to each proc
- *
- * \param items_next_idx positions of the items to send to each proc in the
- * \a extComm_grpFaces* arrays
- *
- * \param extComm_next_idx \a extComm_next_idx[k] position of the external
- * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
- * that goes to a given proc (so for each proc, the communicator number 0 is at
- * position 0)
- *
- * \param extComm_grpFaces2face2int for each group, position of the group faces
- * that belongs to the external communicators in the face2int* arrays
- *
- * \param extComm_grpFaces2extComm for each group, position of the group faces
- * that belongs to the external communicators in the external communicators.
- *
- * \return -1 if fail, the number of groups successfully sended otherwise
- *
- * Send mesh, metric and internal face communicator of the groups that must go
- * to proc \a dest. Last, send the list of external communicators that must go
- * to \a dest
+ * \param grp pointer toward a PMMG_Grp structure.
+ * \param buffer pointer toward the buffer in which we pack the group
+ * \param idx index from which we start to write in \a buffer
  *
  * \warning the mesh prisms are not treated.
  *
@@ -1058,1047 +994,1574 @@ int PMMG_mpisend_meshSize( PMMG_pParMesh parmesh,int grp_id,int dest,int *tag,
  * point+xpoint+tetra+xtetra integer and char fields into one unique array and
  * the point+xpoint double fields into another one.
  *
- * \warning IMPROVEMENT: is it faster to communicate the xpoint+xtetra or the
- * loose it and build it again with a light analysis step?
+ * Pack a group into a double buffer to allow mpi communication.
  *
  */
 static
-int PMMG_send_grp( PMMG_pParMesh parmesh,int dest,
-                   int nsend,idx_t *part,int *next_comm2send,
-                   int *ext_comms_next_idx,int *nitems2send,int *items_next_idx,
-                   int *extComm_next_idx,int *extComm_grpFaces2face2int,
-                   int *extComm_grpFaces2extComm)
-{
-  PMMG_pExt_comm ext_comm,ext_comm_dest;
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
-  MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
-  MPI_Comm       comm;
-  int            *face2int_face_comm_idx1,*face2int_face_comm_idx2,nitem;
-  int            size[7],send_count,send_count2,tag,myrank,color_out;
-  int            grp_id_prev,grp_id,k,i,j,idx,idx_next,ext_comm_idx,item_idx;
-  int            ier,ismet,old_nitem;
+int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
+  const MMG5_pMesh mesh = grp->mesh;
+  const MMG5_pSol  met  = grp->met;
 
-  if ( !nsend ) return 0;
+  int k,i,idx;
 
-  ier = 1;
-  send_count = 0;
-
-  comm = parmesh->comm;
-
-  mpi_point  = NULL;
-  mpi_xpoint = NULL;
-  mpi_tetra  = NULL;
-  mpi_xtetra = NULL;
-
-  tag = MPI_SENDGRP_TAG;
-
-  grp_id = 0;
-  while ( send_count<nsend ) {
-
-    /* Id of the group to send */
-    while ( part[grp_id] != dest ) {
-      ++grp_id;
-    }
-
-    mesh = parmesh->listgrp[grp_id].mesh;
-    met  = parmesh->listgrp[grp_id].met;
-
-    /** Fit the mesh and metric at their minimal sizes and send the mesh sizes */
-    if ( !PMMG_mpisend_meshSize( parmesh,grp_id,dest,&tag,size ) ) ier=0;
-
-    /** Send mesh */
-    /* Create mesh type */
-    if ( !PMMG_create_MPI_Point( mesh->point,  &mpi_point ) ) ier=0;
-    if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) ier=0;
-    if ( !PMMG_create_MPI_Tetra( mesh->tetra,  &mpi_tetra ) ) ier=0;
-    if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) ier=0;
-
-    MPI_CHECK( MPI_Send( &mesh->point[1] ,mesh->np,mpi_point,dest,tag,comm),
-               ier=0 );
-
-    ++tag;
-    MPI_CHECK( MPI_Send( &mesh->xpoint[1],mesh->xp,mpi_xpoint,dest,tag,comm),
-               ier=0 );
-
-    ++tag;
-    MPI_CHECK( MPI_Send( &mesh->tetra[1] ,mesh->ne,mpi_tetra,dest,tag,comm),
-               ier=0 );
-
-    ++tag;
-    MPI_CHECK( MPI_Send( &mesh->xtetra[1],mesh->xt,mpi_xtetra,dest,tag,comm),
-               ier=0 );
-    ++tag;
-
-    ismet = met->m ? 1 : 0;
-    if ( ismet ) {
-      MPI_CHECK( MPI_Send( met->m,met->size*met->np,MPI_DOUBLE,dest,tag,comm),
-                 ier=0 );
-      ++tag;
-    }
-
-    PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
-
-    /** Free useless mesh */
-    /* 1: mesh */
-    PMMG_DEL_MEM(mesh,mesh->point, mesh->npmax+1,MMG5_Point,"point");
-    PMMG_DEL_MEM(mesh,mesh->tetra, mesh->nemax+1,MMG5_Tetra,"tetra");
-    PMMG_DEL_MEM(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,"xpoint");
-    PMMG_DEL_MEM(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,"xtetra");
-    if ( mesh->adja ) {
-      PMMG_DEL_MEM( mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table");
-    }
-    if ( ismet )
-      PMMG_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size,double,"metric");
-
-    mesh->np = mesh->npmax = 0;
-    mesh->xp = mesh->xpmax = 0;
-    mesh->ne = mesh->nemax = 0;
-    mesh->xt = mesh->xtmax = 0;
-
-    MMG3D_Free_all( MMG5_ARG_start,
-                    MMG5_ARG_ppMesh, &parmesh->listgrp[grp_id].mesh,
-                    MMG5_ARG_ppMet, &parmesh->listgrp[grp_id].met,
-                    MMG5_ARG_end );
-
-    /** Send the internal face communicator of the group */
-    face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
-    nitem                   = parmesh->listgrp[grp_id].nitem_int_face_comm;
-    MPI_CHECK( MPI_Send(face2int_face_comm_idx1,nitem,MPI_INT,dest,tag,
-                        parmesh->comm),ier = 0 );
-    ++tag;
-
-    /* If we fail to send this group, try to keep things clean to be able to
-     * save something */
-    if ( !ier ) break;
-
-    ++send_count;
+  idx = 0;
+  if ( !grp->mesh ) {
+    /* unused group */
+    return sizeof(int);
   }
 
-  /** Send the list of external commnicators that must go on dest because the
-   * groups are going on dest and update the local external communicators:
-   *
-   * - Remove the external group faces from the suitable external comms
-   *
-   * - Add the internal group faces to the suitable external communicator
-   */
-  ier = 1;
-  send_count2 = 0;
+  /* used group */
+  idx += sizeof(int);
 
-  /* Position of the external communicators in the global arrays */
-  if ( !dest ) {
-    ext_comm_idx = 0;
-    item_idx     = 0;
+  /** Mesh size */
+  idx += sizeof(int); // mesh->np;
+  idx += sizeof(int); // mesh->xp;
+  idx += sizeof(int); // mesh->ne;
+  idx += sizeof(int); // mesh->xt;
+
+  /** Mesh infos */
+  idx += sizeof(double); // mesh->info.delta;
+  idx += sizeof(double); // mesh->info.min[0];
+  idx += sizeof(double); // mesh->info.min[1];
+  idx += sizeof(double); // mesh->info.min[2];
+
+  /** Metric info and sizes */
+  idx += sizeof(int); // (met->m ? 1 : 0 );
+  idx += sizeof(int); // met->size;
+  idx += sizeof(int); // met->type;
+
+  /** Communicator sizes */
+  idx += sizeof(int); // grp->nitem_int_node_comm;
+  idx += sizeof(int); // grp->nitem_int_face_comm;
+
+  /** Pack mesh points */
+  for ( k=1; k<=mesh->np; ++k ) {
+    /* Coordinates */
+    idx += sizeof(double); // mesh->point[k].c[0];
+    idx += sizeof(double); // mesh->point[k].c[1];
+    idx += sizeof(double); // mesh->point[k].c[2];
+    /* Tangent */
+    idx += sizeof(double); // mesh->point[k].n[0];
+    idx += sizeof(double); // mesh->point[k].n[1];
+    idx += sizeof(double); // mesh->point[k].n[2];
+    /* Pointer toward the boundary entity */
+    idx += sizeof(int); // mesh->point[k].xp;
+    /* Ref */
+    idx += sizeof(int); // mesh->point[k].ref;
+    /* Tag */
+    idx += sizeof(int16_t); // mesh->point[k].tag;
   }
-  else {
-    ext_comm_idx = ext_comms_next_idx[dest-1];
-    item_idx     =     items_next_idx[dest-1];
+
+  /** Pack mesh boundary points */
+  for ( k=1; k<=mesh->xp; ++k ) {
+    /* First normal */
+    idx += sizeof(double); // mesh->xpoint[k].n1[0];
+    idx += sizeof(double); // mesh->xpoint[k].n1[1];
+    idx += sizeof(double); // mesh->xpoint[k].n1[2];
+    /* Second normal */
+    idx += sizeof(double); // mesh->xpoint[k].n2[0];
+    idx += sizeof(double); // mesh->xpoint[k].n2[1];
+    idx += sizeof(double); // mesh->xpoint[k].n2[2];
   }
 
-  MPI_CHECK( MPI_Send(&extComm_next_idx[ext_comm_idx],next_comm2send[dest],
-                      MPI_INT,dest,tag,comm),ier = 0 );
-  ++tag;
+  /** Pack mesh elements */
+  for ( k=1; k<=mesh->ne; ++k ) {
+    /* Tetra vertices */
+    idx += sizeof(int); // mesh->tetra[k].v[0];
+    idx += sizeof(int); // mesh->tetra[k].v[1];
+    idx += sizeof(int); // mesh->tetra[k].v[2];
+    idx += sizeof(int); // mesh->tetra[k].v[3];
+    /* Pointer toward the boundary entity */
+    idx += sizeof(int); // mesh->tetra[k].xt;
+    /* Ref */
+    idx += sizeof(int); // mesh->tetra[k].ref;
+    /* Tag */
+    idx += sizeof(int16_t); // mesh->tetra[k].tag;
+    /* Quality */
+    idx += sizeof(double); // mesh->tetra[k].qual;
+  }
 
-  MPI_CHECK( MPI_Send(&extComm_grpFaces2face2int[item_idx],nitems2send[dest],
-                      MPI_INT,dest,tag,comm),ier = 0 );
-  ++tag;
+  /** Pack mesh boundary tetra */
+  for ( k=1; k<=mesh->xt; ++k ) {
+    /* Faces references  */
+    idx += sizeof(int); // mesh->xtetra[k].ref[0];
+    idx += sizeof(int); // mesh->xtetra[k].ref[1];
+    idx += sizeof(int); // mesh->xtetra[k].ref[2];
+    idx += sizeof(int); // mesh->xtetra[k].ref[3];
+    /* Faces tags */
+    idx += sizeof(int16_t); // mesh->xtetra[k].ftag[0];
+    idx += sizeof(int16_t); // mesh->xtetra[k].ftag[1];
+    idx += sizeof(int16_t); // mesh->xtetra[k].ftag[2];
+    idx += sizeof(int16_t); // mesh->xtetra[k].ftag[3];
+    /* Edges references  */
+    idx += sizeof(int); // mesh->xtetra[k].edg[0];
+    idx += sizeof(int); // mesh->xtetra[k].edg[1];
+    idx += sizeof(int); // mesh->xtetra[k].edg[2];
+    idx += sizeof(int); // mesh->xtetra[k].edg[3];
+    idx += sizeof(int); // mesh->xtetra[k].edg[4];
+    idx += sizeof(int); // mesh->xtetra[k].edg[5];
+    /* Edges tags */
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[0];
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[1];
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[2];
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[3];
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[4];
+    idx += sizeof(int16_t); // mesh->xtetra[k].tag[5];
+  }
 
-  /* Update of the communicator */
-  /* Search the external comm myrank-dest */
-  ext_comm_dest = NULL;
-  for ( k=0; k<parmesh->next_face_comm; ++k ) {
-    if ( parmesh->ext_face_comm[k].color_out == dest ) {
-      ext_comm_dest = &parmesh->ext_face_comm[k];
-      break;
+  /** Pack metric */
+  if ( met->m ) {
+    for ( k=1; k<=met->np; ++k ) {
+      for ( i=0; i<met->size; ++i ) {
+        idx += sizeof(double); // met->m[met->size*k + i];
+      }
     }
   }
 
-  /* Process the external communicators */
-  myrank   = parmesh->myrank;
-  idx_next = item_idx;
-  grp_id   = PMMG_UNSET;
-
-  for ( k=0; k<next_comm2send[dest]; ++k ) {
-    idx         = idx_next;
-    idx_next    = item_idx + extComm_next_idx[ext_comm_idx+k];
-    nitem       = idx_next-idx-2;
-
-    grp_id_prev = grp_id;
-    grp_id      = extComm_grpFaces2extComm[idx+nitem];
-    /* Color_out of the external communicator to be able to detect the faces
-     * to remove (myrank-dest) */
-    color_out   = extComm_grpFaces2face2int[idx+nitem+1];
-
-    if ( grp_id != grp_id_prev ) {
-      /* Avoid the update of the communicator for a group that has not been
-       * sended */
-      if ( send_count2==send_count ) break;
-    }
-
-    if ( color_out == myrank ) {
-
-      /* Add the new external faces */
-      if ( !ext_comm_dest ) {
-        /* Creation of a new external communicator */
-        PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
-                     parmesh->next_face_comm+1,parmesh->next_face_comm,
-                     PMMG_Ext_comm,"list of external communicators",ier=-1);
-        parmesh->next_face_comm = parmesh->next_face_comm+1;
-
-        ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
-        ext_comm->color_in       = myrank;
-        ext_comm->color_out      = dest;
-        ext_comm->nitem          = 0;
-        ext_comm->int_comm_index = NULL;
-        ext_comm_dest            = ext_comm;
-      }
-      else ext_comm = ext_comm_dest;
-
-      /* New interface faces adding */
-      face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-
-      PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem,
-                   ext_comm->nitem,int,"int_comm_index",ier=-1);
-      old_nitem = ext_comm->nitem;
-      ext_comm->nitem += nitem;
-
-      for ( j=0; j<nitem; ++j ) {
-        i = face2int_face_comm_idx2[extComm_grpFaces2face2int[j+idx-item_idx]];
-        ext_comm->int_comm_index[old_nitem+j] = i;
-      }
-    }
-    else {
-      if ( color_out == dest ) {
-        /* We need to send the extComm_grpFaces2extComm array to allow dest to
-         * remove the old external faces from its communicator */
-        MPI_CHECK( MPI_Send(&extComm_grpFaces2extComm[idx],nitem+2,
-                            MPI_INT,dest,tag,comm),ier = 0 );
-        ++tag;
-      }
-
-      /* Remove the old external faces of the group */
-      for ( i=0; i<parmesh->next_face_comm; ++i ) {
-        ext_comm = &parmesh->ext_face_comm[i];
-        if ( ext_comm->color_out == color_out ) break;
-      }
-      for ( j=idx; j<idx_next-2; ++j ) {
-        ext_comm->int_comm_index[extComm_grpFaces2extComm[j]] = PMMG_UNSET;
-      }
-    }
-
-    if ( grp_id != grp_id_prev ) ++send_count2;
-
-    if ( ier<=0 ) goto end;
+  /** Pack communicators */
+  /* Node communicator */
+  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+    idx += sizeof(int); // grp->node2int_node_comm_index1[k];
+  }
+  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+    idx += sizeof(int); // grp->node2int_node_comm_index2[k];
+  }
+  /* Face communicator */
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    idx += sizeof(int); // grp->face2int_face_comm_index1[k];
+  }
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    idx += sizeof(int); // grp->face2int_face_comm_index2[k];
   }
 
-  /* Success */
-  ier = 1;
-
-end:
-  PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
-
-  if ( ier<0 || send_count2!=send_count )
-    return -1;
-  else
-    return send_count;
+  return idx;
 }
 
 /**
- * \param parmesh pointer toward a parmesh structure
- * \param first_grp_id id of the first available group (updated)
- * \param source rank of source.
- * \param nrecv number of groups to receive from the proc source.
+ * \param grp pointer toward a PMMG_Grp structure.
+ * \param buffer pointer toward the buffer in which we pack the group
  *
- * \return -1 if fail, the number of groups successfully received (so nrecv if
- * success)
+ * \warning the mesh prisms are not treated.
  *
- * Receive mesh, metric and internal face communicator from proc \a source.
- * Last, recv the list of external communicators that comes from \a dest.
+ * \remark To store the correct value of a variable of type "x" into buffer, we
+ * need to cast the void pointer toward the buffer into a pointer toward a
+ * buffer of type "x". Then we can store the variable value by dereferencing the
+ * adress of the buffer.
  *
- * \remark the prism communication is not yet implemented
- *
- * \warning IMPROVEMENT: try to move the creation of mpi_types outside the loop
+ * Pack a group into a buffer (to allow mpi communication) and shift the buffer
+ * pointer at the end of the written area.
  *
  */
-int PMMG_recv_grp( PMMG_pParMesh parmesh,int *first_grp_id,int source,int nrecv)
-{
-  PMMG_pExt_comm ext_comm_col_out_ptr,ext_comm;
-  PMMG_pInt_comm int_comm;
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met;
-  MPI_Comm       comm;
-  MPI_Datatype   mpi_point,mpi_xpoint,mpi_tetra,mpi_xtetra;
-  int            myrank;
-  int            *face2int_face_comm_idx1,*face2int_face_comm_idx2,nitem;
-  int            *extComm_next_idx_recv,*extComm_grpFaces2face2int_recv;
-  int            *extComm_grpFaces2extComm_recv;
-  int            size[7],tag,next_comm2recv,nitems2recv,nitem_recv,color_out;
-  int            grp_id,ier,ismet,k,j,irecv,cur_grp_id,idx,idx_next,grp_idx;
-  int            idx_in_face2int,pos_in_int_comm,old_nitem;
-  MPI_Status     status;
+static
+int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
+  const MMG5_pMesh mesh = grp->mesh;
+  const MMG5_pSol  met  = grp->met;
 
-  if ( !nrecv ) return 0;
+  int   k,i,ier;
+  char  *tmp;
 
-  ier = -1;
+  ier = 1;
 
-  comm   = parmesh->comm;
-  myrank = parmesh->myrank;
+  tmp = *buffer;
 
-  mpi_xtetra = NULL;
-  mpi_tetra  = NULL;
-  mpi_xpoint = NULL;
-  mpi_point  = NULL;
+  if ( !grp->mesh ) {
+    /* unused group */
+    *( (int *) tmp ) = 0; tmp += sizeof(int);
 
-  extComm_next_idx_recv          = NULL;
-  extComm_grpFaces2face2int_recv = NULL;
-
-  tag = MPI_SENDGRP_TAG;
-
-  for ( irecv=0; irecv<nrecv; ++irecv ) {
-
-    grp_id = (*first_grp_id)+irecv;
-
-    /** Get the mesh size */
-    if ( !PMMG_mpirecv_meshSize( parmesh,grp_id,source,&tag,size,&ismet ) )
-      goto end;
-
-    mesh = parmesh->listgrp[grp_id].mesh;
-    met  = parmesh->listgrp[grp_id].met;
-
-    /* Create mesh type */
-    if ( !PMMG_create_MPI_Point( mesh->point,  &mpi_point ) ) goto end;
-    if ( !PMMG_create_MPI_xPoint(mesh->xpoint, &mpi_xpoint) ) goto end;
-    if ( !PMMG_create_MPI_Tetra( mesh->tetra,  &mpi_tetra ) ) goto end;
-    if ( !PMMG_create_MPI_xTetra(mesh->xtetra, &mpi_xtetra) ) goto end;
-
-    /** Recv mesh */
-    MPI_CHECK( MPI_Recv(&mesh->point[1],mesh->np,mpi_point,source,tag,comm,
-                        &status),goto end);
-    ++tag;
-    MPI_CHECK( MPI_Recv(&mesh->xpoint[1],mesh->xp,mpi_xpoint,source,tag,comm,
-                        &status),goto end);
-    ++tag;
-    MPI_CHECK( MPI_Recv( &mesh->tetra[1] ,mesh->ne,mpi_tetra, source,tag,comm,
-                         &status),goto end);
-    ++tag;
-    MPI_CHECK( MPI_Recv( &mesh->xtetra[1],mesh->xt,mpi_xtetra,source,tag,comm,
-                         &status),goto end);
-    ++tag;
-
-    /** Recv metric */
-    if ( ismet ) {
-      MPI_CHECK( MPI_Recv( met->m,met->size*met->np,MPI_DOUBLE,source,tag,comm,
-                   &status),goto end );
-      ++tag;
-    }
-
-    PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
-
-    /** Recv the internal face communicator of the group */
-    MPI_Probe(source,tag,comm,&status);
-    MPI_Get_count(&status,MPI_INT,&nitem);
-
-    PMMG_MALLOC(parmesh,parmesh->listgrp[grp_id].face2int_face_comm_index1,nitem,
-                int,"alloc face2int_face_comm_index1 ",goto end);
-    PMMG_MALLOC(parmesh,parmesh->listgrp[grp_id].face2int_face_comm_index2,nitem,
-                int,"alloc face2int_face_comm_index2 ",goto end);
-    parmesh->listgrp[grp_id].nitem_int_face_comm = nitem;
-
-    face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
-
-    MPI_CHECK( MPI_Recv(face2int_face_comm_idx1,nitem,MPI_INT,source,tag,comm,
-                        &status),goto end );
-
-#ifndef NDEBUG
-    face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-    for ( j=0; j<parmesh->listgrp[grp_id].nitem_int_face_comm; ++j )
-      face2int_face_comm_idx2[j] = PMMG_UNSET;
-#endif
-
-    ++tag;
+    return ier;
   }
 
-  /** Recv the list of external commnicators that comes from source because
-   * source send us groups */
-  MPI_Probe(source,tag,comm,&status);
-  MPI_Get_count(&status,MPI_INT,&next_comm2recv);
+  /* used group */
+  *( (int *) tmp) = 1; tmp += sizeof(int);
 
-  PMMG_MALLOC(parmesh,extComm_next_idx_recv,next_comm2recv,int,
-              "extComm_next_idx",goto end);
+  /** Mesh size */
+  *( (int *) tmp) = mesh->np; tmp += sizeof(int);
+  *( (int *) tmp) = mesh->xp; tmp += sizeof(int);
+  *( (int *) tmp) = mesh->ne; tmp += sizeof(int);
+  *( (int *) tmp) = mesh->xt; tmp += sizeof(int);
 
-  MPI_CHECK( MPI_Recv(extComm_next_idx_recv,next_comm2recv,
-                      MPI_INT,source,tag,comm,&status),ier = 0 );
-  ++tag;
+  /** Mesh infos */
+  *( (double *) tmp) = mesh->info.delta;  tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[0]; tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[1]; tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[2]; tmp += sizeof(double);
 
-  MPI_Probe(source,tag,parmesh->comm,&status);
-  MPI_Get_count(&status,MPI_INT,&nitems2recv);
+  /** Metric info and sizes */
+  assert ( mesh->npmax == met->npmax );
+  assert ( mesh->np    == met->np    );
 
-  PMMG_MALLOC(parmesh,extComm_grpFaces2face2int_recv,nitems2recv,int,
-              "extComm_grpFaces2face2int",goto end);
+  *( (int *) tmp) = (met->m ? 1 : 0 );  tmp += sizeof(int);
+  *( (int *) tmp) = met->size;          tmp += sizeof(int);
+  *( (int *) tmp) = met->type;          tmp += sizeof(int);
 
-  MPI_CHECK( MPI_Recv(extComm_grpFaces2face2int_recv,nitems2recv,
-                      MPI_INT,source,tag,comm,&status),ier = 0 );
-  ++tag;
+  /** Communicator sizes */
+  *( (int *) tmp) = grp->nitem_int_node_comm; tmp += sizeof(int);
+  *( (int *) tmp) = grp->nitem_int_face_comm; tmp += sizeof(int);
 
-  grp_id      = (*first_grp_id);
-  cur_grp_id  = extComm_grpFaces2face2int_recv[extComm_next_idx_recv[0]-2];
-
-  int_comm  = parmesh->int_face_comm;
-  idx       = 0;
-  for ( j=0; j<next_comm2recv; ++j ) {
-    idx_next  = extComm_next_idx_recv[j];
-    nitem     = idx_next-idx;
-    grp_idx   = extComm_grpFaces2face2int_recv[idx_next-2];
-    color_out = extComm_grpFaces2face2int_recv[idx_next-1];
-
-    /* Group that we want to update */
-    if ( grp_idx != cur_grp_id ) ++grp_id;
-    cur_grp_id = grp_idx;
-
-    face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-    face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
-
-    if ( color_out == myrank ) {
-      /* Delete the old external faces between source and myrank (both groups
-       * are now on the myrank processor) */
-
-      /* Search the myrank-source communicator */
-      ext_comm = NULL;
-      for ( k=0; k<parmesh->next_face_comm; ++k ) {
-        if ( parmesh->ext_face_comm[k].color_out == source ) {
-          ext_comm = &parmesh->ext_face_comm[k];
-          break;
-        }
-      }
-
-      assert ( ext_comm &&
-               "Faces to delete in a not found communicator" );
-
-      /* Receive the additional data nedded to treat this case : the position of
-       * the old faces in the external communicator */
-      MPI_Probe(source,tag,parmesh->comm,&status);
-      MPI_Get_count(&status,MPI_INT,&nitem_recv);
-
-      PMMG_MALLOC(parmesh,extComm_grpFaces2extComm_recv,nitem_recv,int,
-                  "extComm_grpFaces2extComm",goto end);
-
-      MPI_CHECK( MPI_Recv(extComm_grpFaces2extComm_recv,nitem_recv,
-                          MPI_INT,source,tag,comm,&status),ier = 0 );
-      ++tag;
-
-      assert ( extComm_grpFaces2extComm_recv[nitem_recv-1]==color_out );
-
-      /* Get the position of the face in the internal comm and update \a
-       * face2int_face_comm_index2. Delete the face from the external comm. */
-      for ( k=0; k<nitem_recv-2; ++k ) {
-        idx_in_face2int = extComm_grpFaces2face2int_recv[k+idx];
-        pos_in_int_comm = ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]];
-
-        if ( pos_in_int_comm < 0 ) {
-          /* This position has been deleted by the migration of another group */
-          pos_in_int_comm = int_comm->nitem++;
-        }
-
-        face2int_face_comm_idx2[idx_in_face2int] = pos_in_int_comm;
-        ext_comm->int_comm_index[extComm_grpFaces2extComm_recv[k]] = PMMG_UNSET;
-      }
-      PMMG_DEL_MEM(parmesh,extComm_grpFaces2extComm_recv,nitem_recv,int,
-                   "extComm_grpFaces2extComm");
-
-    }
-    else {
-      /* Search the index of the myrank-color_out communicator */
-      for ( k=0; k<parmesh->next_face_comm; ++k ) {
-        if ( parmesh->ext_face_comm[k].color_out == color_out ) {
-          ext_comm_col_out_ptr = &parmesh->ext_face_comm[k];
-          break;
-        }
-      }
-
-      /* Add the new external faces in the external communicator
-       * myrank-color_out */
-      if ( !ext_comm_col_out_ptr ) {
-        /* Creation of a new external communicator */
-        PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
-                     parmesh->next_face_comm+1,parmesh->next_face_comm,
-                     PMMG_Ext_comm,"list of external communicators",goto end);
-        parmesh->next_face_comm = parmesh->next_face_comm+1;
-        ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm];
-        ext_comm->color_in  = parmesh->myrank;
-        ext_comm->color_out = k;
-        ext_comm->nitem     = 0;
-        ext_comm_col_out_ptr = ext_comm;
-      }
-      else {
-        /* Completion of the existing external communicator */
-        ext_comm = ext_comm_col_out_ptr;
-      }
-
-      /* New interface faces adding */
-      assert(nitem && "nothing to add... weird");
-      PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem-2,
-                   ext_comm->nitem,int,"int_comm_index",goto end);
-      old_nitem = ext_comm->nitem;
-      ext_comm->nitem += nitem-2;
-
-      /* Assign a position in the internal comm to the face */
-      for ( k=0; k<nitem-2; ++k ) {
-        idx_in_face2int = extComm_grpFaces2face2int_recv[k+idx];
-        face2int_face_comm_idx2[idx_in_face2int]    = int_comm->nitem;
-        ext_comm->int_comm_index[old_nitem+k]       = int_comm->nitem++;
-      }
-    }
-    idx = idx_next;
+  /** Pack mesh points */
+  for ( k=1; k<=mesh->np; ++k ) {
+    /* Coordinates */
+    *( (double *) tmp) = mesh->point[k].c[0]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->point[k].c[1]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->point[k].c[2]; tmp += sizeof(double);
+    /* Tangent */
+    *( (double *) tmp) = mesh->point[k].n[0]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->point[k].n[1]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->point[k].n[2]; tmp += sizeof(double);
+    /* Pointer toward the boundary entity */
+    *( (int *) tmp) = mesh->point[k].xp; tmp += sizeof(int);
+    /* Ref */
+    *( (int *) tmp) = mesh->point[k].ref; tmp += sizeof(int);
+    /* Tag */
+    *( (int16_t *) tmp) = mesh->point[k].tag; tmp += sizeof(int16_t);
   }
-  assert ( grp_id==(*first_grp_id)+nrecv-1 );
 
-end:
-  if ( extComm_next_idx_recv )
-    PMMG_DEL_MEM(parmesh,extComm_next_idx_recv,next_comm2recv,int,
-                 "extComm_next_idx");
-  if ( extComm_grpFaces2face2int_recv )
-    PMMG_DEL_MEM(parmesh,extComm_grpFaces2face2int_recv,nitems2recv,int,
-                 "extComm_grpFaces2face2int");
+  /** Pack mesh boundary points */
+  for ( k=1; k<=mesh->xp; ++k ) {
+    /* First normal */
+    *( (double *) tmp) = mesh->xpoint[k].n1[0]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->xpoint[k].n1[1]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->xpoint[k].n1[2]; tmp += sizeof(double);
+    /* Second normal */
+    *( (double *) tmp) = mesh->xpoint[k].n2[0]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->xpoint[k].n2[1]; tmp += sizeof(double);
+    *( (double *) tmp) = mesh->xpoint[k].n2[2]; tmp += sizeof(double);
+  }
 
-  PMMG_Free_MPI_meshDatatype( &mpi_point,&mpi_xpoint,&mpi_tetra,&mpi_xtetra );
+  /** Pack mesh elements */
+  for ( k=1; k<=mesh->ne; ++k ) {
+    /* Tetra vertices */
+    *( (int *) tmp) = mesh->tetra[k].v[0]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->tetra[k].v[1]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->tetra[k].v[2]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->tetra[k].v[3]; tmp += sizeof(int);
+    /* Pointer toward the boundary entity */
+    *( (int *) tmp) = mesh->tetra[k].xt; tmp += sizeof(int);
+    /* Ref */
+    *( (int *) tmp) = mesh->tetra[k].ref; tmp += sizeof(int);
+    /* Tag */
+    *( (int16_t *) tmp) = mesh->tetra[k].tag; tmp += sizeof(int16_t);
+    /* Quality */
+    *( (double *) tmp) = mesh->tetra[k].qual; tmp += sizeof(double);
+  }
 
-  (*first_grp_id) += irecv;
+  /** Pack mesh boundary tetra */
+  for ( k=1; k<=mesh->xt; ++k ) {
+    /* Faces references  */
+    *( (int *) tmp) = mesh->xtetra[k].ref[0]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].ref[1]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].ref[2]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].ref[3]; tmp += sizeof(int);
+    /* Faces tags */
+    *( (int16_t *) tmp) = mesh->xtetra[k].ftag[0]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].ftag[1]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].ftag[2]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].ftag[3]; tmp += sizeof(int16_t);
+    /* Edges references  */
+    *( (int *) tmp) = mesh->xtetra[k].edg[0]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].edg[1]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].edg[2]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].edg[3]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].edg[4]; tmp += sizeof(int);
+    *( (int *) tmp) = mesh->xtetra[k].edg[5]; tmp += sizeof(int);
+    /* Edges tags */
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[0]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[1]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[2]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[3]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[4]; tmp += sizeof(int16_t);
+    *( (int16_t *) tmp) = mesh->xtetra[k].tag[5]; tmp += sizeof(int16_t);
+  }
 
-  return irecv;
+  /** Pack metric */
+  if ( met->m ) {
+    for ( k=1; k<=met->np; ++k ) {
+      for ( i=0; i<met->size; ++i ) {
+        *( (int16_t *) tmp) = met->m[met->size*k + i]; tmp += sizeof(double);
+      }
+    }
+  }
+
+  /** Pack communicators */
+  /* Node communicator */
+  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+    *( (int *) tmp) = grp->node2int_node_comm_index1[k]; tmp += sizeof(int);
+  }
+  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+    *( (int *) tmp) = grp->node2int_node_comm_index2[k]; tmp += sizeof(int);
+  }
+  /* Face communicator */
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    *( (int *) tmp) = grp->face2int_face_comm_index1[k]; tmp += sizeof(int);
+  }
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    *( (int *) tmp) = grp->face2int_face_comm_index2[k]; tmp += sizeof(int);
+  }
+
+  *buffer = tmp;
+
+  return ier;
+}
+
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param grp pointer toward a PMMG_Grp structure.
+ * \param buffer pointer toward the buffer in which we unpack the group
+ * \param memAv pointer toward the available memory whose value is updated.
+ *
+ * \warning the mesh prisms are not treated.
+ *
+ * Upack a group from a double buffer and shift the pointer toward the buffer to
+ * point to the next group stored in the buffer.
+ *
+ * \remark  To get the correct value of a variable
+ * of type "x", we need to cast the void pointer toward the buffer into a
+ * pointer toward a buffer of type "x". Then we can get the variable value by
+ * dereferencing the adress of the buffer.
+ *
+ */
+static
+int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
+                         size_t *memAv) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  double     ddummy;
+  int        k,i,ier,ier_grp,ier_mesh,ier_sol,ier_comm,np,xp,ne,xt;
+  int        size,ismet,used,idummy;
+  int16_t    i16dummy;
+
+  ier = 1;
+
+  used = *( (int *) *buffer ); *buffer += sizeof(int);
+  if ( !used ) {
+    /* unused group */
+    return ier;
+  }
+
+  /* used group */
+  /** Mesh size */
+  ier_grp = MMG3D_Init_mesh(MMG5_ARG_start,
+                            MMG5_ARG_ppMesh,&(grp->mesh),
+                            MMG5_ARG_ppMet ,&(grp->met),
+                            MMG5_ARG_end);
+
+  mesh = grp->mesh;
+  met  = grp->met;
+
+  /** Get the mesh maximal authorized memory */
+  np = *( (int *) *buffer); *buffer += sizeof(int);
+  xp = *( (int *) *buffer); *buffer += sizeof(int);
+  ne = *( (int *) *buffer); *buffer += sizeof(int);
+  xt = *( (int *) *buffer); *buffer += sizeof(int);
+
+  if ( ier_grp ) {
+    /* Give all the available memory to the mesh */
+    mesh->memMax = *memAv;
+
+    /** Set the mesh size */
+    ier_mesh = PMMG_grpSplit_setMeshSize( mesh,np,ne,0,xp,xt );
+  }
+  else ier = ier_mesh = 0;
+
+  if ( ier_mesh ) {
+    /** Mesh infos */
+    mesh->info.delta  = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.min[0] = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.min[1] = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.min[2] = *( (double *) *buffer); *buffer += sizeof(double);
+  }
+  else {
+    ier = 0;
+    /** Mesh infos */
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+  }
+
+  /** Metric info and sizes */
+  ismet     = *( (int *) *buffer); *buffer += sizeof(int);
+  size      = *( (int *) *buffer); *buffer += sizeof(int);
+
+  np = ismet ? mesh->np : 0;
+
+  if ( ier_grp ) {
+    met->size = size;
+    /** Metric type */
+    met->type = *( (int *) *buffer); *buffer += sizeof(int);
+
+    /** Set the metric size */
+    ier_sol = MMG3D_Set_solSize(mesh,met,MMG5_Vertex,np,met->type);
+
+    /* Use exactly the amount of needed memory for this mesh and metric */
+    mesh->memMax = mesh->memCur;
+
+    /* Update the available memory count */
+    *memAv -= mesh->memMax;
+
+    ier = MG_MIN ( ier, ier_sol );
+  }
+  else {
+    ier = ier_sol = 0;
+    /** Metric type */
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+  }
+
+  /** Communicator sizes */
+  grp->nitem_int_node_comm = *( (int *) *buffer); *buffer += sizeof(int);
+  grp->nitem_int_face_comm = *( (int *) *buffer); *buffer += sizeof(int);
+
+  if ( ier_mesh ) {
+    /** Get mesh points */
+    for ( k=1; k<=mesh->np; ++k ) {
+      /* Coordinates */
+      mesh->point[k].c[0] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->point[k].c[1] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->point[k].c[2] = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Tangent */
+      mesh->point[k].n[0] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->point[k].n[1] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->point[k].n[2] = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Pointer toward the boundary entity */
+      mesh->point[k].xp = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Ref */
+      mesh->point[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Tag */
+      mesh->point[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+    }
+
+    /** Pack mesh boundary points */
+    for ( k=1; k<=mesh->xp; ++k ) {
+      /* First normal */
+      mesh->xpoint[k].n1[0] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->xpoint[k].n1[1] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->xpoint[k].n1[2] = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Second normal */
+      mesh->xpoint[k].n2[0] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->xpoint[k].n2[1] = *( (double *) *buffer); *buffer += sizeof(double);
+      mesh->xpoint[k].n2[2] = *( (double *) *buffer); *buffer += sizeof(double);
+    }
+
+    /** Pack mesh elements */
+    for ( k=1; k<=mesh->ne; ++k ) {
+      /* Tetra vertices */
+      mesh->tetra[k].v[0] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->tetra[k].v[1] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->tetra[k].v[2] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->tetra[k].v[3] = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Pointer toward the boundary entity */
+      mesh->tetra[k].xt = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Ref */
+      mesh->tetra[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Tag */
+      mesh->tetra[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      /* Quality */
+      mesh->tetra[k].qual = *( (double *) *buffer); *buffer += sizeof(double);
+    }
+
+    /** Pack mesh boundary tetra */
+    for ( k=1; k<=mesh->xt; ++k ) {
+      /* Faces references  */
+      mesh->xtetra[k].ref[0] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].ref[1] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].ref[2] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].ref[3] = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Faces tags */
+      mesh->xtetra[k].ftag[0] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].ftag[1] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].ftag[2] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].ftag[3] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      /* Edges references  */
+      mesh->xtetra[k].edg[0] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].edg[1] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].edg[2] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].edg[3] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].edg[4] = *( (int *) *buffer); *buffer += sizeof(int);
+      mesh->xtetra[k].edg[5] = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Edges tags */
+      mesh->xtetra[k].tag[0] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].tag[1] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].tag[2] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].tag[3] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].tag[4] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      mesh->xtetra[k].tag[5] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+    }
+  }
+  else {
+    /* The mesh can't be allocated */
+   /** Get mesh points */
+    for ( k=1; k<=mesh->np; ++k ) {
+      /* Coordinates */
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Tangent */
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Pointer toward the boundary entity */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Ref */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Tag */
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+    }
+
+    /** Pack mesh boundary points */
+    for ( k=1; k<=mesh->xp; ++k ) {
+      /* First normal */
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      /* Second normal */
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+      ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    }
+
+    /** Pack mesh elements */
+    for ( k=1; k<=mesh->ne; ++k ) {
+      /* Tetra vertices */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Pointer toward the boundary entity */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Ref */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Tag */
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+    }
+
+    /** Pack mesh boundary tetra */
+    for ( k=1; k<=mesh->xt; ++k ) {
+      /* Faces references  */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Faces tags */
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      /* Edges references  */
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Edges tags */
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      i16dummy = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+    }
+  }
+
+  /** Pack metric */
+  if ( ier_sol ) {
+    for ( k=1; k<=mesh->np; ++k ) {
+      for ( i=0; i<size; ++i ) {
+        met->m[size*k + i] = *( (double *) *buffer);
+        *buffer += sizeof(double);
+      }
+    }
+  }
+  else {
+    /* The solution array can't be allocated */
+    for ( k=1; k<=mesh->np; ++k ) {
+      for ( i=0; i<size; ++i ) {
+        ddummy = *( (double *) *buffer);
+        *buffer += sizeof(double);
+      }
+    }
+  }
+
+  /** Pack communicators */
+  ier_comm = 1;
+
+  /* Give all the available mem to the communicators */
+  parmesh->memMax = *memAv;
+
+  /* Node communicator */
+  PMMG_MALLOC(parmesh,grp->node2int_node_comm_index1,grp->nitem_int_node_comm,
+              int,"node2int_node_comm_index1",ier = ier_comm = 0);
+  PMMG_MALLOC(parmesh,grp->node2int_node_comm_index2,grp->nitem_int_node_comm,
+              int,"node2int_node_comm_index1",ier = ier_comm = 0);
+
+  if ( ier_comm ) {
+    for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+      grp->node2int_node_comm_index1[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+    for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+      grp->node2int_node_comm_index2[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+  else {
+    /* The communicators arrays can't be allocated */
+    for ( k=0; k<2*grp->nitem_int_node_comm; ++k ) {
+      idummy = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+
+  /* Face communicator */
+  PMMG_MALLOC(parmesh,grp->face2int_face_comm_index1,grp->nitem_int_face_comm,
+              int,"face2int_face_comm_index1",ier = ier_comm = 0);
+  PMMG_MALLOC(parmesh,grp->face2int_face_comm_index2,grp->nitem_int_face_comm,
+              int,"face2int_face_comm_index1",ier = ier_comm = 0);
+
+  /* Use the minimal memory needed */
+  parmesh->memMax = parmesh->memCur;
+  *memAv         -= parmesh->memMax;
+
+  if ( ier_comm ) {
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      grp->face2int_face_comm_index1[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      grp->face2int_face_comm_index2[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+  else {
+    /* The communicators arrays can't be allocated */
+    for ( k=0; k<2*grp->nitem_int_face_comm; ++k ) {
+      idummy = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+
+  return ier;
 }
 
 /**
  * \param parmesh pointer toward the mesh structure.
- * \param part pointer toward the metis partitions.
- * \param max_ngrp maximum number of groups per proc
+ * \param recv index of the proc that receive the groups
+ * \param interaction_map map of interactions with the other processors
+ * \param intcomm_flag flag of the boundary faces of the sended group
+ * \param nitem_intcomm_flag size of the incomm_flag array
+ * \param recv_ext_idx buffer to receive data
+ * \param nitem_recv_ext_idx size of recv_ext_idx buffer
+ * \param ext_recv_comm external communicator \a myrank - \a recv
+ * \param irequest mpi request of the send of the integer buffer
+ * \param drequest mpi request of the send of the double buffer
+ * \param trequest array of mpi requests of the send of the external comm
  *
- * \param nfaces2send \a nfaces2send[k*max_ngrp+id_grp] contains the number of
- * faces of the group \a group_id that belongs to the external communicator
- * myrank-k (so the number of faces of \a grp_id that must be sended to \a k)
+ * \return 0 if fail, 1 if we success
  *
- * \param nfaces2recv \a nfaces2recv[k*max_ngrp+id_grp] contains the number of
- * faces that we must receive from the proc \a and for a given group
- *
- * \param next_comm2send number of external communicator to send to each proc
- *
- * \param ext_comms_next_idx[k] position of the external communicators to send
- * to the proc \a k+1 in the \a extComm_next_idx array.
- *
- * \param nitems2send number of items to send to each proc
- *
- * \param items_next_idx positions of the items to send to each proc in the
- * \a extComm_grpFaces* arrays
- *
- * \param extComm_next_idx \a extComm_next_idx[k] position of the external
- * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
- * that goes to a given proc (so for each proc, the communicator number 0 is at
- * position 0)
- *
- * \param extComm_grpFaces2face2int for each group, position of the group faces
- * that belongs to the external communicators in the face2int* arrays
- *
- * \param extComm_grpFaces2extComm for each group, position of the group faces
- * that belongs to the external communicators in the external communicators.
- *
- * \return 0 if fail, 1 otherwise
- *
- * For each group, count the number of external faces that the group will send
- * to each processor and fill the \a nfaces2send array.
- * Then fill the array of the list of the external communicators to send to
- * each proc.
+ * Transfer and update the data that are modified due to the transfer of the
+ * groups from the local processor (\myrank) toward the proc \a recv.
  *
  */
 static inline
-int PMMG_fill_extFaceCommData(PMMG_pParMesh parmesh,idx_t *part,int *max_ngrp,
-                              int **nfaces2send,int **nfaces2recv,
-                              int **next_comm2send,int **ext_comms_next_idx,
-                              int **nitems2send,int **items_next_idx,
-                              int **extComm_next_idx,
-                              int **extComm_grpFaces2face2int,
-                              int **extComm_grpFaces2extComm) {
+int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
+                                 int *interaction_map,int **intcomm_flag,
+                                 int *nitem_intcomm_flag,int **recv_ext_idx,
+                                 int *nitem_recv_ext_idx,
+                                 PMMG_pExt_comm ext_recv_comm,char **grps2send,
+                                 int *pack_size,MPI_Request *irequest,
+                                 MPI_Request *drequest,MPI_Request **trequest ) {
+
+  PMMG_pGrp      grp;
   PMMG_pInt_comm int_comm;
-  PMMG_pExt_comm ext_comm;
-  MPI_Comm       comm;
-  int            *intvalues,intval,nitem,nprocs;
-  int            *face2int_face_comm_idx1,*face2int_face_comm_idx2;
-  int            nitem_int_comm,nitem_myrank_dest;
-  int            myrank,*nfaces_in_grp;
-  int            next_comm,idx,idx_glob,new,idx_per_dest_proc;
-  int            ier,proc,k,j,grp_id,dest,next_comm_tot,nitems_tot;
+  PMMG_pExt_comm ext_face_comm;
+  MPI_Status     status,*status_tab;
+  int            offset,nitem_recv_intcomm;
+  int            k,i,count,ier,ier0,old_nitem,idx;
+  int            *send2recv_int_comm,old_offset,nitem,nextcomm;
+  int            nitem_ext_recv_comm;
+  char           *ptr;
 
-  ier = 0;
+  const int      myrank      = parmesh->myrank;
+  const int      nprocs      = parmesh->nprocs;
+  const int      ngrp        = parmesh->ngrp;
+  const MPI_Comm comm        = parmesh->comm;
 
-  comm   = parmesh->comm;
-  nprocs = parmesh->nprocs;
-  myrank = parmesh->myrank;
+#warning ajeter
+  printf("FROM ME TO J %d %d\n",myrank,recv);
+  //printComm( parmesh,parmesh->ngrp);
 
-  /** Step 1: Process the external communicators and:
-   *
-   * - fill \a next_comm2send[k] by the number of external communicators that
-   need to be communicated to the processor k (because they contains at least 1
-   face of the group to move) and \a ext_comms_next_idx by the last index of
-   each list of communicators in the array that list all the communicators;
-   *
-   * - fill \a nitems2send[k] by the number of integers to send to the proc k
-   to communicate the needed data of each external communicators and the
-   group ids. Fill \a items_next_idx by the last index of
-   each list of items in the array that list all the items;
-   *
-   * - fill \a nfaces2send with the number of external communicator faces that
-   each group send to each proc
-   *
-   * - fill \a nfaces2recv with the number of external communicator faces that
-   each proc receive from each proc
-   *
-   * - mark the faces that are in the external communicators to be able to
-   detect the list of the faces at the interface between two groups of the
-   local proc.
-  */
+  ier = 1;
 
-  MPI_CHECK( MPI_Allreduce(&parmesh->ngrp,max_ngrp,1,MPI_INT,MPI_MAX,comm),
-             goto end);
+  int_comm = parmesh->int_face_comm;
 
-  PMMG_CALLOC(parmesh,*nfaces2send,(*max_ngrp)*nprocs,int,
-              "sended external comm to other procs",goto end);
-  PMMG_CALLOC(parmesh,*nfaces2recv,(*max_ngrp)*nprocs,int,
-              "received external comm from other procs",goto end);
-  PMMG_CALLOC(parmesh,*next_comm2send,nprocs,int,"next_comm2send",goto end);
-  PMMG_CALLOC(parmesh,*nitems2send,nprocs,int,"nitems2send",goto end);
-  PMMG_CALLOC(parmesh,*ext_comms_next_idx,nprocs,int,"ext_comms_next_idx",goto end);
-  PMMG_CALLOC(parmesh,*items_next_idx,nprocs,int,"items_next_idx",goto end);
+  send2recv_int_comm = NULL;
 
-  PMMG_CALLOC(parmesh,nfaces_in_grp,parmesh->ngrp,int,"nfaces_in_grp",goto end);
+  /** Step 1: fill the send2recv_int_comm array that contains the positions (in
+   * the internal communicator of the proc \a recv) of the faces of the groups
+   * that are transfered */
 
-  int_comm  = parmesh->int_face_comm;
-  nitem     = int_comm->nitem;
-  intvalues = int_comm->intvalues;
-
-  for ( grp_id=0; grp_id<parmesh->ngrp; ++grp_id ) {
-
-    dest = part[grp_id];
-    if ( dest==myrank ) continue;
-
-    /* intvalues array initialisation with the face index (ensure that intvalues
-     * is strictly greater than 0 for a face of this group and strictly lower
-     * for the other faces */
-    for ( k=0; k<nitem; ++k ) intvalues[k] = PMMG_UNSET;
-
-    face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
-    face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-    nitem_int_comm          = parmesh->listgrp[grp_id].nitem_int_face_comm;
-
-    for ( k=0; k<nitem_int_comm; ++k )
-      intvalues[face2int_face_comm_idx2[k]] = face2int_face_comm_idx1[k];
-
-    next_comm                  = 0;
-    nitems_tot                 = 0;
-    for ( k=0; k<parmesh->next_face_comm; ++k ) {
-      ext_comm = &parmesh->ext_face_comm[k];
-      idx      = (*max_ngrp) * ext_comm->color_out + grp_id;
-
-      for ( j=0; j<ext_comm->nitem; ++j ) {
-        if ( intvalues[ext_comm->int_comm_index[j]] > 0 ) {
-          intvalues[ext_comm->int_comm_index[j]] *= -1;
-          ++(*nfaces2send)[idx];
-        }
-      }
-      if ( (*nfaces2send)[idx] ) {
-        ++next_comm;
-        nitems_tot += (*nfaces2send)[idx];
-      }
-    }
-
-    /** Step 3: Process the face2int_face_comm_index2 array and count the number
-     * of faces at the interface of 2 local groups */
-    for ( k=0; k<nitem_int_comm; ++k ) {
-      assert(intvalues[face2int_face_comm_idx2[k]]);
-      if ( intvalues[face2int_face_comm_idx2[k]] > 0 ) {
-        ++nfaces_in_grp[grp_id];
-      }
-    }
-
-    if ( nfaces_in_grp[grp_id] ) {
-      ++next_comm;
-      nitems_tot += nfaces_in_grp[grp_id];
-    }
-
-    /* Number of external comm to send to the proc dest */
-    (*next_comm2send)[dest] += next_comm;
-    /* Number of items (integers) to send to dest (list of external comms
-     * (int_comm_index and colour_out + group id) */
-    (*nitems2send)[dest]    += nitems_tot+2*next_comm;
-  }
-
-  /* Fill ext_comms_next_idx[k] with the position of the first external
-   * communicator going to proc k+1 in extComms_next_idx
-   *
-   * Fill items_next_idx[k] with the position of the first item to communicate to
-   * the proc k+1 (position in extComms_grpFaces arrayx) */
-  (*ext_comms_next_idx)[0] = (*next_comm2send)[0];
-  (*items_next_idx)[0]     =    (*nitems2send)[0];
-  for ( k=1; k<nprocs; ++k ) {
-    (*ext_comms_next_idx)[k] = (*ext_comms_next_idx)[k-1] +(*next_comm2send)[k];
-    (*items_next_idx)[k]     =     (*items_next_idx)[k-1] +   (*nitems2send)[k];
-  }
-
-  MPI_CHECK( MPI_Alltoall((*nfaces2send),(*max_ngrp),MPI_INT,
-                          (*nfaces2recv),(*max_ngrp),MPI_INT, comm),goto end);
-
-  /** Step 2: Process the groups in growing destination order. For each group:
-   *
-   * - process the internal faces of the group (if needed) and complete the
-   *   external communicator lists by a new communicator containing the list of
-   *   the index in \a face2int_face_comm_index1 of the faces that must be added
-   *   to the external communicator myrank-dest (and dest-myrank) after the
-   *   group displacement;
-   *
-   * - reset the mark in the intvalues array;
-   *
-   * - process the external communicators and fill \a extComm_next_idx by the
-   *   position of the last item of each external communicator in the \a
-   *   extComm_grpFaces* arrays (starting back from the 0 position for each new
-   *   proc), fill \a extComm_grpFaces2extComm by the position of the group
-   *   faces in the external comm and the id and destination of the group. Last,
-   *   fill extComm_grpFaces2face2int by the position of the group faces in the
-   *   \a face2int_face_comm arrays, the id of the group and the \a color_out
-   *   field of the matching external communicator.
-   *
+  /* Flag the faces of the internal communicator. A face is :
+   *  - 1 if it is a // boundary of a group that doesn't move;
+   *  - 2 if it is at the interface between 2 groups that doesn't move;
+   *  - 3 if it is a // boundary of a group that is transfered;
+   *  - 4 if it is at the interface between a group that move and another that doesn't;
+   *  - 6 if it is at the interface of 2 groups that are transfered.
    */
-  next_comm_tot = (*ext_comms_next_idx)[nprocs-1];
-  nitems_tot    =     (*items_next_idx)[nprocs-1];
+  *nitem_intcomm_flag = int_comm->nitem;
+  PMMG_CALLOC(parmesh,*intcomm_flag,*nitem_intcomm_flag,int,"intcomm_flag",ier=0);
+  count = 0;
 
-  PMMG_MALLOC(parmesh,(*extComm_next_idx),next_comm_tot,int,
-              "extComm_next_idx",
-              goto end);
-  PMMG_MALLOC(parmesh,(*extComm_grpFaces2extComm),nitems_tot,int,
-              "extComm_grpFaces2extComm",
-              goto end);
-  PMMG_MALLOC(parmesh,(*extComm_grpFaces2face2int),nitems_tot,int,
-              "extComm_grpFaces2face2int",
-              goto end);
+  if ( *intcomm_flag ) {
+    for ( k=0; k<ngrp; ++k ) {
+      grp = &parmesh->listgrp[k];
 
-  idx      = 0;
-  idx_glob = 0;
+      if ( recv != grp->flag ) {
+        for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+          idx = grp->face2int_face_comm_index2[i];
+          (*intcomm_flag)[idx] += 1;
+        }
+      }
+      else {
+        ++count;
+        for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+          idx = grp->face2int_face_comm_index2[i];
+          (*intcomm_flag)[idx] += 3;
+        }
+      }
+    }
+  }
 
-  for ( proc=0; proc<parmesh->nprocs; ++proc ) {
+  /* Store the size of the internal communicator of \a recv and the index in
+   * this communicator of the faces of the external communicator myrank-recv */
+  nitem = ext_recv_comm ? ext_recv_comm->nitem : 0;
 
-    idx_per_dest_proc = 0;
-    for ( grp_id=0; grp_id<parmesh->ngrp; ++grp_id ) {
+  *nitem_recv_ext_idx = nitem + 1;
+  PMMG_MALLOC(parmesh,*recv_ext_idx,*nitem_recv_ext_idx,int,"recv_ext_idx",ier=0);
+  /* MPI_Recv will fail if recv_ext_idx is not allocated */
+  MPI_CHECK( MPI_Recv(*recv_ext_idx,*nitem_recv_ext_idx,MPI_INT,recv,
+                      MPI_TRANSFER_GRP_TAG+1,comm,&status), ier=0 );
 
-      dest = part[grp_id];
+  /* Fill the send2recv_int_comm array */
+  offset = 0;
+  nitem_recv_intcomm = (*recv_ext_idx)[offset++];
 
-      if ( dest != proc || dest==myrank ) continue;
+  PMMG_MALLOC(parmesh,send2recv_int_comm,int_comm->nitem,int,"send2recv_int_comm",
+              ier = MG_MIN (ier,0) );
 
-      /* Search the external communicator myrank-dest */
-      nitem_myrank_dest = 0;
-      for ( k=0; k<parmesh->next_face_comm; ++k ) {
-        if ( parmesh->ext_face_comm[k].color_out==dest ) {
-          nitem_myrank_dest = parmesh->ext_face_comm[k].nitem;
+  if ( send2recv_int_comm ) {
+    for ( k=0; k<int_comm->nitem; ++k ) {
+      send2recv_int_comm[k] = PMMG_UNSET;
+    }
+
+    /* Process the myrank-recv external communicator and store the position of
+     * this faces in the internal communicator of \a recv */
+    for ( i=0; i<nitem; ++i ) {
+      idx = ext_recv_comm->int_comm_index[i];
+      send2recv_int_comm[idx] = (*recv_ext_idx)[offset++];
+    }
+
+    /* Process the groups and store the position (in the internal comm of \a recv)
+     * of the new faces of \a recv */
+    for ( k=0; k<ngrp; ++k ) {
+      grp = &parmesh->listgrp[k];
+      if ( recv != grp->flag ) continue;
+
+      for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+        idx = grp->face2int_face_comm_index2[i];
+        if ( send2recv_int_comm[idx] >=0 ) continue;
+
+        send2recv_int_comm[idx] = nitem_recv_intcomm++;
+      }
+    }
+  }
+
+  /** Step 2: Add the new faces of the external communicator myrank-recv to the
+   * external communicator myrank-recv and to the recv_ext_idx array (due to the
+   * transfer of the groups from myrank toward recv) */
+
+  /* Count the number of faces to add to the external communicator (faces flagged 4 ) */
+  idx = 0;
+  if ( *intcomm_flag ) {
+    for ( k=0; k<int_comm->nitem; ++k ) {
+      if ( 4 == (*intcomm_flag)[k] ) ++idx;
+    }
+  }
+
+  /* Store in recv_ext_idx the number of groups to send, the new size of the
+   * internal communicator of \a recv and the number of new faces in the
+   * external communicator myrank-recv */
+  PMMG_REALLOC ( parmesh,*recv_ext_idx,idx+3,*nitem_recv_ext_idx,int,"recv_ext_idx",
+                 ier = 0);
+  *nitem_recv_ext_idx = idx + 3;
+
+  offset = 0;
+  (*recv_ext_idx)[offset++] = count;
+  (*recv_ext_idx)[offset++] = nitem_recv_intcomm;
+  (*recv_ext_idx)[offset++] = idx;
+
+#warning ajeter
+  printf("Send %d grps, %d items in recv_intcomm, %d faces 4 (old_nitem %d)\n",
+         count,nitem_recv_intcomm,idx,nitem);
+  if ( idx ) {
+    old_nitem = nitem;
+
+    ier0 = 1;
+    if ( !ext_recv_comm ) {
+      /* Enlarge the list of external communicators */
+      if ( !PMMG_resize_extCommArray ( parmesh,&parmesh->ext_face_comm,
+                                       parmesh->next_face_comm+1,
+                                       &parmesh->next_face_comm ) ) {
+        ier0 = 0;
+        ier = MG_MIN(ier,ier0);
+      }
+
+      ext_recv_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
+      ext_recv_comm->color_in  = myrank;
+      ext_recv_comm->color_out = recv;
+    }
+
+    if ( ier0 ) {
+      if ( !PMMG_resize_extComm ( parmesh,ext_recv_comm,old_nitem+idx,
+                                  &ext_recv_comm->nitem ) ) {
+        ier0 = 0;
+        ier = MG_MIN(ier,ier0);
+      }
+
+      for ( k=0; k<int_comm->nitem; ++k ) {
+        if ( 4 != (*intcomm_flag)[k] ) continue;
+
+        /* Add the new faces to the external comm myrank-recv */
+        if ( ier0 )
+          ext_recv_comm->int_comm_index[old_nitem++] = k;
+
+        /* Add the new faces to the external comm to send to recv */
+        (*recv_ext_idx)[offset++] = send2recv_int_comm ? send2recv_int_comm[k] : 0;
+      }
+    }
+    else {
+      /* Unable to allocate ext_recv_comm */
+      for ( k=0; k<int_comm->nitem; ++k ) {
+        if ( 4 != (*intcomm_flag)[k] ) continue;
+        offset++;
+      }
+    }
+  }
+  assert ( offset==*nitem_recv_ext_idx );
+
+  /** Step 3: Delete the old faces of the external communicator myrank-recv (due
+   * to the transfer of the groups from myrank toward recv) from the external
+   * communicator myrank-recv and add at the end of the recv_ext_idx array the
+   * mark of the faces of the external communicator (0 if a face is
+   * keeped, 1 otherwise). */
+  old_offset = *nitem_recv_ext_idx;
+#warning ajeter
+    printf ( "before send f3 offset = %d\n",offset);
+
+  nitem_ext_recv_comm = ext_recv_comm ? ext_recv_comm->nitem : 0;
+  PMMG_REALLOC ( parmesh,*recv_ext_idx,*nitem_recv_ext_idx+nitem_ext_recv_comm+1,
+                 *nitem_recv_ext_idx,int,"recv_ext_idx",ier=0);
+  *nitem_recv_ext_idx += nitem_ext_recv_comm + 1;
+
+  /* Add the mark of the faces of the external comm (1 if deleted, 0 if keeped)
+   * to recv_ext_idx and count the number of faces to remove from the external
+   * communicator (faces flagged 3 ) */
+  count = 0;
+#warning ajeter
+  printf("ICI ext_recv_comm-nitem %d (old_nitem %d)\n",nitem_ext_recv_comm,old_nitem);
+
+  if ( *intcomm_flag && *recv_ext_idx ) {
+    for ( k=0; k<nitem_ext_recv_comm; ++k ) {
+      idx = ext_recv_comm->int_comm_index[k];
+
+      if ( 3 == (*intcomm_flag)[idx] ) {
+        (*recv_ext_idx)[offset++] = 1;
+        ++count;
+      }
+      else {
+        (*recv_ext_idx)[offset++] = 0;
+      }
+    }
+  }
+
+  if ( *recv_ext_idx )
+    (*recv_ext_idx)[offset++] = count;
+#warning ajeter
+  printf("Delete %d faces in sndr-recv ext_comm\n",count);
+
+
+  /* Remove the faces from the external communicator */
+  nitem = 0;
+  if ( *recv_ext_idx ) {
+    for ( k=0; k<nitem_ext_recv_comm; ++k ) {
+      idx = ext_recv_comm->int_comm_index[k];
+
+      if ( (*recv_ext_idx)[old_offset+k] ) {
+        /* this face must be removed */
+        continue;
+      }
+      else {
+        /* Pack the external communicator */
+        ext_recv_comm->int_comm_index[nitem++] = idx;
+      }
+    }
+    if ( nitem_ext_recv_comm ) {
+      if ( !PMMG_resize_extComm ( parmesh,ext_recv_comm,nitem,
+                                  &ext_recv_comm->nitem ) ) {
+        ier = MG_MIN ( ier, 0 );
+      }
+    }
+  }
+
+#warning treatment of self passing communicators not done
+
+  /** Step 4: When transferring the groups from myrank toward recv, the groups
+   *   faces of the external communicators myrank-procB (procB != recv) becames
+   *   faces of the external communicators (recv-procB):
+   *
+   * - remove the groups faces from the ext comm procB-myrank on procB and add
+   *   it in procB-recv (send their positions in the internal comm of procB);
+   *
+   * - add the groups faces to the ext comm recv-procB on recv: append to the
+   *   recv_ext_idx array the number of external comm to update, for each
+   *   external communicator, the number of faces to add and the list of faces.
+   */
+  PMMG_MALLOC ( parmesh,*trequest,nprocs+1,MPI_Request,"request_tab",
+                ier0 = 0; ier = MG_MIN(ier,ier0); );
+  if ( ier0 )
+    for ( k=0; k<nprocs+1; ++k ) (*trequest)[k] = MPI_REQUEST_NULL;
+
+#warning ajeter
+  printf ( " offset before ext_comm with other procs %d\n",offset);
+
+  nextcomm = 0;
+  count    = 0;
+
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->color_out == recv || !ext_face_comm->nitem ) continue;
+
+    ++nextcomm;
+
+    ext_face_comm->nitem_to_share = ext_face_comm->nitem;
+    PMMG_MALLOC ( parmesh,ext_face_comm->itosend,ext_face_comm->nitem_to_share,
+                  int,"itosend",ier = MG_MIN(ier,0); );
+
+    if ( *intcomm_flag && ext_face_comm->itosend ) {
+      for ( i=0; i<ext_face_comm->nitem; ++i ) {
+        idx = ext_face_comm->int_comm_index[i];
+
+        if ( 3 != (*intcomm_flag)[idx] ) {
+          ext_face_comm->itosend[i] = 0;
+        }
+        else {
+          /* We want to remove this face */
+          ++count;
+          ext_face_comm->itosend[i] = PMMG_UNSET;
+        }
+      }
+    }
+
+    if ( interaction_map[ext_face_comm->color_out] ) {
+      MPI_CHECK ( MPI_Isend(ext_face_comm->itosend,ext_face_comm->nitem_to_share,
+                            MPI_INT,ext_face_comm->color_out,MPI_TRANSFER_GRP_TAG+30,
+                            comm,&((*trequest)[ext_face_comm->color_out])), ier=0 );
+    }
+  }
+
+  PMMG_REALLOC ( parmesh,*recv_ext_idx,*nitem_recv_ext_idx+1+2*nextcomm+count,
+                 *nitem_recv_ext_idx,int,"recv_ext_idx",ier=0);
+  *nitem_recv_ext_idx += 1 + 2*nextcomm + count;
+
+  if ( *recv_ext_idx )
+    (*recv_ext_idx)[offset++] = nextcomm;
+
+#warning ajeter
+  printf("Send %d ext_comm with other procs ( offset = %d)\n",nextcomm,offset-1);
+
+  old_offset = offset;
+  /* Store in [old_offset:old_offset+2*nextcomm] the number of faces to send for
+   * each communicator and the color_out of the external comm */
+  offset += 2*nextcomm;
+
+  nextcomm = 0;
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->color_out == recv || !ext_face_comm->nitem ) continue;
+
+    count = 0;
+    nitem = 0;
+    if ( *intcomm_flag && *recv_ext_idx ) {
+      for ( i=0; i<ext_face_comm->nitem; ++i ) {
+        idx = ext_face_comm->int_comm_index[i];
+
+        if ( 3 == (*intcomm_flag)[idx] ) {
+          (*recv_ext_idx)[offset++] = send2recv_int_comm ? send2recv_int_comm[idx] : 0;
+          ++count;
+        }
+        else {
+          /* We want to add this face to the remote communicator and to remove it
+           * from the local one */
+          ext_face_comm->int_comm_index[nitem++] = idx;
+        }
+      }
+    }
+    if ( !PMMG_resize_extComm(parmesh,ext_face_comm,nitem,&ext_face_comm->nitem) )
+      ier = 0;
+
+    if ( *recv_ext_idx ) {
+      (*recv_ext_idx)[old_offset + nextcomm++] = count;
+      (*recv_ext_idx)[old_offset + nextcomm++] = ext_face_comm->color_out;
+    }
+
+    if ( myrank==2 && recv == 6 )
+      printf("Send %d items of ext_face with proc %d (offset %d)\n",count,
+             ext_face_comm->color_out,old_offset + nextcomm-2);
+
+
+  }
+
+  /** Step 5: send the buffer to the proc recv */
+  *irequest = MPI_REQUEST_NULL;
+  assert ( *nitem_recv_ext_idx == offset );
+  MPI_CHECK ( MPI_Isend(*recv_ext_idx,*nitem_recv_ext_idx,MPI_INT,recv,
+                        MPI_TRANSFER_GRP_TAG+3, comm,irequest), ier = 0 );
+#warning ajeter
+  printf( "I am proc %d and I send %d to %d.\n",myrank,*nitem_recv_ext_idx,recv);
+
+
+  /** Step 6: send and receive the groups */
+  *pack_size = 0;
+  for ( k=0; k<ngrp; ++k ) {
+    grp = &parmesh->listgrp[k];
+    if ( grp->flag != recv ) continue;
+
+    /* Update the face2int_index2 array */
+    for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
+      idx = grp->face2int_face_comm_index2[i];
+      grp->face2int_face_comm_index2[i] = send2recv_int_comm ? send2recv_int_comm[idx] : 0;
+    }
+
+    *pack_size += PMMG_mpisizeof_grp(grp);
+  }
+
+  /* Pack the groups */
+  PMMG_MALLOC ( parmesh,*grps2send,*pack_size,char,"grps2send",
+                ier = MG_MIN(ier,0) );
+
+  ptr = *grps2send;
+  for ( k=0; k<ngrp; ++k ) {
+    grp = &parmesh->listgrp[k];
+
+    if ( grp->flag != recv ) continue;
+#warning ajeter
+    printf("send grp %d\n",k);
+    PMMG_mpipack_grp(grp,&ptr);
+  }
+
+  /* Send its */
+  *drequest = MPI_REQUEST_NULL;
+  MPI_CHECK ( MPI_Isend ( *grps2send,*pack_size,MPI_CHAR,recv,MPI_SENDGRP_TAG,
+                           comm,drequest), ier = 0 );
+
+  /** Free the memory */
+  /* Group deletion */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    if ( parmesh->listgrp[k].flag == recv ) {
+      PMMG_grp_free ( parmesh,&parmesh->listgrp[k] );
+    }
+  }
+
+  PMMG_DEL_MEM ( parmesh,send2recv_int_comm,int_comm->nitem,int,"send2recv_int_comm" );
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param sndr index of the proc that send the groups
+ * \param interaction_map map of interactions with the other processors
+ * \param intcomm_flag position in the internal comm of the faces of the
+ * external comm sndr-recv
+ * \param nitem_intcomm_flag size of the incomm_flag array
+ * \param recv_ext_idx buffer to receive data
+ * \param nitem_recv_ext_idx size of recv_ext_idx buffer
+ * \param ext_send_comm external communicator \a myrank - \a sndr
+ *
+ * \return 0 if fail, 1 if we success
+ *
+ * Transfer and update the data that are modified due to the transfer of the
+ * groups from the processor \a sndr toward the local proc (\a myrank).
+ *
+ */
+static inline
+int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
+                                 int *interaction_map,int **intcomm_flag,
+                                 int *nitem_intcomm_flag,int **recv_ext_idx,
+                                 int *nitem_recv_ext_idx,
+                                 PMMG_pExt_comm ext_send_comm,
+                                 MPI_Request *irequest) {
+
+  PMMG_pExt_comm ext_face_comm;
+  MPI_Status     status,*tstatus;
+  MMG5_pMesh     mesh;
+  size_t         available;
+  int            pack_size;
+  int            k,count,ier,ier0,recv_int_nitem,offset,old_nitem;
+  int            *send2recv_int_comm,ntot,nitem,nextcomm;
+  int            old_offset,grpscount,idx,color_out,n,err;
+  char           *buffer,*ptr;
+
+  const int      myrank      = parmesh->myrank;
+  const int      nprocs      = parmesh->nprocs;
+  const int      ngrp        = parmesh->ngrp;
+  const MPI_Comm comm        = parmesh->comm;
+
+#warning ajeter
+  printf("FROM I TO ME %d %d\n",sndr,myrank);
+  //  printComm( parmesh,parmesh->ngrp);
+
+  ier = 1;
+
+  send2recv_int_comm = NULL;
+
+  /** Step 1: build the send2recv_int_comm array that gives the new
+      face2int_face_comm_index pointer for the received group */
+  *nitem_intcomm_flag = ext_send_comm ? ext_send_comm->nitem + 1 : 1;
+  PMMG_MALLOC ( parmesh,(*intcomm_flag),*nitem_intcomm_flag,int,"intcomm_flag",
+                *nitem_intcomm_flag = 1;ier = 0 );
+
+  if ( *intcomm_flag ) {
+    (*intcomm_flag)[0] = parmesh->int_face_comm->nitem;
+
+    if ( ext_send_comm ) {
+      for ( k=0; k<ext_send_comm->nitem; ++k ) {
+        (*intcomm_flag)[k+1] = ext_send_comm->int_comm_index[k];
+      }
+    }
+  }
+
+  /* Send the size of the internal communicator and the position of the item of
+   * the external communicator in the internal communicator */
+  *irequest = MPI_REQUEST_NULL;
+  MPI_CHECK ( MPI_Isend ( *intcomm_flag,*nitem_intcomm_flag,MPI_INT,sndr,
+                          MPI_TRANSFER_GRP_TAG+1,comm,irequest ), ier = 0 );
+
+  /* Receive the external communicator */
+  MPI_CHECK ( MPI_Probe(sndr,MPI_TRANSFER_GRP_TAG+3,comm,&status), ier = 0 );
+  MPI_CHECK ( MPI_Get_count(&status,MPI_INT,nitem_recv_ext_idx), ier = 0 );
+
+  PMMG_MALLOC ( parmesh,*recv_ext_idx,*nitem_recv_ext_idx,int,"recv_ext_idx",
+                ier = 0 );
+
+  MPI_CHECK ( MPI_Recv(*recv_ext_idx,*nitem_recv_ext_idx,MPI_INT,sndr,MPI_TRANSFER_GRP_TAG+3,comm,&status),
+              ier = 0 );
+  offset = 0;
+
+#warning ajeter
+  printf ( "I am %d and I receive %d from %d\n",myrank,*nitem_recv_ext_idx,sndr);
+
+  /* Get the number of groups to receive */
+  grpscount = (*recv_ext_idx)[offset++];
+
+  /* Get the size of the new internal communicator */
+  recv_int_nitem = (*recv_ext_idx)[offset++];
+
+  PMMG_MALLOC ( parmesh,parmesh->int_face_comm->intvalues,recv_int_nitem,
+                int,"int_face_comm",ier = MG_MIN (ier,0) );
+  parmesh->int_face_comm->nitem = recv_int_nitem;
+
+  /** Step 2: Add the new faces of the external communicator myrank-sndr to the
+   * external communicator myrank-sndr (due to the transfer of the groups from
+   * sndr toward myrank) (intcomm_flag = 4 ) */
+  n = (*recv_ext_idx)[offset++];
+#warning ajeter
+  printf("Send %d grps, %d items in recv_intcomm, %d faces 4 (old_nitem %d offset %d)\n",
+         grpscount,recv_int_nitem,n,*nitem_intcomm_flag-1,offset-1);
+
+  if ( n ) {
+
+    ier0 = 1;
+    if ( !ext_send_comm ) {
+      /* Enlarge external communicator */
+      if ( !PMMG_resize_extCommArray ( parmesh,&parmesh->ext_face_comm,
+                                       parmesh->next_face_comm+1,
+                                       &parmesh->next_face_comm ) ) {
+        ier0 = 0;
+        ier = MG_MIN(ier,ier0);
+      }
+      else {
+        ext_send_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
+        ext_send_comm->color_in  = myrank;
+        ext_send_comm->color_out = sndr;
+      }
+    }
+
+    if ( ier0 ) {
+      old_nitem = ext_send_comm->nitem;
+
+      if ( !PMMG_resize_extComm(parmesh,ext_send_comm,n+ext_send_comm->nitem,
+                                &ext_send_comm->nitem) ) {
+        ier = MG_MIN(ier,ier0);
+        /* Fail to alloc the external communicator sndr - myrank */
+        for ( k=0; k<n; ++k ) offset++;
+      }
+      else {
+        for ( k=0; k<n; ++k ) {
+          ext_send_comm->int_comm_index[old_nitem+k] = (*recv_ext_idx)[offset++];
+        }
+      }
+    }
+    else {
+      /* Fail to alloc the external communicator sndr - myrank */
+      for ( k=0; k<n; ++k ) offset++;
+    }
+  }
+
+  /** Step 3: Delete the old faces of the external communicator myrank-sndr (due
+   * to the transfer of the groups from sndr toward myrank) from the external
+   * communicator myrank-sndr (intcomm_flag = 3) */
+#warning is the face orientation ok?
+  /* New number of faces */
+#warning ajeter
+    printf ( "before recv f3 offset = %d\n",offset);
+
+
+  n = 0;
+  if ( ext_send_comm ) {
+#warning ajeter
+      printf("ICI ext_send_comm-nitem %d\n",ext_send_comm->nitem);
+
+    for ( k=0; k<ext_send_comm->nitem; ++k ) {
+      idx = ext_send_comm->int_comm_index[k];
+
+      if ( (*recv_ext_idx)[offset++] ) {
+        /* Face to remove from the external communicator */
+        continue;
+      }
+      else {
+        ext_send_comm->int_comm_index[n++] = idx;
+      }
+    }
+
+#warning ajeter
+    printf("Delete %d faces in sndr-recv ext_comm\n", ext_send_comm->nitem-n);
+
+    assert ( ext_send_comm->nitem-n==(*recv_ext_idx)[offset] );
+
+    if ( !PMMG_resize_extComm(parmesh,ext_send_comm,n,&ext_send_comm->nitem) ) {
+      ier  = MG_MIN ( ier, 0 );
+    }
+  }
+  else
+    assert ( !(*recv_ext_idx)[offset] );
+
+  offset++;
+
+  /** Step 4: Update the faces of the external comms between sndr and another
+   * proc than myrank (flag 3) */
+  /* number of external communicators */
+  nextcomm   = (*recv_ext_idx)[offset++];
+#warning ajeter
+if ( myrank==6 && sndr == 2 )
+  printf("Recv %d ext_comm with other procs (offset=%d) \n",nextcomm,offset-1);
+
+  /* position of the number of faces to update in each ext_comm */
+  old_offset = offset;
+  /* position of the list of faces to update */
+  offset    += 2*nextcomm;
+
+  for ( n=0; n<nextcomm; ++n ) {
+
+    nitem     = (*recv_ext_idx)[old_offset++];
+    color_out = (*recv_ext_idx)[old_offset++];
+
+    for ( k=0; k<parmesh->next_face_comm; ++k ) {
+      ext_face_comm = &parmesh->ext_face_comm[k];
+      if ( ext_face_comm->color_out == color_out ) break;
+    }
+
+    ier0 = 1;
+    if ( k == parmesh->next_face_comm ) {
+      if ( !PMMG_resize_extCommArray ( parmesh,&parmesh->ext_face_comm,
+                                       parmesh->next_face_comm+1,
+                                       &parmesh->next_face_comm ) ) {
+        ier0 = 0;
+        ier = MG_MIN(ier,0);
+      }
+
+      if ( ier0 ) {
+        ext_face_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
+        ext_face_comm->color_in  = myrank;
+        ext_face_comm->color_out = color_out;
+      }
+    }
+
+    if ( ier0 ) {
+      old_nitem = ext_face_comm->nitem;
+
+      if ( !PMMG_resize_extComm(parmesh,ext_face_comm,old_nitem+nitem,&ext_face_comm->nitem) ) {
+        ier0 = 0;
+        ier  = MG_MIN(ier,ier0);
+      }
+    }
+
+    if ( ier0 ) {
+      for ( idx=0; idx<nitem; ++idx ) {
+        ext_face_comm->int_comm_index[old_nitem + idx] = (*recv_ext_idx)[offset++];
+      }
+    }
+  }
+
+
+  /** Step 5: Receive the new groups */
+  MPI_CHECK ( MPI_Probe(sndr,MPI_SENDGRP_TAG,comm,&status), ier = 0 );
+  MPI_CHECK ( MPI_Get_count(&status,MPI_CHAR,&pack_size), ier = 0 );
+
+  PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer", ier = 0 );
+
+  MPI_CHECK ( MPI_Recv(buffer,pack_size,MPI_CHAR,sndr,MPI_SENDGRP_TAG,comm,&status),
+              ier = 0 );
+
+  ier0 = 1;
+  PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
+                  ier0 = 0;ier = 0 );
+
+  if ( ier0 )
+    parmesh->ngrp += grpscount;
+
+    /* Count the available memory and update it while unpacking the received groups */
+#ifndef NDEBUG
+  for ( k=0; k<ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    assert ( mesh->memCur == mesh->memMax );
+    assert ( mesh->npmax == mesh->np );
+    assert ( mesh->xpmax == mesh->xp );
+    assert ( mesh->nemax == mesh->ne );
+    assert ( mesh->xtmax == mesh->xt );
+  }
+#endif
+
+  parmesh->memMax = parmesh->memCur;
+  available = parmesh->memGloMax - parmesh->memMax;
+  for ( k=0; k<ngrp; ++k ) {
+    available -= parmesh->listgrp[k].mesh->memMax;
+  }
+  assert ( available >= 0 );
+
+  ptr = buffer;
+  if ( ier0 ) {
+    for ( k=0; k<grpscount; ++k ) {
+      printf("recv grp %d\n",k);
+      err = PMMG_mpiunpack_grp(parmesh,&parmesh->listgrp[ngrp+k],&ptr,&available);
+      ier = MG_MIN(ier,err);
+      parmesh->listgrp[ngrp+k].flag = PMMG_UNSET;
+    }
+
+    /* Give the remaining memory to the parmesh */
+    parmesh->memMax += available;
+  }
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the mesh structure.
+ * \param sndr index of the proc that send the groups
+ * \param recv index of the proc that receive the groups
+ * \param interaction_map map of interactions with the other processors
+ *
+ * \return 0 if fail, 1 if we success
+ *
+ * Transfer and update the data that are modified due to the transfer of the
+ * groups from the proc \a sndr toward the proc \a recv.
+ *
+ */
+static inline
+int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
+                                const int recv,int *interaction_map) {
+
+  PMMG_pExt_comm ext_face_comm,ext_send_comm,ext_recv_comm;
+  MPI_Status     status;
+  MPI_Request    irequest,drequest;
+  MPI_Request    *trequest;
+  int            k,count,ier,ier0,*recv_ext_idx,old_nitem,idx,pack_size,err;
+  int            *intcomm_flag,nitem_intcomm_flag,nitem_recv_ext_idx;
+  char           *grps2send;
+
+  const int      myrank      = parmesh->myrank;
+  const int      nprocs      = parmesh->nprocs;
+
+  assert ( sndr != recv );
+
+#warning ajeter
+  printf("IAM %d : FROM I TO J %d %d\n",myrank,sndr,recv);
+  //printComm( parmesh,parmesh->ngrp);
+
+  /* I am the receiver and I don't have any interactions with the sender */
+  if ( ( recv == myrank ) && !interaction_map[sndr] ) return 1;
+
+  /* I am the sender and I don't have any interactions with the receiver */
+  if ( ( sndr == myrank ) && !interaction_map[sndr] ) return 1;
+
+  /* I am neither the sender nor the receiver and I don't have any interactions
+   * with the sender */
+  if ( ( sndr != myrank ) && ( recv != myrank )  && !interaction_map[sndr] ) return 1;
+
+  /** Step 1: find the myrank-sndr and myrank-recv external communicators */
+  ext_send_comm = NULL;
+  ext_recv_comm = NULL;
+
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+
+    if ( ext_face_comm->color_out == sndr )
+      ext_send_comm = ext_face_comm;
+    else if ( ext_face_comm->color_out == recv )
+      ext_recv_comm = ext_face_comm;
+  }
+
+
+  /** Step 2: transfer and update the data */
+  nitem_intcomm_flag = 0;
+  nitem_recv_ext_idx = 0;
+  intcomm_flag = NULL;
+  recv_ext_idx = NULL;
+  trequest     = NULL;
+  if ( myrank == sndr ) {
+    /* j = recv */
+    ier = PMMG_transfer_grps_fromMetoJ(parmesh,recv,interaction_map,
+                                       &intcomm_flag,&nitem_intcomm_flag,
+                                       &recv_ext_idx,&nitem_recv_ext_idx,
+                                       ext_recv_comm,&grps2send,&pack_size,
+                                       &irequest,&drequest,&trequest);
+  }
+  else if ( myrank == recv ) {
+    /* i = sndr */
+    ier = PMMG_transfer_grps_fromItoMe(parmesh,sndr,interaction_map,
+                                       &intcomm_flag,&nitem_intcomm_flag,
+                                       &recv_ext_idx,&nitem_recv_ext_idx,
+                                       ext_send_comm,&irequest);
+  }
+  else {
+    /* Transfer the faces of external communicators between the sender and a
+     * processor other than the receiver (intcomm_flag = 3): When proc sndr
+     * send groups to proc recv, the groups faces must be moved from the
+     * external communicator myrank-sndr toward the external communicator
+     * myrank-recv. */
+    nitem_recv_ext_idx = 0;
+    if ( ext_send_comm && ext_send_comm->nitem > 0 ) {
+      nitem_recv_ext_idx = ext_send_comm->nitem;
+      PMMG_MALLOC(parmesh,recv_ext_idx,nitem_recv_ext_idx,int,"recv_ext_idx",
+                  ier=0);
+      MPI_CHECK( MPI_Recv( recv_ext_idx,nitem_recv_ext_idx,MPI_INT,sndr,
+                           MPI_TRANSFER_GRP_TAG+30,parmesh->comm,&status ),
+                 ier = MG_MIN(ier,0) );
+
+      count = 0;
+      for ( k=0; k<ext_send_comm->nitem; ++k ) {
+        if ( PMMG_UNSET == recv_ext_idx[k] ) {
+          ++count;
         }
       }
 
-      face2int_face_comm_idx1 = parmesh->listgrp[grp_id].face2int_face_comm_index1;
-      face2int_face_comm_idx2 = parmesh->listgrp[grp_id].face2int_face_comm_index2;
-      nitem_int_comm          = parmesh->listgrp[grp_id].nitem_int_face_comm;
+      ier0 = 1;
+      if ( !ext_recv_comm ) {
+        /* Enlarge the list of external communicators */
+        if ( !PMMG_resize_extCommArray ( parmesh,&parmesh->ext_face_comm,
+                                         parmesh->next_face_comm+1,
+                                         &parmesh->next_face_comm ) ) {
+          ier0 = 0;
+          ier  = MG_MIN(ier,ier0);
+        }
 
-      new = 0;
-      if ( nfaces_in_grp[grp_id] ) {
-        for ( k=0; k<nitem_int_comm; ++k )
-          intvalues[face2int_face_comm_idx2[k]] = face2int_face_comm_idx1[k];
+        if ( ier0 ) {
+          ext_recv_comm = &parmesh->ext_face_comm[parmesh->next_face_comm-1];
+          ext_recv_comm->color_in  = myrank;
+          ext_recv_comm->color_out = recv;
 
-        for ( k=0; k<parmesh->next_face_comm; ++k ) {
-          ext_comm = &parmesh->ext_face_comm[k];
+          /* The pointer toward ext_send_comm may be corrupted */
+          for ( k=0; k<parmesh->next_face_comm; ++k ) {
+            ext_face_comm = &parmesh->ext_face_comm[k];
 
-          for ( j=0; j<ext_comm->nitem; ++j ) {
-            if ( intvalues[ext_comm->int_comm_index[j]] > 0 ) {
-              intvalues[ext_comm->int_comm_index[j]] *= -1;
+            if ( ext_face_comm->color_out == sndr )
+              ext_send_comm = ext_face_comm;
+          }
+        }
+      }
+
+      if ( ier0 ) {
+        old_nitem = ext_recv_comm->nitem;
+        if ( !PMMG_resize_extComm(parmesh,ext_recv_comm,old_nitem+count,
+                                  &ext_recv_comm->nitem) ) {
+          ier0 = 0;
+          ier  = MG_MIN(ier,ier0);
+        }
+
+        count = 0;
+        if ( ier0 ) {
+          for ( k=0; k<ext_send_comm->nitem; ++k ) {
+            idx = ext_send_comm->int_comm_index[k];
+            if ( PMMG_UNSET == recv_ext_idx[k] ) {
+              /* Add the face to the external communicator myrank-recv */
+              ext_recv_comm->int_comm_index[old_nitem++] = idx;
+            }
+            else {
+              /* Remove the face from the external communicator myrank-sndr */
+              ext_send_comm->int_comm_index[count++] = idx;
             }
           }
         }
-
-        /* Process the internal faces first: store the position of the group
-           interfaces in the external comm and in the face2intface_comm_index
-           array: It will allows the creation of the new external faces between
-           myrank and the destination proc of the group */
-        for ( k=0; k<nitem_int_comm; ++k ) {
-
-          assert(intvalues[face2int_face_comm_idx2[k]]);
-
-          if ( intvalues[face2int_face_comm_idx2[k]] > 0 ) {
-            (*extComm_grpFaces2face2int)[idx_glob] = k;
-            (*extComm_grpFaces2extComm)[idx_glob]  = nitem_myrank_dest+new;
-            ++idx_glob;
-            ++new;
-            ++idx_per_dest_proc;
-          }
-        }
-        (*extComm_grpFaces2face2int)[idx_glob] = grp_id;
-        (*extComm_grpFaces2extComm )[idx_glob] = grp_id;
-        ++idx_glob;
-        ++idx_per_dest_proc;
-        (*extComm_grpFaces2face2int)[idx_glob] = myrank;
-        (*extComm_grpFaces2extComm )[idx_glob] = myrank;
-        (*extComm_next_idx)[idx++] = ++idx_per_dest_proc ;
-        ++idx_glob;
-      }
-
-      /* Process the external faces: fill intvalues by the position of the face
-       * in the face2int_face_comm arrays, then fill \a
-       * (*extComm_grpFaces2face2int) by this position */
-      for ( k=0; k<nitem_int_comm; ++k )
-        intvalues[face2int_face_comm_idx2[k]] = k;
-
-      for ( k=0; k<parmesh->next_face_comm; ++k ) {
-        ext_comm = &parmesh->ext_face_comm[k];
-
-        nfaces_in_grp[grp_id] = 0;
-        for ( j=0; j<ext_comm->nitem; ++j ) {
-          intval = intvalues[ext_comm->int_comm_index[j]];
-          if ( intval >= 0 ) {
-            (*extComm_grpFaces2face2int)[idx_glob]  = intval;
-            (*extComm_grpFaces2extComm )[idx_glob]  = j;
-            ++idx_glob;
-            ++idx_per_dest_proc;
-            ++nfaces_in_grp[grp_id];
-          }
-        }
-        if ( nfaces_in_grp[grp_id] ) {
-          (*extComm_grpFaces2face2int)[idx_glob] = grp_id;
-          (*extComm_grpFaces2extComm )[idx_glob] = grp_id;
-          ++idx_glob;
-          ++idx_per_dest_proc;
-          /* Store the id of the proc with which we list the interfaces */
-          (*extComm_grpFaces2face2int)[idx_glob] = ext_comm->color_out;
-          /* Store the id of the proc on which the group move */
-          (*extComm_grpFaces2extComm )[idx_glob] = dest;
-          (*extComm_next_idx)[idx++] = ++idx_per_dest_proc;
-          ++idx_glob;
+        if ( !PMMG_resize_extComm(parmesh,ext_send_comm,count,
+                                  &ext_send_comm->nitem) ) {
+          ier0 = 0;
+          ier  = MG_MIN(ier,ier0);
         }
       }
-    }
-    assert ( idx_glob == (*items_next_idx)[proc] );
-    assert ( idx == (*ext_comms_next_idx)[proc] );
-  }
-
-  /* Success */
-  ier = 1;
-
-end:
-  PMMG_DEL_MEM(parmesh,nfaces_in_grp,parmesh->ngrp,int,"nfaces_in_grp");
-
-  return ier;
-}
-
-/**
- * \param parmesh pointer toward the mesh structure.
- * \param dest rank of destination.
- * \param max_ngrp maximum number of groups per proc
- *
- * \param nfaces2send \a nfaces2send[k*max_ngrp+id_grp] contains the number of
- * faces of the group \a group_id that belongs to the external communicator
- * myrank-k (so the number of faces of \a grp_id that must be sended to \a k)
- *
- * \param next_comm2send number of external communicator to send to each proc
- *
- * \param ext_comms_next_idx[k] position of the external communicators to send
- * to the proc \a k+1 in the \a extComm_next_idx array.
- *
- * \param extComm_next_idx \a extComm_next_idx[k] position of the external
- * communicator number \a k+1 in the part of the \a extComm_grpFaces* arrays
- * that goes to a given proc (so for each proc, the communicator number 0 is at
- * position 0)
- *
- * \param extComm_grpFaces2face2int for each group, position of the group faces
- * that belongs to the external communicators in the face2int* arrays
- *
- * \param extComm_grpFaces2extComm for each group, position of the group faces
- * that belongs to the external communicators in the external communicators.
- *
- * \return 0 if fail, 1 otherwise
- *
- * Send the all the external face communicators that must be updated on the proc
- * \a dest due to the migrations of groups (for example, if the a group move
- * from proc i to proc j and the group has interface faces with the proc \a
- * dest, we must update the external face communicator on \a dest).
- *
- *
- * \warning IMPROVEMENT: change the extComm_grpFaces2extComm storage to have all
- * the external communicators going to dest contiguous so we can send it with
- * only 1 MPI_Send.
- *
- */
-static inline
-int PMMG_send_extFaceComm(PMMG_pParMesh parmesh,int dest,int max_ngrp,
-                          int *nfaces2send,int *next_comm2send,
-                          int *ext_comms_next_idx,
-                          int *extComm_next_idx,int *extComm_grpFaces2face2int,
-                          int *extComm_grpFaces2extComm) {
-
-  PMMG_pExt_comm ext_comm_color_out;
-  MPI_Comm       comm;
-  int            myrank,tag,grp_id,nprocs,color_out;
-  int            k,i,j,idx,idx_next,item_idx,nitem,ier,ext_comm_idx,proc;
-
-  ier = 1;
-
-  comm   = parmesh->comm;
-  myrank = parmesh->myrank;
-  nprocs = parmesh->nprocs;
-  tag    = MPI_SENDEXTFACECOMM_TAG;
-
-  if ( dest == myrank ) return 1;
-
-  /** Process all the external communicators that are listed and send those ones
-   * that must go on dest */
-  idx_next     = 0;
-  item_idx     = 0;
-  ext_comm_idx = 0;
-  proc         = 0;
-  while ( proc<nprocs ) {
-
-    if ( next_comm2send[proc] )  item_idx += idx_next;
-
-    for ( k=0; k<next_comm2send[proc]; ++k ) {
-      idx         = idx_next;
-      idx_next    = item_idx + extComm_next_idx[ext_comm_idx+k];
-      nitem       = idx_next-idx-2;
-
-      grp_id      = extComm_grpFaces2extComm[idx_next-2];
-      color_out   = extComm_grpFaces2face2int[idx_next-1];
-
-      if ( color_out != dest ) continue;
-
-      assert ( nitem == nfaces2send [ max_ngrp * dest + grp_id ] );
-
-      MPI_CHECK( MPI_Send(&extComm_grpFaces2extComm[idx],nitem+2,MPI_INT,dest,
-                          tag,comm),ier = 0 );
-      ++tag;
-
-      /** Remove the old interface faces from the external communicator */
-      /* Find the communicator myrank-color_out */
-      ext_comm_color_out = NULL;
-      for ( i=0; i<parmesh->next_face_comm; ++i ) {
-        ext_comm_color_out = &parmesh->ext_face_comm[i];
-        if ( ext_comm_color_out->color_out==color_out ) break;
-      }
-      assert ( ext_comm_color_out );
-
-      for ( i=0; i<nitem; ++i ) {
-        j = extComm_grpFaces2extComm[idx+i];
-        ext_comm_color_out->int_comm_index[j] = PMMG_UNSET;
-      }
-    }
-    ext_comm_idx = ext_comms_next_idx[proc];
-    ++proc;
-  }
-
-  return ier;
-}
-
-/**
- * \param parmesh pointer toward the mesh structure.
- * \param source source rank.
- * \param nfaces2recv array that stores the number of communicators to receive
- * from each group and from each proc
- * \param recv_array buffer to receive the external communicators
- *
- * \return 0 if fail, 1 otherwise
- *
- * Send the all the external face communicators that must be updated on the proc
- * \a dest due to the migrations of groups (for example, if the a group move
- * from proc i to proc j and the group has interface faces with the proc \a
- * dest, we must update the external face communicator on \a dest).
- *
- */
-static inline
-int PMMG_recv_extFaceComm(PMMG_pParMesh parmesh,int source,int max_ngrp,
-                          int *nfaces2recv,int *recv_array) {
-
-  PMMG_pExt_comm ext_comm_color_out,ext_comm_source,ext_comm;
-  MPI_Comm       comm;
-  MPI_Status     status;
-  int            myrank,tag,color_out,old_nitem;
-  int            k,i,idx,nitem,ier;
-
-  ier = 0;
-
-  comm   = parmesh->comm;
-  myrank = parmesh->myrank;
-  tag    = MPI_SENDEXTFACECOMM_TAG;
-
-  if ( source == myrank ) return 1;
-
-  /** Process the nfaces2recv array and receive the external communicator of the
-   * groups on proc source that send something to us */
-
-  /* Find the communicator myrank-source */
-  ext_comm_source = NULL;
-  for ( i=0; i<parmesh->next_face_comm; ++i ) {
-    ext_comm_source = &parmesh->ext_face_comm[i];
-    if ( ext_comm_source->color_out==source ) break;
-  }
-
-  for ( k=0; k<max_ngrp; ++k ) {
-    if ( !nfaces2recv[ source * max_ngrp + k ] ) continue;
-
-    /** Step 1: reception */
-    MPI_Probe(source,tag,parmesh->comm,&status);
-    MPI_Get_count(&status,MPI_INT,&nitem);
-
-    assert ( nitem == nfaces2recv[source*max_ngrp+k]+2 );
-
-    MPI_CHECK( MPI_Recv(recv_array,nitem,MPI_INT,source,tag,comm,&status),goto end );
-    ++tag;
-
-    /** Step 2: update the matching external communicator: delete the faces from
-     * the myrank-source communicator and add it in the myrank-color_out one (with
-     * color_out the proc on which move the group that has send us the
-     * communicator) */
-    color_out = recv_array[nitem-1];
-
-    /* Find the communicator myrank-color_out */
-    ext_comm_color_out = NULL;
-    for ( i=0; i<parmesh->next_face_comm; ++i ) {
-      ext_comm_color_out = &parmesh->ext_face_comm[i];
-      if ( ext_comm_color_out->color_out==color_out ) break;
-    }
-
-    /* Add the new external faces between source and myrank (the group that
-     * was on source is now on myrank) */
-    if ( !ext_comm_color_out ) {
-      /* Creation of a new external communicator */
-      PMMG_REALLOC(parmesh,parmesh->ext_face_comm,
-                   parmesh->next_face_comm+1,parmesh->next_face_comm,
-                   PMMG_Ext_comm,"list of external communicators",goto end);
-      parmesh->next_face_comm = parmesh->next_face_comm+1;
-
-      ext_comm = &parmesh->ext_face_comm[parmesh->next_face_comm];
-      ext_comm->color_in  = parmesh->myrank;
-      ext_comm->color_out = color_out;
-      ext_comm->nitem     = 0;
-    }
-    else
-      ext_comm = ext_comm_color_out;
-
-    PMMG_REALLOC(parmesh,ext_comm->int_comm_index,ext_comm->nitem+nitem-2,
-                 ext_comm->nitem,int,"int_comm_index",goto end);
-    old_nitem = ext_comm->nitem;
-    ext_comm->nitem += nitem-2;
-
-    /* Move the faces from ext_comm_source toward ext_comm */
-    assert ( ext_comm_source );
-    for ( i=0; i<nitem-2; ++i ) {
-      idx = recv_array[i];
-      ext_comm->int_comm_index[old_nitem+i] =
-        ext_comm_source->int_comm_index[idx];
-      ext_comm_source->int_comm_index[idx] = PMMG_UNSET;
+      PMMG_DEL_MEM(parmesh,recv_ext_idx,nitem_recv_ext_idx,int,"recv_ext_idx");
     }
   }
 
-  /* Success */
-  ier = 1;
+  /** Step 3: pack the groups and face communicators */
+  err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
+  ier = MG_MIN ( ier, err );
+  if ( !parmesh->ngrp ) {
+    fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
+            __func__,myrank);
+  }
 
-end:
+  if ( ier ) {
+    /* Pack the face communicators */
+    err = PMMG_pack_faceCommunicators(parmesh);
+    ier = MG_MIN ( ier, err );
+  }
+
+  /** Step 4: Wait for the end of the MPI communications */
+  if ( myrank == sndr) {
+    MPI_CHECK( MPI_Waitall(nprocs+1,trequest,MPI_STATUSES_IGNORE), return 0 );
+    PMMG_DEL_MEM ( parmesh, trequest,nprocs+1,MPI_Request,"request_tab" );
+
+    MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
+    MPI_CHECK( MPI_Wait(&drequest,&status), return 0 );
+
+    /* Free the memory */
+    PMMG_DEL_MEM ( parmesh,grps2send,pack_size,char,"grps2send" );
+  }
+  else if ( myrank == recv ) {
+    MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
+  }
+
+  PMMG_DEL_MEM ( parmesh,intcomm_flag,nitem_intcomm_flag,int,"intcomm_flag" );
+  PMMG_DEL_MEM ( parmesh,recv_ext_idx,nitem_recv_ext_idx,int,"recv_ext_idx" );
+
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->itosend ) {
+      PMMG_DEL_MEM ( parmesh,ext_face_comm->itosend,ext_face_comm->nitem_to_share,
+                     int,"itosend" );
+    }
+  }
+
   return ier;
 }
 
@@ -2109,26 +2572,26 @@ end:
  * \return 0 if fail but we can try to save a mesh, -1 if we fail and are unable
  * to save the mesh, 1 if we success
  *
- * Send the suitable group to other procs and recieve their groups.
+ * Send the suitable groups to other procs and recieve their groups.
  * Deallocate the \a part array.
  *
  */
 static inline
-int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   PMMG_pInt_comm int_comm;
   MPI_Comm       comm;
-  int            nitem,myrank,nprocs;
+  int            myrank,nprocs;
+  int            *interaction_map;
   int            *send_grps,*recv_grps,*nfaces2send,*nfaces2recv;
   int            *next_comm2send,*ext_comms_next_idx,*nitems2send;
   int            *extComm_next_idx,*items_next_idx,*recv_array,nfaces2recv_max;
   int            *extComm_grpFaces2extComm,*extComm_grpFaces2face2int;
   int            nrecv,nsend,max_ngrp,prev_ngrp,new_ngrp,pleft,pright,comm_order;
-  int            ier,ier_glob,k,err,part_size;
+  int            ier,ier_glob,k,i,j,err;
 
   myrank    = parmesh->myrank;
   nprocs    = parmesh->nprocs;
   comm      = parmesh->comm;
-  err       = 0;
   max_ngrp  = 0;
 
   send_grps                 = NULL;
@@ -2143,11 +2606,34 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   extComm_grpFaces2extComm  = NULL;
   extComm_grpFaces2face2int = NULL;
   recv_array                = NULL;
+  interaction_map           = NULL;
 
-  /** Step 1: Merge all the groups that must be send to a given proc into 1
+  /** Step 1: Merge all the groups that must be sended to a given proc into 1
    * group */
   ier = PMMG_merge_grps2send(parmesh,&part);
-  part_size = parmesh->ngrp;
+
+  /* Give all the available memory to the parmesh */
+  assert ( parmesh->memGloMax > parmesh->memCur );
+
+  parmesh->memMax = parmesh->memGloMax;
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    err = PMMG_parmesh_fitMesh( parmesh,parmesh->listgrp[k].mesh,
+                                parmesh->listgrp[k].met );
+    ier = MG_MIN( err, ier );
+
+    if ( parmesh->memMax < parmesh->listgrp[k].mesh->memMax ) {
+      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
+      ier = MG_MIN(ier,-1);
+    }
+    parmesh->memMax -= parmesh->listgrp[k].mesh->memMax;
+  }
+
+  /* Store the group destination in the group flag */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    parmesh->listgrp[k].flag = part[k];
+  }
+  PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"parmetis partition");
+
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
 
   if ( ier_glob < 0 ) {
@@ -2167,177 +2653,40 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
   /** Step 3:
    *
-   * Fill the array of the number of groups that we will send to the other
-   * processors (\a send_grps) and receive the array of the number of group that
-   * we will receive from the other procs (\a recv_grps);
+   * Compute the map of interactions: each proc interacts with all the other
+   * procs (worst case)
    *
    */
+#warning add interaction map
   ier = 0;
-
-  PMMG_CALLOC(parmesh,send_grps,nprocs,int,"sended groups to other procs",
-              goto end);
-  PMMG_CALLOC(parmesh,recv_grps,nprocs,int,"received groups from other procs",
-              goto end);
-
-  int_comm = parmesh->int_face_comm;
-  nitem    = int_comm->nitem;
-
-  PMMG_MALLOC(parmesh,int_comm->intvalues,nitem,int,"intvalues",goto end);
-
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    if ( part[k] == parmesh->myrank ) continue;
-    ++send_grps[part[k]];
+  PMMG_CALLOC(parmesh,interaction_map,nprocs,int,"interaction_map",goto end);
+  for ( k=0; k<nprocs; ++k ) {
+    interaction_map[k] = 1;
   }
-  MPI_CHECK( MPI_Alltoall(send_grps,1,MPI_INT,recv_grps,1,MPI_INT,comm),
-             goto end);
 
-  ier = PMMG_fill_extFaceCommData(parmesh,part,&max_ngrp,
-                                  &nfaces2send,&nfaces2recv,
-                                  &next_comm2send,&ext_comms_next_idx,
-                                  &nitems2send,&items_next_idx,
-                                  &extComm_next_idx,&extComm_grpFaces2face2int,
-                                  &extComm_grpFaces2extComm);
+  /** Step 4: proc k send its data (group and/or communicators), proc j receive
+   * data */
+  ier = 1;
+  for ( k=0; k<nprocs; ++k ) {
+    for ( j=0; j<nprocs; ++j ) {
+      if ( j==k ) continue;
+      if ( k>1 && parmesh->next_face_comm>3 ) {
+        printf("color_out %d\n",parmesh->ext_face_comm[3].color_out);
+      }
+      err =  PMMG_transfer_grps_fromItoJ(parmesh,k,j,interaction_map);
+      ier = MG_MIN ( ier,err );
+    }
+  }
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
 
-  if ( !ier ) {
-    fprintf(stderr,"\n  ## Error: %s: Unable to compute the sended data of"
-            " each group to each proc.",__func__);
+  if ( ier_glob <= 0 ) {
+    fprintf(stderr,"\n  ## Error: %s: unable to transfer the groups toward"
+            " their new processor.\n",__func__);
+    ier = -1;
     goto end;
   }
-  ier = 0;
 
-  /** Step 4: Count the number of groups that we will received and reallocate
-   * the listgrp array */
-  prev_ngrp = parmesh->ngrp;
-
-  nrecv = 0;
-  for ( k=0; k<nprocs; ++k )
-    nrecv += recv_grps[k];
-
-  PMMG_RECALLOC(parmesh,parmesh->listgrp,nrecv+parmesh->ngrp,parmesh->ngrp,
-                PMMG_Grp,"listgrps",goto end);
-  parmesh->ngrp = nrecv+parmesh->ngrp;
-
-  /* Allocation of the array that will receive the external communicators at the
-   * largest needed size */
-  nfaces2recv_max = 0;
-  for ( k=0; k<max_ngrp*nprocs; ++k ) {
-    nfaces2recv_max = MG_MAX(nfaces2recv_max,nfaces2recv[k]);
-  }
-  if ( nfaces2recv_max )
-    PMMG_MALLOC(parmesh,recv_array,nfaces2recv_max+2,int,"recv_array",goto end);
-
-  /** Step 5: exchange the groups */
-  for ( k=1; k<nprocs; ++k ) {
-    /* Index of the right proc to which we send data and of the left proc from
-     * which we receive data */
-    pleft  = ( myrank+nprocs-k )%nprocs;
-    pright = ( myrank+k )%nprocs;
-
-    /* Order of the communication: if 0, we send then receive, if 1, we receive
-     * then send */
-    comm_order = (myrank/k)%2;
-
-    if ( !comm_order ) {
-      nsend = PMMG_send_grp(parmesh,pright,send_grps[pright],part,
-                            next_comm2send,ext_comms_next_idx,nitems2send,
-                            items_next_idx,extComm_next_idx,
-                            extComm_grpFaces2face2int,extComm_grpFaces2extComm);
-
-      nrecv = PMMG_recv_grp(parmesh,&prev_ngrp,pleft,recv_grps[pleft]);
-
-      if ( nsend != send_grps[pright] ) {
-        fprintf(stderr,"\n  ## Error: %s: unable to send the %d th mesh from"
-                " proc %d to proc %d.\n",__func__,nsend+1,myrank,pright);
-        if ( nsend<0 ) {
-          ier = -1;
-          goto end;
-        }
-        err = 1;
-      }
-      if ( nrecv != recv_grps[pleft] ) {
-        fprintf(stderr,"\n  ## Error: %s: unable to recv the %d th mesh from"
-                " proc %d on proc %d.\n",__func__,nrecv+1,pleft,myrank);
-        if ( nrecv<0 ) {
-          ier = -1;
-          goto end;
-        }
-        err = 1;
-      }
-
-      if ( !PMMG_send_extFaceComm(parmesh,pright,max_ngrp,nfaces2send,
-                                  next_comm2send,ext_comms_next_idx,
-                                  extComm_next_idx,
-                                  extComm_grpFaces2face2int,
-                                  extComm_grpFaces2extComm) )
-        goto end;
-
-      if ( !PMMG_recv_extFaceComm(parmesh,pleft,max_ngrp,nfaces2recv,
-                                  recv_array) )
-        goto end;
-
-    }
-    else {
-      nrecv = PMMG_recv_grp(parmesh,&prev_ngrp,pleft,recv_grps[pleft]);
-
-      nsend = PMMG_send_grp(parmesh,pright,send_grps[pright],part,
-                            next_comm2send,ext_comms_next_idx,nitems2send,
-                            items_next_idx,extComm_next_idx,
-                            extComm_grpFaces2face2int,extComm_grpFaces2extComm);
-
-      if ( nsend != send_grps[pright] ) {
-        fprintf(stderr,"\n  ## Error: %s: unable to send the %d th mesh from"
-                " proc %d to proc %d.\n",__func__,nsend+1,myrank,pright);
-        if ( nsend<0 ) {
-          ier = -1;
-          goto end;
-        }
-        err = 1;
-      }
-      if ( nrecv != recv_grps[pleft] ) {
-        fprintf(stderr,"\n  ## Error: %s: unable to recv the %d th mesh from"
-                " proc %d on proc %d.\n",__func__,nrecv+1,pleft,myrank);
-        if ( nrecv<0 ) {
-          ier = -1;
-          goto end;
-        }
-        err = 1;
-      }
-
-      if ( !PMMG_recv_extFaceComm(parmesh,pleft,max_ngrp,nfaces2recv,
-                                  recv_array) )
-        goto end;
-
-      if ( !PMMG_send_extFaceComm(parmesh,pright,max_ngrp,nfaces2send,
-                                  next_comm2send,ext_comms_next_idx,
-                                  extComm_next_idx,
-                                  extComm_grpFaces2face2int,
-                                  extComm_grpFaces2extComm) )
-        goto end;
-
-    }
-  }
-
-  /** Step 6: pack the groups and face communicators */
-  new_ngrp = PMMG_pack_grps_norealloc( parmesh,&parmesh->listgrp,parmesh->ngrp );
-  PMMG_RECALLOC(parmesh,parmesh->listgrp,new_ngrp,parmesh->ngrp,PMMG_Grp,
-                "listgrps",goto end);
-  parmesh->ngrp = new_ngrp;
-
-  if ( !parmesh->ngrp ) {
-    fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
-            __func__,myrank);
-
-  }
-
-  /* Pack the face communicators */
-  /* Reallocation because we have added faces in the communicator but not yet
-   * deleted it */
-  PMMG_REALLOC(parmesh,int_comm->intvalues,int_comm->nitem,nitem,int,
-               "intvalues",goto end);
-
-  if ( !PMMG_pack_faceCommunicators(parmesh) ) goto end;
-
-  /** Step 7: Node communicators reconstruction from the face ones */
+  /** Step 6: Node communicators reconstruction from the face ones */
   if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
     fprintf(stderr,"\n  ## Unable to build the new node communicators from"
             " the face ones.\n");
@@ -2345,16 +2694,9 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
     goto end;
   }
 
-  /** Step 8: Update the memory repartition */
-  if ( !PMMG_parmesh_updateMemMax(parmesh, 105, 1) ) {
-    fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
-            " between meshes and communicators.\n",__func__);
-    goto end;
-  }
-
 #ifndef NDEBUG
   for ( k=0; k<parmesh->ngrp; ++k ) {
-    for ( int j=0; j<parmesh->listgrp[k].nitem_int_face_comm; ++j )
+    for ( j=0; j<parmesh->listgrp[k].nitem_int_face_comm; ++j )
       assert( parmesh->listgrp[k].face2int_face_comm_index2[j]>=0 &&
               "face2int_face_comm not filled.");
   }
@@ -2364,14 +2706,16 @@ int PMMG_mpiexchange_grps(PMMG_pParMesh parmesh,idx_t *part) {
   if ( !err )  ier = 1;
 
 end:
-  if ( part )
-    PMMG_DEL_MEM(parmesh,part,part_size,idx_t,"deallocate parmetis partition");
+  if ( interaction_map )
+    PMMG_DEL_MEM(parmesh,interaction_map,nprocs,int,"interaction_map");
   if ( send_grps )
     PMMG_DEL_MEM(parmesh,send_grps,nprocs,int,"send_grps");
   if ( recv_grps )
     PMMG_DEL_MEM(parmesh,recv_grps,nprocs,int,"recv_grps");
-  if ( parmesh->int_face_comm->intvalues )
-    PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,nitem,int,"intvalues");
+  if ( parmesh->int_face_comm->intvalues ) {
+    PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,
+                 parmesh->int_face_comm->nitem,int,"intvalues");
+  }
   if ( recv_array )
     PMMG_DEL_MEM(parmesh,recv_array,nfaces2recv_max+2,int,"recv_array");
 
@@ -2402,6 +2746,7 @@ end:
 
   return ier;
 }
+
 
 /**
  * \param parmesh pointer toward the mesh structure.
@@ -2442,7 +2787,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   }
 
   /** Send the suitable groups to other procs and recieve their groups */
-  ier = PMMG_mpiexchange_grps(parmesh,part);
+  ier = PMMG_transfer_all_grps(parmesh,part);
   if ( ier <= 0 )
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
 

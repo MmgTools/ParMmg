@@ -52,6 +52,20 @@ extern "C" {
  */
 #define PMMG_IMPRIM   1
 
+/**
+ *
+ * Size of quality histogram arrays
+ *
+ */
+#define PMMG_QUAL_HISSIZE 5
+
+/**
+ *
+ * Size of mpi datatype for quality histo computation
+ *
+ */
+#define PMMG_QUAL_MPISIZE 4
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -125,8 +139,8 @@ extern "C" {
   } } while(0)
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
-    int       stat = PMMG_SUCCESS;                          \
-    size_t    size_to_free = -(size)*sizeof(type);          \
+    int    stat = PMMG_SUCCESS;                             \
+    size_t size_to_free = -(size)*sizeof(type);             \
                                                             \
     if ( (size) != 0 && ptr ) {                             \
       MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
@@ -221,16 +235,65 @@ extern "C" {
         (mesh)->memCur += ( size_to_add );                              \
       }                                                                 \
     }                                                                   \
-  } } while(0)
-
-#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
-  int my_stat = PMMG_SUCCESS;                                            \
-                                                                        \
-  PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure;my_stat=PMMG_FAILURE);\
-  if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) )           \
-    memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));     \
+    else {                                                              \
+      on_failure;                                                       \
+    }                                                                   \
+  }                                                                     \
   } while(0)
 
+#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
+    int my_stat = PMMG_SUCCESS;                                         \
+                                                                        \
+    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;); \
+    if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {      \
+      memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type)); \
+    }                                                                   \
+  } while(0)
+
+/** Give the available memory (previouly given to the parmesh) to the mesh
+ * structure and update the value of the available memory by removing the amount
+ * of memory that has been used by the parmesh */
+#define PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,memAv,oldMemMax) do {      \
+                                                                        \
+    parmesh->memMax = parmesh->memCur;                                  \
+                                                                        \
+    if ( parmesh->memMax > oldMemMax ) {                                \
+      if ( memAv < parmesh->memMax - oldMemMax ) {                      \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
+      memAv          -= (parmesh->memMax - oldMemMax );                 \
+    }                                                                   \
+    else if ( oldMemMax > parmesh->memMax ) {                           \
+      memAv           += ( oldMemMax - parmesh->memMax );               \
+      assert ( memAv+parmesh->memMax <= parmesh->memGloMax );           \
+    }                                                                   \
+    oldMemMax        = mesh->memMax;                                    \
+    mesh->memMax    += memAv;                                           \
+                                                                        \
+  } while(0)
+
+/** Give the available memory (previouly given to the mesh) to the parmesh
+ * structure and update the value of the available memory by removing the amount
+ * of memory that has been used by the mesh */
+#define PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,memAv,oldMemMax) do {   \
+    mesh->memMax = mesh->memCur;                                        \
+                                                                        \
+    if ( mesh->memMax > oldMemMax ) {                                   \
+      if ( memAv < mesh->memMax - oldMemMax ) {                         \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
+      memAv           -= ( mesh->memMax - oldMemMax );                  \
+    }                                                                   \
+    else if ( oldMemMax > mesh->memMax ) {                              \
+      memAv           += ( oldMemMax - mesh->memMax );                  \
+      assert ( memAv+mesh->memMax <= parmesh->memGloMax );              \
+    }                                                                   \
+    oldMemMax        = parmesh->memMax;                                 \
+    parmesh->memMax += memAv;                                           \
+                                                                        \
+  } while(0)
 
 /* Input */
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
@@ -289,11 +352,16 @@ int  PMMG_link_mesh( MMG5_pMesh mesh );
 void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
+int  PMMG_setMemMax_realloc( MMG5_pMesh,int,int,int,int);
+int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met);
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh,size_t memReq );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
+int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
+int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
+
 
 /* Scaling */
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);

@@ -187,6 +187,7 @@ typedef struct {
   int        color_out; /*!< Color of the remote processor */
 
   int        nitem; /*!< Nb items in the communicator */
+  int        nitem_to_share; /*!< Nb items in the *send/recv arrays */
 
   int*       int_comm_index; /*!< Index of the items in the internal communicators */
 
@@ -194,6 +195,7 @@ typedef struct {
   int*       itorecv; /*!< Array to receive the data to the remote processor */
   double*    rtosend; /*!< Array to send the data to the remote processor */
   double*    rtorecv; /*!< Array to receive the data to the remote processor */
+
 } PMMG_Ext_comm;
 typedef PMMG_Ext_comm  * PMMG_pExt_comm;
 
@@ -207,7 +209,7 @@ typedef struct {
   MMG5_pSol    met;   /*!< metric */
   MMG5_pSol    disp;  /*!< displacement */
 
-  /*communicators*/
+  /* communicators */
   int          nitem_int_node_comm;       /*!< Nb nodes of this grp in internal communicator*/
   int*         node2int_node_comm_index1; /*!< List of interface nodes (local index)*/
   int*         node2int_node_comm_index2; /*!< List of index in internal communicator (where put the interface nodes)*/
@@ -219,7 +221,7 @@ typedef struct {
   int          nitem_int_face_comm;/*!< Nb faces of this grp in internal communicator*/
   int*         face2int_face_comm_index1; /*!< List of interface faces (local index)*/
   int*         face2int_face_comm_index2; /*!< List of index in internal communicator (where put the interface faces)*/
-
+  int          flag;
 } PMMG_Grp;
 typedef PMMG_Grp  * PMMG_pGrp;
 
@@ -252,9 +254,9 @@ typedef struct {
   int         imprim;
 
   /* mem info */
-  size_t memGloMax; /*!< Maximum memory available to all structs */
-  size_t memMax;    /*!< Maximum memory parmesh is allowed to allocate */
-  size_t memCur;    /*!< Currently allocated memory */
+  size_t    memGloMax; /*!< Maximum memory available to all structs */
+  size_t    memMax; /*!< Maximum memory parmesh is allowed to allocate */
+  size_t    memCur; /*!< Currently allocated memory */
 
   /* grp */
   int       ngrp;       /*!< Number of grp */

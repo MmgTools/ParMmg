@@ -268,14 +268,16 @@ void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 {
   size_t n_total = parmesh->memCur;
   const size_t mb = 1024 * 1024;
+
   for ( size_t i = 0; i < parmesh->ngrp; ++i )
     n_total += parmesh->listgrp[ i ].mesh->memCur;
+
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
              "%2d-%2d: %s: memCur check ERROR: memCur ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
-	     parmesh->myrank, parmesh->nprocs, msg,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
-	     __func__, __FILE__, __LINE__ );
+             parmesh->myrank, parmesh->nprocs, msg,
+             n_total / (float) mb, parmesh->memGloMax / (float) mb,
+             __func__, __FILE__, __LINE__ );
 //  else
 //    fprintf( stderr,
 //             "%2d-%2d: %s: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
@@ -289,8 +291,8 @@ void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
     fprintf( stderr,
              "%2d-%2d: %s: memMax check ERROR: memMax ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
              parmesh->myrank, parmesh->nprocs, msg,
-	     n_total / (float) mb, parmesh->memGloMax / (float) mb,
-	     __func__, __FILE__, __LINE__ );
+             n_total / (float) mb, parmesh->memGloMax / (float) mb,
+             __func__, __FILE__, __LINE__ );
 //  else
 //    fprintf( stderr,
 //             "%2d-%2d: %s: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",

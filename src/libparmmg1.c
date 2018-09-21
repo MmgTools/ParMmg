@@ -506,7 +506,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Try to save the mesh and exit program.\n");
       goto failed_handling;
-    } else if( ieresult < 0 ) {
+    } else if ( ieresult < 0 ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);

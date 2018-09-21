@@ -19,6 +19,7 @@
 #define MPI_PARMESHGRPS2PARMETIS_TAG    5000
 #define MPI_SENDGRP_TAG                 6000
 #define MPI_SENDEXTFACECOMM_TAG         7000
+#define MPI_TRANSFER_GRP_TAG            8000
 
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \

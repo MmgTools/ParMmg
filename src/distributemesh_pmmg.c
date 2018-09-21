@@ -184,13 +184,13 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
       PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges", ier=6);
 
     if ( isMet )
-      PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial edges", ier=6);
+      PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial metric", ier=6);
   }
 
-  if ( ier<6 && !PMMG_create_MPI_lightPoint( mesh->point, &mpi_light_point ) ) { ier=6; }
-  if ( ier<6 && !PMMG_create_MPI_lightTetra( mesh->tetra, &mpi_light_tetra ) ) { ier=5; }
-  if ( ier<5 && mesh->nt && !PMMG_create_MPI_Tria( mesh->tria, &mpi_tria ) )   { ier=4; }
-  if ( ier<4 && mesh->na && !PMMG_create_MPI_Edge( mesh->edge, &mpi_edge ) )   { ier=3; }
+  if ( ier<6 && !PMMG_create_MPI_lightPoint( &mpi_light_point ) ) { ier=6; }
+  if ( ier<6 && !PMMG_create_MPI_lightTetra( &mpi_light_tetra ) ) { ier=5; }
+  if ( ier<5 && mesh->nt && !PMMG_create_MPI_Tria( &mpi_tria ) )   { ier=4; }
+  if ( ier<4 && mesh->na && !PMMG_create_MPI_Edge( &mpi_edge ) )   { ier=3; }
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MAX,parmesh->comm ),
               ier = ieresult = 2 );
@@ -441,10 +441,10 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
             if ( (mesh->xp+1) > mesh->xpmax ) {
               /* realloc of xtetras table */
               newsize = MG_MAX((1.+mesh->gap)*mesh->xpmax,mesh->xpmax+1);
-              PMMG_RECALLOC(mesh,mesh->xpoint,newsize,
+              PMMG_RECALLOC(mesh,mesh->xpoint,newsize+1,
                             mesh->xpmax+1,MMG5_xPoint,"larger xpoint ",
                             ret_val = 0;goto fail_alloc7);
-              PMMG_RECALLOC(parmesh,(*xPointPerm),newsize,
+              PMMG_RECALLOC(parmesh,(*xPointPerm),newsize+1,
                             mesh->xpmax+1,int,"larger xpoint permutation table ",
                             ret_val = 0; goto fail_alloc7);
               mesh->xpmax = newsize;
@@ -809,8 +809,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   /** Call metis for partionning */
   ne = mesh->ne;
   PMMG_CALLOC ( parmesh,part,ne,idx_t,"allocate metis buffer", ier=5 );
+
   if ( (!parmesh->myrank) && nprocs > 1 ) {
-    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs) ) {
+    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
       ier = 5;
     }
   }
@@ -832,6 +833,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   MPI_CHECK( MPI_Bcast( &part[0], ne, metis_dt, 0, parmesh->comm ),
              ier = 3 );
+
+  /* Memory repartition */
+  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
    * shared entites with the other procs */
@@ -859,7 +863,7 @@ unalloc:
                ieresult = 4);
 
     if ( ier < 3 ) {
-      PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xpmax+1,int,"deallocate metis buffer5");
+      PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xpmax+1,int,"deallocate metis buffer");
       PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
       PMMG_DEL_MEM(parmesh,pointPerm,old_np+1,int,"deallocate pointPerm");
       PMMG_DEL_MEM(parmesh,shared_face,nprocs,int,"deallocate shared_face");

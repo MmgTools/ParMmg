@@ -62,29 +62,47 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   ier = PMMG_count_parBdy(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Problem when counting the number of interface faces.\n");
-    goto reduce;
+  }
+#ifndef NDEBUG
+    /* In debug mode we have mpi comm in split_n2mGrps, thus, if 1 proc fails
+     * and the other not we will deadlock */
+    MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier_glob <=0 ) return ier_glob;
+#endif
+
+  if ( ier ) {
+    /** Split the ngrp groups of listgrp into a higher number of groups */
+    ier = PMMG_split_n2mGrps(parmesh,METIS_TARGET_MESH_SIZE,1);
   }
 
-  /** Split the ngrp groups of listgrp into a higher number of groups */
-  ier = PMMG_split_n2mGrps(parmesh,METIS_TARGET_MESH_SIZE,1);
-  if ( ier <= 0) {
+  /* There is mpi comms in distribute_grps thus we don't want that one proc
+   * enters the function and not the other proc */
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( ier_glob <= 0) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
-    goto reduce;
+    return ier_glob;
   }
 
   /** Distribute the groups over the processor to load balance the meshes */
   ier = PMMG_distribute_grps(parmesh);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
-    goto reduce;
- }
+  }
+#ifndef NDEBUG
+    /* In debug mode we have mpi comm in split_n2mGrps, thus, if 1 proc fails
+     * and the other not we will deadlock */
+    MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier_glob <=0 ) return ier_glob;
+#endif
 
-  /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-  ier = PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0);
-  if ( ier<=0 )
-    fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
+  if ( ier ) {
+    /** Redistribute the ngrp groups of listgrp into a higher number of groups */
+    ier = PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0);
+    if ( ier<=0 )
+      fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
+  }
 
-reduce :
+  // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
   return ier_glob;

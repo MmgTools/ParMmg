@@ -42,18 +42,17 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   int          iel, iel_cur;
   int          good, good_cur,good_result,optimLES,optimLES_result;
   int          med, med_cur, med_result;
-  const int    HIS_SIZE                = 5;
-  int          his[ HIS_SIZE ], his_cur[ HIS_SIZE ], his_result[ HIS_SIZE ];
+  int          his[PMMG_QUAL_HISSIZE],his_cur[PMMG_QUAL_HISSIZE],his_result[PMMG_QUAL_HISSIZE];
   int          nrid, nrid_cur, nrid_result,ier;
   MPI_Op       iel_min_op;
   MPI_Datatype mpi_iel_min_t;
-  MPI_Datatype types[ 4 ]              = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
+  MPI_Datatype types[ PMMG_QUAL_MPISIZE ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
   min_iel_t    min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
-  MPI_Aint     disps[ 4 ]              = { offsetof( min_iel_t, min ),
+  MPI_Aint     disps[ PMMG_QUAL_MPISIZE ] = { offsetof( min_iel_t, min ),
                                            offsetof( min_iel_t, iel ),
                                            offsetof( min_iel_t, iel_grp ),
                                            offsetof( min_iel_t, cpu ) };
-  int lens[ 4 ]                        = { 1, 1, 1, 1 };
+  int lens[ PMMG_QUAL_MPISIZE ]           = { 1, 1, 1, 1 };
 
   /* Calculate the quality values for local process */
   iel_grp = 0;
@@ -67,7 +66,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   grp = &parmesh->listgrp[0];
   optimLES = ( grp && grp->mesh ) ? grp->mesh->info.optimLES : 0;
 
-  for ( i = 0; i < HIS_SIZE; ++i )
+  for ( i = 0; i < PMMG_QUAL_HISSIZE; ++i )
     his[ i ] = 0;
 
   nrid = 0;
@@ -90,7 +89,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
       iel_grp = i;
     }
 
-    for ( j = 0; j < HIS_SIZE; ++j )
+    for ( j = 0; j < PMMG_QUAL_HISSIZE; ++j )
       his[ j ] += his_cur[ j ];
 
     nrid += nrid_cur;
@@ -105,7 +104,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
 
 
-  MPI_Type_create_struct( 4, lens, disps, types, &mpi_iel_min_t );
+  MPI_Type_create_struct( PMMG_QUAL_MPISIZE, lens, disps, types, &mpi_iel_min_t );
   MPI_Type_commit( &mpi_iel_min_t );
   MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
   min_iel.min = min;
@@ -115,7 +114,7 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
   MPI_Op_free( &iel_min_op );
 
-  MPI_Reduce( his, his_result, HIS_SIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
 
   if ( parmesh->myrank == 0 ) {

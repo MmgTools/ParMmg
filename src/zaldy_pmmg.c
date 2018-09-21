@@ -225,7 +225,6 @@ int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
 /**
  * \param parmesh parmesh structure to adjust
  * \param percent integer value bewtween 0 and 100
- * \param fitMesh if 1, set maximum mesh size at its exact size.
  *
  * \return 1 if success, 0 if fail
  *
@@ -279,8 +278,48 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 }
 
 /**
+ * \param parmesh pointer toward a parmesh.
+ * \param mesh pointer toward the mesh that we want to fit.
+ * \param met pointer toward the metric that we want to fit.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Set the memMax field of a mesh to memCur and realloc the mesh in order to use
+ * the less possible memory.
+ *
+ */
+int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met ) {
+  int npmax_old,xpmax_old,nemax_old,xtmax_old;
+  int ier = 1;
+
+  npmax_old = mesh->npmax;
+  xpmax_old = mesh->xpmax;
+  nemax_old = mesh->nemax;
+  xtmax_old = mesh->xtmax;
+
+  mesh->npmax = mesh->np;
+  mesh->xpmax = mesh->xp;
+  mesh->nemax = mesh->ne;
+  mesh->xtmax = mesh->xt;
+
+  met->npmax = mesh->npmax;
+
+  if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,
+                               nemax_old,xtmax_old) ) ier = 0;
+
+  if ( met->m ) {
+    PMMG_REALLOC(parmesh,met->m,met->size*(met->npmax+1),
+                 met->size*(npmax_old+1),double,"metric_array",
+                 assert(0);ier = 0;);
+  }
+  mesh->memMax = mesh->memCur;
+
+  return ier;
+}
+
+/**
  * \param parmesh parmesh structure to adjust
- * \param percent increasing ratio of the parmesh memory (>100).
+ * \param percent ratio of the available memory to give to the parmesh
  * \param fitMesh if 1, set maximum mesh size at its exact size.
  *
  * \return 1 if success, 0 if fail
@@ -296,8 +335,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
   int        i = 0;
 
-  if ( parmesh->memCur >= parmesh->memMax )
-    parmesh->memMax = (parmesh->memCur * percent)/100;
+  parmesh->memMax = parmesh->memCur;
 
   if (  parmesh->memGloMax <=  parmesh->memMax ) {
     fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
@@ -306,6 +344,19 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   }
 
   available       = parmesh->memGloMax - parmesh->memMax;
+
+  for ( int k=0; k<parmesh->ngrp; ++k ) {
+    parmesh->listgrp[k].mesh->memMax = parmesh->listgrp[k].mesh->memCur;
+
+    if ( available < parmesh->listgrp[k].mesh->memMax ) {
+      fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
+              __func__);
+      return 0;
+    }
+    available -= parmesh->listgrp[k].mesh->memMax;
+ }
+
+  parmesh->memMax += percent * available/100;
 
   remaining_ngrps = parmesh->ngrp;
   for ( i = 0; i < parmesh->ngrp; ++i ) {
@@ -358,5 +409,82 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
     available -= mesh->memMax;
     --remaining_ngrps;
   }
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param ext_comm pointer toward the external communicator to resize
+ * \param newSize new size of the external comm
+ * \param oldSize old size of the external comm
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Resize the int_comm_index array of an external communicator.
+ *
+ */
+int PMMG_resize_extComm ( PMMG_pParMesh parmesh,PMMG_pExt_comm ext_comm,
+                          int newSize,int *oldSize ) {
+  int            k,nitem;
+
+  if ( newSize == *oldSize ) return 1;
+
+  PMMG_REALLOC(parmesh,ext_comm->int_comm_index,newSize,*oldSize,int,
+               "int_comm_index",return 0);
+
+  *oldSize = newSize;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param ext_comm pointer toward the array of external communicators to resize
+ * \param newSize new size of the array of external comm
+ * \param oldSize old size of the array of external comm
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Resize an array of external communicators.
+ *
+ */
+int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
+                               int newSize,int *oldSize ) {
+  int            k,nitem;
+
+  if ( newSize == *oldSize ) return 1;
+
+  /* Free the external communicators that will be deleted */
+  for ( k=newSize; k<*oldSize; ++k ) {
+
+    if ( !PMMG_resize_extComm ( parmesh,(*ext_comm)+k,0,&(*ext_comm+k)->nitem ) )
+      return 0;
+
+    if ( (*ext_comm+k)->itosend )
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itosend,(*ext_comm+k)->nitem_to_share,
+                     int,"itosend" );
+
+    if ( (*ext_comm+k)->itorecv )
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itorecv,(*ext_comm+k)->nitem_to_share,
+                     int,"itorecv" );
+
+    if ( (*ext_comm+k)->rtosend )
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend,(*ext_comm+k)->nitem_to_share,
+                     double,"rtosend" );
+
+    if ( (*ext_comm+k)->rtorecv )
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,(*ext_comm+k)->nitem_to_share,
+                     int,"rtorecv" );
+
+  }
+
+  PMMG_REALLOC(parmesh,*ext_comm,newSize,*oldSize,PMMG_Ext_comm,"ext_comm",return 0);
+
+  if ( newSize > *oldSize )
+    memset( *ext_comm + *oldSize, 0x0,
+            ((size_t)((newSize)-(*oldSize)))*sizeof(PMMG_Ext_comm));
+
+  *oldSize = newSize;
+
   return 1;
 }

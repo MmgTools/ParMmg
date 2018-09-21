@@ -560,10 +560,17 @@ int PMMG_Get_solsAtVerticesSize(PMMG_pParMesh parmesh, int *nsols,int *nentities
 
   ier = 1;
 
-  mesh = parmesh->listgrp[0].mesh;
-  sol  = &parmesh->listgrp[0].sol;
+  if ( nsols )
+    *nsols = 0;
+  if ( nentities )
+    *nentities = 0;
 
-  ier  = MMG3D_Get_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
+  if ( parmesh->listgrp && parmesh->listgrp[0].mesh && parmesh->listgrp[0].sol ) {
+    mesh = parmesh->listgrp[0].mesh;
+    sol  = &parmesh->listgrp[0].sol;
+
+    ier  = MMG3D_Get_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
+  }
 
   return ier;
 }

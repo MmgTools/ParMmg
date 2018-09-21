@@ -949,6 +949,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       printf("  ## Error: %s: the size of the external communicator %d->%d"
              " doesn't match with the size of the same external communicator"
              " on %d\n",__func__,parmesh->myrank,color,color );
+      assert(0);//TOTRASH
       ier = 0;
     }
 
