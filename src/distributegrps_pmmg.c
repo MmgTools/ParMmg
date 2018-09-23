@@ -700,6 +700,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     if ( !ext_face_comm->nitem ) continue;
 
     if ( i!=k ) {
+      assert ( !parmesh->ext_face_comm[i].nitem_to_share );
       parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
       parmesh->ext_face_comm[i].nitem_to_share = ext_face_comm->nitem_to_share;
       parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
@@ -1874,10 +1875,13 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
    *   recv_ext_idx array the number of external comm to update, for each
    *   external communicator, the number of faces to add and the list of faces.
    */
-  PMMG_MALLOC ( parmesh,*trequest,nprocs+1,MPI_Request,"request_tab",
+  ier0 = 1;
+  PMMG_MALLOC ( parmesh,*trequest,nprocs,MPI_Request,"request_tab",
                 ier0 = 0; ier = MG_MIN(ier,ier0); );
   if ( ier0 )
-    for ( k=0; k<nprocs+1; ++k ) (*trequest)[k] = MPI_REQUEST_NULL;
+    for ( k=0; k<nprocs; ++k ) {
+      (*trequest)[k] = MPI_REQUEST_NULL;
+    }
 
   nextcomm = 0;
   count    = 0;
@@ -2442,8 +2446,8 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
 
   /** Step 4: Wait for the end of the MPI communications */
   if ( myrank == sndr) {
-    MPI_CHECK( MPI_Waitall(nprocs+1,trequest,MPI_STATUSES_IGNORE), return 0 );
-    PMMG_DEL_MEM ( parmesh, trequest,nprocs+1,MPI_Request,"request_tab" );
+    MPI_CHECK( MPI_Waitall(nprocs,trequest,MPI_STATUSES_IGNORE), return 0 );
+    PMMG_DEL_MEM ( parmesh, trequest,nprocs,MPI_Request,"request_tab" );
 
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
     MPI_CHECK( MPI_Wait(&drequest,&status), return 0 );
