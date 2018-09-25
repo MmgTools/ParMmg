@@ -868,6 +868,8 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
        * to send the the size of the linked list and the val1 and val2 fields of
        * each cell ) */
       nitem2comm = 0;
+      if ( !ext_node_comm->nitem ) continue;
+
       for ( i=0; i<ext_node_comm->nitem; ++i ) {
         idx         = ext_node_comm->int_comm_index[i];
         nitem2comm += proclists[idx]->nitem*2+1;
@@ -888,6 +890,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
+
       MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
                            MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
                            &request[color]),goto end );

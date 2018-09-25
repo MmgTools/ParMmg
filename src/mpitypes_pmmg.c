@@ -325,22 +325,22 @@ int PMMG_Free_MPI_meshDatatype( MPI_Datatype *mpi_point,
 
   if ( *mpi_xtetra ) {
     MPI_Type_free( mpi_xtetra );
-    *mpi_xtetra = NULL;
+    *mpi_xtetra = MPI_DATATYPE_NULL;
   }
 
   if ( *mpi_tetra ) {
     MPI_Type_free( mpi_tetra );
-    *mpi_tetra = NULL;
+    *mpi_tetra = MPI_DATATYPE_NULL;
   }
 
   if ( *mpi_xpoint ) {
     MPI_Type_free( mpi_xpoint );
-    *mpi_xpoint = NULL;
+    *mpi_xpoint = MPI_DATATYPE_NULL;
   }
 
   if ( *mpi_point ) {
     MPI_Type_free( mpi_point );
-    *mpi_point = NULL;
+    *mpi_point = MPI_DATATYPE_NULL;
   }
 
   return 1;
