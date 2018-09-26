@@ -89,10 +89,10 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
 #ifndef NDEBUG
-    /* In debug mode we have mpi comm in split_n2mGrps, thus, if 1 proc fails
-     * and the other not we will deadlock */
-    MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
-    if ( ier_glob <=0 ) return ier_glob;
+  /* In debug mode we have mpi comm in split_n2mGrps, thus, if 1 proc fails
+   * and the other not we will deadlock */
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( ier_glob <=0 ) return ier_glob;
 #endif
 
   if ( ier ) {
