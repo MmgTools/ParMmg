@@ -700,7 +700,22 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     if ( !ext_face_comm->nitem ) continue;
 
     if ( i!=k ) {
-      assert ( !parmesh->ext_face_comm[i].nitem_to_share );
+      if ( parmesh->ext_face_comm[i].nitem_to_share ) {
+        if ( parmesh->ext_face_comm[i].itosend )
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itosend,
+                        parmesh->ext_face_comm[i].nitem_to_share, int,"itosend");
+        if ( parmesh->ext_face_comm[i].itorecv )
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itorecv,
+                        parmesh->ext_face_comm[i].nitem_to_share, int,"itorecv");
+        if ( parmesh->ext_face_comm[i].rtosend )
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtosend,
+                        parmesh->ext_face_comm[i].nitem_to_share, double,"rtosend");
+        if ( parmesh->ext_face_comm[i].rtorecv )
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtorecv,
+                        parmesh->ext_face_comm[i].nitem_to_share, double,"rtorecv");
+        parmesh->ext_face_comm[i].nitem_to_share = 0;
+      }
+
       parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
       parmesh->ext_face_comm[i].nitem_to_share = ext_face_comm->nitem_to_share;
       parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
@@ -709,6 +724,9 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
       parmesh->ext_face_comm[i].itorecv        = ext_face_comm->itorecv;
       parmesh->ext_face_comm[i].rtosend        = ext_face_comm->rtosend;
       parmesh->ext_face_comm[i].rtorecv        = ext_face_comm->rtorecv;
+
+      /* Avoid double free of ito*  and rto* arrays */
+      ext_face_comm->nitem_to_share = 0;
     }
     ++i;
   }
@@ -1893,6 +1911,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
     ++nextcomm;
 
     ext_face_comm->nitem_to_share = ext_face_comm->nitem;
+
     PMMG_MALLOC ( parmesh,ext_face_comm->itosend,ext_face_comm->nitem_to_share,
                   int,"itosend",ier = MG_MIN(ier,0); );
 
@@ -2336,6 +2355,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   intcomm_flag = NULL;
   recv_ext_idx = NULL;
   trequest     = NULL;
+
   if ( myrank == sndr ) {
     /* j = recv */
     ier = PMMG_transfer_grps_fromMetoJ(parmesh,recv,interaction_map,
