@@ -1131,6 +1131,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   }
 
   /** Pack the tetra and update the face communicator */
+  ier1 = 1;
   if ( parmesh->ngrp ) {
     ier1 = PMMG_packTetra(parmesh,0);
     if ( !ier1 ) {

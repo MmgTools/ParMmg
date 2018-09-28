@@ -2319,6 +2319,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   int            k,count,ier,ier0,*recv_ext_idx,old_nitem,idx,pack_size,err;
   int            *intcomm_flag,nitem_intcomm_flag,nitem_recv_ext_idx;
   char           *grps2send;
+  static int8_t  pmmgWarn = 0;
 
   const int      myrank      = parmesh->myrank;
   const int      nprocs      = parmesh->nprocs;
@@ -2334,6 +2335,8 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   /* I am neither the sender nor the receiver and I don't have any interactions
    * with the sender */
   if ( ( sndr != myrank ) && ( recv != myrank )  && !interaction_map[sndr] ) return 1;
+
+  ier = 1;
 
   /** Step 1: find the myrank-sndr and myrank-recv external communicators */
   ext_send_comm = NULL;
@@ -2399,6 +2402,11 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
         if ( !PMMG_resize_extCommArray ( parmesh,&parmesh->ext_face_comm,
                                          parmesh->next_face_comm+1,
                                          &parmesh->next_face_comm ) ) {
+          if ( !pmmgWarn ) {
+            pmmgWarn = 1;
+            fprintf(stderr,"  ## Error: %s: unable to resize the array of external"
+                    " communicators\n",__func__);
+          }
           ier0 = 0;
           ier  = MG_MIN(ier,ier0);
         }
@@ -2422,6 +2430,11 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
         old_nitem = ext_recv_comm->nitem;
         if ( !PMMG_resize_extComm(parmesh,ext_recv_comm,old_nitem+count,
                                   &ext_recv_comm->nitem) ) {
+          if ( !pmmgWarn ) {
+            pmmgWarn = 1;
+            fprintf(stderr,"  ## Error: %s: unable to resize at least one external"
+                    " communicator\n",__func__);
+          }
           ier0 = 0;
           ier  = MG_MIN(ier,ier0);
         }
