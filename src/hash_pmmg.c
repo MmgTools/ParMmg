@@ -77,10 +77,10 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
     }
   }
 
-  PMMG_DEL_MEM(mesh,hash.geom,(hash.max+1),MMG5_hgeom,"Edge hash table");
+  PMMG_DEL_MEM(mesh,hash.geom,MMG5_hgeom,"Edge hash table");
 
   if ( mesh->edge )
-    PMMG_DEL_MEM(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"deallocating edges");
+    PMMG_DEL_MEM(mesh,mesh->edge,MMG5_Edge,"deallocating edges");
 
   return PMMG_SUCCESS;
 }

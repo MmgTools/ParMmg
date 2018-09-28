@@ -77,9 +77,8 @@ int PMMG_find_intNodeCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
   ier = 1;
 
 end:
-  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,nitem,int,
-               "intvalues array");
-  PMMG_DEL_MEM(parmesh,coor_list,nitem,PMMG_coorCell,"coor_list array");
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,int,"intvalues array");
+  PMMG_DEL_MEM(parmesh,coor_list,PMMG_coorCell,"coor_list array");
 
   return ier;
 }
@@ -175,9 +174,8 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
   ier = 1;
 
   end:
-  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,nitem,int,
-               "face communicator");
-  PMMG_DEL_MEM(parmesh,coor_list,3*nitem,PMMG_coorCell,"coor_list array");
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,int,"face communicator");
+  PMMG_DEL_MEM(parmesh,coor_list,PMMG_coorCell,"coor_list array");
 
   return ier;
 }
@@ -369,7 +367,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
   ier = 1;
 
 end:
-  PMMG_DEL_MEM(parmesh,coor_list,nitem,PMMG_coorCell,"coor_list array");
+  PMMG_DEL_MEM(parmesh,coor_list,PMMG_coorCell,"coor_list array");
 
   return ier;
 }
@@ -560,9 +558,9 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
   ier = 1;
 
 end:
-  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->doublevalues,9*nitem,double,
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->doublevalues,double,
                "face communicator");
-  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,nitem,int,
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,int,
                "face communicator");
 
   return ier;
@@ -760,23 +758,19 @@ end:
     // Change this and add to the external comm the possibility to not
     // unalloc/realloc every time, thus, here, we will be able to reset the
     // communicators without unallocated it
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,r2send_size[k],double,"r2send");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,r2recv_size[k],double,"r2recv");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"r2send");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"r2recv");
   }
 
-  PMMG_DEL_MEM(parmesh,r2send_size,parmesh->next_node_comm,int,
-               "size of the r2send array");
+  PMMG_DEL_MEM(parmesh,r2send_size,int,"size of the r2send array");
 
-  PMMG_DEL_MEM(parmesh,r2recv_size,parmesh->next_node_comm,int,
-               "size of the r2send array");
+  PMMG_DEL_MEM(parmesh,r2recv_size,int,"size of the r2send array");
 
-  PMMG_DEL_MEM(parmesh,status,2*parmesh->next_node_comm,MPI_Status,
-              "mpi status array");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi status array");
 
-  PMMG_DEL_MEM(parmesh,request,2*parmesh->next_node_comm,MPI_Request,
-              "mpi request array");
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi request array");
 
-  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->doublevalues,3*nitem,double,
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->doublevalues,double,
                "node communicator");
 
   return ieresult;
@@ -1021,23 +1015,19 @@ end:
     // Change this and add to the external comm the possibility to not
     // unalloc/realloc every time, thus, here, we will be able to reset the
     // communicators without unallocated it
-    PMMG_DEL_MEM(parmesh,ext_face_comm->rtosend,r2send_size[k],double,"r2send");
-    PMMG_DEL_MEM(parmesh,ext_face_comm->rtorecv,r2recv_size[k],double,"r2recv");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->rtosend,double,"r2send");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->rtorecv,double,"r2recv");
   }
 
-  PMMG_DEL_MEM(parmesh,r2send_size,parmesh->next_face_comm,int,
-               "size of the r2send array");
+  PMMG_DEL_MEM(parmesh,r2send_size,int,"size of the r2send array");
 
-  PMMG_DEL_MEM(parmesh,r2recv_size,parmesh->next_face_comm,int,
-               "size of the r2send array");
+  PMMG_DEL_MEM(parmesh,r2recv_size,int,"size of the r2send array");
 
-  PMMG_DEL_MEM(parmesh,status,2*parmesh->next_face_comm,MPI_Status,
-              "mpi status array");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi status array");
 
-  PMMG_DEL_MEM(parmesh,request,2*parmesh->next_face_comm,MPI_Request,
-              "mpi request array");
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi request array");
 
-  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->doublevalues,9*nitem,double,
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->doublevalues,double,
                "face communicator");
 
   return ieresult;

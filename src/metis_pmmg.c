@@ -186,7 +186,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
     }
   }
   else {
-    PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
+    PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
   }
 
   parmesh->memMax = parmesh->memCur;
@@ -438,43 +438,41 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem = ext_face_comm->nitem;
 
     if ( ext_face_comm->itorecv )
-      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
     if ( ext_face_comm->itosend )
-      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
   }
-  PMMG_DEL_MEM(parmesh,hash.item,hash.max+1,PMMG_hgrp,"group hash table");
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-               "face communicator");
+  PMMG_DEL_MEM(parmesh,hash.item,PMMG_hgrp,"group hash table");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
 
   return 1;
 
 fail_7:
   if ( hash.item )
-    PMMG_DEL_MEM(parmesh,hash.item,hash.max+2,PMMG_hgrp,"group hash table");
+    PMMG_DEL_MEM(parmesh,hash.item,PMMG_hgrp,"group hash table");
 fail_6:
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     if ( ext_face_comm->itorecv )
-      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array");
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
   }
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     if ( ext_face_comm->itosend )
-      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,nitem,int,"itosend array");
+      PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
   }
   if ( int_face_comm->intvalues )
-    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-                 "face communicator");
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
 fail_5:
-  PMMG_DEL_MEM(parmesh,*xadj,ngrp/1,idx_t,"parmetis xadj");
+  PMMG_DEL_MEM(parmesh,*xadj,idx_t,"parmetis xadj");
 fail_4:
-  PMMG_DEL_MEM(parmesh,*ubvec,(*ncon),real_t,"parmetis ubvec");
+  PMMG_DEL_MEM(parmesh,*ubvec,real_t,"parmetis ubvec");
 fail_3:
-  PMMG_DEL_MEM(parmesh,*tpwgts,(*ncon)*nproc,real_t,"parmetis tpwgts");
+  PMMG_DEL_MEM(parmesh,*tpwgts,real_t,"parmetis tpwgts");
 fail_2:
-  PMMG_DEL_MEM(parmesh,*vwgt,ngrp,idx_t,"parmetis vwgt");
+  PMMG_DEL_MEM(parmesh,*vwgt,idx_t,"parmetis vwgt");
 fail_1:
-  PMMG_DEL_MEM(parmesh,*vtxdist,nproc+1,idx_t,"parmetis vtxdist");
+  PMMG_DEL_MEM(parmesh,*vtxdist,idx_t,"parmetis vtxdist");
 
   return 0;
 }
@@ -536,8 +534,8 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     status = 0;
   }
 
-  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
-  PMMG_DEL_MEM(parmesh, xadj, mesh->ne + 1, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
 
   return status;
 }
@@ -585,12 +583,12 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
     }
   }
 
-  PMMG_DEL_MEM(parmesh, adjncy, adjsize, idx_t, "deallocate adjncy" );
-  PMMG_DEL_MEM(parmesh, xadj, ngrp+1, idx_t, "deallocate xadj" );
-  PMMG_DEL_MEM(parmesh, ubvec,ncon,real_t,"parmetis ubvec");
-  PMMG_DEL_MEM(parmesh, vwgt, ngrp, idx_t, "deallocate vwgt" );
-  PMMG_DEL_MEM(parmesh, tpwgts, ncon*nproc, real_t, "deallocate tpwgts" );
-  PMMG_DEL_MEM(parmesh, vtxdist, nproc+1, idx_t, "deallocate vtxdist" );
+  PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, ubvec, real_t,"parmetis ubvec");
+  PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+  PMMG_DEL_MEM(parmesh, tpwgts, real_t, "deallocate tpwgts" );
+  PMMG_DEL_MEM(parmesh, vtxdist, idx_t, "deallocate vtxdist" );
 
   return ier;
 }

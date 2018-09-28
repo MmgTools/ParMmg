@@ -138,7 +138,7 @@ extern "C" {
     stat = PMMG_SUCCESS;                                              \
   } } while(0)
 
-#define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
+#define PMMG_DEL_MEM(mesh,ptr,type,msg) do {                \
     int    stat = PMMG_SUCCESS;                             \
     size_t size_to_free;                                    \
                                                             \
@@ -202,14 +202,14 @@ extern "C" {
     assert(((oldsize)==0) && "NULL pointer pointing to non 0 sized memory?"); \
     PMMG_MALLOC(mesh,ptr,(newsize),type,msg,on_failure);                \
   } else if ((newsize)==0) {                                            \
-    PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                          \
+    PMMG_DEL_MEM(mesh,ptr,type,msg);                                    \
   } else if ((newsize) < (oldsize)) {                                   \
     size_to_allocate = (newsize)*sizeof(type);                          \
     tmp = (type *)myrealloc((ptr),size_to_allocate,                     \
                             (oldsize)*sizeof(type));                    \
     if ( tmp == NULL ) {                                                \
       ERROR_AT(msg," Realloc failed: ");                                \
-      PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                        \
+      PMMG_DEL_MEM(mesh,ptr,type,msg);                                  \
       on_failure;                                                       \
     } else {                                                            \
       (ptr) = tmp;                                                      \
@@ -225,7 +225,7 @@ extern "C" {
       tmp = (type *)myrealloc((ptr),size_to_allocate,size_to_increase); \
       if ( tmp == NULL ) {                                              \
         ERROR_AT(msg, " Realloc failed: " );                            \
-        PMMG_DEL_MEM(mesh,ptr,(oldsize),type,msg);                      \
+        PMMG_DEL_MEM(mesh,ptr,type,msg);                                \
         on_failure;                                                     \
       } else {                                                          \
         (ptr) = tmp;                                                    \

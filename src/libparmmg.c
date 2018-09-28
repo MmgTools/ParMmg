@@ -77,7 +77,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 
     if ( met->np && (met->np != mesh->np) ) {
       fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
-      _MMG5_DEL_MEM(mesh,met->m,(met->size*(met->npmax+1))*sizeof(double));
+      _MMG5_DEL_MEM(mesh,met->m);
       met->np = 0;
     } else if ( met->size!=1 && met->size!=6 ) {
       fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");

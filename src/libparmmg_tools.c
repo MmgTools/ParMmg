@@ -32,8 +32,8 @@ PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc 
 {
   int i;
   for ( i = 0; i < mmgArgc; ++i )
-    PMMG_DEL_MEM(parmesh, mmgArgv[i], strlen( mmgArgv[i])+1, char, "Deallocating mmgargv[i]: " );
-  PMMG_DEL_MEM(parmesh, mmgArgv, argc, char*, "Deallocating mmgargv: " );
+    PMMG_DEL_MEM(parmesh, mmgArgv[i],char, "Deallocating mmgargv[i]: " );
+  PMMG_DEL_MEM(parmesh, mmgArgv,char*, "Deallocating mmgargv: " );
 }
 
 int PMMG_defaultValues( PMMG_pParMesh parmesh )

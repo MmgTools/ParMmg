@@ -502,7 +502,7 @@ int PMMG_mergeGrps_nodeCommunicators( PMMG_pParMesh parmesh,PMMG_pGrp grpI ) {
                grpI->nitem_int_node_comm,int,
                "(mergeGrps) node2int_node_comm_index2",return 0);
   grpI->nitem_int_node_comm = poi_id_int;
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,
                "free int_node_comm intvalues");
   int_node_comm->nitem       = poi_id_int;
 
@@ -582,7 +582,7 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
                grp[0].nitem_int_face_comm,int,
                "(mergeGrps) face2int_face_comm_index2",return 0);
   grp[0].nitem_int_face_comm = face_id_int;
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,
                "free int_face_comm intvalues");
   int_face_comm->nitem       = face_id_int;
 
@@ -723,7 +723,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   if ( !mesh0 ) return 1;
 
   if ( mesh0->adja )
-    PMMG_DEL_MEM(mesh0, mesh0->adja, 4*mesh0->nemax+5, int, "adjacency table" );
+    PMMG_DEL_MEM(mesh0, mesh0->adja,int, "adjacency table" );
 
   if ( parmesh->ngrp == 1 ) return 1;
 
@@ -804,12 +804,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   return 1;
 
 fail_comms:
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-               "face communicator");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
 
 fail_ncomm:
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
-               "node communicator");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
 
   return 0;
 }
@@ -1245,24 +1243,24 @@ end:
   /** Free the memory */
   if ( ieresult < 4 ) {
     /* Free temporary arrays */
-    PMMG_DEL_MEM(parmesh,color_in_tab  ,parmesh->next_node_comm,int,"color_in");
-    PMMG_DEL_MEM(parmesh,color_out_tab ,parmesh->next_node_comm,int,"color_out");
-    PMMG_DEL_MEM(parmesh,nitem_ext_tab ,parmesh->next_node_comm,int,"nitem_ext");
-    PMMG_DEL_MEM(parmesh,nitems_ext_idx,nprocs       ,int,"nitems_ext_idx");
-    PMMG_DEL_MEM(parmesh,int_comm_index,nitem_ext_tot,int,"int_comm_idx");
+    PMMG_DEL_MEM(parmesh,color_in_tab  ,int,"color_in");
+    PMMG_DEL_MEM(parmesh,color_out_tab ,int,"color_out");
+    PMMG_DEL_MEM(parmesh,nitem_ext_tab ,int,"nitem_ext");
+    PMMG_DEL_MEM(parmesh,nitems_ext_idx,int,"nitems_ext_idx");
+    PMMG_DEL_MEM(parmesh,int_comm_index,int,"int_comm_idx");
 
     /* Free useless groups */
     /* 1: mesh */
     if ( mesh ) {
-      PMMG_DEL_MEM(mesh,mesh->point ,(mesh->npmax+1),MMG5_Point ,"point");
-      PMMG_DEL_MEM(mesh,mesh->tetra ,(mesh->nemax+1),MMG5_Tetra ,"tetra");
-      PMMG_DEL_MEM(mesh,mesh->xpoint,(mesh->xpmax+1),MMG5_xPoint,"xpoint");
-      PMMG_DEL_MEM(mesh,mesh->xtetra,(mesh->xtmax+1),MMG5_xTetra,"xtetra");
+      PMMG_DEL_MEM(mesh,mesh->point ,MMG5_Point ,"point");
+      PMMG_DEL_MEM(mesh,mesh->tetra ,MMG5_Tetra ,"tetra");
+      PMMG_DEL_MEM(mesh,mesh->xpoint,MMG5_xPoint,"xpoint");
+      PMMG_DEL_MEM(mesh,mesh->xtetra,MMG5_xTetra,"xtetra");
       if ( mesh->adja ) {
-        PMMG_DEL_MEM( mesh,mesh->adja,(4*mesh->nemax+5),int,"adja");
+        PMMG_DEL_MEM( mesh,mesh->adja,int,"adja");
       }
       if ( isMet )
-        PMMG_DEL_MEM(mesh,met->m,(met->npmax+1)*met->size,double,"met");
+        PMMG_DEL_MEM(mesh,met->m,double,"met");
 
       mesh->np = mesh->npmax = 0;
       mesh->ne = mesh->nemax = 0;
@@ -1272,21 +1270,16 @@ end:
 
     /* 2: communicators */
     if ( grp ) {
-      PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index1,
-                   grp->nitem_int_edge_comm,int,"e2iec_idx1");
-      PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index2,
-                   grp->nitem_int_edge_comm,int,"e2iec_idx2");
+      PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index1,int,"e2iec_idx1");
+      PMMG_DEL_MEM(parmesh,grp->edge2int_edge_comm_index2,int,"e2iec_idx2");
     }
 
-    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
-                 parmesh->int_node_comm->nitem,int,"intval");
+    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,int,"intval");
 
     for ( i=0; i<parmesh->next_node_comm; ++i ) {
-      PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[i].int_comm_index,
-                   parmesh->ext_node_comm[i].nitem,int,"int_comm_idx");
+      PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[i].int_comm_index,int,"int_comm_idx");
     }
-    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,parmesh->next_node_comm,PMMG_Ext_comm,
-                 "ext_node_comm");
+    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,PMMG_Ext_comm,"ext_node_comm");
 
     if ( ieresult < 3 ) {
       /* Free MPI types */
@@ -1701,44 +1694,44 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /* Free memory */
   /* 1: Mesh data */
   if ( !parmesh->myrank ) {
-    PMMG_DEL_MEM(parmesh,rcv_np,parmesh->nprocs,int,"rcv_np");
-    PMMG_DEL_MEM(parmesh,rcv_point,np_tot+1,MMG5_Point,"rcv_pt");
-    PMMG_DEL_MEM(parmesh,point_displs,parmesh->nprocs,int,"pt_displs");
-    PMMG_DEL_MEM(parmesh,rcv_xp,parmesh->nprocs,int,"rcv_xp");
-    PMMG_DEL_MEM(parmesh,rcv_xpoint,xp_tot+1,MMG5_xPoint,"rcv_xpt");
-    PMMG_DEL_MEM(parmesh,xpoint_displs,parmesh->nprocs,int,"xp_displs");
+    PMMG_DEL_MEM(parmesh,rcv_np,int,"rcv_np");
+    PMMG_DEL_MEM(parmesh,rcv_point,MMG5_Point,"rcv_pt");
+    PMMG_DEL_MEM(parmesh,point_displs,int,"pt_displs");
+    PMMG_DEL_MEM(parmesh,rcv_xp,int,"rcv_xp");
+    PMMG_DEL_MEM(parmesh,rcv_xpoint,MMG5_xPoint,"rcv_xpt");
+    PMMG_DEL_MEM(parmesh,xpoint_displs,int,"xp_displs");
 
-    PMMG_DEL_MEM(parmesh,rcv_ne,parmesh->nprocs,int,"rcv_ne");
-    PMMG_DEL_MEM(parmesh,rcv_tetra,ne_tot+1,MMG5_Tetra,"rcv_tetra");
-    PMMG_DEL_MEM(parmesh,tetra_displs,parmesh->nprocs,int,"ne_displs");
+    PMMG_DEL_MEM(parmesh,rcv_ne,int,"rcv_ne");
+    PMMG_DEL_MEM(parmesh,rcv_tetra,MMG5_Tetra,"rcv_tetra");
+    PMMG_DEL_MEM(parmesh,tetra_displs,int,"ne_displs");
 
-    PMMG_DEL_MEM(parmesh,rcv_xt,parmesh->nprocs,int,"rcv_xt");
-    PMMG_DEL_MEM(parmesh,rcv_xtetra,xt_tot+1,MMG5_xTetra,"rcv_xtetra");
-    PMMG_DEL_MEM(parmesh,xtetra_displs,parmesh->nprocs,int,"xt_displs");
+    PMMG_DEL_MEM(parmesh,rcv_xt,int,"rcv_xt");
+    PMMG_DEL_MEM(parmesh,rcv_xtetra,MMG5_xTetra,"rcv_xtetra");
+    PMMG_DEL_MEM(parmesh,xtetra_displs,int,"xt_displs");
 
     if ( rcv_isMet ) {
-      PMMG_DEL_MEM(parmesh,rcv_nmet,parmesh->nprocs,int,"rcv_nmet");
-      PMMG_DEL_MEM(parmesh,rcv_met,nmet_tot,double,"rcv_met");
-      PMMG_DEL_MEM(parmesh,met_displs,parmesh->nprocs,int,"met_displs");
+      PMMG_DEL_MEM(parmesh,rcv_nmet,int,"rcv_nmet");
+      PMMG_DEL_MEM(parmesh,rcv_met,double,"rcv_met");
+      PMMG_DEL_MEM(parmesh,met_displs,int,"met_displs");
     }
   }
   /* 2: communicators data */
-  PMMG_DEL_MEM(parmesh,rcv_int_comm_index,nitem_icidx_tot,int,"rcv_ic_idx");
-  PMMG_DEL_MEM(parmesh,rcv_intvalues,nitem_inc_tot,int,"rcv_intvalues");
-  PMMG_DEL_MEM(parmesh,intval_displs,parmesh->nprocs,int,"intval_displs");
+  PMMG_DEL_MEM(parmesh,rcv_int_comm_index,int,"rcv_ic_idx");
+  PMMG_DEL_MEM(parmesh,rcv_intvalues,int,"rcv_intvalues");
+  PMMG_DEL_MEM(parmesh,intval_displs,int,"intval_displs");
 
-  PMMG_DEL_MEM(parmesh,rcv_next_node_comm,parmesh->nprocs,int,"rcv_next_nc");
-  PMMG_DEL_MEM(parmesh,rcv_nitem_ext_tab,ext_comm_displs_tot,int,"rcv_nitem_ext");
-  PMMG_DEL_MEM(parmesh,rcv_color_in_tab,ext_comm_displs_tot,int,"rcv_color_in");
-  PMMG_DEL_MEM(parmesh,rcv_color_out_tab,ext_comm_displs_tot,int,"rcv_colour_out");
-  PMMG_DEL_MEM(parmesh,ext_comm_displs,parmesh->nprocs,int,"ext_comm_displs");
+  PMMG_DEL_MEM(parmesh,rcv_next_node_comm,int,"rcv_next_nc");
+  PMMG_DEL_MEM(parmesh,rcv_nitem_ext_tab,int,"rcv_nitem_ext");
+  PMMG_DEL_MEM(parmesh,rcv_color_in_tab,int,"rcv_color_in");
+  PMMG_DEL_MEM(parmesh,rcv_color_out_tab,int,"rcv_colour_out");
+  PMMG_DEL_MEM(parmesh,ext_comm_displs,int,"ext_comm_displs");
 
-  PMMG_DEL_MEM(parmesh,rcv_nitem_int_node_comm,parmesh->nprocs,int,"rcv_nitem_inc");
-  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index1,nitem_inc_tot,int,"rcv_inc_idx1");
-  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index2,nitem_inc_tot,int,"rcv_inc_idx2");
-  PMMG_DEL_MEM(parmesh,int_comm_index_displs,parmesh->nprocs,int,"icidx_displs");
+  PMMG_DEL_MEM(parmesh,rcv_nitem_int_node_comm,int,"rcv_nitem_inc");
+  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index1,int,"rcv_inc_idx1");
+  PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index2,int,"rcv_inc_idx2");
+  PMMG_DEL_MEM(parmesh,int_comm_index_displs,int,"icidx_displs");
 
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intval");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intval");
 
   return ieresult;
 }

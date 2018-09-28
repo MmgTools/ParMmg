@@ -461,20 +461,16 @@ int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
       return 0;
 
     if ( (*ext_comm+k)->itosend )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itosend,(*ext_comm+k)->nitem_to_share,
-                     int,"itosend" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itosend,int,"itosend" );
 
     if ( (*ext_comm+k)->itorecv )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itorecv,(*ext_comm+k)->nitem_to_share,
-                     int,"itorecv" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->itorecv,int,"itorecv" );
 
     if ( (*ext_comm+k)->rtosend )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend,(*ext_comm+k)->nitem_to_share,
-                     double,"rtosend" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend, double,"rtosend" );
 
     if ( (*ext_comm+k)->rtorecv )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,(*ext_comm+k)->nitem_to_share,
-                     int,"rtorecv" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,int,"rtorecv" );
 
   }
 

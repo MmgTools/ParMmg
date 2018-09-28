@@ -200,17 +200,17 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
   }
 
   if ( mesh->point )
-    _MMG5_DEL_MEM(mesh,mesh->point,(mesh->npmax+1)*sizeof(MMG5_Point));
+    _MMG5_DEL_MEM(mesh,mesh->point);
   if ( mesh->tetra )
-    _MMG5_DEL_MEM(mesh,mesh->tetra,(mesh->nemax+1)*sizeof(MMG5_Tetra));
+    _MMG5_DEL_MEM(mesh,mesh->tetra);
   if ( mesh->prism )
-    _MMG5_DEL_MEM(mesh,mesh->prism,(mesh->nprism+1)*sizeof(MMG5_Prism));
+    _MMG5_DEL_MEM(mesh,mesh->prism);
   if ( mesh->tria )
-    _MMG5_DEL_MEM(mesh,mesh->tria,(mesh->nt+1)*sizeof(MMG5_Tria));
+    _MMG5_DEL_MEM(mesh,mesh->tria);
   if ( mesh->quadra )
-    _MMG5_DEL_MEM(mesh,mesh->quadra,(mesh->nquad+1)*sizeof(MMG5_Quad));
+    _MMG5_DEL_MEM(mesh,mesh->quadra);
   if ( mesh->edge )
-    _MMG5_DEL_MEM(mesh,mesh->edge,(mesh->na+1)*sizeof(MMG5_Edge));
+    _MMG5_DEL_MEM(mesh,mesh->edge);
 
   mesh->np  = np;
   mesh->ne  = ne;
@@ -1057,28 +1057,28 @@ fail_sgrp:
 
     /* internal comm for nodes */
     if ( grpCur->node2int_node_comm_index2 != NULL )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index2,n2inc_max,int,
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index2,int,
                    "subgroup internal2 communicator ");
     if ( grpCur->node2int_node_comm_index1 != NULL )
-      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,n2inc_max,int,
+      PMMG_DEL_MEM(parmesh,grpCur->node2int_node_comm_index1,int,
                    "subgroup internal1 communicator ");
 
     /* internal communicator for faces */
     if ( grpCur->face2int_face_comm_index1 )
-      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index1,f2ifc_max,int,
+      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index1,int,
                    "face2int_face_comm_index1 communicator ");
     if ( grpCur->face2int_face_comm_index2 )
-      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index2,f2ifc_max,int,
+      PMMG_DEL_MEM(parmesh,grpCur->face2int_face_comm_index2,int,
                    "face2int_face_comm_index1 communicator ");
 
     /* mesh */
     if ( meshCur ) {
       if ( meshCur->adja != NULL )
-        PMMG_DEL_MEM(meshCur,meshCur->adja,4*meshCur->nemax+5,int,"adjacency table");
+        PMMG_DEL_MEM(meshCur,meshCur->adja,int,"adjacency table");
       if ( meshCur->xpoint != NULL )
-        PMMG_DEL_MEM(meshCur,meshCur->xpoint,meshCur->xpmax+1,MMG5_xPoint,"boundary points");
+        PMMG_DEL_MEM(meshCur,meshCur->xpoint,MMG5_xPoint,"boundary points");
       if ( meshCur->xtetra != NULL )
-        PMMG_DEL_MEM(meshCur,meshCur->xtetra,meshCur->xtmax+1,MMG5_xTetra,"msh boundary tetra");
+        PMMG_DEL_MEM(meshCur,meshCur->xtetra,MMG5_xTetra,"msh boundary tetra");
     }
 #warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
@@ -1086,15 +1086,15 @@ fail_sgrp:
   /* these labels should be executed as part of normal code execution before
      returning as well as error handling */
 fail_facePos:
-  PMMG_DEL_MEM(parmesh,iplocFaceComm,4*meshOld_ne+1,int,
+  PMMG_DEL_MEM(parmesh,iplocFaceComm,int,
                "starting vertices of the faces of face2int_face_comm_index1");
 
-  PMMG_DEL_MEM(parmesh,posInIntFaceComm,4*meshOld_ne+1,int,
+  PMMG_DEL_MEM(parmesh,posInIntFaceComm,int,
                "array to store faces positions in internal face communicator");
 fail_counters:
-  PMMG_DEL_MEM(parmesh,countPerGrp,ngrp,int,"counter buffer ");
+  PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
 fail_part:
-  PMMG_DEL_MEM(parmesh,part,meshOld_ne,idx_t,"free metis buffer ");
+  PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
 
 end:
   /* Check the communicators */

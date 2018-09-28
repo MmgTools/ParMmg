@@ -611,8 +611,7 @@ int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
-  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
-                "node communicator");
+  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"node communicator");
   int_node_comm->nitem = nitem_int;
 
   return 1;
@@ -702,17 +701,13 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
     if ( i!=k ) {
       if ( parmesh->ext_face_comm[i].nitem_to_share ) {
         if ( parmesh->ext_face_comm[i].itosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itosend,
-                        parmesh->ext_face_comm[i].nitem_to_share, int,"itosend");
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itosend,int,"itosend");
         if ( parmesh->ext_face_comm[i].itorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itorecv,
-                        parmesh->ext_face_comm[i].nitem_to_share, int,"itorecv");
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itorecv,int,"itorecv");
         if ( parmesh->ext_face_comm[i].rtosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtosend,
-                        parmesh->ext_face_comm[i].nitem_to_share, double,"rtosend");
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtosend,double,"rtosend");
         if ( parmesh->ext_face_comm[i].rtorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtorecv,
-                        parmesh->ext_face_comm[i].nitem_to_share, double,"rtorecv");
+          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtorecv,double,"rtorecv");
         parmesh->ext_face_comm[i].nitem_to_share = 0;
       }
 
@@ -737,8 +732,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
-  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-                "face communicator");
+  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"face communicator");
   int_face_comm->nitem = nitem_int;
 
   return 1;
@@ -809,7 +803,7 @@ int PMMG_mergeGrps2Send_errorHandler( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
                 return 0;);
   PMMG_REALLOC( parmesh,tmpPart,ngrp,ngrpOld,idx_t,"parmetis partition",
                 return 0;);
-  PMMG_DEL_MEM( parmesh,*part,nprocs,idx_t,"parmetis partition" );
+  PMMG_DEL_MEM( parmesh,*part,idx_t,"parmetis partition" );
   (*part) = tmpPart;
 
   return ngrp;
@@ -865,7 +859,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     /* Free the adja array */
     meshI = parmesh->listgrp[k].mesh;
     if ( meshI->adja )
-      PMMG_DEL_MEM(meshI, meshI->adja, 4*meshI->nemax+5, int, "adjacency table" );
+      PMMG_DEL_MEM(meshI, meshI->adja, int, "adjacency table" );
 
     /* Group initialization */
     if ( grps[(*part)[k]].mesh ) continue;
@@ -899,9 +893,9 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     meshI = grpI->mesh;
     meshJ = grpJ->mesh;
     if ( meshI->adja )
-      PMMG_DEL_MEM(meshI, meshI->adja, 4*meshI->nemax+5, int, "adjacency table" );
+      PMMG_DEL_MEM(meshI, meshI->adja,int, "adjacency table" );
     if ( meshJ->adja )
-      PMMG_DEL_MEM(meshJ, meshJ->adja, 4*meshJ->nemax+5, int, "adjacency table" );
+      PMMG_DEL_MEM(meshJ, meshJ->adja,int, "adjacency table" );
 
     /* Update the available memory and give it to the mesh */
     assert ( meshI->memMax >= meshI->memCur );
@@ -931,10 +925,9 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   goto end;
 
 strong_fail2:
-  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
-                "node communicator");
+  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"node communicator");
 strong_fail1:
-  PMMG_DEL_MEM( parmesh,grps,nprocs,PMMG_Grp,"Groups to send");
+  PMMG_DEL_MEM( parmesh,grps,PMMG_Grp,"Groups to send");
   return -1;
 
 low_fail:
@@ -945,7 +938,7 @@ low_fail:
 end:
 
   /** Step 3: Update the parmesh */
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,parmesh->ngrp,PMMG_Grp,"listgrp");
+  PMMG_DEL_MEM(parmesh,parmesh->listgrp,PMMG_Grp,"listgrp");
   parmesh->listgrp = grps;
   parmesh->ngrp    = ngrp;
 
@@ -2026,7 +2019,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
     }
   }
 
-  PMMG_DEL_MEM ( parmesh,send2recv_int_comm,int_comm->nitem,int,"send2recv_int_comm" );
+  PMMG_DEL_MEM ( parmesh,send2recv_int_comm,int,"send2recv_int_comm" );
 
   return ier;
 }
@@ -2459,7 +2452,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
           ier  = MG_MIN(ier,ier0);
         }
       }
-      PMMG_DEL_MEM(parmesh,recv_ext_idx,nitem_recv_ext_idx,int,"recv_ext_idx");
+      PMMG_DEL_MEM(parmesh,recv_ext_idx,int,"recv_ext_idx");
     }
   }
 
@@ -2480,26 +2473,25 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   /** Step 4: Wait for the end of the MPI communications */
   if ( myrank == sndr) {
     MPI_CHECK( MPI_Waitall(nprocs,trequest,MPI_STATUSES_IGNORE), return 0 );
-    PMMG_DEL_MEM ( parmesh, trequest,nprocs,MPI_Request,"request_tab" );
+    PMMG_DEL_MEM ( parmesh, trequest,MPI_Request,"request_tab" );
 
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
     MPI_CHECK( MPI_Wait(&drequest,&status), return 0 );
 
     /* Free the memory */
-    PMMG_DEL_MEM ( parmesh,grps2send,pack_size,char,"grps2send" );
+    PMMG_DEL_MEM ( parmesh,grps2send,char,"grps2send" );
   }
   else if ( myrank == recv ) {
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
   }
 
-  PMMG_DEL_MEM ( parmesh,intcomm_flag,nitem_intcomm_flag,int,"intcomm_flag" );
-  PMMG_DEL_MEM ( parmesh,recv_ext_idx,nitem_recv_ext_idx,int,"recv_ext_idx" );
+  PMMG_DEL_MEM ( parmesh,intcomm_flag,int,"intcomm_flag" );
+  PMMG_DEL_MEM ( parmesh,recv_ext_idx,int,"recv_ext_idx" );
 
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     if ( ext_face_comm->itosend ) {
-      PMMG_DEL_MEM ( parmesh,ext_face_comm->itosend,ext_face_comm->nitem_to_share,
-                     int,"itosend" );
+      PMMG_DEL_MEM ( parmesh,ext_face_comm->itosend,int,"itosend" );
     }
   }
 
@@ -2573,7 +2565,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   for ( k=0; k<parmesh->ngrp; ++k ) {
     parmesh->listgrp[k].flag = part[k];
   }
-  PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"parmetis partition");
+  PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis partition");
 
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
 
@@ -2645,42 +2637,42 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
 
 end:
   if ( interaction_map )
-    PMMG_DEL_MEM(parmesh,interaction_map,nprocs,int,"interaction_map");
+    PMMG_DEL_MEM(parmesh,interaction_map,int,"interaction_map");
   if ( send_grps )
-    PMMG_DEL_MEM(parmesh,send_grps,nprocs,int,"send_grps");
+    PMMG_DEL_MEM(parmesh,send_grps,int,"send_grps");
   if ( recv_grps )
-    PMMG_DEL_MEM(parmesh,recv_grps,nprocs,int,"recv_grps");
+    PMMG_DEL_MEM(parmesh,recv_grps,int,"recv_grps");
   if ( parmesh->int_face_comm->intvalues ) {
     PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,
-                 parmesh->int_face_comm->nitem,int,"intvalues");
+                 int,"intvalues");
   }
   if ( recv_array )
-    PMMG_DEL_MEM(parmesh,recv_array,nfaces2recv_max+2,int,"recv_array");
+    PMMG_DEL_MEM(parmesh,recv_array,int,"recv_array");
 
   /* Arrays allocated in fill_extFaceComm2send */
   if ( nfaces2send )
-    PMMG_DEL_MEM(parmesh,nfaces2send,max_ngrp*nprocs,int,"nfaces2send");
+    PMMG_DEL_MEM(parmesh,nfaces2send,int,"nfaces2send");
   if ( nfaces2recv )
-    PMMG_DEL_MEM(parmesh,nfaces2recv,max_ngrp*nprocs,int,"nfaces2recv");
+    PMMG_DEL_MEM(parmesh,nfaces2recv,int,"nfaces2recv");
 
   if ( extComm_next_idx )
-    PMMG_DEL_MEM(parmesh,extComm_next_idx,ext_comms_next_idx[nprocs-1],int,
+    PMMG_DEL_MEM(parmesh,extComm_next_idx,int,
                  "positions of the external comms in pos_grp_faces* arrays");
   if ( extComm_grpFaces2extComm )
-    PMMG_DEL_MEM(parmesh,extComm_grpFaces2extComm,items_next_idx[nprocs-1],
+    PMMG_DEL_MEM(parmesh,extComm_grpFaces2extComm,
                  int,"extComm_grpFaces2extComm");
   if ( extComm_grpFaces2face2int )
-    PMMG_DEL_MEM(parmesh,extComm_grpFaces2face2int,items_next_idx[nprocs-1],
+    PMMG_DEL_MEM(parmesh,extComm_grpFaces2face2int,
                  int,"extComm_grpFaces2face2int");
 
   if ( next_comm2send )
-    PMMG_DEL_MEM(parmesh,next_comm2send,nprocs,int,"next_comm2send");
+    PMMG_DEL_MEM(parmesh,next_comm2send,int,"next_comm2send");
   if ( nitems2send )
-    PMMG_DEL_MEM(parmesh,nitems2send,nprocs,int,"nitems2send");
+    PMMG_DEL_MEM(parmesh,nitems2send,int,"nitems2send");
   if ( ext_comms_next_idx )
-    PMMG_DEL_MEM(parmesh,ext_comms_next_idx,nprocs,int,"ext_comms_next_idx");
+    PMMG_DEL_MEM(parmesh,ext_comms_next_idx,int,"ext_comms_next_idx");
   if ( items_next_idx )
-    PMMG_DEL_MEM(parmesh,items_next_idx,nprocs,int,"items_next_idx");
+    PMMG_DEL_MEM(parmesh,items_next_idx,int,"items_next_idx");
 
   return ier;
 }
@@ -2720,7 +2712,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
   if ( !ier_glob ) {
-    PMMG_DEL_MEM(parmesh,part,parmesh->ngrp,idx_t,"deallocate parmetis partition");
+    PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate parmetis partition");
     return ier_glob;
   }
 

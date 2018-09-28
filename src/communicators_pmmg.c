@@ -23,12 +23,12 @@ void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
-    PMMG_DEL_MEM(parmesh,comm->intvalues,comm->nitem,int,"int comm int array");
+    PMMG_DEL_MEM(parmesh,comm->intvalues,int,"int comm int array");
   }
   if ( NULL != comm->doublevalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
     PMMG_DEL_MEM(parmesh,
-                 comm->doublevalues,comm->nitem,double,"int comm double array");
+                 comm->doublevalues,double,"int comm double array");
   }
 }
 
@@ -50,23 +50,23 @@ void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm comm,
   for( i = 0; i < ncomm; ++i ) {
     if ( NULL != comm->int_comm_index ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->int_comm_index,comm->nitem,int,"ext comm int array");
+      PMMG_DEL_MEM(parmesh,comm->int_comm_index,int,"ext comm int array");
     }
     if ( NULL != comm->itosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->itosend,comm->nitem,int,"ext comm itosend array");
+      PMMG_DEL_MEM(parmesh,comm->itosend,int,"ext comm itosend array");
     }
     if ( NULL != comm->itorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->itorecv,comm->nitem,int,"ext comm itorecv array");
+      PMMG_DEL_MEM(parmesh,comm->itorecv,int,"ext comm itorecv array");
     }
     if ( NULL != comm->rtosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtosend,comm->nitem,int,"ext comm rtosend array");
+      PMMG_DEL_MEM(parmesh,comm->rtosend,int,"ext comm rtosend array");
     }
     if ( NULL != comm->rtorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtorecv,comm->nitem,int,"ext comm rtorecv array");
+      PMMG_DEL_MEM(parmesh,comm->rtorecv,int,"ext comm rtorecv array");
     }
   }
 }
@@ -82,8 +82,8 @@ void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm comm,
 void PMMG_grp_comm_free( PMMG_pParMesh parmesh,int **idx1,int **idx2,
                                  int *n )
 {
-  PMMG_DEL_MEM(parmesh,*idx1,*n,int,"group communicator");
-  PMMG_DEL_MEM(parmesh,*idx2,*n,int,"group communicator");
+  PMMG_DEL_MEM(parmesh,*idx1,int,"group communicator");
+  PMMG_DEL_MEM(parmesh,*idx2,int,"group communicator");
   *n = 0;
 }
 
@@ -107,8 +107,7 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
 
   PMMG_int_comm_free( parmesh,parmesh->int_node_comm);
   PMMG_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm, parmesh->next_node_comm,
-               PMMG_Ext_comm, "ext node comm");
+  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
 
   parmesh->next_node_comm       = 0;
   parmesh->int_node_comm->nitem = 0;
@@ -170,8 +169,7 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
   if ( !PMMG_pack_nodeCommunicators(parmesh) ) return 0;
 
   if ( parmesh->int_node_comm->intvalues )
-    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
-                 parmesh->int_node_comm->nitem,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,int,"intvalues");
 
   return 1;
 }
@@ -339,17 +337,15 @@ end:
     if ( next_node_comm ) {
       for ( k=0; k<next_node_comm; ++k ) {
         PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm[k].int_comm_index,
-                     ext_node_comm->nitem,int,"external node communicator");
+                     int,"external node communicator");
       }
     }
-    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,parmesh->next_node_comm
-                 ,PMMG_Ext_comm, "ext_node_comm ");
+    PMMG_DEL_MEM(parmesh,parmesh->ext_node_comm,PMMG_Ext_comm, "ext_node_comm ");
   }
 
-  PMMG_DEL_MEM(parmesh,flag,int_node_comm->nitem,int,"node flag");
+  PMMG_DEL_MEM(parmesh,flag,int,"node flag");
 
-  PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
-               "position of face vertices in int_node_comm");
+  PMMG_DEL_MEM(parmesh,face_vertices,int,"position of face vertices in int_node_comm");
 
   return ier;
 }
@@ -722,19 +718,16 @@ end:
       grp  = &parmesh->listgrp[grpid];
 
       PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,
-                   grp->nitem_int_node_comm,int,"node2int_node_comm_index1");
+                   int,"node2int_node_comm_index1");
       PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index2,
-                   grp->nitem_int_node_comm,int,"node2int_node_comm_index2");
+                   int,"node2int_node_comm_index2");
     }
   }
 
-  PMMG_DEL_MEM(parmesh,new_pos,nitem_node_init,int,"new pos in int_node_comm");
-  PMMG_DEL_MEM(parmesh,face_vertices,3*parmesh->int_face_comm->nitem,int,
-              "pos of face vertices in int_node_comm");
-  PMMG_DEL_MEM(parmesh,shared_fac,parmesh->int_face_comm->nitem,int,
-               "Faces shared by 2 groups");
-
-  PMMG_DEL_MEM(parmesh,coor_list,nitem_node_init,PMMG_coorCell,"node coordinates");
+  PMMG_DEL_MEM(parmesh,new_pos,int,"new pos in int_node_comm");
+  PMMG_DEL_MEM(parmesh,face_vertices,int,"pos of face vertices in int_node_comm");
+  PMMG_DEL_MEM(parmesh,shared_fac,int,"Faces shared by 2 groups");
+  PMMG_DEL_MEM(parmesh,coor_list,PMMG_coorCell,"node coordinates");
 
   return ier;
 }
@@ -1058,19 +1051,18 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   ier = 1;
 
 end:
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,nitem,int,"node communicator");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
 
   if ( proclists ) {
     for ( k=0; k<nitem; ++k ) {
       if ( proclists[k] ) {
-        PMMG_DEL_MEM(parmesh,proclists[k]->item,proclists[k]->nitem_max,
-                     PMMG_lnkdCell,"linked list array");
+        PMMG_DEL_MEM(parmesh,proclists[k]->item,PMMG_lnkdCell,"linked list array");
 
       }
     }
-    PMMG_DEL_MEM(parmesh,proclists,nitem,PMMG_lnkdList*,"array of linked lists");
+    PMMG_DEL_MEM(parmesh,proclists,PMMG_lnkdList*,"array of linked lists");
   }
-  PMMG_DEL_MEM(parmesh,comm_ptr,parmesh->nprocs,PMMG_pExt_comm,
+  PMMG_DEL_MEM(parmesh,comm_ptr,PMMG_pExt_comm,
               "array of pointers toward the external communicators");
 
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
@@ -1079,20 +1071,19 @@ end:
     // Change this and add to the external comm the possibility to not
     // unalloc/realloc every time, thus, here, we will be able to reset the
     // communicators without unallocated it
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,i2send_size[k],int,"i2send");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,i2recv_size[k],int,"i2recv");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"i2send");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"i2recv");
   }
 
-  PMMG_DEL_MEM(parmesh,request,alloc_size,MPI_Request,"mpi request array");
-  PMMG_DEL_MEM(parmesh,status,alloc_size,MPI_Status,"mpi status array");
-  PMMG_DEL_MEM(parmesh,i2send_size,alloc_size,int,"size of the i2send array");
-  PMMG_DEL_MEM(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array");
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi request array");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi status array");
+  PMMG_DEL_MEM(parmesh,i2send_size,int,"size of the i2send array");
+  PMMG_DEL_MEM(parmesh,i2recv_size,int,"size of the i2recv array");
 
-  PMMG_DEL_MEM(parmesh,nitem_ext_comm,parmesh->nprocs,int,
+  PMMG_DEL_MEM(parmesh,nitem_ext_comm,int,
                "number of items in each external communicator");
 
-  PMMG_DEL_MEM(parmesh,list.item,list.nitem_max,PMMG_lnkdCell,
-               "linked list array");
+  PMMG_DEL_MEM(parmesh,list.item,PMMG_lnkdCell,"linked list array");
 
   return ier;
 }

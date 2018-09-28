@@ -165,7 +165,7 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   return 1;
 
 fail_mesh:
-    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
+    PMMG_DEL_MEM(*parmesh,(*parmesh)->listgrp,PMMG_Grp,
                  "deallocating groups container");
 
 fail_grplst:

@@ -484,18 +484,17 @@ fail_alloc1:
   return ret_val;
 
 fail_alloc7:
-  PMMG_DEL_MEM(parmesh,*xPointPerm,mesh->xpmax+1,int,"deallocate xPointPerm");
+  PMMG_DEL_MEM(parmesh,*xPointPerm,int,"deallocate xPointPerm");
 fail_alloc6:
-  PMMG_DEL_MEM(parmesh,*xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
+  PMMG_DEL_MEM(parmesh,*xTetraPerm,int,"deallocate xTetraPerm");
 fail_alloc5:
-  PMMG_DEL_MEM(parmesh,*pointPerm,mesh->np+1,int,"deallocate pointPerm");
+  PMMG_DEL_MEM(parmesh,*pointPerm,int,"deallocate pointPerm");
 fail_alloc4:
-  PMMG_DEL_MEM(parmesh,*shared_face,nprocs,int,"deallocate shared_face");
+  PMMG_DEL_MEM(parmesh,*shared_face,int,"deallocate shared_face");
 fail_alloc3:
-  PMMG_DEL_MEM(parmesh,*seen_shared_pt,nprocs*mesh->np,int8_t,
-               "deallocate seen_shared_pt");
+  PMMG_DEL_MEM(parmesh,*seen_shared_pt,int8_t,"deallocate seen_shared_pt");
 fail_alloc2:
-  PMMG_DEL_MEM(parmesh,*shared_pt,nprocs,int,"deallocate shared_pt");
+  PMMG_DEL_MEM(parmesh,*shared_pt,int,"deallocate shared_pt");
   return ret_val;
 }
 
@@ -607,8 +606,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2, nitem_int_node_comm,int,
               "alloc node2int_node_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,
-                           nitem_int_node_comm,int,
+              PMMG_DEL_MEM(parmesh,grp->node2int_node_comm_index1,int,
                            "free node2int_node_comm_index1 ");
               grp->nitem_int_node_comm=0; return 0);
 
@@ -620,8 +618,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
   PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,
               "alloc face2int_face_comm_index2 ",
-              PMMG_DEL_MEM(parmesh,grp->face2int_face_comm_index1,
-                           nitem_int_face_comm,int,
+              PMMG_DEL_MEM(parmesh,grp->face2int_face_comm_index1,int,
                            "free face2int_face_comm_index1 ");
               grp->nitem_int_face_comm = 0;return 0);
 
@@ -659,7 +656,7 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
     if ( inIntComm )
       ++i;
   }
-  PMMG_DEL_MEM(parmesh,idx,parmesh->next_node_comm,int,"deallocating idx");
+  PMMG_DEL_MEM(parmesh,idx,int,"deallocating idx");
 
   /* Face Communicators */
   /* Idx is used to store the external communicator cursor */
@@ -711,8 +708,8 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
       }
     }
   }
-  PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"dealloc mesh adja");
-  PMMG_DEL_MEM(parmesh,idx,parmesh->next_face_comm,int,"deallocating idx");
+  PMMG_DEL_MEM(mesh,mesh->adja,int,"dealloc mesh adja");
+  PMMG_DEL_MEM(parmesh,idx,int,"deallocating idx");
 
   PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
               "allocating int_node_comm",return 0);
@@ -848,8 +845,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_communicators(parmesh,part,shared_pt,shared_face,seen_shared_pt) )
     ier = 2;
 
-  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,
-               parmesh->int_node_comm->nitem,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,parmesh->int_node_comm->intvalues,int,"intvalues");
 
   /** Local mesh creation */
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
@@ -857,19 +853,18 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
 unalloc:
   if ( ier < 5 ) {
-    PMMG_DEL_MEM(parmesh,part,ne,idx_t,"deallocate metis buffer");
+    PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");
 
     MPI_CHECK( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MAX,parmesh->comm ),
                ieresult = 4);
 
     if ( ier < 3 ) {
-      PMMG_DEL_MEM(parmesh,xPointPerm,mesh->xpmax+1,int,"deallocate metis buffer");
-      PMMG_DEL_MEM(parmesh,xTetraPerm,mesh->xtmax+1,int,"deallocate xTetraPerm");
-      PMMG_DEL_MEM(parmesh,pointPerm,old_np+1,int,"deallocate pointPerm");
-      PMMG_DEL_MEM(parmesh,shared_face,nprocs,int,"deallocate shared_face");
-      PMMG_DEL_MEM(parmesh,seen_shared_pt,nprocs*old_np,int8_t,
-                   "deallocate seen_shared_pt");
-      PMMG_DEL_MEM(parmesh,shared_pt,nprocs,int,"deallocate shared_pt");
+      PMMG_DEL_MEM(parmesh,xPointPerm,int,"deallocate metis buffer");
+      PMMG_DEL_MEM(parmesh,xTetraPerm,int,"deallocate xTetraPerm");
+      PMMG_DEL_MEM(parmesh,pointPerm,int,"deallocate pointPerm");
+      PMMG_DEL_MEM(parmesh,shared_face,int,"deallocate shared_face");
+      PMMG_DEL_MEM(parmesh,seen_shared_pt,int8_t,"deallocate seen_shared_pt");
+      PMMG_DEL_MEM(parmesh,shared_pt,int,"deallocate shared_pt");
     }
   }
 

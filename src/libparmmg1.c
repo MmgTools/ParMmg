@@ -365,10 +365,10 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   }
 
 hash:
-  _MMG5_DEL_MEM(mesh,hash.item,(hash.max+1)*sizeof(_MMG5_hedge));
+  _MMG5_DEL_MEM(mesh,hash.item);
 
 facesData:
-  PMMG_DEL_MEM(parmesh,facesData,3*nitem,int,"facesData");
+  PMMG_DEL_MEM(parmesh,facesData,int,"facesData");
 
   return ier;
 }
@@ -480,7 +480,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       /** Pack the tetra */
       if ( mesh->adja )
-        PMMG_DEL_MEM(mesh,mesh->adja,4*mesh->nemax+5,int,"adja table");
+        PMMG_DEL_MEM(mesh,mesh->adja,int,"adja table");
 
       if ( !(ier = _MMG5_paktet(mesh)) ) {
         fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
