@@ -140,15 +140,12 @@ extern "C" {
 
 #define PMMG_DEL_MEM(mesh,ptr,size,type,msg) do {           \
     int    stat = PMMG_SUCCESS;                             \
-    size_t size_to_free = -(size)*sizeof(type);             \
+    size_t size_to_free;                                    \
                                                             \
-    if ( (size) != 0 && ptr ) {                             \
-      MEM_CHK_AVAIL(mesh,size_to_free,msg);                 \
-      if ( stat == PMMG_SUCCESS )                           \
-        (mesh)->memCur += size_to_free;                     \
-    }                                                       \
     if ( ptr ) {                                            \
-      myfree( ptr, -size_to_free);                          \
+      size_to_free = myfree( ptr );                         \
+      assert ( (mesh)->memCur >= size_to_free );            \
+      (mesh)->memCur -= size_to_free;                       \
       (ptr) = NULL;                                         \
     }                                                       \
   } while(0)
