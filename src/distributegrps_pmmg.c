@@ -2286,6 +2286,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
     parmesh->memMax += available;
   }
 
+  PMMG_DEL_MEM ( parmesh,buffer,char,"buffer" );
   return ier;
 }
 
