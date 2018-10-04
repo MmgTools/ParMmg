@@ -1054,11 +1054,9 @@ end:
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
 
   if ( proclists ) {
-    for ( k=0; k<nitem; ++k ) {
-      if ( proclists[k] ) {
-        PMMG_DEL_MEM(parmesh,proclists[k]->item,PMMG_lnkdCell,"linked list array");
-
-      }
+    for ( k=0; k<nproclists; ++k ) {
+      PMMG_DEL_MEM(parmesh,proclists[k]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,proclists[k],PMMG_lnkdList,"linked list pointer");
     }
     PMMG_DEL_MEM(parmesh,proclists,PMMG_lnkdList*,"array of linked lists");
   }
