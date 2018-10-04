@@ -61,11 +61,11 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
       if ( !ip ) {
         /* reallocation of point table */
-        _MMG5_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                            printf("  ## Error: unable to merge group points\n");
-                            _MMG5_INCREASE_MEM_MESSAGE();
-                            return 0;,
-                            pptJ->c,pptJ->tag,0);
+        _MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
+                             printf("  ## Error: unable to merge group points\n");
+                             _MMG5_INCREASE_MEM_MESSAGE();
+                             return 0;,
+                             pptJ->c,pptJ->tag);
 
       }
       assert( (ip <= meshI->npmax) && "run out of points" );
@@ -189,11 +189,11 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
     if ( !ip ) {
       /* reallocation of point table */
-      _MMG5_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                          printf("  ## Error: unable to merge group points\n");
-                          _MMG5_INCREASE_MEM_MESSAGE();
-                          return 0;,
-                          pptJ->c,pptJ->tag,0);
+      _MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
+                           printf("  ## Error: unable to merge group points\n");
+                           _MMG5_INCREASE_MEM_MESSAGE();
+                           return 0;,
+                           pptJ->c,pptJ->tag);
     }
     pptJ->tmp = ip;
 
@@ -291,11 +291,10 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     /* Add the tetra iel to meshI */
     ie = _MMG3D_newElt(meshI);
     if ( !ie ) {
-      _MMG5_TETRA_REALLOC(meshI,ie,meshI->gap,
-                          fprintf(stderr,"  ## Error: unable to merge group elts.\n");
-                          _MMG5_INCREASE_MEM_MESSAGE();
-                          return 0;,
-                          0);
+      _MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
+                           fprintf(stderr,"  ## Error: unable to merge group elts.\n");
+                           _MMG5_INCREASE_MEM_MESSAGE();
+                           return 0);
     }
     ptI = &meshI->tetra[ie];
 
@@ -366,11 +365,10 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
 
     ie  = _MMG3D_newElt(meshI);
     if ( !ie ) {
-      _MMG5_TETRA_REALLOC(meshI,ie,meshI->gap,
-                          fprintf(stderr,"  ## Error: unable to merge group elts.\n");
-                          _MMG5_INCREASE_MEM_MESSAGE();
-                          return 0;,
-                          0);
+      _MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
+                           fprintf(stderr,"  ## Error: unable to merge group elts.\n");
+                           _MMG5_INCREASE_MEM_MESSAGE();
+                           return 0);
     }
     ptI = &meshI->tetra[ie];
 
@@ -1469,8 +1467,8 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   _MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"xtetra",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,0);
-  _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,0);
+  _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
+  _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,return 0);
 
   ne = idx = 0;
   for ( k=0; k<nprocs; ++k ) {
@@ -1515,13 +1513,13 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,0);
+  _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,return 0);
 
   if ( rcv_met ) {
     _MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
                   fprintf(stderr,"  Exit program.\n");
                   return 0);
-    _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,0);
+    _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,return 0);
   }
 
   for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
@@ -1559,7 +1557,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   _MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,0);
+  _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,return 0);
   np = 0;
   for ( k=0; k<nprocs; ++k ) {
     point_1     = &rcv_point[point_displs[k]];

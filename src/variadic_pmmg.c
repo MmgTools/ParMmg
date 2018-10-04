@@ -133,7 +133,7 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
 
   /* ParMesh allocation */
   assert ( (*parmesh == NULL) && "trying to initialize non empty parmesh" );
-  _MMG5_SAFE_CALLOC( *parmesh,1, PMMG_ParMesh,0 );
+  _MMG5_SAFE_CALLOC( *parmesh,1, PMMG_ParMesh,return 0 );
 
   if ( *parmesh == NULL ) {
     return 0;
