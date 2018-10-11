@@ -634,14 +634,14 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   int            *face2int_face_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
 
-  intvalues = parmesh->int_face_comm->intvalues;
-
   /** Step 1: initialization of the communicator */
   int_face_comm = parmesh->int_face_comm;
 
-  if ( !intvalues )
-    PMMG_MALLOC(parmesh,intvalues,int_face_comm->nitem,int,"intvalues",
+  if ( !(int_face_comm->intvalues) )
+    PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",
                  assert(0); return 0;);
+  intvalues = int_face_comm->intvalues;
+
 
   for ( k=0; k<int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
@@ -732,7 +732,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
-  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"face communicator");
+  PMMG_DEL_MEM( parmesh,parmesh->int_face_comm->intvalues,int,"face communicator");
   int_face_comm->nitem = nitem_int;
 
   return 1;
