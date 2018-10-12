@@ -33,21 +33,23 @@ void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 }
 
 /**
- * \param parmesh pointer toward a parmesh structure
- * \param comm    external communicator to be freed
- * \param ncomm   parameter ncomm
+ * \param parmesh  pointer toward a parmesh structure
+ * \param listcomm external communicators to be freed
+ * \param ncomm    parameter ncomm
  *
  * deallocate all external communicators's fields
  */
-void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm comm,
+void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm listcomm,
                                  int ncomm )
 {
+  PMMG_pExt_comm comm;
   int i = 0;
 
-  if ( comm == NULL )
+  if ( listcomm == NULL )
     return;
 
   for( i = 0; i < ncomm; ++i ) {
+    comm = &listcomm[i];
     if ( NULL != comm->int_comm_index ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
       PMMG_DEL_MEM(parmesh,comm->int_comm_index,int,"ext comm int array");
