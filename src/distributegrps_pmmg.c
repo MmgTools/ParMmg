@@ -696,21 +696,22 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
 
-    if ( !ext_face_comm->nitem ) continue;
+    if ( !ext_face_comm->nitem ) {
+      if ( ext_face_comm->nitem_to_share ) {
+        if ( ext_face_comm->itosend )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->itosend,int,"itosend");
+        if ( ext_face_comm->itorecv )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->itorecv,int,"itorecv");
+        if ( ext_face_comm->rtosend )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->rtosend,double,"rtosend");
+        if ( ext_face_comm->rtorecv )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->rtorecv,double,"rtorecv");
+        ext_face_comm->nitem_to_share = 0;
+      }
+      continue;
+    }
 
     if ( i!=k ) {
-      if ( parmesh->ext_face_comm[i].nitem_to_share ) {
-        if ( parmesh->ext_face_comm[i].itosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itosend,int,"itosend");
-        if ( parmesh->ext_face_comm[i].itorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itorecv,int,"itorecv");
-        if ( parmesh->ext_face_comm[i].rtosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtosend,double,"rtosend");
-        if ( parmesh->ext_face_comm[i].rtorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtorecv,double,"rtorecv");
-        parmesh->ext_face_comm[i].nitem_to_share = 0;
-      }
-
       parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
       parmesh->ext_face_comm[i].nitem_to_share = ext_face_comm->nitem_to_share;
       parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
