@@ -16,7 +16,7 @@
  *
  * deallocate all internal communicator's fields
  */
-void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
+void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 {
   if ( comm == NULL )
     return;
@@ -39,7 +39,7 @@ void PMMG_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
  *
  * deallocate all external communicators's fields
  */
-void PMMG_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm listcomm,
+void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm listcomm,
                                  int ncomm )
 {
   PMMG_pExt_comm comm;
@@ -107,8 +107,8 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
                         &grp->nitem_int_node_comm );
   }
 
-  PMMG_int_comm_free( parmesh,parmesh->int_node_comm);
-  PMMG_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+  PMMG_parmesh_int_comm_free( parmesh,parmesh->int_node_comm);
+  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
 
   parmesh->next_node_comm       = 0;
