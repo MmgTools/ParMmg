@@ -44,20 +44,20 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, size_t memReq )
     size_shm = 1;
   }
 
-  maxAvail = _MMG5_memSize();
-  // if detection failed => default value of _MMG5_MEMMAX Mo
+  maxAvail = MMG5_memSize();
+  // if detection failed => default value of MMG5_MEMMAX Mo
   if ( maxAvail == 0 )
-    maxAvail = _MMG5_MEMMAX << 20;
+    maxAvail = MMG5_MEMMAX << 20;
 
   // Multiple MPI processes may be running on the same node => distribute equally
-  if ( (memReq > 0) && ((memReq * _MMG5_MILLION) < maxAvail) )
-    parmesh->memGloMax = (memReq * _MMG5_MILLION) / size_shm;
+  if ( (memReq > 0) && ((memReq * MMG5_MILLION) < maxAvail) )
+    parmesh->memGloMax = (memReq * MMG5_MILLION) / size_shm;
   else
     parmesh->memGloMax = (maxAvail * 50) / (size_shm * 100);
 
   if ( abs(parmesh->info.imprim) > 4 || parmesh->ddebug ) {
     fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED FOR PARMMG (MB)    %zu\n",
-            parmesh->memGloMax/_MMG5_MILLION);
+            parmesh->memGloMax/MMG5_MILLION);
   }
 }
 
@@ -93,9 +93,9 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
     usedMem += met->size*(mesh->np+1)*sizeof(double);
 
   if ( usedMem > mesh->memMax  ) {
-    fprintf(stderr,"\n  ## Error: %s: %zu Mo of memory ",__func__,mesh->memMax/_MMG5_MILLION);
+    fprintf(stderr,"\n  ## Error: %s: %zu Mo of memory ",__func__,mesh->memMax/MMG5_MILLION);
     fprintf(stderr,"is not enough to load mesh. You need to ask %zu Mo minimum\n",
-            usedMem/_MMG5_MILLION+1);
+            usedMem/MMG5_MILLION+1);
     return 0;
   }
 
@@ -123,12 +123,12 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
 
   if ( abs(mesh->info.imprim) > 5 || mesh->info.ddebug ) {
     fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED (Mo)    %zu\n",
-            mesh->memMax/_MMG5_MILLION);
+            mesh->memMax/MMG5_MILLION);
 
-    fprintf(stdout,"  _MMG3D_NPMAX    %d\n",mesh->npmax);
-    fprintf(stdout,"  _MMG3D_XPMAX    %d\n",mesh->xpmax);
-    fprintf(stdout,"  _MMG3D_NEMAX    %d\n",mesh->nemax);
-    fprintf(stdout,"  _MMG3D_XTMAX    %d\n",mesh->xtmax);
+    fprintf(stdout,"  MMG3D_NPMAX    %d\n",mesh->npmax);
+    fprintf(stdout,"  MMG3D_XPMAX    %d\n",mesh->xpmax);
+    fprintf(stdout,"  MMG3D_NEMAX    %d\n",mesh->nemax);
+    fprintf(stdout,"  MMG3D_XTMAX    %d\n",mesh->xtmax);
   }
 
   return 1;
@@ -263,7 +263,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
       mesh->memMax = mesh->memCur;
     }
     /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/_MMG5_MILLION;
+    mesh->info.mem = mesh->memMax/MMG5_MILLION;
 
     /* Count the remaining available memory */
     if ( available < mesh->memMax ) {
@@ -368,7 +368,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->memMax = mesh->memCur;
     }
     /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/_MMG5_MILLION;
+    mesh->info.mem = mesh->memMax/MMG5_MILLION;
 
     /* Memory repartition for the MMG meshes arrays */
     npmax_old = mesh->npmax;
@@ -382,10 +382,10 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->xtmax = mesh->xt;
     }
     else {
-      mesh->npmax = MG_MAX(1.5*mesh->np,_MMG3D_NPMAX);
+      mesh->npmax = MG_MAX(1.5*mesh->np,MMG3D_NPMAX);
       mesh->xpmax = 1.5*mesh->xp;
-      mesh->nemax = MG_MAX(1.5*mesh->ne,_MMG3D_NEMAX);
-      mesh->xtmax = MG_MAX(1.5*mesh->xt,_MMG3D_NTMAX);
+      mesh->nemax = MG_MAX(1.5*mesh->ne,MMG3D_NEMAX);
+      mesh->xtmax = MG_MAX(1.5*mesh->xt,MMG3D_NTMAX);
     }
 
     met = parmesh->listgrp[i].met;

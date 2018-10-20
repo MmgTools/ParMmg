@@ -26,7 +26,7 @@
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met) {
   double     dd;
   
-  if ( !_MMG5_scaleMesh(mesh,met) ) return 0;
+  if ( !MMG5_scaleMesh(mesh,met) ) return 0;
 
   if ( mesh->info.hsiz > 0 || mesh->info.optim ) {
     dd = 1.0 / mesh->info.delta;

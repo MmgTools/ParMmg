@@ -244,7 +244,7 @@ int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh ) {
 
       pt = &mesh->tetra[iel];
       for ( j=0; j<3; ++j ) {
-        ip  = pt->v[_MMG5_idir[ifac][(j+iploc)%3]];
+        ip  = pt->v[MMG5_idir[ifac][(j+iploc)%3]];
         ppt = &mesh->point[ip];
         assert ( ppt->tmp>=0 && "missing node in the communicator" );
 
@@ -408,7 +408,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
 
       pt    = &mesh->tetra[iel];
       for ( j=0; j<3; ++j ) {
-        ip  = pt->v[_MMG5_idir[ifac][j]];
+        ip  = pt->v[MMG5_idir[ifac][j]];
 
         assert ( ip && ip<=mesh->np );
 
@@ -469,7 +469,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
    grp  = &parmesh->listgrp[grpid];
    mesh = grp->mesh;
    assert ( mesh->info.delta &&  "missing scaling infos");
-   assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
+   assert ( fabs(mesh->info.delta-1.)<MMG5_EPSD &&
             "scaled mesh... need to unscale it");
 
    for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
@@ -515,7 +515,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
            * and mark it as seen */
           shared_fac[fac_idx] = abs(shared_fac[fac_idx]);
           for ( j=0; j<3; ++j ) {
-            ip  = pt->v[_MMG5_idir[ifac][(j+iploc)%3]];
+            ip  = pt->v[MMG5_idir[ifac][(j+iploc)%3]];
             ppt = &mesh->point[ip];
             assert ( ppt->tmp>=0 );
 
@@ -537,7 +537,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
             double scaled_coor[3];
 
             assert ( mesh->info.delta && "missing scaling infos" );
-            assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD &&
+            assert ( fabs(mesh->info.delta-1.)<MMG5_EPSD &&
                      "scaled mesh... need to unscale it");
 
             /* Scale the point coor using the internal node comm scaling data */
@@ -553,14 +553,14 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
                 - scaled_coor[j];
               dd += dist[j]*dist[j];
             }
-            assert ( dd<_MMG5_EPSD );
+            assert ( dd<MMG5_EPSD );
 #endif
           }
         }
         else {
           /* Second time we see this face: store it in the opposite direction */
           for ( j=0; j<3; ++j ) {
-            ip  = pt->v[_MMG5_idir[ifac][(iploc+3-j)%3]];
+            ip  = pt->v[MMG5_idir[ifac][(iploc+3-j)%3]];
             ppt = &mesh->point[ip];
             assert ( ppt->tmp>=0 );
 
@@ -594,7 +594,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
                 -scaled_coor[j];
               dd += dist[j]*dist[j];
             }
-            assert ( dd < _MMG5_EPSD );
+            assert ( dd < MMG5_EPSD );
 #endif
           }
         }

@@ -36,11 +36,11 @@ FORTRAN_NAME(PMMG_SET_INPUTMESHNAME, pmmg_set_inputmeshname,
              (parmesh,meshin,strlen,retval)) {
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,meshin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputMeshName(*parmesh,tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -54,11 +54,11 @@ FORTRAN_NAME(PMMG_SET_INPUTSOLSNAME, pmmg_set_inputsolsname,
 
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,solin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputSolsName(*parmesh,tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -72,11 +72,11 @@ FORTRAN_NAME(PMMG_SET_INPUTMETNAME, pmmg_set_inputmetname,
 
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,metin,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_inputMetName(*parmesh,tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -89,11 +89,11 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
              (parmesh,meshout,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,meshout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputMeshName(*parmesh, tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -106,11 +106,11 @@ FORTRAN_NAME(PMMG_SET_OUTPUTSOLSNAME,pmmg_set_outputsolsname,
              (parmesh,solout,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,solout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputSolsName(*parmesh,tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -123,11 +123,11 @@ FORTRAN_NAME(PMMG_SET_OUTPUTMETNAME,pmmg_set_outputmetname,
              (parmesh,metout,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,metout,*strlen);
   tmp[*strlen] = '\0';
   *retval = PMMG_Set_outputMetName(*parmesh,tmp);
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -780,13 +780,13 @@ FORTRAN_NAME(PMMG_LOADMESH_CENTRALIZED,pmmg_loadmesh_centralized,
              (parmesh,filename,strlen, retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_loadMesh_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -799,13 +799,13 @@ FORTRAN_NAME(PMMG_LOADMET_CENTRALIZED,pmmg_loadmet_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_loadMet_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -818,13 +818,13 @@ FORTRAN_NAME(PMMG_LOADALLSOLS_CENTRALIZED,pmmg_loadallsols_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_loadAllSols_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -837,13 +837,13 @@ FORTRAN_NAME(PMMG_SAVEMESH_CENTRALIZED,pmmg_savemesh_centralized,
              (parmesh,filename,strlen, retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_saveMesh_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -856,13 +856,13 @@ FORTRAN_NAME(PMMG_SAVEMET_CENTRALIZED,pmmg_savemet_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_saveMet_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }
@@ -875,13 +875,13 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
              (parmesh,filename,strlen,retval)){
   char *tmp = NULL;
 
-  _MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
   strncpy(tmp,filename,*strlen);
   tmp[*strlen] = '\0';
 
   *retval = PMMG_saveAllSols_centralized(*parmesh,tmp);
 
-  _MMG5_SAFE_FREE(tmp);
+  MMG5_SAFE_FREE(tmp);
 
   return;
 }

@@ -32,12 +32,12 @@ int PMMG_compare_coorCell (const void * a, const void * b) {
   for ( k=0; k<3; ++k ) {
     dist[k] = cell1->c[k]-cell2->c[k];
 
-    if ( dist[k] >  _MMG5_EPSOK ) return 1;
+    if ( dist[k] >  MMG5_EPSOK ) return 1;
 
-    if ( dist[k] < -_MMG5_EPSOK ) return -1;
+    if ( dist[k] < -MMG5_EPSOK ) return -1;
   }
 
-  assert ( dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]<_MMG5_EPSD
+  assert ( dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]<MMG5_EPSD
     && "Wrong epsilon machine consistency: function to improve");
 
   return 0;

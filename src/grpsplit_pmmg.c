@@ -200,17 +200,17 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
   }
 
   if ( mesh->point )
-    _MMG5_DEL_MEM(mesh,mesh->point);
+    MMG5_DEL_MEM(mesh,mesh->point);
   if ( mesh->tetra )
-    _MMG5_DEL_MEM(mesh,mesh->tetra);
+    MMG5_DEL_MEM(mesh,mesh->tetra);
   if ( mesh->prism )
-    _MMG5_DEL_MEM(mesh,mesh->prism);
+    MMG5_DEL_MEM(mesh,mesh->prism);
   if ( mesh->tria )
-    _MMG5_DEL_MEM(mesh,mesh->tria);
+    MMG5_DEL_MEM(mesh,mesh->tria);
   if ( mesh->quadra )
-    _MMG5_DEL_MEM(mesh,mesh->quadra);
+    MMG5_DEL_MEM(mesh,mesh->quadra);
   if ( mesh->edge )
-    _MMG5_DEL_MEM(mesh,mesh->edge);
+    MMG5_DEL_MEM(mesh,mesh->edge);
 
   mesh->np  = np;
   mesh->ne  = ne;
@@ -641,11 +641,11 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
           /* Find a common starting point inside the face for both tetra */
           iploc = 0; // We impose the starting point in tet
-          ip    = pt->v[_MMG5_idir[fac][iploc]];
+          ip    = pt->v[MMG5_idir[fac][iploc]];
 
           ptadj = &meshOld->tetra[adjidx];
           for ( iplocadj=0; iplocadj < 3; ++iplocadj )
-            if ( ptadj->v[_MMG5_idir[vidx][iplocadj]] == ip ) break;
+            if ( ptadj->v[MMG5_idir[vidx][iplocadj]] == ip ) break;
           assert ( iplocadj < 3 );
 
           iplocFaceComm[pos]                 = iploc;
@@ -677,8 +677,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
         for ( j=0; j<3; ++j ) {
           /* Update the face and face vertices tags */
-          pxt->tag[_MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-          ppt = &mesh->point[tetraCur->v[_MMG5_idir[fac][j]]];
+          pxt->tag[MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          ppt = &mesh->point[tetraCur->v[MMG5_idir[fac][j]]];
           ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
           /** Add an xPoint if needed */
@@ -719,15 +719,15 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
 
       if ( adjidx && grpId != part[ adjidx - 1 ] ) {
         for ( poi = 0; poi < 3; ++poi ) {
-          ppt = & mesh->point[ tetraCur->v[ _MMG5_idir[fac][poi] ] ];
+          ppt = & mesh->point[ tetraCur->v[ MMG5_idir[fac][poi] ] ];
           if ( ppt->tmp == -1 ) {
             if (   !PMMG_n2incAppend( parmesh, grp, n2inc_max,
-                                     tetraCur->v[ _MMG5_idir[fac][poi] ],
+                                     tetraCur->v[ MMG5_idir[fac][poi] ],
                                      parmesh->int_node_comm->nitem + 1 ) ) {
               return 0;
             }
 
-            meshOld->point[ pt->v[ _MMG5_idir[fac][poi]  ] ].tmp =
+            meshOld->point[ pt->v[ MMG5_idir[fac][poi]  ] ].tmp =
               parmesh->int_node_comm->nitem + 1;
             ppt->tmp = parmesh->int_node_comm->nitem + 1;
 
@@ -814,7 +814,7 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
       if ( !(pxt->tag[i] & MG_PARBDY ) )  continue;
       // Algiane: if this step is too long, try to hash the updated edges to not
       // update twice the same shell (PMMG_bdryUpdate function).
-      _MMG5_settag(mesh,k,i,pxt->tag[i],pxt->edg[i]);
+      MMG5_settag(mesh,k,i,pxt->tag[i],pxt->edg[i]);
     }
   }
 
