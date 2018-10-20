@@ -34,7 +34,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
 
   na = (int)(mesh->np*0.2); // Euler-Poincare
 
-  if ( 1 != _MMG5_hNew( mesh, &hash, na, 3 * na ) )
+  if ( 1 != MMG5_hNew( mesh, &hash, na, 3 * na ) )
     return PMMG_FAILURE;
 
   /** Store parallel edges */
@@ -49,9 +49,9 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
       if ( !(pxt->tag[i] & MG_PARBDY) )
         continue;
 
-      i1 = _MMG5_iare[i][0];
-      i2 = _MMG5_iare[i][1];
-      _MMG5_hEdge( mesh, &hash, pt->v[i1], pt->v[i2], pxt->edg[i], pxt->tag[i] );
+      i1 = MMG5_iare[i][0];
+      i2 = MMG5_iare[i][1];
+      MMG5_hEdge( mesh, &hash, pt->v[i1], pt->v[i2], pxt->edg[i], pxt->tag[i] );
     }
   }
 
@@ -67,9 +67,9 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
       if ( pxt->tag[i] & MG_PARBDY )
         continue;
 
-      i1 = _MMG5_iare[i][0];
-      i2 = _MMG5_iare[i][1];
-      if ( !_MMG5_hGet( &hash, pt->v[i1], pt->v[i2], &edg, &tag ) )
+      i1 = MMG5_iare[i][0];
+      i2 = MMG5_iare[i][1];
+      if ( !MMG5_hGet( &hash, pt->v[i1], pt->v[i2], &edg, &tag ) )
         continue;
 
       pxt->tag[i] |= tag;

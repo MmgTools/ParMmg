@@ -73,11 +73,11 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
     }
 
     /* load data */
-    _MMG5_warnOrientation(mesh);
+    MMG5_warnOrientation(mesh);
 
     if ( met->np && (met->np != mesh->np) ) {
       fprintf(stdout,"  ## WARNING: WRONG METRIC NUMBER. IGNORED\n");
-      _MMG5_DEL_MEM(mesh,met->m);
+      MMG5_DEL_MEM(mesh,met->m);
       met->np = 0;
     } else if ( met->size!=1 && met->size!=6 ) {
       fprintf(stderr,"  ## ERROR: WRONG DATA TYPE.\n");
@@ -108,10 +108,10 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
   /** Function setters (must be assigned before quality computation) */
-  _MMG3D_Set_commonFunc();
+  MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !_MMG5_scaleMesh(mesh,met) ) {
+  if ( !MMG5_scaleMesh(mesh,met) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -120,7 +120,7 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_doSol(mesh,met) ) {
       return PMMG_STRONGFAILURE;
     }
-    _MMG3D_solTruncatureForOptim(mesh,met);
+    MMG3D_solTruncatureForOptim(mesh,met);
   }
 
   if ( mesh->info.hsiz > 0. ) {
@@ -131,25 +131,25 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 
   MMG3D_setfunc(mesh,met);
 
-  if ( !_MMG3D_tetraQual( mesh, met, 0 ) ) {
+  if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
   }
 
   if ( abs(parmesh->info.imprim) > 0 )
-    if ( !_MMG3D_inqua(mesh,met) ) {
+    if ( !MMG3D_inqua(mesh,met) ) {
         return PMMG_STRONGFAILURE;
     }
 
   /** Mesh analysis */
-  if ( !_MMG3D_analys(mesh) ) {
+  if ( !MMG3D_analys(mesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
   if ( parmesh->info.imprim > 1 && met->m )
-    _MMG3D_prilen(mesh,met,0);
+    MMG3D_prilen(mesh,met,0);
 
   /** Mesh unscaling */
-  if ( !_MMG5_unscaleMesh(mesh,met) ) {
+  if ( !MMG5_unscaleMesh(mesh,met) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -212,7 +212,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && _MMG5_unscaleMesh( mesh, met ) ) {
+  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
     ier = PMMG_LOWFAILURE;
   }
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
@@ -354,7 +354,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh( parmesh );
     mesh = parmesh->listgrp[k].mesh;
     met  = parmesh->listgrp[k].met;
-    if ( (ier==PMMG_STRONGFAILURE) && _MMG5_unscaleMesh( mesh, met ) ) {
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
       ier = PMMG_LOWFAILURE;
     }
     MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );

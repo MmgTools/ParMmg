@@ -54,7 +54,7 @@ int PMMG_find_intNodeCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
       + mesh->info.min[1]*mesh->info.min[1]
       + mesh->info.min[2]*mesh->info.min[2];
 
-    assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+    assert ( fabs(mesh->info.delta-1.)<MMG5_EPSD && dd<MMG5_EPSD &&
              "scaled mesh... need to unscale it");
 
     for ( i=0; i<grp->nitem_int_node_comm; ++i ) {
@@ -139,7 +139,7 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
       + mesh->info.min[1]*mesh->info.min[1]
       + mesh->info.min[2]*mesh->info.min[2];
 
-    assert ( fabs(mesh->info.delta-1.)<_MMG5_EPSD && dd<_MMG5_EPSD &&
+    assert ( fabs(mesh->info.delta-1.)<MMG5_EPSD && dd<MMG5_EPSD &&
              "scaled mesh... need to unscale it");
 
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
@@ -154,7 +154,7 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
 
       if ( !intvalues[idx] ) {
         for ( l=0; l<3; ++l ) {
-          ip = pt->v[_MMG5_idir[ifac][l]];
+          ip = pt->v[MMG5_idir[ifac][l]];
           assert ( ip && ip<=mesh->np );
           ppt = &mesh->point[ip];
 
@@ -255,7 +255,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
           dist_norm += dist[j]*dist[j];
         }
 
-        if ( dist_norm > _MMG5_EPSD ) {
+        if ( dist_norm > MMG5_EPSD ) {
           fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                  "       2 different points (dist %e) in the same position (%d)"
                  " of the internal communicator:\n"
@@ -288,7 +288,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
         dist[j] = coor_list[ commIdx2 ].c[j]-coor_list[ commIdx1 ].c[j];
         dist_norm += dist[j]*dist[j];
       }
-      if ( dist_norm < _MMG5_EPSD ) {
+      if ( dist_norm < MMG5_EPSD ) {
         int grp1_id   = coor_list[ commIdx1 ].grp;
         int grp2_id   = coor_list[ commIdx2 ].grp;
         int pos1_idx  = coor_list[ commIdx1 ].idx;
@@ -437,7 +437,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
         for ( l=0; l<3; ++l ) {
           /* List the face points from iploc to ensure that we start from the
            * same face point for the 2 mathing comminicators */
-          ip = pt->v[_MMG5_idir[ifac][(l+iploc)%3]];
+          ip = pt->v[MMG5_idir[ifac][(l+iploc)%3]];
 
           assert ( ip && ip<=mesh->np );
           ppt = &mesh->point[ip];
@@ -462,7 +462,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
             dist_norm += dist[j]*dist[j];
           }
 
-          if ( dist_norm > _MMG5_EPSD ) {
+          if ( dist_norm > MMG5_EPSD ) {
             fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                     "       2 different points (dist %e) in the same position (%d)"
                     " of the internal communicator:\n"
@@ -480,7 +480,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
         for ( l=0; l<3; ++l ) {
           /* List the face points from iploc to ensure that we start from the
            * same face point for the 2 mathing comminicators */
-          ip = pt->v[_MMG5_idir[ifac][(l+iploc)%3]];
+          ip = pt->v[MMG5_idir[ifac][(l+iploc)%3]];
 
           assert ( ip && ip<=mesh->np );
           ppt = &mesh->point[ip];
@@ -608,7 +608,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
     MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm), return 0);
     MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm), return 0);
 
-    if ( delta_all < _MMG5_EPSD ) {
+    if ( delta_all < MMG5_EPSD ) {
       if ( parmesh->myrank == parmesh->info.root )
         fprintf(stderr,"\n  ## Error: %s: unable to scale the list.\n",__func__);
       return 0 ;
@@ -732,7 +732,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
       y   = doublevalues[3*idx+1] - rtorecv[3*i+1];
       z   = doublevalues[3*idx+2] - rtorecv[3*i+2];
 
-      if ( x*x + y*y + z*z > _MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSD ) {
         fprintf(stderr,"  ## Error: %s: rank %d:\n"
                 "       2 different points (dist %e) in the same position (%d)"
                 " of the external communicator %d %d (%d th item):\n"
@@ -820,7 +820,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
     MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm), return 0);
     MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm), return 0);
 
-    if ( delta_all < _MMG5_EPSD ) {
+    if ( delta_all < MMG5_EPSD ) {
       if ( parmesh->myrank == parmesh->info.root )
         fprintf(stderr,"\n  ## Error: %s: unable to scale the list.\n",__func__);
       return 0 ;
@@ -863,7 +863,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       for ( l=0; l<3; ++l ) {
         /* List the face points from iploc to ensure that we start from the same
          * face point for the 2 mathing comminicators */
-        ip  = pt->v[_MMG5_idir[ifac][(l+iploc)%3]];
+        ip  = pt->v[MMG5_idir[ifac][(l+iploc)%3]];
 
         assert ( ip && ip<=mesh->np );
         ppt = &mesh->point[ip];
@@ -965,7 +965,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx  ] - rtorecv[9*i  ];
       y   = doublevalues[9*idx+1] - rtorecv[9*i+1];
       z   = doublevalues[9*idx+2] - rtorecv[9*i+2];
-      if ( x*x + y*y + z*z > _MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,l,
@@ -978,7 +978,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx+3  ] - rtorecv[9*i+6  ];
       y   = doublevalues[9*idx+3+1] - rtorecv[9*i+6+1];
       z   = doublevalues[9*idx+3+2] - rtorecv[9*i+6+2];
-      if ( x*x + y*y + z*z > _MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,l,
@@ -991,7 +991,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx+6  ] - rtorecv[9*i+3  ];
       y   = doublevalues[9*idx+6+1] - rtorecv[9*i+3+1];
       z   = doublevalues[9*idx+6+2] - rtorecv[9*i+3+2];
-      if ( x*x + y*y + z*z > _MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,l,
