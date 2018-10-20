@@ -211,7 +211,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
                 __func__);
         return 0;
       }
-      if ( !_MMG5_chkmsh(mesh,1,1) ) {
+      if ( !MMG5_chkmsh(mesh,1,1) ) {
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
@@ -265,9 +265,9 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
     assert( MG_EOK(pt) );
     assert( pt->xt && ( mesh->xtetra[pt->xt].ftag[ifac] & MG_PARBDY ) );
 
-    ia = pt->v[_MMG5_idir[ifac][iploc]];
-    ib = pt->v[_MMG5_idir[ifac][(iploc+1)%3]];
-    ic = pt->v[_MMG5_idir[ifac][(iploc+2)%3]];
+    ia = pt->v[MMG5_idir[ifac][iploc]];
+    ib = pt->v[MMG5_idir[ifac][(iploc+1)%3]];
+    ic = pt->v[MMG5_idir[ifac][(iploc+2)%3]];
 
     /** Store the face vertices */
     (*facesData)[3*k]   = ia;
@@ -299,7 +299,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  _MMG5_Hash   hash;
+  MMG5_Hash   hash;
   int          *face2int_face_comm_index1,nitem;
   int          hashVal,iel,ifac,iploc,ia,ib,ic;
   int          k,i,ier;
@@ -312,7 +312,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
 
   /** Step 1: Hash the MG_PARBDY faces */
   mesh = parmesh->listgrp[igrp].mesh;
-  if ( !_MMG5_hashNew(mesh,&hash,0.51*nitem,1.51*nitem) ) {
+  if ( !MMG5_hashNew(mesh,&hash,0.51*nitem,1.51*nitem) ) {
     ier = 0;
     goto facesData;
   }
@@ -325,10 +325,10 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     for ( i=0; i<4; ++i ) {
       if ( !(pxt->ftag[i] & MG_PARBDY) ) continue;
 
-      ia = pt->v[_MMG5_idir[i][0]];
-      ib = pt->v[_MMG5_idir[i][1]];
-      ic = pt->v[_MMG5_idir[i][2]];
-      if ( !_MMG5_hashFace(mesh,&hash,ia,ib,ic,12*k+3*i)  ) {
+      ia = pt->v[MMG5_idir[i][0]];
+      ib = pt->v[MMG5_idir[i][1]];
+      ic = pt->v[MMG5_idir[i][2]];
+      if ( !MMG5_hashFace(mesh,&hash,ia,ib,ic,12*k+3*i)  ) {
         ier = 0;
         goto hash;
       }
@@ -346,7 +346,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     ib = facesData[3*k+1];
     ic = facesData[3*k+2];
 
-    hashVal = _MMG5_hashGetFace(&hash,ia,ib,ic);
+    hashVal = MMG5_hashGetFace(&hash,ia,ib,ic);
     assert( hashVal );
 
     iel  =  hashVal/12;
@@ -357,7 +357,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     pt = &mesh->tetra[iel];
 
     for ( iploc=0; iploc<3; ++iploc )
-      if ( pt->v[_MMG5_idir[ifac][iploc]] == ia ) break;
+      if ( pt->v[MMG5_idir[ifac][iploc]] == ia ) break;
     assert ( iploc < 3 );
 
     /* Update the face communicator */
@@ -365,7 +365,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
   }
 
 hash:
-  _MMG5_DEL_MEM(mesh,hash.item);
+  MMG5_DEL_MEM(mesh,hash.item);
 
 facesData:
   PMMG_DEL_MEM(parmesh,facesData,int,"facesData");
@@ -420,7 +420,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
     /* Uncomment to debug tag errors */
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
-    /* if ( !_MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
+    /* if ( !MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
 
   /** Mesh adaptation */
@@ -455,7 +455,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( !(ier = PMMG_scaleMesh(mesh,met)) ) goto failed;
 
 #ifdef PATTERN
-      if ( 1 != (ier = _MMG5_mmg3d1_pattern( mesh, met )) ) {
+      if ( 1 != (ier = MMG5_mmg3d1_pattern( mesh, met )) ) {
         fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
                 " Exit program.\n");
         if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
@@ -466,7 +466,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
       }
 #else
-      if ( 1 != (ier = _MMG5_mmg3d1_delone( mesh, met )) ) {
+      if ( 1 != (ier = MMG5_mmg3d1_delone( mesh, met )) ) {
         fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem."
                 " Exit program.\n");
         if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
@@ -482,7 +482,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( mesh->adja )
         PMMG_DEL_MEM(mesh,mesh->adja,int,"adja table");
 
-      if ( !(ier = _MMG5_paktet(mesh)) ) {
+      if ( !(ier = MMG5_paktet(mesh)) ) {
         fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
         goto strong_failed;
       }
@@ -492,7 +492,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
         goto strong_failed;
       }
-      if ( !(ier = _MMG5_unscaleMesh(mesh,met)) ) goto failed;
+      if ( !(ier = MMG5_unscaleMesh(mesh,met)) ) goto failed;
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

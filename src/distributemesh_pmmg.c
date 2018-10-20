@@ -419,11 +419,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
 
         /* Parallel edges */
         for ( j=0; j<3; ++j )
-          pxt->tag[_MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
       }
 
       for ( j=0; j<3; ++j ) {
-        iploc = _MMG5_idir[ifac][j];
+        iploc = MMG5_idir[ifac][j];
         ip    = pt->v[iploc];
         ppt   = &mesh->point[ip];
 
@@ -680,11 +680,11 @@ int PMMG_create_communicators(PMMG_pParMesh parmesh,idx_t *part,int *shared_pt,
 
       /* Find a common starting point inside the face for both tetra */
       iploc = 0; // We impose the starting point in k
-      ip    = pt->v[_MMG5_idir[ifac][iploc]];
+      ip    = pt->v[MMG5_idir[ifac][iploc]];
 
       ifacvois = mesh->adja[4*k-3+ifac]%4;
       for ( iplocvois=0; iplocvois < 3; ++iplocvois )
-        if ( ptvois->v[_MMG5_idir[ifacvois][iplocvois]] == ip ) break;
+        if ( ptvois->v[MMG5_idir[ifacvois][iplocvois]] == ip ) break;
       assert ( iplocvois < 3 );
 
       if ( rankCur == rank ) {

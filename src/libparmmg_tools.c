@@ -49,7 +49,7 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
             parmesh->info.imprim);
 
     fprintf(stdout,"maximal memory size       (-m)      : %zu MB\n",
-            parmesh->memGloMax/_MMG5_MILLION);
+            parmesh->memGloMax/MMG5_MILLION);
     fprintf(stdout,"\n** Parameters\n");
     fprintf( stdout,"# of remeshing iterations (-niter)  : %d\n",parmesh->niter);
 
@@ -207,7 +207,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         else {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
-            if ( ( atoi(argv[ i ]) > _MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
+            if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
               fprintf( stderr,
                        "Erroneous mem size requested, using default: %zu\n",
                        parmesh->memGloMax );

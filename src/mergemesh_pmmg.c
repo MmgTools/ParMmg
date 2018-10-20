@@ -58,12 +58,12 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
 
     /* Point pptJ is not found in the merged mesh. Add it */
     if ( !intvalues[ poi_id_glo ] ) {
-      ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
+      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
       if ( !ip ) {
         /* reallocation of point table */
-        _MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
+        MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
                              printf("  ## Error: unable to merge group points\n");
-                             _MMG5_INCREASE_MEM_MESSAGE();
+                             MMG5_INCREASE_MEM_MESSAGE();
                              return 0;,
                              pptJ->c,pptJ->tag);
 
@@ -186,12 +186,12 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     if ( !MG_VOK(pptJ) ) continue;
     if ( pptJ->tmp )     continue;
 
-    ip = _MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
+    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
     if ( !ip ) {
       /* reallocation of point table */
-      _MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
+      MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
                            printf("  ## Error: unable to merge group points\n");
-                           _MMG5_INCREASE_MEM_MESSAGE();
+                           MMG5_INCREASE_MEM_MESSAGE();
                            return 0;,
                            pptJ->c,pptJ->tag);
     }
@@ -289,11 +289,11 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     ptJ->base = meshJ->base;
 
     /* Add the tetra iel to meshI */
-    ie = _MMG3D_newElt(meshI);
+    ie = MMG3D_newElt(meshI);
     if ( !ie ) {
-      _MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
+      MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
                            fprintf(stderr,"  ## Error: unable to merge group elts.\n");
-                           _MMG5_INCREASE_MEM_MESSAGE();
+                           MMG5_INCREASE_MEM_MESSAGE();
                            return 0);
     }
     ptI = &meshI->tetra[ie];
@@ -363,11 +363,11 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
 
     ptJ->base = meshJ->base;
 
-    ie  = _MMG3D_newElt(meshI);
+    ie  = MMG3D_newElt(meshI);
     if ( !ie ) {
-      _MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
+      MMG3D_TETRA_REALLOC(meshI,ie,meshI->gap,
                            fprintf(stderr,"  ## Error: unable to merge group elts.\n");
-                           _MMG5_INCREASE_MEM_MESSAGE();
+                           MMG5_INCREASE_MEM_MESSAGE();
                            return 0);
     }
     ptI = &meshI->tetra[ie];
@@ -658,7 +658,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
 
       nparbdy = 0;
       for ( i=0 ; i<3 ; i++) {
-        ppt = &mesh->point[pt->v[_MMG5_idir[j][i]]];
+        ppt = &mesh->point[pt->v[MMG5_idir[j][i]]];
         if ( ppt->tag & MG_PARBDY ) nparbdy++;
       }
       if ( nparbdy!=3 ) {
@@ -675,7 +675,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
 
       nparbdy = 0;
       for ( i=0 ; i<2 ; i++) {
-        ppt = &mesh->point[pt->v[_MMG5_iare[j][i]]];
+        ppt = &mesh->point[pt->v[MMG5_iare[j][i]]];
         if ( ppt->tag & MG_PARBDY ) {
           nparbdy++;
         }
@@ -688,7 +688,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
     if ( !nfbdy && !nabdy ) pt->xt = 0;
   }
   /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax; */
-  /* if ( !_MMG3D_analys(mesh) ) return -1; */
+  /* if ( !MMG3D_analys(mesh) ) return -1; */
   return 1;
 }
 
@@ -1461,14 +1461,14 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   mesh->nenil  = 0;
   mesh->xtmax  = mesh->xt = xt_tot;
 
-  _MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"tetra",
+  MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"tetra",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"xtetra",
+  MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"xtetra",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
-  _MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,return 0);
+  MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
+  MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,return 0);
 
   ne = idx = 0;
   for ( k=0; k<nprocs; ++k ) {
@@ -1510,16 +1510,16 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   mesh->np = met->np = np;
   mesh->npmax = met->npmax = mesh->np;
   mesh->npnil = 0;
-  _MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
+  MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(MMG5_Point),"merge point",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,return 0);
+  MMG5_SAFE_CALLOC(mesh->point,mesh->npmax+1,MMG5_Point,return 0);
 
   if ( rcv_met ) {
-    _MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
+    MMG5_ADD_MEM(mesh,(met->npmax+1)*met->size*sizeof(double),"merge met",
                   fprintf(stderr,"  Exit program.\n");
                   return 0);
-    _MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,return 0);
+    MMG5_SAFE_CALLOC(met->m,(met->npmax+1)*met->size,double,return 0);
   }
 
   for ( i=1; i<=mesh->np; ++i ) mesh->point[i].tag = MG_NUL;
@@ -1554,10 +1554,10 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
   /** xPoints */
   mesh->xpmax = mesh->xp = np;
-  _MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
+  MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"merge xPoint",
                 fprintf(stderr,"  Exit program.\n");
                 return 0);
-  _MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,return 0);
+  MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,return 0);
   np = 0;
   for ( k=0; k<nprocs; ++k ) {
     point_1     = &rcv_point[point_displs[k]];
