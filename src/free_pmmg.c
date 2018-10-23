@@ -62,10 +62,17 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
                               &grp->face2int_face_comm_index1,
                               &grp->face2int_face_comm_index2,
                               &grp->nitem_int_face_comm);
-  MMG3D_Free_all( MMG5_ARG_start,
-                  MMG5_ARG_ppMesh, &grp->mesh,
-                  MMG5_ARG_ppMet, &grp->met,
-                  MMG5_ARG_end );
+  if (grp->mesh->nsols)
+    MMG3D_Free_all( MMG5_ARG_start,
+                    MMG5_ARG_ppMesh, &grp->mesh,
+                    MMG5_ARG_ppSols, &grp->sol,
+                    MMG5_ARG_ppMet, &grp->met,
+                    MMG5_ARG_end );
+  else
+    MMG3D_Free_all( MMG5_ARG_start,
+                    MMG5_ARG_ppMesh, &grp->mesh,
+                    MMG5_ARG_ppMet, &grp->met,
+                    MMG5_ARG_end );
 }
 
 /**
