@@ -32,9 +32,13 @@ int PMMG_compare_coorCell (const void * a, const void * b) {
   for ( k=0; k<3; ++k ) {
     dist[k] = cell1->c[k]-cell2->c[k];
 
-    if ( dist[k] >  MMG5_EPSOK ) return 1;
+    /* Before this step, each group has been scaled and unscaled 3 times. Each
+     * scaling operator can generate an error of the order of 3x10e-15, thus,
+     * the error of approximation of the point coordinates is of order
+     * 18*10e-15 < 20*MMG5_EPSOK */
+    if ( dist[k] >  MMG5_EPSOK*20 ) return 1;
 
-    if ( dist[k] < -MMG5_EPSOK ) return -1;
+    if ( dist[k] < -MMG5_EPSOK*20 ) return -1;
   }
 
   assert ( dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]<MMG5_EPSD
