@@ -8,9 +8,6 @@
  * \todo doxygen documentation.
  */
 #include "parmmg.h"
-#include "mpitypes_pmmg.h"
-#include "metis_pmmg.h"
-
 
 /**
  * \param mesh pointer toward the mesh structure.
@@ -25,7 +22,7 @@
 
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met) {
   double     dd;
-  
+
   if ( !MMG5_scaleMesh(mesh,met) ) return 0;
 
   if ( mesh->info.hsiz > 0 || mesh->info.optim ) {
@@ -33,6 +30,6 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met) {
     mesh->info.hmin *= dd;
     mesh->info.hmax *= dd;
   }
-  
+
   return 1;
 }
