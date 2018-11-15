@@ -1354,9 +1354,16 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
 
   nprocs = parmesh->nprocs;
 
-  if ( parmesh->myrank ) return 1;
+  if ( parmesh->myrank != parmesh->info.root ) return 1;
+
+  /** Give all the memory to the mesh */
+  parmesh->memMax  = parmesh->memCur;
 
   if ( !parmesh->listgrp ) {
+
+    if ( parmesh->memMax + sizeof(PMMG_Grp) <= parmesh->memGloMax )
+      parmesh->memMax += sizeof(PMMG_Grp);
+
     PMMG_CALLOC(parmesh,parmesh->listgrp,1,PMMG_Grp,"listgrp", return 0);
 
     MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
@@ -1369,9 +1376,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   met    = grp->met ;
 
   /** Give all the memory to the mesh */
-  parmesh->memMax  = parmesh->memCur;
   memAv            = parmesh->memGloMax - parmesh->memMax - mesh->memMax;
-
   mesh->memMax    += memAv;
 
   np = 0;
@@ -1691,7 +1696,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   /* Free memory */
   /* 1: Mesh data */
-  if ( !parmesh->myrank ) {
+  if ( parmesh->myrank == parmesh->info.root ) {
     PMMG_DEL_MEM(parmesh,rcv_np,int,"rcv_np");
     PMMG_DEL_MEM(parmesh,rcv_point,MMG5_Point,"rcv_pt");
     PMMG_DEL_MEM(parmesh,point_displs,int,"pt_displs");
@@ -1712,7 +1717,12 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
       PMMG_DEL_MEM(parmesh,rcv_met,double,"rcv_met");
       PMMG_DEL_MEM(parmesh,met_displs,int,"met_displs");
     }
+
+    parmesh->ngrp = 1;
   }
+  else parmesh->ngrp = 0;
+
+
   /* 2: communicators data */
   PMMG_DEL_MEM(parmesh,rcv_int_comm_index,int,"rcv_ic_idx");
   PMMG_DEL_MEM(parmesh,rcv_intvalues,int,"rcv_intvalues");

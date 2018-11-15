@@ -792,9 +792,12 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   for ( k=next_comm; k<parmesh->nprocs; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     ext_node_comm->nitem          = 0;
+    ext_node_comm->nitem_to_share = 0;
     ext_node_comm->int_comm_index = NULL;
     ext_node_comm->itosend        = NULL;
     ext_node_comm->itorecv        = NULL;
+    ext_node_comm->rtosend        = NULL;
+    ext_node_comm->rtorecv        = NULL;
     ext_node_comm->color_in       = rank;
     ext_node_comm->color_out      = PMMG_UNSET;
   }
@@ -989,10 +992,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         if ( val1_i == rank ) {
           ext_node_comm = comm_ptr[val1_j];
           assert ( ext_node_comm );
-
-          if ( !ext_node_comm->nitem ) continue;
-
-          if ( nitem_ext_comm[val1_j] == ext_node_comm->nitem ) {
+          if ( nitem_ext_comm[val1_j] == ext_node_comm->nitem || !ext_node_comm->nitem ) {
             /* Reallocation */
             PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
                          (int)((1.+PMMG_GAP)*ext_node_comm->nitem)+1,
@@ -1006,7 +1006,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
         else if ( val1_j == rank ) {
           ext_node_comm = comm_ptr[val1_i];
           assert ( ext_node_comm );
-          if ( nitem_ext_comm[val1_j] == ext_node_comm->nitem ) {
+          if ( nitem_ext_comm[val1_i] == ext_node_comm->nitem || !ext_node_comm->nitem ) {
             /* Reallocation */
             PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
                           (int)((1.+PMMG_GAP)*ext_node_comm->nitem)+1,
