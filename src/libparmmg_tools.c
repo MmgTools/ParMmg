@@ -228,7 +228,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
             parmesh->niter = atoi( argv[i] );
           } else {
-            parmesh->niter = 1;
+            parmesh->niter = PMMG_NITER;
             fprintf( stderr,
                      "Erroneous adaptation iterations requested, using default: %d\n",
                      parmesh->niter );
