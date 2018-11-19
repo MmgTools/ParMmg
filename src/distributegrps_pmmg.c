@@ -1253,7 +1253,7 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   if ( met->m ) {
     for ( k=1; k<=met->np; ++k ) {
       for ( i=0; i<met->size; ++i ) {
-        *( (int16_t *) tmp) = met->m[met->size*k + i]; tmp += sizeof(double);
+        *( (double *) tmp) = met->m[met->size*k + i]; tmp += sizeof(double);
       }
     }
   }
