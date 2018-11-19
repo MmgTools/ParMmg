@@ -118,7 +118,10 @@ EXECUTE_PROCESS ( COMMAND  ${MPIEXEC} --help mapping
   RESULT_VARIABLE CMD_ERROR
   OUTPUT_VARIABLE CMD_OUTPUT )
 
-IF ( ${CMD_OUTPUT} MATCHES "oversubscribe" )
+STRING(REGEX REPLACE "\"" " " CMD_OUT ${CMD_OUTPUT})
+
+IF ( ${CMD_OUT} MATCHES "oversubscribe" )
+  MESSAGE ( STATUS "OK" )
   SET ( MPI_ARGS "-oversubscribe" )
 ENDIF()
 
