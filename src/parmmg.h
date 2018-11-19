@@ -247,10 +247,26 @@ extern "C" {
     }                                                                   \
   } while(0)
 
+
+/** Compute the available memory and give it to the parmesh */
+#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh) do {                    \
+    size_t myavailable;                                                 \
+    int    myj;                                                         \
+                                                                        \
+    parmesh->memMax = parmesh->memCur;                                  \
+    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
+    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
+      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
+    }                                                                   \
+    parmesh->memMax += myavailable;                                       \
+  } while(0)
+
+
 /** Give the available memory (previouly given to the parmesh) to the mesh
  * structure and update the value of the available memory by removing the amount
  * of memory that has been used by the parmesh */
-#define PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,memAv,oldMemMax) do {      \
+#define PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax) do { \
                                                                         \
     parmesh->memMax = parmesh->memCur;                                  \
                                                                         \
@@ -273,7 +289,7 @@ extern "C" {
 /** Give the available memory (previouly given to the mesh) to the parmesh
  * structure and update the value of the available memory by removing the amount
  * of memory that has been used by the mesh */
-#define PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,memAv,oldMemMax) do {   \
+#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax) do {   \
     mesh->memMax = mesh->memCur;                                        \
                                                                         \
     if ( mesh->memMax > oldMemMax ) {                                   \

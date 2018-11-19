@@ -905,12 +905,12 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     meshI->memMax = meshI->memCur;
     meshJ->memMax = meshJ->memCur;
 
-    PMMG_GIVE_AVMEM_TO_MESH(parmesh,meshI,memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshI,memAv,oldMemMax);
 
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
 
     /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
-    PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,meshI,memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,meshI,memAv,oldMemMax);
 
     if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 

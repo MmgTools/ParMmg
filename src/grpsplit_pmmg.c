@@ -542,7 +542,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         }
 
         /* Give the available memory to the parmesh */
-        PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,*memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
 
         /* Add point in subgroup's communicator if it already was in group's
            ommunicator */
@@ -555,7 +555,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         }
 
         /* Give back the memory to the mesh */
-        PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
 
       } else {
         // point is already included in this subgroup, update current tetra
@@ -579,7 +579,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
       pos   = 4*(tet-1)+1+fac;
 
       /* Give the available memory to the parmesh */
-      PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,*memAv,oldMemMax);
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
 
       if ( adja[ fac ] == 0 ) {
         /** Build the internal communicator for the parallel faces */
@@ -588,7 +588,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
          * to do */
         if ( posInIntFaceComm[pos]<0 ) {
           /* Give the available memory to the mesh */
-          PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+          PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
           continue;
         }
 
@@ -601,12 +601,12 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
           return 0;
         }
         /* Give the available memory to the mesh */
-        PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
         continue;
       }
 
       /* Give the available memory to the mesh */
-      PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
 
       adjidx = adja[ fac ] / 4;
       vidx   = adja[ fac ] % 4;
@@ -628,7 +628,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Give the available memory to the parmesh */
-        PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,*memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
 
         /** Build the internal communicator for the boundary faces */
         /* 1) Check if this face has already a position in the internal face
@@ -672,7 +672,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
           }
         }
 
-        PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
 
 
         for ( j=0; j<3; ++j ) {
@@ -711,7 +711,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
     }
 
     /* Give the available memory to the parmesh */
-    PMMG_GIVE_AVMEM_TO_PARMESH(parmesh,mesh,*memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
 
     adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
     for ( fac = 0; fac < 4; ++fac ) {
@@ -736,7 +736,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         }
       }
     }
-    PMMG_GIVE_AVMEM_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
 
   }
   assert( (mesh->ne == tetPerGrp) && "Error in the tetra count" );

@@ -390,6 +390,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
+  size_t     oldMemMax,available;
   int        it,ier,ier_end,ieresult,i,k, *facesData;
 
   ier_end = PMMG_SUCCESS;
@@ -424,7 +425,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
+  oldMemMax = parmesh->memMax;
+  available =0;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+
   for ( it = 0; it < parmesh->niter; ++it ) {
+
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
@@ -441,6 +447,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                 " Exit program.\n");
         goto failed;
       }
+
+      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
+                                             available,oldMemMax);
 
       /* Mark reinitialisation in order to be able to remesh all the mesh */
       mesh->mark = 0;
@@ -493,6 +502,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         goto strong_failed;
       }
       if ( !(ier = MMG5_unscaleMesh(mesh,met)) ) goto failed;
+
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
+                                             available,oldMemMax);
+
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -547,7 +560,7 @@ strong_failed:
 
 failed_handling:
   if ( !PMMG_packParMesh(parmesh) ) {
-    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    fprintf(stderr,"\n  ## Parmesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 

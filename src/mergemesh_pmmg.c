@@ -725,6 +725,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   if ( parmesh->ngrp == 1 ) return 1;
 
+  /* Give the memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
