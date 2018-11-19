@@ -114,6 +114,14 @@ SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
 SET( LIBRARIES ${MPI_C_LIBRARIES} ${LIBRARIES} )
 
+EXECUTE_PROCESS ( COMMAND  ${MPIEXEC} --help mapping
+  RESULT_VARIABLE CMD_ERROR
+  OUTPUT_VARIABLE CMD_OUTPUT )
+
+IF ( ${CMD_OUTPUT} MATCHES "oversubscribe" )
+  SET ( MPI_ARGS "-oversubscribe" )
+ENDIF()
+
 ############################################################################
 #####
 #####        MMG (for mesh data structure)
