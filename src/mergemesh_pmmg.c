@@ -616,79 +616,101 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
  */
 static inline
 int PMMG_updateTag(PMMG_pParMesh parmesh) {
+  PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt;
-  int             *node2int_node_comm0_index1;
-  int             k,j,i,nparbdy,nfbdy,nabdy;
+  int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
+  int             ip,iel,ifac,k,j,i,nparbdy,nfbdy,nabdy;
 
   if ( parmesh->ngrp != 1 ) return 0;
 
-  mesh                       = parmesh->listgrp[0].mesh;
-  node2int_node_comm0_index1 = parmesh->listgrp[0].node2int_node_comm_index1;
+  grp                        = &parmesh->listgrp[0];
+  mesh                       = grp->mesh;
+  node2int_node_comm0_index1 = grp->node2int_node_comm_index1;
+  face2int_face_comm0_index1 = grp->face2int_face_comm_index1;
 
-  /** First : update the points : if the point is not in the internal communicator
-              that means the point is not PARBDY */
-  for ( k=1 ; k<=mesh->np ; k++ ) {
-    ppt = &mesh->point[k];
-
-    if ( !(ppt->tag & MG_PARBDY) ) continue;
-
-    for ( j=0 ; j< parmesh->listgrp[0].nitem_int_node_comm ; j++ ) {
-      if(node2int_node_comm0_index1[j]==k) break;
-    }
-    if ( j==parmesh->listgrp[0].nitem_int_node_comm ) {
-      //printf("point not found, remove the tag\n");
-      ppt->tag &= ~MG_PARBDY;
-    }
-  }
-
-  /** Second : update the xt */
-  for ( k=1 ; k<= mesh->ne ; k++) {
+  /** Step 1: Loop on xtetras to untag old parallel entities. */
+  for ( k=1; k<=mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
     if ( !pt->xt ) continue;
     pxt = &mesh->xtetra[pt->xt];
-    /*check the faces*/
-    nfbdy = 0;
-    for ( j=0 ; j<4 ; j++) {
-      if ( !pxt->ftag[j] ) continue;
-      nfbdy++;
-      if ( !(pxt->ftag[j] & MG_PARBDY) ) continue;
-
-      nparbdy = 0;
-      for ( i=0 ; i<3 ; i++) {
-        ppt = &mesh->point[pt->v[MMG5_idir[j][i]]];
-        if ( ppt->tag & MG_PARBDY ) nparbdy++;
-      }
-      if ( nparbdy!=3 ) {
-        pxt->ftag[j] = 0;
-        nfbdy--;
-      }
+    /* Untag parallel nodes */
+    for ( j=0 ; j<4 ; j++ ) {
+      ppt = &mesh->point[pt->v[j]];
+      if ( ppt->tag & MG_PARBDY ) {
+        assert( ppt->xp );
+        ppt->tag &= ~MG_PARBDY;
+        if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
+        if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
+        if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
+     }
     }
-    /*check the edges*/
-    nabdy = 0;
-    for ( j=0 ; j<6 ; j++) {
-      if ( !pxt->tag[j] ) continue;
-      nabdy++;
-      if ( !(pxt->tag[j] & MG_PARBDY) ) continue;
+    /* Untag parallel edges */
+    for ( j=0 ; j<6 ; j++ )
+      if ( pxt->tag[j] & MG_PARBDY ) {
+        pxt->tag[j] &= ~MG_PARBDY;
+        if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
+        if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
+        if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
+     }
+    /* Untag parallel faces */
+    for ( j=0 ; j<4 ; j++ )
+      if ( pxt->ftag[j] & MG_PARBDY ) {
+        pxt->ftag[j] &= ~MG_PARBDY;
+        if ( pxt->ftag[j] & MG_BDY)    pxt->ftag[j] &= ~MG_BDY;
+        if ( pxt->ftag[j] & MG_REQ)    pxt->ftag[j] &= ~MG_REQ;
+        if ( pxt->ftag[j] & MG_NOSURF) pxt->ftag[j] &= ~MG_NOSURF;
+      }
+  }
 
-      nparbdy = 0;
-      for ( i=0 ; i<2 ; i++) {
-        ppt = &mesh->point[pt->v[MMG5_iare[j][i]]];
-        if ( ppt->tag & MG_PARBDY ) {
-          nparbdy++;
+  /** Step 2: Re-tag boundary entities starting from xtetra faces. */
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    /* Look for boundary faces, tag their edges and nodes (the BDY tag could
+     * had been removed when deleting old paralle interfaces in step 1).*/
+    for ( ifac=0 ; ifac<4 ; ifac++ )
+      if ( pxt->ftag[ifac] & MG_BDY ) {
+        /* Tag face edges */
+        for ( j=0; j<3; j++ )
+          pxt->tag[MMG5_iarf[ifac][j]] |= MG_BDY;
+        /* Tag face nodes */
+        for ( j=0 ; j<3 ; j++) {
+          ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+          ppt->tag |= MG_BDY;
         }
       }
-      if ( nparbdy!=2 ) {
-        pxt->tag[j] &= ~MG_PARBDY;;
-        nabdy--;
-      }
-    }
-    if ( !nfbdy && !nabdy ) pt->xt = 0;
   }
-  /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax; */
-  /* if ( !MMG3D_analys(mesh) ) return -1; */
+
+  /** Step 3: Tag new parallel interface entities starting from int_face_comm.*/
+  for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
+    iel  =   face2int_face_comm0_index1[i] / 12;
+    ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
+    pt = &mesh->tetra[iel];
+    assert( pt->xt );
+    pxt = &mesh->xtetra[pt->xt];
+    /* Tag face */
+    pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+    /* Tag face edges */
+    for ( j=0; j<3; j++ )
+      pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+    /* Tag face nodes */
+    for ( j=0 ; j<3 ; j++) {
+      ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+      ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+    }
+  }
+
+  /** Step 4: Unreference xpoints not on BDY (or PARBDY) */
+  for ( i=1; i<=mesh->np; i++ ) {
+    ppt = &mesh->point[i];
+    if( ppt->tag & MG_BDY ) continue;
+    if( ppt->xp ) ppt->xp = 0;
+  }
+
   return 1;
 }
 
