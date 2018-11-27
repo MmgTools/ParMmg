@@ -248,7 +248,11 @@ extern "C" {
   } while(0)
 
 
-/** Compute the available memory and give it to the parmesh */
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Set memMax to memCur for every group mesh, compute the available memory and
+ * give it to the parmesh */
 #define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh) do {                    \
     size_t myavailable;                                                 \
     int    myj;                                                         \
@@ -263,9 +267,16 @@ extern "C" {
   } while(0)
 
 
-/** Give the available memory (previouly given to the parmesh) to the mesh
- * structure and update the value of the available memory by removing the amount
- * of memory that has been used by the parmesh */
+/** 
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ * \param memAv available memory
+ * \param oldMemMax memory previously used by parmesh
+ *
+ * Limit parmesh->memMax to the currently used memory, update the value of the
+ * available memory by removing the amount of memory that has been allocated by
+ * the parmesh, and give the available memory (previously given to the parmesh)
+ * to the group mesh structure. */
 #define PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax) do { \
                                                                         \
     parmesh->memMax = parmesh->memCur;                                  \
@@ -279,16 +290,23 @@ extern "C" {
     }                                                                   \
     else if ( oldMemMax > parmesh->memMax ) {                           \
       memAv           += ( oldMemMax - parmesh->memMax );               \
-      assert ( memAv+parmesh->memMax <= parmesh->memGloMax );           \
+      assert ( memAv+mesh->memMax <= parmesh->memGloMax );              \
     }                                                                   \
-    oldMemMax        = mesh->memMax;                                    \
+    oldMemMax        = mesh->memCur;                                    \
     mesh->memMax    += memAv;                                           \
                                                                         \
   } while(0)
 
-/** Give the available memory (previouly given to the mesh) to the parmesh
- * structure and update the value of the available memory by removing the amount
- * of memory that has been used by the mesh */
+/** 
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ * \param memAv available memory
+ * \param oldMemMax memory previously used by mesh
+ *
+ * Limit mesh->memMax to the currently used memory, update the value of the
+ * available memory by removing the amount of memory that has been allocated by
+ * the mesh, and give the available memory (previously given to the mesh)
+ * to the parmesh structure. */
 #define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax) do {   \
     mesh->memMax = mesh->memCur;                                        \
                                                                         \
@@ -301,9 +319,9 @@ extern "C" {
     }                                                                   \
     else if ( oldMemMax > mesh->memMax ) {                              \
       memAv           += ( oldMemMax - mesh->memMax );                  \
-      assert ( memAv+mesh->memMax <= parmesh->memGloMax );              \
+      assert ( memAv+parmesh->memMax <= parmesh->memGloMax );           \
     }                                                                   \
-    oldMemMax        = parmesh->memMax;                                 \
+    oldMemMax        = parmesh->memCur;                                 \
     parmesh->memMax += memAv;                                           \
                                                                         \
   } while(0)
