@@ -620,16 +620,27 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   MMG5_pTetra     pt;
   MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt;
+  MMG5_HGeom      hash;
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
-  int             grpid,ip,iel,ifac,k,j,i,nparbdy,nfbdy,nabdy;
+  int             grpid,ip,iel,ifac,ia,ip0,ip1,k,j,i,nparbdy,nfbdy,nabdy,getref;
+  size_t          available,oldMemMax;
 
+  /* Compute available memory (previously given to the communicators) */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+  available = parmesh->memGloMax-parmesh->memCur;
+  oldMemMax = parmesh->memCur;
+
+  /* Loop on groups */
   for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
     grp                        = &parmesh->listgrp[grpid];
     mesh                       = grp->mesh;
     node2int_node_comm0_index1 = grp->node2int_node_comm_index1;
     face2int_face_comm0_index1 = grp->face2int_face_comm_index1;
-  
-    /** Step 1: Loop on xtetras to untag old parallel entities. */
+
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+
+    /** Step 1: Loop on xtetras to untag old parallel entities, then build
+     * hash table for edges on xtetras. */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
@@ -649,10 +660,16 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( j=0 ; j<6 ; j++ )
         if ( pxt->tag[j] & MG_PARBDY ) {
           pxt->tag[j] &= ~MG_PARBDY;
-          if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
-          if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
-          if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
-       }
+          if ( pxt->tag[j] & MG_BDY) {
+            pxt->tag[j] &= ~MG_BDY;
+          }
+          if ( pxt->tag[j] & MG_REQ) {
+            pxt->tag[j] &= ~MG_REQ;
+          }
+          if ( pxt->tag[j] & MG_NOSURF) {
+            pxt->tag[j] &= ~MG_NOSURF;
+          }
+        }
       /* Untag parallel faces */
       for ( j=0 ; j<4 ; j++ )
         if ( pxt->ftag[j] & MG_PARBDY ) {
@@ -662,7 +679,19 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
           if ( pxt->ftag[j] & MG_NOSURF) pxt->ftag[j] &= ~MG_NOSURF;
         }
     }
-  
+
+    /* Create hash table for edges */
+    if ( !MMG5_hNew(mesh, &hash, 6*mesh->xt, 8*mesh->xt) ) return 0;
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      for ( j=0; j<6; j++ ) {
+        ip0 = pt->v[MMG5_iare[j][0]];
+        ip1 = pt->v[MMG5_iare[j][1]];
+        if( !MMG5_hEdge( mesh, &hash, ip0, ip1, 0, MG_NOTAG ) ) return 0;
+      }
+    }
+
     /** Step 2: Re-tag boundary entities starting from xtetra faces. */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt = &mesh->tetra[k];
@@ -673,8 +702,12 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( ifac=0 ; ifac<4 ; ifac++ )
         if ( pxt->ftag[ifac] & MG_BDY ) {
           /* Tag face edges */
-          for ( j=0; j<3; j++ )
-            pxt->tag[MMG5_iarf[ifac][j]] |= MG_BDY;
+          for ( j=0; j<3; j++ ) {
+            ia = MMG5_iarf[ifac][j];
+            ip0 = pt->v[MMG5_iare[ia][0]];
+            ip1 = pt->v[MMG5_iare[ia][1]];
+            if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
+          }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
             ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
@@ -693,8 +726,13 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       /* Tag face */
       pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
       /* Tag face edges */
-      for ( j=0; j<3; j++ )
-        pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+      for ( j=0; j<3; j++ ) {
+        ia = MMG5_iarf[ifac][j];
+        ip0 = pt->v[MMG5_iare[ia][0]];
+        ip1 = pt->v[MMG5_iare[ia][1]];
+        if( !MMG5_hTag( &hash, ip0, ip1, 0,
+                        MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
+      }
       /* Tag face nodes */
       for ( j=0 ; j<3 ; j++) {
         ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
@@ -702,12 +740,27 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       }
     }
   
-    /** Step 4: Unreference xpoints not on BDY (or PARBDY) */
+    /** Step 4: Get edge tag and delete hash table */
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      for ( j=0; j<6; j++ ) {
+        ip0 = pt->v[MMG5_iare[j][0]];
+        ip1 = pt->v[MMG5_iare[j][1]];
+        if( !MMG5_hGet( &hash, ip0, ip1, &getref, &pxt->tag[j] ) ) return 0;
+      }
+    }
+    PMMG_DEL_MEM( mesh, hash.geom, MMG5_hgeom, "Edge hash table" );
+
+    /** Step 5: Unreference xpoints not on BDY (or PARBDY) */
     for ( i=1; i<=mesh->np; i++ ) {
       ppt = &mesh->point[i];
       if( ppt->tag & MG_BDY ) continue;
       if( ppt->xp ) ppt->xp = 0;
     }
+
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
   }
 
   return 1;
