@@ -216,9 +216,9 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  */
 int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
                                      idx_t **xadj,idx_t **adjncy,idx_t *nadjncy,
-                                     idx_t **vwgt,idx_t *wgtflag,idx_t *numflag,
-                                     idx_t *ncon,idx_t nproc,real_t **tpwgts,
-                                     real_t **ubvec) {
+                                     idx_t **vwgt,idx_t **adjwgt,idx_t *wgtflag,
+                                     idx_t *numflag,idx_t *ncon,idx_t nproc,
+                                     real_t **tpwgts,real_t **ubvec) {
   PMMG_pGrp      grp;
   PMMG_pExt_comm ext_face_comm;
   PMMG_pInt_comm int_face_comm;
@@ -553,7 +553,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 {
   real_t     *tpwgts,*ubvec;
-  idx_t      *xadj,*adjncy,*vwgt,*vtxdist,adjsize,edgecut;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize,edgecut;
   idx_t      wgtflag,numflag,ncon,options[3];
   int        ngrp,nprocs,ier;
 
@@ -562,12 +562,12 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   ier    = 1;
 
   /** Build the parmetis graph */
-  xadj   = adjncy = vwgt = vtxdist = NULL;
+  xadj   = adjncy = vwgt = adjwgt = vtxdist = NULL;
   tpwgts = ubvec  =  NULL;
   options[0] = 0;
 
   if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
-                                        &vwgt,&wgtflag,&numflag,&ncon,
+                                        &vwgt,&adjwgt,&wgtflag,&numflag,&ncon,
                                         nproc,&tpwgts,&ubvec) ) {
     fprintf(stderr,"\n  ## Error: Unable to build parmetis graph.\n");
     return 0;
@@ -575,7 +575,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
 
   /** Call parmetis and get the partition array */
   if ( 2 < nprocs + ngrp ) {
-    if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,
+    if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,adjwgt,&wgtflag,&numflag,
                                &ncon,&nproc,tpwgts,ubvec,options,&edgecut,part,
                                &parmesh->comm) != METIS_OK ) {
         fprintf(stderr,"\n  ## Error: Parmetis fails.\n" );
