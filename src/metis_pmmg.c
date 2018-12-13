@@ -31,12 +31,15 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
 
   PMMG_CALLOC(parmesh,hash->item,hash->max+1,PMMG_hgrp,"group hash table",return 0);
 
-  for (k=0; k<hash->siz; ++k )
+  for (k=0; k<hash->siz; ++k ) {
     hash->item[k].adj = PMMG_UNSET;
+    hash->item[k].wgt = PMMG_NUL;
+  }
 
   for (k=hash->siz; k<hash->max; ++k) {
     hash->item[k].adj = PMMG_UNSET;
     hash->item[k].nxt = k+1;
+    hash->item[k].wgt = PMMG_NUL;
   }
 
   return 1;
@@ -58,20 +61,27 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
  *
  */
 static inline
-int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
+int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
+                  idx_t wgt ) {
   PMMG_hgrp  *ph;
   int        tmp_nxt,j,newsize;
 
   ph  = &hash->item[k+1];
 
-  if ( ph->adj == adj ) return 2;
+  if ( ph->adj == adj ) {
+    ph->wgt += wgt;
+    return 2;
+  }
 
   tmp_nxt = 0;
   if ( PMMG_UNSET != ph->adj ) {
     while ( ph->nxt && (ph->nxt<hash->max) && (hash->item[ph->nxt].adj<adj) )
       ph = &hash->item[ph->nxt];
 
-    if ( hash->item[ph->nxt].adj == adj ) return 2;
+    if ( hash->item[ph->nxt].adj == adj ) {
+      hash->item[ph->nxt].wgt += wgt;
+      return 2;
+    }
 
     tmp_nxt   = ph->nxt;
     ph->nxt   = hash->nxt;
@@ -92,6 +102,7 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
       for (j=ph->nxt; j<hash->max; j++) {
         hash->item[j].adj = PMMG_UNSET;
         hash->item[j].nxt = j+1;
+        hash->item[j].wgt = PMMG_NUL;
       }
     }
     hash->nxt = ph->nxt;
@@ -100,6 +111,7 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
   /* insert new group */
   ph->adj = adj;
   ph->nxt = tmp_nxt;
+  ph->wgt += wgt;
 
   return 1;
 }
@@ -233,7 +245,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
 
-  *wgtflag = 2; /* Weights applies on vertices */
+  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weights for parmetis */
   *numflag = 0; /* C-style numbering */
   *ncon    = 1; /* number of weight per metis node */
 
@@ -359,7 +371,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Search the neighbour in the hash table and insert it if not found */
       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj
-                           +(*vtxdist)[ext_face_comm->color_out]);
+                           +(*vtxdist)[ext_face_comm->color_out],1);
 
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
@@ -382,10 +394,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
       igrp_adj = intvalues[face2int_face_comm_index2[i]];
 
-      if ( igrp_adj==-1 || igrp_adj<=igrp ) continue;
+      if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
       /* Search the neighbour in the hash table and insert it if not found */
-       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank] );
+       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
 
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
@@ -398,7 +410,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       ++(*xadj)[ igrp+1 ];
 
       /* add igrp to the sorted list of adjacnts to igrp_adj */
-      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank] );
+      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],1);
       if ( 1!=found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
@@ -417,6 +429,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   /** Step 8: Fill adjncy array at metis format */
   PMMG_CALLOC(parmesh,*adjncy,(*xadj)[ngrp],idx_t,"adjcncy parmetis array",
               goto fail_7);
+  PMMG_CALLOC(parmesh,*adjwgt,(*xadj)[ngrp],idx_t,"parmetis adjwgt",
+              goto fail_7);
 
   (*nadjncy) = 0;
   for ( igrp=0; igrp<=ngrp; ++igrp ) {
@@ -424,14 +438,35 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     ph = &hash.item[igrp+1];
     if ( PMMG_UNSET==ph->adj ) continue;
 
-    (*adjncy)[(*nadjncy)++] = ph->adj;
+    (*adjncy)[(*nadjncy)]   = ph->adj;
+    (*adjwgt)[(*nadjncy)++] = ph->wgt;
 
     while ( ph->nxt ) {
       ph                = &hash.item[ph->nxt];
-      (*adjncy)[(*nadjncy)++] = ph->adj;
+      (*adjncy)[(*nadjncy)]   = ph->adj;
+      (*adjwgt)[(*nadjncy)++] = ph->wgt;
     }
   }
   assert ( (*nadjncy)==(*xadj)[ngrp] );
+
+  /* Nullify unnecessary weights */
+  switch (*wgtflag) {
+    case PMMG_WGTFLAG_NONE:
+      PMMG_DEL_MEM(parmesh,*vwgt,idx_t,"parmetis vwgt");
+      PMMG_DEL_MEM(parmesh,*adjwgt,idx_t,"parmetis adjwgt");
+      *vwgt = *adjwgt = NULL;
+      break;
+    case PMMG_WGTFLAG_ADJ:
+      PMMG_DEL_MEM(parmesh,*vwgt,idx_t,"parmetis vwgt");
+      *vwgt = NULL;
+      break;
+    case PMMG_WGTFLAG_VTX:
+      PMMG_DEL_MEM(parmesh,*adjwgt,idx_t,"parmetis adjwgt");
+      *adjwgt = NULL;
+      break;
+    default:
+      break;
+  }
 
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
@@ -586,9 +621,22 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
   PMMG_DEL_MEM(parmesh, ubvec, real_t,"parmetis ubvec");
-  PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
   PMMG_DEL_MEM(parmesh, tpwgts, real_t, "deallocate tpwgts" );
   PMMG_DEL_MEM(parmesh, vtxdist, idx_t, "deallocate vtxdist" );
+  switch (wgtflag) {
+    case PMMG_WGTFLAG_ADJ:
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    case PMMG_WGTFLAG_VTX:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      break;
+    case PMMG_WGTFLAG_BOTH:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    default:
+      break;
+  }
 
   return ier;
 }

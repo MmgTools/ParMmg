@@ -15,6 +15,20 @@
 #include <metis.h>
 #include <parmetis.h>
 
+/* Available choices for the wgtflag parameter of ParMetis */
+#define PMMG_WGTFLAG_NONE  0
+#define PMMG_WGTFLAG_ADJ   1
+#define PMMG_WGTFLAG_VTX   2
+#define PMMG_WGTFLAG_BOTH  3
+
+/**
+ * \def PMMG_WGTFLAG_DEF
+ *
+ * value for the wgtflag parameter of ParMetis
+ *
+ */
+#define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_VTX)
+
 /**
  * \def PMMG_UBVEC_DEF
  *
@@ -40,6 +54,7 @@
 typedef struct {
   idx_t   adj; /*!< item to add */
   int     nxt; /*!< Next element of the linked list */
+  idx_t   wgt; /*!< Edge weight */
 } PMMG_hgrp;
 
 /**
