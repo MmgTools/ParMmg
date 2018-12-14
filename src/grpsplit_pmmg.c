@@ -625,6 +625,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         }
         pxt = &mesh->xtetra[tetraCur->xt];
         pxt->ref[fac] = 0;
+        /* If already boundary, make it recognizable as a "true" boundary */
+        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY; 
         pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Give the available memory to the parmesh */

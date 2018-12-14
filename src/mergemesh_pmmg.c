@@ -660,15 +660,9 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( j=0 ; j<6 ; j++ )
         if ( pxt->tag[j] & MG_PARBDY ) {
           pxt->tag[j] &= ~MG_PARBDY;
-          if ( pxt->tag[j] & MG_BDY) {
-            pxt->tag[j] &= ~MG_BDY;
-          }
-          if ( pxt->tag[j] & MG_REQ) {
-            pxt->tag[j] &= ~MG_REQ;
-          }
-          if ( pxt->tag[j] & MG_NOSURF) {
-            pxt->tag[j] &= ~MG_NOSURF;
-          }
+          if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
+          if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
+          if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
         }
       /* Untag parallel faces */
       for ( j=0 ; j<4 ; j++ )
@@ -697,9 +691,15 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
       pxt = &mesh->xtetra[pt->xt];
-      /* Look for boundary faces, tag their edges and nodes (the BDY tag could
-       * had been removed when deleting old paralle interfaces in step 1).*/
-      for ( ifac=0 ; ifac<4 ; ifac++ )
+      /* Look for external boundary faces (MG_BDY) or internal boundary faces
+       * previously on parallel interfaces (MG_PARBDYBDY), tag their edges and
+       * nodes (the BDY tag could have been removed when deleting old parallel
+       * interfaces in step 1).*/
+      for ( ifac=0 ; ifac<4 ; ifac++ ) {
+        if ( pxt->ftag[ifac] & MG_PARBDYBDY ) {
+          pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+          pxt->ftag[ifac] |= MG_BDY;
+        }
         if ( pxt->ftag[ifac] & MG_BDY ) {
           /* Tag face edges */
           for ( j=0; j<3; j++ ) {
@@ -714,6 +714,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ppt->tag |= MG_BDY;
           }
         }
+      }
     }
   
     /** Step 3: Tag new parallel interface entities starting from int_face_comm.*/
