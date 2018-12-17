@@ -416,7 +416,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
         goto fail_7;
       }
       /* Count group only if not already in the adja list */
-      if ( found !=2 )++(*xadj)[ igrp_adj+1 ];
+      if ( found !=2 ) ++(*xadj)[ igrp_adj+1 ];
     }
   }
 #ifndef NDEBUG
