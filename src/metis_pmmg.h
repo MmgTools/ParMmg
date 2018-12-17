@@ -53,8 +53,8 @@
  */
 typedef struct {
   idx_t   adj; /*!< item to add */
-  int     nxt; /*!< Next element of the linked list */
   idx_t   wgt; /*!< Edge weight */
+  int     nxt; /*!< Next element of the linked list */
 } PMMG_hgrp;
 
 /**

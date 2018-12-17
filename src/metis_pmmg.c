@@ -38,8 +38,8 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
 
   for (k=hash->siz; k<hash->max; ++k) {
     hash->item[k].adj = PMMG_UNSET;
-    hash->item[k].nxt = k+1;
     hash->item[k].wgt = PMMG_NUL;
+    hash->item[k].nxt = k+1;
   }
 
   return 1;
@@ -101,17 +101,17 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 
       for (j=ph->nxt; j<hash->max; j++) {
         hash->item[j].adj = PMMG_UNSET;
-        hash->item[j].nxt = j+1;
         hash->item[j].wgt = PMMG_NUL;
+        hash->item[j].nxt = j+1;
       }
     }
     hash->nxt = ph->nxt;
   }
 
   /* insert new group */
-  ph->adj = adj;
-  ph->nxt = tmp_nxt;
+  ph->adj  = adj;
   ph->wgt += wgt;
+  ph->nxt  = tmp_nxt;
 
   return 1;
 }
@@ -396,29 +396,49 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
-      /* Search the neighbour in the hash table and insert it if not found */
-       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
-
+      /* Insert igrp_adj in the sorted list of igrp if not already found,
+       * increment weight if found */
+      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
         goto fail_7;
       }
+      /* Count group only if not already in the adja list */
+      if ( found!=2 ) ++(*xadj)[ igrp+1 ];
 
-      if ( found==2 ) continue; // The group is already in the adja list
-
-      ++(*xadj)[ igrp+1 ];
-
-      /* add igrp to the sorted list of adjacnts to igrp_adj */
+      /* Insert igrp in the sorted list of igrp_adj if not already found,
+       * increment weight if found */
       found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],1);
-      if ( 1!=found ) {
+      if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
         goto fail_7;
       }
-      ++(*xadj)[ igrp_adj+1 ];
+      /* Count group only if not already in the adja list */
+      if ( found !=2 )++(*xadj)[ igrp_adj+1 ];
     }
   }
+#ifndef NDEBUG
+  /* Check that the sum of shared faces for each grp is equal to the nb. of its
+   * faces in the communicator */
+  for ( igrp=0; igrp<ngrp; ++igrp ) {
+    grp  = &parmesh->listgrp[igrp];
+
+    found = 0;
+    ph = &hash.item[igrp+1];
+    if( PMMG_UNSET==ph->adj ) continue;
+
+
+    found += ph->wgt;
+    while ( ph->nxt ) {
+      ph = &hash.item[ph->nxt];
+
+      found += ph->wgt;
+    }
+    assert( found == grp->nitem_int_face_comm );
+  }
+#endif
 
   /** Step 7: xadj array contains the number of adja per group, fill it for
    * Metis (it must contains the index of the first adja of the group in the
