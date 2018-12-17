@@ -27,7 +27,7 @@
  * value for the wgtflag parameter of ParMetis
  *
  */
-#define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_VTX)
+#define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_ADJ)
 
 /**
  * \def PMMG_UBVEC_DEF
