@@ -7,6 +7,7 @@
  * \copyright GNU Lesser General Public License.
  */
 #include "metis_pmmg.h"
+#include "linkedlist_pmmg.h"
 
 
 /**
@@ -100,6 +101,60 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
   /* insert new group */
   ph->adj = adj;
   ph->nxt = tmp_nxt;
+
+  return 1;
+}
+
+
+
+int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_t nproc ) {
+  PMMG_lnkdList **partlist;
+  idx_t iproc,ie,dummy;
+  int nempt,iempt;
+
+  /* Initialize lists */
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
+    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+  }
+
+  /* Fill the lists */
+  for( ie=0; ie<ne; ie++ ) {
+    iproc = part[ie];
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+  }
+
+  /* Sort lists based on nb. of entities, in ascending order */
+  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+
+  /* Count empty partitions */
+  nempt = 0;
+  for( iproc=0; iproc<nproc; iproc++ )
+    if( !partlist[iproc]->nitem ) nempt++;
+  assert( nempt < nproc );
+  if( !nempt ) return 1;
+
+  /** Correct partitioning */
+  iempt = 0;
+  iproc = nproc-1;
+  while( nempt ) {
+    /* Get next "reservoir" proc */
+    while( partlist[iproc]->nitem < partlist[iproc-1]->nitem )
+      iproc--;
+    /* Pop entity ie from iproc, add to iempt */
+    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    /* Update partition table and go on to next empty proc */
+    part[ie] = partlist[iempt]->id;
+    iempt++;
+    nempt--;
+  }
+
+  /* Deallocate lists */
+  for( iproc=0; iproc<nproc; iproc++ )
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
 
   return 1;
 }
@@ -533,6 +588,9 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     }
     status = 0;
   }
+
+  /** Correct partitioning to avoid empty partitions */
+  if( !PMMG_correct_meshElts2metis( parmesh,part,nelt,nproc ) ) return 0;
 
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );

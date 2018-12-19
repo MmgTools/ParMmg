@@ -20,12 +20,13 @@
  * Initialisation of a linked list of cells.
  *
  */
-int PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int nitem_max )
+int PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int id,int nitem_max )
 {
 
   /* adjust hash table params */
   list->nitem     = 0;
   list->nitem_max = nitem_max;
+  list->id        = id;
 
   PMMG_MALLOC(parmesh,list->item,nitem_max,PMMG_lnkdCell,"linked list array",
               return 0);
@@ -46,6 +47,7 @@ void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list ) {
 
   /* adjust hash table params */
   list->nitem  = 0;
+  list->id     = PMMG_NUL;
   list->frst   = PMMG_UNSET;
 
   return;
@@ -128,6 +130,22 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
   return 2;
 }
 
+int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
+                              int *val1,int *val2 ) {
+  PMMG_lnkdCell *cell;
+
+  /** Get first cell */
+  cell = &list->item[list->frst];
+  *val1 = cell->val1;
+  *val2 = cell->val2;
+
+  /** Pop cell from the head of the list */
+  list->frst = cell->nxt;
+  list->nitem--;
+
+  return 1;
+}
+ 
 
 /**
  * \param parmesh   pointer toward the parmesh structure.
