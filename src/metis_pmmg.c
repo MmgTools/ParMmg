@@ -105,8 +105,17 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
   return 1;
 }
 
-
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param part    elements partition array
+ * \param ne      nb of elements
+ * \param nproc   nb of groups for partitioning
+ *
+ * \return 1 if no empty partitions or successfully corrected, 0 if fail
+ *
+ * Check if metis has returned empty partitions, correct partitioning if so.
+ *
+ */
 int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_t nproc ) {
   PMMG_lnkdList **partlist;
   idx_t iproc,ie,dummy;
@@ -159,6 +168,17 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param vtxdist parmetis structure for nb of groups on each proc
+ * \param mypart  local groups partition array
+ * \param nproc   nb of procss for partitioning
+ *
+ * \return 1 if no empty partitions or successfully corrected, 0 if fail
+ *
+ * Check if parmetis has returned empty partitions, correct partitioning if so.
+ *
+ */
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
                                        idx_t* mypart,idx_t nproc ) {
   PMMG_lnkdList **partlist;
