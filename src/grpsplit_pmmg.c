@@ -336,7 +336,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
 
   /* Uses the Euler-poincare formulae to estimate the number of entities (np =
    * ne/6, nt=ne/3 */
-  if ( !PMMG_grpSplit_setMeshSize( mesh,ne/6,ne,0,ne/6,ne/3) ) return 0;
+  if ( !PMMG_grpSplit_setMeshSize( mesh,MG_MAX(ne/6,4),ne,0,MG_MAX(ne/6,3),MG_MAX(ne/3,1)) ) return 0;
 
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 
@@ -625,6 +625,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
         }
         pxt = &mesh->xtetra[tetraCur->xt];
         pxt->ref[fac] = 0;
+        /* If already boundary, make it recognizable as a "true" boundary */
+        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY; 
         pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Give the available memory to the parmesh */

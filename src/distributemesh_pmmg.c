@@ -475,7 +475,9 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
           pt->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[pt->xt];
-        /* Parallel face */
+        /* Parallel face (if already boundary, make it recognizable as a true
+         * boundary) */
+        if ( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
         pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Parallel edges */

@@ -45,6 +45,8 @@ PMMG_Grp PMMG_assign_grp(PMMG_pGrp group) {
   out.face2int_face_comm_index1 = group->face2int_face_comm_index1;
   out.face2int_face_comm_index2 = group->face2int_face_comm_index2;
 
+  out.flag = group->flag;
+
   return out;
 }
 
@@ -949,6 +951,9 @@ end:
 
   assert ( PMMG_check_extFaceComm(parmesh) );
   assert ( PMMG_check_extNodeComm(parmesh) );
+
+  /* Update tag on points, tetra */
+  if ( !PMMG_updateTag(parmesh) ) return -1;
 
   if ( !PMMG_parmesh_updateMemMax(parmesh, 5, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
