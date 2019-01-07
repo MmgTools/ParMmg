@@ -137,10 +137,10 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
 
   /** Correct partitioning */
   iempt = 0;
-  iproc = nproc-1;
   while( nempt ) {
     /* Get next "reservoir" proc */
-    while( partlist[iproc]->nitem < partlist[iproc-1]->nitem )
+    iproc = nproc-1;
+    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
       iproc--;
     /* Pop entity ie from iproc, add to iempt */
     if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
@@ -158,6 +158,86 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
 
   return 1;
 }
+
+int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
+                                       idx_t* mypart,idx_t nproc ) {
+  PMMG_lnkdList **partlist;
+  idx_t *part;
+  idx_t iproc,ie,ne,dummy,*recvcounts;
+  int myrank,ngrp,nempt,iempt;
+  MPI_Comm comm;
+
+  myrank   = parmesh->myrank;
+  ngrp     = parmesh->ngrp;
+  ne       = vtxdist[nproc];
+  comm     = parmesh->comm;
+
+  /** Step 1: Fill part array with the partitions local to each processor */
+  PMMG_CALLOC(parmesh,part,ne,idx_t,"parmetis part", return 0);
+  PMMG_CALLOC(parmesh,recvcounts,nproc,idx_t,"recvcounts", return 0);
+
+  for( iproc = 0; iproc<nproc; iproc++ )
+    recvcounts[iproc] = vtxdist[iproc+1]-vtxdist[iproc];
+
+  MPI_CHECK( MPI_Allgatherv(mypart,ngrp,MPI_INT,
+                            part,recvcounts,vtxdist,MPI_INT,comm), return 0);
+
+  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+
+  /* Initialize lists */
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
+    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+  }
+
+  /* Fill the lists */
+  for( ie=0; ie<ne; ie++ ) {
+    iproc = part[ie];
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+  }
+
+  /* Sort lists based on nb. of entities, in ascending order */
+  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+
+  /* Count empty partitions */
+  nempt = 0;
+  for( iproc=0; iproc<nproc; iproc++ )
+    if( !partlist[iproc]->nitem ) nempt++;
+  assert( nempt < nproc );
+  if( !nempt ) return 1;
+
+
+  /** Correct partitioning */
+  iempt = 0;
+  while( nempt ) {
+    /* Get next "reservoir" proc */
+    iproc = nproc-1;
+    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
+      iproc--;
+    /* Pop entity ie from iproc, add to iempt */
+    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    /* Update partition table and go on to next empty proc */
+    part[ie] = partlist[iempt]->id;
+    iempt++;
+    nempt--;
+  }
+
+  /** Update the local part */
+  for( ie=0; ie<ngrp; ie++ )
+    mypart[ie] = part[vtxdist[myrank]+ie];
+
+  /* Deallocations */
+  PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
+
+  for( iproc=0; iproc<nproc; iproc++ )
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+  return 1;
+}
+
 
 /**
  * \param parmesh pointer toward the PMMG parmesh structure
@@ -640,6 +720,9 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
         ier = 0;
     }
   }
+
+  /** Correct partitioning to avoid empty procs */
+  if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
 
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
