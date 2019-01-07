@@ -820,7 +820,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
       PMMG_CALLOC(parmesh,proclists[idx],1,PMMG_lnkdList,"linked list pointer",
                   goto end);
-      if ( !PMMG_lnkdListNew(parmesh,proclists[idx],PMMG_LISTSIZE) ) goto end;
+      if ( !PMMG_lnkdListNew(parmesh,proclists[idx],idx,PMMG_LISTSIZE) ) goto end;
 
       if ( !PMMG_add_cell2lnkdList( parmesh,proclists[idx],rank,idx ) )
         goto end;
@@ -849,7 +849,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
   PMMG_CALLOC(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array",goto end);
 
-  if ( !PMMG_lnkdListNew(parmesh,&list,PMMG_LISTSIZE) ) goto end;
+  if ( !PMMG_lnkdListNew(parmesh,&list,0,PMMG_LISTSIZE) ) goto end;
 
   do {
     glob_update = loc_update = 0;
