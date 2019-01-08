@@ -15,6 +15,20 @@
 #include <metis.h>
 #include <parmetis.h>
 
+/* Available choices for the wgtflag parameter of ParMetis */
+#define PMMG_WGTFLAG_NONE  0
+#define PMMG_WGTFLAG_ADJ   1
+#define PMMG_WGTFLAG_VTX   2
+#define PMMG_WGTFLAG_BOTH  3
+
+/**
+ * \def PMMG_WGTFLAG_DEF
+ *
+ * value for the wgtflag parameter of ParMetis
+ *
+ */
+#define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_ADJ)
+
 /**
  * \def PMMG_UBVEC_DEF
  *
@@ -39,6 +53,7 @@
  */
 typedef struct {
   idx_t   adj; /*!< item to add */
+  idx_t   wgt; /*!< Edge weight */
   int     nxt; /*!< Next element of the linked list */
 } PMMG_hgrp;
 
@@ -57,8 +72,8 @@ typedef struct {
 int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,idx_t**,idx_t**,idx_t*,size_t*);
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*,
-                                    idx_t**,idx_t*,idx_t*,idx_t*,idx_t,real_t**,
-                                    real_t**);
+                                    idx_t**,idx_t**,idx_t*,idx_t*,idx_t*,idx_t,
+                                    real_t**,real_t**);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 
 #endif
