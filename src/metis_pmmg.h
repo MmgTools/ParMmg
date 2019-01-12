@@ -38,6 +38,15 @@
 #define PMMG_UBVEC_DEF     1.05
 
 /**
+ * \def PMMG_CONTIG_DEF
+ *
+ * value for option[METIS_OPTION_CONTIG] in Metis
+ *
+ */
+#define PMMG_CONTIG_DEF     0
+
+
+/**
  * \def PMMG_NBADJA_GRPS
  *
  * Supposed maximum number of groups adjacent to one given group

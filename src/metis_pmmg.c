@@ -706,10 +706,15 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   idx_t      *adjncy = NULL;
   idx_t      nelt = mesh->ne;
   idx_t      ncon = 1; // number of balancing constraint
+  idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
   int        adjsize;
   int        ier = 0;
   int        status = 1;
+
+  /* Set contiguity of partitions */
+  METIS_SetDefaultOptions(options);
+  options[METIS_OPTION_CONTIG] = PMMG_CONTIG_DEF;
 
   /* Fit the parmesh and the meshes in memory and compute the available memory */
   parmesh->memMax = parmesh->memCur;
@@ -725,7 +730,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 
   /** Call metis and get the partition array */
   ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,NULL,NULL,NULL,&nproc,
-                             NULL,NULL,NULL,&objval, part );
+                             NULL,NULL,options,&objval, part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
       case METIS_ERROR_INPUT:
