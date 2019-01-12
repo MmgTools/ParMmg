@@ -43,7 +43,7 @@
  * value for option[METIS_OPTION_CONTIG] in Metis
  *
  */
-#define PMMG_CONTIG_DEF     0
+#define PMMG_CONTIG_DEF     1
 
 
 /**
@@ -84,5 +84,6 @@ int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*
                                     idx_t**,idx_t**,idx_t*,idx_t*,idx_t*,idx_t,
                                     real_t**,real_t**);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
+int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 
 #endif

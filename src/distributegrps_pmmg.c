@@ -2710,7 +2710,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+  ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
   if ( !ier )
     fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
 
