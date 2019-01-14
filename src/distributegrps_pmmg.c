@@ -995,16 +995,68 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   idx += sizeof(int);
 
   /** Mesh size */
-  idx += sizeof(int); // mesh->np;
-  idx += sizeof(int); // mesh->xp;
-  idx += sizeof(int); // mesh->ne;
-  idx += sizeof(int); // mesh->xt;
+  idx += sizeof(int); // mesh->np
+  idx += sizeof(int); // mesh->xp
+  idx += sizeof(int); // mesh->ne
+  idx += sizeof(int); // mesh->xt
 
-  /** Mesh infos */
-  idx += sizeof(double); // mesh->info.delta;
-  idx += sizeof(double); // mesh->info.min[0];
-  idx += sizeof(double); // mesh->info.min[1];
-  idx += sizeof(double); // mesh->info.min[2];
+  /** Mesh infos: warning, some "useless" info are not sended */
+  idx += sizeof(double); // mesh->info.dhd
+  idx += sizeof(double); // mesh->info.hmin
+  idx += sizeof(double); // mesh->info.hmax
+  idx += sizeof(double); // mesh->info.hsiz
+  idx += sizeof(double); // mesh->info.hgrad
+  idx += sizeof(double); // mesh->info.hgradreq
+  idx += sizeof(double); // mesh->info.hausd
+
+  idx += sizeof(double); // mesh->info.delta
+  idx += sizeof(double); // mesh->info.min[0]
+  idx += sizeof(double); // mesh->info.min[1]
+  idx += sizeof(double); // mesh->info.min[2]
+
+  idx += sizeof(double); // mesh->info.ls
+
+  idx += sizeof(int); // npar
+  idx += sizeof(int); // openbdy
+  idx += sizeof(int); // renum
+  idx += sizeof(int); // PROctree
+  idx += sizeof(int); // nmat
+
+  idx += sizeof(char); // nreg
+  idx += sizeof(char); // imprim
+  idx += sizeof(char); // ddebug
+  idx += sizeof(char); // iso
+  idx += sizeof(char); // lag
+  idx += sizeof(char); // parTyp
+  idx += sizeof(char); // optim
+  idx += sizeof(char); // optimLES
+  idx += sizeof(char); // noinsert
+  idx += sizeof(char); // noswap
+  idx += sizeof(char); // nomove
+  idx += sizeof(char); // nosurf
+
+  /* affectation of old refs in ls-mode */
+  if ( mesh->info.nmat ) {
+    assert( mesh->info.mat );
+    for ( k=0; k<mesh->info.nmat; ++k ) {
+      idx += sizeof(char); // mat->dospl
+      idx += sizeof(int); //  mat->ref
+      idx += sizeof(int); //  mat->rin
+      idx += sizeof(int); //  mat->rex
+    }
+  }
+
+  /* local parameters */
+  if ( mesh->info.npar ) {
+    assert( mesh->info.par );
+    for ( k=0; k<mesh->info.npar; ++k ) {
+      idx += sizeof(double); // par->hmin
+      idx += sizeof(double); // par->hmax
+      idx += sizeof(double); // par->hausd
+      idx += sizeof(int); //  par->ref
+      idx += sizeof(char); // par->elt
+    }
+  }
 
   /** Metric info and sizes */
   idx += sizeof(int); // (met->m ? 1 : 0 );
@@ -1162,10 +1214,62 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   *( (int *) tmp) = mesh->xt; tmp += sizeof(int);
 
   /** Mesh infos */
-  *( (double *) tmp) = mesh->info.delta;  tmp += sizeof(double);
-  *( (double *) tmp) = mesh->info.min[0]; tmp += sizeof(double);
-  *( (double *) tmp) = mesh->info.min[1]; tmp += sizeof(double);
-  *( (double *) tmp) = mesh->info.min[2]; tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.dhd;      tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hmin;     tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hmax;     tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hsiz;     tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hgrad;    tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hgradreq; tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.hausd;    tmp += sizeof(double);
+
+  *( (double *) tmp) = mesh->info.delta;    tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[0];   tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[1];   tmp += sizeof(double);
+  *( (double *) tmp) = mesh->info.min[2];   tmp += sizeof(double);
+
+  *( (double *) tmp) = mesh->info.ls;       tmp += sizeof(double);
+
+  *( (int *) tmp) = mesh->info.npar;      tmp += sizeof(int);
+  *( (int *) tmp) = mesh->info.opnbdy;    tmp += sizeof(int);
+  *( (int *) tmp) = mesh->info.renum;     tmp += sizeof(int);
+  *( (int *) tmp) = mesh->info.PROctree;  tmp += sizeof(int);
+  *( (int *) tmp) = mesh->info.nmat;      tmp += sizeof(int);
+
+  *( (char *) tmp) = mesh->info.nreg;     tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.imprim;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.ddebug;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.iso;      tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.lag;      tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.parTyp;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.optim;    tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.optimLES; tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.noinsert; tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.noswap;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.nomove;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.nosurf;   tmp += sizeof(char);
+
+  /* affectation of old refs in ls-mode */
+  if ( mesh->info.nmat ) {
+    assert( mesh->info.mat );
+    for ( k=0; k<mesh->info.nmat; ++k ) {
+      *( (char *) tmp) = mesh->info.mat[k].dospl; tmp += sizeof(char);
+      *( (int *) tmp)  = mesh->info.mat[k].ref; tmp += sizeof(int);
+      *( (int *) tmp)  = mesh->info.mat[k].rin; tmp += sizeof(int);
+      *( (int *) tmp)  = mesh->info.mat[k].rex; tmp += sizeof(int);
+    }
+  }
+
+  /* local parameters */
+  if ( mesh->info.npar ) {
+    assert( mesh->info.par );
+    for ( k=0; k<mesh->info.npar; ++k ) {
+      *( (double *) tmp) =  mesh->info.par[k].hmin; tmp += sizeof(double);
+      *( (double *) tmp) =  mesh->info.par[k].hmax; tmp += sizeof(double);
+      *( (double *) tmp) =  mesh->info.par[k].hausd; tmp += sizeof(double);
+      *( (int *)    tmp) =  mesh->info.par[k].ref; tmp += sizeof(int);
+      *( (char *)   tmp) =  mesh->info.par[k].elt; tmp += sizeof(char);
+    }
+  }
 
   /** Metric info and sizes */
   assert ( mesh->npmax == met->npmax );
@@ -1311,6 +1415,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   int        k,i,ier,ier_grp,ier_mesh,ier_sol,ier_comm,np,xp,ne,xt;
   int        size,ismet,used,idummy;
   int16_t    i16dummy;
+  char       cdummy;
 
   ier = 1;
 
@@ -1347,18 +1452,128 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
 
   if ( ier_mesh ) {
     /** Mesh infos */
+    mesh->info.dhd       = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hmin      = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hmax      = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hsiz      = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hgrad     = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hgradreq  = *( (double *) *buffer); *buffer += sizeof(double);
+    mesh->info.hausd     = *( (double *) *buffer); *buffer += sizeof(double);
+
     mesh->info.delta  = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.min[0] = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.min[1] = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.min[2] = *( (double *) *buffer); *buffer += sizeof(double);
+
+    mesh->info.ls     = *( (double *) *buffer); *buffer += sizeof(double);
+
+    mesh->info.npar      = *( (int *) *buffer); *buffer += sizeof(int);
+    mesh->info.opnbdy    = *( (int *) *buffer); *buffer += sizeof(int);
+    mesh->info.renum     = *( (int *) *buffer); *buffer += sizeof(int);
+    mesh->info.PROctree  = *( (int *) *buffer); *buffer += sizeof(int);
+    mesh->info.nmat      = *( (int *) *buffer); *buffer += sizeof(int);
+
+    mesh->info.nreg      = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.imprim    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.ddebug    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.iso       = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.lag       = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.parTyp    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.optim     = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.optimLES  = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.noinsert  = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.noswap    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.nomove    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.nosurf    = *( (char *) *buffer); *buffer += sizeof(char);
+
+    /* affectation of old refs in ls-mode */
+    if ( mesh->info.nmat ) {
+
+      MMG5_SAFE_CALLOC(mesh->info.mat,mesh->info.nmat,MMG5_Mat, ier = 0);
+
+      if ( ier ) {
+        for ( k=0; k<mesh->info.nmat; ++k ) {
+          mesh->info.mat[k].dospl = *( (char *) *buffer); *buffer += sizeof(char);
+          mesh->info.mat[k].ref   = *( (int *) *buffer); *buffer += sizeof(int);
+          mesh->info.mat[k].rin   = *( (int *) *buffer); *buffer += sizeof(int);
+          mesh->info.mat[k].rex   = *( (int *) *buffer); *buffer += sizeof(int);
+        }
+      }
+    }
+
+    /* local parameters */
+    if ( mesh->info.npar ) {
+
+      MMG5_SAFE_CALLOC(mesh->info.par,mesh->info.npar,MMG5_Par, ier = 0);
+
+      if ( ier ) {
+        for ( k=0; k<mesh->info.npar; ++k ) {
+          mesh->info.par[k].hmin = *( (double *) *buffer); *buffer += sizeof(double);
+          mesh->info.par[k].hmax = *( (double *) *buffer); *buffer += sizeof(double);
+          mesh->info.par[k].hausd = *( (double *) *buffer); *buffer += sizeof(double);
+          mesh->info.par[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
+          mesh->info.par[k].elt = *( (char *) *buffer); *buffer += sizeof(char);
+        }
+      }
+    }
   }
   else {
     ier = 0;
+
     /** Mesh infos */
     ddummy = *( (double *) *buffer); *buffer += sizeof(double);
     ddummy = *( (double *) *buffer); *buffer += sizeof(double);
     ddummy = *( (double *) *buffer); *buffer += sizeof(double);
     ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+
+    ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+    idummy = *( (int *) *buffer); *buffer += sizeof(int);
+
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+
+    if ( mesh->info.nmat ) {
+      for ( k=0; k<mesh->info.nmat; ++k ) {
+        cdummy = *( (char *) *buffer); *buffer += sizeof(char);
+        idummy = *( (int *) *buffer); *buffer += sizeof(int);
+        idummy = *( (int *) *buffer); *buffer += sizeof(int);
+        idummy = *( (int *) *buffer); *buffer += sizeof(int);
+      }
+    }
+
+    /* local parameters */
+    if ( mesh->info.npar ) {
+      for ( k=0; k<mesh->info.npar; ++k ) {
+        ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+        ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+        ddummy = *( (double *) *buffer); *buffer += sizeof(double);
+        idummy = *( (int *) *buffer);    *buffer += sizeof(int);
+        cdummy = *( (char *) *buffer);   *buffer += sizeof(char);
+      }
+    }
   }
 
   /** Metric info and sizes */

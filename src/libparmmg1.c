@@ -434,6 +434,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+      /* Reset the value of the fem mode */
+      mesh->info.fem = parmesh->info.fem;
 
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */

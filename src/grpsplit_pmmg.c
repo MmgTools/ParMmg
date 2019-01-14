@@ -355,7 +355,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
-  memcpy(&(grp->mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
+  if ( !PMMG_copy_mmgInfo ( &meshOld->info,&grp->mesh->info ) ) return 0;
 
 
   /* Give the available memory to the parmesh */
