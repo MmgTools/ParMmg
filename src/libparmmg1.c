@@ -395,6 +395,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   ier_end = PMMG_SUCCESS;
 
+  /** Old mesh creation */
+  parmesh->nold_grp = 1;
+  PMMG_CALLOC(parmesh,parmesh->old_listgrp,parmesh->nold_grp,PMMG_Grp,
+              "old mesh groups",return 0);
+  ier = PMMG_oldGrps_newGroup( parmesh );
+  ier = PMMG_oldGrps_fillGroup( parmesh );
+
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
 
@@ -540,6 +547,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
+
+  PMMG_listgrp_free( parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
 
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

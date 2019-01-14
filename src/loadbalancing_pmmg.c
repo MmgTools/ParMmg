@@ -57,6 +57,7 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
  */
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   int ier,ier_glob,igrp,ne;
+  int updateOldMesh;
 
   /** Count the number of interface faces per tetra and store it in mark */
   ier = PMMG_count_parBdy(parmesh);
@@ -76,7 +77,8 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,MG_MIN(METIS_TARGET_MESH_SIZE,ne/2),1);
+    updateOldMesh = 0;
+    ier = PMMG_split_n2mGrps(parmesh,MG_MIN(METIS_TARGET_MESH_SIZE,ne/2),1,updateOldMesh);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
@@ -101,7 +103,8 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0);
+    updateOldMesh = 1;
+    ier = PMMG_split_n2mGrps(parmesh,REMESHER_TARGET_MESH_SIZE,0,updateOldMesh);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
   }
