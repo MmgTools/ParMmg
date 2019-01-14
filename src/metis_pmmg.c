@@ -864,11 +864,12 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 
 
   /** Call metis and get the partition array */
-  if ( 2 < nprocs + ngrp ) {
+  if ( nprocs > 1 ) {
+    
     if(parmesh->myrank == root) {
- 
       PMMG_CALLOC(parmesh,part_seq,vtxdist[nproc],idx_t,"part_seq", return 0);
-      
+    
+    
       /* Set contiguity of partitions */
       METIS_SetDefaultOptions(options);
       options[METIS_OPTION_CONTIG] = PMMG_CONTIG_DEF;
@@ -906,10 +907,13 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
                             part,recvcounts[parmesh->myrank],MPI_INT,
                             root,parmesh->comm), return 0);
     PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
-  }
 
-  /** Correct partitioning to avoid empty procs */
-  if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
+    /** Correct partitioning to avoid empty procs */
+    if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
+ 
+    if(parmesh->myrank == root) PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
+  
+  }
 
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
@@ -934,7 +938,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   if(parmesh->myrank == root) {
     PMMG_DEL_MEM(parmesh,xadj_seq,idx_t,"xadj_seq");
     PMMG_DEL_MEM(parmesh,adjncy_seq,idx_t,"adjcncy_seq");
-    PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
     switch (wgtflag) {
      case PMMG_WGTFLAG_ADJ:
         PMMG_DEL_MEM(parmesh,adjwgt_seq,idx_t,"adjwgt_seq");
