@@ -1006,7 +1006,7 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   idx += sizeof(double); // mesh->info.hmax
   idx += sizeof(double); // mesh->info.hsiz
   idx += sizeof(double); // mesh->info.hgrad
-  idx += sizeof(double); // mesh->info.hgradreq
+  //idx += sizeof(double); // mesh->info.hgradreq
   idx += sizeof(double); // mesh->info.hausd
 
   idx += sizeof(double); // mesh->info.delta
@@ -1219,7 +1219,7 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   *( (double *) tmp) = mesh->info.hmax;     tmp += sizeof(double);
   *( (double *) tmp) = mesh->info.hsiz;     tmp += sizeof(double);
   *( (double *) tmp) = mesh->info.hgrad;    tmp += sizeof(double);
-  *( (double *) tmp) = mesh->info.hgradreq; tmp += sizeof(double);
+  //*( (double *) tmp) = mesh->info.hgradreq; tmp += sizeof(double);
   *( (double *) tmp) = mesh->info.hausd;    tmp += sizeof(double);
 
   *( (double *) tmp) = mesh->info.delta;    tmp += sizeof(double);
@@ -1457,7 +1457,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
     mesh->info.hmax      = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.hsiz      = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.hgrad     = *( (double *) *buffer); *buffer += sizeof(double);
-    mesh->info.hgradreq  = *( (double *) *buffer); *buffer += sizeof(double);
+    //mesh->info.hgradreq  = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.hausd     = *( (double *) *buffer); *buffer += sizeof(double);
 
     mesh->info.delta  = *( (double *) *buffer); *buffer += sizeof(double);
