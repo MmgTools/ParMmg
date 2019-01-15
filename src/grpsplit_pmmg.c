@@ -896,8 +896,7 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
   ne   = parmesh->listgrp[0].mesh->ne;
 
   /* Give all the available memory to the mesh */
-  oldMemMax = parmesh->memCur;
-  memAv     = parmesh->memMax-oldMemMax;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
   /* Mesh reallocation at the smallest possible size */

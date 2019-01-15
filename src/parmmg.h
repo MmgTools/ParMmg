@@ -253,12 +253,12 @@ extern "C" {
  *
  * Set memMax to memCur for every group mesh, compute the available memory and
  * give it to the parmesh */
-#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh) do {                    \
-    size_t myavailable;                                                 \
+#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
     int    myj;                                                         \
                                                                         \
     parmesh->memMax = parmesh->memCur;                                  \
     myavailable = parmesh->memGloMax - parmesh->memMax;                 \
+    oldMemMax   = parmesh->memCur;                                      \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \

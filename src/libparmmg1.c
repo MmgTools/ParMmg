@@ -432,9 +432,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
-  oldMemMax = parmesh->memMax;
-  available =0;
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
   for ( it = 0; it < parmesh->niter; ++it ) {
 
