@@ -134,6 +134,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   int        mmgArgc = 0;
   char**     mmgArgv = NULL;
 
+  assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+
   /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
    * and call the mmg3d parser. */
   for ( i = 1; i < argc; ++i )
@@ -283,13 +285,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     ++i;
   }
 
-  // parmmg finished parsing arguments, the rest will e handled by mmg3d
+  // parmmg finished parsing arguments, the rest will be handled by mmg3d
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
                           parmesh->listgrp[0].met ) ) {
     ret_val = 0;
     goto fail_proc;
   }
+  parmesh->info.fem = parmesh->listgrp[0].mesh->info.fem;
 
 fail_proc:
   PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
@@ -298,3 +301,26 @@ fail_mmgargv:
 }
 
 #undef ARGV_APPEND
+
+
+int PMMG_parsop ( PMMG_pParMesh parmesh )
+{
+  MMG5_pMesh mesh;
+  int        ier;
+  int8_t     tmp_verb;
+
+  assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+
+  /* Force that only the proc root prints a message about the file that is opened */
+  if ( parmesh->myrank != 0 ) {
+    tmp_verb = parmesh->listgrp[0].mesh->info.imprim;
+    parmesh->listgrp[0].mesh->info.imprim = -1;
+  }
+  ier = MMG3D_parsop(parmesh->listgrp[0].mesh,parmesh->listgrp[0].met);
+  /* Restrore the default values */
+  if ( parmesh->myrank != 0 ) {
+    parmesh->listgrp[0].mesh->info.imprim = tmp_verb;
+  }
+
+  return ier;
+}

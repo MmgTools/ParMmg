@@ -267,7 +267,7 @@ extern "C" {
   } while(0)
 
 
-/** 
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
  * \param memAv available memory
@@ -297,7 +297,7 @@ extern "C" {
                                                                         \
   } while(0)
 
-/** 
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
  * \param memAv available memory
@@ -392,7 +392,10 @@ void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
-int PMMG_updateTag(PMMG_pParMesh parmesh); 
+int  PMMG_updateTag(PMMG_pParMesh parmesh);
+
+/* Tools */
+int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Scaling */
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
