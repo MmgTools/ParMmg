@@ -267,7 +267,7 @@ extern "C" {
   } while(0)
 
 
-/** 
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
  * \param memAv available memory
@@ -297,7 +297,7 @@ extern "C" {
                                                                         \
   } while(0)
 
-/** 
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
  * \param memAv available memory
