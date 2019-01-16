@@ -1575,19 +1575,8 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
       if ( tetra[i].xt ) {
         nnpar = 0;
         pxt = &xtetra[tetra[i].xt];
-        for ( l=0; l<4; ++l ) {
-          if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
-          if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
-            pxt->ftag[l] &= ~MG_REQ;
-        }
-
-        if ( !nnpar ) {
-          pt->xt = 0;
-        }
-        else {
-          memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
-          pt->xt = ne;
-        }
+        memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
+        pt->xt = ne;
       }
     }
   }
