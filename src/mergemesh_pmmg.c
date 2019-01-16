@@ -654,7 +654,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
           if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
           if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
           if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
-       }
+        }
       }
       /* Untag parallel edges */
       for ( j=0 ; j<6 ; j++ )
@@ -717,27 +717,30 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       }
     }
 
-    /** Step 3: Tag new parallel interface entities starting from int_face_comm.*/
-    for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
-      iel  =   face2int_face_comm0_index1[i] / 12;
-      ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
-      pt = &mesh->tetra[iel];
-      assert( pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-      /* Tag face */
-      pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-      /* Tag face edges */
-      for ( j=0; j<3; j++ ) {
-        ia = MMG5_iarf[ifac][j];
-        ip0 = pt->v[MMG5_iare[ia][0]];
-        ip1 = pt->v[MMG5_iare[ia][1]];
-        if( !MMG5_hTag( &hash, ip0, ip1, 0,
-                        MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
-      }
-      /* Tag face nodes */
-      for ( j=0 ; j<3 ; j++) {
-        ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
-        ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+    /** Step 3: if communicators are allocated: tag new parallel interface
+     * entities starting from int_face_comm. */
+    if ( parmesh->ext_face_comm ) {
+      for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
+        iel  =   face2int_face_comm0_index1[i] / 12;
+        ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
+        pt = &mesh->tetra[iel];
+        assert( pt->xt );
+        pxt = &mesh->xtetra[pt->xt];
+        /* Tag face */
+        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        /* Tag face edges */
+        for ( j=0; j<3; j++ ) {
+          ia = MMG5_iarf[ifac][j];
+          ip0 = pt->v[MMG5_iare[ia][0]];
+          ip1 = pt->v[MMG5_iare[ia][1]];
+          if( !MMG5_hTag( &hash, ip0, ip1, 0,
+                          MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
+        }
+        /* Tag face nodes */
+        for ( j=0 ; j<3 ; j++) {
+          ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        }
       }
     }
 
@@ -749,6 +752,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( j=0; j<6; j++ ) {
         ip0 = pt->v[MMG5_iare[j][0]];
         ip1 = pt->v[MMG5_iare[j][1]];
+        /* Put the tag stored in the hash table on the xtetra edge */
         if( !MMG5_hGet( &hash, ip0, ip1, &getref, &pxt->tag[j] ) ) return 0;
       }
     }
@@ -1772,7 +1776,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
-  /* Free memory */
+  /** Step 4: Free memory */
   /* 1: Mesh data */
   if ( parmesh->myrank == parmesh->info.root ) {
     PMMG_DEL_MEM(parmesh,rcv_np,int,"rcv_np");
@@ -1818,6 +1822,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_DEL_MEM(parmesh,int_comm_index_displs,int,"icidx_displs");
 
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intval");
+
+  PMMG_parmesh_Free_Comm(parmesh);
+
+  /** Step 5: Update tag on points, tetra */
+  ieresult = PMMG_updateTag(parmesh);
 
   return ieresult;
 }
