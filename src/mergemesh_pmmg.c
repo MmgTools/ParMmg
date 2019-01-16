@@ -200,7 +200,6 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     /* Add xpoint if needed */
     ier = 1;
     if ( pptJ->xp ) {
-#warning add only the "true" xpoints (not those linked to the interfaces)
       pxpJ = &meshJ->xpoint[pptJ->xp];
       pptI = &meshI->point[ip];
       pxpI = &meshI->xpoint[pptI->xp];
@@ -310,7 +309,6 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
-#warning add only the "true" xtetras (not those linked to the interfaces)
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
@@ -375,8 +373,6 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     for ( i=0; i<4; ++i ) ptI->v[i] = meshJ->point[ptJ->v[i]].tmp;
     ptI->ref  = ptJ->ref;
     ptI->qual = ptJ->qual;
-
-#warning need to update the adjacents?
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
