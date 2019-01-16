@@ -439,6 +439,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+      /* Reset the value of the fem mode */
+      mesh->info.fem = parmesh->info.fem;
 
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */
@@ -467,6 +469,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       /** Call the remesher */
       /* Here we need to scale the mesh */
       if ( !(ier = PMMG_scaleMesh(mesh,met)) ) goto failed;
+
+      if ( !mesh->adja ) {
+        if ( !MMG3D_hashTetra(mesh,0) ) {
+          fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+          return 0;
+        }
+      }
 
 #ifdef PATTERN
       if ( 1 != (ier = MMG5_mmg3d1_pattern( mesh, met )) ) {

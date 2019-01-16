@@ -14,7 +14,7 @@
 /**
  * \param mesh pointer toward the mesh structure.
  * \param start index of the starting tetrahedra.
- * \param ip index of the point in the mesh. 
+ * \param ip index of the point in the mesh.
  * \param iploc local index of the point in the tetrahedra \a start.
  * \param visited integer array, equal to ip for each tetrahedron already
  * visited when looking for node ip.

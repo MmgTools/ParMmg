@@ -74,3 +74,49 @@ const char* PMMG_Get_pmmgArgName(int typArg)
     return "PMMG_ARG_Unknown";
   }
 }
+
+/**
+ * \param info pointer toward a MMG5 info structure that we want to copy
+ * \param info_cpy pointer toward a MMG5 info structure into copy the data
+ *
+ * \return 1 if success, 0 if not
+ *
+ * Copy the info data into info_cpy, allocate the \a mat and \a par structures
+ * if needed.
+ *
+ */
+int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy ) {
+  MMG5_pMat mat_tmp;
+  MMG5_pPar par_tmp;
+
+  // assert to remove (we may authorize to have mat and par already allocated )
+  assert ( (!info_cpy->mat) && (!info_cpy->par) );
+
+  if ( info->nmat && (!info_cpy->mat) ) {
+    MMG5_SAFE_CALLOC(mat_tmp,info->nmat,MMG5_Mat,return 0);
+  }
+  else {
+    mat_tmp = info_cpy->mat;
+  }
+  if ( mat_tmp ) {
+    *mat_tmp = *info->mat;
+  }
+
+  /* local parameters */
+  if ( info->npar && !info_cpy->par ) {
+    MMG5_SAFE_CALLOC(par_tmp,info->npar,MMG5_Par,return 0);
+  }
+  else {
+    par_tmp = info_cpy->par;
+  }
+  if ( par_tmp ) {
+    *par_tmp = *info->par;
+  }
+
+  *info_cpy = *info;
+
+  info_cpy->mat = mat_tmp;
+  info_cpy->par = par_tmp;
+
+  return 1;
+}

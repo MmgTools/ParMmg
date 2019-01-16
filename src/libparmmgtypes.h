@@ -235,7 +235,7 @@ typedef struct {
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
   int root;    /*!< MPI root rank */
-
+  int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
 } PMMG_Info;
 
 

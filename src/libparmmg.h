@@ -1617,9 +1617,24 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh );
  * Parse command line arguments.
  *
  * \remark no matching fortran function.
+ * \remark each proc read the parameters.
  *
  */
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 1 on success
+ *         0 on failure
+ *
+ * Parse parameter file.
+ *
+ * \remark no matching fortran function.
+ * \remark each proc read the file of parameters.
+ *
+ */
+int PMMG_parsop( PMMG_pParMesh parmesh );
 
 /**
  * \param parmesh pointer toward the parmesh structure
