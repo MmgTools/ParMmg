@@ -76,7 +76,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,MG_MIN(METIS_TARGET_MESH_SIZE,ne/2),1);
+    ier = PMMG_split_n2mGrps(parmesh,MG_MIN(METIS_TARGET_MESH_SIZE,ne/2+1),1);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc

@@ -132,6 +132,9 @@ int main( int argc, char *argv[] )
     goto check_mesh_loading;
   }
 
+  if ( !PMMG_parsop(parmesh) )
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+
   chrono(OFF,&PMMG_ctim[1]);
   if ( rank==parmesh->info.root ) {
     printim(PMMG_ctim[1].gdif,stim);

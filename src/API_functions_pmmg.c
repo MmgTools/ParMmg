@@ -119,6 +119,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   parmesh->ddebug      = PMMG_NUL;
   parmesh->niter       = PMMG_NITER;
+  parmesh->info.fem    = MMG5_FEM;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
