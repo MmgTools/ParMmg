@@ -526,6 +526,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( 1 != ieresult )
       goto failed_handling;
 
+    /** Interpolate metrics */
+    ier = PMMG_interpMetrics_grps( parmesh );
+ 
+    MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( !ieresult ) {
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+    }
+
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
 
