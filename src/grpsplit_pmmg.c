@@ -483,7 +483,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh ) {
   MMG5_pSol        met;
   MMG5_pTetra      pt,ptCur;
   MMG5_pPoint      ppt,pptCur;
-  int              *adja,ie,ip;
+  int              *adja,*oldAdja,ie,ip;
 
   mesh = parmesh->old_listgrp[0].mesh;
   met  = parmesh->old_listgrp[0].met;
@@ -503,8 +503,9 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh ) {
 
     /* Copy element's adjacency */
     if( meshOld->adja ) {
-      adja = &mesh->adja[ 4*( ie-1 )+1 ];
-      memcpy( adja, &meshOld->adja[ 4*( ie-1 )+1 ], 4*sizeof(int) );
+      adja    =    &mesh->adja[ 4*( ie-1 )+1 ];
+      oldAdja = &meshOld->adja[ 4*( ie-1 )+1 ];
+      memcpy( adja, oldAdja, 4*sizeof(int) );
     }
 
   }
@@ -909,12 +910,11 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
 
   PMMG_REALLOC(mesh,mesh->tetra,ne+1,mesh->nemax+1,
                MMG5_Tetra,"fitted tetra table",return 0);
+  PMMG_REALLOC(mesh,mesh->adja,4*(ne+1)+1,4*(mesh->nemax+1)+1,
+               int,"tetra adjacency table",return 0);
   mesh->ne    = ne;
   mesh->nemax = ne;
 
-  PMMG_REALLOC(mesh,mesh->adja,4*(ne+1)+1,4*(mesh->nemax+1)+1,
-               int,"tetra adjacency table",return 0);
- 
   if ( met->m )
     PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
                  double,"fitted metric table",return 0);
@@ -1308,6 +1308,7 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,int updateOldMesh) {
+  size_t  memAv,oldMemMax;
   int     ier,ier1,ier_glob;
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
@@ -1321,12 +1322,6 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,in
     fprintf(stderr,"\n  ## Merge groups problem.\n");
   }
 
-  /** Update the old mesh */
-  if( updateOldMesh ) {
-    ier = PMMG_oldGrps_cleanMesh( parmesh );
-    ier = PMMG_oldGrps_fillGroup( parmesh );
-  }
-
   /** Pack the tetra and update the face communicator */
   ier1 = 1;
   if ( parmesh->ngrp ) {
@@ -1336,6 +1331,19 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,in
     }
   }
   ier = MG_MIN( ier, ier1 );
+
+  /** Update the old mesh */
+  if( updateOldMesh ) {
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[0].mesh,memAv,oldMemMax);
+    if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) {
+      fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+      return 0;
+    }
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[0].mesh,memAv,oldMemMax);
+    ier = PMMG_oldGrps_cleanMesh( parmesh );
+    ier = PMMG_oldGrps_fillGroup( parmesh );
+  }
 
 #ifndef NDEBUG
   /* In debug mode we have mpi comm in split_grps, thus, if 1 proc fails
