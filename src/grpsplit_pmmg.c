@@ -411,7 +411,10 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
     else if ( grpOld->met->size == 6 )
       grp->met->type = MMG5_Tensor;
 
-    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,1,grp->met->type) )
+    /** If we have an initial metric, force the metric allocation (even if for
+     * now, we don't know the number of point that will be stored in it) */
+    int allocMetric = 1;
+    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocMetric,grp->met->type) )
       return 0;
   }
 
