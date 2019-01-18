@@ -378,16 +378,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,*n2inc_max,int,
               "subgroup internal2 communicator ",return 0);
 
-  if ( parmesh->ddebug ) {
-    printf( "[%d/%d]:\t mesh %p,\t xtmax %d - xtetra:%p,\t"
-            "xpmax %d - xpoint %p,\t nemax %d - adja %p,\t ne %d- index1 %p"
-            " index2 %p \n",
-            parmesh->myrank + 1, parmesh->nprocs,(void*)mesh, mesh->xtmax,
-            (void*)mesh->xtetra,mesh->xpmax,(void*)mesh->xpoint,mesh->nemax,
-            (void*)mesh->adja,*n2inc_max,(void*)grp->node2int_node_comm_index1,
-            (void*)grp->node2int_node_comm_index2);
-  }
-
   *f2ifc_max = mesh->xtmax;
   PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,*f2ifc_max,int,
               "face2int_face_comm_index1 communicator",return 0);
@@ -869,11 +859,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   if ( !meshOld ) goto end;
 
-  if ( parmesh->ddebug )
-    printf( "[%d/%d]: mesh has: %d(%d) #points and %d(%d) tetras\n",
-            parmesh->myrank+1, parmesh->nprocs, meshOld->np, meshOld->npi,
-            meshOld->ne, meshOld->nei );
-
   ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
@@ -911,12 +896,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
               ret_val = 0;goto fail_part);
   for ( tet = 0; tet < meshOld->ne ; ++tet )
     ++countPerGrp[ part[ tet ] ];
-
-  if ( parmesh->ddebug )
-    for ( i = 0; i < ngrp ; i++ )
-      printf( "[%d/%d]: group[%d] has %d elements\n",
-              parmesh->myrank+1, parmesh->nprocs, i, countPerGrp[i] );
-
 
   /* Allocate list of subgroups struct and allocate memory */
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
@@ -1029,12 +1008,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
       goto fail_sgrp;
     }
     memAv          -= (parmesh->memMax - oldMemMax);
-
-    if ( parmesh->ddebug )
-      printf( "[%d/%d]: %d points in group, %d tetra."
-              " %d nitem in int communicator\n",
-              ngrp, grpId+1, meshCur->np, meshCur->ne,
-              grpCur->nitem_int_node_comm );
   }
 
 //DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );

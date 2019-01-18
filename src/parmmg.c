@@ -165,7 +165,7 @@ check_mesh_loading:
   chrono(ON,&PMMG_ctim[1]);
 
   grp = &parmesh->listgrp[0];
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",grp->mesh->nameout);
   }
 
@@ -197,7 +197,7 @@ check_mesh_loading:
   }
 
   chrono(OFF,&PMMG_ctim[1]);
-  if ( parmesh->info.imprim )
+  if ( parmesh->info.imprim > 0 )
     fprintf(stdout,"  -- WRITING COMPLETED\n");
 
   PMMG_RETURN_AND_FREE( parmesh, iresult );
