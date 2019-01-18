@@ -115,7 +115,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   if( step == (mesh->ne+1) ) {
     fprintf(stderr,"\n ## Warning %s: Cannot locate point, performing exhaustive research.",__func__);
 
-    for( idxTet=1; idxTet<=mesh->ne+1; idxTet++ ) {
+    for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
  
       /** Get tetra */
       ptr = &mesh->tetra[idxTet];
