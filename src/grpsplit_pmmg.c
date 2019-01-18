@@ -340,7 +340,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh ) {
 
   /* Set metrics size */
   if ( metOld->m )
-    if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,metOld->np,metOld->type) )
+    if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
@@ -918,6 +918,11 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
   mesh->ne    = ne;
   mesh->nemax = ne;
 
+  if ( met->m )
+    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
+                 double,"fitted metric table",return 0);
+  met->npmax = mesh->npmax;
+
   // Update the empty points' values as per the convention used in MMG3D
   mesh->np  = np;
   mesh->npi = np;
@@ -925,14 +930,6 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
   if ( met->m ) {
     met->np  = np;
     met->npi = np;
-  }
-
-  if ( met->m ) {
-    np = parmesh->listgrp[0].met->np;
-    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
-                 double,"fitted metric table",return 0);
-    met->np    = np;
-    met->npmax = np;
   }
 
   /* Give all the available memory back to parmesh */
