@@ -1082,7 +1082,6 @@ fail_sgrp:
       if ( meshCur->xtetra != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->xtetra,MMG5_xTetra,"msh boundary tetra");
     }
-#warning NIKOS: ADD DEALLOC/WHATEVER FOR EACH MESH:    MMG3D_DeInit_mesh() or STH
   }
 
   /* these labels should be executed as part of normal code execution before
