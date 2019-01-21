@@ -2950,5 +2950,17 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   if ( ier <= 0 )
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
 
+  /** Check grps contiguity */
+  if( parmesh->info.loadbalancing_mode == PMMG_LOADBALANCING_metis ) {
+    ier = PMMG_check_grps_contiguity( parmesh );
+    if( !ier ) {
+      fprintf(stderr,"\n  ## Unable to count mesh contiguous subgroups.\n");
+    } else if( ier>1 ) {
+      fprintf(stderr,"\n  ## Error %s: Group meshes are not contiguous: %d subgroups found.\n",
+              __func__,ier);
+      ier = 0;
+    }
+  }
+
   return ier;
 }

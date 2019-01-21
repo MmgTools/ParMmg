@@ -118,6 +118,95 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return The number of contiguous subgroups.
+ *
+ * Check group mesh contiguity by counting the number of adjacent element
+ * subgroups.
+ *
+ */
+int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt,pt1;
+  int         *adja,igrp,ie,je,ifac;
+  int         ncolors,nb_seen,mark_notseen,done,istart;
+  size_t      memAv,oldMemMax;
+
+  /** Labels */
+  mark_notseen = 0;
+
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    grp  = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+
+    oldMemMax = parmesh->memCur;
+    memAv = parmesh->memMax-oldMemMax;
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,0) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        return 0;
+      }
+    }
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+    /** Reset tetra flag */
+    for( ie = 1; ie < mesh->ne+1; ie++ )
+      mesh->tetra[ie].flag = mark_notseen;
+
+    /** Loop on all elements */
+    ncolors = 0;
+    nb_seen = 0;
+    while( nb_seen < mesh->ne ) {
+
+      /** Find first element not seen */
+      for( ie = 1; ie < mesh->ne+1; ie++ ) {
+        pt = &mesh->tetra[ie];
+        if( pt->flag == mark_notseen ) {
+          /* New color */
+          ++ncolors;
+          istart = ie;
+          /* Mark element */
+          pt->flag = ncolors;
+          ++nb_seen;
+          done = 0;
+          /* Exit */
+          break;
+        }
+      }
+
+      /** Loop on colored elements until the subgroup is full */
+      while( !done ) {
+        done = 1;
+        for( ie = istart; ie < mesh->ne+1; ie++ ) {
+          pt   = &mesh->tetra[ie];
+          adja = &mesh->adja[4*(ie-1)+1];
+    
+          /* Skip unseen elts or different colors */
+          if( pt->flag != ncolors ) continue;
+    
+          /** Loop on adjacents */
+          for( ifac = 0; ifac < 4; ifac++ ) {
+            je = adja[ifac]/4;
+            pt1 = &mesh->tetra[je];
+            /** Mark with current color (if not already seen) */
+            if( je && pt1->flag == mark_notseen ) {
+              pt1->flag = ncolors;
+              ++nb_seen;
+              done = 0;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return ncolors;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param part    elements partition array
  * \param ne      nb of elements
