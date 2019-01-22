@@ -189,30 +189,57 @@ void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int n
 }
 
 /**
- * \param name filename to open
- * \param mesh pointer to mmg3d mesh to write to file
- * \param num  number of tetras in mmg3d
+ * \param parmesh pointer toward the parmesh structure
+ * \param grpId index of the group
+ * \param basename filename prefix
  *
- * This function writes all the tetras' vertices of the given mmg3d mesh to a
- * text file named "name"
+ * Write group mesh and metrics in medit format.
+ *
  */
-void PMMG_grplst_meshes_to_saveMesh( PMMG_pGrp listgrp, int ngrp, int rank, char *basename )
-{
-  int grpId;
-  char name[ 2048 ];
-  assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
+void PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  size_t     memAv,oldMemMax;
+  char       name[ 2048 ];
+  
+  grp  = &parmesh->listgrp[grpId];
+  mesh = grp->mesh;
+  met  = grp-> met;
 
-  for ( grpId = 0 ; grpId < ngrp ; grpId++ ) {
-    //MMG5_saveMshMesh( pmesh[ grpId ].mesh, mesMMG5_pSol met,const char *filename)
-    sprintf( name, "%s-P%02d-%02d.mesh", basename, rank, grpId );
-    MMG3D_hashTetra( listgrp[ grpId ].mesh, 1 );
-    MMG3D_bdryBuild( listgrp[ grpId ].mesh ); //note: no error checking
-    MMG3D_saveMesh( listgrp[ grpId ].mesh, name );
-    if ( listgrp[ grpId ].met->m ) {
-      sprintf( name, "%s-P%02d-%02d.sol", basename, rank, grpId );
-      MMG3D_saveSol( listgrp[ grpId ].mesh, listgrp[ grpId ].met, name );
-    }
+  assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
+  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  
+  oldMemMax = parmesh->memCur;
+  memAv = parmesh->memMax-oldMemMax;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+ 
+  MMG3D_hashTetra( mesh, 1 );
+  MMG3D_bdryBuild( mesh ); //note: no error checking
+  MMG3D_saveMesh( mesh, name );
+  if ( met->m ) {
+    sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+    MMG3D_saveSol( mesh, met, name );
   }
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+}
+
+
+/**
+ * \param parmesh filename to open
+ * \param basename filenames prefix
+ *
+ * Write meshes and metrics of all groups in medit format.
+ *
+ */
+void PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
+  int grpId;
+
+  for ( grpId = 0 ; grpId < parmesh->ngrp ; grpId++ )
+    PMMG_grp_to_saveMesh( parmesh, grpId, basename );
+
 }
 
 /**
