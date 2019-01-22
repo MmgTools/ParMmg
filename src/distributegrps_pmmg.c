@@ -2956,7 +2956,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
     if( !ier ) {
       fprintf(stderr,"\n  ## Unable to count mesh contiguous subgroups.\n");
     } else if( ier>1 ) {
-      fprintf(stderr,"\n  ## Error %s: Group meshes are not contiguous: %d subgroups found.\n",
+      fprintf(stderr,"\n  ## Error %s: Group meshes are not contiguous.\n",
               __func__,ier);
       ier = 0;
     }

@@ -131,12 +131,14 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
   MMG5_pMesh  mesh;
   MMG5_pTetra pt,pt1;
   int         *adja,igrp,ie,je,ifac;
-  int         ncolors,nb_seen,mark_notseen,done,istart;
+  int         ncolors,maxcolors,nb_seen,mark_notseen,done,istart;
   size_t      memAv,oldMemMax;
 
   /** Labels */
   mark_notseen = 0;
 
+  /** Count the nb. of mesh subgroups for each group */
+  maxcolors = 0;
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp  = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
@@ -156,7 +158,7 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
     for( ie = 1; ie < mesh->ne+1; ie++ )
       mesh->tetra[ie].flag = mark_notseen;
 
-    /** Loop on all elements */
+    /** Loop on all elements to count the subgroups */
     ncolors = 0;
     nb_seen = 0;
     while( nb_seen < mesh->ne ) {
@@ -201,6 +203,13 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
         }
       }
     }
+
+    if( ncolors > 1 )
+      fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on grp %d, proc %d.\n",
+              ncolors,igrp,parmesh->myrank);
+ 
+    /** Update the max nb of subgroups found */
+    if( ncolors > maxcolors ) maxcolors = ncolors;
   }
 
   return ncolors;
