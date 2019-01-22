@@ -184,7 +184,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
     grp = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
-    if( !grp->met->m ) continue;
+    if( mesh->info.inputMet != 1 ) continue;
 
     ie = 1;
     for( ip=1; ip<mesh->np+1; ip++ ) {
