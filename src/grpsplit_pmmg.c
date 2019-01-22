@@ -339,7 +339,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 
   /* Set metrics size */
-  if ( metOld->m )
+  if ( meshOld->info.inputMet == 1 )
     if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
 
@@ -524,7 +524,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh ) {
     memcpy( pptCur, ppt, sizeof(MMG5_Point) );
 
     /* Copy metrics */
-    if ( met->m )
+    if ( mesh->info.inputMet == 1 )
       memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
 
   }
@@ -918,7 +918,7 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
   mesh->ne    = ne;
   mesh->nemax = ne;
 
-  if ( met->m )
+  if ( mesh->info.inputMet == 1 )
     PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
                  double,"fitted metric table",return 0);
   met->npmax = mesh->npmax;
@@ -927,7 +927,7 @@ int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
   mesh->np  = np;
   mesh->npi = np;
 
-  if ( met->m ) {
+  if ( mesh->info.inputMet == 1 ) {
     met->np  = np;
     met->npi = np;
   }
