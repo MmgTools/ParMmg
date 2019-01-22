@@ -126,6 +126,96 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
  * subgroups.
  *
  */
+int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
+    idx_t *part, idx_t nnodes, idx_t nparts ) {
+  idx_t       *flag,ipart,inode,jnode,iadj,istart;
+  int         nnodes_part,ncolors,maxcolors,nb_seen,done;
+
+  /** Flags */
+  PMMG_CALLOC( parmesh, flag, nnodes, idx_t, "graph node flags", return 0 );
+
+  /** Count the nb. of graph subgroups for each part */
+  maxcolors = 0;
+  for( ipart = 0; ipart < nparts; ipart++ ) {
+
+    /** Reset node flag of the current partition and count nodes on partition */
+    nnodes_part = 0;
+    for( inode = 0; inode < nnodes; inode++ )
+      if( part[inode] == ipart ) {
+        flag[inode] = 0;
+        ++nnodes_part;
+      }
+
+    /** Loop on all nodes to count the subgroups */
+    ncolors = 0;
+    nb_seen = 0;
+    while( nb_seen < nnodes_part ) {
+
+      /** Find first node not seen */
+      for( inode = 0; inode < nnodes; inode++ ) {
+        /* Remain on current partition */
+        if( part[inode] != ipart ) continue;
+
+        if( flag[inode] == 0 ) {
+          /* New color */
+          ++ncolors;
+          istart = inode;
+          /* Mark element */
+          flag[inode] = ncolors;
+          ++nb_seen;
+          done = 0;
+          /* Exit */
+          break;
+        }
+      }
+
+      /** Loop on colored elements until the subgroup is full */
+      while( !done ) {
+        done = 1;
+        for( inode = istart; inode < nnodes; inode++ ) {
+          /* Remain on current partition */
+          if( part[inode] != ipart ) continue;
+ 
+          /* Skip unseen nodes or different colors */
+          if( flag[inode] != ncolors ) continue;
+    
+          /** Loop on adjacents */
+          for( iadj = xadj[inode]; iadj < xadj[inode+1]; iadj++ ) {
+            jnode = adjncy[iadj];
+            if( part[jnode] != ipart ) continue;
+            /** Mark with current color (if not already seen) */
+            if( flag[jnode] == 0 ) {
+              flag[jnode] = ncolors;
+              ++nb_seen;
+              done = 0;
+            }
+          }
+        }
+      }
+    }
+
+    if( ncolors > 1 )
+      fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on part %d, proc %d.\n",
+              ncolors,ipart,parmesh->myrank);
+ 
+    /** Update the max nb of subgroups found */
+    if( ncolors > maxcolors ) maxcolors = ncolors;
+  }
+
+  PMMG_DEL_MEM( parmesh,flag,idx_t,"graph node flags");
+
+  return ncolors;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return The number of contiguous subgroups.
+ *
+ * Check group mesh contiguity by counting the number of adjacent element
+ * subgroups.
+ *
+ */
 int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
@@ -185,7 +275,7 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
         for( ie = istart; ie < mesh->ne+1; ie++ ) {
           pt   = &mesh->tetra[ie];
           adja = &mesh->adja[4*(ie-1)+1];
-    
+ 
           /* Skip unseen elts or different colors */
           if( pt->flag != ncolors ) continue;
     
