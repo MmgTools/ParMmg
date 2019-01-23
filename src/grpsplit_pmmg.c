@@ -294,6 +294,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param igrp index of the group to create
  *
  * \return 0 if fail, 1 if success
  *
@@ -301,15 +302,15 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  * structures (info.inputMet == 1 if a metrics is provided by the user).
  *
  */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh ) {
-  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[0].met;
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
+  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   size_t           oldMemMax,memAv;
 
-  grp = &parmesh->old_listgrp[0];
+  grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
   grp->met  = NULL;
 
@@ -474,23 +475,24 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param igrp index of the group to fill
  *
  * Fill the background mesh with the current mesh merged in group 0
  * (info.inputMet == 1 if a  metrics is provided by the user).
  *
  */
-int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh ) {
+int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
 
-  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[0].met;
+  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   MMG5_pTetra      pt,ptCur;
   MMG5_pPoint      ppt,pptCur;
   int              *adja,*oldAdja,ie,ip;
 
-  mesh = parmesh->old_listgrp[0].mesh;
-  met  = parmesh->old_listgrp[0].met;
+  mesh = parmesh->old_listgrp[igrp].mesh;
+  met  = parmesh->old_listgrp[igrp].met;
 
   assert( mesh->ne == meshOld->ne );
   assert( mesh->np == meshOld->np );
@@ -876,6 +878,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
+ * \param igrp index of the group to clean
  *
  * \return 0 if fail, 1 if success
  *
@@ -888,18 +891,18 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  *
  */
 static inline
-int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh )
+int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh,int igrp )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   int        np, ne;
   size_t     memAv,oldMemMax;
 
-  mesh = parmesh->old_listgrp[0].mesh;
-  met  = parmesh->old_listgrp[0].met;
+  mesh = parmesh->old_listgrp[igrp].mesh;
+  met  = parmesh->old_listgrp[igrp].met;
   
-  np   = parmesh->listgrp[0].mesh->np;
-  ne   = parmesh->listgrp[0].mesh->ne;
+  np   = parmesh->listgrp[igrp].mesh->np;
+  ne   = parmesh->listgrp[igrp].mesh->ne;
 
   /* Give all the available memory to the mesh */
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
@@ -1346,8 +1349,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,in
       return 0;
     }
     PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[0].mesh,memAv,oldMemMax);
-    ier = PMMG_oldGrps_cleanMesh( parmesh );
-    ier = PMMG_oldGrps_fillGroup( parmesh );
+    ier = PMMG_oldGrps_cleanMesh( parmesh,0 );
+    ier = PMMG_oldGrps_fillGroup( parmesh,0);
   }
 
 #ifndef NDEBUG

@@ -345,8 +345,8 @@ int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int,int );
 
 /* Mesh interpolation */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh );
-int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh );
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
+int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh );
 
 /* Communicators building and unallocation */

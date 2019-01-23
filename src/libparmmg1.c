@@ -399,8 +399,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   parmesh->nold_grp = 1;
   PMMG_CALLOC(parmesh,parmesh->old_listgrp,parmesh->nold_grp,PMMG_Grp,
               "old mesh groups",return 0);
-  ier = PMMG_oldGrps_newGroup( parmesh );
-  ier = PMMG_oldGrps_fillGroup( parmesh );
+  ier = PMMG_oldGrps_newGroup( parmesh,0 );
+  ier = PMMG_oldGrps_fillGroup( parmesh,0 );
 
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
