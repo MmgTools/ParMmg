@@ -298,7 +298,7 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  * \return 0 if fail, 1 if success
  *
  * Creation of a new group for the background mesh (without communication
- * structures)..
+ * structures (info.inputMet == 1 if a metrics is provided by the user).
  *
  */
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh ) {
@@ -475,7 +475,8 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
 /**
  * \param parmesh pointer toward the parmesh structure
  *
- * Fill the background mesh with the current mesh merged in group 0.
+ * Fill the background mesh with the current mesh merged in group 0
+ * (info.inputMet == 1 if a  metrics is provided by the user).
  *
  */
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh ) {
@@ -883,6 +884,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  *   - reallocate the mesh at it exact size
  *   - set the np/ne/npi/nei/npnil/nenil fields to suitables value and keep
  *   track of empty link
+ * (info.inputMet == 1 if a metrics is provided by the  user)
  *
  */
 static inline

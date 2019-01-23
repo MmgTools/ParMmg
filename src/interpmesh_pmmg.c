@@ -12,13 +12,15 @@
 #include "locate_pmmg.h"
 
 /**
- * \param nelem number of elements in the initial group
- * \param target_mesh_size wanted number of elements per group
+ * \param mesh pointer to the mesh structure
+ * \param pt pointer to the current tetra
+ * \param coord pointer to the point coordinates
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
  *
- * \return the needed number of groups
+ * \return 0 if fail, 1 if success
  *
- *  Compute the needed number of groups to create groups of \a target_mesh_size
- *  elements from a group of nelem elements.
+ *  Compute the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
 int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
@@ -45,6 +47,15 @@ int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
   return 1;
 }
 
+/**
+ * \param a pointer to point barycentric coordinates
+ * \param b pointer to point barycentric coordinates
+ *
+ * \return -1 if (a < b), +1 if (a > b), 0 if equal
+ *
+ *  Compare the barycentric coordinates of a given point in a given tetrahedron.
+ *
+ */
 int PMMG_compare_baryCoord( const void *a,const void *b ) {
   PMMG_baryCoord *coord_a;
   PMMG_baryCoord *coord_b;
@@ -58,6 +69,16 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
   return 0;
 }
 
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param init index of the starting element
+ *
+ * \return ie index of the target element (0 if not found) 
+ *
+ *  Locate a point in a background mesh by traveling the elements adjacency.
+ *
+ */
 int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   MMG5_pTetra    ptr,pt1;
   PMMG_baryCoord barycoord[4];
@@ -141,7 +162,17 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   return idxTet;
 }
 
-
+/**
+ * \param grp pointer to the current group structure
+ * \param oldGrp pointer to the bqckground group structure
+ * \param pt pointer to the target background tetrahedron
+ * \param ip index of the current point
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point metrics on a target background tetrahedron..
+ *
+ */
 int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,int ip ) {
   MMG5_pMesh     mesh;
   MMG5_pSol      met,oldMet;
@@ -169,6 +200,17 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,int 
   return 1;
 }
 
+/**
+ * \param parmesh pointer to the parmesh structure
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Interpolate metrics for all groups from background to current meshes.
+ *  Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
+ *  - if the metrics is constant, recompute it;
+ *  - else, interpolate the non-constant metrics.
+ *
+ */
 int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
