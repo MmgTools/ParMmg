@@ -199,7 +199,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /* Remove the MG_REQ tags added by the nosurf option */
     MMG3D_unset_reqBoundaries(mesh);
 
-    if ( mesh->info.imprim ) {
+    if ( mesh->info.imprim > 0 ) {
       fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
       fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
     }

@@ -121,12 +121,6 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->niter       = PMMG_NITER;
   parmesh->info.fem    = MMG5_FEM;
 
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
-    /* Set Mmg verbosity to 0 */
-    mesh->info.imprim = PMMG_NUL;
-  }
-
   /* Init MPI data */
   parmesh->comm   = comm;
 
@@ -145,9 +139,15 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     parmesh->info.imprim = PMMG_IMPRIM;
   }
   else {
-    parmesh->info.imprim = PMMG_NUL;
+    parmesh->info.imprim = PMMG_UNSET;
   }
   parmesh->info.imprim0  = PMMG_IMPRIM;
+
+  /* Set the mmg verbosity to the min of 0 and the parmmg verbosity */
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_NUL );
+  }
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh, 0 );
@@ -209,6 +209,12 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
       parmesh->info.imprim = val;
     }
     parmesh->info.imprim0 = val;
+
+    /* Set the mmg verbosity to the min of 0 and the parmmg verbosity */
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_NUL );
+    }
 
     break;
   case PMMG_IPARAM_mem :

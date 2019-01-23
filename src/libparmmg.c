@@ -30,7 +30,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pSol  met;
   int        k;
 
-  if ( parmesh->info.imprim )
+  if ( parmesh->info.imprim > 0 )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -167,13 +167,9 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   mytime        ctim[TIMEMAX];
   char          stim[32];
 
-  if ( parmesh->info.imprim > 0 ) {
-    fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
-    fprintf(stdout,"     %s\n",PMMG_CPY);
-    fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
-
-    fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
-    fprintf(stdout,"     %s\n",MG_CPY);
+ if ( parmesh->info.imprim >= 0 ) {
+    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
   }
 
   tminit(ctim,TIMEMAX);
@@ -194,10 +190,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
 
   chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
-    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
-
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"\n   -- PHASE 1 : DISTRIBUTE MESH AMONG PROCESSES\n");
   }
 
@@ -243,7 +236,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&(ctim[1]));
   printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
     fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL \n  %s\n",
             PMMG_STR,PMMG_STR);
@@ -254,7 +247,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   /** Merge all the meshes on the proc 0 */
   chrono(ON,&(ctim[2]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
   }
 
@@ -264,7 +257,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
   chrono(OFF,&(ctim[2]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     printim(ctim[2].gdif,stim);
     fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
   }
@@ -272,7 +265,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   if ( !parmesh->myrank ) {
     /** Boundaries reconstruction */
     chrono(ON,&(ctim[3]));
-    if (  parmesh->info.imprim ) {
+    if (  parmesh->info.imprim > 0 ) {
       fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
     }
 
@@ -288,7 +281,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     }
 
     chrono(OFF,&(ctim[3]));
-    if (  parmesh->info.imprim ) {
+    if (  parmesh->info.imprim > 0 ) {
       printim(ctim[3].gdif,stim);
       fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
     }
@@ -296,7 +289,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim )
+  if ( parmesh->info.imprim >= 0 )
     fprintf(stdout,"\n   PARMMGLIB_CENTRALIZED: ELAPSED TIME  %s\n",stim);
 
   PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
@@ -311,13 +304,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   char             stim[32];
 
 
-  if ( parmesh->info.imprim > 0 ) {
-    fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
-    fprintf(stdout,"     %s\n",PMMG_CPY);
-    fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
-
-    fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
-    fprintf(stdout,"     %s\n",MG_CPY);
+  if ( parmesh->info.imprim >= 0 ) {
+    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
   }
 
   tminit(ctim,TIMEMAX);
@@ -333,15 +322,13 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&(ctim[1]));
   printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
 
 
   chrono(ON,&(ctim[1]));
   if ( parmesh->info.imprim > 0 ) {
-    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
   }
 
@@ -369,7 +356,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   /** Remeshing */
   chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
@@ -379,7 +366,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&(ctim[1]));
   printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
     fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL \n  %s\n",
             PMMG_STR,PMMG_STR);
@@ -390,7 +377,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   /** Boundaries reconstruction */
   chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim )
+  if ( parmesh->info.imprim > 0 )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
   /** All the memory is devoted to the mesh **/
@@ -407,14 +394,14 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   }
 
   chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     printim(ctim[1].gdif,stim);
     fprintf(stdout,"\n   -- PHASE 3 COMPLETED.     %s\n",stim);
   }
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim > 0 )
+  if ( parmesh->info.imprim >= 0 )
     fprintf(stdout,"\n   PARMMGLIB_DISTRIBUTED: ELAPSED TIME  %s\n",stim);
 
   return ierlib;

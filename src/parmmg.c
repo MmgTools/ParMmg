@@ -110,7 +110,7 @@ int main( int argc, char *argv[] )
 
   /** load data */
   chrono(ON,&PMMG_ctim[1]);
-  if ( rank==parmesh->info.root ) {
+  if ( rank==parmesh->info.root && parmesh->info.imprim >= 0 ) {
     fprintf(stdout,"\n  -- INPUT DATA: LOADING MESH ON RANK %d\n",
             parmesh->info.root);
   }
@@ -125,7 +125,7 @@ int main( int argc, char *argv[] )
   }
 
   if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
-    if ( parmesh->info.imprim ) {
+    if ( rank == parmesh->info.root ) {
       fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
     }
     ier = 0;
@@ -136,7 +136,7 @@ int main( int argc, char *argv[] )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   chrono(OFF,&PMMG_ctim[1]);
-  if ( rank==parmesh->info.root ) {
+  if ( parmesh->info.imprim >= 0 ) {
     printim(PMMG_ctim[1].gdif,stim);
     fprintf(stdout,"  -- DATA READING COMPLETED.     %s\n",stim);
   }
