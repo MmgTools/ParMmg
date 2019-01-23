@@ -238,8 +238,6 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   printim(ctim[1].gdif,stim);
   if ( parmesh->info.imprim > 0) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
-    fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL \n  %s\n",
-            PMMG_STR,PMMG_STR);
   }
   if ( ierlib == PMMG_STRONGFAILURE ) {
     return ierlib;
@@ -289,8 +287,11 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim >= 0 )
+  if ( parmesh->info.imprim >= 0 ) {
     fprintf(stdout,"\n   PARMMGLIB_CENTRALIZED: ELAPSED TIME  %s\n",stim);
+    fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL \n  %s\n",
+            PMMG_STR,PMMG_STR);
+  }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
 }
@@ -368,8 +369,6 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   printim(ctim[1].gdif,stim);
   if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
-    fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL \n  %s\n",
-            PMMG_STR,PMMG_STR);
   }
   if ( ierlib == PMMG_STRONGFAILURE ) {
     return ierlib;
@@ -401,8 +400,11 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim >= 0 )
+  if ( parmesh->info.imprim >= 0 ) {
     fprintf(stdout,"\n   PARMMGLIB_DISTRIBUTED: ELAPSED TIME  %s\n",stim);
+    fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL \n  %s\n",
+            PMMG_STR,PMMG_STR);
+  }
 
   return ierlib;
 }
