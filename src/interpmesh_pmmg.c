@@ -184,25 +184,41 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
     grp = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
-    if( mesh->info.inputMet != 1 ) continue;
+    if( mesh->info.inputMet != 1 ) {
 
-    ie = 1;
-    for( ip=1; ip<mesh->np+1; ip++ ) {
-      if( !MG_VOK(&mesh->point[ip]) ) continue;
+      /* Nothing to do */
+      continue;
 
-      /** Locate point in the old mesh */
-      ie = PMMG_locatePoint( oldMesh, &mesh->point[ip], ie );
-      if( !ie ) {
-        fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d), point %d not found, coords %e %e %e\n",__func__,parmesh->myrank,igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],mesh->point[ip].c[2]);
-        return 0;
+    } else {
+
+      if( mesh->info.hsiz > 0.0 ) {
+
+        /* Compute constant metrics */
+        if ( !MMG3D_Set_constantSize(mesh,grp->met) ) return 0;
+
+      } else {
+
+        /* Interpolate metrics */
+        ie = 1;
+        for( ip=1; ip<mesh->np+1; ip++ ) {
+          if( !MG_VOK(&mesh->point[ip]) ) continue;
+    
+          /** Locate point in the old mesh */
+          ie = PMMG_locatePoint( oldMesh, &mesh->point[ip], ie );
+          if( !ie ) {
+            fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d), point %d not found, coords %e %e %e\n",__func__,parmesh->myrank,igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],mesh->point[ip].c[2]);
+            return 0;
+          }
+    
+          pt = &oldMesh->tetra[ie];
+    
+          /** Interpolate point metrics */
+          ier = PMMG_interpMetrics_point(grp,oldGrp,pt,ip);
+        }
+
       }
-
-      pt = &oldMesh->tetra[ie];
-
-      /** Interpolate point metrics */
-      ier = PMMG_interpMetrics_point(grp,oldGrp,pt,ip);
     }
+  
   }
-
   return 1;
 }
