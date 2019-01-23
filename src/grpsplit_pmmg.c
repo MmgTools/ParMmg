@@ -1022,6 +1022,46 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Copy all groups from the current to the background list.
+ *
+ */
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh )
+{
+  int grpId;
+
+  PMMG_listgrp_free(parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
+ 
+  /* Allocate list of subgroups struct and allocate memory */
+  parmesh->nold_grp = parmesh->ngrp;
+  PMMG_CALLOC(parmesh,parmesh->old_listgrp,parmesh->nold_grp,PMMG_Grp,
+              "old group list ",return 0);
+
+  /** Copy every group */
+  for ( grpId = 0; grpId < parmesh->ngrp; ++grpId ) {
+
+    /* New group initialisation */
+    if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
+              " group (%d).\n",__func__,grpId);
+      return 0;
+    }
+
+    /* Fill group */
+    if ( !PMMG_oldGrps_fillGroup( parmesh, grpId ) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to fill new background"
+              "group (%d).\n",__func__,grpId);
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param target_mesh_size wanted number of elements per group
  * \param fitMesh alloc the meshes at their exact sizes
  *
