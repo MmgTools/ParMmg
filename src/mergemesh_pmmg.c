@@ -698,18 +698,26 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
           pxt->ftag[ifac] &= ~MG_PARBDYBDY;
           pxt->ftag[ifac] |= MG_BDY;
         }
+        /* Only a "true" boundary after this line */
         if ( pxt->ftag[ifac] & MG_BDY ) {
+          /* Constrain boundary if -nosurf option */
+          if( mesh->info.nosurf ) pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
           /* Tag face edges */
           for ( j=0; j<3; j++ ) {
             ia = MMG5_iarf[ifac][j];
             ip0 = pt->v[MMG5_iare[ia][0]];
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf )
+              if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
             ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
             ppt->tag |= MG_BDY;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf ) ppt->tag |= MG_REQ + MG_NOSURF;
           }
         }
       }
