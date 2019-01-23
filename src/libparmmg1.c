@@ -432,8 +432,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
-
   for ( it = 0; it < parmesh->niter; ++it ) {
 
     for ( i=0; i<parmesh->ngrp; ++i ) {
@@ -447,6 +445,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         continue;
       }
 
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+ 
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
