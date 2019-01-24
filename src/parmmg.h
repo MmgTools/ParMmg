@@ -342,7 +342,7 @@ int PMMG_split_grps( PMMG_pParMesh,int,int );
 /* Load Balancing */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
-int PMMG_split_n2mGrps( PMMG_pParMesh,int,int,int );
+int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
 
 /* Mesh interpolation */
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );

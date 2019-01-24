@@ -477,7 +477,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
  * \param parmesh pointer toward the parmesh structure
  * \param igrp index of the group to fill
  *
- * Fill the background mesh with the current mesh merged in group 0
+ * Fill the background mesh with the current mesh on group igrp
  * (info.inputMet == 1 if a  metrics is provided by the user).
  *
  */
@@ -1034,8 +1034,7 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
  * Copy all groups from the current to the background list.
  *
  */
-int PMMG_update_oldGrps( PMMG_pParMesh parmesh )
-{
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
   int grpId;
 
   PMMG_listgrp_free(parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
@@ -1361,7 +1360,7 @@ end:
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,int updateOldMesh) {
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   size_t  memAv,oldMemMax;
   int     ier,ier1,ier_glob;
 
@@ -1385,19 +1384,6 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh,in
     }
   }
   ier = MG_MIN( ier, ier1 );
-
-  /** Update the old mesh */
-  if( updateOldMesh ) {
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[0].mesh,memAv,oldMemMax);
-    if ( !MMG3D_hashTetra(parmesh->listgrp[0].mesh,0) ) {
-      fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
-      return 0;
-    }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[0].mesh,memAv,oldMemMax);
-    ier = PMMG_oldGrps_cleanMesh( parmesh,0 );
-    ier = PMMG_oldGrps_fillGroup( parmesh,0);
-  }
 
 #ifndef NDEBUG
   /* In debug mode we have mpi comm in split_grps, thus, if 1 proc fails

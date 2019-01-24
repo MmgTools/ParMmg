@@ -219,10 +219,9 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   int         *adja;
   int         igrp,ip,ie,ier;
 
-  oldGrp  = &parmesh->old_listgrp[0];
-  oldMesh = oldGrp->mesh;
 
-  for( igrp=0; igrp<parmesh->ngrp; igrp++ ) {
+  /** Loop on current groups */
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
@@ -241,6 +240,9 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
       } else {
 
         /* Interpolate metrics */
+        oldGrp = &parmesh->old_listgrp[igrp];
+        oldMesh = oldGrp->mesh;
+
         ie = 1;
         for( ip=1; ip<mesh->np+1; ip++ ) {
           if( !MG_VOK(&mesh->point[ip]) ) continue;
