@@ -100,7 +100,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
     ptr = &mesh->tetra[idxTet];
     adja = &mesh->adja[4*(idxTet-1)+1];
     vol = MMG5_orvol( mesh->point, ptr->v );
-    eps = MMG5_EPS*vol;
+    eps = MMG5_EPS;
 
     /** Mark tetra */
     ptr->flag = mesh->base;
@@ -145,7 +145,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
       ptr = &mesh->tetra[idxTet];
       adja = &mesh->adja[4*(idxTet-1)+1];
       vol = MMG5_orvol( mesh->point, ptr->v );
-      eps = MMG5_EPS*vol;
+      eps = MMG5_EPS;
 
       /** Mark tetra */
       ptr->flag = mesh->base;
