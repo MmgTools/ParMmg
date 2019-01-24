@@ -514,6 +514,9 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
       memcpy( adja, oldAdja, 4*sizeof(int) );
     }
 
+    /* Skip xtetra */
+    ptCur->xt = 0;
+
   }
 
   /* Loop on points */
@@ -529,6 +532,9 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
     /* Copy metrics */
     if ( mesh->info.inputMet == 1 )
       memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+
+    /* Skip xpoint */
+    pptCur->xp = 0;
 
   }
   
