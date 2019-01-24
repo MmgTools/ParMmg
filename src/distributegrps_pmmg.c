@@ -2382,9 +2382,8 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   /** Step 3: Delete the old faces of the external communicator myrank-sndr (due
    * to the transfer of the groups from sndr toward myrank) from the external
    * communicator myrank-sndr (intcomm_flag = 3) */
-#warning is the face orientation ok?
-  /* New number of faces */
 
+  /* New number of faces */
   n = 0;
   if ( ext_send_comm ) {
     for ( k=0; k<ext_send_comm->nitem; ++k ) {

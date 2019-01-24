@@ -167,7 +167,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   mytime        ctim[TIMEMAX];
   char          stim[32];
 
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
     fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
@@ -188,7 +188,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&(ctim[1]));
   printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
 
@@ -226,14 +226,14 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
   chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
-    printim(ctim[0].gdif,stim);
+  if ( parmesh->info.imprim > 0 ) {
+    printim(ctim[1].gdif,stim);
     fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */
   chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
@@ -311,7 +311,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   char             stim[32];
 
 
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
     fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
@@ -339,7 +339,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
 
   chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
             "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
@@ -362,8 +362,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   }
 
   chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim ) {
-    printim(ctim[0].gdif,stim);
+  if ( parmesh->info.imprim > 0 ) {
+    printim(ctim[1].gdif,stim);
     fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
@@ -414,7 +414,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim )
+  if ( parmesh->info.imprim > 0 )
     fprintf(stdout,"\n   PARMMGLIB_DISTRIBUTED: ELAPSED TIME  %s\n",stim);
 
   return ierlib;

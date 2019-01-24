@@ -119,24 +119,26 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
 
   if ( parmesh->myrank == 0 ) {
 
-    fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
+    if ( parmesh->info.imprim > 0 ) {
+      fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
-    if ( parmesh->info.imprim && optimLES_result ) {
-      fprintf( stdout," (LES)" );
+      if ( optimLES_result ) {
+        fprintf( stdout," (LES)" );
+      }
+
+      fprintf( stdout, "  %d\n", ne_result );
+
+      fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (",
+               max_result, avg_result / ne_result, min_iel_result.min);
+
+      if ( parmesh->ngrp>1 )
+        fprintf( stdout, "GROUP %d - ",min_iel_result.iel_grp);
+
+      if ( parmesh->nprocs>1 )
+        fprintf( stdout, "PROC %d - ",min_iel_result.cpu);
+
+      fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
     }
-
-    fprintf( stdout, "  %d\n", ne_result );
-
-    fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (",
-             max_result, avg_result / ne_result, min_iel_result.min);
-
-    if ( parmesh->ngrp>1 )
-      fprintf( stdout, "GROUP %d - ",min_iel_result.iel_grp);
-
-    if ( parmesh->nprocs>1 )
-      fprintf( stdout, "PROC %d - ",min_iel_result.cpu);
-
-    fprintf( stdout,"ELT %d)\n", min_iel_result.iel );
 
     ier =
       MMG3D_displayQualHisto_internal( ne_result, max_result, avg_result,

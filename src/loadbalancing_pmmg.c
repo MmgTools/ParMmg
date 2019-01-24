@@ -58,6 +58,7 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   int ier,ier_glob,igrp,ne;
 
+
   /** Count the number of interface faces per tetra and store it in mark */
   ier = PMMG_count_parBdy(parmesh);
   if ( !ier ) {
