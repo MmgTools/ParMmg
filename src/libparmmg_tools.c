@@ -173,13 +173,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                  (argv[i][0]=='-' && isdigit(argv[i][1])) ) {
               val = atoi(argv[i]);
 
-              for ( k=0; k<parmesh->ngrp; ++k ) {
-                mesh = parmesh->listgrp[0].mesh;
-                met  = parmesh->listgrp[0].met;
-                if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_verbose,val) ) {
-                  ret_val = 0;
-                  goto fail_proc;
-                }
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgVerbose,val) ) {
+                ret_val = 0;
+                goto fail_proc;
               }
             }
             else {
@@ -195,16 +191,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         }
         else if ( !strcmp(argv[i],"-mmg-d") ) {
-          for ( k=0; k<parmesh->ngrp; ++k ) {
-            /* Mmg debug */
-            mesh = parmesh->listgrp[0].mesh;
-            met  = parmesh->listgrp[0].met;
-            if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_debug,1) ) {
-              ret_val = 0;
-              goto fail_proc;
-            }
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgDebug,val) ) {
+            ret_val = 0;
+            goto fail_proc;
           }
-
         }
         else {
           /* memory */
@@ -310,17 +300,18 @@ int PMMG_parsop ( PMMG_pParMesh parmesh )
   int8_t     tmp_verb;
 
   assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+  mesh = parmesh->listgrp[0].mesh;
 
-  /* Force that only the proc root prints a message about the file that is opened */
-  if ( parmesh->myrank != 0 ) {
-    tmp_verb = parmesh->listgrp[0].mesh->info.imprim;
-    parmesh->listgrp[0].mesh->info.imprim = -1;
-  }
-  ier = MMG3D_parsop(parmesh->listgrp[0].mesh,parmesh->listgrp[0].met);
-  /* Restrore the default values */
-  if ( parmesh->myrank != 0 ) {
-    parmesh->listgrp[0].mesh->info.imprim = tmp_verb;
-  }
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  mesh->info.imprim = parmesh->info.imprim;
+
+  ier = MMG3D_parsop(mesh,parmesh->listgrp[0].met);
+
+  /* Restore the mesh verbosity */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
 
   return ier;
 }

@@ -236,6 +236,7 @@ typedef struct {
   int mem;     /*!< memory asked by user */
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
+  int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
 } PMMG_Info;
 
 

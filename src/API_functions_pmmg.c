@@ -143,10 +143,11 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
   parmesh->info.imprim0  = PMMG_IMPRIM;
 
-  /* Set the mmg verbosity to the min of 0 and the parmmg verbosity */
+  /* Set the mmg verbosity to -1 (no output) */
+  parmesh->info.mmg_imprim = PMMG_MMG_IMPRIM;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_NUL );
+    mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_MMG_IMPRIM );
   }
 
   /* Default memory */
@@ -198,7 +199,7 @@ int PMMG_Set_metSize(PMMG_pParMesh parmesh,int typEntity,int np,int typSol){
   return ier;
 }
 
-int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
+int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   int         k,mem;
@@ -210,13 +211,17 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
     }
     parmesh->info.imprim0 = val;
 
-    /* Set the mmg verbosity to the min of 0 and the parmmg verbosity */
+    break;
+  case PMMG_IPARAM_mmgVerbose :
+    parmesh->info.mmg_imprim = val;
+
+    /* Set the mmg verbosity */
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_NUL );
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_verbose,val) ) return 0;
     }
-
     break;
+
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
       fprintf( stdout,
@@ -243,6 +248,16 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val){
   case PMMG_IPARAM_debug :
     parmesh->ddebug = val;
     break;
+
+  case PMMG_IPARAM_mmgDebug :
+
+    /* Set the mmg debug mode */
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_debug,val) ) return 0;
+    }
+    break;
+
   case PMMG_IPARAM_angle :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;

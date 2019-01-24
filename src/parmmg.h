@@ -53,6 +53,14 @@ extern "C" {
 #define PMMG_IMPRIM   1
 
 /**
+ * \def PMMG_MMG_IMPRIM
+ *
+ * Default verbosity for Mmg
+ *
+ */
+#define PMMG_MMG_IMPRIM   -1
+
+/**
  *
  * Size of quality histogram arrays
  *
