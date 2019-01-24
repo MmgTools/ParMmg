@@ -74,7 +74,8 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  * \param ppt pointer to the point to locate
  * \param init index of the starting element
  *
- * \return ie index of the target element (0 if not found) 
+ * \return ie if positive, index of the target element; if negative, index of
+ * the closest element; 0 if not found
  *
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
@@ -82,8 +83,8 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
 int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   MMG5_pTetra    ptr,pt1;
   PMMG_baryCoord barycoord[4];
-  int            *adja,iel,ip,idxTet,step;
-  double         vol, eps;
+  int            *adja,iel,ip,idxTet,step,closestTet;
+  double         vol,eps,closestDist;
 
   if(!init)
     idxTet = 1;
@@ -136,6 +137,8 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   if( step == (mesh->ne+1) ) {
     fprintf(stderr,"\n ## Warning %s: Cannot locate point, performing exhaustive research.",__func__);
 
+    closestTet = 0;
+    closestDist = 1.0e10;
     for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
  
       /** Get tetra */
@@ -153,10 +156,20 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
 
       /** Exit if inside the element */
       if( barycoord[0].val > -eps ) break;
+
+      /** Save element index (with negative sign) if it is the closest one */
+      if( fabs(barycoord[0].val)*vol < closestDist ) {
+        closestDist = fabs(barycoord[0].val)*vol;
+        closestTet = -idxTet;
+      }
+
     }
 
-    /** Element not found */
-    if ( idxTet == mesh->ne+1 ) return 0;
+    /** Element not found: Return the closest one with negative sign (if found) */
+    if ( idxTet == mesh->ne+1 ) {
+      fprintf(stderr,"\n ## Warning %s: Point not located, smallest external volume %e.",closestDist,__func__);
+      return closestTet;
+    }
 
   }
   return idxTet;
@@ -252,6 +265,9 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
           if( !ie ) {
             fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d), point %d not found, coords %e %e %e\n",__func__,parmesh->myrank,igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],mesh->point[ip].c[2]);
             return 0;
+          } else if( ie < 0 ) {
+            fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not found, coords %e %e %e\n",__func__,parmesh->myrank,igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],mesh->point[ip].c[2]);
+            ie = -ie;
           }
     
           pt = &oldMesh->tetra[ie];
