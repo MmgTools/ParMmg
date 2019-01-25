@@ -395,6 +395,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   ier_end = PMMG_SUCCESS;
 
+
   /** Groups creation */
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
 
@@ -425,11 +426,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
-  oldMemMax = parmesh->memMax;
-  available =0;
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   for ( it = 0; it < parmesh->niter; ++it ) {
+
+    /** Update old groups for metrics interpolation */
+    PMMG_update_oldGrps( parmesh );
 
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
@@ -442,6 +442,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         continue;
       }
 
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+ 
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
@@ -511,6 +513,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( !ieresult )
       goto failed_handling;
 
+    /** Interpolate metrics */
+    ier = PMMG_interpMetrics_grps( parmesh );
+ 
+    MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( !ieresult ) {
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+    }
+
     /** load Balancing at group scale and communicators reconstruction */
     ier = PMMG_loadBalancing(parmesh);
 
@@ -539,6 +551,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
+
+  PMMG_listgrp_free( parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
 
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );

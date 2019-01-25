@@ -125,6 +125,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     mesh = parmesh->listgrp[k].mesh;
     /* Set Mmg verbosity to 0 */
     mesh->info.imprim = PMMG_NUL;
+#warning Option -nosurf imposed by default.
+    mesh->info.nosurf = 1;
   }
 
   /* Init MPI data */

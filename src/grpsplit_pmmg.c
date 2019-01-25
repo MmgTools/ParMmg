@@ -294,6 +294,69 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param igrp index of the group to create
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Creation of a new group for the background mesh (without communication
+ * structures (info.inputMet == 1 if a metrics is provided by the user).
+ *
+ */
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
+  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+  PMMG_pGrp        grp;
+  MMG5_pMesh       mesh;
+  MMG5_pSol        met;
+  size_t           oldMemMax,memAv;
+
+  grp = &parmesh->old_listgrp[igrp];
+  grp->mesh = NULL;
+  grp->met  = NULL;
+
+  MMG3D_Init_mesh( MMG5_ARG_start,
+                   MMG5_ARG_ppMesh, &grp->mesh,
+                   MMG5_ARG_ppMet, &grp->met,
+                   MMG5_ARG_end );
+
+  mesh = grp->mesh;
+  met  = grp->met;
+
+  /* Give all the available memory to the mesh */
+  oldMemMax = parmesh->memCur;
+  memAv     = parmesh->memMax-oldMemMax;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
+  /* Copy the mesh filenames */
+  if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
+  if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein ) )  return 0;
+  if ( !MMG5_Set_outputMeshName( mesh,meshOld->nameout ) )    return 0;
+  if ( !MMG5_Set_outputSolName(  mesh,met,metOld->nameout ) ) return 0;
+
+  /* Set sizes and allocate new mesh */
+  if ( !PMMG_grpSplit_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
+    return 0;
+
+  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
+
+  /* Set metrics size */
+  if ( meshOld->info.inputMet == 1 )
+    if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
+      return 0;
+
+  /* Copy the info structure of the initial mesh: it contains the remeshing
+   * options */
+  memcpy(&(mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
+
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
  * \param memAv available mem for the mesh allocation
  * \param ne number of elements in the new group mesh
@@ -349,7 +412,10 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
     else if ( grpOld->met->size == 6 )
       grp->met->type = MMG5_Tensor;
 
-    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,1,grp->met->type) )
+    /** If we have an initial metric, force the metric allocation (even if for
+     * now, we don't know the number of point that will be stored in it) */
+    int allocMetric = 1;
+    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocMetric,grp->met->type) )
       return 0;
   }
 
@@ -394,6 +460,74 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
 
   *memAv -= (parmesh->memMax - oldMemMax);
 
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param igrp index of the group to fill
+ *
+ * Fill the background mesh with the current mesh on group igrp
+ * (info.inputMet == 1 if a  metrics is provided by the user).
+ *
+ */
+int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
+
+  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+  MMG5_pMesh       mesh;
+  MMG5_pSol        met;
+  MMG5_pTetra      pt,ptCur;
+  MMG5_pPoint      ppt,pptCur;
+  int              *adja,*oldAdja,ie,ip;
+
+  mesh = parmesh->old_listgrp[igrp].mesh;
+  met  = parmesh->old_listgrp[igrp].met;
+
+  assert( mesh->ne == meshOld->ne );
+  assert( mesh->np == meshOld->np );
+
+  /* Loop on tetras */
+  for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
+    pt = &meshOld->tetra[ie];
+    ptCur = &mesh->tetra[ie];
+ 
+    if ( !MG_EOK(pt) ) continue;
+
+    /* Copy tetra */
+    memcpy( ptCur, pt, sizeof(MMG5_Tetra) );
+
+    /* Copy element's adjacency */
+    if( meshOld->adja ) {
+      adja    =    &mesh->adja[ 4*( ie-1 )+1 ];
+      oldAdja = &meshOld->adja[ 4*( ie-1 )+1 ];
+      memcpy( adja, oldAdja, 4*sizeof(int) );
+    }
+
+    /* Skip xtetra */
+    ptCur->xt = 0;
+
+  }
+
+  /* Loop on points */
+  for ( ip = 1; ip < meshOld->np+1; ++ip ) {
+    ppt = &meshOld->point[ip];
+    pptCur = &mesh->point[ip];
+ 
+    if ( !MG_VOK(ppt) ) continue;
+
+    /* Copy point */
+    memcpy( pptCur, ppt, sizeof(MMG5_Point) );
+
+    /* Copy metrics */
+    if ( mesh->info.inputMet == 1 )
+      memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+
+    /* Skip xpoint */
+    pptCur->xp = 0;
+
+  }
+  
   return 1;
 }
 
@@ -740,6 +874,75 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
+ * \param igrp index of the group to clean
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Clean the background mesh filled by the \a oldGrps_fillGroup function to
+ * make it valid:
+ *   - reallocate the mesh at it exact size
+ *   - set the np/ne/npi/nei/npnil/nenil fields to suitables value and keep
+ *   track of empty link
+ * (info.inputMet == 1 if a metrics is provided by the  user)
+ *
+ */
+static inline
+int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh,int igrp )
+{
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        np, ne;
+  size_t     memAv,oldMemMax;
+
+  mesh = parmesh->old_listgrp[igrp].mesh;
+  met  = parmesh->old_listgrp[igrp].met;
+  
+  np   = parmesh->listgrp[igrp].mesh->np;
+  ne   = parmesh->listgrp[igrp].mesh->ne;
+
+  /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
+  /* Mesh reallocation at the smallest possible size */
+  PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
+               MMG5_Point,"fitted point table",return 0);
+  mesh->np    = np;
+  mesh->npmax = np;
+  mesh->npnil = 0;
+  mesh->nenil = 0;
+
+  PMMG_REALLOC(mesh,mesh->tetra,ne+1,mesh->nemax+1,
+               MMG5_Tetra,"fitted tetra table",return 0);
+  PMMG_REALLOC(mesh,mesh->adja,4*(ne+1)+1,4*(mesh->nemax+1)+1,
+               int,"tetra adjacency table",return 0);
+  mesh->ne    = ne;
+  mesh->nemax = ne;
+
+  if ( mesh->info.inputMet == 1 )
+    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
+                 double,"fitted metric table",return 0);
+  met->npmax = mesh->npmax;
+
+  // Update the empty points' values as per the convention used in MMG3D
+  mesh->np  = np;
+  mesh->npi = np;
+
+  if ( mesh->info.inputMet == 1 ) {
+    met->np  = np;
+    met->npi = np;
+  }
+
+  /* Give all the available memory back to parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward an MMG5 mesh structure
+ * \param met pointer toward an MMG5 metric structure
+ * \param np number of points in the mesh
  *
  * \return 0 if fail, 1 if success
  *
@@ -807,6 +1010,45 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
       // Algiane: if this step is too long, try to hash the updated edges to not
       // update twice the same shell (PMMG_bdryUpdate function).
       MMG5_settag(mesh,k,i,pxt->tag[i],pxt->edg[i]);
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Copy all groups from the current to the background list.
+ *
+ */
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
+  int grpId;
+
+  PMMG_listgrp_free(parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
+ 
+  /* Allocate list of subgroups struct and allocate memory */
+  parmesh->nold_grp = parmesh->ngrp;
+  PMMG_CALLOC(parmesh,parmesh->old_listgrp,parmesh->nold_grp,PMMG_Grp,
+              "old group list ",return 0);
+
+  /** Copy every group */
+  for ( grpId = 0; grpId < parmesh->ngrp; ++grpId ) {
+
+    /* New group initialisation */
+    if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
+              " group (%d).\n",__func__,grpId);
+      return 0;
+    }
+
+    /* Fill group */
+    if ( !PMMG_oldGrps_fillGroup( parmesh, grpId ) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to fill new background"
+              "group (%d).\n",__func__,grpId);
+      return 0;
     }
   }
 
@@ -1091,6 +1333,7 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
+  size_t  memAv,oldMemMax;
   int     ier,ier1,ier_glob;
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );

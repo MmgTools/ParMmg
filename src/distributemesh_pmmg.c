@@ -170,7 +170,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          rank,root,ier,ieresult,isMet;
+  int          k,rank,root,ier,ieresult,isMet;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -216,6 +216,72 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  /* Info */
+  MPI_CHECK( MPI_Bcast( &mesh->info.dhd,       1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hmin,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hmax,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hsiz,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hgrad,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  //MPI_CHECK( MPI_Bcast( &mesh->info.hgradreq, 1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hausd,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.delta,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6); 
+  MPI_CHECK( MPI_Bcast( &mesh->info.min,       3, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.ls,        1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.npar,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.opnbdy,    1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.renum,     1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.PROctree,  1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nmat,      1, MPI_INT, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.nreg,      1, MPI_CHAR, root, parmesh->comm ), ier=6); 
+  MPI_CHECK( MPI_Bcast( &mesh->info.imprim,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.ddebug,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.iso,       1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.lag,       1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.parTyp,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.optim,     1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.optimLES,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.noinsert,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.noswap,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nomove,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nosurf,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.inputMet,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+
+  /* affectation of old refs in ls-mode */
+  if ( mesh->info.nmat ) {
+    
+    if( rank != root )
+      MMG5_SAFE_CALLOC(mesh->info.mat,mesh->info.nmat,MMG5_Mat, ier = 0);
+
+    if ( ier ) {
+      for ( k=0; k<mesh->info.nmat; ++k ) {
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].dospl, 1, MPI_CHAR, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].ref,   1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].rin,   1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].rex,   1, MPI_INT, root, parmesh->comm ), ier=6);
+      }
+    }
+  }
+
+  /* local parameters */
+  if ( mesh->info.npar ) {
+
+    if( rank != root )
+      MMG5_SAFE_CALLOC(mesh->info.par,mesh->info.npar,MMG5_Par, ier = 0);
+
+    if ( ier ) {
+      for ( k=0; k<mesh->info.npar; ++k ) {
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hmin,    1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hmax,    1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hausd,   1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].ref,     1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].elt,     1, MPI_CHAR, root, parmesh->comm ), ier=6);
+      }
+    }
+  }
 
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
