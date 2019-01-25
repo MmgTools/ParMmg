@@ -256,6 +256,11 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
         oldGrp = &parmesh->old_listgrp[igrp];
         oldMesh = oldGrp->mesh;
 
+        oldMesh->base = 0;
+        for ( ie = 1; ie < oldMesh->ne+1; ie++ )
+          oldMesh->tetra[ie].flag = oldMesh->base;
+
+
         ie = 1;
         for( ip=1; ip<mesh->np+1; ip++ ) {
           if( !MG_VOK(&mesh->point[ip]) ) continue;
