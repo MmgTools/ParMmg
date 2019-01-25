@@ -12,6 +12,31 @@
 #include "locate_pmmg.h"
 
 /**
+ * \param minNew lower bounds of the new box in each space direction
+ * \param maxNew upper bounds of the new box in each space direction
+ * \param minOld lower bounds of the old box in each space direction
+ * \param maxOld upper bounds of the old box in each space direction
+ *
+ * \return 0 if not intersectiong, 1 otherwise
+ *
+ *  Check that the intersection of two bounding boxes is not empty.
+ *
+ */
+int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
+                                double *minOld, double *maxOld ) {
+  int idim;
+
+  for( idim = 0; idim < 3; idim++ ) {
+    if( maxNew[idim] <= minOld[idim] )
+      return 0;
+    if( maxOld[idim] <= minNew[idim] )
+      return 0;
+  }
+
+  return 1;
+}
+
+/**
  * \param mesh pointer to the mesh structure
  * \param pt pointer to the current tetra
  * \param coord pointer to the point coordinates
