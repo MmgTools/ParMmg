@@ -31,7 +31,7 @@ static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype 
  *
  * Print quality histogram among all group meshes and all processors
  */
-int PMMG_outqua( PMMG_pParMesh parmesh )
+int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 {
   PMMG_pGrp    grp;
   int          i, j, iel_grp;
@@ -72,8 +72,28 @@ int PMMG_outqua( PMMG_pParMesh parmesh )
   nrid = 0;
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     grp  = &parmesh->listgrp[ i ];
-    MMG3D_computeOutqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
-                         &iel_cur, &good_cur, &med_cur, his_cur, &nrid_cur );
+
+    nrid_cur = 0;
+
+    if ( grp->mesh->info.optimLES ) {
+      MMG3D_computeLESqua(grp->mesh,grp->met,&ne_cur,&max_cur,&avg_cur,&min_cur,
+                          &iel_cur,&good_cur,&med_cur,his_cur,parmesh->info.imprim);
+    }
+    else {
+      if ( opt == PMMG_INQUA ) {
+        MMG3D_computeInqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
+                             &iel_cur, &good_cur, &med_cur, his_cur,parmesh->info.imprim );
+      }
+      else {
+        assert ( opt == PMMG_OUTQUA );
+        MMG3D_computeOutqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
+                             &iel_cur, &good_cur, &med_cur, his_cur, &nrid_cur,parmesh->info.imprim );
+
+      }
+    }
+
+    if ( parmesh->info.imprim <= 0 )
+      return 1;
 
     ne   += ne_cur;
     avg  += avg_cur;

@@ -136,7 +136,7 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > 0  ||  parmesh->info.imprim < -1 ) {
-    if ( !MMG3D_inqua(mesh,met) ) {
+    if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
         return PMMG_STRONGFAILURE;
     }
   }
