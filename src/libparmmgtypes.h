@@ -252,6 +252,7 @@ typedef struct {
   int mem;     /*!< memory asked by user */
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
+  int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
 } PMMG_Info;
 
@@ -278,6 +279,9 @@ typedef struct {
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */
+  int       nold_grp;       /*!< Number of old grp */
+  PMMG_pGrp old_listgrp;    /*!< List of old grp */
+
 
   /* internal communicators */
   PMMG_pInt_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_Int_comm, it is not an array) */

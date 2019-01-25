@@ -622,9 +622,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   size_t          available,oldMemMax;
 
   /* Compute available memory (previously given to the communicators) */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  available = parmesh->memGloMax-parmesh->memCur;
-  oldMemMax = parmesh->memCur;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
   /* Loop on groups */
   for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
@@ -696,18 +694,26 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
           pxt->ftag[ifac] &= ~MG_PARBDYBDY;
           pxt->ftag[ifac] |= MG_BDY;
         }
+        /* Only a "true" boundary after this line */
         if ( pxt->ftag[ifac] & MG_BDY ) {
+          /* Constrain boundary if -nosurf option */
+          if( mesh->info.nosurf ) pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
           /* Tag face edges */
           for ( j=0; j<3; j++ ) {
             ia = MMG5_iarf[ifac][j];
             ip0 = pt->v[MMG5_iare[ia][0]];
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf )
+              if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
             ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
             ppt->tag |= MG_BDY;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf ) ppt->tag |= MG_REQ + MG_NOSURF;
           }
         }
       }
@@ -782,7 +788,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
   PMMG_pInt_comm int_node_comm,int_face_comm;
-  size_t         available;
+  size_t         available,oldMemMax;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
@@ -801,7 +807,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   if ( parmesh->ngrp == 1 ) return 1;
 
   /* Give the memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm = parmesh->int_node_comm;
@@ -816,14 +822,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   //saveGrpsToMeshes(listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
   /* Give all the memory to mesh0 */
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax - parmesh->memMax;
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    available -= parmesh->listgrp[k].mesh->memMax;
-  }
-  assert ( available >= 0 );
-
-  mesh0->memMax +=  available;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh0,available,oldMemMax);
 
   /** Step 0: Store the indices of the interface faces of mesh0 into the
    * internal face communicator */
@@ -863,11 +862,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   /** Step 5: Update the communicators */
   /* Give all the memory to the communicators */
-  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
-  available = parmesh->memGloMax - parmesh->listgrp[0].mesh->memMax;
-  assert ( available >= 0 );
-
-  parmesh->memMax += available;
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh0,available,oldMemMax);
 
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 

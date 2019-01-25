@@ -3,7 +3,7 @@ IF( BUILD_TESTING )
 
   set( CI_DIR  ${CMAKE_BINARY_DIR}/Tests )
   file( MAKE_DIRECTORY ${CI_DIR} )
-  set( CI_DIR_RESULTS  ${CI_DIR}/output )
+  set( CI_DIR_RESULTS  ${CI_DIR}/TEST_OUTPUTS )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
 
@@ -41,6 +41,71 @@ IF( BUILD_TESTING )
         -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh )
     endforeach()
   endforeach()
+
+  ###############################################################################
+  #####
+  #####        Tests options (on 1, 6 and 8 procs)
+  #####
+  ###############################################################################
+
+  # Default option: no metric
+  foreach( NP 1 6 8 )
+    add_test( NAME Sphere-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+      -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh )
+  endforeach()
+
+  # Option without arguments
+  foreach( OPTION "optim" "optimLES" "nosurf" "noinsert" "noswap"  )
+    foreach( NP 1 6 8 )
+      add_test( NAME Sphere-optim-${OPTION}-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        -${OPTION}
+        ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+        -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh )
+    endforeach()
+  endforeach()
+
+  # Option with arguments
+  SET ( OPTION
+    "-v 5"
+    "-hsiz 0.02"
+    "-hausd 0.005"
+    "-hgrad 1.1"
+    "-hgrad -1"
+    "-hmax 0.05"
+    "-nr"
+    "-ar 10" )
+
+  SET ( NAME
+    "v5"
+    "hsiz0.02"
+    "hausd0.005"
+    "hgrad1.1"
+    "nohgrad"
+    "hmax0.05"
+    "nr"
+    "ar10" )
+
+  LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
+  MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+  FOREACH ( test_idx RANGE ${nbTests} )
+    LIST ( GET OPTION  ${test_idx} test_option )
+    LIST ( GET NAME    ${test_idx} test_name )
+
+    FOREACH( NP 1 6 8 )
+      add_test( NAME Sphere-optim-${test_name}-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${test_option}
+        ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+        -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh )
+    ENDFOREACH()
+  ENDFOREACH ( )
+
+
+
 
   ###############################################################################
   #####

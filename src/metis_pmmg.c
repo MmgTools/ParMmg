@@ -968,6 +968,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   idx_t      objval = 0;
   int        ngrp,nprocs,ier;
   int        iproc,root,ip,target,status;
+  size_t     memAv,oldMemMax;
 
   ngrp   = parmesh->ngrp;
   nprocs = parmesh->nprocs;
@@ -1048,7 +1049,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
 
   /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
 
   /** Call metis and get the partition array */
