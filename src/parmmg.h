@@ -74,6 +74,21 @@ extern "C" {
  */
 #define PMMG_QUAL_MPISIZE 4
 
+/**
+ *
+ * print input quality histogram
+ *
+ */
+#define PMMG_INQUA 1
+
+/**
+ *
+ * print output quality histogram
+ *
+ */
+#define PMMG_OUTQUA 2
+
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -415,7 +430,7 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
-int PMMG_outqua( PMMG_pParMesh parmesh );
+int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

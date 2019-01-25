@@ -538,7 +538,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-  ier = PMMG_outqua( parmesh );
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
