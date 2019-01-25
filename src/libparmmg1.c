@@ -428,6 +428,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
 
+    /** Update old groups for metrics interpolation */
+    PMMG_update_oldGrps( parmesh );
+
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
@@ -450,9 +453,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
       else {
         /* We can remesh */
-
-        /** Update old groups for metrics interpolation */
-        PMMG_update_oldGrps( parmesh );
 
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
