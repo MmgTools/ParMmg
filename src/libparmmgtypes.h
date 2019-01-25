@@ -262,6 +262,9 @@ typedef struct {
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */
+  int       nold_grp;       /*!< Number of old grp */
+  PMMG_pGrp old_listgrp;    /*!< List of old grp */
+
 
   /* internal communicators */
   PMMG_pInt_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_Int_comm, it is not an array) */

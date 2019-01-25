@@ -1034,6 +1034,7 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   idx += sizeof(char); // noswap
   idx += sizeof(char); // nomove
   idx += sizeof(char); // nosurf
+  idx += sizeof(char); // inputMet
 
   /* affectation of old refs in ls-mode */
   if ( mesh->info.nmat ) {
@@ -1247,6 +1248,7 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   *( (char *) tmp) = mesh->info.noswap;   tmp += sizeof(char);
   *( (char *) tmp) = mesh->info.nomove;   tmp += sizeof(char);
   *( (char *) tmp) = mesh->info.nosurf;   tmp += sizeof(char);
+  *( (char *) tmp) = mesh->info.inputMet; tmp += sizeof(char);
 
   /* affectation of old refs in ls-mode */
   if ( mesh->info.nmat ) {
@@ -1485,6 +1487,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
     mesh->info.noswap    = *( (char *) *buffer); *buffer += sizeof(char);
     mesh->info.nomove    = *( (char *) *buffer); *buffer += sizeof(char);
     mesh->info.nosurf    = *( (char *) *buffer); *buffer += sizeof(char);
+    mesh->info.inputMet  = *( (char *) *buffer); *buffer += sizeof(char);
 
     /* affectation of old refs in ls-mode */
     if ( mesh->info.nmat ) {
@@ -1542,6 +1545,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
     idummy = *( (int *) *buffer); *buffer += sizeof(int);
     idummy = *( (int *) *buffer); *buffer += sizeof(int);
 
+    cdummy = *( (char *) *buffer); *buffer += sizeof(char);
     cdummy = *( (char *) *buffer); *buffer += sizeof(char);
     cdummy = *( (char *) *buffer); *buffer += sizeof(char);
     cdummy = *( (char *) *buffer); *buffer += sizeof(char);

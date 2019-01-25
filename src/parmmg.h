@@ -261,12 +261,12 @@ extern "C" {
  *
  * Set memMax to memCur for every group mesh, compute the available memory and
  * give it to the parmesh */
-#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh) do {                    \
-    size_t myavailable;                                                 \
+#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
     int    myj;                                                         \
                                                                         \
     parmesh->memMax = parmesh->memCur;                                  \
     myavailable = parmesh->memGloMax - parmesh->memMax;                 \
+    oldMemMax   = parmesh->memCur;                                      \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
@@ -351,6 +351,12 @@ int PMMG_split_grps( PMMG_pParMesh,int,int );
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
+
+/* Mesh interpolation */
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
+int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
+int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh );
 
 /* Communicators building and unallocation */
 void PMMG_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
