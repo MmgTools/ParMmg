@@ -165,8 +165,9 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
   if( step == (mesh->ne+1) ) {
     if ( !mmgWarn0 ) {
       mmgWarn0 = 1;
-      if ( mesh->info.imprim ) {
-        fprintf(stderr,"\n  ## Warning %s: Cannot locate point, performing exhaustive research.",__func__);
+      if ( mesh->info.imprim > 5 ) {
+        fprintf(stderr,"\n  ## Warning %s: Cannot locate point,"
+                " performing exhaustive research.\n",__func__);
       }
     }
 
@@ -204,7 +205,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
     if ( idxTet == mesh->ne+1 ) {
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
-        if ( mesh->info.imprim ) {
+        if ( mesh->info.imprim > 0 ) {
           fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external volume %e.",
                   __func__,closestDist);
         }
@@ -321,7 +322,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
           } else if( ie < 0 ) {
             if ( !mmgWarn ) {
               mmgWarn = 1;
-              if ( mesh->info.imprim ) {
+              if ( mesh->info.imprim > 0 ) {
                 fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
                         " found, coords %e %e %e\n",__func__,parmesh->myrank,
                         igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],

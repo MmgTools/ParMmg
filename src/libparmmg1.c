@@ -392,15 +392,29 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MMG5_pSol  met;
   size_t     oldMemMax,available;
   int        it,ier,ier_end,ieresult,i,k, *facesData;
+  mytime     ctim[TIMEMAX];
+  char       stim[32];
+
+
+  tminit(ctim,TIMEMAX);
 
   ier_end = PMMG_SUCCESS;
 
-
   /** Groups creation */
+  if ( parmesh->info.imprim > 1 ) {
+    chrono(ON,&(ctim[0]));
+  }
+
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+
+  if ( parmesh->info.imprim > 1 ) {
+    chrono(OFF,&(ctim[0]));
+    printim(ctim[0].gdif,stim);
+    fprintf(stdout,"       group splitting               %s\n",stim);
+  }
 
   if ( !ieresult ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
@@ -409,7 +423,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
+  //DEBUGGING: PMMG_grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
 
   /** Reset the boundary fields between the old mesh size and the new one (Mmg
    * uses this fields assiming they are setted to 0)/ */
@@ -420,6 +434,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
+
     /* Uncomment to debug tag errors */
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
@@ -427,6 +442,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
+
+    if ( parmesh->info.imprim > 4 ) {
+      fprintf(stdout,"       adaptation: iter %d\n",it+1);
+    }
 
     /** Update old groups for metrics interpolation */
     PMMG_update_oldGrps( parmesh );

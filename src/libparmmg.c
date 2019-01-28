@@ -135,10 +135,8 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( parmesh->info.imprim > 0  ||  parmesh->info.imprim < -1 ) {
-    if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-        return PMMG_STRONGFAILURE;
-    }
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /** Mesh analysis */
