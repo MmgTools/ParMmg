@@ -1340,6 +1340,7 @@ end:
       mesh->ne = mesh->nemax = 0;
       mesh->xp = mesh->xpmax = 0;
       mesh->xt = mesh->xtmax = 0;
+      met->np = met->npmax = 0;
     }
 
     /* 2: communicators */
