@@ -402,8 +402,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   ier_end = PMMG_SUCCESS;
 
   /** Groups creation */
-  tim = 0;
   if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
+    tim = 0;
     chrono(ON,&(ctim[tim]));
   }
 
