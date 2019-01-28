@@ -443,7 +443,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
 
       PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
- 
+
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
@@ -515,7 +515,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** Interpolate metrics */
     ier = PMMG_interpMetrics_grps( parmesh );
- 
+
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !ieresult ) {
       if ( !parmesh->myrank )
