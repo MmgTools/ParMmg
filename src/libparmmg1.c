@@ -393,6 +393,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   size_t     oldMemMax,available;
   int        it,ier,ier_end,ieresult,i,k, *facesData;
   mytime     ctim[TIMEMAX];
+  int8_t     tim;
   char       stim[32];
 
 
@@ -401,8 +402,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   ier_end = PMMG_SUCCESS;
 
   /** Groups creation */
-  if ( parmesh->info.imprim > 1 ) {
-    chrono(ON,&(ctim[0]));
+  tim = 0;
+  if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
+    chrono(ON,&(ctim[tim]));
   }
 
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
@@ -411,8 +413,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
 
   if ( parmesh->info.imprim > 1 ) {
-    chrono(OFF,&(ctim[0]));
-    printim(ctim[0].gdif,stim);
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"       group splitting               %s\n",stim);
   }
 
@@ -444,9 +446,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   for ( it = 0; it < parmesh->niter; ++it ) {
 
     if ( parmesh->info.imprim > 4 ) {
-      chrono(OFF,&(ctim[1]));
-      printim(ctim[1].gdif,stim);
-      chrono(ON,&(ctim[1]));
+      tim = 1;
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      chrono(ON,&(ctim[tim]));
       fprintf(stdout,"       adaptation: iter %d         timer %s",it+1,stim); fflush(stdout);
     }
 
@@ -541,15 +544,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** Interpolate metrics */
     if ( parmesh->info.imprim > 4 ) {
-      chrono(ON,&(ctim[2]));
+      tim = 2;
+      chrono(ON,&(ctim[tim]));
     }
 
     ier = PMMG_interpMetrics_grps( parmesh );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > 4 ) {
-      chrono(OFF,&(ctim[2]));
-      printim(ctim[2].gdif,stim);
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
       fprintf(stdout,"       metric interpolation         %s\n",stim);
     }
 
@@ -560,16 +564,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /** load Balancing at group scale and communicators reconstruction */
+    tim = 3;
     if ( parmesh->info.imprim > 1 ) {
-      chrono(ON,&(ctim[3]));
+      chrono(ON,&(ctim[tim]));
     }
 
     ier = PMMG_loadBalancing(parmesh);
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
    if ( parmesh->info.imprim > 1 ) {
-      chrono(OFF,&(ctim[3]));
-      printim(ctim[3].gdif,stim);
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
       fprintf(stdout,"       load balancing         %s\n",stim);
     }
 
@@ -592,14 +597,15 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > 1 ) {
-    chrono(ON,&(ctim[4]));
+    tim = 4;
+    chrono(ON,&(ctim[tim]));
   }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( parmesh->info.imprim > 1 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"       mesh packing         %s\n",stim);
   }
 
@@ -611,15 +617,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   PMMG_listgrp_free( parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
 
   if ( parmesh->info.imprim > 1 ) {
-    chrono(ON,&(ctim[5]));
+    tim = 5;
+    chrono(ON,&(ctim[tim]));
   }
 
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
   if ( parmesh->info.imprim > 1 ) {
-    chrono(OFF,&(ctim[5]));
-    printim(ctim[5].gdif,stim);
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"       group merging         %s\n",stim);
   }
 
@@ -636,15 +643,16 @@ strong_failed:
 
 failed_handling:
   if ( parmesh->info.imprim > 1 ) {
-    chrono(ON,&(ctim[4]));
+    tim = 4;
+    chrono(ON,&(ctim[tim]));
   }
   if ( !PMMG_packParMesh(parmesh) ) {
     fprintf(stderr,"\n  ## Parmesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
   if ( parmesh->info.imprim > 1 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"       mesh packing         %s\n",stim);
   }
 

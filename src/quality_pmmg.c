@@ -77,23 +77,20 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 
     if ( grp->mesh->info.optimLES ) {
       MMG3D_computeLESqua(grp->mesh,grp->met,&ne_cur,&max_cur,&avg_cur,&min_cur,
-                          &iel_cur,&good_cur,&med_cur,his_cur,parmesh->info.imprim);
+                          &iel_cur,&good_cur,&med_cur,his_cur,parmesh->info.imprim0);
     }
     else {
       if ( opt == PMMG_INQUA ) {
         MMG3D_computeInqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
-                             &iel_cur, &good_cur, &med_cur, his_cur,parmesh->info.imprim );
+                             &iel_cur, &good_cur, &med_cur, his_cur,parmesh->info.imprim0 );
       }
       else {
         assert ( opt == PMMG_OUTQUA );
         MMG3D_computeOutqua( grp->mesh, grp->met, &ne_cur, &max_cur, &avg_cur, &min_cur,
-                             &iel_cur, &good_cur, &med_cur, his_cur, &nrid_cur,parmesh->info.imprim );
+                             &iel_cur, &good_cur, &med_cur, his_cur, &nrid_cur,parmesh->info.imprim0 );
 
       }
     }
-
-    if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
-      return 1;
 
     ne   += ne_cur;
     avg  += avg_cur;
@@ -114,6 +111,8 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 
     nrid += nrid_cur;
   }
+  if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
+    return 1;
 
   /* Calculate the quality values for all processes */
   MPI_Reduce( &ne, &ne_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
