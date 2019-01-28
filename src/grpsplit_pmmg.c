@@ -185,7 +185,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
                                        int nprism, int xp, int xt ) {
 
-  if ( ( (mesh->info.imprim > 5) || mesh->info.ddebug ) &&
+  if ( ( (mesh->info.imprim > PMMG_VERB_DETQUAL) || mesh->info.ddebug ) &&
        ( mesh->point || mesh->xpoint || mesh->tetra || mesh->xtetra) )
     fprintf(stderr,"\n  ## Warning: %s: old mesh deletion.\n",__func__);
 
@@ -194,7 +194,7 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
     fprintf(stderr,"     Your mesh must contains at least points.\n");
     return(0);
   }
-  if ( !ne && (mesh->info.imprim > 4 || mesh->info.ddebug) ) {
+  if ( !ne && (mesh->info.imprim > PMMG_VERB_DETQUAL || mesh->info.ddebug) ) {
     fprintf(stderr,"  ** WARNING:\n");
     fprintf(stderr,"     Your mesh don't contains tetrahedra.\n");
   }

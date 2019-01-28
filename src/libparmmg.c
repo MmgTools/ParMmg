@@ -30,7 +30,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
   MMG5_pSol  met;
   int        k;
 
-  if ( parmesh->info.imprim > 0 )
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n  -- PMMG: CHECK INPUT DATA\n");
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -135,10 +135,8 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( parmesh->info.imprim > 0  ||  parmesh->info.imprim < -1 ) {
-    if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-        return PMMG_STRONGFAILURE;
-    }
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /** Mesh analysis */
@@ -146,7 +144,7 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( parmesh->info.imprim > 4 && (!mesh->info.iso) && met->m ) {
+  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
     MMG3D_prilen(mesh,met,0);
   }
 
@@ -167,9 +165,10 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   int           iresult,ierlib;
   long int      tmpmem;
   mytime        ctim[TIMEMAX];
+  int8_t        tim;
   char          stim[32];
 
- if ( parmesh->info.imprim >= 0 ) {
+ if ( parmesh->info.imprim > PMMG_VERB_NO ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
             "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
   }
@@ -178,47 +177,52 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[0]));
 
   /** Check input data */
-  chrono(ON,&(ctim[1]));
+  tim = 1;
+  chrono(ON,&(ctim[tim]));
 
   ier = PMMG_check_inputData( parmesh );
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !iresult ) return PMMG_LOWFAILURE;
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim > 0 ) {
+  chrono(OFF,&(ctim[tim]));
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
 
 
-  chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
-    fprintf(stdout,"\n   -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
+  chrono(ON,&(ctim[2]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
   }
 
   /** Send mesh to other procs */
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+  tim = 6;
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    chrono(ON,&(ctim[tim]));
+    fprintf(stdout,"\n  -- BCAST" );
   }
   ier = PMMG_bcast_mesh( parmesh );
   if ( ier!=1 ) return PMMG_LOWFAILURE;
 
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             bcast          %s\n",stim);
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS  ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
   }
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+  tim = 7;
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    chrono(ON,&(ctim[tim]));
+    fprintf(stdout,"\n  -- ANALYSIS" );
   }
   ier = PMMG_preprocessMesh( parmesh );
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             analysis       %s\n",stim);
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
   }
 
   mesh = parmesh->listgrp[0].mesh;
@@ -232,27 +236,30 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
   /** Send mesh partionning to other procs */
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+  tim = 8;
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    chrono(ON,&(ctim[tim]));
+    fprintf(stdout,"\n  -- PARTITIONING" );
   }
   if ( !PMMG_distribute_mesh( parmesh ) ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
-  if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             partitioning   %s\n",stim);
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n  -- PARTITIONING COMPLETED    %s\n",stim );
   }
 
-  chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[1].gdif,stim);
-    fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
+  chrono(OFF,&(ctim[2]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    printim(ctim[2].gdif,stim);
+    fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */
-  chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
+  tim = 3;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
@@ -260,9 +267,9 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   ier = PMMG_parmmglib1(parmesh);
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim > 0) {
+  chrono(OFF,&(ctim[tim]));
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
   }
   if ( ierlib == PMMG_STRONGFAILURE ) {
@@ -270,8 +277,9 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
   /** Merge all the meshes on the proc 0 */
-  chrono(ON,&(ctim[2]));
-  if ( parmesh->info.imprim > 0 ) {
+  tim = 4;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
   }
 
@@ -280,16 +288,17 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  chrono(OFF,&(ctim[2]));
-  if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[2].gdif,stim);
+  chrono(OFF,&(ctim[tim]));
+  if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
+    printim(ctim[tim].gdif,stim);
     fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
   }
 
   if ( !parmesh->myrank ) {
     /** Boundaries reconstruction */
-    chrono(ON,&(ctim[3]));
-    if (  parmesh->info.imprim > 0 ) {
+    tim = 5;
+    chrono(ON,&(ctim[tim]));
+    if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
     }
 
@@ -304,16 +313,16 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
     }
 
-    chrono(OFF,&(ctim[3]));
-    if (  parmesh->info.imprim > 0 ) {
-      printim(ctim[3].gdif,stim);
+    chrono(OFF,&(ctim[tim]));
+    if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
+      printim(ctim[tim].gdif,stim);
       fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
     }
   }
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim >= 0 ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n   PARMMGLIB_CENTRALIZED: ELAPSED TIME  %s\n",stim);
     fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL \n  %s\n",
             PMMG_STR,PMMG_STR);
@@ -328,10 +337,11 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   int              k,ier,iresult,ierlib;
   long int         tmpmem;
   mytime           ctim[TIMEMAX];
+  int8_t           tim;
   char             stim[32];
 
 
-  if ( parmesh->info.imprim >= 0 ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
             "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
   }
@@ -340,22 +350,23 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[0]));
 
   /** Check input data */
-  chrono(ON,&(ctim[1]));
+  tim = 1;
+  chrono(ON,&(ctim[tim]));
 
   ier = PMMG_check_inputData( parmesh );
   MPI_CHECK( MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm ),
              return PMMG_LOWFAILURE);
   if ( !iresult ) return PMMG_LOWFAILURE;
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim > 0 ) {
+  chrono(OFF,&(ctim[tim]));
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
 
-
-  chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
+  tim = 2;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
   }
 
@@ -377,15 +388,16 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     return iresult;
   }
 
-  chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[1].gdif,stim);
+  chrono(OFF,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */
-  chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
+  tim = 3;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
@@ -393,9 +405,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   ier = PMMG_parmmglib1(parmesh);
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
-  if ( parmesh->info.imprim > 0 ) {
+  chrono(OFF,&(ctim[tim]));
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
   }
   if ( ierlib == PMMG_STRONGFAILURE ) {
@@ -403,8 +415,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   }
 
   /** Boundaries reconstruction */
-  chrono(ON,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 )
+  tim = 4;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
   /** All the memory is devoted to the mesh **/
@@ -420,15 +433,15 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     return PMMG_LOWFAILURE;
   }
 
-  chrono(OFF,&(ctim[1]));
-  if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[1].gdif,stim);
+  chrono(OFF,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    printim(ctim[tim].gdif,stim);
     fprintf(stdout,"\n   -- PHASE 3 COMPLETED.     %s\n",stim);
   }
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim >= 0 ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n   PARMMGLIB_DISTRIBUTED: ELAPSED TIME  %s\n",stim);
     fprintf(stdout,"\n  %s\n   END OF MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL \n  %s\n",
             PMMG_STR,PMMG_STR);
