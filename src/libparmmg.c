@@ -191,34 +191,36 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
 
-  chrono(ON,&(ctim[1]));
+  chrono(ON,&(ctim[2]));
   if ( parmesh->info.imprim > 0 ) {
-    fprintf(stdout,"\n   -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
+    fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
   }
 
   /** Send mesh to other procs */
   if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+    chrono(ON,&(ctim[6]));
+    fprintf(stdout,"\n  -- BCAST" );
   }
   ier = PMMG_bcast_mesh( parmesh );
   if ( ier!=1 ) return PMMG_LOWFAILURE;
 
   if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             bcast          %s\n",stim);
+    chrono(OFF,&(ctim[6]));
+    printim(ctim[6].gdif,stim);
+    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
   }
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
   if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+    chrono(ON,&(ctim[7]));
+    fprintf(stdout,"\n  -- ANALYSIS" );
   }
   ier = PMMG_preprocessMesh( parmesh );
   if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             analysis       %s\n",stim);
+    chrono(OFF,&(ctim[7]));
+    printim(ctim[7].gdif,stim);
+    fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
   }
 
   mesh = parmesh->listgrp[0].mesh;
@@ -233,25 +235,26 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   /** Send mesh partionning to other procs */
   if ( parmesh->info.imprim > 2 ) {
-    chrono(ON,&(ctim[4]));
+    chrono(ON,&(ctim[8]));
+    fprintf(stdout,"\n  -- PARTITIONING" );
   }
   if ( !PMMG_distribute_mesh( parmesh ) ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
   if ( parmesh->info.imprim > 2 ) {
-    chrono(OFF,&(ctim[4]));
-    printim(ctim[4].gdif,stim);
-    fprintf(stdout,"             partitioning   %s\n",stim);
+    chrono(OFF,&(ctim[8]));
+    printim(ctim[8].gdif,stim);
+    fprintf(stdout,"\n  -- PARTITIONING COMPLETED    %s\n",stim );
   }
 
-  chrono(OFF,&(ctim[1]));
+  chrono(OFF,&(ctim[2]));
   if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[1].gdif,stim);
-    fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
+    printim(ctim[2].gdif,stim);
+    fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */
-  chrono(ON,&(ctim[1]));
+  chrono(ON,&(ctim[3]));
   if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
@@ -260,8 +263,8 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   ier = PMMG_parmmglib1(parmesh);
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
+  chrono(OFF,&(ctim[3]));
+  printim(ctim[3].gdif,stim);
   if ( parmesh->info.imprim > 0) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
   }
@@ -270,7 +273,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   }
 
   /** Merge all the meshes on the proc 0 */
-  chrono(ON,&(ctim[2]));
+  chrono(ON,&(ctim[4]));
   if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
   }
@@ -280,15 +283,15 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  chrono(OFF,&(ctim[2]));
+  chrono(OFF,&(ctim[4]));
   if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[2].gdif,stim);
+    printim(ctim[4].gdif,stim);
     fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
   }
 
   if ( !parmesh->myrank ) {
     /** Boundaries reconstruction */
-    chrono(ON,&(ctim[3]));
+    chrono(ON,&(ctim[5]));
     if (  parmesh->info.imprim > 0 ) {
       fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
     }
@@ -304,9 +307,9 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
     }
 
-    chrono(OFF,&(ctim[3]));
+    chrono(OFF,&(ctim[5]));
     if (  parmesh->info.imprim > 0 ) {
-      printim(ctim[3].gdif,stim);
+      printim(ctim[5].gdif,stim);
       fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
     }
   }
@@ -354,7 +357,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   }
 
 
-  chrono(ON,&(ctim[1]));
+  chrono(ON,&(ctim[2]));
   if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS\n");
   }
@@ -377,14 +380,14 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     return iresult;
   }
 
-  chrono(OFF,&(ctim[1]));
+  chrono(OFF,&(ctim[2]));
   if ( parmesh->info.imprim > 0 ) {
     printim(ctim[1].gdif,stim);
     fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */
-  chrono(ON,&(ctim[1]));
+  chrono(ON,&(ctim[3]));
   if ( parmesh->info.imprim > 0 ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
@@ -393,8 +396,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   ier = PMMG_parmmglib1(parmesh);
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[1]));
-  printim(ctim[1].gdif,stim);
+  chrono(OFF,&(ctim[3]));
+  printim(ctim[3].gdif,stim);
   if ( parmesh->info.imprim > 0 ) {
     fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
   }
@@ -403,7 +406,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   }
 
   /** Boundaries reconstruction */
-  chrono(ON,&(ctim[1]));
+  chrono(ON,&(ctim[4]));
   if ( parmesh->info.imprim > 0 )
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
@@ -420,9 +423,9 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     return PMMG_LOWFAILURE;
   }
 
-  chrono(OFF,&(ctim[1]));
+  chrono(OFF,&(ctim[4]));
   if ( parmesh->info.imprim > 0 ) {
-    printim(ctim[1].gdif,stim);
+    printim(ctim[4].gdif,stim);
     fprintf(stdout,"\n   -- PHASE 3 COMPLETED.     %s\n",stim);
   }
 
