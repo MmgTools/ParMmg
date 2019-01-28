@@ -412,10 +412,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
 
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"       group splitting               %s\n",stim);
+    fprintf(stdout,"       group splitting                   %s\n",stim);
   }
 
   if ( !ieresult ) {
@@ -445,12 +445,18 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
 
-    if ( parmesh->info.imprim > 4 ) {
+    if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
-      chrono(OFF,&(ctim[tim]));
+      if ( it > 0 ) {
+        chrono(OFF,&(ctim[tim]));
+      }
+      if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+        fprintf(stdout,"\n" );
+      }
+
       printim(ctim[tim].gdif,stim);
       chrono(ON,&(ctim[tim]));
-      fprintf(stdout,"       adaptation: iter %d         timer %s",it+1,stim); fflush(stdout);
+      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",it+1,stim);fflush(stdout);
     }
 
     /** Update old groups for metrics interpolation */
@@ -534,16 +540,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
     }
 
-    if ( parmesh->info.imprim > 4 ) {
-      printf("\n");
-    }
-
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !ieresult )
       goto failed_handling;
 
     /** Interpolate metrics */
-    if ( parmesh->info.imprim > 4 ) {
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       tim = 2;
       chrono(ON,&(ctim[tim]));
     }
@@ -551,10 +553,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     ier = PMMG_interpMetrics_grps( parmesh );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-    if ( parmesh->info.imprim > 4 ) {
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"       metric interpolation         %s\n",stim);
+      fprintf(stdout,"\n       metric interpolation              %s\n",stim);
     }
 
     if ( !ieresult ) {
@@ -565,17 +567,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
-    if ( parmesh->info.imprim > 1 ) {
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(ON,&(ctim[tim]));
     }
 
     ier = PMMG_loadBalancing(parmesh);
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-   if ( parmesh->info.imprim > 1 ) {
+   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"       load balancing         %s\n",stim);
+      fprintf(stdout,"       load balancing                    %s\n",stim);
     }
 
     if ( !ieresult ) {
@@ -589,6 +591,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    printf("\n");
+  }
+
   ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -596,17 +602,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     ier_end = PMMG_LOWFAILURE;
   }
 
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     tim = 4;
     chrono(ON,&(ctim[tim]));
   }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"       mesh packing         %s\n",stim);
+    fprintf(stdout,"\n       mesh packing                      %s\n",stim);
   }
 
   if ( !ieresult ) {
@@ -616,7 +622,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   PMMG_listgrp_free( parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
 
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     tim = 5;
     chrono(ON,&(ctim[tim]));
   }
@@ -624,10 +630,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"       group merging         %s\n",stim);
+    fprintf(stdout,"       group merging                     %s\n",stim);
   }
 
   if ( !ieresult ) {
@@ -642,7 +648,7 @@ strong_failed:
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
 
 failed_handling:
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     tim = 4;
     chrono(ON,&(ctim[tim]));
   }
@@ -650,23 +656,23 @@ failed_handling:
     fprintf(stderr,"\n  ## Parmesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"       mesh packing         %s\n",stim);
+    fprintf(stdout,"\n       mesh packing                      %s\n",stim);
   }
 
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(ON,&(ctim[5]));
   }
   if ( !PMMG_merge_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
-  if ( parmesh->info.imprim > 1 ) {
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[5]));
     printim(ctim[5].gdif,stim);
-    fprintf(stdout,"       group merging         %s\n",stim);
+    fprintf(stdout,"       group merging                     %s\n",stim);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
