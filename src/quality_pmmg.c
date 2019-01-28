@@ -92,7 +92,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
       }
     }
 
-    if ( parmesh->info.imprim <= 0 )
+    if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
       return 1;
 
     ne   += ne_cur;
@@ -139,7 +139,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 
   if ( parmesh->myrank == 0 ) {
 
-    if ( parmesh->info.imprim > 0 ) {
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"\n  -- PARALLEL MESH QUALITY");
 
       if ( optimLES_result ) {

@@ -88,6 +88,48 @@ extern "C" {
  */
 #define PMMG_OUTQUA 2
 
+/**
+ *
+ * no verbosity for pmmg library
+ *
+ */
+#define PMMG_VERB_NO -1
+
+/**
+ *
+ * minimal verbosity for pmmg library: print library version and duration
+ *
+ */
+#define PMMG_VERB_VERSION 0
+
+/**
+ *
+ * low verbosity for pmmg library: print main steps + quality histo overview
+ *
+ */
+#define PMMG_VERB_QUAL 1
+
+/**
+ *
+ * average verbosity for pmmg library: add parmmg steps information
+ *
+ */
+#define PMMG_VERB_STEPS 3
+
+/**
+ *
+ * average verbosity for pmmg library: add waves information
+ *
+ */
+#define PMMG_VERB_ITWAVES 4
+
+/**
+ *
+ * detailed verbosity for pmmg library: add detailed quality histo
+ *
+ */
+#define PMMG_VERB_DETQUAL 5
+
 
 
 /**
