@@ -559,7 +559,6 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   if( parmesh->int_face_comm ) {
     /* intvalues array exists only after initial groups split */
     if( parmesh->int_face_comm->intvalues ) {
-      printf("PASSING HERE %d!\n",parmesh->myrank);
       /* Scan face communicator, weight old parallel faces */
       for( k = 0; k < parmesh->int_face_comm->nitem; k++ ) {
         /* Only old internal interfaces are marked with a minus sign */
