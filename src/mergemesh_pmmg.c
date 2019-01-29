@@ -576,9 +576,11 @@ int PMMG_mergeGrps_faceCommunicators(PMMG_pParMesh parmesh) {
                grp[0].nitem_int_face_comm,int,
                "(mergeGrps) face2int_face_comm_index2",return 0);
   grp[0].nitem_int_face_comm = face_id_int;
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,
-               "free int_face_comm intvalues");
-  int_face_comm->nitem       = face_id_int;
+
+  /* int_face_comm->intvalues is not freed here in order to keep track of old
+   * parallel faces (int_face_comm->nitem counts both current and previous
+   * parallel faces). It will be freed when splitting listgrp[0], after
+   * tetra partitioning. */
 
   return 1;
 }

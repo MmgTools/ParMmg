@@ -1133,6 +1133,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
     goto fail_part;
   }
 
+  /* reset face intvalues array (used to track both current and previous
+   * parallel faces when merging all groups in listgrp[0]) */
+  PMMG_DEL_MEM(parmesh,parmesh->int_face_comm->intvalues,int,
+               "free int_face_comm intvalues");
+  parmesh->int_face_comm->nitem = parmesh->listgrp[0].nitem_int_face_comm;
+
   /* count_per_grp: how many elements per group are there? */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
               ret_val = 0;goto fail_part);
