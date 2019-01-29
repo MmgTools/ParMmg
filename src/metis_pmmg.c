@@ -939,9 +939,10 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 
   xadj = adjncy = vwgt = adjwgt = NULL;
 
-  /* Set contiguity of partitions */
+  /* Set contiguity of partitions if using Metis also for graph partitioning */
   METIS_SetDefaultOptions(options);
-  options[METIS_OPTION_CONTIG] = PMMG_CONTIG_DEF;
+  options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
+    (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
   /* Fit the parmesh and the meshes in memory and compute the available memory */
   parmesh->memMax = parmesh->memCur;
@@ -1101,7 +1102,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
     
       /* Set contiguity of partitions */
       METIS_SetDefaultOptions(options);
-      options[METIS_OPTION_CONTIG] = PMMG_CONTIG_DEF;
+      options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
   
       /** Call metis and get the partition array */
       status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
