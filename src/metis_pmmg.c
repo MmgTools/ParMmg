@@ -475,11 +475,11 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  *
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-                               idx_t **xadj,idx_t **adjncy,
+                               idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
                                idx_t *nadjncy,size_t *memAv) {
   size_t     memMaxOld;
   int        *adja;
-  int        j,k,iadr,jel,count,nbAdj,ier;
+  int        j,k,iadr,jel,count,nbAdj,iel,ifac,wgt,ier;
 
   /** Step 1: mesh adjacency creation */
 
@@ -542,6 +542,45 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   }
   else {
     PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+  }
+
+  /** 3) Weight on old parallel faces, if available */
+  PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt",
+              ier = 0;);
+
+  /* Uniform initialization */
+  for( k = 0; k < (*nadjncy); k++ )
+    (*adjwgt)[k] = 1;
+
+  /* Arbitrary weight for old parallel faces */
+  wgt = 10;
+
+  /* Face communicator exists only after initial mesh broadcast */
+  if( parmesh->int_face_comm ) {
+    /* intvalues array exists only after initial groups split */
+    if( parmesh->int_face_comm->intvalues ) {
+      printf("PASSING HERE %d!\n",parmesh->myrank);
+      /* Scan face communicator, weight old parallel faces */
+      for( k = 0; k < parmesh->int_face_comm->nitem; k++ ) {
+        /* Only old internal interfaces are marked with a minus sign */
+        iel   = -  parmesh->int_face_comm->intvalues[k]/12;
+        ifac  = - (parmesh->int_face_comm->intvalues[k]%12)/3;
+        if( iel > 0 ) {
+          /* Retrieve adjacent tetra */
+          iadr = 4*(iel-1) + 1;
+          adja = &mesh->adja[iadr];
+          jel = adja[ifac]/4;
+          /* Mark graph edge iel--jel */
+          for( j = 0; j < 4; j++ )
+            if( (*adjncy)[ (*xadj)[iel-1] + j ] == jel-1 ) break;
+          (*adjwgt)[ (*xadj)[iel-1] + j ] = wgt;
+          /* Mark graph edge jel--iel */
+          for( j = 0; j < 4; j++ )
+            if( (*adjncy)[ (*xadj)[jel-1] + j ] == iel-1 ) break;
+          (*adjwgt)[ (*xadj)[jel-1] + j ] = wgt;
+        }
+      }
+    }
   }
 
   parmesh->memMax = parmesh->memCur;
@@ -890,8 +929,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
   size_t     memAv;
-  idx_t      *xadj = NULL;
-  idx_t      *adjncy = NULL;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
   idx_t      nelt = mesh->ne;
   idx_t      ncon = 1; // number of balancing constraint
   idx_t      options[METIS_NOPTIONS];
@@ -899,6 +937,8 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   int        adjsize;
   int        ier = 0;
   int        status = 1;
+
+  xadj = adjncy = vwgt = adjwgt = NULL;
 
   /* Set contiguity of partitions */
   METIS_SetDefaultOptions(options);
@@ -910,14 +950,14 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memMax;
 
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize,&memAv) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
     return 0;
 
   /* Give the memory to the parmesh */
   parmesh->memMax += memAv;
 
   /** Call metis and get the partition array */
-  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,NULL,NULL,NULL,&nproc,
+  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
                              NULL,NULL,options,&objval, part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
@@ -940,6 +980,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   /** Correct partitioning to avoid empty partitions */
   if( !PMMG_correct_meshElts2metis( parmesh,part,nelt,nproc ) ) return 0;
 
+  PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
 
