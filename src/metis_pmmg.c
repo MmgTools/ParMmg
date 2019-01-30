@@ -1002,7 +1002,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   real_t     *tpwgts,*ubvec;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize,edgecut;
   idx_t      *xadj_seq,*adjncy_seq,*vwgt_seq,*adjwgt_seq,*part_seq;
-  idx_t      *recvcounts,*displs;
+  idx_t      sendcounts,*recvcounts,*displs;
   idx_t      wgtflag,numflag;
   idx_t      ncon = 1; // number of balancing constraint
   idx_t      options[METIS_NOPTIONS];
@@ -1060,8 +1060,8 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   }
 
   /** adjncy, adjwgt */
-  recvcounts[parmesh->myrank] = xadj[recvcounts[parmesh->myrank]];
-  MPI_CHECK( MPI_Allgather(&recvcounts[parmesh->myrank],1,MPI_INT,
+  sendcounts = xadj[recvcounts[parmesh->myrank]];
+  MPI_CHECK( MPI_Allgather(&sendcounts,1,MPI_INT,
                            recvcounts,1,MPI_INT,parmesh->comm), return 0);
 
   displs[0] = 0;
