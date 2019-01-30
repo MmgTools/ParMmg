@@ -62,10 +62,11 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       if ( !ip ) {
         /* reallocation of point table */
         MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                             printf("  ## Error: unable to merge group points\n");
-                             MMG5_INCREASE_MEM_MESSAGE();
-                             return 0;,
-                             pptJ->c,pptJ->tag);
+                            printf("  ## Error: unable to merge group points\n");
+                            MMG5_INCREASE_MEM_MESSAGE();
+                            metI->np = meshI->np;
+                            return 0;,
+                            pptJ->c,pptJ->tag);
 
       }
       assert( (ip <= meshI->npmax) && "run out of points" );
@@ -103,7 +104,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       intvalues[ poi_id_glo ] *= -1;
     }
   }
-
+  metI->np = meshI->np;
 
   return 1;
 }
@@ -190,10 +191,11 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     if ( !ip ) {
       /* reallocation of point table */
       MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                           printf("  ## Error: unable to merge group points\n");
-                           MMG5_INCREASE_MEM_MESSAGE();
-                           return 0;,
-                           pptJ->c,pptJ->tag);
+                          printf("  ## Error: unable to merge group points\n");
+                          MMG5_INCREASE_MEM_MESSAGE();
+                          metI->np = meshI->np;
+                          return 0;,
+                          pptJ->c,pptJ->tag);
     }
     pptJ->tmp = ip;
 
@@ -218,6 +220,7 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
       }
     }
   }
+  metI->np = meshI->np;
   return 1;
 }
 
@@ -1339,6 +1342,7 @@ end:
       mesh->ne = mesh->nemax = 0;
       mesh->xp = mesh->xpmax = 0;
       mesh->xt = mesh->xtmax = 0;
+      met->np = met->npmax = 0;
     }
 
     /* 2: communicators */
