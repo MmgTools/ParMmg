@@ -477,9 +477,11 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                                idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
                                idx_t *nadjncy,size_t *memAv) {
-  size_t     memMaxOld;
-  int        *adja;
-  int        j,k,iadr,jel,count,nbAdj,iel,ifac,wgt,ier;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  size_t       memMaxOld;
+  int          *adja;
+  int          j,k,iadr,jel,count,nbAdj,wgt,ier;
 
   /** Step 1: mesh adjacency creation */
 
@@ -521,65 +523,37 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   /** 2) List the adjacent of each elts in adjncy */
   ier = 1;
   ++(*nadjncy);
-  PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy",
-              ier = 0;);
+  PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
+  PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
 
   if ( ier ) {
     count = 0;
     for( k = 1; k <= mesh->ne; k++ ) {
       iadr = 4*(k-1) + 1;
       adja = &mesh->adja[iadr];
+      pt   = &mesh->tetra[k];
       for ( j = 0; j < 4; j++ ) {
         jel = adja[j] / 4;
+        if ( !jel ) continue;
 
-        if ( !jel )
-          continue;
+        /* Put high weight on old parallel faces */
+        if ( pt->xt ) {
+          pxt = &mesh->xtetra[pt->xt];
+          if( pxt->ftag[j] & MG_OLDPARBDY ) {
+            wgt = PMMG_WGTVAL_HUGEINT;
+          } else {
+            wgt = 1;
+          }
+        }
 
-        (*adjncy)[count++] = jel-1;
+        (*adjncy)[count]   = jel-1;
+        (*adjwgt)[count++] = wgt;
       }
       assert( count == ( (*xadj)[k] ) );
     }
   }
   else {
     PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
-  }
-
-  /** 3) Weight on old parallel faces, if available */
-  PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt",
-              ier = 0;);
-
-  /* Uniform initialization */
-  for( k = 0; k < (*nadjncy); k++ )
-    (*adjwgt)[k] = 1;
-
-  /* Arbitrary weight for old parallel faces */
-  wgt = 10;
-
-  /* Face communicator exists only after initial mesh broadcast */
-  if( parmesh->int_face_comm ) {
-    /* intvalues array exists only after initial groups split */
-    if( parmesh->int_face_comm->intvalues ) {
-      /* Scan face communicator, weight old parallel faces */
-      for( k = 0; k < parmesh->int_face_comm->nitem; k++ ) {
-        /* Only old internal interfaces are marked with a minus sign */
-        iel   = -  parmesh->int_face_comm->intvalues[k]/12;
-        ifac  = - (parmesh->int_face_comm->intvalues[k]%12)/3;
-        if( iel > 0 ) {
-          /* Retrieve adjacent tetra */
-          iadr = 4*(iel-1) + 1;
-          adja = &mesh->adja[iadr];
-          jel = adja[ifac]/4;
-          /* Mark graph edge iel--jel */
-          for( j = 0; j < 4; j++ )
-            if( (*adjncy)[ (*xadj)[iel-1] + j ] == jel-1 ) break;
-          (*adjwgt)[ (*xadj)[iel-1] + j ] = wgt;
-          /* Mark graph edge jel--iel */
-          for( j = 0; j < 4; j++ )
-            if( (*adjncy)[ (*xadj)[jel-1] + j ] == iel-1 ) break;
-          (*adjwgt)[ (*xadj)[jel-1] + j ] = wgt;
-        }
-      }
-    }
   }
 
   parmesh->memMax = parmesh->memCur;
@@ -619,12 +593,13 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   PMMG_hgrp      *ph;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
   MPI_Comm       comm;
   MPI_Status     status;
-  int            *face2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            found,color;
-  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
+  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,wgt;
 
   *wgtflag = PMMG_WGTFLAG_DEF; /* Default weights for parmetis */
   *numflag = 0; /* C-style numbering */
@@ -675,7 +650,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     (*ubvec)[k] = PMMG_UBVEC_DEF;
 
   /** Step 3: Fill the internal communicator with the greater index of the 2
-   * groups to which the face belong */
+   * groups to which the face belong. Use a minus sign to mark old parallel
+   * faces.*/
   PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", goto fail_4);
 
   int_face_comm = parmesh->int_face_comm;
@@ -688,13 +664,31 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( k=0; k < int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
 
+  /*Fill the internal communicator with the greater index of the 2 groups to
+   * which the face belong */
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
     for ( k=0; k<grp->nitem_int_face_comm; ++k )
-      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] )
-        intvalues[face2int_face_comm_index2[k]]= igrp;
+      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
+        
+        ie   =  face2int_face_comm_index1[k]/12;
+        ifac = (face2int_face_comm_index1[k]%12)/3;
+        pt = &mesh->tetra[ie];
+        assert( MG_EOK(pt) && pt->xt );
+        pxt = &mesh->xtetra[pt->xt];
+
+        /* Save group ID with a minus sign if the face was parallel in the
+         * previous adaptation iteration */
+        if( pxt->ftag[ifac] & MG_OLDPARBDY )
+          intvalues[face2int_face_comm_index2[k]]= -igrp;
+        else
+          intvalues[face2int_face_comm_index2[k]]= igrp;
+
+      }
   }
 
   /** Step 4: Send and receive external communicators filled by the group id of
@@ -747,12 +741,21 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       igrp     = itosend[i];
       igrp_adj = itorecv[i];
 
+      /* Put high weight on old parallel faces */
+      if( igrp < 0 ) igrp *= -1;
+      if( igrp_adj < 0 ) {
+        wgt = PMMG_WGTVAL_HUGEINT;
+        igrp_adj *= -1;
+      } else {
+        wgt = 1;
+      }
+
       assert ( igrp != PMMG_UNSET );
       assert ( igrp_adj != PMMG_UNSET );
 
       /* Search the neighbour in the hash table and insert it if not found */
       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj
-                           +(*vtxdist)[ext_face_comm->color_out],1);
+                           +(*vtxdist)[ext_face_comm->color_out],wgt);
 
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
@@ -777,9 +780,17 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
+      /* Put high weight on old parallel faces */
+      if ( igrp_adj < 0 ) {
+        wgt = PMMG_WGTVAL_HUGEINT;
+        igrp_adj *= -1;
+      } else {
+        wgt = 1;
+      }
+
       /* Insert igrp_adj in the sorted list of igrp if not already found,
        * increment weight if found */
-      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
+      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],wgt);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
@@ -790,7 +801,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Insert igrp in the sorted list of igrp_adj if not already found,
        * increment weight if found */
-      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],1);
+      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],wgt);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
@@ -814,10 +825,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     found += ph->wgt;
     while ( ph->nxt ) {
       ph = &hash.item[ph->nxt];
-
       found += ph->wgt;
     }
-    assert( found == grp->nitem_int_face_comm );
   }
 #endif
 

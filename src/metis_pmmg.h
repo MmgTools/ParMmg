@@ -30,6 +30,14 @@
 #define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_ADJ)
 
 /**
+ * \def PMMG_WGTVAL_HUGEINT
+ *
+ * Huge integer weight for parallel faces in load balancing
+ *
+ */
+#define PMMG_WGTVAL_HUGEINT   10000
+
+/**
  * \def PMMG_UBVEC_DEF
  *
  * value for the ubvec vector of ParMetis
