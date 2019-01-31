@@ -41,6 +41,7 @@ int main( int argc, char *argv[] )
   PMMG_pGrp     grp;
   int           rank;
   int           ier,iresult,ierSave,msh;
+  int8_t        tim;
   char          stim[32];
 
   // Shared memory communicator: processes that are on the same node, sharing
@@ -109,8 +110,9 @@ int main( int argc, char *argv[] )
   }
 
   /** load data */
-  chrono(ON,&PMMG_ctim[1]);
-  if ( rank==parmesh->info.root ) {
+  tim = 1;
+  chrono(ON,&PMMG_ctim[tim]);
+  if ( rank==parmesh->info.root && parmesh->info.imprim > PMMG_VERB_NO ) {
     fprintf(stdout,"\n  -- INPUT DATA: LOADING MESH ON RANK %d\n",
             parmesh->info.root);
   }
@@ -125,16 +127,19 @@ int main( int argc, char *argv[] )
   }
 
   if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
-    if ( parmesh->info.imprim ) {
+    if ( rank == parmesh->info.root ) {
       fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
     }
     ier = 0;
     goto check_mesh_loading;
   }
 
-  chrono(OFF,&PMMG_ctim[1]);
-  if ( rank==parmesh->info.root ) {
-    printim(PMMG_ctim[1].gdif,stim);
+  if ( !PMMG_parsop(parmesh) )
+    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+
+  chrono(OFF,&PMMG_ctim[tim]);
+  if ( parmesh->info.imprim > PMMG_VERB_NO ) {
+    printim(PMMG_ctim[tim].gdif,stim);
     fprintf(stdout,"  -- DATA READING COMPLETED.     %s\n",stim);
   }
 
@@ -159,10 +164,11 @@ check_mesh_loading:
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
   if ( iresult == PMMG_STRONGFAILURE ) { PMMG_RETURN_AND_FREE( parmesh, ier ); }
 
-  chrono(ON,&PMMG_ctim[1]);
+  tim = 2;
+  chrono(ON,&PMMG_ctim[tim]);
 
   grp = &parmesh->listgrp[0];
-  if ( parmesh->info.imprim ) {
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",grp->mesh->nameout);
   }
 
@@ -193,8 +199,8 @@ check_mesh_loading:
     }
   }
 
-  chrono(OFF,&PMMG_ctim[1]);
-  if ( parmesh->info.imprim )
+  chrono(OFF,&PMMG_ctim[tim]);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"  -- WRITING COMPLETED\n");
 
   PMMG_RETURN_AND_FREE( parmesh, iresult );

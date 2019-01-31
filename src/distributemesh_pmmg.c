@@ -12,6 +12,61 @@
 #include "metis_pmmg.h"
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \param start index of the starting tetrahedra.
+ * \param ip index of the point in the mesh.
+ * \param iploc local index of the point in the tetrahedra \a start.
+ * \param visited integer array, equal to ip for each tetrahedron already
+ * visited when looking for node ip.
+ * \param list pointer toward the list of the tetra in the volumic ball of
+ * \a ip.
+ * \return 0 if fail and the number of the tetra in the ball otherwise.
+ *
+ * Fill the volumic ball (i.e. filled with tetrahedra) of point \a ip in tetra
+ * \a start. Results are stored under the form \f$4*kel + jel\f$, kel = number
+ * of the tetra, jel = local index of p within kel.
+ *
+ */
+int PMMG_boulevolp (MMG5_pMesh mesh, int start, int ip, int iploc, int *visited,
+                    int *list){
+  MMG5_pTetra  pt1;
+  int    *adja,ilist,cur,k,k1;
+  char    j,l,i;
+
+  /* Store initial tetrahedron */
+  visited[start] = ip;
+  list[0] = 4*start + iploc;
+  ilist=1;
+
+  /* Explore list and travel by adjacency through elements sharing p */
+  cur = 0;
+  while ( cur < ilist ) {
+    k = list[cur] / 4;
+    i = list[cur] % 4; // index of point p in tetra k
+    adja = &mesh->adja[4*(k-1)+1];
+
+    for (l=0; l<3; l++) {
+      i  = MMG5_inxt3[i];
+      k1 = adja[i];
+      if ( !k1 )  continue;
+      k1 /= 4;
+      pt1 = &mesh->tetra[k1];
+      if ( visited[k1] == ip )  continue;
+      visited[k1] = ip;
+      for (j=0; j<4; j++)
+        if ( pt1->v[j] == ip )  break;
+      assert(j<4);
+      /* overflow */
+      if ( ilist > MMG3D_LMAX-3 )  return 0;
+      list[ilist] = 4*k1+j;
+      ilist++;
+    }
+    cur++;
+  }
+  return ilist;
+}
+
+/**
  * \param xtetra pointer toward a table containing the xtetra structures.
  * \param *perm pointer toward the permutation table (to perform in place
  * permutations).
@@ -115,7 +170,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          rank,root,ier,ieresult,isMet;
+  int          k,rank,root,ier,ieresult,isMet;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -161,6 +216,72 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  /* Info */
+  MPI_CHECK( MPI_Bcast( &mesh->info.dhd,       1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hmin,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hmax,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hsiz,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hgrad,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  //MPI_CHECK( MPI_Bcast( &mesh->info.hgradreq, 1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hausd,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.delta,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6); 
+  MPI_CHECK( MPI_Bcast( &mesh->info.min,       3, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.ls,        1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.npar,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.opnbdy,    1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.renum,     1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.PROctree,  1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nmat,      1, MPI_INT, root, parmesh->comm ), ier=6);
+
+  MPI_CHECK( MPI_Bcast( &mesh->info.nreg,      1, MPI_CHAR, root, parmesh->comm ), ier=6); 
+  MPI_CHECK( MPI_Bcast( &mesh->info.imprim,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.ddebug,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.iso,       1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.lag,       1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.parTyp,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.optim,     1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.optimLES,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.noinsert,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.noswap,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nomove,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.nosurf,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.inputMet,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
+
+  /* affectation of old refs in ls-mode */
+  if ( mesh->info.nmat ) {
+    
+    if( rank != root )
+      MMG5_SAFE_CALLOC(mesh->info.mat,mesh->info.nmat,MMG5_Mat, ier = 0);
+
+    if ( ier ) {
+      for ( k=0; k<mesh->info.nmat; ++k ) {
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].dospl, 1, MPI_CHAR, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].ref,   1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].rin,   1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.mat[k].rex,   1, MPI_INT, root, parmesh->comm ), ier=6);
+      }
+    }
+  }
+
+  /* local parameters */
+  if ( mesh->info.npar ) {
+
+    if( rank != root )
+      MMG5_SAFE_CALLOC(mesh->info.par,mesh->info.npar,MMG5_Par, ier = 0);
+
+    if ( ier ) {
+      for ( k=0; k<mesh->info.npar; ++k ) {
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hmin,    1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hmax,    1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].hausd,   1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].ref,     1, MPI_INT, root, parmesh->comm ), ier=6);
+        MPI_CHECK( MPI_Bcast( &mesh->info.par[k].elt,     1, MPI_CHAR, root, parmesh->comm ), ier=6);
+      }
+    }
+  }
 
   mesh->npmax = mesh->npi = mesh->np;
   mesh->npnil = 0;
@@ -339,7 +460,8 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
-  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc,ne,newsize;
+  int          nprocs,rank,rankVois,ret_val,k,kvois,j,ip,iploc,l,ne,newsize,
+               list[MMG3D_LMAX+2],ilist,k1,rankVois1,cur,*flag;
   int8_t       ifac;
 
   ret_val = 1;
@@ -365,6 +487,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
   (*nxp) = 0;
   (*nxt) = 0;
   (*np)  = 0;
+
+  /** Visited tetra flag array */
+  PMMG_CALLOC(parmesh,flag,mesh->ne+1,int,"Visited tetra flag array",return 0;);
+  for ( k=1; k<=mesh->ne; k++ )
+    flag[k] = 0;
 
   /* Reset the tmp field of points (it will be used to store the local index of
    * the point on each proc) */
@@ -414,7 +541,9 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
           pt->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[pt->xt];
-        /* Parallel face */
+        /* Parallel face (if already boundary, make it recognizable as a true
+         * boundary) */
+        if ( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
         pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
         /* Parallel edges */
@@ -427,36 +556,52 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         ip    = pt->v[iploc];
         ppt   = &mesh->point[ip];
 
-        /* Count (and mark) each point that will be shared between me and the
-         * proc rankVois */
-        if ( rankVois != rank && !(*seen_shared_pt)[nprocs*(ip-1)+rankVois] ) {
-          (*seen_shared_pt)[nprocs*(ip-1)+rankVois] = 1;
-          ++(*shared_pt)[rankVois];
+        if ( rankVois != rank ) {
+          /* Check if the node is also shared among procs which are not
+           * communicating through an element face ==> Build the ball of the
+           * node and scan the elements partition number, start from kvois. */
+          flag[k] = ip;
+          for (l=0; l<4; l++)
+            if ( mesh->tetra[kvois].v[l] == ip )  break;
+          ilist = PMMG_boulevolp(mesh,kvois,ip,l,flag,list);
 
-          /* Mark parallel vertex */
-          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          for (cur = 0; cur<ilist; cur++ ) {
+            k1 = list[cur] / 4;
+            rankVois1 = part[k1-1];
+            if ( rankVois1 == rank ) continue; // Skip if not to be communicated
+
+            /* Count (and mark) each point that will be shared between me and the
+             * proc rankVois */
+            if ( !(*seen_shared_pt)[nprocs*(ip-1)+rankVois1] ) {
+              (*seen_shared_pt)[nprocs*(ip-1)+rankVois1] = 1;
+              ++(*shared_pt)[rankVois1];
+
+              /* Mark parallel vertex */
+              ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
 // TO REMOVE WHEN MMG WILL BE READY
-          if ( !ppt->xp ) {
-            if ( (mesh->xp+1) > mesh->xpmax ) {
-              /* realloc of xtetras table */
-              newsize = MG_MAX((1.+mesh->gap)*mesh->xpmax,mesh->xpmax+1);
-              PMMG_RECALLOC(mesh,mesh->xpoint,newsize+1,
-                            mesh->xpmax+1,MMG5_xPoint,"larger xpoint ",
-                            ret_val = 0;goto fail_alloc7);
-              PMMG_RECALLOC(parmesh,(*xPointPerm),newsize+1,
-                            mesh->xpmax+1,int,"larger xpoint permutation table ",
-                            ret_val = 0; goto fail_alloc7);
-              mesh->xpmax = newsize;
-            }
-            ++mesh->xp;
-            ppt->xp = mesh->xp;
-            if ( ppt->tmp ) {
-              (*xPointPerm)[ppt->xp] = ++(*nxp);
-              ppt->xp                = (*nxp);
+              if ( !ppt->xp ) {
+                if ( (mesh->xp+1) > mesh->xpmax ) {
+                  /* realloc of xtetras table */
+                  newsize = MG_MAX((1.+mesh->gap)*mesh->xpmax,mesh->xpmax+1);
+                  PMMG_RECALLOC(mesh,mesh->xpoint,newsize+1,
+                                mesh->xpmax+1,MMG5_xPoint,"larger xpoint ",
+                                ret_val = 0;goto fail_alloc7);
+                  PMMG_RECALLOC(parmesh,(*xPointPerm),newsize+1,
+                                mesh->xpmax+1,int,"larger xpoint permutation table ",
+                                ret_val = 0; goto fail_alloc7);
+                  mesh->xpmax = newsize;
+                }
+                ++mesh->xp;
+                ppt->xp = mesh->xp;
+                if ( ppt->tmp ) {
+                  (*xPointPerm)[ppt->xp] = ++(*nxp);
+                  ppt->xp                = (*nxp);
+                }
+              }
+// END TO REMOVE WHEN MMG WILL BE READY
             }
           }
-// END TO REMOVE WHEN MMG WILL BE READY
         }
 
         if ( !ppt->tmp ) {
@@ -479,6 +624,8 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
     (*xTetraPerm)[pt->xt] = ++(*nxt);
     pt->xt = (*nxt);
   }
+
+  PMMG_DEL_MEM(parmesh,flag,int,"deallocate visited tetra flag array");
 
 fail_alloc1:
   return ret_val;

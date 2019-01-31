@@ -56,9 +56,20 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
  *
  */
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
-  int ier,ier_glob;
+  int        ier,ier_glob,igrp,ne;
+  mytime     ctim[5];
+  int8_t     tim;
+  char       stim[32];
+
+
+  tminit(ctim,5);
 
   /** Count the number of interface faces per tetra and store it in mark */
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 0;
+    chrono(ON,&(ctim[tim]));
+  }
+
   ier = PMMG_count_parBdy(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Problem when counting the number of interface faces.\n");
@@ -69,21 +80,46 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
     if ( ier_glob <=0 ) return ier_glob;
 #endif
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"               count para. interfaces    %s\n",stim);
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+  }
+
+  ne = 0;
+  for ( igrp=0; igrp < parmesh->ngrp; igrp++ )
+    ne += parmesh->listgrp[igrp].mesh->ne;
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,METIS_TARGET_MESH_SIZE,1);
+    ier = PMMG_split_n2mGrps(parmesh,MG_MIN(METIS_TARGET_MESH_SIZE,ne/2+1),1);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
    * enters the function and not the other proc */
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"               group split for parmetis  %s\n",stim);
+  }
+
   if ( ier_glob <= 0) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     return ier_glob;
   }
 
   /** Distribute the groups over the processor to load balance the meshes */
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 2;
+    chrono(ON,&(ctim[tim]));
+  }
+
   ier = PMMG_distribute_grps(parmesh);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
@@ -94,6 +130,17 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if ( ier_glob <=0 ) return ier_glob;
 #endif
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"               group distribution        %s\n",stim);
+  }
+
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 3;
+    chrono(ON,&(ctim[tim]));
+  }
 
   if ( ier ) {
     /** Redistribute the ngrp groups of listgrp into a higher number of groups */
@@ -104,6 +151,12 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"               group split for mmg       %s\n",stim);
+  }
 
   return ier_glob;
 }

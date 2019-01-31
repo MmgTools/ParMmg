@@ -35,8 +35,10 @@ extern "C" {
  */
 enum PMMG_Param {
   PMMG_IPARAM_verbose,           /*!< [-10..10], Tune level of verbosity */
+  PMMG_IPARAM_mmgVerbose,        /*!< [-10..10], Tune level of verbosity of Mmg */
   PMMG_IPARAM_mem,               /*!< [n/-1], Set memory size to n Mbytes or keep the default value */
   PMMG_IPARAM_debug,             /*!< [1/0], Turn on/off debug mode */
+  PMMG_IPARAM_mmgDebug,          /*!< [1/0], Turn on/off debug mode */
   PMMG_IPARAM_angle,             /*!< [1/0], Turn on/off angle detection */
   PMMG_IPARAM_iso,               /*!< [1/0], Level-set meshing */
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
@@ -1617,9 +1619,24 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh );
  * Parse command line arguments.
  *
  * \remark no matching fortran function.
+ * \remark each proc read the parameters.
  *
  */
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 1 on success
+ *         0 on failure
+ *
+ * Parse parameter file.
+ *
+ * \remark no matching fortran function.
+ * \remark each proc read the file of parameters.
+ *
+ */
+int PMMG_parsop( PMMG_pParMesh parmesh );
 
 /**
  * \param parmesh pointer toward the parmesh structure

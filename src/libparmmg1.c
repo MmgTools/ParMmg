@@ -199,7 +199,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /* Remove the MG_REQ tags added by the nosurf option */
     MMG3D_unset_reqBoundaries(mesh);
 
-    if ( mesh->info.imprim ) {
+    if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
       fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
     }
@@ -390,15 +390,33 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
+  size_t     oldMemMax,available;
   int        it,ier,ier_end,ieresult,i,k, *facesData;
+  mytime     ctim[TIMEMAX];
+  int8_t     tim;
+  char       stim[32];
+
+
+  tminit(ctim,TIMEMAX);
 
   ier_end = PMMG_SUCCESS;
 
   /** Groups creation */
+  if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
+    tim = 0;
+    chrono(ON,&(ctim[tim]));
+  }
+
   ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"       group splitting                   %s\n",stim);
+  }
 
   if ( !ieresult ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
@@ -407,7 +425,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
-  //DEBUGGING: grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
+  //DEBUGGING: PMMG_grplst_meshes_to_saveMesh(parmesh->listgrp, 1, parmesh->myrank, "Begin_libparmmg1_proc");
 
   /** Reset the boundary fields between the old mesh size and the new one (Mmg
    * uses this fields assiming they are setted to 0)/ */
@@ -418,6 +436,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
+
     /* Uncomment to debug tag errors */
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
@@ -425,84 +444,142 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Mesh adaptation */
   for ( it = 0; it < parmesh->niter; ++it ) {
+
+    if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+      tim = 1;
+      if ( it > 0 ) {
+        chrono(OFF,&(ctim[tim]));
+      }
+      if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+        fprintf(stdout,"\n" );
+      }
+
+      printim(ctim[tim].gdif,stim);
+      chrono(ON,&(ctim[tim]));
+      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",it+1,stim);fflush(stdout);
+    }
+
+    /** Update old groups for metrics interpolation */
+    PMMG_update_oldGrps( parmesh );
+
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+      /* Reset the value of the fem mode */
+      mesh->info.fem = parmesh->info.fem;
 
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */
         continue;
       }
 
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+
       /** Store the vertices of interface faces in the internal communicator */
-      ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData);
-      if ( !ier ) {
+      if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
+        /* We are not able to remesh */
         fprintf(stderr,"\n  ## Interface faces storage problem."
                 " Exit program.\n");
-        goto failed;
+        break;
       }
+      else {
+        /* We can remesh */
 
-      /* Mark reinitialisation in order to be able to remesh all the mesh */
-      mesh->mark = 0;
-      mesh->base = 0;
-      for ( k=1 ; k<=mesh->nemax ; k++ ) {
-        mesh->tetra[k].mark = mesh->mark;
-        mesh->tetra[k].flag = mesh->base;
-      }
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
+                                               available,oldMemMax);
 
-      /** Call the remesher */
-      /* Here we need to scale the mesh */
-      if ( !(ier = PMMG_scaleMesh(mesh,met)) ) goto failed;
+        /* Mark reinitialisation in order to be able to remesh all the mesh */
+        mesh->mark = 0;
+        mesh->base = 0;
+        for ( k=1 ; k<=mesh->nemax ; k++ ) {
+          mesh->tetra[k].mark = mesh->mark;
+          mesh->tetra[k].flag = mesh->base;
+        }
+
+        /** Call the remesher */
+        /* Here we need to scale the mesh */
+        if ( !PMMG_scaleMesh(mesh,met) ) { goto strong_failed; }
+
+        if ( !mesh->adja ) {
+          if ( !MMG3D_hashTetra(mesh,0) ) {
+            fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+            goto strong_failed;
+          }
+        }
 
 #ifdef PATTERN
-      if ( 1 != (ier = MMG5_mmg3d1_pattern( mesh, met )) ) {
-        fprintf(stderr,"\n  ## MMG3D (pattern) remeshing problem."
-                " Exit program.\n");
-        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
-          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
-          goto strong_failed;
-        } else {
-          goto failed;
-        }
-      }
+        ier = MMG5_mmg3d1_pattern( mesh, met );
 #else
-      if ( 1 != (ier = MMG5_mmg3d1_delone( mesh, met )) ) {
-        fprintf(stderr,"\n  ## MMG3D (Delaunay) remeshing problem."
-                " Exit program.\n");
-        if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
-          fprintf(stderr,"\n  ## Hashing problem. Invalid mesh.\n");
-          goto strong_failed;
-        } else {
-          goto failed;
-        }
-      }
+        ier = MMG5_mmg3d1_delone( mesh, met );
 #endif
 
-      /** Pack the tetra */
-      if ( mesh->adja )
-        PMMG_DEL_MEM(mesh,mesh->adja,int,"adja table");
+        if ( !ier ) {
+          fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
+        }
 
-      if ( !(ier = MMG5_paktet(mesh)) ) {
-        fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
-        goto strong_failed;
-      }
+        /** Pack the tetra */
+        if ( mesh->adja )
+          PMMG_DEL_MEM(mesh,mesh->adja,int,"adja table");
 
-      /** Update interface tetra indices in the face communicator */
-      if ( !(ier = PMMG_update_face2intInterfaceTetra(parmesh,i,facesData)) ) {
-        fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-        goto strong_failed;
+        if ( !MMG5_paktet(mesh) ) {
+          fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
+          goto strong_failed;
+        }
+
+        /** Update interface tetra indices in the face communicator */
+        if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) {
+          fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+          goto strong_failed;
+        }
+        if ( !MMG5_unscaleMesh(mesh,met) ) { goto strong_failed; }
+
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
+                                               available,oldMemMax);
+
+        if ( !ier ) { break; }
       }
-      if ( !(ier = MMG5_unscaleMesh(mesh,met)) ) goto failed;
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-    if ( 1 != ieresult )
+    if ( !ieresult )
       goto failed_handling;
 
+    /** Interpolate metrics */
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      tim = 2;
+      chrono(ON,&(ctim[tim]));
+    }
+
+    ier = PMMG_interpMetrics_grps( parmesh );
+
+    MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"\n       metric interpolation              %s\n",stim);
+    }
+
+    if ( !ieresult ) {
+      if ( !parmesh->myrank )
+        fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+    }
+
     /** load Balancing at group scale and communicators reconstruction */
+    tim = 3;
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(ON,&(ctim[tim]));
+    }
+
     ier = PMMG_loadBalancing(parmesh);
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"       load balancing                    %s\n",stim);
+    }
+
     if ( !ieresult ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Try to save the mesh and exit program.\n");
@@ -514,22 +591,51 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-  ier = PMMG_outqua( parmesh );
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    printf("\n");
+  }
+
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
     ier_end = PMMG_LOWFAILURE;
   }
 
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    tim = 4;
+    chrono(ON,&(ctim[tim]));
+  }
+
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n       mesh packing                      %s\n",stim);
+  }
+
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Parallel mesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
+  PMMG_listgrp_free( parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
+
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    tim = 5;
+    chrono(ON,&(ctim[tim]));
+  }
+
   ier = PMMG_merge_grps(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"       group merging                     %s\n",stim);
+  }
+
   if ( !ieresult ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
@@ -537,23 +643,36 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
 
   /** mmg3d1_delone failure */
-failed:
-  MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  goto failed_handling;
-
 strong_failed:
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
 
 failed_handling:
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    tim = 4;
+    chrono(ON,&(ctim[tim]));
+  }
   if ( !PMMG_packParMesh(parmesh) ) {
-    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    fprintf(stderr,"\n  ## Parmesh packing problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n       mesh packing                      %s\n",stim);
+  }
 
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(ON,&(ctim[5]));
+  }
   if ( !PMMG_merge_grps(parmesh) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
+  }
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    chrono(OFF,&(ctim[5]));
+    printim(ctim[5].gdif,stim);
+    fprintf(stdout,"       group merging                     %s\n",stim);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);

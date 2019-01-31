@@ -62,10 +62,11 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       if ( !ip ) {
         /* reallocation of point table */
         MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                             printf("  ## Error: unable to merge group points\n");
-                             MMG5_INCREASE_MEM_MESSAGE();
-                             return 0;,
-                             pptJ->c,pptJ->tag);
+                            printf("  ## Error: unable to merge group points\n");
+                            MMG5_INCREASE_MEM_MESSAGE();
+                            metI->np = meshI->np;
+                            return 0;,
+                            pptJ->c,pptJ->tag);
 
       }
       assert( (ip <= meshI->npmax) && "run out of points" );
@@ -103,7 +104,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       intvalues[ poi_id_glo ] *= -1;
     }
   }
-
+  metI->np = meshI->np;
 
   return 1;
 }
@@ -190,17 +191,17 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     if ( !ip ) {
       /* reallocation of point table */
       MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                           printf("  ## Error: unable to merge group points\n");
-                           MMG5_INCREASE_MEM_MESSAGE();
-                           return 0;,
-                           pptJ->c,pptJ->tag);
+                          printf("  ## Error: unable to merge group points\n");
+                          MMG5_INCREASE_MEM_MESSAGE();
+                          metI->np = meshI->np;
+                          return 0;,
+                          pptJ->c,pptJ->tag);
     }
     pptJ->tmp = ip;
 
     /* Add xpoint if needed */
     ier = 1;
     if ( pptJ->xp ) {
-#warning add only the "true" xpoints (not those linked to the interfaces)
       pxpJ = &meshJ->xpoint[pptJ->xp];
       pptI = &meshI->point[ip];
       pxpI = &meshI->xpoint[pptI->xp];
@@ -219,6 +220,7 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
       }
     }
   }
+  metI->np = meshI->np;
   return 1;
 }
 
@@ -310,7 +312,6 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
-#warning add only the "true" xtetras (not those linked to the interfaces)
       pxtJ = &meshJ->xtetra[ptJ->xt];
       meshI->xt++;
       if ( meshI->xt > meshI->xtmax ) {
@@ -375,8 +376,6 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     for ( i=0; i<4; ++i ) ptI->v[i] = meshJ->point[ptJ->v[i]].tmp;
     ptI->ref  = ptJ->ref;
     ptI->qual = ptJ->qual;
-
-#warning need to update the adjacents?
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
@@ -611,84 +610,169 @@ int PMMG_mergeGrps_communicators(PMMG_pParMesh parmesh) {
  *
  * \return 0 if fail, 1 otherwise
  *
- * Update the tag on the points and tetra in case of ngrp=1
+ * Update the tag on the points and tetra
  *
  */
-static inline
 int PMMG_updateTag(PMMG_pParMesh parmesh) {
+  PMMG_pGrp       grp;
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pxTetra    pxt;
   MMG5_pPoint     ppt;
-  int             *node2int_node_comm0_index1;
-  int             k,j,i,nparbdy,nfbdy,nabdy;
+  MMG5_HGeom      hash;
+  int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
+  int             grpid,ip,iel,ifac,ia,ip0,ip1,k,j,i,nparbdy,nfbdy,nabdy,getref;
+  size_t          available,oldMemMax;
 
-  if ( parmesh->ngrp != 1 ) return 0;
+  /* Compute available memory (previously given to the communicators) */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
-  mesh                       = parmesh->listgrp[0].mesh;
-  node2int_node_comm0_index1 = parmesh->listgrp[0].node2int_node_comm_index1;
+  /* Loop on groups */
+  for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
+    grp                        = &parmesh->listgrp[grpid];
+    mesh                       = grp->mesh;
+    node2int_node_comm0_index1 = grp->node2int_node_comm_index1;
+    face2int_face_comm0_index1 = grp->face2int_face_comm_index1;
 
-  /** First : update the points : if the point is not in the internal communicator
-              that means the point is not PARBDY */
-  for ( k=1 ; k<=mesh->np ; k++ ) {
-    ppt = &mesh->point[k];
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
 
-    if ( !(ppt->tag & MG_PARBDY) ) continue;
-
-    for ( j=0 ; j< parmesh->listgrp[0].nitem_int_node_comm ; j++ ) {
-      if(node2int_node_comm0_index1[j]==k) break;
-    }
-    if ( j==parmesh->listgrp[0].nitem_int_node_comm ) {
-      //printf("point not found, remove the tag\n");
-      ppt->tag &= ~MG_PARBDY;
-    }
-  }
-
-  /** Second : update the xt */
-  for ( k=1 ; k<= mesh->ne ; k++) {
-    pt = &mesh->tetra[k];
-    if ( !pt->xt ) continue;
-    pxt = &mesh->xtetra[pt->xt];
-    /*check the faces*/
-    nfbdy = 0;
-    for ( j=0 ; j<4 ; j++) {
-      if ( !pxt->ftag[j] ) continue;
-      nfbdy++;
-      if ( !(pxt->ftag[j] & MG_PARBDY) ) continue;
-
-      nparbdy = 0;
-      for ( i=0 ; i<3 ; i++) {
-        ppt = &mesh->point[pt->v[MMG5_idir[j][i]]];
-        if ( ppt->tag & MG_PARBDY ) nparbdy++;
-      }
-      if ( nparbdy!=3 ) {
-        pxt->ftag[j] = 0;
-        nfbdy--;
-      }
-    }
-    /*check the edges*/
-    nabdy = 0;
-    for ( j=0 ; j<6 ; j++) {
-      if ( !pxt->tag[j] ) continue;
-      nabdy++;
-      if ( !(pxt->tag[j] & MG_PARBDY) ) continue;
-
-      nparbdy = 0;
-      for ( i=0 ; i<2 ; i++) {
-        ppt = &mesh->point[pt->v[MMG5_iare[j][i]]];
+    /** Step 1: Loop on xtetras to untag old parallel entities, then build
+     * hash table for edges on xtetras. */
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      /* Untag parallel nodes */
+      for ( j=0 ; j<4 ; j++ ) {
+        ppt = &mesh->point[pt->v[j]];
         if ( ppt->tag & MG_PARBDY ) {
-          nparbdy++;
+          assert( ppt->xp );
+          ppt->tag &= ~MG_PARBDY;
+          if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
+          if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
+          if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
         }
       }
-      if ( nparbdy!=2 ) {
-        pxt->tag[j] &= ~MG_PARBDY;;
-        nabdy--;
+      /* Untag parallel edges */
+      for ( j=0 ; j<6 ; j++ )
+        if ( pxt->tag[j] & MG_PARBDY ) {
+          pxt->tag[j] &= ~MG_PARBDY;
+          if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
+          if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
+          if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
+        }
+      /* Untag parallel faces */
+      for ( j=0 ; j<4 ; j++ )
+        if ( pxt->ftag[j] & MG_PARBDY ) {
+          pxt->ftag[j] &= ~MG_PARBDY;
+          if ( pxt->ftag[j] & MG_BDY)    pxt->ftag[j] &= ~MG_BDY;
+          if ( pxt->ftag[j] & MG_REQ)    pxt->ftag[j] &= ~MG_REQ;
+          if ( pxt->ftag[j] & MG_NOSURF) pxt->ftag[j] &= ~MG_NOSURF;
+        }
+    }
+
+    /* Create hash table for edges */
+    if ( !MMG5_hNew(mesh, &hash, 6*mesh->xt, 8*mesh->xt) ) return 0;
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      for ( j=0; j<6; j++ ) {
+        ip0 = pt->v[MMG5_iare[j][0]];
+        ip1 = pt->v[MMG5_iare[j][1]];
+        if( !MMG5_hEdge( mesh, &hash, ip0, ip1, 0, MG_NOTAG ) ) return 0;
       }
     }
-    if ( !nfbdy && !nabdy ) pt->xt = 0;
+
+    /** Step 2: Re-tag boundary entities starting from xtetra faces. */
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      /* Look for external boundary faces (MG_BDY) or internal boundary faces
+       * previously on parallel interfaces (MG_PARBDYBDY), tag their edges and
+       * nodes (the BDY tag could have been removed when deleting old parallel
+       * interfaces in step 1).*/
+      for ( ifac=0 ; ifac<4 ; ifac++ ) {
+        if ( pxt->ftag[ifac] & MG_PARBDYBDY ) {
+          pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+          pxt->ftag[ifac] |= MG_BDY;
+        }
+        /* Only a "true" boundary after this line */
+        if ( pxt->ftag[ifac] & MG_BDY ) {
+          /* Constrain boundary if -nosurf option */
+          if( mesh->info.nosurf ) pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
+          /* Tag face edges */
+          for ( j=0; j<3; j++ ) {
+            ia = MMG5_iarf[ifac][j];
+            ip0 = pt->v[MMG5_iare[ia][0]];
+            ip1 = pt->v[MMG5_iare[ia][1]];
+            if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf )
+              if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+          }
+          /* Tag face nodes */
+          for ( j=0 ; j<3 ; j++) {
+            ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+            ppt->tag |= MG_BDY;
+            /* Constrain boundary if -nosurf option */
+            if( mesh->info.nosurf ) ppt->tag |= MG_REQ + MG_NOSURF;
+          }
+        }
+      }
+    }
+
+    /** Step 3: if communicators are allocated: tag new parallel interface
+     * entities starting from int_face_comm. */
+    if ( parmesh->ext_face_comm ) {
+      for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
+        iel  =   face2int_face_comm0_index1[i] / 12;
+        ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
+        pt = &mesh->tetra[iel];
+        assert( pt->xt );
+        pxt = &mesh->xtetra[pt->xt];
+        /* Tag face */
+        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        /* Tag face edges */
+        for ( j=0; j<3; j++ ) {
+          ia = MMG5_iarf[ifac][j];
+          ip0 = pt->v[MMG5_iare[ia][0]];
+          ip1 = pt->v[MMG5_iare[ia][1]];
+          if( !MMG5_hTag( &hash, ip0, ip1, 0,
+                          MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
+        }
+        /* Tag face nodes */
+        for ( j=0 ; j<3 ; j++) {
+          ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        }
+      }
+    }
+
+    /** Step 4: Get edge tag and delete hash table */
+    for ( k=1; k<=mesh->ne; k++ ) {
+      pt = &mesh->tetra[k];
+      if ( !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      for ( j=0; j<6; j++ ) {
+        ip0 = pt->v[MMG5_iare[j][0]];
+        ip1 = pt->v[MMG5_iare[j][1]];
+        /* Put the tag stored in the hash table on the xtetra edge */
+        if( !MMG5_hGet( &hash, ip0, ip1, &getref, &pxt->tag[j] ) ) return 0;
+      }
+    }
+    PMMG_DEL_MEM( mesh, hash.geom, MMG5_hgeom, "Edge hash table" );
+
+    /** Step 5: Unreference xpoints not on BDY (or PARBDY) */
+    for ( i=1; i<=mesh->np; i++ ) {
+      ppt = &mesh->point[i];
+      if( ppt->tag & MG_BDY ) continue;
+      if( ppt->xp ) ppt->xp = 0;
+    }
+
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
   }
-  /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax; */
-  /* if ( !MMG3D_analys(mesh) ) return -1; */
+
   return 1;
 }
 
@@ -707,7 +791,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0,mesh;
   PMMG_pInt_comm int_node_comm,int_face_comm;
-  size_t         available;
+  size_t         available,oldMemMax;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
@@ -725,6 +809,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   if ( parmesh->ngrp == 1 ) return 1;
 
+  /* Give the memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
@@ -738,14 +825,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   //saveGrpsToMeshes(listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
   /* Give all the memory to mesh0 */
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax - parmesh->memMax;
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    available -= parmesh->listgrp[k].mesh->memMax;
-  }
-  assert ( available >= 0 );
-
-  mesh0->memMax +=  available;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh0,available,oldMemMax);
 
   /** Step 0: Store the indices of the interface faces of mesh0 into the
    * internal face communicator */
@@ -785,11 +865,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   /** Step 5: Update the communicators */
   /* Give all the memory to the communicators */
-  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
-  available = parmesh->memGloMax - parmesh->listgrp[0].mesh->memMax;
-  assert ( available >= 0 );
-
-  parmesh->memMax += available;
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh0,available,oldMemMax);
 
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
@@ -1264,6 +1340,7 @@ end:
       mesh->ne = mesh->nemax = 0;
       mesh->xp = mesh->xpmax = 0;
       mesh->xt = mesh->xtmax = 0;
+      met->np = met->npmax = 0;
     }
 
     /* 2: communicators */
@@ -1493,19 +1570,8 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
       if ( tetra[i].xt ) {
         nnpar = 0;
         pxt = &xtetra[tetra[i].xt];
-        for ( l=0; l<4; ++l ) {
-          if ( pxt->ftag[l] && !(pxt->ftag[l] & MG_PARBDY) ) ++nnpar;
-          if ( (pxt->ftag[l] & MG_PARBDY) && (pxt->ftag[l] & MG_REQ) )
-            pxt->ftag[l] &= ~MG_REQ;
-        }
-
-        if ( !nnpar ) {
-          pt->xt = 0;
-        }
-        else {
-          memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
-          pt->xt = ne;
-        }
+        memcpy(&mesh->xtetra[++ne],pxt,sizeof(MMG5_xTetra));
+        pt->xt = ne;
       }
     }
   }
@@ -1694,7 +1760,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
-  /* Free memory */
+  /** Step 4: Free memory */
   /* 1: Mesh data */
   if ( parmesh->myrank == parmesh->info.root ) {
     PMMG_DEL_MEM(parmesh,rcv_np,int,"rcv_np");
@@ -1740,6 +1806,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_DEL_MEM(parmesh,int_comm_index_displs,int,"icidx_displs");
 
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intval");
+
+  PMMG_parmesh_Free_Comm(parmesh);
+
+  /** Step 5: Update tag on points, tetra */
+  ieresult = PMMG_updateTag(parmesh);
 
   return ieresult;
 }

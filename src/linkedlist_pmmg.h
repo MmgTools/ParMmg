@@ -38,13 +38,15 @@ typedef struct {
   int nitem; /*!< number of used cells in the list (=position to insert the next cell) */
   int nitem_max; /*!< maximal number of item in the list */
   int frst; /*!< position of the first cell of the linked list */
+  int id;  /*!< ID of the linked list */
   PMMG_lnkdCell *item; /*!< array of cells */
 } PMMG_lnkdList;
 
-int  PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int );
+int  PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int,int );
 void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list );
 int  PMMG_merge_lnkdList( PMMG_pParMesh,PMMG_lnkdList*,PMMG_lnkdList *);
 int  PMMG_add_cell2lnkdList( PMMG_pParMesh,PMMG_lnkdList*,int,int );
+int  PMMG_pop_cell_lnkdList( PMMG_pParMesh,PMMG_lnkdList*,int*,int* );
 void PMMG_print_lnkdList( PMMG_lnkdList *list );
 int  PMMG_packInArray_lnkdList( PMMG_lnkdList *list,int *array );
 int  PMMG_unpackArray_inLnkdList(  PMMG_pParMesh,PMMG_lnkdList*,int* );

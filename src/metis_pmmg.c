@@ -7,6 +7,7 @@
  * \copyright GNU Lesser General Public License.
  */
 #include "metis_pmmg.h"
+#include "linkedlist_pmmg.h"
 
 
 /**
@@ -31,11 +32,14 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
 
   PMMG_CALLOC(parmesh,hash->item,hash->max+1,PMMG_hgrp,"group hash table",return 0);
 
-  for (k=0; k<hash->siz; ++k )
+  for (k=0; k<hash->siz; ++k ) {
     hash->item[k].adj = PMMG_UNSET;
+    hash->item[k].wgt = PMMG_NUL;
+  }
 
   for (k=hash->siz; k<hash->max; ++k) {
     hash->item[k].adj = PMMG_UNSET;
+    hash->item[k].wgt = PMMG_NUL;
     hash->item[k].nxt = k+1;
   }
 
@@ -58,20 +62,27 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
  *
  */
 static inline
-int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
+int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
+                  idx_t wgt ) {
   PMMG_hgrp  *ph;
   int        tmp_nxt,j,newsize;
 
   ph  = &hash->item[k+1];
 
-  if ( ph->adj == adj ) return 2;
+  if ( ph->adj == adj ) {
+    ph->wgt += wgt;
+    return 2;
+  }
 
   tmp_nxt = 0;
   if ( PMMG_UNSET != ph->adj ) {
     while ( ph->nxt && (ph->nxt<hash->max) && (hash->item[ph->nxt].adj<adj) )
       ph = &hash->item[ph->nxt];
 
-    if ( hash->item[ph->nxt].adj == adj ) return 2;
+    if ( hash->item[ph->nxt].adj == adj ) {
+      hash->item[ph->nxt].wgt += wgt;
+      return 2;
+    }
 
     tmp_nxt   = ph->nxt;
     ph->nxt   = hash->nxt;
@@ -91,6 +102,7 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
 
       for (j=ph->nxt; j<hash->max; j++) {
         hash->item[j].adj = PMMG_UNSET;
+        hash->item[j].wgt = PMMG_NUL;
         hash->item[j].nxt = j+1;
       }
     }
@@ -98,11 +110,166 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj ) {
   }
 
   /* insert new group */
-  ph->adj = adj;
-  ph->nxt = tmp_nxt;
+  ph->adj  = adj;
+  ph->wgt += wgt;
+  ph->nxt  = tmp_nxt;
 
   return 1;
 }
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param part    elements partition array
+ * \param ne      nb of elements
+ * \param nproc   nb of groups for partitioning
+ *
+ * \return 1 if no empty partitions or successfully corrected, 0 if fail
+ *
+ * Check if metis has returned empty partitions, correct partitioning if so.
+ *
+ */
+int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_t nproc ) {
+  PMMG_lnkdList **partlist;
+  idx_t iproc,ie,dummy;
+  int nempt,iempt;
+
+  /* Initialize lists */
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
+    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+  }
+
+  /* Fill the lists */
+  for( ie=0; ie<ne; ie++ ) {
+    iproc = part[ie];
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+  }
+
+  /* Sort lists based on nb. of entities, in ascending order */
+  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+
+  /* Count empty partitions */
+  nempt = 0;
+  for( iproc=0; iproc<nproc; iproc++ )
+    if( !partlist[iproc]->nitem ) nempt++;
+  assert( nempt < nproc );
+  if( !nempt ) return 1;
+
+  /** Correct partitioning */
+  iempt = 0;
+  while( nempt ) {
+    /* Get next "reservoir" proc */
+    iproc = nproc-1;
+    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
+      iproc--;
+    /* Pop entity ie from iproc, add to iempt */
+    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    /* Update partition table and go on to next empty proc */
+    part[ie] = partlist[iempt]->id;
+    iempt++;
+    nempt--;
+  }
+
+  /* Deallocate lists */
+  for( iproc=0; iproc<nproc; iproc++ )
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param vtxdist parmetis structure for nb of groups on each proc
+ * \param mypart  local groups partition array
+ * \param nproc   nb of procss for partitioning
+ *
+ * \return 1 if no empty partitions or successfully corrected, 0 if fail
+ *
+ * Check if parmetis has returned empty partitions, correct partitioning if so.
+ *
+ */
+int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
+                                       idx_t* mypart,idx_t nproc ) {
+  PMMG_lnkdList **partlist;
+  idx_t *part;
+  idx_t iproc,ie,ne,dummy,*recvcounts;
+  int myrank,ngrp,nempt,iempt;
+  MPI_Comm comm;
+
+  myrank   = parmesh->myrank;
+  ngrp     = parmesh->ngrp;
+  ne       = vtxdist[nproc];
+  comm     = parmesh->comm;
+
+  /** Step 1: Fill part array with the partitions local to each processor */
+  PMMG_CALLOC(parmesh,part,ne,idx_t,"parmetis part", return 0);
+  PMMG_CALLOC(parmesh,recvcounts,nproc,idx_t,"recvcounts", return 0);
+
+  for( iproc = 0; iproc<nproc; iproc++ )
+    recvcounts[iproc] = vtxdist[iproc+1]-vtxdist[iproc];
+
+  MPI_CHECK( MPI_Allgatherv(mypart,ngrp,MPI_INT,
+                            part,recvcounts,vtxdist,MPI_INT,comm), return 0);
+
+  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+
+  /* Initialize lists */
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
+    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+  }
+
+  /* Fill the lists */
+  for( ie=0; ie<ne; ie++ ) {
+    iproc = part[ie];
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+  }
+
+  /* Sort lists based on nb. of entities, in ascending order */
+  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+
+  /* Count empty partitions */
+  nempt = 0;
+  for( iproc=0; iproc<nproc; iproc++ )
+    if( !partlist[iproc]->nitem ) nempt++;
+  assert( nempt < nproc );
+  if( !nempt ) return 1;
+
+
+  /** Correct partitioning */
+  iempt = 0;
+  while( nempt ) {
+    /* Get next "reservoir" proc */
+    iproc = nproc-1;
+    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
+      iproc--;
+    /* Pop entity ie from iproc, add to iempt */
+    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
+    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    /* Update partition table and go on to next empty proc */
+    part[ie] = partlist[iempt]->id;
+    iempt++;
+    nempt--;
+  }
+
+  /** Update the local part */
+  for( ie=0; ie<ngrp; ie++ )
+    mypart[ie] = part[vtxdist[myrank]+ie];
+
+  /* Deallocations */
+  PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
+
+  for( iproc=0; iproc<nproc; iproc++ )
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+  return 1;
+}
+
 
 /**
  * \param parmesh pointer toward the PMMG parmesh structure
@@ -216,9 +383,9 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  */
 int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
                                      idx_t **xadj,idx_t **adjncy,idx_t *nadjncy,
-                                     idx_t **vwgt,idx_t *wgtflag,idx_t *numflag,
-                                     idx_t *ncon,idx_t nproc,real_t **tpwgts,
-                                     real_t **ubvec) {
+                                     idx_t **vwgt,idx_t **adjwgt,idx_t *wgtflag,
+                                     idx_t *numflag,idx_t *ncon,idx_t nproc,
+                                     real_t **tpwgts,real_t **ubvec) {
   PMMG_pGrp      grp;
   PMMG_pExt_comm ext_face_comm;
   PMMG_pInt_comm int_face_comm;
@@ -233,7 +400,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
 
-  *wgtflag = 2; /* Weights applies on vertices */
+  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weights for parmetis */
   *numflag = 0; /* C-style numbering */
   *ncon    = 1; /* number of weight per metis node */
 
@@ -359,7 +526,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Search the neighbour in the hash table and insert it if not found */
       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj
-                           +(*vtxdist)[ext_face_comm->color_out]);
+                           +(*vtxdist)[ext_face_comm->color_out],1);
 
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
@@ -382,31 +549,51 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
       igrp_adj = intvalues[face2int_face_comm_index2[i]];
 
-      if ( igrp_adj==-1 || igrp_adj<=igrp ) continue;
+      if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
-      /* Search the neighbour in the hash table and insert it if not found */
-       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank] );
-
+      /* Insert igrp_adj in the sorted list of igrp if not already found,
+       * increment weight if found */
+      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
         goto fail_7;
       }
+      /* Count group only if not already in the adja list */
+      if ( found!=2 ) ++(*xadj)[ igrp+1 ];
 
-      if ( found==2 ) continue; // The group is already in the adja list
-
-      ++(*xadj)[ igrp+1 ];
-
-      /* add igrp to the sorted list of adjacnts to igrp_adj */
-      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank] );
-      if ( 1!=found ) {
+      /* Insert igrp in the sorted list of igrp_adj if not already found,
+       * increment weight if found */
+      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],1);
+      if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
         goto fail_7;
       }
-      ++(*xadj)[ igrp_adj+1 ];
+      /* Count group only if not already in the adja list */
+      if ( found !=2 ) ++(*xadj)[ igrp_adj+1 ];
     }
   }
+#ifndef NDEBUG
+  /* Check that the sum of shared faces for each grp is equal to the nb. of its
+   * faces in the communicator */
+  for ( igrp=0; igrp<ngrp; ++igrp ) {
+    grp  = &parmesh->listgrp[igrp];
+
+    found = 0;
+    ph = &hash.item[igrp+1];
+    if( PMMG_UNSET==ph->adj ) continue;
+
+
+    found += ph->wgt;
+    while ( ph->nxt ) {
+      ph = &hash.item[ph->nxt];
+
+      found += ph->wgt;
+    }
+    assert( found == grp->nitem_int_face_comm );
+  }
+#endif
 
   /** Step 7: xadj array contains the number of adja per group, fill it for
    * Metis (it must contains the index of the first adja of the group in the
@@ -417,6 +604,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   /** Step 8: Fill adjncy array at metis format */
   PMMG_CALLOC(parmesh,*adjncy,(*xadj)[ngrp],idx_t,"adjcncy parmetis array",
               goto fail_7);
+  PMMG_CALLOC(parmesh,*adjwgt,(*xadj)[ngrp],idx_t,"parmetis adjwgt",
+              goto fail_7);
 
   (*nadjncy) = 0;
   for ( igrp=0; igrp<=ngrp; ++igrp ) {
@@ -424,14 +613,35 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     ph = &hash.item[igrp+1];
     if ( PMMG_UNSET==ph->adj ) continue;
 
-    (*adjncy)[(*nadjncy)++] = ph->adj;
+    (*adjncy)[(*nadjncy)]   = ph->adj;
+    (*adjwgt)[(*nadjncy)++] = ph->wgt;
 
     while ( ph->nxt ) {
       ph                = &hash.item[ph->nxt];
-      (*adjncy)[(*nadjncy)++] = ph->adj;
+      (*adjncy)[(*nadjncy)]   = ph->adj;
+      (*adjwgt)[(*nadjncy)++] = ph->wgt;
     }
   }
   assert ( (*nadjncy)==(*xadj)[ngrp] );
+
+  /* Nullify unnecessary weights */
+  switch (*wgtflag) {
+    case PMMG_WGTFLAG_NONE:
+      PMMG_DEL_MEM(parmesh,*vwgt,idx_t,"parmetis vwgt");
+      PMMG_DEL_MEM(parmesh,*adjwgt,idx_t,"parmetis adjwgt");
+      *vwgt = *adjwgt = NULL;
+      break;
+    case PMMG_WGTFLAG_ADJ:
+      PMMG_DEL_MEM(parmesh,*vwgt,idx_t,"parmetis vwgt");
+      *vwgt = NULL;
+      break;
+    case PMMG_WGTFLAG_VTX:
+      PMMG_DEL_MEM(parmesh,*adjwgt,idx_t,"parmetis adjwgt");
+      *adjwgt = NULL;
+      break;
+    default:
+      break;
+  }
 
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
@@ -534,6 +744,9 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     status = 0;
   }
 
+  /** Correct partitioning to avoid empty partitions */
+  if( !PMMG_correct_meshElts2metis( parmesh,part,nelt,nproc ) ) return 0;
+
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
 
@@ -553,7 +766,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 {
   real_t     *tpwgts,*ubvec;
-  idx_t      *xadj,*adjncy,*vwgt,*vtxdist,adjsize,edgecut;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize,edgecut;
   idx_t      wgtflag,numflag,ncon,options[3];
   int        ngrp,nprocs,ier;
 
@@ -562,12 +775,12 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   ier    = 1;
 
   /** Build the parmetis graph */
-  xadj   = adjncy = vwgt = vtxdist = NULL;
+  xadj   = adjncy = vwgt = adjwgt = vtxdist = NULL;
   tpwgts = ubvec  =  NULL;
   options[0] = 0;
 
   if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
-                                        &vwgt,&wgtflag,&numflag,&ncon,
+                                        &vwgt,&adjwgt,&wgtflag,&numflag,&ncon,
                                         nproc,&tpwgts,&ubvec) ) {
     fprintf(stderr,"\n  ## Error: Unable to build parmetis graph.\n");
     return 0;
@@ -575,7 +788,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
 
   /** Call parmetis and get the partition array */
   if ( 2 < nprocs + ngrp ) {
-    if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,NULL,&wgtflag,&numflag,
+    if ( ParMETIS_V3_PartKway( vtxdist,xadj,adjncy,vwgt,adjwgt,&wgtflag,&numflag,
                                &ncon,&nproc,tpwgts,ubvec,options,&edgecut,part,
                                &parmesh->comm) != METIS_OK ) {
         fprintf(stderr,"\n  ## Error: Parmetis fails.\n" );
@@ -583,12 +796,28 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
     }
   }
 
+  /** Correct partitioning to avoid empty procs */
+  if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
+
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
   PMMG_DEL_MEM(parmesh, ubvec, real_t,"parmetis ubvec");
-  PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
   PMMG_DEL_MEM(parmesh, tpwgts, real_t, "deallocate tpwgts" );
   PMMG_DEL_MEM(parmesh, vtxdist, idx_t, "deallocate vtxdist" );
+  switch (wgtflag) {
+    case PMMG_WGTFLAG_ADJ:
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    case PMMG_WGTFLAG_VTX:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      break;
+    case PMMG_WGTFLAG_BOTH:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    default:
+      break;
+  }
 
   return ier;
 }
