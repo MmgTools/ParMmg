@@ -2913,6 +2913,7 @@ end:
  */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
+  int   contigresult;
   int   ngrp,ier,ier_glob;
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -2966,6 +2967,9 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
               __func__);
       parmesh->info.contiguous_mode = PMMG_NUL;
     }
+    /* Check that the same option is applied on all procs */
+    MPI_Allreduce( &parmesh->info.contiguous_mode, &contigresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    parmesh->info.contiguous_mode = contigresult;
   }
 
   return ier;
