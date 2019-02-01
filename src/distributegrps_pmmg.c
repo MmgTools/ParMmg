@@ -2913,7 +2913,6 @@ end:
  */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
-  int   contigresult;
   int   ngrp,ier,ier_glob;
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -2956,21 +2955,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
 
   /** Check grps contiguity */
-  if( (parmesh->info.loadbalancing_mode == PMMG_LOADBALANCING_metis) &&
-      (parmesh->info.contiguous_mode) ) {
-    ier = PMMG_check_grps_contiguity( parmesh );
-    if( !ier ) {
-      fprintf(stderr,"\n  ## Error %s: Unable to count mesh contiguous subgroups.\n",
-              __func__);
-    } else if( ier>1 ) {
-      fprintf(stderr,"\n  ## Warning %s: Group meshes are not contiguous. Reverting to discontiguous mode.\n",
-              __func__);
-      parmesh->info.contiguous_mode = PMMG_NUL;
-    }
-    /* Check that the same option is applied on all procs */
-    MPI_Allreduce( &parmesh->info.contiguous_mode, &contigresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-    parmesh->info.contiguous_mode = contigresult;
-  }
+  ier = PMMG_checkAndReset_grps_contiguity( parmesh );
 
   return ier;
 }

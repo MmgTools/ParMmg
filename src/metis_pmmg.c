@@ -210,6 +210,45 @@ int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
+ * \return 0 if fail, 1 if success
+ *
+ * Check group mesh contiguity and reset global option for forcing contiguity
+ * in Metis if discontiguous groups are found.
+ *
+ */
+int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh ) {
+  int contigresult, ier;
+
+  /** Check grps contiguity */
+  if( (parmesh->info.loadbalancing_mode == PMMG_LOADBALANCING_metis) &&
+      (parmesh->info.contiguous_mode) ) {
+
+    ier = PMMG_check_grps_contiguity( parmesh );
+    if( !ier ) {
+      fprintf(stderr,"\n  ## Error %s: Unable to count mesh contiguous subgroups.\n",
+              __func__);
+    } else if( ier>1 ) {
+      fprintf(stderr,"\n  ## Warning %s: Group meshes are not contiguous. Reverting to discontiguous mode.\n",
+              __func__);
+      parmesh->info.contiguous_mode = PMMG_NUL;
+      ier = 1;
+    }
+
+    /* Check that the same option is applied on all procs */
+    MPI_Allreduce( &parmesh->info.contiguous_mode, &contigresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    parmesh->info.contiguous_mode = contigresult;
+
+  } else {
+    ier = 1;
+  }
+
+  return ier;
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
  * \return The number of contiguous subgroups.
  *
  * Check group mesh contiguity by counting the number of adjacent element

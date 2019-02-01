@@ -998,6 +998,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   if ( !PMMG_create_localMesh(mesh,met,rank,np,nxp,nxt,pointPerm,xPointPerm,xTetraPerm) )
     ier = 2;
 
+  /** Check grps contiguity */
+  ier = PMMG_checkAndReset_grps_contiguity( parmesh );
+
 unalloc:
   if ( ier < 5 ) {
     PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");

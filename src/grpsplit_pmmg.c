@@ -1258,6 +1258,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
 
+  /** Check grps contiguity */
+  ret_val = PMMG_check_grps_contiguity( parmesh );
+
   if ( PMMG_parmesh_updateMemMax(parmesh, 5, fitMesh) ) {
     /* No error so far, skip deallocation of lstgrps */
     goto fail_facePos;
