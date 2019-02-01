@@ -563,41 +563,49 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   ier = 1;
   ++(*nadjncy);
   PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
+  if( !ier ) {
+    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+    parmesh->memMax = parmesh->memCur;
+    *memAv -= (parmesh->memMax - memMaxOld);
+    return ier;
+  }
   PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
+  if( !ier ) {
+    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+    PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
+    parmesh->memMax = parmesh->memCur;
+    *memAv -= (parmesh->memMax - memMaxOld);
+    return ier;
+  }
 
-  if ( ier ) {
-    count = 0;
-    for( k = 1; k <= mesh->ne; k++ ) {
-      iadr = 4*(k-1) + 1;
-      adja = &mesh->adja[iadr];
-      pt   = &mesh->tetra[k];
-      for ( j = 0; j < 4; j++ ) {
-        jel = adja[j] / 4;
-        if ( !jel ) continue;
+  count = 0;
+  for( k = 1; k <= mesh->ne; k++ ) {
+    iadr = 4*(k-1) + 1;
+    adja = &mesh->adja[iadr];
+    pt   = &mesh->tetra[k];
+    for ( j = 0; j < 4; j++ ) {
+      jel = adja[j] / 4;
+      if ( !jel ) continue;
 
-        /* Assign graph edge weights */
-        if ( pt->xt ) {
-          pxt = &mesh->xtetra[pt->xt];
-          if( pxt->ftag[j] & MG_OLDPARBDY ) {
-            /* Put high weight on old parallel faces */
-            wgt = PMMG_WGTVAL_HUGEINT;
-          } else {
-            /* Default weight on other faces */
-            wgt = 1;
-          }
+      /* Assign graph edge weights */
+      if ( pt->xt ) {
+        pxt = &mesh->xtetra[pt->xt];
+        if( pxt->ftag[j] & MG_OLDPARBDY ) {
+          /* Put high weight on old parallel faces */
+          wgt = PMMG_WGTVAL_HUGEINT;
         } else {
-          /* Default weight if no xtetra found */
+          /* Default weight on other faces */
           wgt = 1;
         }
-
-        (*adjncy)[count]   = jel-1;
-        (*adjwgt)[count++] = wgt;
+      } else {
+        /* Default weight if no xtetra found */
+        wgt = 1;
       }
-      assert( count == ( (*xadj)[k] ) );
+
+      (*adjncy)[count]   = jel-1;
+      (*adjwgt)[count++] = wgt;
     }
-  }
-  else {
-    PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+    assert( count == ( (*xadj)[k] ) );
   }
 
   parmesh->memMax = parmesh->memCur;
@@ -982,11 +990,11 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   MMG5_pMesh mesh = grp[0].mesh;
   size_t     memAv;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
+  idx_t      adjsize;
   idx_t      nelt = mesh->ne;
   idx_t      ncon = 1; // number of balancing constraint
   idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
-  int        adjsize;
   int        ier = 0;
   int        status = 1;
 
