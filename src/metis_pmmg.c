@@ -536,14 +536,19 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
         jel = adja[j] / 4;
         if ( !jel ) continue;
 
-        /* Put high weight on old parallel faces */
+        /* Assign graph edge weights */
         if ( pt->xt ) {
           pxt = &mesh->xtetra[pt->xt];
           if( pxt->ftag[j] & MG_OLDPARBDY ) {
+            /* Put high weight on old parallel faces */
             wgt = PMMG_WGTVAL_HUGEINT;
           } else {
+            /* Default weight on other faces */
             wgt = 1;
           }
+        } else {
+          /* Default weight if no xtetra found */
+          wgt = 1;
         }
 
         (*adjncy)[count]   = jel-1;
