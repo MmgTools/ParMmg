@@ -51,7 +51,7 @@
  * value for option[METIS_OPTION_CONTIG] in Metis
  *
  */
-#define PMMG_CONTIG_DEF     1
+#define PMMG_CONTIG_DEF     0
 
 
 /**
