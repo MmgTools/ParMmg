@@ -97,7 +97,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  * Mesh preprocessing: set function pointers, scale mesh, perform mesh
  * analysis and display length and quality histos.
  */
-static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
+int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;

@@ -21,11 +21,13 @@
 // if the header file is in the "include" directory
 // #include "libparmmg.h"
 // if the header file is in "include/parmmg"
-#include "parmmg/libparmmg.h"
+#include "parmmg.h"
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,rank,i,nsols;
+  MMG5_pMesh      mesh;
+  MMG5_pSol       met;
+  int             ier,iresult,rank,i,nsols;
   char            *filename,*metname,*solname,*fileout,*tmp;
 
   MPI_Init( &argc, &argv );
@@ -141,7 +143,33 @@ int main(int argc,char *argv[]) {
 
   /** ------------------------------ STEP  II -------------------------- */
   /** distribute mesh on procs */
-  ier = PMMG_parmmglib_centralized(parmesh);
+ 
+  ier = PMMG_check_inputData( parmesh );
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( !iresult ) return PMMG_LOWFAILURE;
+
+  /** Send mesh to other procs */
+  ier = PMMG_bcast_mesh( parmesh );
+  if ( ier!=1 ) return PMMG_LOWFAILURE;
+
+  /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
+   * analysis and display length and quality histos. */
+  ier = PMMG_preprocessMesh( parmesh );
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
+    ier = PMMG_LOWFAILURE;
+  }
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  if ( iresult!=PMMG_SUCCESS ) {
+    return iresult;
+  }
+
+  /** Send mesh partionning to other procs */
+  if ( !PMMG_distribute_mesh( parmesh ) ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+  }
 
   if ( ier != PMMG_STRONGFAILURE ) {
     /** ------------------------------ STEP III -------------------------- */
