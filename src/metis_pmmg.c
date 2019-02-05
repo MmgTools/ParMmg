@@ -381,7 +381,16 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   for( iproc=0; iproc<nproc; iproc++ )
     if( !partlist[iproc]->nitem ) nempt++;
   assert( nempt < nproc );
-  if( !nempt ) return 1;
+  if( !nempt ) {
+    /* Deallocate lists and return */
+    for( iproc=0; iproc<nproc; iproc++ ) {
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+    return 1;
+  }
 
   /** Correct partitioning */
   iempt = 0;
@@ -400,8 +409,10 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   }
 
   /* Deallocate lists */
-  for( iproc=0; iproc<nproc; iproc++ )
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+  }
   PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
 
   return 1;
@@ -464,7 +475,18 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   for( iproc=0; iproc<nproc; iproc++ )
     if( !partlist[iproc]->nitem ) nempt++;
   assert( nempt < nproc );
-  if( !nempt ) return 1;
+  if( !nempt ) {
+    /* Deallocate and return */
+    PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
+
+    for( iproc=0; iproc<nproc; iproc++ ) {
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+   return 1;
+  }
 
 
   /** Correct partitioning */
@@ -490,8 +512,10 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   /* Deallocations */
   PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
 
-  for( iproc=0; iproc<nproc; iproc++ )
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+  }
   PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
 
   return 1;
