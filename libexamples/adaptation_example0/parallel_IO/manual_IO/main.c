@@ -25,9 +25,11 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  MMG5_pMesh      mesh;
-  MMG5_pSol       met;
-  int             ier,iresult,rank,i,nsols;
+  MMG5_pMesh      mesh,meshIN;
+  MMG5_pSol       met,solIN;
+  MMG5_pPoint     ppt;
+  MMG5_pTetra     pt;
+  int             ip,ie,ier,iresult,rank,i,nsols;
   char            *filename,*metname,*solname,*fileout,*tmp;
 
   MPI_Init( &argc, &argv );
@@ -171,37 +173,87 @@ int main(int argc,char *argv[]) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
-  if ( ier != PMMG_STRONGFAILURE ) {
-    /** ------------------------------ STEP III -------------------------- */
-    /** get results */
-    /** Two solutions: just use the PMMG_saveMesh/PMMG_saveSol functions
-        that will write .mesh(b)/.sol formatted files or manually get your mesh/sol
-        using the PMMG_getMesh/PMMG_getSol functions */
 
-    /** 1) Automatically save the mesh */
-    if ( PMMG_saveMesh_centralized(parmesh,fileout) != 1 ) {
-      fprintf(stdout,"UNABLE TO SAVE MESH\n");
-      ier = PMMG_STRONGFAILURE;
-    }
+  /** ------------------------------ STEP  III ------------------------- */
+  /** Swap meshes, so that you can use meshIN to initialize mesh */
 
-    /** 2) Automatically save the metric */
-    if ( PMMG_saveMet_centralized(parmesh,fileout) != 1 ) {
-      fprintf(stdout,"UNABLE TO SAVE METRIC\n");
-      ier = PMMG_LOWFAILURE;
-    }
+  /* Create meshIN */
+  meshIN = NULL;
+  solIN = NULL;
+  MMG3D_Init_mesh(MMG5_ARG_start,
+                  MMG5_ARG_ppMesh,&meshIN,MMG5_ARG_ppMet,&solIN,
+                  MMG5_ARG_end);
+ 
+  if ( MMG3D_Set_meshSize(meshIN,mesh->np,mesh->ne,mesh->nprism,mesh->nt,
+                          mesh->nquad,mesh->na) != 1 ) exit(EXIT_FAILURE);
 
-    /** 3) Automatically save the solutions if needed */
-    PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
-    if ( nsols ) {
-      if ( PMMG_saveAllSols_centralized(parmesh,fileout) != 1 ) {
-        fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
-        ier = PMMG_LOWFAILURE;
-      }
+  /* Swap meshes */
+  mesh = meshIN;
+  meshIN = parmesh->listgrp[0].mesh;
+  parmesh->listgrp[0].mesh = mesh;
+  mesh = parmesh->listgrp[0].mesh;
+
+  /** ------------------------------ STEP  IV -------------------------- */
+  /** Initialize the distributed mesh using meshIN as input */
+
+  if ( PMMG_Set_meshSize(parmesh,meshIN->np,meshIN->ne,meshIN->nprism,meshIN->nt,
+                               meshIN->nquad,meshIN->na) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
+  /* Set points, vertex by vertex */
+  for( ip = 1; ip <= meshIN->np; ip++ ) {
+    ppt = &meshIN->point[ip];
+    if ( PMMG_Set_vertex(parmesh,ppt->c[0],ppt->c[1],ppt->c[2],
+                         ppt->ref, ip) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
     }
   }
-  else {
-    fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
+
+  /* Set elements, tetra by tetra */
+  for( ie = 1; ie <= meshIN->ne; ie++ ) {
+    pt = &meshIN->tetra[ie];
+    if ( PMMG_Set_tetrahedron(parmesh,pt->v[0],pt->v[1],pt->v[2],pt->v[3],
+                              pt->ref, ie) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
   }
+
+
+//  if ( ier != PMMG_STRONGFAILURE ) {
+//    /** ------------------------------ STEP III -------------------------- */
+//    /** get results */
+//    /** Two solutions: just use the PMMG_saveMesh/PMMG_saveSol functions
+//        that will write .mesh(b)/.sol formatted files or manually get your mesh/sol
+//        using the PMMG_getMesh/PMMG_getSol functions */
+//
+//    /** 1) Automatically save the mesh */
+//    if ( PMMG_saveMesh_centralized(parmesh,fileout) != 1 ) {
+//      fprintf(stdout,"UNABLE TO SAVE MESH\n");
+//      ier = PMMG_STRONGFAILURE;
+//    }
+//
+//    /** 2) Automatically save the metric */
+//    if ( PMMG_saveMet_centralized(parmesh,fileout) != 1 ) {
+//      fprintf(stdout,"UNABLE TO SAVE METRIC\n");
+//      ier = PMMG_LOWFAILURE;
+//    }
+//
+//    /** 3) Automatically save the solutions if needed */
+//    PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
+//    if ( nsols ) {
+//      if ( PMMG_saveAllSols_centralized(parmesh,fileout) != 1 ) {
+//        fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
+//        ier = PMMG_LOWFAILURE;
+//      }
+//    }
+//  }
+//  else {
+//    fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
+//  }
 
   /** 4) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
