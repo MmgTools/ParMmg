@@ -736,6 +736,59 @@ int PMMG_Get_tensorMets(PMMG_pParMesh parmesh, double *mets){
   return(MMG3D_Get_tensorSols(parmesh->listgrp[0].met, mets));
 }
 
+int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_face_comm) {
+
+  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_Ext_comm,
+              "allocate ext_face_comm ",return 0);
+  parmesh->next_face_comm = next_face_comm;
+
+  return 1;
+}
+
+int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
+  PMMG_pExt_comm pext_face_comm;
+  
+  /* Get the face communicator */
+  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+
+  /* Set colors */
+  pext_face_comm->color_in  = parmesh->myrank;
+  pext_face_comm->color_out = color_out;
+
+  /* Allocate communicator */
+  PMMG_CALLOC(parmesh,pext_face_comm->int_comm_index,nitem,int,
+                  "allocate int_comm_index",return 0);
+  pext_face_comm->nitem = nitem;
+
+  return 1;
+}
+
+int PMMF_Set_ithFaceCommunicator_face(PMMG_pParMesh parmesh, int ext_comm_index, int ifac, int local_face_index) {
+  PMMG_pExt_comm pext_face_comm;
+  
+  /* Get the face communicator */
+  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+
+  /* Save face index */
+  pext_face_comm->int_comm_index[ifac] = local_face_index;
+
+  return 1;
+}
+
+int PMMF_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_face_index) {
+  PMMG_pExt_comm pext_face_comm;
+  int            i;
+  
+  /* Get the face communicator */
+  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+
+  /* Save face index */
+  for( i = 0; i < pext_face_comm->nitem; i++ )
+    pext_face_comm->int_comm_index[i] = local_face_index[i];
+
+  return 1;
+}
+
 int PMMG_Free_all(const int starter,...)
 {
   va_list argptr;
