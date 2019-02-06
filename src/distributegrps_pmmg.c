@@ -2928,7 +2928,17 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+  switch ( parmesh->info.loadbalancing_mode ) {
+  case PMMG_LOADBALANCING_metis:
+    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
+    break;
+
+  case PMMG_LOADBALANCING_parmetis:
+  default:
+    ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+    break;
+  }
+
   if ( !ier )
     fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
 
@@ -2943,6 +2953,9 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   ier = PMMG_transfer_all_grps(parmesh,part);
   if ( ier <= 0 )
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
+
+  /** Check grps contiguity */
+  ier = PMMG_checkAndReset_grps_contiguity( parmesh );
 
   return ier;
 }

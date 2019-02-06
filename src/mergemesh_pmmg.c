@@ -731,6 +731,8 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
         pt = &mesh->tetra[iel];
         assert( pt->xt );
         pxt = &mesh->xtetra[pt->xt];
+        /* If already boundary, make it recognizable as a "true" boundary */
+        if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
         /* Tag face */
         pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
         /* Tag face edges */

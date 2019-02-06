@@ -118,6 +118,233 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return The number of contiguous subgroups.
+ *
+ * Check group mesh contiguity by counting the number of adjacent element
+ * subgroups.
+ *
+ */
+int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
+    idx_t *part, idx_t nnodes, idx_t nparts ) {
+  idx_t       *flag,ipart,inode,jnode,iadj,istart;
+  int         nnodes_part,ncolors,maxcolors,nb_seen,done;
+
+  /** Flags */
+  PMMG_CALLOC( parmesh, flag, nnodes, idx_t, "graph node flags", return 0 );
+
+  /** Count the nb. of graph subgroups for each part */
+  maxcolors = 0;
+  for( ipart = 0; ipart < nparts; ipart++ ) {
+
+    /** Reset node flag of the current partition and count nodes on partition */
+    nnodes_part = 0;
+    for( inode = 0; inode < nnodes; inode++ )
+      if( part[inode] == ipart ) {
+        flag[inode] = 0;
+        ++nnodes_part;
+      }
+
+    /** Loop on all nodes to count the subgroups */
+    ncolors = 0;
+    nb_seen = 0;
+    while( nb_seen < nnodes_part ) {
+
+      /** Find first node not seen */
+      for( inode = 0; inode < nnodes; inode++ ) {
+        /* Remain on current partition */
+        if( part[inode] != ipart ) continue;
+
+        if( flag[inode] == 0 ) {
+          /* New color */
+          ++ncolors;
+          istart = inode;
+          /* Mark element */
+          flag[inode] = ncolors;
+          ++nb_seen;
+          done = 0;
+          /* Exit */
+          break;
+        }
+      }
+
+      /** Loop on colored elements until the subgroup is full */
+      while( !done ) {
+        done = 1;
+        for( inode = istart; inode < nnodes; inode++ ) {
+          /* Remain on current partition */
+          if( part[inode] != ipart ) continue;
+ 
+          /* Skip unseen nodes or different colors */
+          if( flag[inode] != ncolors ) continue;
+    
+          /** Loop on adjacents */
+          for( iadj = xadj[inode]; iadj < xadj[inode+1]; iadj++ ) {
+            jnode = adjncy[iadj];
+            if( part[jnode] != ipart ) continue;
+            /** Mark with current color (if not already seen) */
+            if( flag[jnode] == 0 ) {
+              flag[jnode] = ncolors;
+              ++nb_seen;
+              done = 0;
+            }
+          }
+        }
+      }
+    }
+
+    if( ncolors > 1 )
+      fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on part %d, proc %d.\n",
+              ncolors,ipart,parmesh->myrank);
+ 
+    /** Update the max nb of subgroups found */
+    if( ncolors > maxcolors ) maxcolors = ncolors;
+  }
+
+  PMMG_DEL_MEM( parmesh,flag,idx_t,"graph node flags");
+
+  return ncolors;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Check group mesh contiguity and reset global option for forcing contiguity
+ * in Metis if discontiguous groups are found.
+ *
+ */
+int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh ) {
+  int contigresult, ier;
+
+  /** Check grps contiguity */
+  if( (parmesh->info.loadbalancing_mode == PMMG_LOADBALANCING_metis) &&
+      (parmesh->info.contiguous_mode) ) {
+
+    ier = PMMG_check_grps_contiguity( parmesh );
+    if( !ier ) {
+      fprintf(stderr,"\n  ## Error %s: Unable to count mesh contiguous subgroups.\n",
+              __func__);
+    } else if( ier>1 ) {
+      fprintf(stderr,"\n  ## Warning %s: Group meshes are not contiguous. Reverting to discontiguous mode.\n",
+              __func__);
+      parmesh->info.contiguous_mode = PMMG_NUL;
+      ier = 1;
+    }
+
+    /* Check that the same option is applied on all procs */
+    MPI_Allreduce( &parmesh->info.contiguous_mode, &contigresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    parmesh->info.contiguous_mode = contigresult;
+
+  } else {
+    ier = 1;
+  }
+
+  return ier;
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return The number of contiguous subgroups.
+ *
+ * Check group mesh contiguity by counting the number of adjacent element
+ * subgroups.
+ *
+ */
+int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt,pt1;
+  int         *adja,igrp,ie,je,ifac;
+  int         ncolors,maxcolors,nb_seen,mark_notseen,done,istart;
+  size_t      memAv,oldMemMax;
+
+  /** Labels */
+  mark_notseen = 0;
+
+  /** Count the nb. of mesh subgroups for each group */
+  maxcolors = 0;
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    grp  = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+
+    oldMemMax = parmesh->memCur;
+    memAv = parmesh->memMax-oldMemMax;
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,0) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        return 0;
+      }
+    }
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+    /** Reset tetra flag */
+    for( ie = 1; ie < mesh->ne+1; ie++ )
+      mesh->tetra[ie].flag = mark_notseen;
+
+    /** Loop on all elements to count the subgroups */
+    ncolors = 0;
+    nb_seen = 0;
+    while( nb_seen < mesh->ne ) {
+
+      /** Find first element not seen */
+      for( ie = 1; ie < mesh->ne+1; ie++ ) {
+        pt = &mesh->tetra[ie];
+        if( pt->flag == mark_notseen ) {
+          /* New color */
+          ++ncolors;
+          istart = ie;
+          /* Mark element */
+          pt->flag = ncolors;
+          ++nb_seen;
+          done = 0;
+          /* Exit */
+          break;
+        }
+      }
+
+      /** Loop on colored elements until the subgroup is full */
+      while( !done ) {
+        done = 1;
+        for( ie = istart; ie < mesh->ne+1; ie++ ) {
+          pt   = &mesh->tetra[ie];
+          adja = &mesh->adja[4*(ie-1)+1];
+ 
+          /* Skip unseen elts or different colors */
+          if( pt->flag != ncolors ) continue;
+    
+          /** Loop on adjacents */
+          for( ifac = 0; ifac < 4; ifac++ ) {
+            je = adja[ifac]/4;
+            pt1 = &mesh->tetra[je];
+            /** Mark with current color (if not already seen) */
+            if( je && pt1->flag == mark_notseen ) {
+              pt1->flag = ncolors;
+              ++nb_seen;
+              done = 0;
+            }
+          }
+        }
+      }
+    }
+
+    if( ncolors > 1 )
+      fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on grp %d, proc %d.\n",
+              ncolors,igrp,parmesh->myrank);
+ 
+    /** Update the max nb of subgroups found */
+    if( ncolors > maxcolors ) maxcolors = ncolors;
+  }
+
+  return ncolors;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param part    elements partition array
  * \param ne      nb of elements
@@ -154,7 +381,16 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   for( iproc=0; iproc<nproc; iproc++ )
     if( !partlist[iproc]->nitem ) nempt++;
   assert( nempt < nproc );
-  if( !nempt ) return 1;
+  if( !nempt ) {
+    /* Deallocate lists and return */
+    for( iproc=0; iproc<nproc; iproc++ ) {
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+    return 1;
+  }
 
   /** Correct partitioning */
   iempt = 0;
@@ -173,8 +409,10 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   }
 
   /* Deallocate lists */
-  for( iproc=0; iproc<nproc; iproc++ )
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+  }
   PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
 
   return 1;
@@ -237,7 +475,18 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   for( iproc=0; iproc<nproc; iproc++ )
     if( !partlist[iproc]->nitem ) nempt++;
   assert( nempt < nproc );
-  if( !nempt ) return 1;
+  if( !nempt ) {
+    /* Deallocate and return */
+    PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
+
+    for( iproc=0; iproc<nproc; iproc++ ) {
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+
+   return 1;
+  }
 
 
   /** Correct partitioning */
@@ -263,8 +512,10 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   /* Deallocations */
   PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
 
-  for( iproc=0; iproc<nproc; iproc++ )
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list");
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+  }
   PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
 
   return 1;
@@ -287,11 +538,13 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  *
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-                               idx_t **xadj,idx_t **adjncy,
+                               idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
                                idx_t *nadjncy,size_t *memAv) {
-  size_t     memMaxOld;
-  int        *adja;
-  int        j,k,iadr,jel,count,nbAdj,ier;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  size_t       memMaxOld;
+  int          *adja;
+  int          j,k,iadr,jel,count,nbAdj,wgt,ier;
 
   /** Step 1: mesh adjacency creation */
 
@@ -333,27 +586,50 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   /** 2) List the adjacent of each elts in adjncy */
   ier = 1;
   ++(*nadjncy);
-  PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy",
-              ier = 0;);
-
-  if ( ier ) {
-    count = 0;
-    for( k = 1; k <= mesh->ne; k++ ) {
-      iadr = 4*(k-1) + 1;
-      adja = &mesh->adja[iadr];
-      for ( j = 0; j < 4; j++ ) {
-        jel = adja[j] / 4;
-
-        if ( !jel )
-          continue;
-
-        (*adjncy)[count++] = jel-1;
-      }
-      assert( count == ( (*xadj)[k] ) );
-    }
+  PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
+  if( !ier ) {
+    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+    parmesh->memMax = parmesh->memCur;
+    *memAv -= (parmesh->memMax - memMaxOld);
+    return ier;
   }
-  else {
-    PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+  PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
+  if( !ier ) {
+    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+    PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
+    parmesh->memMax = parmesh->memCur;
+    *memAv -= (parmesh->memMax - memMaxOld);
+    return ier;
+  }
+
+  count = 0;
+  for( k = 1; k <= mesh->ne; k++ ) {
+    iadr = 4*(k-1) + 1;
+    adja = &mesh->adja[iadr];
+    pt   = &mesh->tetra[k];
+    for ( j = 0; j < 4; j++ ) {
+      jel = adja[j] / 4;
+      if ( !jel ) continue;
+
+      /* Assign graph edge weights */
+      if ( pt->xt ) {
+        pxt = &mesh->xtetra[pt->xt];
+        if( pxt->ftag[j] & MG_OLDPARBDY ) {
+          /* Put high weight on old parallel faces */
+          wgt = PMMG_WGTVAL_HUGEINT;
+        } else {
+          /* Default weight on other faces */
+          wgt = 1;
+        }
+      } else {
+        /* Default weight if no xtetra found */
+        wgt = 1;
+      }
+
+      (*adjncy)[count]   = jel-1;
+      (*adjwgt)[count++] = wgt;
+    }
+    assert( count == ( (*xadj)[k] ) );
   }
 
   parmesh->memMax = parmesh->memCur;
@@ -394,12 +670,13 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   PMMG_hgrp      *ph;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
   MPI_Comm       comm;
   MPI_Status     status;
-  int            *face2int_face_comm_index2;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            found,color;
-  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx;
+  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,wgt;
 
   *wgtflag = PMMG_WGTFLAG_DEF; /* Default weights for parmetis */
   *numflag = 0; /* C-style numbering */
@@ -450,7 +727,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     (*ubvec)[k] = PMMG_UBVEC_DEF;
 
   /** Step 3: Fill the internal communicator with the greater index of the 2
-   * groups to which the face belong */
+   * groups to which the face belong. Use a minus sign to mark old parallel
+   * faces.*/
   PMMG_CALLOC(parmesh,*xadj,ngrp+1,idx_t,"parmetis xadj", goto fail_4);
 
   int_face_comm = parmesh->int_face_comm;
@@ -463,13 +741,31 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( k=0; k < int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
 
+  /*Fill the internal communicator with the greater index of the 2 groups to
+   * which the face belong */
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
     for ( k=0; k<grp->nitem_int_face_comm; ++k )
-      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] )
-        intvalues[face2int_face_comm_index2[k]]= igrp;
+      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
+        
+        ie   =  face2int_face_comm_index1[k]/12;
+        ifac = (face2int_face_comm_index1[k]%12)/3;
+        pt = &mesh->tetra[ie];
+        assert( MG_EOK(pt) && pt->xt );
+        pxt = &mesh->xtetra[pt->xt];
+
+        /* Save group ID with a minus sign if the face was parallel in the
+         * previous adaptation iteration */
+        if( pxt->ftag[ifac] & MG_OLDPARBDY )
+          intvalues[face2int_face_comm_index2[k]]= -igrp;
+        else
+          intvalues[face2int_face_comm_index2[k]]= igrp;
+
+      }
   }
 
   /** Step 4: Send and receive external communicators filled by the group id of
@@ -522,12 +818,21 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       igrp     = itosend[i];
       igrp_adj = itorecv[i];
 
+      /* Put high weight on old parallel faces */
+      if( igrp < 0 ) igrp *= -1;
+      if( igrp_adj < 0 ) {
+        wgt = PMMG_WGTVAL_HUGEINT;
+        igrp_adj *= -1;
+      } else {
+        wgt = 1;
+      }
+
       assert ( igrp != PMMG_UNSET );
       assert ( igrp_adj != PMMG_UNSET );
 
       /* Search the neighbour in the hash table and insert it if not found */
       found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj
-                           +(*vtxdist)[ext_face_comm->color_out],1);
+                           +(*vtxdist)[ext_face_comm->color_out],wgt);
 
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
@@ -552,9 +857,17 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
+      /* Put high weight on old parallel faces */
+      if ( igrp_adj < 0 ) {
+        wgt = PMMG_WGTVAL_HUGEINT;
+        igrp_adj *= -1;
+      } else {
+        wgt = 1;
+      }
+
       /* Insert igrp_adj in the sorted list of igrp if not already found,
        * increment weight if found */
-      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],1);
+      found = PMMG_hashGrp(parmesh,&hash,igrp,igrp_adj+(*vtxdist)[myrank],wgt);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
@@ -565,7 +878,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Insert igrp in the sorted list of igrp_adj if not already found,
        * increment weight if found */
-      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],1);
+      found = PMMG_hashGrp(parmesh,&hash,igrp_adj,igrp+(*vtxdist)[myrank],wgt);
       if ( !found ) {
         fprintf(stderr,"  ## Error: %s: unable to add a new group in adjacency"
                 " hash table.\n",__func__);
@@ -589,10 +902,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     found += ph->wgt;
     while ( ph->nxt ) {
       ph = &hash.item[ph->nxt];
-
       found += ph->wgt;
     }
-    assert( found == grp->nitem_int_face_comm );
   }
 #endif
 
@@ -703,14 +1014,21 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
   size_t     memAv;
-  idx_t      *xadj = NULL;
-  idx_t      *adjncy = NULL;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
+  idx_t      adjsize;
   idx_t      nelt = mesh->ne;
   idx_t      ncon = 1; // number of balancing constraint
+  idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
-  int        adjsize;
   int        ier = 0;
   int        status = 1;
+
+  xadj = adjncy = vwgt = adjwgt = NULL;
+
+  /* Set contiguity of partitions if using Metis also for graph partitioning */
+  METIS_SetDefaultOptions(options);
+  options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
+    (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
   /* Fit the parmesh and the meshes in memory and compute the available memory */
   parmesh->memMax = parmesh->memCur;
@@ -718,15 +1036,15 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memMax;
 
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjsize,&memAv) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
     return 0;
 
   /* Give the memory to the parmesh */
   parmesh->memMax += memAv;
 
   /** Call metis and get the partition array */
-  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,NULL,NULL,NULL,&nproc,
-                             NULL,NULL,NULL,&objval, part );
+  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
+                             NULL,NULL,options,&objval, part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
       case METIS_ERROR_INPUT:
@@ -748,6 +1066,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   /** Correct partitioning to avoid empty partitions */
   if( !PMMG_correct_meshElts2metis( parmesh,part,nelt,nproc ) ) return 0;
 
+  PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
   PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
 
@@ -762,6 +1081,208 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
  * \return  1 if success, 0 if fail
  *
  * Use metis to partition the first mesh in the list of meshes into nproc groups
+ *
+ */
+int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
+{
+  real_t     *tpwgts,*ubvec;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize,edgecut;
+  idx_t      *xadj_seq,*adjncy_seq,*vwgt_seq,*adjwgt_seq,*part_seq;
+  idx_t      sendcounts,*recvcounts,*displs;
+  idx_t      wgtflag,numflag;
+  idx_t      ncon = 1; // number of balancing constraint
+  idx_t      options[METIS_NOPTIONS];
+  idx_t      objval = 0;
+  int        ngrp,nprocs,ier;
+  int        iproc,root,ip,target,status;
+  size_t     memAv,oldMemMax;
+
+  ngrp   = parmesh->ngrp;
+  nprocs = parmesh->nprocs;
+  ier    = 1;
+
+  /** Build the parmetis graph */
+  xadj   = adjncy = vwgt = adjwgt = vtxdist = NULL;
+  tpwgts = ubvec  =  NULL;
+
+  if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&vtxdist,&xadj,&adjncy,&adjsize,
+                                        &vwgt,&adjwgt,&wgtflag,&numflag,&ncon,
+                                        nproc,&tpwgts,&ubvec) ) {
+    fprintf(stderr,"\n  ## Error: Unable to build parmetis graph.\n");
+    return 0;
+  }
+
+  /** Gather the graph on proc 0 */
+  root = 0;
+  vwgt_seq = adjwgt_seq = NULL;
+  PMMG_CALLOC(parmesh,recvcounts,nproc,idx_t,"recvcounts", return 0);
+  PMMG_CALLOC(parmesh,displs,nproc,idx_t,"displs", return 0);
+
+  /** xadj, vwgt */
+  for( iproc = 0; iproc<nproc; iproc++ ) {
+    recvcounts[iproc] = vtxdist[iproc+1]-vtxdist[iproc];
+    displs[iproc] = vtxdist[iproc];
+  }
+
+  if(parmesh->myrank == root)
+    PMMG_CALLOC(parmesh,xadj_seq,vtxdist[nproc]+1,idx_t,"xadj_seq", return 0);
+
+  MPI_CHECK( MPI_Gatherv(&xadj[1],recvcounts[parmesh->myrank],MPI_INT,
+                         &xadj_seq[1],recvcounts,displs,MPI_INT,
+                         root,parmesh->comm), return 0);
+
+  if(parmesh->myrank == root)
+    for( iproc = 0; iproc < nproc; iproc++ )
+      for( ip = 1; ip <= vtxdist[iproc+1]-vtxdist[iproc]; ip++ )
+          xadj_seq[vtxdist[iproc]+ip] += xadj_seq[vtxdist[iproc]];
+
+  if(wgtflag == PMMG_WGTFLAG_VTX || wgtflag == PMMG_WGTFLAG_BOTH ) {
+    if(parmesh->myrank == root)
+      PMMG_CALLOC(parmesh,vwgt_seq,vtxdist[nproc]+1,idx_t,"vwgt_seq", return 0);
+  
+    MPI_CHECK( MPI_Gatherv(vwgt,recvcounts[parmesh->myrank],MPI_INT,
+                           vwgt_seq,recvcounts,displs,MPI_INT,
+                           root,parmesh->comm), return 0);
+  }
+
+  /** adjncy, adjwgt */
+  sendcounts = xadj[recvcounts[parmesh->myrank]];
+  MPI_CHECK( MPI_Allgather(&sendcounts,1,MPI_INT,
+                           recvcounts,1,MPI_INT,parmesh->comm), return 0);
+
+  displs[0] = 0;
+  for( iproc = 0; iproc<nproc-1; iproc++ ) {
+    displs[iproc+1] = displs[iproc]+recvcounts[iproc];
+  }
+
+  if(parmesh->myrank == root)
+    PMMG_CALLOC(parmesh,adjncy_seq,xadj_seq[vtxdist[nproc]],idx_t,"xadj_seq", return 0);
+
+  MPI_CHECK( MPI_Gatherv(adjncy,recvcounts[parmesh->myrank],MPI_INT,
+                         adjncy_seq,recvcounts,displs,MPI_INT,
+                         root,parmesh->comm), return 0);
+
+  if(wgtflag == PMMG_WGTFLAG_ADJ || wgtflag == PMMG_WGTFLAG_BOTH ) {
+    if(parmesh->myrank == root)
+      PMMG_CALLOC(parmesh,adjwgt_seq,xadj_seq[vtxdist[nproc]],idx_t,"xadj_seq", return 0);
+
+    MPI_CHECK( MPI_Gatherv(adjwgt,recvcounts[parmesh->myrank],MPI_INT,
+                           adjwgt_seq,recvcounts,displs,MPI_INT,
+                           root,parmesh->comm), return 0);
+  }
+
+
+  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+  PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+
+
+  /** Call metis and get the partition array */
+  if ( nprocs > 1 ) {
+    
+    if(parmesh->myrank == root) {
+      PMMG_CALLOC(parmesh,part_seq,vtxdist[nproc],idx_t,"part_seq", return 0);
+    
+    
+      /* Set contiguity of partitions */
+      METIS_SetDefaultOptions(options);
+      options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
+  
+      /** Call metis and get the partition array */
+      status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
+                                    vwgt_seq,NULL,adjwgt_seq,&nproc,
+                                    NULL,NULL,options,&objval, part_seq );
+      if ( status != METIS_OK ) {
+        switch ( status ) {
+          case METIS_ERROR_INPUT:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR_INPUT: input data error\n" );
+            break;
+          case METIS_ERROR_MEMORY:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR_MEMORY: could not allocate memory error\n" );
+            break;
+          case METIS_ERROR:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR: generic error\n" );
+            break;
+          default:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR: update your METIS error handling\n" );
+            break;
+        }
+        return 0;
+      }
+    }
+
+    /** Scatter the partition array */
+    PMMG_CALLOC(parmesh,recvcounts,nproc,idx_t,"recvcounts", return 0);
+    for( iproc = 0; iproc<nproc; iproc++ )
+      recvcounts[iproc] = vtxdist[iproc+1]-vtxdist[iproc];
+    assert(recvcounts[parmesh->myrank] == parmesh->ngrp);
+
+    MPI_CHECK( MPI_Scatterv(part_seq,recvcounts,vtxdist,MPI_INT,
+                            part,recvcounts[parmesh->myrank],MPI_INT,
+                            root,parmesh->comm), return 0);
+    PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+
+    /** Correct partitioning to avoid empty procs */
+    if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
+ 
+    if(parmesh->myrank == root) PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
+  
+  }
+
+  PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
+  PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+  PMMG_DEL_MEM(parmesh, ubvec, real_t,"parmetis ubvec");
+  PMMG_DEL_MEM(parmesh, tpwgts, real_t, "deallocate tpwgts" );
+  PMMG_DEL_MEM(parmesh, vtxdist, idx_t, "deallocate vtxdist" );
+  switch (wgtflag) {
+    case PMMG_WGTFLAG_ADJ:
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    case PMMG_WGTFLAG_VTX:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      break;
+    case PMMG_WGTFLAG_BOTH:
+      PMMG_DEL_MEM(parmesh, vwgt, idx_t, "deallocate vwgt" );
+      PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
+      break;
+    default:
+      break;
+  }
+
+  if(parmesh->myrank == root) {
+    PMMG_DEL_MEM(parmesh,xadj_seq,idx_t,"xadj_seq");
+    PMMG_DEL_MEM(parmesh,adjncy_seq,idx_t,"adjcncy_seq");
+    switch (wgtflag) {
+     case PMMG_WGTFLAG_ADJ:
+        PMMG_DEL_MEM(parmesh,adjwgt_seq,idx_t,"adjwgt_seq");
+        break;
+     case PMMG_WGTFLAG_VTX:
+        PMMG_DEL_MEM(parmesh,vwgt_seq,idx_t,"vwgt_seq");
+        break;
+     case PMMG_WGTFLAG_BOTH:
+        PMMG_DEL_MEM(parmesh,vwgt_seq,idx_t,"vwgt_seq");
+        PMMG_DEL_MEM(parmesh,adjwgt_seq,idx_t,"adjwgt_seq");
+        break;
+      default:
+        break;
+    }
+  }
+
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param part pointer of an array containing the partitions (at the end)
+ * \param nproc number of partitions asked
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Use parmetis to partition the first mesh in the list of meshes into nproc
+ * groups
  *
  */
 int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
