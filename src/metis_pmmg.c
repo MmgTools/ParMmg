@@ -369,6 +369,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  * \param adjncy pointer toward the list of the adjacent of each elt
  * \param nadjncy number of data in adjncy array
  * \param vwgt pointer toward the metis node weights
+ * \param adjvwgt pointer toward the metis edge weights
  * \param wgtflag how to apply the metis weights
  * \param numflag numbering style (C versus frotran)
  * \param ncon number of of weights per metis node
