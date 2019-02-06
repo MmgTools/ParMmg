@@ -30,12 +30,29 @@
 #define PMMG_WGTFLAG_DEF   (PMMG_WGTFLAG_ADJ)
 
 /**
+ * \def PMMG_WGTVAL_HUGEINT
+ *
+ * Huge integer weight for parallel faces in load balancing
+ *
+ */
+#define PMMG_WGTVAL_HUGEINT   10000
+
+/**
  * \def PMMG_UBVEC_DEF
  *
  * value for the ubvec vector of ParMetis
  *
  */
 #define PMMG_UBVEC_DEF     1.05
+
+/**
+ * \def PMMG_CONTIG_DEF
+ *
+ * value for option[METIS_OPTION_CONTIG] in Metis
+ *
+ */
+#define PMMG_CONTIG_DEF     0
+
 
 /**
  * \def PMMG_NBADJA_GRPS
@@ -68,12 +85,14 @@ typedef struct {
   PMMG_hgrp    *item;
 } PMMG_HGrp;
 
-
-int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,idx_t**,idx_t**,idx_t*,size_t*);
+int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh );
+int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh );
+int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,idx_t**,idx_t**,idx_t**,idx_t*,size_t*);
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*,
                                     idx_t**,idx_t**,idx_t*,idx_t*,idx_t*,idx_t,
                                     real_t**,real_t**);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
+int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 
 #endif

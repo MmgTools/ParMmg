@@ -17,10 +17,12 @@
  *
  * Count the number of parallel triangle in each tetra and store the info into
  * the mark field of the tetra.
+ * Reset the OLDPARBDY tag after mesh adaptation in order to track previous
+ * parallel faces during load balancing.
  *
  */
 static inline
-int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
+int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
@@ -39,7 +41,15 @@ int PMMG_count_parBdy(PMMG_pParMesh parmesh) {
       pxt = &mesh->xtetra[pt->xt];
 
       for ( j=0; j<4; ++j ) {
-        if ( pxt->ftag[j] & MG_PARBDY ) ++pt->mark;
+        if ( pxt->ftag[j] & MG_PARBDY ) {
+          /* Increase counter */
+          ++pt->mark;
+          /* Mark face as a previously parallel one */
+          pxt->ftag[j] |= MG_OLDPARBDY;
+        } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
+          /* Untag faces which are not parallel anymore */
+          pxt->ftag[j] &= ~MG_OLDPARBDY;
+        }
       }
     }
   }
@@ -64,13 +74,14 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   tminit(ctim,5);
 
-  /** Count the number of interface faces per tetra and store it in mark */
+  /** Count the number of interface faces per tetra and store it in mark,
+   * retag old parallel faces*/
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     tim = 0;
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_count_parBdy(parmesh);
+  ier = PMMG_resetOldTag(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Problem when counting the number of interface faces.\n");
   }
