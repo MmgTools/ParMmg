@@ -119,10 +119,12 @@ int main(int argc,char *argv[]) {
   int nQuadrilaterals = 0;
   int nEdges          = 0;
 
-  if ( PMMG_Set_meshSize(parmesh,nVertices,nTetrahedra,nPrisms,nTriangles,
-                            nQuadrilaterals,nEdges) != 1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+  if(parmesh->myrank == parmesh->info.root){
+    if ( PMMG_Set_meshSize(parmesh,nVertices,nTetrahedra,nPrisms,nTriangles,
+                              nQuadrilaterals,nEdges) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
   }
 
   /** b) give the vertices (12 vertices with 3 coor = array of size 36) */
@@ -141,24 +143,26 @@ int main(int argc,char *argv[]) {
 
   int  vert_ref[12] = {0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  };
 
-  if ( !opt ) {
-    /* By array: give the array of the vertices coordinates such as the
-     * coordinates of the k^th point are stored in vert_coor[3*(k-1)],
-     * vert_coor[3*(k-1)+1] and vert_coor[3*(k-1)+2] */
-    if ( PMMG_Set_vertices(parmesh,vert_coor,vert_ref) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-  else {
-    /* Vertex by vertex: for each vertex, give the coordinates, the reference
-       and the position in mesh of the vertex */
-    for ( k=0; k<nVertices; ++k ) {
-      pos = 3*k;
-      if ( PMMG_Set_vertex(parmesh,vert_coor[pos],vert_coor[pos+1],vert_coor[pos+2],
-                           vert_ref[k], k+1) != 1 ) {
+  if(parmesh->myrank == parmesh->info.root){
+    if ( !opt ) {
+      /* By array: give the array of the vertices coordinates such as the
+       * coordinates of the k^th point are stored in vert_coor[3*(k-1)],
+       * vert_coor[3*(k-1)+1] and vert_coor[3*(k-1)+2] */
+      if ( PMMG_Set_vertices(parmesh,vert_coor,vert_ref) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      /* Vertex by vertex: for each vertex, give the coordinates, the reference
+         and the position in mesh of the vertex */
+      for ( k=0; k<nVertices; ++k ) {
+        pos = 3*k;
+        if ( PMMG_Set_vertex(parmesh,vert_coor[pos],vert_coor[pos+1],vert_coor[pos+2],
+                             vert_ref[k], k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
@@ -179,27 +183,29 @@ int main(int argc,char *argv[]) {
 
   int tetra_ref[12] = {1  ,1  ,1  ,1  ,1  ,1  ,2  ,2  ,2  ,2  ,2  ,2  };
 
-  if ( !opt ) {
-    /* By array: give the array of the tetra vertices and the array of the tetra
-     * references. The array of the tetra vertices is such as the four
-     * vertices of the k^th tetra are respectively stored in
-     * tetra_vert[4*(k-1)],tetra_vert[4*(k-1)+1],tetra_vert[4*(k-1)+2] and
-     * tetra_vert[4*(k-1)+3]. */
-    if ( PMMG_Set_tetrahedra(parmesh,tetra_vert,tetra_ref) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-  else {
-    /* Vertex by vertex: for each tetrahedra,
-      give the vertices index, the reference and the position of the tetra */
-    for ( k=0; k<nTetrahedra; ++k ) {
-      pos = 4*k;
-
-      if ( PMMG_Set_tetrahedron(parmesh,tetra_vert[pos],tetra_vert[pos+1],
-                                tetra_vert[pos+2],tetra_vert[pos+3],tetra_ref[k],k+1) != 1 ) {
+  if(parmesh->myrank == parmesh->info.root){
+    if ( !opt ) {
+      /* By array: give the array of the tetra vertices and the array of the tetra
+       * references. The array of the tetra vertices is such as the four
+       * vertices of the k^th tetra are respectively stored in
+       * tetra_vert[4*(k-1)],tetra_vert[4*(k-1)+1],tetra_vert[4*(k-1)+2] and
+       * tetra_vert[4*(k-1)+3]. */
+      if ( PMMG_Set_tetrahedra(parmesh,tetra_vert,tetra_ref) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      /* Vertex by vertex: for each tetrahedra,
+        give the vertices index, the reference and the position of the tetra */
+      for ( k=0; k<nTetrahedra; ++k ) {
+        pos = 4*k;
+  
+        if ( PMMG_Set_tetrahedron(parmesh,tetra_vert[pos],tetra_vert[pos+1],
+                                  tetra_vert[pos+2],tetra_vert[pos+3],tetra_ref[k],k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
@@ -229,26 +235,28 @@ int main(int argc,char *argv[]) {
   int tria_ref[20] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                        4, 4, 4, 4, 4, 4, 4, 4, 4, 4  };
 
-  if ( !opt ) {
-    /* By array: give the array of the tria vertices and the array of the tria
-     * references. The array of the tria vertices is such as the three
-     * vertices of the k^th tria are stored in
-     * tria_vert[3*(k-1)], tria_vert[3*(k-1)+1] and tria_vert[4*(k-1)+2] */
-    if ( PMMG_Set_triangles(parmesh,tria_vert,tria_ref) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-  else {
-    /* Vertex by vertex: for each triangle, give the vertices index, the
-     * reference and the position of the triangle */
-    for ( k=0; k<nTriangles; ++k ) {
-      pos = 3*k;
-      if ( PMMG_Set_triangle(parmesh,
-                             tria_vert[pos],tria_vert[pos+1],tria_vert[pos+2],
-                             tria_ref[k],k+1) != 1 ) {
+  if(parmesh->myrank == parmesh->info.root){
+    if ( !opt ) {
+      /* By array: give the array of the tria vertices and the array of the tria
+       * references. The array of the tria vertices is such as the three
+       * vertices of the k^th tria are stored in
+       * tria_vert[3*(k-1)], tria_vert[3*(k-1)+1] and tria_vert[4*(k-1)+2] */
+      if ( PMMG_Set_triangles(parmesh,tria_vert,tria_ref) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      /* Vertex by vertex: for each triangle, give the vertices index, the
+       * reference and the position of the triangle */
+      for ( k=0; k<nTriangles; ++k ) {
+        pos = 3*k;
+        if ( PMMG_Set_triangle(parmesh,
+                               tria_vert[pos],tria_vert[pos+1],tria_vert[pos+2],
+                               tria_ref[k],k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
@@ -261,27 +269,31 @@ int main(int argc,char *argv[]) {
   /** Manually set of the metric */
   /** a) give info for the metric structure: metric applied on vertex entities,
       number of vertices, the metric is scalar*/
-  if ( PMMG_Set_metSize(parmesh,MMG5_Vertex,nVertices,MMG5_Scalar) != 1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+  if(parmesh->myrank == parmesh->info.root){
+    if ( PMMG_Set_metSize(parmesh,MMG5_Vertex,nVertices,MMG5_Scalar) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
   }
 
   /** b) give solutions values and positions */
   double met[12] = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
 
-  if ( !opt ) {
-    /* by array */
-    if ( PMMG_Set_scalarMets(parmesh,met) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-  else {
-    /* vertex by vertex */
-    for ( k=0; k<nVertices ; k++ ) {
-      if ( PMMG_Set_scalarMet(parmesh,met[k],k+1) != 1 ) {
+  if(parmesh->myrank == parmesh->info.root){
+    if ( !opt ) {
+      /* by array */
+      if ( PMMG_Set_scalarMets(parmesh,met) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      /* vertex by vertex */
+      for ( k=0; k<nVertices ; k++ ) {
+        if ( PMMG_Set_scalarMet(parmesh,met[k],k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }
@@ -296,9 +308,11 @@ int main(int argc,char *argv[]) {
   const int nSolsAtVertices = 3; // 3 solutions per vertex
   int solType[3] = {MMG5_Scalar,MMG5_Vector,MMG5_Tensor};
 
-  if ( PMMG_Set_solsAtVerticesSize(parmesh,nSolsAtVertices,nVertices,solType) != 1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+  if(parmesh->myrank == parmesh->info.root){
+    if ( PMMG_Set_solsAtVerticesSize(parmesh,nSolsAtVertices,nVertices,solType) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
   }
 
   /** b) give solutions values and positions:
@@ -329,43 +343,45 @@ int main(int argc,char *argv[]) {
     tensor_sol[6*k+5] = 100./(vert_coor[pos+2]*vert_coor[pos+2]+1.);
   }
 
-  if ( !opt ) {
-    /* Give the solution by array */
-    /* First solution */
-    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,1,scalar_sol) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-    /* Second */
-    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,2,vector_sol) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-    /* Third */
-    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,3,tensor_sol) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-  else {
-    /* Vertex by vertex */
-    for ( k=0; k<nVertices; k++ ) {
+  if(parmesh->myrank == parmesh->info.root){
+    if ( !opt ) {
+      /* Give the solution by array */
       /* First solution */
-      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,1,&(scalar_sol[k]),k+1) != 1 ) {
+      if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,1,scalar_sol) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
       /* Second */
-      pos = 3*k;
-      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,2,&(vector_sol[pos]),k+1) != 1 ) {
+      if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,2,vector_sol) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
       /* Third */
-      pos = 6*(k-1);
-      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
+      if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,3,tensor_sol) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
+      }
+    }
+    else {
+      /* Vertex by vertex */
+      for ( k=0; k<nVertices; k++ ) {
+        /* First solution */
+        if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,1,&(scalar_sol[k]),k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
+        /* Second */
+        pos = 3*k;
+        if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,2,&(vector_sol[pos]),k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
+        /* Third */
+        pos = 6*(k-1);
+        if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
       }
     }
   }

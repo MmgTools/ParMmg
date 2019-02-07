@@ -1,0 +1,14 @@
+# Known leaks
+leak:mpi_datatype_create
+leak:mca_bml_base_btl_array_reserve
+leak:opal_datatype_commit
+leak:__strdup
+leak:ompi_datatype_set_args
+leak:opal_datatype_create_desc
+leak:__vasprintf_chk
+leak:mca_base_component_repository_open
+leak:lt__malloc
+leak:orte_process_info
+leak:opal_free_list_grow_st
+leak:OPAL_PMIX_PMIX112_PMIx_Store_internal
+leak:pmix1_value_unload
