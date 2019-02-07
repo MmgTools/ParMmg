@@ -7,6 +7,7 @@
  *
  */
 #include "parmmg.h"
+#include "linkedlist_pmmg.h"
 
 int PMMG_Init_parMesh(const int starter,...) {
   va_list argptr;
@@ -763,7 +764,7 @@ int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
   return 1;
 }
 
-int PMMF_Set_ithFaceCommunicator_face(PMMG_pParMesh parmesh, int ext_comm_index, int ifac, int local_face_index) {
+int PMMG_Set_ithFaceCommunicator_face(PMMG_pParMesh parmesh, int ext_comm_index, int ifac, int local_face_index) {
   PMMG_pExt_comm pext_face_comm;
   
   /* Get the face communicator */
@@ -775,15 +776,45 @@ int PMMF_Set_ithFaceCommunicator_face(PMMG_pParMesh parmesh, int ext_comm_index,
   return 1;
 }
 
-int PMMF_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_face_index) {
+int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_face_index, int* global_face_index, int isNotOrdered) {
   PMMG_pExt_comm pext_face_comm;
-  int            i;
+  PMMG_lnkdList  **facelist;
+  int            nitem,i;
   
   /* Get the face communicator */
   pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+  nitem = pext_face_comm->nitem;
+
+  /* Reorder faces according to global enumeration, so that faces indexing
+   * matches on the two sides of each pair of procs */
+  if( isNotOrdered ) {
+
+    /* Initialize and fill lists of local-global index pairs */
+    PMMG_CALLOC(parmesh,facelist,nitem,PMMG_lnkdList*,"array of list pointers",return 0);
+    for( i = 0; i < nitem; i++ ) {
+      PMMG_CALLOC(parmesh,facelist[i],1,PMMG_lnkdList,"linked list pointer",return 0);
+      if( !PMMG_lnkdListNew(parmesh,facelist[i],i,PMMG_LISTSIZE) ) return 0;
+      if( !PMMG_add_cell2lnkdList(parmesh,facelist[i],
+                                  local_face_index[i],
+                                  global_face_index[i]) ) return 0;
+    }
+
+    /* Sort lists based on global index, in ascending order */
+    qsort(facelist,nitem,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+
+    /* Permute arrays and deallocate lists */
+    for( i = 0; i < nitem; i++ ) {
+      if( !PMMG_pop_cell_lnkdList(parmesh,facelist[i],
+                                  &local_face_index[i],
+                                  &global_face_index[i]) ) return 0;
+      PMMG_DEL_MEM(parmesh,facelist[i]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,facelist[i],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,facelist,PMMG_lnkdList*,"array of linked lists");
+  }
 
   /* Save face index */
-  for( i = 0; i < pext_face_comm->nitem; i++ )
+  for( i = 0; i < nitem; i++ )
     pext_face_comm->int_comm_index[i] = local_face_index[i];
 
   return 1;

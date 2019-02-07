@@ -25,10 +25,12 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
+  PMMG_pExt_comm  pext_face_comm_IN;
   MMG5_pMesh      mesh,meshIN;
   MMG5_pSol       met,solIN;
   MMG5_pPoint     ppt;
   MMG5_pTetra     pt;
+  int             next_face_comm_IN;
   int             ip,ie,ier,iresult,rank,i,nsols;
   char            *filename,*metname,*solname,*fileout,*tmp;
 
@@ -193,6 +195,12 @@ int main(int argc,char *argv[]) {
   parmesh->listgrp[0].mesh = mesh;
   mesh = parmesh->listgrp[0].mesh;
 
+  /* Swap external face communicators */
+  pext_face_comm_IN = parmesh->ext_face_comm;
+  next_face_comm_IN = parmesh->next_face_comm;
+  parmesh->ext_face_comm = NULL;
+  parmesh->next_face_comm = 0;
+
   /** ------------------------------ STEP  IV -------------------------- */
   /** Initialize the distributed mesh using meshIN as input */
 
@@ -222,6 +230,20 @@ int main(int argc,char *argv[]) {
     }
   }
 
+  /* Set number of external face communicators */
+  if ( PMMG_Set_numberOfFaceCommunicators(parmesh,next_face_comm_IN) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
+  /* Set size of each communicator */
+  for( i = 0; i < next_face_comm_IN; i++ ) {
+    if( PMMG_Set_ithFaceCommunicatorSize(parmesh, i, pext_face_comm_IN->color_out, pext_face_comm_IN->nitem) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+ 
 
 //  if ( ier != PMMG_STRONGFAILURE ) {
 //    /** ------------------------------ STEP III -------------------------- */
