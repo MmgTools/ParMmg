@@ -676,9 +676,9 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            found,color;
-  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,wgt;
+  int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,ishift,wgt;
 
-  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weights for parmetis */
+  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weight choice for parmetis */
   *numflag = 0; /* C-style numbering */
   *ncon    = 1; /* number of weight per metis node */
 
@@ -742,7 +742,9 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     intvalues[k] = PMMG_UNSET;
 
   /*Fill the internal communicator with the greater index of the 2 groups to
-   * which the face belong */
+   * which the face belong (igrp+ishift, to avoid ambiguity on grp 0 and with
+   * PMMG_UNSET) */
+  ishift = abs(PMMG_UNSET)+1;
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
@@ -761,15 +763,15 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
         /* Save group ID with a minus sign if the face was parallel in the
          * previous adaptation iteration */
         if( pxt->ftag[ifac] & MG_OLDPARBDY )
-          intvalues[face2int_face_comm_index2[k]]= -igrp;
+          intvalues[face2int_face_comm_index2[k]]= -(igrp+ishift);
         else
-          intvalues[face2int_face_comm_index2[k]]= igrp;
+          intvalues[face2int_face_comm_index2[k]]= igrp+ishift;
 
       }
   }
 
-  /** Step 4: Send and receive external communicators filled by the group id of
-   * the neighbours (through the faces) */
+  /** Step 4: Send and receive external communicators filled by the (group id +
+   * ishift) of the neighbours (through the faces) */
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     nitem         = ext_face_comm->nitem;
@@ -813,19 +815,24 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     /* i2send array contains the group id of the boundary faces and i2recv the
      * group id of the same face in the other proc */
     for ( i=0; i<nitem; ++i ) {
-      /* Get the group id of the face in our proc and the group id of the face
-         in the adjacent proc */
+      /* Get the group id (+ishift) of the face in our proc and the group id
+       * (+ishift) of the face in the adjacent proc */
       igrp     = itosend[i];
       igrp_adj = itorecv[i];
 
-      /* Put high weight on old parallel faces */
-      if( igrp < 0 ) igrp *= -1;
-      if( igrp_adj < 0 ) {
+      /* Put high weight on old parallel faces (marked by a minus sign)
+       * and reset signs; then, get grp indices starting from 0 */
+      if( igrp_adj <= -ishift ) {
+        assert( igrp <= -ishift );
         wgt = PMMG_WGTVAL_HUGEINT;
+        igrp     *= -1;
         igrp_adj *= -1;
       } else {
+        assert( igrp >=  ishift );
         wgt = 1;
       }
+      igrp     -= ishift;
+      igrp_adj -= ishift;
 
       assert ( igrp != PMMG_UNSET );
       assert ( igrp_adj != PMMG_UNSET );
@@ -855,15 +862,17 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
       igrp_adj = intvalues[face2int_face_comm_index2[i]];
 
-      if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
-
-      /* Put high weight on old parallel faces */
-      if ( igrp_adj < 0 ) {
+      /* Put high weight on old parallel faces (marked by a minus sign) and
+       * reset signs; then, get grp index starting from 0 */
+      if ( igrp_adj <= -ishift ) {
         wgt = PMMG_WGTVAL_HUGEINT;
         igrp_adj *= -1;
       } else {
         wgt = 1;
       }
+      igrp_adj -= ishift;
+
+      if ( igrp_adj==PMMG_UNSET || igrp_adj<=igrp ) continue;
 
       /* Insert igrp_adj in the sorted list of igrp if not already found,
        * increment weight if found */
