@@ -7,6 +7,7 @@
  *
  */
 #include "parmmg.h"
+#include "metis_pmmg.h"
 #include "linkedlist_pmmg.h"
 
 int PMMG_Init_parMesh(const int starter,...) {
@@ -121,6 +122,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug      = PMMG_NUL;
   parmesh->niter       = PMMG_NITER;
   parmesh->info.fem    = MMG5_FEM;
+  parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
+  parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;

@@ -148,6 +148,22 @@
 #define PMMG_ARG_end    11
 
 /**
+ * \def PMMG_LOADBALANCING_metis
+ *
+ * Use metis to compute and balance the graph during the loadbalancing step
+ *
+ */
+#define PMMG_LOADBALANCING_metis 1
+
+/**
+ * \def PMMG_LOADBALANCING_parmetis
+ *
+ * Use parmetis to compute and balance the graph during the loadbalancing step
+ *
+ */
+#define PMMG_LOADBALANCING_parmetis 2
+
+/**
  * \def PMMG_UNSET
  *
  * Initialization value
@@ -237,6 +253,8 @@ typedef struct {
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
+  int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
+  int contiguous_mode; /*!< force/don't force partitions contiguity */
 } PMMG_Info;
 
 

@@ -636,14 +636,14 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   int            *face2int_face_comm_index2;
   int            k,nitem_int,nitem_ext,idx_int,idx_ext,i;
 
-  intvalues = parmesh->int_face_comm->intvalues;
-
   /** Step 1: initialization of the communicator */
   int_face_comm = parmesh->int_face_comm;
 
-  if ( !intvalues )
-    PMMG_MALLOC(parmesh,intvalues,int_face_comm->nitem,int,"intvalues",
+  if ( !(int_face_comm->intvalues) )
+    PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",
                  assert(0); return 0;);
+  intvalues = int_face_comm->intvalues;
+
 
   for ( k=0; k<int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
@@ -698,21 +698,22 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
 
-    if ( !ext_face_comm->nitem ) continue;
+    if ( !ext_face_comm->nitem ) {
+      if ( ext_face_comm->nitem_to_share ) {
+        if ( ext_face_comm->itosend )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->itosend,int,"itosend");
+        if ( ext_face_comm->itorecv )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->itorecv,int,"itorecv");
+        if ( ext_face_comm->rtosend )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->rtosend,double,"rtosend");
+        if ( ext_face_comm->rtorecv )
+          PMMG_DEL_MEM( parmesh,ext_face_comm->rtorecv,double,"rtorecv");
+        ext_face_comm->nitem_to_share = 0;
+      }
+      continue;
+    }
 
     if ( i!=k ) {
-      if ( parmesh->ext_face_comm[i].nitem_to_share ) {
-        if ( parmesh->ext_face_comm[i].itosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itosend,int,"itosend");
-        if ( parmesh->ext_face_comm[i].itorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].itorecv,int,"itorecv");
-        if ( parmesh->ext_face_comm[i].rtosend )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtosend,double,"rtosend");
-        if ( parmesh->ext_face_comm[i].rtorecv )
-          PMMG_DEL_MEM( parmesh,parmesh->ext_face_comm[i].rtorecv,double,"rtorecv");
-        parmesh->ext_face_comm[i].nitem_to_share = 0;
-      }
-
       parmesh->ext_face_comm[i].nitem          = ext_face_comm->nitem;
       parmesh->ext_face_comm[i].nitem_to_share = ext_face_comm->nitem_to_share;
       parmesh->ext_face_comm[i].color_out      = ext_face_comm->color_out;
@@ -734,7 +735,7 @@ int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh) {
 
   /** Step 6: unallocate intvalues array and set the nitem field of the internal
    * communicator to the suitable value */
-  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"face communicator");
+  PMMG_DEL_MEM( parmesh,parmesh->int_face_comm->intvalues,int,"face communicator");
   int_face_comm->nitem = nitem_int;
 
   return 1;
@@ -2509,6 +2510,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
     parmesh->memMax += available;
   }
 
+  PMMG_DEL_MEM ( parmesh,buffer,char,"buffer" );
   return ier;
 }
 
@@ -2928,7 +2930,17 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+  switch ( parmesh->info.loadbalancing_mode ) {
+  case PMMG_LOADBALANCING_metis:
+    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
+    break;
+
+  case PMMG_LOADBALANCING_parmetis:
+  default:
+    ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+    break;
+  }
+
   if ( !ier )
     fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
 
@@ -2943,6 +2955,9 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   ier = PMMG_transfer_all_grps(parmesh,part);
   if ( ier <= 0 )
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
+
+  /** Check grps contiguity */
+  ier = PMMG_checkAndReset_grps_contiguity( parmesh );
 
   return ier;
 }
