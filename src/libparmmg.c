@@ -97,8 +97,8 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  */
 int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_pGrp      grp;
-  PMMG_pExt_comm ext_face_comm;
-  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm,ext_node_comm;
+  PMMG_pInt_comm int_face_comm,int_node_comm;
   MMG5_pTetra   pt,pt1;
   MMG5_pPrism   pp;
   MMG5_pTria    ptt;
@@ -106,7 +106,7 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pxPrism  pxp;
   MMG5_Hash     hash;
   int      ref,*adja,adj,k,kt,ia,ib,ic,j,na,initedg[3];
-  int      nitem_int_face_comm,*posInIdx1,iint,iext_comm,iext;
+  int      nitem_int_face_comm,*posInIdx1,iint,iext_comm,iext,iloc,iploc;
   int16_t  tag,inittag[3];
   char     i,i1,i2;
 
@@ -171,6 +171,16 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   assert( iint == nitem_int_face_comm );
 
+  /* Put global node enumeration in the point flag */
+  for( i = 1; i <= mesh->np; i++ )
+    mesh->point[i].flag = PMMG_UNSET;
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem_to_share; iext++ ) {
+      mesh->point[ext_node_comm->itosend[iext]].flag = ext_node_comm->itorecv[iext];
+    }
+  }
+ 
   /* Step 2: Invert */
   PMMG_CALLOC(parmesh,posInIdx1,mesh->nt+1,int,"posInIdx1",return 0);
   for( iint = 0; iint < parmesh->int_face_comm->nitem; iint++ ) {
@@ -209,8 +219,12 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
           pxt->ftag[i] |= MG_BDY;
           pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
           /* Step 3: Put face in the internal communicator */
-#warning: Luca: Fix this with an iploc mathing on both sides of the communicator
-          grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+MMG5_idir[i][0];
+#warning: Luca: Triangle matching is based on maximum node global index, stored in point->flag
+          iploc = 0;
+          for( iloc = 0; iloc<3; iloc++ )
+            if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
+              iploc = iloc;
+          grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
         }
       }
     }
