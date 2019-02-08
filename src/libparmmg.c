@@ -95,7 +95,10 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  * Set the triangles references to the tetrahedra faces and edges.
  *
  */
-int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
+int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  PMMG_pGrp      grp;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
   MMG5_pTetra   pt,pt1;
   MMG5_pPrism   pp;
   MMG5_pTria    ptt;
@@ -103,8 +106,12 @@ int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
   MMG5_pxPrism  pxp;
   MMG5_Hash     hash;
   int      ref,*adja,adj,k,kt,ia,ib,ic,j,na,initedg[3];
+  int      nitem_int_face_comm,*posInIdx1,iint,iext_comm,iext;
   int16_t  tag,inittag[3];
   char     i,i1,i2;
+
+  grp = &parmesh->listgrp[0];
+
 
   if ( !mesh->nt )  return 1;
 
@@ -137,6 +144,40 @@ int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
                 return 0);
   MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
 
+
+  /* Step 1: Fill links among communicators, stock local triangle index */
+  nitem_int_face_comm = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    nitem_int_face_comm += ext_face_comm->nitem;
+  }
+ 
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
+              "allocating int_face_comm",return 0);
+  int_face_comm = parmesh->int_face_comm;
+  int_face_comm->nitem = nitem_int_face_comm;
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,"face2int_face_comm_index1",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,"face2int_face_comm_index2",return 0);
+  grp->nitem_int_face_comm = nitem_int_face_comm;
+
+  iint = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
+      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      grp->face2int_face_comm_index2[iint] = iint;
+      ext_face_comm->int_comm_index[iext] = iint++;
+    }
+  }
+  assert( iint == nitem_int_face_comm );
+
+  /* Step 2: Invert */
+  PMMG_CALLOC(parmesh,posInIdx1,mesh->nt+1,int,"posInIdx1",return 0);
+  for( iint = 0; iint < parmesh->int_face_comm->nitem; iint++ ) {
+    posInIdx1[grp->face2int_face_comm_index1[iint]] = iint;
+  }
+
+  
   /* assign references to tetras faces */
   if ( !mesh->info.opnbdy ) {
     for (k=1; k<=mesh->ne; k++) {
@@ -167,6 +208,9 @@ int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
           pxt->ref[i]   = ptt->ref;
           pxt->ftag[i] |= MG_BDY;
           pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
+          /* Step 3: Put face in the internal communicator */
+#warning: Luca: Fix this with an iploc mathing on both sides of the communicator
+          grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+MMG5_idir[i][0];
         }
       }
     }
@@ -377,12 +421,13 @@ int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
                       "boundary prisms",return 0);
 
   MMG5_DEL_MEM(mesh,hash.item);
+  PMMG_DEL_MEM(parmesh,posInIdx1,int,"posInIdx1");
   return 1;
 }
 
 
 /** preprocessing stage: mesh analysis */
-int PMMG_analys_buildComm(MMG5_pMesh mesh) {
+int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash hash;
 
   /**--- stage 1: data structures for surface */
@@ -469,7 +514,7 @@ int PMMG_analys_buildComm(MMG5_pMesh mesh) {
   }
 
   /* set bdry entities to tetra */
-  if ( !PMMG_bdrySet_buildComm(mesh) ) {
+  if ( !PMMG_bdrySet_buildComm(parmesh,mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
@@ -638,7 +683,12 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /** Mesh analysis */
-  if ( !PMMG_analys_buildComm(mesh) ) {
+  if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /** Node communicators */
+  if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
