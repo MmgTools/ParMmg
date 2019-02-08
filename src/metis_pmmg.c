@@ -175,10 +175,10 @@ int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
         for( inode = istart; inode < nnodes; inode++ ) {
           /* Remain on current partition */
           if( part[inode] != ipart ) continue;
- 
+
           /* Skip unseen nodes or different colors */
           if( flag[inode] != ncolors ) continue;
-    
+
           /** Loop on adjacents */
           for( iadj = xadj[inode]; iadj < xadj[inode+1]; iadj++ ) {
             jnode = adjncy[iadj];
@@ -197,7 +197,7 @@ int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
     if( ncolors > 1 )
       fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on part %d, proc %d.\n",
               ncolors,ipart,parmesh->myrank);
- 
+
     /** Update the max nb of subgroups found */
     if( ncolors > maxcolors ) maxcolors = ncolors;
   }
@@ -314,10 +314,10 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
         for( ie = istart; ie < mesh->ne+1; ie++ ) {
           pt   = &mesh->tetra[ie];
           adja = &mesh->adja[4*(ie-1)+1];
- 
+
           /* Skip unseen elts or different colors */
           if( pt->flag != ncolors ) continue;
-    
+
           /** Loop on adjacents */
           for( ifac = 0; ifac < 4; ifac++ ) {
             je = adja[ifac]/4;
@@ -336,7 +336,7 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
     if( ncolors > 1 )
       fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on grp %d, proc %d.\n",
               ncolors,igrp,parmesh->myrank);
- 
+
     /** Update the max nb of subgroups found */
     if( ncolors > maxcolors ) maxcolors = ncolors;
   }
@@ -753,7 +753,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
     for ( k=0; k<grp->nitem_int_face_comm; ++k )
       if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
-        
+
         ie   =  face2int_face_comm_index1[k]/12;
         ifac = (face2int_face_comm_index1[k]%12)/3;
         pt = &mesh->tetra[ie];
@@ -1192,15 +1192,15 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 
   /** Call metis and get the partition array */
   if ( nprocs > 1 ) {
-    
+
     if(parmesh->myrank == root) {
       PMMG_CALLOC(parmesh,part_seq,vtxdist[nproc],idx_t,"part_seq", return 0);
-    
-    
+
+
       /* Set contiguity of partitions */
       METIS_SetDefaultOptions(options);
       options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
-  
+
       /** Call metis and get the partition array */
       status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
                                     vwgt_seq,NULL,adjwgt_seq,&nproc,
@@ -1237,9 +1237,9 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 
     /** Correct partitioning to avoid empty procs */
     if( !PMMG_correct_parmeshGrps2parmetis(parmesh,vtxdist,part,nproc) ) return 0;
- 
+
     if(parmesh->myrank == root) PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
-  
+
   }
 
   PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
