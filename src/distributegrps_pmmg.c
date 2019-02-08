@@ -469,34 +469,6 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param grps pointer toward the list of groups to pack.
- * \param ngrp pointer toward the number of groups (to update)
- *
- * \return the new number of groups
- *
- * Pack the group array \a grps. A group is unused if its mesh is NULL.
- *
- */
-static inline
-int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
-                              int ngrp ) {
-  int k,nbl;
-
-  nbl   = 0;
-  for ( k=0; k<ngrp; ++k ) {
-    if ( !(*grps)[k].mesh ) continue;
-
-    if ( k!=nbl )
-      (*grps)[nbl] = PMMG_move_grp( &(*grps)[k] );
-
-    ++nbl;
-  }
-
-  return nbl;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param grps pointer toward the list of groups to pack.
  *
  * \return 1 if success
  *
