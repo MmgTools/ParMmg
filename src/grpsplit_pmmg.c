@@ -874,75 +874,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
- * \param igrp index of the group to clean
- *
- * \return 0 if fail, 1 if success
- *
- * Clean the background mesh filled by the \a oldGrps_fillGroup function to
- * make it valid:
- *   - reallocate the mesh at it exact size
- *   - set the np/ne/npi/nei/npnil/nenil fields to suitables value and keep
- *   track of empty link
- * (info.inputMet == 1 if a metrics is provided by the  user)
- *
- */
-static inline
-int PMMG_oldGrps_cleanMesh( PMMG_pParMesh parmesh,int igrp )
-{
-  MMG5_pMesh mesh;
-  MMG5_pSol  met;
-  int        np, ne;
-  size_t     memAv,oldMemMax;
-
-  mesh = parmesh->old_listgrp[igrp].mesh;
-  met  = parmesh->old_listgrp[igrp].met;
-  
-  np   = parmesh->listgrp[igrp].mesh->np;
-  ne   = parmesh->listgrp[igrp].mesh->ne;
-
-  /* Give all the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
-
-  /* Mesh reallocation at the smallest possible size */
-  PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
-               MMG5_Point,"fitted point table",return 0);
-  mesh->np    = np;
-  mesh->npmax = np;
-  mesh->npnil = 0;
-  mesh->nenil = 0;
-
-  PMMG_REALLOC(mesh,mesh->tetra,ne+1,mesh->nemax+1,
-               MMG5_Tetra,"fitted tetra table",return 0);
-  PMMG_REALLOC(mesh,mesh->adja,4*(ne+1)+1,4*(mesh->nemax+1)+1,
-               int,"tetra adjacency table",return 0);
-  mesh->ne    = ne;
-  mesh->nemax = ne;
-
-  if ( mesh->info.inputMet == 1 )
-    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
-                 double,"fitted metric table",return 0);
-  met->npmax = mesh->npmax;
-
-  // Update the empty points' values as per the convention used in MMG3D
-  mesh->np  = np;
-  mesh->npi = np;
-
-  if ( mesh->info.inputMet == 1 ) {
-    met->np  = np;
-    met->npi = np;
-  }
-
-  /* Give all the available memory back to parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
-
-  return 1;
-}
-
-/**
- * \param mesh pointer toward an MMG5 mesh structure
- * \param met pointer toward an MMG5 metric structure
- * \param np number of points in the mesh
  *
  * \return 0 if fail, 1 if success
  *
@@ -1028,7 +959,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
   int grpId;
 
   PMMG_listgrp_free(parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
- 
+
   /* Allocate list of subgroups struct and allocate memory */
   parmesh->nold_grp = parmesh->ngrp;
   PMMG_CALLOC(parmesh,parmesh->old_listgrp,parmesh->nold_grp,PMMG_Grp,
@@ -1336,7 +1267,6 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
-  size_t  memAv,oldMemMax;
   int     ier,ier1,ier_glob;
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
@@ -1374,7 +1304,6 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");
 
-end:
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );

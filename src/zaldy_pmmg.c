@@ -425,7 +425,6 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
  */
 int PMMG_resize_extComm ( PMMG_pParMesh parmesh,PMMG_pExt_comm ext_comm,
                           int newSize,int *oldSize ) {
-  int            k,nitem;
 
   if ( newSize == *oldSize ) return 1;
 
@@ -450,7 +449,7 @@ int PMMG_resize_extComm ( PMMG_pParMesh parmesh,PMMG_pExt_comm ext_comm,
  */
 int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
                                int newSize,int *oldSize ) {
-  int            k,nitem;
+  int            k;
 
   if ( newSize == *oldSize ) return 1;
 

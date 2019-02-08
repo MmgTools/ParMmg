@@ -621,7 +621,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   MMG5_pPoint     ppt;
   MMG5_HGeom      hash;
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
-  int             grpid,ip,iel,ifac,ia,ip0,ip1,k,j,i,nparbdy,nfbdy,nabdy,getref;
+  int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
   size_t          available,oldMemMax;
 
   /* Compute available memory (previously given to the communicators) */
@@ -791,7 +791,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
 int PMMG_merge_grps( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      listgrp,grp;
-  MMG5_pMesh     mesh0,mesh;
+  MMG5_pMesh     mesh0;
   PMMG_pInt_comm int_node_comm,int_face_comm;
   size_t         available,oldMemMax;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
@@ -1429,7 +1429,7 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   int            *int_comm_index,*int_comm_index_2;
   int            *intvalues_1,*intvalues_2,nitems_1,nitems_2;
   int            nprocs,k,i,j,idx,idx_2,cursor,color_in,color_out;
-  int            np,ne,ne_tot,xt_tot,nnpar,l;
+  int            np,ne,ne_tot,xt_tot,nnpar;
 
   nprocs = parmesh->nprocs;
 
@@ -1692,12 +1692,13 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
   /* Give all the memory to the communicators */
+  available = parmesh->memGloMax;
   if ( grp ) {
     grp->mesh->memMax = grp->mesh->memCur;
-    available = parmesh->memGloMax - grp->mesh->memMax;
-    assert ( available >= 0 );
+    available -= grp->mesh->memMax;
   }
 
+  assert ( available >= 0 );
   parmesh->memMax += available;
 
   /* Internal comm allocation */

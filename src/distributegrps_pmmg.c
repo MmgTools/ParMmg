@@ -469,34 +469,6 @@ int PMMG_pack_grpsAndPart( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param grps pointer toward the list of groups to pack.
- * \param ngrp pointer toward the number of groups (to update)
- *
- * \return the new number of groups
- *
- * Pack the group array \a grps. A group is unused if its mesh is NULL.
- *
- */
-static inline
-int PMMG_pack_grps_norealloc( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
-                              int ngrp ) {
-  int k,nbl;
-
-  nbl   = 0;
-  for ( k=0; k<ngrp; ++k ) {
-    if ( !(*grps)[k].mesh ) continue;
-
-    if ( k!=nbl )
-      (*grps)[nbl] = PMMG_move_grp( &(*grps)[k] );
-
-    ++nbl;
-  }
-
-  return nbl;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param grps pointer toward the list of groups to pack.
  *
  * \return 1 if success
  *
@@ -1876,7 +1848,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_comm;
   PMMG_pExt_comm ext_face_comm;
-  MPI_Status     status,*status_tab;
+  MPI_Status     status;
   int            offset,nitem_recv_intcomm;
   int            k,i,count,ier,ier0,old_nitem,idx;
   int            *send2recv_int_comm,old_offset,nitem,nextcomm;
@@ -2275,17 +2247,16 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
                                  MPI_Request *irequest) {
 
   PMMG_pExt_comm ext_face_comm;
-  MPI_Status     status,*tstatus;
+  MPI_Status     status;
   MMG5_pMesh     mesh;
   size_t         available;
   int            pack_size;
-  int            k,count,ier,ier0,recv_int_nitem,offset,old_nitem;
-  int            *send2recv_int_comm,ntot,nitem,nextcomm;
+  int            k,ier,ier0,recv_int_nitem,offset,old_nitem;
+  int            *send2recv_int_comm,nitem,nextcomm;
   int            old_offset,grpscount,idx,color_out,n,err;
   char           *buffer,*ptr;
 
   const int      myrank      = parmesh->myrank;
-  const int      nprocs      = parmesh->nprocs;
   const int      ngrp        = parmesh->ngrp;
   const MPI_Comm comm        = parmesh->comm;
 
@@ -2684,7 +2655,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   /** Step 3: pack the groups and face communicators */
   err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
   ier = MG_MIN ( ier, err );
-  if ( !parmesh->ngrp ) {
+  if ( (!parmesh->ngrp) && parmesh->ddebug ) {
     fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
             __func__,myrank);
   }
@@ -2736,16 +2707,15 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  */
 static inline
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
-  PMMG_pInt_comm int_comm;
   MPI_Comm       comm;
   int            myrank,nprocs;
   int            *interaction_map;
   int            *send_grps,*recv_grps,*nfaces2send,*nfaces2recv;
   int            *next_comm2send,*ext_comms_next_idx,*nitems2send;
-  int            *extComm_next_idx,*items_next_idx,*recv_array,nfaces2recv_max;
+  int            *extComm_next_idx,*items_next_idx,*recv_array;
   int            *extComm_grpFaces2extComm,*extComm_grpFaces2face2int;
-  int            nrecv,nsend,max_ngrp,prev_ngrp,new_ngrp,pleft,pright,comm_order;
-  int            ier,ier_glob,k,i,j,err;
+  int            max_ngrp;
+  int            ier,ier_glob,k,j,err;
 
   myrank    = parmesh->myrank;
   nprocs    = parmesh->nprocs;

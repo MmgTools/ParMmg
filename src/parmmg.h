@@ -204,7 +204,6 @@ extern "C" {
   } } while(0)
 
 #define PMMG_DEL_MEM(mesh,ptr,type,msg) do {                \
-    int    stat = PMMG_SUCCESS;                             \
     size_t size_to_free;                                    \
                                                             \
     if ( ptr ) {                                            \
