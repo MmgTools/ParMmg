@@ -973,6 +973,17 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   idx += sizeof(int); // mesh->ne
   idx += sizeof(int); // mesh->xt
 
+  /** Mesh names */
+  idx += sizeof(int); // meshin
+  idx += sizeof(int); // metin
+  idx += sizeof(int); // meshout
+  idx += sizeof(int); // metout
+
+  idx += (strlen(mesh->namein) + 1) * sizeof(char);
+  idx += (strlen(met->namein) + 1) * sizeof(char);
+  idx += (strlen(mesh->nameout) + 1) * sizeof(char);
+  idx += (strlen(met->nameout) + 1) * sizeof(char);
+
   /** Mesh infos: warning, some "useless" info are not sended */
   idx += sizeof(double); // mesh->info.dhd
   idx += sizeof(double); // mesh->info.hmin
@@ -1148,6 +1159,8 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
  * \param grp pointer toward a PMMG_Grp structure.
  * \param buffer pointer toward the buffer in which we pack the group
  *
+ * \return 1 if success, 0 if fail
+ *
  * \warning the mesh prisms are not treated.
  *
  * \remark To store the correct value of a variable of type "x" into buffer, we
@@ -1164,7 +1177,7 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   const MMG5_pMesh mesh = grp->mesh;
   const MMG5_pSol  met  = grp->met;
 
-  int   k,i,ier;
+  int   k,i,ier,meshin_s,meshout_s,metin_s,metout_s;
   char  *tmp;
 
   ier = 1;
@@ -1186,6 +1199,31 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   *( (int *) tmp) = mesh->xp; tmp += sizeof(int);
   *( (int *) tmp) = mesh->ne; tmp += sizeof(int);
   *( (int *) tmp) = mesh->xt; tmp += sizeof(int);
+
+ /** Mesh names */
+  meshin_s  = (strlen(mesh->namein) + 1);
+  metin_s   = (strlen(met->namein) + 1);
+  meshout_s = (strlen(mesh->nameout) + 1);
+  metout_s  = (strlen(met->nameout) + 1);
+
+  if ( meshin_s > 255 || metin_s > 255 || meshout_s > 255 || metout_s > 255) {
+    printf("  ## Error: input filenames too long.");
+    return 0;
+  }
+
+  *( (int *) tmp) = meshin_s; tmp += sizeof(int);
+  *( (int *) tmp) = metin_s; tmp += sizeof(int);
+  *( (int *) tmp) = meshout_s; tmp += sizeof(int);
+  *( (int *) tmp) = metout_s; tmp += sizeof(int);
+
+  strncpy( ( (char *) tmp), mesh->namein,meshin_s);
+  tmp += meshin_s * sizeof(char);
+  strncpy( ( (char *) tmp), met->namein,metin_s);
+  tmp += metin_s * sizeof(char);
+  strncpy( ( (char *) tmp), mesh->nameout,meshout_s);
+  tmp += meshout_s * sizeof(char);
+  strncpy( ( (char *) tmp), met->nameout, metout_s);
+  tmp += metout_s * sizeof(char);
 
   /** Mesh infos */
   *( (double *) tmp) = mesh->info.dhd;      tmp += sizeof(double);
@@ -1370,6 +1408,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
  * \param buffer pointer toward the buffer in which we unpack the group
  * \param memAv pointer toward the available memory whose value is updated.
  *
+ * \return 0 if fail, 1 otherwise
+ *
  * \warning the mesh prisms are not treated.
  *
  * Upack a group from a double buffer and shift the pointer toward the buffer to
@@ -1388,9 +1428,9 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   MMG5_pSol  met;
   double     ddummy;
   int        k,i,ier,ier_grp,ier_mesh,ier_sol,ier_comm,np,xp,ne,xt;
-  int        size,ismet,used,idummy;
+  int        size,ismet,used,idummy,meshin_s,metin_s,meshout_s,metout_s;
   int16_t    i16dummy;
-  char       cdummy;
+  char       cdummy,chaine[256];
 
   ier = 1;
 
@@ -1426,6 +1466,28 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   else ier = ier_mesh = 0;
 
   if ( ier_mesh ) {
+
+    /* File names */
+    meshin_s = *( (int *) *buffer); *buffer += sizeof(int);
+    metin_s = *( (int *) *buffer); *buffer += sizeof(int);
+    meshout_s = *( (int *) *buffer); *buffer += sizeof(int);
+    metout_s = *( (int *) *buffer); *buffer += sizeof(int);
+
+    if ( meshin_s > 255 || metin_s > 255 || meshout_s > 255 || metout_s > 255) {
+      printf("  ## Error: input filenames too long.");
+      return 0;
+    }
+    else {
+      strncpy(chaine,( (char *) *buffer),meshin_s); *buffer += meshin_s * sizeof(char);
+      ier = MMG5_Set_inputMeshName( mesh, chaine );
+      strncpy(chaine,( (char *) *buffer),metin_s); *buffer += metin_s * sizeof(char);
+      if ( !MMG5_Set_inputSolName( mesh, met, chaine ) ) { ier = 0; }
+      strncpy(chaine,( (char *) *buffer),meshout_s); *buffer += meshout_s * sizeof(char);
+      if ( !MMG5_Set_outputMeshName( mesh, chaine ) ) { ier = 0; }
+      strncpy(chaine,( (char *) *buffer),metout_s); *buffer += metout_s * sizeof(char);
+      if ( !MMG5_Set_outputSolName( mesh,met, chaine ) ) { ier = 0; }
+    }
+
     /** Mesh infos */
     mesh->info.dhd       = *( (double *) *buffer); *buffer += sizeof(double);
     mesh->info.hmin      = *( (double *) *buffer); *buffer += sizeof(double);
