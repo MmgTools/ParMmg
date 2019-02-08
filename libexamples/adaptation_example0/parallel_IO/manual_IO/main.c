@@ -29,16 +29,24 @@ int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int n
   PMMG_lnkdList  **proclist;
   MPI_Request    request;
   MPI_Status     status;
+  int            *array1,*array2,*oldIdx;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_index;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
 
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
+  PMMG_CALLOC(parmesh,array1,next_face_comm_IN,int,"array1",return 0);
+  PMMG_CALLOC(parmesh,array2,next_face_comm_IN,int,"array2",return 0);
+  PMMG_CALLOC(parmesh,oldIdx,next_face_comm_IN,int,"oldIdx",return 0);
+
+
   /* Count nb of new pairs hosted on proc */
   npairs_loc = 0;
   for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
     pext_face_comm = &pext_face_comm_IN[icomm];
+    array1[icomm] = icomm;
+    array2[icomm] = pext_face_comm->color_out;
     if( pext_face_comm->color_out < pext_face_comm->color_in ) continue;
     npairs_loc += 1;
   }
@@ -51,28 +59,16 @@ int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int n
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
   printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
 
-
-  /* Initialize and fill lists of proc pairs */
-  PMMG_CALLOC(parmesh,proclist,next_face_comm_IN,PMMG_lnkdList*,"array of list pointers",return 0);
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    pext_face_comm = &pext_face_comm_IN[icomm];
-
-    PMMG_CALLOC(parmesh,proclist[icomm],1,PMMG_lnkdList,"linked list pointer",return 0);
-    if( !PMMG_lnkdListNew(parmesh,proclist[icomm],icomm,PMMG_LISTSIZE) ) return 0;
-    if( !PMMG_add_cell2lnkdList(parmesh,proclist[icomm],
-                                icomm,
-                                pext_face_comm->color_out) ) return 0;
-  }
+  /* Sort lists based on proc pairs, in ascending order */ 
+  if( !PMMG_sort_iarray(parmesh,array1,array2,oldIdx,next_face_comm_IN) )
+    return 0;
   
-  /* Sort lists based on proc pairs, in ascending order */
-  qsort(proclist,next_face_comm_IN,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
-
   /* Compute global pair enumeration */
   PMMG_CALLOC(parmesh,glob_pair_index,next_face_comm_IN,int,"glob_pair_index",return 0);
   iloc = 0;
   for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
     /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[proclist[icomm]->id];
+    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
     
     /* Assign global index */
     src = fmin(pext_face_comm->color_in,pext_face_comm->color_out);
@@ -93,7 +89,7 @@ int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int n
 
   for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
     /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[proclist[icomm]->id];
+    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
     printf("color_in %d color_out %d id %d\n",pext_face_comm->color_in,pext_face_comm->color_out,glob_pair_index[icomm]);
   }
  
@@ -111,13 +107,9 @@ int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int n
 //  }
 
   /* Deallocations */
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    PMMG_DEL_MEM(parmesh,proclist[icomm]->item,PMMG_lnkdCell,"linked list array");
-    PMMG_DEL_MEM(parmesh,proclist[icomm],PMMG_lnkdList,"linked list pointer");
-  }
-  PMMG_DEL_MEM(parmesh,proclist,PMMG_lnkdList*,"array of linked lists");
-
-
+  PMMG_DEL_MEM(parmesh,array1,int,"array1");
+  PMMG_DEL_MEM(parmesh,array2,int,"array1");
+  PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
 
   return 1;
 }

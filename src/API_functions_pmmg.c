@@ -740,87 +740,109 @@ int PMMG_Get_tensorMets(PMMG_pParMesh parmesh, double *mets){
   return(MMG3D_Get_tensorSols(parmesh->listgrp[0].met, mets));
 }
 
-int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_face_comm) {
+int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm) {
 
-  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_face_comm,PMMG_Ext_comm,
-              "allocate ext_face_comm ",return 0);
-  parmesh->next_face_comm = next_face_comm;
+  PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_comm,PMMG_Ext_comm,
+              "allocate ext_comm ",return 0);
+  parmesh->next_face_comm = next_comm;
+
+  return 1;
+}
+
+int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm) {
+
+  PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_comm,PMMG_Ext_comm,
+              "allocate ext_comm ",return 0);
+  parmesh->next_face_comm = next_comm;
+
+  return 1;
+}
+
+int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
+  PMMG_pExt_comm pext_comm;
+  
+  /* Get the node communicator */
+  pext_comm = &parmesh->ext_node_comm[ext_comm_index];
+
+  /* Set colors */
+  pext_comm->color_in  = parmesh->myrank;
+  pext_comm->color_out = color_out;
+
+  /* Allocate communicator */
+  PMMG_CALLOC(parmesh,pext_comm->int_comm_index,nitem,int,
+                  "allocate int_comm_index",return 0);
+  pext_comm->nitem = nitem;
 
   return 1;
 }
 
 int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
-  PMMG_pExt_comm pext_face_comm;
+  PMMG_pExt_comm pext_comm;
   
   /* Get the face communicator */
-  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+  pext_comm = &parmesh->ext_face_comm[ext_comm_index];
 
   /* Set colors */
-  pext_face_comm->color_in  = parmesh->myrank;
-  pext_face_comm->color_out = color_out;
+  pext_comm->color_in  = parmesh->myrank;
+  pext_comm->color_out = color_out;
 
   /* Allocate communicator */
-  PMMG_CALLOC(parmesh,pext_face_comm->int_comm_index,nitem,int,
+  PMMG_CALLOC(parmesh,pext_comm->int_comm_index,nitem,int,
                   "allocate int_comm_index",return 0);
-  pext_face_comm->nitem = nitem;
+  pext_comm->nitem = nitem;
 
   return 1;
 }
 
-int PMMG_Set_ithFaceCommunicator_face(PMMG_pParMesh parmesh, int ext_comm_index, int ifac, int local_face_index) {
-  PMMG_pExt_comm pext_face_comm;
-  
-  /* Get the face communicator */
-  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
+  PMMG_pExt_comm pext_node_comm;
+  int            *oldId,nitem,i,ier;
+ 
+  /* Get the node communicator */
+  pext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
+  nitem = pext_node_comm->nitem;
 
-  /* Save face index */
-  pext_face_comm->int_comm_index[ifac] = local_face_index;
+  /* Reorder according to global enumeration, so that the indexing matches on
+   * the two sides of each pair of procs */
+  ier = 1;
+  if( isNotOrdered ) {
+    PMMG_CALLOC(parmesh,oldId,nitem,int,"oldId",return 0);
+    ier = PMMG_sort_iarray(parmesh,local_index,global_index,oldId,nitem);
+    PMMG_DEL_MEM(parmesh,oldId,int,"oldId");
+  }
 
-  return 1;
+  /* Save global node index */
+  if( ier ) {
+    for( i = 0; i < nitem; i++ )
+      pext_node_comm->int_comm_index[i] = global_index[i];
+  }
+
+  return ier;
 }
 
-int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_face_index, int* global_face_index, int isNotOrdered) {
+
+int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
   PMMG_pExt_comm pext_face_comm;
-  PMMG_lnkdList  **facelist;
-  int            nitem,i;
-  
+  int            *oldId,nitem,i,ier;
+ 
   /* Get the face communicator */
   pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
   nitem = pext_face_comm->nitem;
 
-  /* Reorder faces according to global enumeration, so that faces indexing
+  /* Reorder according to global enumeration, so that faces indexing
    * matches on the two sides of each pair of procs */
+  ier = 1;
   if( isNotOrdered ) {
-
-    /* Initialize and fill lists of local-global index pairs */
-    PMMG_CALLOC(parmesh,facelist,nitem,PMMG_lnkdList*,"array of list pointers",return 0);
-    for( i = 0; i < nitem; i++ ) {
-      PMMG_CALLOC(parmesh,facelist[i],1,PMMG_lnkdList,"linked list pointer",return 0);
-      if( !PMMG_lnkdListNew(parmesh,facelist[i],i,PMMG_LISTSIZE) ) return 0;
-      if( !PMMG_add_cell2lnkdList(parmesh,facelist[i],
-                                  local_face_index[i],
-                                  global_face_index[i]) ) return 0;
-    }
-
-    /* Sort lists based on global index, in ascending order */
-    qsort(facelist,nitem,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
-
-    /* Permute arrays and deallocate lists */
-    for( i = 0; i < nitem; i++ ) {
-      if( !PMMG_pop_cell_lnkdList(parmesh,facelist[i],
-                                  &local_face_index[i],
-                                  &global_face_index[i]) ) return 0;
-      PMMG_DEL_MEM(parmesh,facelist[i]->item,PMMG_lnkdCell,"linked list array");
-      PMMG_DEL_MEM(parmesh,facelist[i],PMMG_lnkdList,"linked list pointer");
-    }
-    PMMG_DEL_MEM(parmesh,facelist,PMMG_lnkdList*,"array of linked lists");
+    PMMG_CALLOC(parmesh,oldId,nitem,int,"oldId",return 0);
+    ier = PMMG_sort_iarray(parmesh,local_index,global_index,oldId,nitem);
+    PMMG_DEL_MEM(parmesh,oldId,int,"oldId");
   }
 
-  /* Save face index */
+  /* Save local face index */
   for( i = 0; i < nitem; i++ )
-    pext_face_comm->int_comm_index[i] = local_face_index[i];
+    pext_face_comm->int_comm_index[i] = local_index[i];
 
-  return 1;
+  return ier;
 }
 
 int PMMG_Free_all(const int starter,...)

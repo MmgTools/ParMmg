@@ -1761,10 +1761,18 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  */
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
 
-  int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_face_comm);
+  int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm);
+
+  int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm);
+
+  int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
 
   int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
- 
+
+  int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
+
+  int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
+
 #ifdef __cplusplus
 }
 #endif

@@ -51,5 +51,7 @@ void PMMG_print_lnkdList( PMMG_lnkdList *list );
 int  PMMG_packInArray_lnkdList( PMMG_lnkdList *list,int *array );
 int  PMMG_unpackArray_inLnkdList(  PMMG_pParMesh,PMMG_lnkdList*,int* );
 int  PMMG_compare_lnkdList (const void * a, const void * b);
+int  PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
+                       int nitem );
 
 #endif
