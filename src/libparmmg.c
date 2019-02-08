@@ -89,6 +89,436 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 }
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \return 0 if failed, 1 if success.
+ *
+ * Set the triangles references to the tetrahedra faces and edges.
+ *
+ */
+int PMMG_bdrySet_buildComm(MMG5_pMesh mesh) {
+  MMG5_pTetra   pt,pt1;
+  MMG5_pPrism   pp;
+  MMG5_pTria    ptt;
+  MMG5_pxTetra  pxt;
+  MMG5_pxPrism  pxp;
+  MMG5_Hash     hash;
+  int      ref,*adja,adj,k,kt,ia,ib,ic,j,na,initedg[3];
+  int16_t  tag,inittag[3];
+  char     i,i1,i2;
+
+  if ( !mesh->nt )  return 1;
+
+  if ( mesh->xtetra ) {
+    if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug ) {
+      fprintf(stderr,"\n  ## Error: %s: mesh->xtetra must be freed.\n",__func__);
+    }
+    return 0;
+  }
+  if ( mesh->xprism ) {
+    if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug ) {
+      fprintf(stderr,"\n  ## Error: %s: mesh->xprism must be freed.\n",__func__);
+    }
+    return 0;
+  }
+
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+  for (k=1; k<=mesh->nt; k++) {
+    ptt = &mesh->tria[k];
+    if ( !MMG5_hashFace(mesh,&hash,ptt->v[0],ptt->v[1],ptt->v[2],k) ) return 0;
+  }
+  na = 0;
+
+  mesh->xt     = 0;
+  mesh->xtmax  = mesh->ntmax + 2*na;
+  assert(mesh->xtmax);
+
+  MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"boundary tetrahedra",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
+
+  /* assign references to tetras faces */
+  if ( !mesh->info.opnbdy ) {
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) )  continue;
+      adja = &mesh->adja[4*(k-1)+1];
+      for (i=0; i<4; i++) {
+        adj = adja[i] / 4;
+        pt1 = &mesh->tetra[adj];
+        if ( !adj || ( pt->ref != pt1->ref) ) {
+          ia = pt->v[MMG5_idir[i][0]];
+          ib = pt->v[MMG5_idir[i][1]];
+          ic = pt->v[MMG5_idir[i][2]];
+          kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+          assert(kt);
+          if ( !pt->xt ) {
+            mesh->xt++;
+            if ( mesh->xt > mesh->xtmax ) {
+              MMG5_TAB_RECALLOC(mesh,mesh->xtetra,mesh->xtmax,0.2,MMG5_xTetra,
+                                 "larger xtetra table",
+                                 mesh->xt--;
+                                 fprintf(stderr,"  Exit program.\n");return 0;);
+            }
+            pt->xt = mesh->xt;
+          }
+          ptt = &mesh->tria[kt];
+          pxt = &mesh->xtetra[mesh->xt];
+          pxt->ref[i]   = ptt->ref;
+          pxt->ftag[i] |= MG_BDY;
+          pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
+        }
+      }
+    }
+  }
+  else {
+    /* Internal triangles preservations */
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) )  continue;
+
+      for (i=0; i<4; i++) {
+        ia = pt->v[MMG5_idir[i][0]];
+        ib = pt->v[MMG5_idir[i][1]];
+        ic = pt->v[MMG5_idir[i][2]];
+        kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+
+        if ( !kt ) continue;
+
+        if ( !pt->xt ) {
+          mesh->xt++;
+          if ( mesh->xt > mesh->xtmax ) {
+            MMG5_TAB_RECALLOC(mesh,mesh->xtetra,mesh->xtmax,0.2,MMG5_xTetra,
+                               "larger xtetra table",
+                               mesh->xt--;
+                               fprintf(stderr,"  Exit program.\n");return 0;);
+          }
+          pt->xt = mesh->xt;
+        }
+        ptt = &mesh->tria[kt];
+        pxt = &mesh->xtetra[mesh->xt];
+        pxt->ref[i]   = ptt->ref;
+        pxt->ftag[i] |= MG_BDY;
+        pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
+      }
+    }
+  }
+
+  if ( !mesh->info.opnbdy ) {
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) )  continue;
+      if ( !pt->xt )  continue;
+      pxt = &mesh->xtetra[pt->xt];
+      adja = &mesh->adja[4*(k-1)+1];
+      for (i=0; i<4; i++) {
+        adj = adja[i] / 4;
+        pt1 = &mesh->tetra[adj];
+        /* Set edge tag */
+        if ( pxt->ftag[i] ) {
+          if ( adj && (pt->ref == pt1->ref ) ) {
+            continue;
+          }
+          else {
+            ia = pt->v[MMG5_idir[i][0]];
+            ib = pt->v[MMG5_idir[i][1]];
+            ic = pt->v[MMG5_idir[i][2]];
+            kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+            ptt = &mesh->tria[kt];
+
+            /* Set flag to know if tetra has the same orientation than the
+             * triangle: here, we can not suppose that the triangle are oriented
+             * with respect to the face orientation because for non manifold
+             * cases, setadj may have reoriented the triangles */
+            if ( ptt->v[0] == ia && ptt->v[1] == ib && ptt->v[2] == ic ) {
+              MG_SET(pxt->ori,i);
+              for (j=0; j<3; j++) {
+                tag = pxt->ftag[i] | ptt->tag[j];
+                if ( tag ) {
+                  if ( !MMG5_settag(mesh,k,MMG5_iarf[i][j],tag,ptt->edg[j]) )
+                    return 0;
+                }
+              }
+            }
+            else
+              MG_CLR(pxt->ori,i);
+          }
+        }
+      }
+    }
+  }
+  else {
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) )  continue;
+      if ( !pt->xt )  continue;
+      pxt = &mesh->xtetra[pt->xt];
+      adja = &mesh->adja[4*(k-1)+1];
+      for (i=0; i<4; i++) {
+        adj = adja[i] / 4;
+        pt1 = &mesh->tetra[adj];
+
+        ia = pt->v[MMG5_idir[i][0]];
+        ib = pt->v[MMG5_idir[i][1]];
+        ic = pt->v[MMG5_idir[i][2]];
+        kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+
+        if ( !kt ) continue;
+
+        ptt = &mesh->tria[kt];
+
+        /* Set flag to know if tetra has the same orientation than the triangle
+         * + forcd the triangle numbering to match the tetra face numbering */
+        if ( adj ) {
+          for ( j=0; j<3; ++j ) {
+            i1 = MMG5_inxt2[j];
+            i2 = MMG5_inxt2[i1];
+            if (  ptt->v[j]==ia && ptt->v[i1]==ib && ptt->v[i2]==ic )
+              break;
+          }
+          if ( j<3 ) {
+            MG_SET(pxt->ori,i);
+            if ( j!=0 ) {
+              /* Triangle vertices+tag/edg reordering */
+              ptt->v[0] = ia;
+              ptt->v[1] = ib;
+              ptt->v[2] = ic;
+
+              inittag[0]  = ptt->tag[0];
+              inittag[1]  = ptt->tag[1];
+              inittag[2]  = ptt->tag[2];
+              ptt->tag[0] = inittag[j];
+              ptt->tag[1] = inittag[i1];
+              ptt->tag[2] = inittag[i2];
+
+              initedg[0]  = ptt->edg[0];
+              initedg[1]  = ptt->edg[1];
+              initedg[2]  = ptt->edg[2];
+              ptt->edg[0] = initedg[j];
+              ptt->edg[1] = initedg[i1];
+              ptt->edg[2] = initedg[i2];
+            }
+          }
+          else {
+            MG_CLR(pxt->ori,i);
+          }
+        }
+        else  MG_SET(pxt->ori,i);
+
+        /* Set edge tag */
+        if ( pxt->ftag[i] ) {
+          if ( adj && ( (pt->ref < pt1->ref) || !MG_GET(pxt->ori,i) ) ) {
+            continue;
+          }
+          else {
+            for (j=0; j<3; j++) {
+              tag = pxt->ftag[i] | ptt->tag[j];
+              if ( tag ) {
+                if ( !MMG5_settag(mesh,k,MMG5_iarf[i][j],tag,ptt->edg[j]) )
+                  return 0;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if ( !mesh->nprism ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 1;
+  }
+
+  mesh->xpr     = 0;
+  MMG5_ADD_MEM(mesh,(mesh->nprism+1)*sizeof(MMG5_xPrism),"boundary prisms",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  MMG5_SAFE_CALLOC(mesh->xprism,mesh->nprism+1,MMG5_xPrism,return 0);
+
+  /* assign references to prism faces */
+  for (k=1; k<=mesh->nprism; k++) {
+    pp = &mesh->prism[k];
+    if ( !MG_EOK(pp) )  continue;
+    adja = &mesh->adjapr[5*(k-1)+1];
+    for (i=0; i<2; i++) {
+      adj = adja[i] / 5;
+      if ( adj<0 ) {
+        ref = mesh->tetra[abs(adj)].ref;
+      } else {
+        ref = mesh->prism[adj].ref;
+      }
+      if ( adj && (pp->ref == ref) ) continue;
+
+      ia = pp->v[MMG5_idir_pr[i][0]];
+      ib = pp->v[MMG5_idir_pr[i][1]];
+      ic = pp->v[MMG5_idir_pr[i][2]];
+      kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+      assert(kt);
+      if ( !pp->xpr ) {
+        mesh->xpr++;
+        pp->xpr = mesh->xpr;
+      }
+      ptt = &mesh->tria[kt];
+      pxp = &mesh->xprism[mesh->xpr];
+      pxp->ref[i]   = ptt->ref;
+      pxp->ftag[i] |= MG_BDY;
+      pxp->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
+
+      for (j=0; j<3; j++) {
+        pxp->tag[MMG5_iarf[i][j]] |= pxp->ftag[i] | ptt->tag[j];
+        pxp->edg[MMG5_iarf[i][j]] = ptt->edg[j];
+      }
+    }
+  }
+  MMG5_ADD_MEM(mesh,(mesh->xpr-mesh->nprism)*sizeof(MMG5_xPrism),"boundary prisms",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  MMG5_SAFE_RECALLOC(mesh->xprism,mesh->nprism+1,mesh->xpr+1,MMG5_xPrism,
+                      "boundary prisms",return 0);
+
+  MMG5_DEL_MEM(mesh,hash.item);
+  return 1;
+}
+
+
+/** preprocessing stage: mesh analysis */
+int PMMG_analys_buildComm(MMG5_pMesh mesh) {
+  MMG5_Hash hash;
+
+  /**--- stage 1: data structures for surface */
+  if ( abs(mesh->info.imprim) > 3 )
+    fprintf(stdout,"\n  ** SURFACE ANALYSIS\n");
+
+  /* create tetra adjacency */
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Hashing problem (1). Exit program.\n");
+    return 0;
+  }
+
+  /* create prism adjacency */
+  if ( !MMG3D_hashPrism(mesh) ) {
+    fprintf(stderr,"\n  ## Prism hashing problem. Exit program.\n");
+    return 0;
+  }
+  /* compatibility triangle orientation w/r tetras */
+  if ( !MMG5_bdryPerm(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
+    return 0;
+  }
+
+  /* identify surface mesh */
+  if ( !MMG5_chkBdryTria(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    return 0;
+  }
+  MMG5_freeXTets(mesh);
+  MMG5_freeXPrisms(mesh);
+
+  /* Set surface triangles to required in nosurf mode or for parallel boundaries */
+  MMG3D_set_reqBoundaries(mesh);
+
+
+  /* create surface adjacency */
+  if ( !MMG3D_hashTria(mesh,&hash) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
+    return 0;
+  }
+
+  /* build hash table for geometric edges */
+  if ( !MMG5_hGeom(mesh) ) {
+    fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    return 0;
+  }
+
+  /**--- stage 2: surface analysis */
+  if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
+    fprintf(stdout,"  ** SETTING TOPOLOGY\n");
+
+  /* identify connexity */
+  if ( !MMG5_setadj(mesh) ) {
+    fprintf(stderr,"\n  ## Topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* check for ridges */
+  if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
+    fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* identify singularities */
+  if ( !MMG5_singul(mesh) ) {
+    fprintf(stderr,"\n  ## MMG5_Singularity problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
+    fprintf(stdout,"  ** DEFINING GEOMETRY\n");
+
+  /* define (and regularize) normals */
+  if ( !MMG5_norver(mesh) ) {
+    fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* set bdry entities to tetra */
+  if ( !PMMG_bdrySet_buildComm(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* set non-manifold edges sharing non-intersecting multidomains as required */
+  if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
+    fprintf(stdout,"  ** UPDATING TOPOLOGY AT NON-MANIFOLD POINTS\n");
+
+  if ( !MMG5_setNmTag(mesh,&hash) ) {
+    fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* check subdomains connected by a vertex and mark these vertex as corner and required */
+  MMG5_chkVertexConnectedDomains(mesh);
+
+  /* build hash table for geometric edges */
+  if ( !mesh->na && !MMG5_hGeom(mesh) ) {
+    fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    return 0;
+  }
+
+  /* Update edges tags and references for xtetras */
+  if ( !MMG5_bdryUpdate(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* define geometry for non manifold points */
+  if ( !MMG3D_nmgeom(mesh) ) return 0;
+
+  /* release memory */
+  MMG5_DEL_MEM(mesh,mesh->htab.geom);
+  MMG5_DEL_MEM(mesh,mesh->adjt);
+  MMG5_DEL_MEM(mesh,mesh->tria);
+  mesh->nt = 0;
+
+  if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
+
+  return 1;
+}
+/**
  * \param  parmesh pointer to parmesh structure
  *
  * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if fail and return an
@@ -156,7 +586,73 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 }
 
+/**
+ * \param  parmesh pointer to parmesh structure
+ *
+ * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if fail and return an
+ * unscaled mesh, PMMG_STRONGFAILURE if fail and return a scaled mesh.
+ *
+ * Mesh preprocessing: set function pointers, scale mesh, perform mesh
+ * analysis and display length and quality histos.
+ */
+int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
+{
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
 
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
+  assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
+
+  /** Function setters (must be assigned before quality computation) */
+  MMG3D_Set_commonFunc();
+
+  /** Mesh scaling and quality histogram */
+  if ( !MMG5_scaleMesh(mesh,met) ) {
+    return PMMG_LOWFAILURE;
+  }
+
+  /** specific meshing */
+  if ( mesh->info.optim && !met->np ) {
+    if ( !MMG3D_doSol(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    MMG3D_solTruncatureForOptim(mesh,met);
+  }
+
+  if ( mesh->info.hsiz > 0. ) {
+    if ( !MMG3D_Set_constantSize(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
+  MMG3D_setfunc(mesh,met);
+
+  if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /** Mesh analysis */
+  if ( !PMMG_analys_buildComm(mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+    MMG3D_prilen(mesh,met,0);
+  }
+
+  /** Mesh unscaling */
+  if ( !MMG5_unscaleMesh(mesh,met) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  return PMMG_SUCCESS;
+}
 
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   MMG5_pMesh    mesh;
