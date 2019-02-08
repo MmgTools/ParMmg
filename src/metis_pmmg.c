@@ -194,9 +194,10 @@ int PMMG_check_part_contiguity( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
       }
     }
 
-    if( ncolors > 1 )
+    if( ncolors > 1 && parmesh->ddebug ) {
       fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on part %d, proc %d.\n",
               ncolors,ipart,parmesh->myrank);
+    }
 
     /** Update the max nb of subgroups found */
     if( ncolors > maxcolors ) maxcolors = ncolors;
@@ -225,11 +226,15 @@ int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh ) {
 
     ier = PMMG_check_grps_contiguity( parmesh );
     if( !ier ) {
-      fprintf(stderr,"\n  ## Error %s: Unable to count mesh contiguous subgroups.\n",
-              __func__);
+      if ( parmesh->ddebug ) {
+        fprintf(stderr,"\n  ## Error %s: Unable to count mesh contiguous subgroups.\n",
+                __func__);
+      }
     } else if( ier>1 ) {
-      fprintf(stderr,"\n  ## Warning %s: Group meshes are not contiguous. Reverting to discontiguous mode.\n",
-              __func__);
+      if ( parmesh->ddebug ) {
+        fprintf(stderr,"\n  ## Warning %s: Group meshes are not contiguous. Reverting to discontiguous mode.\n",
+                __func__);
+      }
       parmesh->info.contiguous_mode = PMMG_NUL;
       ier = 1;
     }
@@ -333,9 +338,10 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
       }
     }
 
-    if( ncolors > 1 )
+    if ( ncolors > 1 && parmesh->ddebug ) {
       fprintf(stderr,"\n  ## Warning: %d contiguous subgroups found on grp %d, proc %d.\n",
               ncolors,igrp,parmesh->myrank);
+    }
 
     /** Update the max nb of subgroups found */
     if( ncolors > maxcolors ) maxcolors = ncolors;

@@ -2655,7 +2655,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   /** Step 3: pack the groups and face communicators */
   err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
   ier = MG_MIN ( ier, err );
-  if ( !parmesh->ngrp ) {
+  if ( (!parmesh->ngrp) && parmesh->ddebug ) {
     fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
             __func__,myrank);
   }
