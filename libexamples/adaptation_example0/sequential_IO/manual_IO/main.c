@@ -32,8 +32,8 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,rank,i,nsols,k,opt;
-  char            *filename,*metname,*solname,*fileout,*metout,*solout,*tmp;
+  int             ier,rank,k,opt;
+  char            *metname,*solname,*fileout,*metout,*solout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
 

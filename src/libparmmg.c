@@ -334,7 +334,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  int              k,ier,iresult,ierlib;
+  int              ier,iresult,ierlib;
   long int         tmpmem;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
@@ -375,8 +375,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
     ier  = PMMG_preprocessMesh( parmesh );
-    mesh = parmesh->listgrp[k].mesh;
-    met  = parmesh->listgrp[k].met;
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
     if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
       ier = PMMG_LOWFAILURE;
     }

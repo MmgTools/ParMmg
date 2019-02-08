@@ -1336,7 +1336,6 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
-  size_t  memAv,oldMemMax;
   int     ier,ier1,ier_glob;
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
@@ -1374,7 +1373,6 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");
 
-end:
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );

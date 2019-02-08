@@ -127,9 +127,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
 
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
-  MMG5_pMesh mesh;
-  MMG5_pSol  met;
-  int        val,k,i = 0;
+  int        val,i  = 0;
   int        ret_val = 1;
   int        mmgArgc = 0;
   char**     mmgArgv = NULL;
@@ -297,7 +295,6 @@ int PMMG_parsop ( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   int        ier;
-  int8_t     tmp_verb;
 
   assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
   mesh = parmesh->listgrp[0].mesh;

@@ -1095,7 +1095,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 {
   real_t     *tpwgts,*ubvec;
-  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize,edgecut;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize;
   idx_t      *xadj_seq,*adjncy_seq,*vwgt_seq,*adjwgt_seq,*part_seq;
   idx_t      sendcounts,*recvcounts,*displs;
   idx_t      wgtflag,numflag;
@@ -1103,7 +1103,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
   int        ngrp,nprocs,ier;
-  int        iproc,root,ip,target,status;
+  int        iproc,root,ip,status;
   size_t     memAv,oldMemMax;
 
   ngrp   = parmesh->ngrp;
@@ -1133,6 +1133,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
     displs[iproc] = vtxdist[iproc];
   }
 
+  xadj_seq = NULL;
   if(parmesh->myrank == root)
     PMMG_CALLOC(parmesh,xadj_seq,vtxdist[nproc]+1,idx_t,"xadj_seq", return 0);
 
@@ -1148,7 +1149,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   if(wgtflag == PMMG_WGTFLAG_VTX || wgtflag == PMMG_WGTFLAG_BOTH ) {
     if(parmesh->myrank == root)
       PMMG_CALLOC(parmesh,vwgt_seq,vtxdist[nproc]+1,idx_t,"vwgt_seq", return 0);
-  
+
     MPI_CHECK( MPI_Gatherv(vwgt,recvcounts[parmesh->myrank],MPI_INT,
                            vwgt_seq,recvcounts,displs,MPI_INT,
                            root,parmesh->comm), return 0);
@@ -1164,7 +1165,8 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
     displs[iproc+1] = displs[iproc]+recvcounts[iproc];
   }
 
-  if(parmesh->myrank == root)
+  adjncy_seq = NULL;
+  if ( parmesh->myrank == root )
     PMMG_CALLOC(parmesh,adjncy_seq,xadj_seq[vtxdist[nproc]],idx_t,"xadj_seq", return 0);
 
   MPI_CHECK( MPI_Gatherv(adjncy,recvcounts[parmesh->myrank],MPI_INT,

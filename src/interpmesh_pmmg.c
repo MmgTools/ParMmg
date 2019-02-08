@@ -270,8 +270,6 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
-  double      barycoord[4],vol,eps;
-  int         *adja;
   int         igrp,ip,ie,ier;
   static int  mmgWarn=0;
 

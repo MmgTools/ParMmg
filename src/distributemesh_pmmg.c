@@ -31,7 +31,7 @@ int PMMG_boulevolp (MMG5_pMesh mesh, int start, int ip, int iploc, int *visited,
                     int *list){
   MMG5_pTetra  pt1;
   int    *adja,ilist,cur,k,k1;
-  char    j,l,i;
+  int8_t  i,j,l;
 
   /* Store initial tetrahedron */
   visited[start] = ip;
