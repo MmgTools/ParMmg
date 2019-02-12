@@ -10,13 +10,13 @@
 
 /*! Helper macro used only in this file: copies the contents of fromV[fromC]
  *  to toV[toC] updates toC */
-#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
-  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
-              on_failure);                                                   \
-  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
-  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
-  ++toC;                                                                     \
-}while(0)
+#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {  \
+    PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg, \
+                on_failure);                                            \
+    strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 ); \
+    toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                        \
+    ++toC;                                                              \
+  }while(0)
 
 /**
  * \param parmesh pointer to pmmg structure
@@ -51,7 +51,8 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
     fprintf(stdout,"maximal memory size       (-m)      : %zu MB\n",
             parmesh->memGloMax/MMG5_MILLION);
     fprintf(stdout,"\n** Parameters\n");
-    fprintf( stdout,"# of remeshing iterations (-niter)  : %d\n",parmesh->niter);
+    fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
+    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
 
     if ( parmesh->listgrp[0].mesh ) {
       fprintf(stdout,"\n  --- MMG ---");
@@ -136,15 +137,20 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
    * and call the mmg3d parser. */
-  for ( i = 1; i < argc; ++i )
+  for ( i = 1; i < argc; ++i ) {
     if ( !strcmp( argv[ i ],"-val" ) ) {
       RUN_ON_ROOT_AND_BCAST( PMMG_defaultValues(parmesh),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
+      ret_val = 0;
+      goto fail_mmgargv;
     }
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
       RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
+      ret_val = 0;
+      goto fail_mmgargv;
     }
+  }
 
   /* Create a new set of argc/argv variables adding only the the cl options that
      mmg has to process
@@ -210,7 +216,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                                    parmesh->myrank,ret_val=0; goto fail_proc);
           }
         }
-      break;
+        break;
 
       case 'n':  /* number of adaptation iterations */
         if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
@@ -228,7 +234,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
         }
-      break;
+        break;
 
       case 'd':  /* debug */
         if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
@@ -263,7 +269,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                     " adding to mmgArgv for mmg: ",
                     ret_val = 0; goto fail_proc);
 
-      break;
+        break;
       }
     } else {
       ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
