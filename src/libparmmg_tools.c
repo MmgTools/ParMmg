@@ -53,6 +53,9 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n** Parameters\n");
     fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
     fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
+#ifdef USE_SCOTCH
+    fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
+#endif
 
     if ( parmesh->listgrp[0].mesh ) {
       fprintf(stdout,"\n  --- MMG ---");
@@ -187,7 +190,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             }
           }
           else {
-            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
                                    parmesh->myrank,ret_val=0; goto fail_proc);
             ret_val = 0;
@@ -203,17 +206,21 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         else {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
-            if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
+            if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) ) {
               fprintf( stderr,
-                       "Erroneous mem size requested, using default: %zu\n",
-                       parmesh->memGloMax );
+                       "\nErroneous mem size requested (%s)\n",argv[i] );
+              ret_val = 0;
+              goto fail_proc;
+            }
             else
               PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
             PMMG_parmesh_SetMemMax( parmesh, 20 );
           } else {
-            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
                                    parmesh->myrank,ret_val=0; goto fail_proc);
+            ret_val = 0;
+            goto fail_proc;
           }
         }
         break;
@@ -226,8 +233,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           } else {
             parmesh->niter = PMMG_NITER;
             fprintf( stderr,
-                     "Erroneous adaptation iterations requested, using default: %d\n",
-                     parmesh->niter );
+                     "\nWrong number of adaptation iterations (%s).\n",argv[i]);
+
+            ret_val = 0;
+            goto fail_proc;
           }
         } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
@@ -242,6 +251,16 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           goto fail_proc;
         }
         break;
+#ifdef USE_SCOTCH
+      case 'r':
+        if ( !strcmp(argv[i],"-rn") ) {
+          fprintf( stderr,
+                   "\nScoth renumbering not yet available in ParMmg\n");
+          ret_val = 0;
+          goto fail_proc;
+        }
+        break;
+#endif
 
       case 'v':  /* verbosity */
         if ( ++i < argc ) {
@@ -256,7 +275,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             i--;
         }
         else {
-          fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
+          fprintf(stderr,"\nMissing argument option %c\n",argv[i-1][1]);
           RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
                                  parmesh->myrank,ret_val=0; goto fail_proc );
           ret_val = 0;
