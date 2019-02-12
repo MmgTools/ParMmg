@@ -76,6 +76,13 @@ extern "C" {
 
 /**
  *
+ * Size of mpi datatype for length histo computation
+ *
+ */
+#define PMMG_LENSTATS_MPISIZE 12
+
+/**
+ *
  * print input quality histogram
  *
  */
@@ -472,6 +479,7 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
+int PMMG_prilen( PMMG_pParMesh parmesh,char );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

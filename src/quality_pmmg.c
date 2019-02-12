@@ -25,6 +25,52 @@ static void PMMG_min_iel_compute(void *in1, void* out1, int *len, MPI_Datatype *
   }
 }
 
+typedef struct {
+  double avlen,lmin,lmax;
+  int    ned,amin,bmin,amax,bmax,nullEdge,hl[9];
+  int    cpu_min,cpu_max;
+} PMMG_lenStats;
+
+static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *dptr )
+{
+  PMMG_lenStats *in,*out;
+  int i,j;
+
+  in  = (PMMG_lenStats *)in1;
+  out = (PMMG_lenStats *)out1;
+
+  for ( i=0; i<*len; i++ ) {
+
+    out[i].avlen    += in[i].avlen;
+    out[i].ned      += in[i].ned;
+    out[i].nullEdge += in[i].nullEdge;
+
+    for ( j=0; j<9; ++j ) {
+      out[i].hl[j] += in[i].hl[j];
+    }
+
+
+    if ( in[i].lmin < out[i].lmin ) {
+      out[i].lmin    = in[i].lmin;
+      out[i].amin    = in[i].amin;
+      out[i].bmin    = in[i].bmin;
+      out[i].amax    = in[i].amax;
+      out[i].bmax    = in[i].bmax;
+      out[i].cpu_min = in[i].cpu_min;
+    }
+
+    if ( in[i].lmax > out[i].lmax ) {
+      out[i].lmax    = in[i].lmax;
+      out[i].amax    = in[i].amax;
+      out[i].bmax    = in[i].bmax;
+      out[i].amax    = in[i].amax;
+      out[i].bmax    = in[i].bmax;
+      out[i].cpu_max = in[i].cpu_max;
+    }
+
+  }
+}
+
 /**
  * \param parmesh pointer to parmesh structure
  *
@@ -50,9 +96,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
   MPI_Datatype types[ PMMG_QUAL_MPISIZE ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
   min_iel_t    min_iel, min_iel_result = { DBL_MAX, 0, 0, 0 };
   MPI_Aint     disps[ PMMG_QUAL_MPISIZE ] = { offsetof( min_iel_t, min ),
-                                           offsetof( min_iel_t, iel ),
-                                           offsetof( min_iel_t, iel_grp ),
-                                           offsetof( min_iel_t, cpu ) };
+                                              offsetof( min_iel_t, iel ),
+                                              offsetof( min_iel_t, iel_grp ),
+                                              offsetof( min_iel_t, cpu ) };
   int lens[ PMMG_QUAL_MPISIZE ]           = { 1, 1, 1, 1 };
 
   /* Calculate the quality values for local process */
@@ -167,6 +213,121 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
                                        nrid_result,optimLES_result,
                                        parmesh->info.imprim );
     if ( !ier ) return 0;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure
+ * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
+ *
+ * \return 1 if success, 0 if fail;
+ *
+ * Resume edge length histo computed on each procs on the root processor
+ *
+ * \warning to rewrite : the interface edges are counted multiple times in the
+ * final histo
+ *
+ * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
+ *
+ */
+int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
+{
+  MMG5_pMesh    mesh;
+  MMG5_pSol     met;
+  double        dned,*bd;
+  int           ier,ieresult;
+  PMMG_lenStats lenStats,lenStats_result;
+  MPI_Op        mpi_lenStats_op;
+  MPI_Datatype  mpi_lenStats_t;
+  MPI_Datatype  types[ PMMG_LENSTATS_MPISIZE ] = { MPI_DOUBLE,MPI_DOUBLE,MPI_DOUBLE,
+                                                   MPI_INT, MPI_INT, MPI_INT,
+                                                   MPI_INT, MPI_INT, MPI_INT,
+                                                   MPI_INT, MPI_INT, MPI_INT };
+  MPI_Aint      disps[ PMMG_LENSTATS_MPISIZE ] = { offsetof( PMMG_lenStats, avlen ),
+                                                   offsetof( PMMG_lenStats, lmin  ),
+                                                   offsetof( PMMG_lenStats, lmax  ),
+                                                   offsetof( PMMG_lenStats, ned   ),
+                                                   offsetof( PMMG_lenStats, amin  ),
+                                                   offsetof( PMMG_lenStats, bmin  ),
+                                                   offsetof( PMMG_lenStats, amax  ),
+                                                   offsetof( PMMG_lenStats, bmax  ),
+                                                   offsetof( PMMG_lenStats, nullEdge),
+                                                   offsetof( PMMG_lenStats, hl    ),
+                                                   offsetof( PMMG_lenStats, cpu_min),
+                                                   offsetof( PMMG_lenStats, cpu_max) };
+  int lens[ PMMG_LENSTATS_MPISIZE ]            = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 1, 1 };
+
+
+
+  ier  = ieresult = 1;
+  mesh = NULL;
+
+  if ( parmesh->ngrp > 1 ) {
+    printf("  ## Warning:%s: this function must be called with at most 1"
+           "group per processor. Exit function.\n",__func__);
+    ier = 0;
+  }
+
+  MPI_Type_create_struct( PMMG_LENSTATS_MPISIZE, lens, disps, types, &mpi_lenStats_t );
+  MPI_Type_commit( &mpi_lenStats_t );
+  MPI_Op_create( PMMG_compute_lenStats, 1, &mpi_lenStats_op );
+
+  lenStats.avlen = 0.;
+  lenStats.lmin = DBL_MAX;
+  lenStats.lmax = 0.;
+  lenStats.ned = 0;
+  lenStats.amin = lenStats.amax = lenStats.bmin = lenStats.bmax = 0;
+  lenStats.nullEdge = 0;
+  memset(lenStats.hl,0,9*sizeof(int));
+  lenStats.cpu_min = lenStats.cpu_max = parmesh->myrank;
+
+  if ( parmesh->ngrp==1 ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met = parmesh->listgrp[0].met;
+    ier = MMG3D_computePrilen( mesh, met, &lenStats.avlen, &lenStats.lmin,
+                               &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                               &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                               &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+  }
+
+  MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+
+  if ( !ieresult ) {
+    MPI_Op_free( &mpi_lenStats_op );
+    return 0;
+  }
+
+  MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+  MPI_Op_free( &mpi_lenStats_op );
+
+  if ( parmesh->myrank == parmesh->info.root ) {
+    dned                  = (double)lenStats_result.ned;
+    lenStats_result.avlen = lenStats_result.avlen / dned;
+
+    fprintf(stdout,"\n  -- RESULTING EDGE LENGTHS (ROUGH EVAL.) %d \n",lenStats_result.ned);
+    fprintf(stdout,"     AVERAGE LENGTH         %12.4f\n",lenStats_result.avlen);
+    fprintf(stdout,"     SMALLEST EDGE LENGTH   %12.4f   %6d %6d",
+            lenStats_result.lmin,lenStats_result.amin,lenStats_result.bmin);
+    if ( parmesh->nprocs>1 ) {
+      fprintf(stdout," (PROC %d)\n",lenStats_result.cpu_min);
+    }
+    else { fprintf(stdout,"\n"); }
+
+    fprintf(stdout,"     LARGEST  EDGE LENGTH   %12.4f   %6d %6d",
+            lenStats_result.lmax,lenStats_result.amax,lenStats_result.bmax);
+    if ( parmesh->nprocs>1 ) {
+      fprintf(stdout," (PROC %d)\n",lenStats_result.cpu_max);
+    }
+    else { fprintf(stdout,"\n"); }
+
+
+    MMG5_displayLengthHisto_internal ( lenStats_result.ned,lenStats_result.amin,lenStats_result.bmin,
+                                       lenStats_result.lmin,lenStats_result.amax,
+                                       lenStats_result.bmax,lenStats_result.lmax,
+                                       lenStats_result.nullEdge,bd,
+                                       lenStats_result.hl,parmesh->info.imprim,1);
   }
 
   return 1;

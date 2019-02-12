@@ -640,6 +640,19 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
+
+  /* Give memory to Mmg for the edge length computation */
+  available = parmesh->memGloMax;
+  parmesh->memMax = parmesh->memCur;
+  available -= parmesh->memMax;
+  if ( parmesh->listgrp[0].mesh ) {
+    parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur + available;
+  }
+
+  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
+    PMMG_prilen(parmesh,0);
+  }
+
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
 
   /** mmg3d1_delone failure */
