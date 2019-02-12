@@ -93,21 +93,21 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-hmin   val  minimal mesh size\n");
     fprintf(stdout,"-hmax   val  maximal mesh size\n");
     fprintf(stdout,"-hsiz   val  constant mesh size\n");
-    fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
+    // fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
     fprintf(stdout,"-hgrad  val  control gradation\n");
-    fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
+    // fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
     fprintf(stdout,"-A           enable anisotropy (without metric file).\n");
-    fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
-            " two domains of the same reference.\n");
+    // fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
+    //        " two domains of the same reference.\n");
 
 #ifdef USE_ELAS
-    fprintf(stdout,"-lag [0/1/2] Lagrangian mesh displacement according to mode 0/1/2\n");
+    // fprintf(stdout,"-lag [0/1/2] Lagrangian mesh displacement according to mode 0/1/2\n");
 #endif
 #ifndef PATTERN
     fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
 #endif
 #ifdef USE_SCOTCH
-    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+    //fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
 #endif
     fprintf(stdout,"\n");
 
