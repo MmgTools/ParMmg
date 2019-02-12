@@ -1267,7 +1267,10 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
-  int     ier,ier1,ier_glob;
+  int     ier,ier1;
+#ifndef NDEBUG
+  int     ier_glob;
+#endif
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );

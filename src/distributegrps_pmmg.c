@@ -2310,7 +2310,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 
   PMMG_pExt_comm ext_face_comm;
   MPI_Status     status;
-  MMG5_pMesh     mesh;
   size_t         available;
   int            pack_size;
   int            k,ier,ier0,recv_int_nitem,offset,old_nitem;
@@ -2321,6 +2320,10 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   const int      myrank      = parmesh->myrank;
   const int      ngrp        = parmesh->ngrp;
   const MPI_Comm comm        = parmesh->comm;
+
+#ifndef NDEBUG
+  MMG5_pMesh     mesh;
+#endif
 
   ier = 1;
 

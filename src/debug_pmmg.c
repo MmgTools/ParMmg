@@ -126,7 +126,9 @@ void PMMG_find_tetras_referencing_null_points_to_txt( char *name,
 int PMMG_adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
 {
   int location = 4 * (element - 1) + 1 + face;
+#ifndef NDEBUG
   int max_loc = 4 * (mesh->ne-1) + 5;
+#endif
 
   assert( (face >= 0)    && (face < 4) && "There are only 4 faces per tetra" );
   assert( (location > 0) && (location < max_loc) && " adja out of bound "  );

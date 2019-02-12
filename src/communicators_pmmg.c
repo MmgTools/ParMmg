@@ -366,13 +366,16 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   MMG5_pMesh      mesh;
   MMG5_pTetra     pt;
   MMG5_pPoint     ppt;
-  double          bb_min[3],bb_max[3],delta,dist[3],dd;
+  double          bb_min[3],bb_max[3],delta;
   int             *face2int_face_comm_index1;
   int             *node2int_node_comm_index1,*node2int_node_comm_index2;
   int             *shared_fac,*new_pos,nitem_node,first_nitem_node,pos;
   int             *face_vertices,ier,i,j,iel,ifac,ip,iploc,grpid,idx,fac_idx;
   int             nitem_node_init;
   int8_t          update;
+#ifndef NDEBUG
+  double dd,dist[3];
+#endif
 
   ier = 0;
 
