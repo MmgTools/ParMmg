@@ -77,10 +77,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n** Generic options :\n");
     fprintf(stdout,"-h         Print this message\n");
     fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
-    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    // fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
     fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
     fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
-    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    // fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
     fprintf(stdout,"-val       Print the default parameters values\n");
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
