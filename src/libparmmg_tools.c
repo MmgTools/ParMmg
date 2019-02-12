@@ -92,8 +92,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter  val  number of remeshing iterations\n");
-    fprintf(stdout,"-ar     val  angle detection\n");
-    fprintf(stdout,"-nr          no angle detection\n");
+    //fprintf(stdout,"-ar     val  angle detection\n");
+    //fprintf(stdout,"-nr          no angle detection\n");
     fprintf(stdout,"-hmin   val  minimal mesh size\n");
     fprintf(stdout,"-hmax   val  maximal mesh size\n");
     fprintf(stdout,"-hsiz   val  constant mesh size\n");
