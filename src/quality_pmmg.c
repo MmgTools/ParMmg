@@ -6,15 +6,16 @@ typedef struct {
   int iel, iel_grp, cpu;
 } min_iel_t;
 
-static void PMMG_min_iel_compute( void* in1, void* out1, int *len, MPI_Datatype *dptr )
-{
-  min_iel_t *in;
-  min_iel_t *out;
 
-  in = (min_iel_t*) in1;
-  out = (min_iel_t*) out1;
-  (void)dptr;
-  for (int i=0; i<*len; i++) {
+static void PMMG_min_iel_compute(void *in1, void* out1, int *len, MPI_Datatype *dptr )
+{
+  min_iel_t *in, *out;
+
+  in  = (min_iel_t *)in1;
+  out = (min_iel_t *)out1;
+
+  int i;
+  for ( i=0; i<*len; i++) {
     if ( in[ i ].min < out[ i ]. min ) {
       out[ i ].min = in[ i ].min;
       out[ i ].iel = in[ i ].iel;
