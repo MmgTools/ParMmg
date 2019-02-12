@@ -1815,23 +1815,25 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_parmesh_Free_Comm(parmesh);
 
   /** Step 5: Update tag on points, tetra */
-  ieresult = PMMG_updateTag(parmesh);
+  if ( ieresult > 0 ) {
+    ieresult = PMMG_updateTag(parmesh);
 
-  /** Step 6: In nosurf mode, the updateTag function has added nosurf + required
-   * tag to the boundary mesh : remove its */
-  mesh = parmesh->listgrp[0].mesh;
+    /** Step 6: In nosurf mode, the updateTag function has added nosurf + required
+     * tag to the boundary mesh : remove its */
+    mesh = parmesh->listgrp[0].mesh;
 
-  if ( mesh->info.nosurf ) {
+    if ( mesh->info.nosurf ) {
 
-    MMG3D_unset_reqBoundaries(mesh);
+      MMG3D_unset_reqBoundaries(mesh);
 
-    for (k=1; k<=mesh->np; k++) {
-      ppt = &mesh->point[k];
-      if ( !MG_VOK(ppt) )  continue;
+      for (k=1; k<=mesh->np; k++) {
+        ppt = &mesh->point[k];
+        if ( !MG_VOK(ppt) )  continue;
 
-      if ( ppt->tag & MG_NOSURF ) {
-        ppt->tag &= ~MG_NOSURF;
-        ppt->tag &= ~MG_REQ;
+        if ( ppt->tag & MG_NOSURF ) {
+          ppt->tag &= ~MG_NOSURF;
+          ppt->tag &= ~MG_REQ;
+        }
       }
     }
   }
