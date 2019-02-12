@@ -327,7 +327,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
                                        lenStats_result.lmin,lenStats_result.amax,
                                        lenStats_result.bmax,lenStats_result.lmax,
                                        lenStats_result.nullEdge,bd,
-                                       lenStats_result.hl,parmesh->info.imprim,1);
+                                       lenStats_result.hl,1,parmesh->info.imprim);
   }
 
   return 1;

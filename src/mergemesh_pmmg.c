@@ -1271,6 +1271,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                            &(*rcv_met)[*rcv_isMet],(*rcv_nmet),(*met_displs),
                            MPI_DOUBLE,root,comm),ier=2);
   }
+
   /* Internal communicator */
   MPI_CHECK( MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
                          (*rcv_intvalues),(*rcv_nitem_int_node_comm),
