@@ -123,6 +123,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.fem    = MMG5_FEM;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
+  parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
+  parmesh->info.metis_ratio =  PMMG_RATIO_MMG_METIS;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -246,6 +248,13 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,mem) ) return 0;
     }
     break;
+  case PMMG_IPARAM_meshSize :
+    parmesh->info.target_mesh_size = val;
+    break;
+  case PMMG_IPARAM_metisRatio :
+    parmesh->info.metis_ratio = val;
+    break;
+
 #ifndef PATTERN
   case PMMG_IPARAM_octree :
     for ( k=0; k<parmesh->ngrp; ++k ) {

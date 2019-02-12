@@ -256,6 +256,8 @@ typedef struct {
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
+  int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
+  int target_mesh_size; /*!< target mesh size for Mmg */
 } PMMG_Info;
 
 

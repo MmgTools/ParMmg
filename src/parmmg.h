@@ -137,6 +137,32 @@ extern "C" {
  */
 #define PMMG_VERB_DETQUAL 5
 
+/**
+ *
+ * Split groups for metis (split_grps)
+ *
+ */
+#define PMMG_GRPSPL_METIS_TARGET 1
+
+/**
+ *
+ * Split groups for mmg (split_grps)
+ *
+ */
+#define PMMG_GRPSPL_MMG_TARGET 2
+
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_REMESHER_TARGET_MESH_SIZE = -100000;
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_REMESHER_NGRPS_MAX = 100;
+
+/**< Number of metis node per mmg mesh... to test*/
+static const int PMMG_RATIO_MMG_METIS = -200;
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_METIS_NGRPS_MAX = 1000;
 
 
 /**

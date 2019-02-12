@@ -51,6 +51,8 @@ enum PMMG_Param {
   PMMG_IPARAM_numberOfLocalParam,/*!< [n], Number of local parameters */
   PMMG_IPARAM_anisosize,         /*!< [1/0], Turn on/off anisotropic metric creation when no metric is provided */
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
+  PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
+  PMMG_IPARAM_metisRatio,        /*!< [n], wanted ratio # mesh / # metis super nodes (advanced use) */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */
   PMMG_DPARAM_hmax,              /*!< [val], Maximal mesh size */
@@ -60,12 +62,6 @@ enum PMMG_Param {
   PMMG_DPARAM_ls,                /*!< [val], Value of level-set */
   PMMG_PARAM_size,               /*!< [n], Number of parameters */
 };
-
-
-/**< Subgroups target size for a fast remeshing step */
-static const int REMESHER_TARGET_MESH_SIZE = 16 * 1024;
-/**< Subgroups target size for parmetis */
-static const int METIS_TARGET_MESH_SIZE = 200;
 
 
 /* API_functions_pmmg.c */

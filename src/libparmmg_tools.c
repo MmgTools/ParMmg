@@ -53,6 +53,10 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
     fprintf(stdout,"\n** Parameters\n");
     fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
     fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
+    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
+    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",
+             abs(PMMG_RATIO_MMG_METIS) );
+
 #ifdef USE_SCOTCH
     fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
 #endif
@@ -91,7 +95,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-sol file  load solution or metric file\n");
 
     fprintf(stdout,"\n**  Parameters\n");
-    fprintf(stdout,"-niter  val  number of remeshing iterations\n");
+    fprintf(stdout,"-niter        val  number of remeshing iterations\n");
+    //fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
+    //fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
+
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
     fprintf(stdout,"-hmin   val  minimal mesh size\n");
@@ -191,8 +198,54 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
           else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_proc);
+             ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-mesh-size") ) {
+
+          /* Remesher target mesh size */
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+              val = atoi(argv[i]);
+
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_meshSize,val) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-metis-ratio") ) {
+
+          /* Number of metis super nodes per mesh */
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+              val = atoi(argv[i]);
+
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_metisRatio,val) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             ret_val = 0;
             goto fail_proc;
           }
@@ -217,8 +270,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             PMMG_parmesh_SetMemMax( parmesh, 20 );
           } else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_proc);
             ret_val = 0;
             goto fail_proc;
           }
@@ -276,9 +327,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         else {
           fprintf(stderr,"\nMissing argument option %c\n",argv[i-1][1]);
-          RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                 parmesh->myrank,ret_val=0; goto fail_proc );
-          ret_val = 0;
+           ret_val = 0;
           goto fail_proc;
         }
         break;

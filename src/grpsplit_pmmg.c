@@ -988,7 +988,8 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param target_mesh_size wanted number of elements per group
+ * \param target software for which we split the groups
+ * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return -1 : no possibility to save the mesh
@@ -1001,7 +1002,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -1032,7 +1033,33 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   if ( !meshOld ) goto end;
 
-  ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
+  ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
+  if ( parmesh->info.target_mesh_size < 0 ) {
+    /* default value : do not authorize large number of groups */
+    ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
+  }
+
+  if ( target == PMMG_GRPSPL_METIS_TARGET ) {
+    /* Compute the number of metis nodes from the number of groups */
+    ngrp *= abs(parmesh->info.metis_ratio);
+    if ( parmesh->info.metis_ratio < 0 ) {
+      /* default value : do not authorize large number of groups */
+      if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+        printf("  ## Warning: %s: too much metis nodes needed...\n"
+               "     Partitions may remains freezed. Try to use more processor\n",
+               __func__);
+        ngrp = PMMG_METIS_NGRPS_MAX;
+      }
+    }
+    if ( ngrp > meshOld->ne ) {
+      /* Correction if it leads to more groups than elements */
+      printf("  ## Warning: %s: too much metis nodes needed...\n"
+             "     Partitions may remains freezed. Try to use more processor\n",
+             __func__);
+      ngrp = MG_MIN ( meshOld->ne, ngrp );
+    }
+  }
+
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
     if ( parmesh->ddebug )
@@ -1258,7 +1285,8 @@ end:
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param target_mesh_size wanted number of elements per group
+ * \param target software for which we split the groups
+ * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return 0 if fail, 1 if success, -1 if the mesh is not correct
@@ -1266,7 +1294,7 @@ end:
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   int     ier,ier1;
 #ifndef NDEBUG
   int     ier_glob;
@@ -1302,7 +1330,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_split_grps(parmesh,target_mesh_size,fitMesh);
+    ier = PMMG_split_grps(parmesh,target,fitMesh);
 
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");
