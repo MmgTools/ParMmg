@@ -42,7 +42,7 @@ extern "C" {
  * Default number of iterations
  *
  */
-#define PMMG_NITER   2
+#define PMMG_NITER   4
 
 /**
  * \def PMMG_IMPRIM
