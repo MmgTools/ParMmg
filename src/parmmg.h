@@ -153,7 +153,7 @@ extern "C" {
 
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_REMESHER_TARGET_MESH_SIZE = -300000;
+static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
 
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_NGRPS_MAX = 100;
