@@ -1046,7 +1046,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
       /* default value : do not authorize large number of groups */
       if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
         printf("  ## Warning: %s: too much metis nodes needed...\n"
-               "     Partitions may remains freezed. Try to use more processor\n",
+               "     Partitions may remains freezed. Try to use more processors.\n",
                __func__);
         ngrp = PMMG_METIS_NGRPS_MAX;
       }
@@ -1054,7 +1054,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
     if ( ngrp > meshOld->ne ) {
       /* Correction if it leads to more groups than elements */
       printf("  ## Warning: %s: too much metis nodes needed...\n"
-             "     Partitions may remains freezed. Try to use more processor\n",
+             "     Partitions may remains freezed. Try to use more processors.\n",
              __func__);
       ngrp = MG_MIN ( meshOld->ne, ngrp );
     }

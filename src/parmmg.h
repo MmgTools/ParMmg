@@ -159,7 +159,7 @@ static const int PMMG_REMESHER_TARGET_MESH_SIZE = -100000;
 static const int PMMG_REMESHER_NGRPS_MAX = 100;
 
 /**< Number of metis node per mmg mesh... to test*/
-static const int PMMG_RATIO_MMG_METIS = -200;
+static const int PMMG_RATIO_MMG_METIS = -100;
 
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_METIS_NGRPS_MAX = 1000;
