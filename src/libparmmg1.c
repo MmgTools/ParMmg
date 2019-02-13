@@ -462,6 +462,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /** Update old groups for metrics interpolation */
     PMMG_update_oldGrps( parmesh );
 
+    tim = 4;
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(RESET,&(ctim[tim]));
+      chrono(ON,&(ctim[tim]));
+    }
+
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
@@ -541,12 +547,19 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"\n       mmg                               %s\n",stim);
+    }
+
     if ( !ieresult )
       goto failed_handling;
 
     /** Interpolate metrics */
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       tim = 2;
+      chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 
@@ -556,7 +569,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"\n       metric interpolation              %s\n",stim);
+      fprintf(stdout,"       metric interpolation              %s\n",stim);
     }
 
     if ( !ieresult ) {
@@ -568,6 +581,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 

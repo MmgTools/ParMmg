@@ -117,7 +117,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"               group split for metis  %s\n",stim);
+    fprintf(stdout,"               group split for metis     %s\n",stim);
   }
 
   if ( ier_glob <= 0) {
