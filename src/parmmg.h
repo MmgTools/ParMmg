@@ -393,6 +393,7 @@ extern "C" {
 /* Input */
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
+int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 
 /* Internal library */

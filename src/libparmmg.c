@@ -171,7 +171,10 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   assert( iint == nitem_int_face_comm );
 
-  /* Put global node enumeration in the point flag */
+  /* Put global node enumeration in the point flag:
+   * itosend contains the local bdy node index,
+   * itorecv contains the global bdy node index.
+   * Then, destroy external node communicator.*/
   for( i = 1; i <= mesh->np; i++ )
     mesh->point[i].flag = PMMG_UNSET;
   for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
@@ -180,9 +183,14 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       mesh->point[ext_node_comm->itosend[iext]].flag = ext_node_comm->itorecv[iext];
     }
   }
+  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+  parmesh->next_node_comm = 0;
  
-  /* Step 2: Invert */
+  /* Step 2: Invert mapping from bdy node list to triangles. */
   PMMG_CALLOC(parmesh,posInIdx1,mesh->nt+1,int,"posInIdx1",return 0);
+  for( kt = 1; kt <= mesh->nt; kt++ )
+    posInIdx1[kt] = PMMG_UNSET;
   for( iint = 0; iint < parmesh->int_face_comm->nitem; iint++ ) {
     posInIdx1[grp->face2int_face_comm_index1[iint]] = iint;
   }
@@ -218,13 +226,16 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
           pxt->ref[i]   = ptt->ref;
           pxt->ftag[i] |= MG_BDY;
           pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
-          /* Step 3: Put face in the internal communicator */
-#warning: Luca: Triangle matching is based on maximum node global index, stored in point->flag
-          iploc = 0;
-          for( iloc = 0; iloc<3; iloc++ )
-            if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
-              iploc = iloc;
-          grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
+          /* Step 3: Put face in the internal communicator.
+           * Triangle node matching is based on maximum node global index,
+           * stored in point->flag */
+          if( posInIdx1[kt] != PMMG_UNSET ) {
+            iploc = 0;
+            for( iloc = 0; iloc<3; iloc++ )
+              if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
+                iploc = iloc;
+            grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
+          }
         }
       }
     }
@@ -258,9 +269,21 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
         pxt->ref[i]   = ptt->ref;
         pxt->ftag[i] |= MG_BDY;
         pxt->ftag[i] |= (ptt->tag[0] & ptt->tag[1] & ptt->tag[2]);
+        /* Step 3: Put face in the internal communicator.
+         * Triangle node matching is based on maximum node global index,
+         * stored in point->flag */
+        iploc = 0;
+        for( iloc = 0; iloc<3; iloc++ )
+          if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
+            iploc = iloc;
+        grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
       }
     }
   }
+
+  /* Reset point flag */
+  for( i = 1; i <= mesh->np; i++ )
+    mesh->point[i].flag = PMMG_UNSET;
 
   if ( !mesh->info.opnbdy ) {
     for (k=1; k<=mesh->ne; k++) {
@@ -701,17 +724,17 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Node communicators */
-  if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
     MMG3D_prilen(mesh,met,0);
   }
 
   /** Mesh unscaling */
   if ( !MMG5_unscaleMesh(mesh,met) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /** Node communicators */
+  if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
