@@ -744,7 +744,7 @@ int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm) {
 
   PMMG_CALLOC(parmesh,parmesh->ext_node_comm,next_comm,PMMG_Ext_comm,
               "allocate ext_comm ",return 0);
-  parmesh->next_face_comm = next_comm;
+  parmesh->next_node_comm = next_comm;
 
   return 1;
 }
@@ -771,6 +771,7 @@ int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
   /* Allocate communicator */
   PMMG_CALLOC(parmesh,pext_comm->itosend,nitem,int,"allocate itosend",return 0);
   PMMG_CALLOC(parmesh,pext_comm->itorecv,nitem,int,"allocate itorecv",return 0);
+  pext_comm->nitem          = nitem;
   pext_comm->nitem_to_share = nitem;
 
   return 1;
