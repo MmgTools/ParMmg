@@ -117,49 +117,49 @@ IF( BUILD_TESTING )
     libparmmg_centralized_auto_example0
     libparmmg_centralized_manual_example0_io_0
     libparmmg_centralized_manual_example0_io_1
-    libparmmg_distributed_manual_example0
+    #libparmmg_distributed_manual_example0
     )
 
   SET ( PMMG_LIB_TESTS_MAIN_PATH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
+    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     ""
     ""
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMET
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ""
     ""
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     )
 
   SET ( PMMG_LIB_TESTS_INPUTSOL
     ""
     ""
     ""
-    ""
+    #""
     )
 
   SET ( PMMG_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
-    ${CI_DIR_RESULTS}/io-seq-par-cube.o
+    #${CI_DIR_RESULTS}/io-seq-par-cube.o
     )
 
   SET ( PMMG_LIB_TESTS_OPTIONS
     "-met"
     "0"
     "1"
-    "-met"
+    #"-met"
     )
 
   IF ( LIBPARMMG_STATIC )
@@ -267,6 +267,21 @@ IF( BUILD_TESTING )
 
   ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
   ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+
+  # Distributed test
+  SET ( test_name libparmmg_distributed_manual_example0 )
+  SET ( main_path ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c )
+  SET ( input_mesh "" )
+  SET ( input_met "" )
+  SET ( input_sol "" )
+  SET ( output_mesh ${CI_DIR_RESULTS}/io-seq-par-cube.o )
+  SET ( options "0" )
+  SET ( NP 2 )
+
+  ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+  ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+    $<TARGET_FILE:${test_name}>
+    ${input_mesh} ${output_mesh} ${options} ${input_met} )
 
 
 ENDIF()

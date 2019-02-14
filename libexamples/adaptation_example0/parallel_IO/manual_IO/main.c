@@ -1,8 +1,11 @@
 /**
- * Example of use of the parmmg library with a distributed input mesh (basic
- * use of mesh adaptation)
+ * Example of use of the parmmg library (basic use of mesh adaptation).
  *
- * \author Luca Cirrottola (Inria)
+ * This example show how to set and get the mesh, metric and solutions using the
+ * ParMmg setters and getters. Depending of the command line option "opt", the
+ * values are setted entities by entities or the entire value array is directly
+ * setted.
+ *
  * \author Algiane Froehly (InriaSoft)
  * \version 1
  * \copyright GNU Lesser General Public License.
@@ -21,110 +24,68 @@
 // if the header file is in the "include" directory
 // #include "libparmmg.h"
 // if the header file is in "include/parmmg"
-#include "parmmg.h"
-#include "linkedlist_pmmg.h"
+#include "parmmg/libparmmg.h"
+#include "debug_pmmg.h"
 
-int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int next_face_comm_IN,MMG5_pMesh meshIN) {
-  PMMG_pExt_comm pext_face_comm;
-  PMMG_lnkdList  **proclist;
-  MPI_Request    request;
-  MPI_Status     status;
-  int            *array1,*array2,*oldIdx;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_index;
-  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
+#define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
+#define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
 
-  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
-  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
-
-  PMMG_CALLOC(parmesh,array1,next_face_comm_IN,int,"array1",return 0);
-  PMMG_CALLOC(parmesh,array2,next_face_comm_IN,int,"array2",return 0);
-  PMMG_CALLOC(parmesh,oldIdx,next_face_comm_IN,int,"oldIdx",return 0);
-
-
-  /* Count nb of new pairs hosted on proc */
-  npairs_loc = 0;
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    pext_face_comm = &pext_face_comm_IN[icomm];
-    array1[icomm] = icomm;
-    array2[icomm] = pext_face_comm->color_out;
-    if( pext_face_comm->color_out < pext_face_comm->color_in ) continue;
-    npairs_loc += 1;
+void append_ifaces(int shift, int nifc, int *inv_pmask,
+                   int *tvert, int *tref, int *ticf,int *tifc_ref) {
+  int k,d;
+  for( k=0; k<nifc; k++ ) {
+    for( d=0; d<3; d++ )
+      tvert[3*(k+shift)+d] = inv_pmask[ticf[3*k+d]];
+    tref[k+shift] = tifc_ref[k];
   }
-
-  /* Get nb of pairs and compute pair offset */
-  MPI_Allgather( &npairs_loc,1,MPI_INT,
-                 npairs,1,MPI_INT,parmesh->comm );
-
-  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
-    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
-  printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
-
-  /* Sort lists based on proc pairs, in ascending order */ 
-  if( !PMMG_sort_iarray(parmesh,array1,array2,oldIdx,next_face_comm_IN) )
-    return 0;
-  
-  /* Compute global pair enumeration */
-  PMMG_CALLOC(parmesh,glob_pair_index,next_face_comm_IN,int,"glob_pair_index",return 0);
-  iloc = 0;
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
-    
-    /* Assign global index */
-    src = fmin(pext_face_comm->color_in,pext_face_comm->color_out);
-    dst = fmax(pext_face_comm->color_in,pext_face_comm->color_out);
-    tag = parmesh->nprocs*src+dst;
-    if( pext_face_comm->color_in == src ) {
-      glob_pair_index[icomm] = displ_pair[parmesh->myrank]+iloc++;
-      sendbuffer = glob_pair_index[icomm];
-      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
-    }
-    if ( pext_face_comm->color_in == dst ) {
-      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
-      glob_pair_index[icomm] = recvbuffer;
-    }
-  }
-
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
-    printf("color_in %d color_out %d id %d\n",pext_face_comm->color_in,pext_face_comm->color_out,glob_pair_index[icomm]);
-  }
- 
-
-//  /* Put global triangle enumeration in the internal communicator */
-//  PMMG_CALLOC(parmesh,parmesh->int_face_comm->intvalues,parmesh->int_face_comm->nitem,int,"global tria indices",return 0);
-//  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-//    /* Get face comm in permuted ordered */
-//    pext_face_comm = &pext_face_comm_IN[proclist[icomm]->id];
-//    
-//    /* Put index in the internal communicator */
-//    for( i = 0; i < pext_face_comm->nitem; i++ )
-//      parmesh->int_face_comm->intvalues[i] = offset[parmesh->myrank]+displs[icomm]+i+1;
-//
-//  }
-
-  /* Deallocations */
-  PMMG_DEL_MEM(parmesh,array1,int,"array1");
-  PMMG_DEL_MEM(parmesh,array2,int,"array1");
-  PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
-
-  return 1;
 }
 
+void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask, int *emask, int *tmask,
+                    double *pcoor, double *pcoor_all, int *pref, int *pref_all,
+                    int *evert, int *evert_all, int *eref, int *eref_all,
+                    int *tvert, int *tvert_all, int *tref, int *tref_all,
+                    double *met, double *met_all,
+                    int ntifc, int *ifc_tria_loc, int *ifc_tria_glob,
+                    int npifc, int *ifc_nodes_loc, int *ifc_nodes_glob) {
+
+  int k,d;
+  int inv_tmask[22];
+
+  for( k=0; k<np; k++ ) {
+    inv_pmask[pmask[k]] = k;
+    for( d=0; d<3; d++ )
+      pcoor[3*k+d] = pcoor_all[3*pmask[k]+d];
+    pref[k] = pref_all[pmask[k]];
+  }
+  for( k=0; k<ne; k++ ) {
+    for( d=0; d<4; d++ )
+      evert[4*k+d] = inv_pmask[evert_all[4*emask[k]+d]-1]+1;
+    eref[k] = eref_all[emask[k]];
+  }
+  for( k=0; k<nt; k++ ) {
+    inv_tmask[tmask[k]] = k;
+    for( d=0; d<3; d++ )
+      tvert[3*k+d] = inv_pmask[tvert_all[3*tmask[k]+d]-1]+1;
+    tref[k] = tref_all[tmask[k]];
+  }
+  for( k=0; k<np; k++ ) {
+    met[k] = met_all[pmask[k]];
+  }
+  for( k=0; k<ntifc; k++ ) {
+    ifc_tria_loc[k] = inv_tmask[ifc_tria_glob[k]-1]+1;
+  }
+  for( k=0; k<npifc; k++ ) {
+    ifc_nodes_loc[k] = inv_pmask[ifc_nodes_glob[k]-1]+1;
+  }
+}
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  PMMG_pExt_comm  pext_face_comm_IN;
-  MMG5_pMesh      mesh,meshIN;
-  MMG5_pSol       met,solIN;
-  MMG5_pPoint     ppt;
-  MMG5_pTetra     pt;
-  int             next_face_comm_IN;
-  int             ip,ie,ier,iresult,rank,i,nsols;
-  char            *filename,*metname,*solname,*fileout,*tmp;
+  int             ier,rank,k,opt,i,d;
+  char            *metname,*solname,*fileout,*metout,*solout,*tmp;
+  FILE            *inm;
+  int             pos,nreq,nc,nr;
+
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -133,53 +94,43 @@ int main(int argc,char *argv[]) {
 
   solname = NULL;
   metname = NULL;
+  solout  = NULL;
+  metout  = NULL;
   tmp     = NULL;
 
-  if ( (argc<3) && !rank ) {
-    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile] \n",argv[0]);
+  if ( (argc!=3) && !rank ) {
+    printf(" Usage: %s fileout io_option\n",argv[0]);
+    printf("     io_option = 0 to Get/Set the mesh/metric/solution by array\n");
+    printf("     io_option = 1 to Get/Set the mesh/metric/solution vertex by vertex\n");
     return 1;
   }
 
-  /* Name and path of the mesh file */
-  filename = (char *) calloc(strlen(argv[1]) + 1, sizeof(char));
-  if ( filename == NULL ) {
-    perror("  ## Memory problem: calloc");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-  strcpy(filename,argv[1]);
-
-  fileout = (char *) calloc(strlen(argv[2]) + 1, sizeof(char));
+  fileout = (char *) calloc(strlen(argv[1]) + 6, sizeof(char));
   if ( fileout == NULL ) {
     perror("  ## Memory problem: calloc");
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
-  strcpy(fileout,argv[2]);
+  strcpy(fileout,argv[1]);
+  strcat(fileout,".mesh");
 
-  i = 2;
-  while ( ++i<argc ) {
-    tmp = (char *) calloc(strlen(argv[i]) + 1, sizeof(char));
-    strcpy(tmp,argv[i]);
-
-    if ( (!strcmp(tmp, "-met"))||(!strcmp(tmp, "-sol")) ) {
-      metname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
-      strcpy(metname,argv[i+1]);
-      ++i;
-    }
-
-    else if ( !strcmp(tmp,"-solphys") ) {
-      solname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
-      strcpy(solname,argv[i+1]);
-      ++i;
-    }
-
-    else {
-      printf("Unexpected argument: %s \n",tmp);
-      MPI_Finalize();
-      return 1;
-    }
+  metout = (char *) calloc(strlen(argv[1]) + 9, sizeof(char));
+  if ( metout == NULL ) {
+    perror("  ## Memory problem: calloc");
+    exit(EXIT_FAILURE);
   }
+  strcpy(metout,argv[1]);
+  strcat(metout,"-met.sol");
+
+  solout = (char *) calloc(strlen(argv[1]) + 13, sizeof(char));
+  if ( solout == NULL ) {
+    perror("  ## Memory problem: calloc");
+    exit(EXIT_FAILURE);
+  }
+  strcpy(solout,argv[1]);
+  strcat(solout,"-solphys.sol");
+
+  opt = atoi(argv[2]);
 
   /** ------------------------------ STEP   I -------------------------- */
   /** 1) Initialisation of th parmesh structures */
@@ -203,198 +154,691 @@ int main(int argc,char *argv[]) {
                     PMMG_ARG_dim,3,PMMG_ARG_MPIComm,MPI_COMM_WORLD,
                     PMMG_ARG_end);
 
+
+  /** b) give the vertices (12 vertices with 3 coor = array of size 36) */
+  double vert_coor_all[36] = { 0.0, 0.0, 0.0,
+                               0.5, 0.0, 0.0,
+                               0.5, 0.0, 1.0,
+                               0.0, 0.0, 1.0,
+                               0.0, 1.0, 0.0,
+                               0.5, 1.0, 0.0,
+                               0.5, 1.0, 1.0,
+                               0.0, 1.0, 1.0,
+                               1.0, 0.0, 0.0,
+                               1.0, 1.0, 0.0,
+                               1.0, 0.0, 1.0,
+                               1.0, 1.0, 1.0  };
+
+  int  vert_ref_all[12] = {0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  ,0  };
+
+  /** c) give the tetrahedras (12 tetra with 4 vertices = array of size 48) */
+  int tetra_vert_all[48] = { 1,  4,  2,  8,
+                             8,  3,  2,  7,
+                             5,  2,  6,  8,
+                             5,  8,  1,  2,
+                             7,  2,  8,  6,
+                             2,  4,  3,  8,
+                             9,  2,  3,  7,
+                             7, 11,  9, 12,
+                             6,  9, 10,  7,
+                             6,  7,  2,  9,
+                             12, 9,  7, 10,
+                             9,  3, 11,  7  };
+
+  int tetra_ref_all[12] = {1  ,1  ,1  ,1  ,1  ,1  ,2  ,2  ,2  ,2  ,2  ,2  };
+
+  /** d) give the triangles (20 tria with 3 vertices = array of size 60  */
+  int tria_vert_all[66] = { 1,  4,  8,
+                            1,  2,  4,
+                            8,  3,  7,
+                            5,  8,  6,
+                            5,  6,  2,
+                            5,  2,  1,
+                            5,  1,  8,
+                            7,  6,  8,
+                            4,  3,  8,
+                            2,  3,  4,
+                            9,  3,  2,
+                            11, 9, 12,
+                            7, 11, 12,
+                            6,  7, 10,
+                            6, 10,  9,
+                            6,  9,  2,
+                            12,10,  7,
+                            12, 9, 10,
+                            3, 11,  7,
+                            9, 11,  3,
+                            7,  6,  2,
+                            7,  3,  2 };
+
+  int tria_ref_all[22] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                           4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
+                           3, 3 };
+
+  /** b) give solutions values and positions */
+  double met_all[12] = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+
+
+  /* Interface entities (starting from 1) */
+  int ifc_tria_glob[2]  = { 21, 22 };
+  int ifc_nodes_glob[4] = {  2,  3,  6,  7};
+
+  int nv = 8;
+  int nt = 12;
+  int ne = 6;
+  int ntifc = 2;
+  int npifc = 4;
+  double vert_coor[3*nv],met[nv];
+  int vert_ref[nv],tetra_vert[4*ne],tetra_ref[ne],tria_vert[3*nt],tria_ref[nt];
+  int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt];
+  int ifc_tria_loc[ntifc],ifc_nodes_loc[npifc];
+ 
+  switch( parmesh->myrank ) {
+    case 0:
+      {
+        int vert_mask[8]  = {  0,  1,  2,  3,  4,  5,  6,  7};
+        int tetra_mask[6] = {  0,  1,  2,  3,  4,  5};
+        int tria_mask[12] = {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 20, 21};
+        get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask, tria_mask,
+                       vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                       tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                       tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                       met,met_all,
+                       ntifc,ifc_tria_loc,ifc_tria_glob,
+                       npifc,ifc_nodes_loc,ifc_nodes_glob);
+        break;
+      }
+    case 1:
+      {
+        int vert_mask[8]  = {  1,  2,  5,  6,  8,  9, 10, 11};
+        int tetra_mask[6] = {  6,  7,  8,  9, 10, 11};
+        int tria_mask[12] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
+        get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask, tria_mask,
+                       vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                       tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                       tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                       met,met_all,
+                       ntifc,ifc_tria_loc,ifc_tria_glob,
+                       npifc,ifc_nodes_loc,ifc_nodes_glob);
+        break;
+      }
+  }
+
+  /** a) give the size of the mesh */
+  int nVertices       = nv;
+  int nTetrahedra     = ne;
+  int nPrisms         = 0;
+  int nTriangles      = nt;
+  int nQuadrilaterals = 0;
+  int nEdges          = 0;
+
   /** 2) Build mesh in MMG5 format */
   /** Two solutions: just use the PMMG_loadMesh_centralized function that will
       read a .mesh(b) file formatted or manually set your mesh using the
       PMMG_Set* functions */
 
-  /** with PMMG_loadMesh_centralized function */
-  if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 ) {
+  /** with ParMmg setters */
+  if ( PMMG_Set_meshSize(parmesh,nVertices,nTetrahedra,nPrisms,nTriangles,
+                            nQuadrilaterals,nEdges) != 1 ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
-  /** 3) Try to load a metric in PMMG format */
-  /** Two solutions: just use the PMMG_loadMet_centralized function that will
-      read a .sol(b) file formatted or manually set your metric using the PMMG_Set*
-      functions */
 
-  /** With PMMG_loadMet_centralized function */
-  if ( metname )
-    PMMG_loadMet_centralized(parmesh,filename);
+  if ( !opt ) {
+    /* By array: give the array of the vertices coordinates such as the
+     * coordinates of the k^th point are stored in vert_coor[3*(k-1)],
+     * vert_coor[3*(k-1)+1] and vert_coor[3*(k-1)+2] */
+    if ( PMMG_Set_vertices(parmesh,vert_coor,vert_ref) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+  else {
+    /* Vertex by vertex: for each vertex, give the coordinates, the reference
+       and the position in mesh of the vertex */
+    for ( k=0; k<nVertices; ++k ) {
+      pos = 3*k;
+      if ( PMMG_Set_vertex(parmesh,vert_coor[pos],vert_coor[pos+1],vert_coor[pos+2],
+                           vert_ref[k], k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
+
+  if ( !opt ) {
+    /* By array: give the array of the tetra vertices and the array of the tetra
+     * references. The array of the tetra vertices is such as the four
+     * vertices of the k^th tetra are respectively stored in
+     * tetra_vert[4*(k-1)],tetra_vert[4*(k-1)+1],tetra_vert[4*(k-1)+2] and
+     * tetra_vert[4*(k-1)+3]. */
+    if ( PMMG_Set_tetrahedra(parmesh,tetra_vert,tetra_ref) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+  else {
+    /* Vertex by vertex: for each tetrahedra,
+      give the vertices index, the reference and the position of the tetra */
+    for ( k=0; k<nTetrahedra; ++k ) {
+      pos = 4*k;
+
+      if ( PMMG_Set_tetrahedron(parmesh,tetra_vert[pos],tetra_vert[pos+1],
+                                tetra_vert[pos+2],tetra_vert[pos+3],tetra_ref[k],k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
+
+  if ( !opt ) {
+    /* By array: give the array of the tria vertices and the array of the tria
+     * references. The array of the tria vertices is such as the three
+     * vertices of the k^th tria are stored in
+     * tria_vert[3*(k-1)], tria_vert[3*(k-1)+1] and tria_vert[4*(k-1)+2] */
+    if ( PMMG_Set_triangles(parmesh,tria_vert,tria_ref) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+  else {
+    /* Vertex by vertex: for each triangle, give the vertices index, the
+     * reference and the position of the triangle */
+    for ( k=0; k<nTriangles; ++k ) {
+      pos = 3*k;
+      if ( PMMG_Set_triangle(parmesh,
+                             tria_vert[pos],tria_vert[pos+1],tria_vert[pos+2],
+                             tria_ref[k],k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
+
+  /** 3) Build metric in ParMmg format */
+  /** Two solutions: just use the PMMG_loadMet_centralized function that will
+      read a .sol(b) file formatted or manually set your sol using the
+      PMMG_Set* functions */
+
+  /** Manually set of the metric */
+  /** a) give info for the metric structure: metric applied on vertex entities,
+      number of vertices, the metric is scalar*/
+  if ( PMMG_Set_metSize(parmesh,MMG5_Vertex,nVertices,MMG5_Scalar) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
+
+  if ( !opt ) {
+    /* by array */
+    if ( PMMG_Set_scalarMets(parmesh,met) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+  else {
+    /* vertex by vertex */
+    for ( k=0; k<nVertices ; k++ ) {
+      if ( PMMG_Set_scalarMet(parmesh,met[k],k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
 
   /** 4) Build solutions in PMMG format */
   /** Two solutions: just use the PMMG_loadAllSols_centralized function that
       will read a .sol(b) file formatted or manually set your solutions using
       the PMMG_Set* functions */
 
-  /** With PMMG_loadAllSols_centralized function */
+  /** With parmmg setters: 3 sols per vertex, the first is scalar,
+      the second vectorial, the third tensorial  */
+  const int nSolsAtVertices = 3; // 3 solutions per vertex
+  int solType[3] = {MMG5_Scalar,MMG5_Vector,MMG5_Tensor};
 
-  if ( solname ) {
-    if ( PMMG_loadAllSols_centralized(parmesh,filename) != 1 ) {
+  if ( PMMG_Set_solsAtVerticesSize(parmesh,nSolsAtVertices,nVertices,solType) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
+
+  /** b) give solutions values and positions:
+   - First solution (scalar) is equal to x^2 + y^2 + z^2
+   - Second (vector) is (x,y,z)
+   - Third (Tensor) is (100,0,0,100/(z+1),0,100/(z*z+1))
+  */
+  double scalar_sol[12],vector_sol[36],tensor_sol[72];
+  for ( k=0; k<nVertices; k++ ) {
+    pos = 3*k;
+
+    /* First solution */
+    scalar_sol[k] = vert_coor[pos]*vert_coor[pos]
+      + vert_coor[pos+1]*vert_coor[pos+1]
+      + vert_coor[pos+2]*vert_coor[pos+2];
+
+    /* Second */
+    vector_sol[3*k]   = vert_coor[pos];
+    vector_sol[3*k+1] = vert_coor[pos+1];
+    vector_sol[3*k+2] = vert_coor[pos+2];
+
+    /* Third */
+    tensor_sol[6*k]   = 100.;
+    tensor_sol[6*k+1] = 0.;
+    tensor_sol[6*k+2] = 0.;
+    tensor_sol[6*k+3] = 100./(vert_coor[pos+2]+1.);
+    tensor_sol[6*k+4] = 0.;
+    tensor_sol[6*k+5] = 100./(vert_coor[pos+2]*vert_coor[pos+2]+1.);
+  }
+
+  if ( !opt ) {
+    /* Give the solution by array */
+    /* First solution */
+    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,1,scalar_sol) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+    /* Second */
+    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,2,vector_sol) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+    /* Third */
+    if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,3,tensor_sol) != 1 ) {
       MPI_Finalize();
       exit(EXIT_FAILURE);
     }
   }
+  else {
+    /* Vertex by vertex */
+    for ( k=0; k<nVertices; k++ ) {
+      /* First solution */
+      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,1,&(scalar_sol[k]),k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+      /* Second */
+      pos = 3*k;
+      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,2,&(vector_sol[pos]),k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+      /* Third */
+      pos = 6*(k-1);
+      if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
 
-  /** ------------------------------ STEP  II -------------------------- */
-  /** distribute mesh on procs */
+  ier = PMMG_Set_numberOfFaceCommunicators(parmesh, 1);
+  ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, 0,
+                                         (parmesh->myrank+1)%2, ntifc);
+  ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, 0,
+                                           ifc_tria_loc, ifc_tria_glob, 1 );
  
-  ier = PMMG_check_inputData( parmesh );
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-  if ( !iresult ) return PMMG_LOWFAILURE;
+  ier = PMMG_Set_numberOfNodeCommunicators(parmesh, 1);
+  ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, 0,
+                                         (parmesh->myrank+1)%2, npifc);
+  ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, 0,
+                                           ifc_nodes_loc, ifc_nodes_glob, 1 );
+  ier = PMMG_preprocessMesh_distributed( parmesh );
 
-  /** Send mesh to other procs */
-  ier = PMMG_bcast_mesh( parmesh );
-  if ( ier!=1 ) return PMMG_LOWFAILURE;
+//PMMG_saveAllSols_centralized(parmesh,"init-solphys.sol");
 
-  /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
-   * analysis and display length and quality histos. */
-  ier = PMMG_preprocessMesh( parmesh );
+//  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+//  
+//  oldMemMax = parmesh->memCur;
+//  memAv = parmesh->memMax-oldMemMax;
+//  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
-    ier = PMMG_LOWFAILURE;
-  }
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
-  if ( iresult!=PMMG_SUCCESS ) {
-    return iresult;
-  }
+  
+  char basename[48];
+  sprintf(basename,"test_distributed" );
+  size_t avmem,oldMemMax;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,avmem,oldMemMax);
+  ier = PMMG_listgrp_to_saveMesh(parmesh,basename);
 
-  /** Send mesh partionning to other procs */
-  if ( !PMMG_distribute_mesh( parmesh ) ) {
-    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-  }
-
-
-  /** ------------------------------ STEP  III ------------------------- */
-  /** Swap meshes, so that you can use meshIN to initialize mesh */
-
-  /* Create meshIN */
-  meshIN = NULL;
-  solIN = NULL;
-  MMG3D_Init_mesh(MMG5_ARG_start,
-                  MMG5_ARG_ppMesh,&meshIN,MMG5_ARG_ppMet,&solIN,
-                  MMG5_ARG_end);
- 
-  if ( MMG3D_Set_meshSize(meshIN,mesh->np,mesh->ne,mesh->nprism,mesh->nt,
-                          mesh->nquad,mesh->na) != 1 ) exit(EXIT_FAILURE);
-
-  /* Swap meshes */
-  mesh = meshIN;
-  meshIN = parmesh->listgrp[0].mesh;
-  parmesh->listgrp[0].mesh = mesh;
-  mesh = parmesh->listgrp[0].mesh;
-
-  /* Swap external face communicators */
-  pext_face_comm_IN = parmesh->ext_face_comm;
-  next_face_comm_IN = parmesh->next_face_comm;
-  parmesh->ext_face_comm = NULL;
-  parmesh->next_face_comm = 0;
-
-  /* Create boundary entities */
-  if( MMG3D_bdryBuild(meshIN) == -1) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-  int *local_face_index,*global_face_index;
-  PMMG_CALLOC(parmesh,local_face_index,meshIN->nt,int,"local tria indices",return 0);
-  PMMG_CALLOC(parmesh,global_face_index,meshIN->nt,int,"global tria indices",return 0);
-
-
-
-  /** ------------------------------ STEP  IV -------------------------- */
-  /** Initialize the distributed mesh using meshIN as input */
-
-  if ( PMMG_Set_meshSize(parmesh,meshIN->np,meshIN->ne,meshIN->nprism,meshIN->nt,
-                               meshIN->nquad,meshIN->na) != 1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Set points, vertex by vertex */
-  for( ip = 1; ip <= meshIN->np; ip++ ) {
-    ppt = &meshIN->point[ip];
-    if ( PMMG_Set_vertex(parmesh,ppt->c[0],ppt->c[1],ppt->c[2],
-                         ppt->ref, ip) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  /* Set elements, tetra by tetra */
-  for( ie = 1; ie <= meshIN->ne; ie++ ) {
-    pt = &meshIN->tetra[ie];
-    if ( PMMG_Set_tetrahedron(parmesh,pt->v[0],pt->v[1],pt->v[2],pt->v[3],
-                              pt->ref, ie) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  /* Set number of external face communicators */
-  if ( PMMG_Set_numberOfFaceCommunicators(parmesh,next_face_comm_IN) != 1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Set size of each communicator */
-  for( i = 0; i < next_face_comm_IN; i++ ) {
-    if( PMMG_Set_ithFaceCommunicatorSize(parmesh, i, pext_face_comm_IN->color_out, pext_face_comm_IN->nitem) != 1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
- 
-  /* Color interface triangles with global enumeration */
-  if( !color_intfcTria(parmesh,pext_face_comm_IN,next_face_comm_IN,meshIN) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
+//  /** ------------------------------ STEP  II -------------------------- */
+//  /** remesh function */
+//  ier = PMMG_parmmglib_centralized(parmesh);
+//
 //  if ( ier != PMMG_STRONGFAILURE ) {
+//
 //    /** ------------------------------ STEP III -------------------------- */
 //    /** get results */
 //    /** Two solutions: just use the PMMG_saveMesh/PMMG_saveSol functions
 //        that will write .mesh(b)/.sol formatted files or manually get your mesh/sol
 //        using the PMMG_getMesh/PMMG_getSol functions */
 //
-//    /** 1) Automatically save the mesh */
-//    if ( PMMG_saveMesh_centralized(parmesh,fileout) != 1 ) {
-//      fprintf(stdout,"UNABLE TO SAVE MESH\n");
-//      ier = PMMG_STRONGFAILURE;
-//    }
+//    /** 1) Get the mesh with ParMmg getters and save it at the Medti file format */
+//    if ( !rank ) {
+//      if( !(inm = fopen(fileout,"w")) ) {
+//        fprintf(stderr,"  ** UNABLE TO OPEN OUTPUT MESH FILE.\n");
+//        exit(EXIT_FAILURE);
+//      }
+//      fprintf(inm,"MeshVersionFormatted 2\n");
+//      fprintf(inm,"\nDimension 3\n");
 //
-//    /** 2) Automatically save the metric */
-//    if ( PMMG_saveMet_centralized(parmesh,fileout) != 1 ) {
-//      fprintf(stdout,"UNABLE TO SAVE METRIC\n");
-//      ier = PMMG_LOWFAILURE;
-//    }
+//      /** a) get the size of the mesh: vertices, tetra, triangles, edges and
+//       * allocate the arrays to receive data */
+//      nVertices   = 0;
+//      nTetrahedra = 0;
+//      nTriangles  = 0;
+//      nEdges      = 0;
+//      if ( PMMG_Get_meshSize(parmesh,&nVertices,&nTetrahedra,NULL,&nTriangles,NULL,
+//                             &nEdges) !=1 ) {
+//        ier = PMMG_STRONGFAILURE;
+//      }
 //
-//    /** 3) Automatically save the solutions if needed */
-//    PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
-//    if ( nsols ) {
-//      if ( PMMG_saveAllSols_centralized(parmesh,fileout) != 1 ) {
-//        fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
+//      /* Table to store the vertices */
+//      double *vert = (double*)calloc((nVertices)*3,sizeof(double));
+//      if ( !vert ) {
+//        perror("  ## Memory problem: point calloc");
+//        nVertices = 0;
+//        ier = PMMG_STRONGFAILURE;
+//      }
+//
+//      /* Table to store the tetra */
+//      int *tetra = (int*)calloc((nTetrahedra)*4,sizeof(int));
+//      if ( !tetra ) {
+//        perror("  ## Memory problem: tetra calloc");
+//        nTetrahedra = 0;
+//        ier = PMMG_STRONGFAILURE;
+//      }
+//
+//      /* Table to store the tria */
+//      int *tria = (int*)calloc((nTriangles)*3,sizeof(int));
+//      if ( !tria ) {
+//        perror("  ## Memory problem: tria calloc");
+//        nTriangles = 0;
+//        ier = PMMG_STRONGFAILURE;
+//      }
+//
+//      /* Table to store the edges */
+//      int *edge = (int*)calloc((nEdges)*2,sizeof(int));
+//      if ( !edge ) {
+//        perror("  ## Memory problem: edge calloc");
+//        nEdges = 0;
+//        ier = PMMG_STRONGFAILURE;
+//      }
+//
+//      /* Table to store the vertices/tetra/triangles/edges references */
+//      int *ref = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
+//      if ( !ref ) {
+//        perror("  ## Memory problem: ref calloc");
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+//
+//      /* Table to know if a vertex is corner */
+//      int *corner = (int*)calloc(nVertices,sizeof(int));
+//      if ( !corner ) {
+//        perror("  ## Memory problem: corner calloc");
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+//
+//      /* Table to know if a vertex/tetra/tria/edge is required */
+//      int *required = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
+//      if ( !required ) {
+//        perror("  ## Memory problem: required calloc");
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+//
+//      /* Table to know if an edge delimits a sharp angle */
+//      int *ridge = (int*)calloc(nEdges ,sizeof(int));
+//      if ( !ridge ) {
+//        perror("  ## Memory problem: ridge calloc");
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+//
+//      /** b) Vertex recovering */
+//      nreq = nc = 0;
+//      fprintf(inm,"\nVertices\n%d\n",nVertices);
+//
+//      if ( !opt ) {
+//        /* By array */
+//        if ( PMMG_Get_vertices(parmesh,vert,ref,corner,required) != 1 ) {
+//          fprintf(inm,"Unable to get mesh vertices \n");
+//          ier = PMMG_STRONGFAILURE;
+//        }
+//        for ( k=0; k<nVertices; k++ ) {
+//          if ( corner && corner[k] )  nc++;
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      else {
+//        /* Vertex by vertex */
+//        for ( k=0; k<nVertices; k++ ) {
+//          pos = 3*k;
+//          if ( PMMG_Get_vertex(parmesh,&(vert[pos]),&(vert[pos+1]),&(vert[pos+2]),
+//                               &(ref[k]),&(corner[k]),&(required[k])) != 1 ) {
+//            fprintf(inm,"Unable to get mesh vertex %d \n",k);
+//            ier = PMMG_STRONGFAILURE;
+//          }
+//          if ( corner && corner[k] )  nc++;
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      for ( k=0; k<nVertices; k++ ) {
+//        pos = 3*k;
+//        fprintf(inm,"%.15lg %.15lg %.15lg %d \n",vert[pos],vert[pos+1],vert[pos+2],ref[k]);
+//      }
+//
+//      fprintf(inm,"\nCorners\n%d\n",nc);
+//      for ( k=0; k<nVertices; k++ ) {
+//        if ( corner && corner[k] )  fprintf(inm,"%d \n",k);
+//      }
+//      fprintf(inm,"\nRequiredVertices\n%d\n",nreq);
+//      for ( k=0; k<nVertices; k++ ) {
+//        if ( required && required[k] )  fprintf(inm,"%d \n",k);
+//      }
+//      free(corner);
+//      corner = NULL;
+//
+//      /** d) Triangles recovering */
+//      nreq = 0;
+//      fprintf(inm,"\nTriangles\n%d\n",nTriangles);
+//
+//      if ( !opt ) {
+//        /* By array */
+//        if ( PMMG_Get_triangles(parmesh,tria,ref,required) != 1 ) {
+//          fprintf(inm,"Unable to get mesh triangles\n");
+//          ier = PMMG_STRONGFAILURE;
+//        }
+//        for ( k=0; k<nTriangles; k++ ) {
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      else {
+//        /* Triangle by triangle */
+//        for ( k=0; k<nTriangles; k++ ) {
+//          pos = 3*k;
+//          if ( PMMG_Get_triangle(parmesh,&(tria[pos]),&(tria[pos+1]),&(tria[pos+2]),
+//                                 &(ref[k]),&(required[k])) != 1 ) {
+//            fprintf(inm,"Unable to get mesh triangle %d \n",k);
+//            ier = PMMG_STRONGFAILURE;
+//          }
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      for ( k=0; k<nTriangles; k++ ) {
+//        pos = 3*k;
+//        fprintf(inm,"%d %d %d %d \n",tria[pos],tria[pos+1],tria[pos+2],ref[k]);
+//      }
+//
+//
+//      fprintf(inm,"\nRequiredTriangles\n%d\n",nreq);
+//      for ( k=0; k<nTriangles; k++ ) {
+//        if ( required && required[k] )  fprintf(inm,"%d \n",k);
+//      }
+//
+//      /** e) Edges recovering */
+//      nreq = 0;nr = 0;
+//      fprintf(inm,"\nEdges\n%d\n",nEdges);
+//
+//      if ( !opt ) {
+//        /* By array */
+//        if ( PMMG_Get_edges(parmesh,edge,ref,ridge,required) != 1 ) {
+//          fprintf(inm,"Unable to get mesh edges\n");
+//          ier = PMMG_STRONGFAILURE;
+//        }
+//        for ( k=0; k<nEdges; k++ ) {
+//          if ( ridge && ridge[k] )  nr++;
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      else {
+//        /* Edge by edge */
+//        for ( k=0; k<nEdges; k++ ) {
+//          pos = 2*k;
+//          if ( PMMG_Get_edge(parmesh,&(edge[pos]),&(edge[pos+1]),
+//                             &(ref[k]),&(ridge[k]),&(required[k])) != 1 ) {
+//            fprintf(inm,"Unable to get mesh edge %d \n",k);
+//            ier = PMMG_STRONGFAILURE;
+//          }
+//          if ( ridge && ridge[k] )  nr++;
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      for ( k=0; k<nEdges; k++ ) {
+//        pos = 2*k;
+//        fprintf(inm,"%d %d %d \n",edge[pos],edge[pos+1],ref[k]);
+//      }
+//
+//      fprintf(inm,"\nRequiredEdges\n%d\n",nreq);
+//      for ( k=0; k<nEdges; k++ ) {
+//        if ( required && required[k] )  fprintf(inm,"%d \n",k);
+//      }
+//      fprintf(inm,"\nRidges\n%d\n",nr);
+//      for ( k=0; k<nEdges; k++ ) {
+//        if ( ridge && ridge[k] )  fprintf(inm,"%d \n",k);
+//      }
+//
+//      /** c) Tetra recovering */
+//      nreq = 0;
+//      fprintf(inm,"\nTetrahedra\n%d\n",nTetrahedra);
+//
+//      if ( !opt ) {
+//        /* By array */
+//        if ( PMMG_Get_tetrahedra(parmesh,tetra,ref,required) != 1 ) {
+//          fprintf(inm,"Unable to get mesh tetra\n");
+//          ier = PMMG_STRONGFAILURE;
+//        }
+//        for ( k=0; k<nTetrahedra; k++ ) {
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      else {
+//        /* Tetra by tetra */
+//        for ( k=0; k<nTetrahedra; k++ ) {
+//          pos = 4*k;
+//          if ( PMMG_Get_tetrahedron(parmesh,
+//                                    &(tetra[pos  ]),&(tetra[pos+1]),
+//                                    &(tetra[pos+2]),&(tetra[pos+3]),
+//                                    &(ref[k]),&(required[k])) != 1 ) {
+//            fprintf(inm,"Unable to get mesh tetra %d \n",k);
+//            ier = PMMG_STRONGFAILURE;
+//          }
+//          if ( required && required[k] )  nreq++;
+//        }
+//      }
+//      for ( k=0; k<nTetrahedra; k++ ) {
+//        pos = 4*k;
+//        fprintf(inm,"%d %d %d %d %d \n",
+//                tetra[pos],tetra[pos+1],tetra[pos+2],tetra[pos+3],ref[k]);
+//      }
+//
+//      fprintf(inm,"\nRequiredTetrahedra\n%d\n",nreq);
+//      for ( k=0; k<nTetrahedra; k++ ) {
+//        if ( required && required[k] )  fprintf(inm,"%d \n",k);
+//      }
+//
+//      fprintf(inm,"\nEnd\n");
+//      fclose(inm);
+//
+//      free(tetra)   ; tetra    = NULL;
+//      free(ref)     ; ref      = NULL;
+//      free(required); required = NULL;
+//      free(ridge)   ; ridge    = NULL;
+//
+//      /** 3) Get the metric with ParMmg getters */
+//      if ( !(inm = fopen(metout,"w")) ) {
+//        fprintf(stderr,"  ** UNABLE TO OPEN OUTPUT METRIC FILE.\n");
+//        exit(EXIT_FAILURE);
+//      }
+//      fprintf(inm,"MeshVersionFormatted 2\n");
+//      fprintf(inm,"\nDimension 3\n");
+//
+//      /** a) get the size of the metric: type of entity to which apply the
+//          metric(SolAtVertices,...), number of entities to which apply the metric,
+//          type of solution (scalar, tensor...) */
+//      nVertices = 0;
+//      int typEntity,typSol;
+//      if ( PMMG_Get_metSize(parmesh,&typEntity,&nVertices,&typSol) != 1 ) {
+//        printf("Unagle to get metric size\n");
+//        nVertices = 0;
 //        ier = PMMG_LOWFAILURE;
 //      }
+//
+//      /* We set a scalar metric so the output metric must be scalar */
+//      if ( ( typEntity != MMG5_Vertex )  || ( typSol != MMG5_Scalar ) ) {
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+//
+//      /** b) Vertex recovering */
+//      double *sol = (double*)calloc(nVertices+1 ,sizeof(double));
+//
+//      fprintf(inm,"\nSolAtVertices\n%d\n",nVertices);
+//      fprintf(inm,"1 1 \n\n");
+//      if ( !opt ) {
+//        /* by array */
+//        if ( PMMG_Get_scalarMets(parmesh,sol) != 1 ) {
+//          fprintf(inm,"Unable to get metrics\n");
+//          ier = PMMG_LOWFAILURE;
+//        }
+//      }
+//      else {
+//        for ( k=0; k<nVertices; k++ ) {
+//          /* Vertex by vertex */
+//          if ( PMMG_Get_scalarMet(parmesh,&sol[k]) != 1 ) {
+//            fprintf(inm,"Unable to get metrics %d \n",k);
+//            ier = PMMG_LOWFAILURE;
+//          }
+//        }
+//      }
+//      for ( k=0; k<nVertices; k++ ) {
+//        fprintf(inm,"%.15lg \n",sol[k]);
+//      }
+//
+//      fprintf(inm,"\nEnd\n");
+//      fclose(inm);
+//
+//      /** 4) Get the solutions with ParMmg getters */
+//      // To implement when ParMmg will be ready
 //    }
 //  }
-//  else {
+//  else if ( ier == PMMG_STRONGFAILURE ) {
 //    fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
 //  }
 
-  /** 4) Free the PMMG5 structures */
+  /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,
                 PMMG_ARG_end);
 
-  free(filename);
-  filename = NULL;
-
-  free(fileout);
-  fileout = NULL;
+  free(fileout); fileout = NULL;
+  free(solout) ; solout  = NULL;
+  free(metout) ; metout  = NULL;
 
   MPI_Finalize();
 
