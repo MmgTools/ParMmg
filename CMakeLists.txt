@@ -249,6 +249,22 @@ ENDIF ( )
 
 ############################################################################
 #####
+#####         Scotch
+#####
+############################################################################
+# Find SCOTCH library?
+INCLUDE(cmake/modules/FindScotch.cmake)
+
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+FIND_PACKAGE(Scotch)
+
+IF( SCOTCH_FOUND )
+  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
+ENDIF()
+
+############################################################################
+#####
 #####         Fortran header: libparmmgf.h
 #####
 ############################################################################
