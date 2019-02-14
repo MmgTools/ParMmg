@@ -1291,6 +1291,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   return ier;
 }
 
+#ifdef USE_PARMETIS
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
@@ -1360,3 +1361,5 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
 
   return ier;
 }
+
+#endif

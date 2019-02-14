@@ -333,7 +333,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   MMG5_pSol  met;
   size_t     available;
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
-  int        i = 0;
+  int        k,i = 0;
 
   parmesh->memMax = parmesh->memCur;
 
@@ -345,7 +345,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 
   available       = parmesh->memGloMax - parmesh->memMax;
 
-  for ( int k=0; k<parmesh->ngrp; ++k ) {
+  for ( k=0; k<parmesh->ngrp; ++k ) {
     parmesh->listgrp[k].mesh->memMax = parmesh->listgrp[k].mesh->memCur;
 
     if ( available < parmesh->listgrp[k].mesh->memMax ) {
