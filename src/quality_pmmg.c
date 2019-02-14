@@ -73,6 +73,7 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
 
 /**
  * \param parmesh pointer to parmesh structure
+ * \param opt PMMG_INQUA if called before the Mmg call, PMMG_OUTQUA otherwise
  *
  * \return 1 if success, 0 if fail;
  *

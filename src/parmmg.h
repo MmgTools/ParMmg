@@ -347,9 +347,13 @@ static const int PMMG_METIS_NGRPS_MAX = 1000;
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param myavailable available memory at the beginning of the process
+ * \param oldMemMax initial value for parmesh->memCur
  *
  * Set memMax to memCur for every group mesh, compute the available memory and
- * give it to the parmesh */
+ * give it to the parmesh
+ *
+ */
 #define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
     int    myj;                                                         \
                                                                         \
@@ -362,6 +366,32 @@ static const int PMMG_METIS_NGRPS_MAX = 1000;
     }                                                                   \
     parmesh->memMax += myavailable;                                       \
   } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Set memMax to memCur for the parmesh, compute the available memory and
+ * repartite it to the mesh
+ *
+ */
+#define PMMG_TRANSFER_AVMEM_TO_MESHES(Parmesh) do {                     \
+    size_t myavailable;                                                 \
+    int    myj;                                                         \
+                                                                        \
+    parmesh->memMax = parmesh->memCur;                                  \
+    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
+                                                                        \
+    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
+      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
+    }                                                                   \
+    myavailable /= parmesh->ngrp;                                       \
+                                                                        \
+    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
+      parmesh->listgrp[myj].mesh->memMax += myavailable;                \
+    }                                                                   \
+  } while(0)
+
 
 
 /**

@@ -1328,6 +1328,18 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   if ( ier_glob <=0 ) return ier_glob;
 #endif
 
+  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL || parmesh->ddebug ) {
+    size_t dummy1,dummy2;
+
+    PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+
+    PMMG_qualhisto( parmesh, PMMG_INQUA );
+    PMMG_prilen( parmesh, 0 );
+
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,dummy1,dummy2);
+
+  }
+
   /** Split the group into the suitable number of groups */
   if ( ier )
     ier = PMMG_split_grps(parmesh,target,fitMesh);

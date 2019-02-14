@@ -272,9 +272,6 @@ typedef struct {
   int         nprocs; /*!< Number of processes in global communicator */
   int         myrank; /*!< Rank in global communicator */
 
-  /* verbosity */
-  int         imprim;
-
   /* mem info */
   size_t    memGloMax; /*!< Maximum memory available to all structs */
   size_t    memMax; /*!< Maximum memory parmesh is allowed to allocate */

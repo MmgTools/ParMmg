@@ -656,12 +656,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /* Give memory to Mmg for the edge length computation */
-  available = parmesh->memGloMax;
-  parmesh->memMax = parmesh->memCur;
-  available -= parmesh->memMax;
-  if ( parmesh->listgrp[0].mesh ) {
-    parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur + available;
-  }
+  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
     PMMG_prilen(parmesh,0);
