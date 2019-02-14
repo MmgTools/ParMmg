@@ -1297,18 +1297,35 @@ end:
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   int     ier,ier1;
 #ifndef NDEBUG
-  int     ier_glob;
+  int     tim,ier_glob;
 #endif
+  mytime  ctim[3];
+  char    stim[32];
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
   assert ( PMMG_check_extNodeComm ( parmesh ) );
 
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+      tminit(ctim,3);
+      tim = 0;
+      chrono(ON,&(ctim[tim]));
+  }
+
   /** Merge the parmesh groups into 1 group */
   ier = PMMG_merge_grps(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n                   merge group           %s\n",stim);
+
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
   }
 
   /** Pack the tetra and update the face communicator */
@@ -1321,6 +1338,12 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   }
   ier = MG_MIN( ier, ier1 );
 
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"                   pack tetra            %s\n",stim);
+  }
+
 #ifndef NDEBUG
   /* In debug mode we have mpi comm in split_grps, thus, if 1 proc fails
    * and the other not we will deadlock */
@@ -1328,7 +1351,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   if ( ier_glob <=0 ) return ier_glob;
 #endif
 
-  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL || parmesh->ddebug ) {
+  if ( parmesh->ddebug ) {
     size_t dummy1,dummy2;
 
     PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
@@ -1340,9 +1363,20 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   }
 
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 2;
+    chrono(ON,&(ctim[tim]));
+  }
+
   /** Split the group into the suitable number of groups */
   if ( ier )
     ier = PMMG_split_grps(parmesh,target,fitMesh);
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"                   group split           %s\n",stim);
+  }
 
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");
