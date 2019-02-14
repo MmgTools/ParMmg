@@ -1297,8 +1297,9 @@ end:
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   int     ier,ier1;
 #ifndef NDEBUG
-  int     tim,ier_glob;
+  int     ier_glob;
 #endif
+  int     tim;
   mytime  ctim[3];
   char    stim[32];
 
