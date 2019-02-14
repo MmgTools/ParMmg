@@ -259,8 +259,12 @@ SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 FIND_PACKAGE(Scotch)
 
-IF( SCOTCH_FOUND )
-  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
+CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
+  "SCOTCH_FOUND" OFF)
+
+IF( USE_SCOTCH )
+  # Scotch renumbering doesn't work for now
+  #  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
 ENDIF()
 
 ############################################################################
