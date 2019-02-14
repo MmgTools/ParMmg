@@ -13,7 +13,10 @@
 
 #include "parmmg.h"
 #include <metis.h>
+
+#ifdef USE_PARMETIS
 #include <parmetis.h>
+#endif
 
 /* Available choices for the wgtflag parameter of ParMetis */
 #define PMMG_WGTFLAG_NONE  0

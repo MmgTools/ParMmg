@@ -192,7 +192,7 @@ SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 FIND_PACKAGE(Metis)
 
 IF( METIS_FOUND)
-  OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
+  OPTION ( USE_METIS "Detected METIS Tool" ON)
   IF( USE_METIS )
     # Set flags for building test program
     INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
@@ -227,7 +227,7 @@ SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
 FIND_PACKAGE(Parmetis)
 
 IF( PARMETIS_FOUND)
-  OPTION ( USE_PARMETIS "Use PARMETIS TOOL for partioning" ON)
+  OPTION ( USE_PARMETIS "Detected PARMETIS TOOL" ON)
   IF( USE_PARMETIS )
     # Set flags for building test program
     INCLUDE_DIRECTORIES(${PARMETIS_INCLUDE_DIRS})
@@ -239,12 +239,12 @@ IF( PARMETIS_FOUND)
     SET( LIBRARIES ${PARMETIS_LIBRARIES} ${LIBRARIES})
   ENDIF()
 ELSE ( )
-  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
-
-  MESSAGE ( ERROR " parmetis library not found: "
-    "If you have already installed ParMetis and want to use it, "
-    "please set the CMake variable or environment variable PARMETIS_DIR "
-    "to your parmetis directory.")
+#  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
+#
+#  MESSAGE ( ERROR " parmetis library not found: "
+#    "If you have already installed ParMetis and want to use it, "
+#    "please set the CMake variable or environment variable PARMETIS_DIR "
+#    "to your parmetis directory.")
 ENDIF ( )
 
 ############################################################################

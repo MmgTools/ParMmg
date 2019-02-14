@@ -2966,13 +2966,17 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
               return 0);
 
   switch ( parmesh->info.loadbalancing_mode ) {
-  case PMMG_LOADBALANCING_metis:
-    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
-    break;
 
+#ifdef USE_PARMETIS
   case PMMG_LOADBALANCING_parmetis:
-  default:
     ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+    break;
+#endif
+
+  case PMMG_LOADBALANCING_metis:
+  default:
+
+    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
     break;
   }
 
