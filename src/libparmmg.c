@@ -106,7 +106,7 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pxPrism  pxp;
   MMG5_Hash     hash;
   int      ref,*adja,adj,k,kt,ia,ib,ic,j,na,initedg[3];
-  int      nitem_int_face_comm,*posInIdx1,iint,iext_comm,iext,iloc,iploc;
+  int      nitem_int_face_comm,*posInIdx1,iint,iext_comm,iext,iloc,iploc,imax;
   int16_t  tag,inittag[3];
   char     i,i1,i2;
 
@@ -230,10 +230,12 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
            * Triangle node matching is based on maximum node global index,
            * stored in point->flag */
           if( posInIdx1[kt] != PMMG_UNSET ) {
-            iploc = 0;
+            iploc = imax = 0;
             for( iloc = 0; iloc<3; iloc++ )
-              if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
+              if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > imax ) {
+                imax = mesh->point[pt->v[MMG5_idir[i][iloc]]].flag;
                 iploc = iloc;
+              }
             grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
           }
         }
@@ -272,10 +274,12 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
         /* Step 3: Put face in the internal communicator.
          * Triangle node matching is based on maximum node global index,
          * stored in point->flag */
-        iploc = 0;
+        iploc = imax = 0;
         for( iloc = 0; iloc<3; iloc++ )
-          if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > iploc )
+          if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > imax ) {
+            imax = mesh->point[pt->v[MMG5_idir[i][iloc]]].flag;
             iploc = iloc;
+          }
         grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
       }
     }
