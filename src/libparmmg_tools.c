@@ -96,8 +96,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
-    //fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
-    //fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
+    fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
+    fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
