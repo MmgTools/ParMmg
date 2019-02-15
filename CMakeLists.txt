@@ -213,8 +213,8 @@ ELSE ( )
 ENDIF ( )
 
 IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
-  MESSAGE ( STATUS "Metis integer uses ${METIS_INTSIZE} bytes."
-    " Parmetis must be build with the same integer size." )
+  MESSAGE ( SEND_ERROR "Metis integer uses ${METIS_INTSIZE} bytes."
+    " Only int32 are supported." )
 ENDIF ( )
 
 ############################################################################
