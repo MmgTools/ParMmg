@@ -213,7 +213,7 @@ ELSE ( )
 ENDIF ( )
 
 IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
-  MESSAGE ( SEND_ERROR "Metis integer uses ${METIS_INTSIZE} bytes."
+  MESSAGE ( WARNING "Metis integer uses ${METIS_INTSIZE} bytes."
     " Only int32 are supported." )
 ENDIF ( )
 
