@@ -746,6 +746,9 @@ int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm) {
               "allocate ext_comm ",return 0);
   parmesh->next_node_comm = next_comm;
 
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
+              "allocate int_comm ",return 0);
+
   return 1;
 }
 
@@ -754,6 +757,9 @@ int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm) {
   PMMG_CALLOC(parmesh,parmesh->ext_face_comm,next_comm,PMMG_Ext_comm,
               "allocate ext_comm ",return 0);
   parmesh->next_face_comm = next_comm;
+
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
+              "allocate int_comm ",return 0);
 
   return 1;
 }
