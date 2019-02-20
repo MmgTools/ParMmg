@@ -646,7 +646,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( j=0 ; j<4 ; j++ ) {
         ppt = &mesh->point[pt->v[j]];
         if ( ppt->tag & MG_PARBDY ) {
-          assert( ppt->xp );
           ppt->tag &= ~MG_PARBDY;
           if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
           if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
