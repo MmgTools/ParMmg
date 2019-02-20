@@ -892,7 +892,61 @@ int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
   return 1;
 }
 
-int PMMG_Get_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index) {
+int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
+  MMG5_Hash      hash;
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pTria     ptt;
+  int            kt,ie,ifac,ia,ib,ic,i,idx,icomm;
+  size_t         avmem,oldMemMax;
+
+ 
+  /* Meshes are merged in grp 0 */
+  int_face_comm = parmesh->int_face_comm;
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** 1) Hash triangles */
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for (kt=1; kt<=mesh->nt; kt++) {
+    ptt = &mesh->tria[kt];
+    if ( !MMG5_hashFace(mesh,&hash,ptt->v[0],ptt->v[1],ptt->v[2],kt) ) {
+      MMG5_DEL_MEM(mesh,hash.item);
+      return 0;
+    }
+  }
+
+  /** 2) Store triangle index in intvalues */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,avmem,oldMemMax);
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",return 0);
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ){
+    ie   =  grp->face2int_face_comm_index1[i]/12;
+    ifac = (grp->face2int_face_comm_index1[i]%12)/3;
+    idx  =  grp->face2int_face_comm_index2[i];
+    pt = &mesh->tetra[ie];
+    ia = pt->v[MMG5_idir[ifac][0]];
+    ib = pt->v[MMG5_idir[ifac][1]];
+    ic = pt->v[MMG5_idir[ifac][2]];
+    kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+    parmesh->int_face_comm->intvalues[idx] = kt;
+  }
+
+  /** 3) For each external communicator, get triangle index from intvalues */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ){
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    for( i = 0; i < ext_face_comm->nitem; i++ ){
+      idx = ext_face_comm->int_comm_index[i];
+      local_index[icomm][i] = int_face_comm->intvalues[idx];
+    }
+  }
+
+  MMG5_DEL_MEM(mesh,hash.item);
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
   return 1;
 }
 
