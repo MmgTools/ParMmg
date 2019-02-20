@@ -1040,7 +1040,6 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
   /** All the memory is devoted to the mesh **/
-  PMMG_parmesh_Free_Comm(parmesh);
   tmpmem = parmesh->memMax - parmesh->memCur;
   parmesh->memMax = parmesh->memCur;
   parmesh->listgrp[0].mesh->memMax += tmpmem;
