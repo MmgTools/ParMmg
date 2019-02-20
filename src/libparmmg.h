@@ -1773,6 +1773,18 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
   int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
 
+  int PMMG_Get_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int *next_comm);
+
+  int PMMG_Get_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int *next_comm);
+
+  int PMMG_Get_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
+
+  int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
+
+  int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index);
+
+  int PMMG_Get_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index);
+
 #ifdef __cplusplus
 }
 #endif
