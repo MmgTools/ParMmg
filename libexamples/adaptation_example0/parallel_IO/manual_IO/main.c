@@ -487,7 +487,7 @@ int main(int argc,char *argv[]) {
                                          (parmesh->myrank+1)%2, npifc);
   ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, 0,
                                            ifc_nodes_loc, ifc_nodes_glob, 1 );
-  ier = PMMG_preprocessMesh_distributed( parmesh );
+  ier = PMMG_parmmglib_distributed( parmesh );
 
 //PMMG_saveAllSols_centralized(parmesh,"init-solphys.sol");
 

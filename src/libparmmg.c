@@ -230,6 +230,7 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
            * Triangle node matching is based on maximum node global index,
            * stored in point->flag */
           if( posInIdx1[kt] != PMMG_UNSET ) {
+            pxt->ftag[i] |= MG_PARBDY + MG_REQ + MG_NOSURF;
             iploc = imax = 0;
             for( iloc = 0; iloc<3; iloc++ )
               if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > imax ) {
@@ -274,13 +275,16 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
         /* Step 3: Put face in the internal communicator.
          * Triangle node matching is based on maximum node global index,
          * stored in point->flag */
-        iploc = imax = 0;
-        for( iloc = 0; iloc<3; iloc++ )
-          if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > imax ) {
-            imax = mesh->point[pt->v[MMG5_idir[i][iloc]]].flag;
-            iploc = iloc;
-          }
-        grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
+        if( posInIdx1[kt] != PMMG_UNSET ) {
+          pxt->ftag[i] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+          iploc = imax = 0;
+          for( iloc = 0; iloc<3; iloc++ )
+            if( mesh->point[pt->v[MMG5_idir[i][iloc]]].flag > imax ) {
+              imax = mesh->point[pt->v[MMG5_idir[i][iloc]]].flag;
+              iploc = iloc;
+            }
+          grp->face2int_face_comm_index1[posInIdx1[kt]] = 12*k+3*i+iploc;
+        }
       }
     }
   }
@@ -961,7 +965,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( parmesh->ngrp ) {
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
-    ier  = PMMG_preprocessMesh( parmesh );
+    ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
     if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
@@ -1017,7 +1021,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( (!MMG3D_hashTetra( mesh, 0 )) || ( -1 == MMG3D_bdryBuild(parmesh->listgrp[0].mesh) ) ) {
     /** Impossible to rebuild the triangle **/
     fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-    return PMMG_LOWFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   chrono(OFF,&(ctim[tim]));
@@ -1034,5 +1038,5 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
             PMMG_STR,PMMG_STR);
   }
 
-  return ierlib;
+  PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
 }
