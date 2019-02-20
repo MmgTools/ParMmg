@@ -92,7 +92,28 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  * \param mesh pointer toward the mesh structure.
  * \return 0 if failed, 1 if success.
  *
- * Set the triangles references to the tetrahedra faces and edges.
+ * Set the triangles references to the tetrahedra faces and edges, and build
+ * face communicators.
+ *
+ * \remark Modeled after the MMG3D_bdrySet function, with additional
+ * communicators construction.
+ * For the face communicator:
+ * - The index of the interface triangles are initially stored in
+ *   ext_comm->int_comm_index
+ * - Set communicator indices:
+ *   - ext communicators are concatenated to index the unique int communicator
+ *   - group index2 coincides with the int communicator index for ngrp==1
+ *   - index1 temporarily set to the interface triangle index
+ * - Invert index1 to get the comm index from the triangle index.
+ * - Replace triangle index with tetra-face-node triplet (global node index
+ *   is used to sort the face nodes).
+ *
+ * For the node communicator:
+ * - Local node ids are initially stored in ext_comm->itosend
+ * - Global node ids are initially stored in ext_comm->itorecv
+ * - Store global node ids in point flags (use it to match corresponding
+ *   triangles on the two sides of a parallel interface)
+ * - The node communicator will be built after this function.
  *
  */
 int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
@@ -471,7 +492,13 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 }
 
 
-/** preprocessing stage: mesh analysis */
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the mesh structure
+ *
+ * \remark Modeled after the MMG3D_analys function, with additional
+ *         communicators construction.
+ */
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash hash;
 
@@ -558,7 +585,7 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* set bdry entities to tetra */
+  /* set bdry entities to tetra, and build face communicators */
   if ( !PMMG_bdrySet_buildComm(parmesh,mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -682,8 +709,9 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
  * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if fail and return an
  * unscaled mesh, PMMG_STRONGFAILURE if fail and return a scaled mesh.
  *
- * Mesh preprocessing: set function pointers, scale mesh, perform mesh
- * analysis and display length and quality histos.
+ * Mesh preprocessing (distributed input mesh): set function pointers,
+ * scale mesh, perform mesh analysis, display length and quality histos,
+ * and build communicators.
  */
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
@@ -727,7 +755,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Mesh analysis */
+  /** Mesh analysis and face communicators construction */
   if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -741,7 +769,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Node communicators */
+  /** Build node communicators */
   if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
     return PMMG_STRONGFAILURE;
   }
