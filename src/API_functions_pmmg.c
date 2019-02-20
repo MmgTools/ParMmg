@@ -855,18 +855,36 @@ int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index
 }
 
 int PMMG_Get_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int *next_comm) {
+
+  *next_comm = parmesh->next_node_comm;
+
   return 1;
 }
 
 int PMMG_Get_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int *next_comm) {
+
+  *next_comm = parmesh->next_face_comm;
+
   return 1;
 }
 
 int PMMG_Get_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem) {
+  PMMG_pExt_comm pext_node_comm;
+
+  pext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
+  *color_out = pext_node_comm->color_out;
+  *nitem     = pext_node_comm->nitem;
+
   return 1;
 }
 
 int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem) {
+  PMMG_pExt_comm pext_face_comm;
+
+  pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
+  *color_out = pext_face_comm->color_out;
+  *nitem     = pext_face_comm->nitem;
+
   return 1;
 }
 
