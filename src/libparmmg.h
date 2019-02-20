@@ -1781,7 +1781,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
   int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
 
-  int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index);
+  int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index);
 
   int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index);
 

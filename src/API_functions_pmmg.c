@@ -888,7 +888,40 @@ int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
   return 1;
 }
 
-int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index) {
+int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  int            ip,i,idx,icomm;
+  size_t         memAv,oldMemMax;
+
+ 
+  /* Meshes are merged in grp 0 */
+  int_node_comm = parmesh->int_node_comm;
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** 1) Store node index in intvalues */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    parmesh->int_node_comm->intvalues[idx] = ip;
+  }
+
+  /** 2) For each external communicator, get node index from intvalues */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ){
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    for( i = 0; i < ext_node_comm->nitem; i++ ){
+      idx = ext_node_comm->int_comm_index[i];
+      local_index[icomm][i] = int_node_comm->intvalues[idx];
+    }
+  }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
 
@@ -901,13 +934,15 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   MMG5_pTetra    pt;
   MMG5_pTria     ptt;
   int            kt,ie,ifac,ia,ib,ic,i,idx,icomm;
-  size_t         avmem,oldMemMax;
+  size_t         memAv,oldMemMax;
 
- 
   /* Meshes are merged in grp 0 */
   int_face_comm = parmesh->int_face_comm;
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+ PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
 
   /** 1) Hash triangles */
@@ -922,7 +957,7 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   }
 
   /** 2) Store triangle index in intvalues */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,avmem,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",return 0);
   for( i = 0; i < grp->nitem_int_face_comm; i++ ){
     ie   =  grp->face2int_face_comm_index1[i]/12;
