@@ -489,6 +489,24 @@ int main(int argc,char *argv[]) {
                                            ifc_nodes_loc, ifc_nodes_glob, 1 );
   ier = PMMG_parmmglib_distributed( parmesh );
 
+  int next_node_comm,next_face_comm,nitem_node_comm,nitem_face_comm,color_out;
+  ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&next_node_comm);
+  ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
+
+  ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, 0, &color_out, &nitem_node_comm);
+
+  ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, 0, &color_out, &nitem_face_comm);
+
+  int **out_tria_loc, **out_node_loc;
+ 
+  out_node_loc = (int **) malloc(next_node_comm*sizeof(int *));
+  out_node_loc[0] = (int *) malloc(nitem_node_comm*sizeof(int));
+  ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
+
+  out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
+  out_tria_loc[0] = (int *) malloc(nitem_face_comm*sizeof(int));
+  ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
+
 //PMMG_saveAllSols_centralized(parmesh,"init-solphys.sol");
 
 //  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
