@@ -115,6 +115,93 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTria   ptt;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  int          kt,ie,ifac,iploc;
+  int          i,imax,iloc,iglob;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  for( i=0; i<grp->nitem_int_face_comm; i++ ) {
+    kt    = grp->face2int_face_comm_index1[i];
+    ptt   = &mesh->tria[kt]; 
+    ie    = ptt->cc/4;
+    ifac  = ptt->cc%4;
+
+    iploc = imax  = 0;
+    for( iloc=0; iloc<3; iloc++ ) {
+      iglob = mesh->point[ptt->v[iloc]].flag;
+      if( iglob > imax ) {
+        imax   = iglob;
+        iploc = iloc;
+      }
+    }
+
+    grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
+
+    pt  = &mesh->tetra[ie];
+    assert( pt->xt );
+    pxt = &mesh->xtetra[pt->xt];
+    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+  }
+}
+
+void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTria   ptt;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  int          kt,ie,ifac,iploc;
+  double       cmax[3];
+  int          i,idim,iloc,iglob;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+ 
+  for( i=0; i<grp->nitem_int_face_comm; i++ ) {
+    kt    = grp->face2int_face_comm_index1[i];
+    ptt = &mesh->tria[kt];
+    ie     = ptt->cc/4;
+    ifac   = ptt->cc%4;
+
+    iploc  = 0;
+    ppt = &mesh->point[ptt->v[0]];
+    cmax[0] = ppt->c[0];
+    cmax[1] = ppt->c[1];
+    cmax[2] = ppt->c[2];
+    for( iloc=1; iloc<3; iloc++ ) {
+      ppt = &mesh->point[ptt->v[iloc]];
+      for( idim=0; idim<3; idim++ ) {
+        if( ppt->c[idim] > cmax[idim] ) {
+          cmax[0] = ppt->c[0];
+          cmax[1] = ppt->c[1];
+          cmax[2] = ppt->c[2];
+          iploc  = iloc;
+        }
+      }
+    }
+
+    grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
+
+    pt  = &mesh->tetra[ie];
+    assert( pt->xt );
+    pxt = &mesh->xtetra[pt->xt];
+    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+  }
+}
+
+
+
 /**
  * \param parmesh pointer toward a parmesh structure
  * \return 0 if fail, 1 if success
