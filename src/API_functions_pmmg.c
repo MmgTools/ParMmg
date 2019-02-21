@@ -942,7 +942,7 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   mesh = grp->mesh;
 
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
- PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
 
   /** 1) Hash triangles */
