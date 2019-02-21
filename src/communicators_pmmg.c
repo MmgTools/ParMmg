@@ -115,6 +115,174 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTria     ptt;
+  MMG5_Hash      hash;
+  int            **local_index,**global_index;
+  int            *fNodes_loc,*fNodes_par,*fColors;
+  int            nb_fNodes_loc,*nb_fNodes_par,*displs,*counter,*iproc2comm;
+  int            kt,ia,ib,ic,i,icomm,iproc,iloc,iglob,myrank,next_face_comm,ier;
+  MPI_Comm       comm;
+
+  comm   = parmesh->comm;
+  myrank = parmesh->myrank;
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+
+
+  /** 1) Store global node ids in point flags */
+  /* Reset point flags */
+  for( i=1; i<=mesh->np; i++ )
+    mesh->point[i].flag = PMMG_NUL;
+
+  /* Loop on ext node communicators to get global node IDs */
+  for( icomm=0; icomm<parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    for( i=0; i<ext_node_comm->nitem_to_share; i++ ) {
+      iloc  = ext_node_comm->itosend[i];
+      iglob = ext_node_comm->itorecv[i];
+      mesh->point[iloc].flag = iglob;
+    }
+  }
+
+
+  /** 2) Hash triangles with global node index: This avoids the occurrence of
+   * non-boundary faces connected to three parallel nodes. */
+  nb_fNodes_loc = 3*mesh->nt;
+  PMMG_CALLOC(parmesh,fNodes_loc,nb_fNodes_loc,int,"fNodes_loc",return 0);
+  PMMG_CALLOC(parmesh,fColors,2*mesh->nt,int,"fColors",return 0);
+  for( i=0; i<2*mesh->nt; i++ )
+    fColors[i] = PMMG_UNSET;
+
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for (kt=1; kt<=mesh->nt; kt++) {
+    ptt = &mesh->tria[kt];
+    ia = mesh->point[ptt->v[0]].flag;
+    ib = mesh->point[ptt->v[1]].flag;
+    ic = mesh->point[ptt->v[2]].flag;
+    if( ia && ib && ic ) {
+      if ( !MMG5_hashFace(mesh,&hash,ia,ib,ic,kt) ) {
+        MMG5_DEL_MEM(mesh,hash.item);
+        return 0;
+      }
+      fNodes_loc[3*(kt-1)+0] = ia;
+      fNodes_loc[3*(kt-1)+1] = ib;
+      fNodes_loc[3*(kt-1)+2] = ic;
+    }
+  }
+
+
+  /** 3) Communicate face nodes */
+  PMMG_CALLOC(parmesh,nb_fNodes_par,parmesh->nprocs,int,"nb_fNodes_par",return 0);
+  PMMG_CALLOC(parmesh,displs,parmesh->nprocs+1,int,"displs",return 0);
+
+  MPI_CHECK( MPI_Allgather(&nb_fNodes_loc,1,MPI_INT,nb_fNodes_par,1,MPI_INT,comm),
+             return 0 );
+  
+  displs[0] = 0;
+  for( i=0; i<parmesh->nprocs; i++ )
+    displs[i+1] = displs[i]+nb_fNodes_par[i];
+
+  PMMG_CALLOC(parmesh,fNodes_par,displs[parmesh->nprocs],int,"fNodes_par",return 0);
+
+  MPI_CHECK( MPI_Allgatherv(fNodes_loc,nb_fNodes_loc,MPI_INT,
+                            fNodes_par,nb_fNodes_par,displs,MPI_INT,comm), return 0);
+
+
+  /** 4) For each proc pair, get "other" tria in the local hash table,
+   * count and store tria color. */
+  PMMG_CALLOC(parmesh,counter,parmesh->nprocs,int,"counter",return 0);
+  PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  /* Get face colors and count faces for each color */
+  icomm = 0;
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc == myrank ) continue;
+    for( i=0; i<nb_fNodes_par[iproc]; i++ ) {
+      ia = fNodes_par[3*i+0];
+      ib = fNodes_par[3*i+1];
+      ic = fNodes_par[3*i+2];
+      kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+      if( kt ) {
+        if(!iproc2comm[iproc] ) iproc2comm[iproc] = icomm++;
+        /* Store face color and face global ID (starting from 1) on the other
+         * proc */
+        fColors[2*(kt-1)+0] = iproc;
+        fColors[2*(kt-1)+1] = displs[iproc]+i+1;
+        counter[iproc]++;
+      }
+    }
+  }
+  assert( iproc2comm[myrank] == PMMG_UNSET );
+
+
+  /** 5) Fill face communicators. */
+
+  /* Set nb of communicators */
+  next_face_comm = 0;
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+    if( iproc2comm[iproc] != PMMG_UNSET ) next_face_comm++;
+  ier = PMMG_Set_numberOfFaceCommunicators(parmesh,next_face_comm);
+
+  PMMG_CALLOC(parmesh, local_index,next_face_comm,int*, "local_index pointer",return 0);
+  PMMG_CALLOC(parmesh,global_index,next_face_comm,int*,"global_index pointer",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc2comm[iproc] == PMMG_UNSET ) continue;
+    /* Set communicator size and reset counter */
+    icomm = iproc2comm[iproc];
+    PMMG_CALLOC(parmesh, local_index[icomm],counter[iproc],int, "local_index array",return 0);
+    PMMG_CALLOC(parmesh,global_index[icomm],counter[iproc],int,"global_index array",return 0);
+    ier = PMMG_Set_ithFaceCommunicatorSize(parmesh,icomm,iproc,counter[iproc]);
+    counter[iproc] = 0;
+  }
+
+  /* Create injective, non-surjective global face enumeration */
+  for (kt=1; kt<=mesh->nt; kt++) {
+    iproc = fColors[2*(kt-1)];
+    iglob = fColors[2*(kt-1)+1];
+    icomm = iproc2comm[iproc];
+    i = counter[iproc]++;
+    local_index[icomm][i] = kt;
+    global_index[icomm][i] = MG_MIN(displs[myrank]+kt,iglob);
+  }
+ 
+ 
+  /* Fill and sort each communicator */
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc2comm[iproc] == PMMG_UNSET ) continue;
+    icomm = iproc2comm[iproc];
+    ier = PMMG_Set_ithFaceCommunicator_faces( parmesh, icomm, local_index[icomm],
+                                              global_index[icomm], 1 );
+  }
+
+#warning Luca: TODO convert tria index into iel face index
+  /** 6) Convert tria index into iel face index */
+
+  /* Free memory */
+  MMG5_DEL_MEM(mesh,hash.item);
+  PMMG_DEL_MEM(parmesh,fColors,int,"fColors");
+  PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_loc");
+  PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_par");
+  PMMG_DEL_MEM(parmesh,nb_fNodes_par,int,"nb_fNodes_par");
+  PMMG_DEL_MEM(parmesh,displs,int,"displs");
+  PMMG_DEL_MEM(parmesh,counter,int,"counter");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
+  for( icomm=0; icomm<next_face_comm; icomm++ ) {
+    PMMG_DEL_MEM(parmesh, local_index[icomm],int, "local_index array");
+    PMMG_DEL_MEM(parmesh,global_index[icomm],int,"global_index array");
+  }
+  PMMG_DEL_MEM(parmesh, local_index,int*, "local_index pointer");
+  PMMG_DEL_MEM(parmesh,global_index,int*,"global_index pointer");
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward a parmesh structure
  *
