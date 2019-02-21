@@ -396,8 +396,10 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
                                               global_index[icomm], 1 );
   }
 
-#warning Luca: TODO convert tria index into iel face index
-  /** 6) Convert tria index into iel face index */
+  /** 6) Set communicators indexing, convert tria index into iel face index */
+  ier = PMMG_build_faceCommIndex( parmesh );
+  PMMG_tria2elmFace_flags( parmesh );
+
 
   /* Free memory */
   MMG5_DEL_MEM(mesh,hash.item);
