@@ -115,6 +115,54 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \return 0 if fail, 1 if success
+ *
+ * Set group and internal communicator indexing, given mesh entities temporarily
+ * stored in the external face communicator.
+ *
+ */
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  int            nitem_int_face_comm,iext_comm,iext,iint;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+
+  /* Count internal communicator items */
+  nitem_int_face_comm = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    nitem_int_face_comm += ext_face_comm->nitem;
+  }
+ 
+  /* Allocate arrays */
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
+              "allocating int_face_comm",return 0);
+  int_face_comm = parmesh->int_face_comm;
+  int_face_comm->nitem = nitem_int_face_comm;
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,"face2int_face_comm_index1",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,"face2int_face_comm_index2",return 0);
+  grp->nitem_int_face_comm = nitem_int_face_comm;
+
+  /* Set communicators indexing */
+  iint = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
+      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      grp->face2int_face_comm_index2[iint] = iint;
+      ext_face_comm->int_comm_index[iext] = iint++;
+    }
+  }
+  assert( iint == nitem_int_face_comm );
+
+  return 1;
+}
+
 int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;

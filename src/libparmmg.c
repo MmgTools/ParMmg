@@ -167,30 +167,7 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
 
   /* Step 1: Fill links among communicators, stock local triangle index */
-  nitem_int_face_comm = 0;
-  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
-    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
-    nitem_int_face_comm += ext_face_comm->nitem;
-  }
- 
-  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
-              "allocating int_face_comm",return 0);
-  int_face_comm = parmesh->int_face_comm;
-  int_face_comm->nitem = nitem_int_face_comm;
-  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,"face2int_face_comm_index1",return 0);
-  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,"face2int_face_comm_index2",return 0);
-  grp->nitem_int_face_comm = nitem_int_face_comm;
-
-  iint = 0;
-  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
-    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
-    for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
-      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
-      grp->face2int_face_comm_index2[iint] = iint;
-      ext_face_comm->int_comm_index[iext] = iint++;
-    }
-  }
-  assert( iint == nitem_int_face_comm );
+  if( !PMMG_build_faceCommIndex(parmesh) ) return 0;
 
   /* Put global node enumeration in the point flag:
    * itosend contains the local bdy node index,
