@@ -472,8 +472,9 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  *
- * \remark Modeled after the MMG3D_analys function, with additional face
- *         communicators construction.
+ * \remark Modeled after the MMG3D_analys function, with additional node/face
+ *         communicators indices construction. Also build face comms from node
+ *         ones (before tags are passed to edges and nodes).
  */
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_pExt_comm ext_node_comm;
@@ -571,16 +572,21 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
+  /* For both API modes, build communicators indices and set xtetra as PARBDY */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
-      /* Set face communicators indexing, convert tria index into iel face index
-       * (it needs a valid cc field in each tria), and tag xtetra face as PARBDY
-       * */
+      /* Set face communicators indexing */
       if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      /* Convert tria index into iel face index (it needs a valid cc field in
+       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+       * to edges and nodes */
       PMMG_tria2elmFace_coords( parmesh );
       break;
     case PMMG_APIDISTRIB_nodes :
+      /* Set node communicators indexing */
       if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
+      /* Build face comms from node ones and set xtetra tags */
+      if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
       break;
   }
 
@@ -615,12 +621,6 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
-
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes ) {
-    if ( !PMMG_build_faceCommFromNodes(parmesh) ) {
-      return PMMG_STRONGFAILURE;
-    }
-  }
 
   /* release memory */
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -721,7 +721,17 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
-  /* Set distributed API mode */
+  /** Set distributed API mode. Interface faces OR nodes need to be set by the
+   * user through the API interface at this point, meening that the
+   * corresponding external comm is set to the correct size, and filled with
+   * local entity indices (for node comms, also itosend and itorecv arrays are
+   * filled with local/global node IDs).
+   * .
+   * - By default, if interface faces are provided by the user, the input nodes
+   *   are ignored and node communicators are built from the face ones.
+   * - Otherwise, interfaces nodes serve to build node communicators, then face
+   *   comms are built from node ones.
+   */
   if( parmesh->next_face_comm ) {
     parmesh->info.API_mode = PMMG_APIDISTRIB_faces;
   } else if( parmesh->next_node_comm ) {
@@ -763,7 +773,8 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Mesh analysis and face communicators construction */
+  /** Mesh analysis, face/node communicators indices construction (depending
+   * from the API mode), build face comms from node ones */
   if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -777,8 +788,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  /** Build node communicators from face ones (here because the (mesh needs to
+   * be unscaled) */
   if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
-    /** Build node communicators (mesh needs to be unscaled) */
     PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
     PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
     parmesh->next_node_comm = 0;
