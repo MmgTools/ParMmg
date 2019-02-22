@@ -580,6 +580,7 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       PMMG_tria2elmFace_coords( parmesh );
       break;
     case PMMG_APIDISTRIB_nodes :
+      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
       break;
   }
 
@@ -614,6 +615,12 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
+
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes ) {
+    if ( !PMMG_build_faceCommFromNodes(parmesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
 
   /* release memory */
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -770,20 +777,16 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  switch( parmesh->info.API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      /** Build node communicators (mesh needs to be unscaled) */
-      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
-      parmesh->next_node_comm = 0;
-      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
-      PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
-      if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
-        return PMMG_STRONGFAILURE;
-      }
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      break;
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+    /** Build node communicators (mesh needs to be unscaled) */
+    PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+    parmesh->next_node_comm = 0;
+    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
+    PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
+    if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
   }
 
   return PMMG_SUCCESS;

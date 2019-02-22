@@ -427,6 +427,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
 int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh );
 int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh );
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh );
+int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
