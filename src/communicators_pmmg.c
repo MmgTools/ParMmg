@@ -433,13 +433,13 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   icomm = 0;
   for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
     if( iproc == myrank ) continue;
-    for( i=0; i<nb_fNodes_par[iproc]; i++ ) {
+    for( i=displs[iproc]/3; i<displs[iproc+1]/3; i++ ) {
       ia = fNodes_par[3*i+0];
       ib = fNodes_par[3*i+1];
       ic = fNodes_par[3*i+2];
       kt = MMG5_hashGetFace(&hash,ia,ib,ic);
       if( kt ) {
-        if(!iproc2comm[iproc] ) iproc2comm[iproc] = icomm++;
+        if( iproc2comm[iproc] == PMMG_UNSET ) iproc2comm[iproc] = icomm++;
         /* Store face color and face global ID (starting from 1) on the other
          * proc */
         fColors[2*(kt-1)+0] = iproc;
@@ -455,8 +455,9 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
 
   /* Set nb of communicators */
   next_face_comm = 0;
-  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
     if( iproc2comm[iproc] != PMMG_UNSET ) next_face_comm++;
+  }
   ier = PMMG_Set_numberOfFaceCommunicators(parmesh,next_face_comm);
 
   PMMG_CALLOC(parmesh, local_index,next_face_comm,int*, "local_index pointer",return 0);
@@ -474,6 +475,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   /* Create injective, non-surjective global face enumeration */
   for (kt=1; kt<=mesh->nt; kt++) {
     iproc = fColors[2*(kt-1)];
+    if( iproc == PMMG_UNSET ) continue;
     iglob = fColors[2*(kt-1)+1];
     icomm = iproc2comm[iproc];
     i = counter[iproc]++;
