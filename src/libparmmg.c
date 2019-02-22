@@ -571,10 +571,17 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* Set face communicators indexing, convert tria index into iel face index (it
-   * needs a valid cc field in each tria), and tag xtetra face as PARBDY */
-  if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
-  PMMG_tria2elmFace_coords( parmesh );
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /* Set face communicators indexing, convert tria index into iel face index
+       * (it needs a valid cc field in each tria), and tag xtetra face as PARBDY
+       * */
+      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      PMMG_tria2elmFace_coords( parmesh );
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      break;
+  }
 
   /* set non-manifold edges sharing non-intersecting multidomains as required */
   if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
@@ -707,6 +714,16 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
+  /* Set distributed API mode */
+  if( parmesh->next_face_comm ) {
+    parmesh->info.API_mode = PMMG_APIDISTRIB_faces;
+  } else if( parmesh->next_node_comm ) {
+    parmesh->info.API_mode = PMMG_APIDISTRIB_nodes;
+  } else {
+    fprintf(stderr," ## Error: %s: parallel faces or nodes must be set through the API interface\n",__func__);
+    return 0;
+  }
+
   /** Function setters (must be assigned before quality computation) */
   MMG3D_Set_commonFunc();
 
@@ -753,14 +770,20 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Build node communicators (mesh needs to be unscaled) */
-  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
-  parmesh->next_node_comm = 0;
-  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
-  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
-  if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
-    return PMMG_STRONGFAILURE;
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /** Build node communicators (mesh needs to be unscaled) */
+      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+      parmesh->next_node_comm = 0;
+      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
+      PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
+      if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
+        return PMMG_STRONGFAILURE;
+      }
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      break;
   }
 
   return PMMG_SUCCESS;

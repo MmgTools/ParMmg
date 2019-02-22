@@ -164,6 +164,24 @@
 #define PMMG_LOADBALANCING_parmetis 2
 
 /**
+ * \def PMMG_APIDISTRIB_faces
+ *
+ * Use parallel faces information to build communicators with distributed API
+ * functions
+ *
+ */
+#define PMMG_APIDISTRIB_faces 1
+
+/**
+ * \def PMMG_APIDISTRIB_nodes
+ *
+ * Use parallel nodes information to build communicators with distributed API
+ * functions
+ *
+ */
+#define PMMG_APIDISTRIB_nodes 2
+
+/**
  * \def PMMG_UNSET
  *
  * Initialization value
@@ -255,6 +273,7 @@ typedef struct {
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
+  int API_mode; /*!< use faces or nodes information to build communicators */
 } PMMG_Info;
 
 
