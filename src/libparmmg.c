@@ -572,26 +572,10 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* Put global node enumeration in the point flag:
-   * itosend contains the local bdy node index,
-   * itorecv contains the global bdy node index.
-   * Then, destroy external node communicator.*/
-  for( i = 1; i <= mesh->np; i++ )
-    mesh->point[i].flag = PMMG_UNSET;
-  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
-    for( iext = 0; iext < ext_node_comm->nitem_to_share; iext++ ) {
-      mesh->point[ext_node_comm->itosend[iext]].flag = ext_node_comm->itorecv[iext];
-    }
-  }
-  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
-  parmesh->next_node_comm = 0;
- 
 
   /* Set communicators indexing, convert tria index into iel face index */
   if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
-  PMMG_tria2elmFace_flags( parmesh );
+  PMMG_tria2elmFace_coords( parmesh );
 
   /* set non-manifold edges sharing non-intersecting multidomains as required */
   if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
@@ -769,7 +753,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Build node communicators */
+  /** Build node communicators (mesh needs to be unscaled) */
+  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+  PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+  parmesh->next_node_comm = 0;
   if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
     return PMMG_STRONGFAILURE;
   }

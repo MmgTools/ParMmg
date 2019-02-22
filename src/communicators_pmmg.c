@@ -182,11 +182,13 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     for( iloc=1; iloc<3; iloc++ ) {
       ppt = &mesh->point[ptt->v[iloc]];
       for( idim=0; idim<3; idim++ ) {
-        if( ppt->c[idim] > cmax[idim] ) {
+        if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
+        if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
           cmax[0] = ppt->c[0];
           cmax[1] = ppt->c[1];
           cmax[2] = ppt->c[2];
           iploc  = iloc;
+          break;
         }
       }
     }
