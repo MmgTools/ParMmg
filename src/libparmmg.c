@@ -616,17 +616,9 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes ) {
-    if ( !PMMG_build_faceCommFromNodes(parmesh) ) {
-      return PMMG_STRONGFAILURE;
-    }
-  }
-
   /* release memory */
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
-  MMG5_DEL_MEM(mesh,mesh->tria);
-  mesh->nt = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
 
@@ -777,17 +769,30 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
-    /** Build node communicators (mesh needs to be unscaled) */
-    PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
-    parmesh->next_node_comm = 0;
-    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
-    PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
-    if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
-      return PMMG_STRONGFAILURE;
-    }
+  /** Build node/face communicators from face/node ones (here because the mesh
+   * needs to be unscaled for node comms to be built) */
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+      parmesh->next_node_comm = 0;
+      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
+      PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
+      if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
+        return PMMG_STRONGFAILURE;
+      }
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      if ( !PMMG_build_faceCommFromNodes(parmesh) ) {
+        return PMMG_STRONGFAILURE;
+      }
+      break;
   }
+
+  /* Free triangles (not in PMMG_analys_buildComm because they are needed for
+   * building face comms from node ones) */
+  MMG5_DEL_MEM(mesh,mesh->tria);
+  mesh->nt = 0;
 
   return PMMG_SUCCESS;
 }
