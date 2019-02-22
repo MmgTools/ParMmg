@@ -115,6 +115,16 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+/**
+ * \param parmesh pointer to parmesh structure
+ *
+ * - Convert triangle index to tetra-face-node triplet, using the "cc" triangle
+ *   field initialized by MMG5_bdryTria, and the global node indices temporarily
+ *   stored in the points flag.
+ * - Store the index triplet in group communicator index 1,
+ * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
+ *   in MMG5_bdryUpdate).
+ */
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -129,12 +139,14 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
+  /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
     ptt   = &mesh->tria[kt]; 
     ie    = ptt->cc/4;
     ifac  = ptt->cc%4;
 
+    /* Get triangle node with highest global index */
     iploc = imax  = 0;
     for( iloc=0; iloc<3; iloc++ ) {
       iglob = mesh->point[ptt->v[iloc]].flag;
@@ -144,8 +156,10 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
       }
     }
 
+    /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
 
+    /* Set xtetra face as parallel */
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
@@ -153,6 +167,15 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   }
 }
 
+/**
+ * \param parmesh pointer to parmesh structure
+ *
+ * - Convert triangle index to tetra-face-node triplet, using the "cc" triangle
+ *   field initialized by MMG5_bdryTria, and the nodes coordinates.
+ * - Store the index triplet in group communicator index 1,
+ * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
+ *   in MMG5_bdryUpdate).
+ */
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -168,12 +191,14 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
  
+  /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
     ptt = &mesh->tria[kt];
     ie     = ptt->cc/4;
     ifac   = ptt->cc%4;
 
+    /* Get triangle node with highest coordinates */
     iploc  = 0;
     ppt = &mesh->point[ptt->v[0]];
     cmax[0] = ppt->c[0];
@@ -193,16 +218,16 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
       }
     }
 
+    /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
 
+    /* Set xtetra face as parallel */
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
     pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
   }
 }
-
-
 
 /**
  * \param parmesh pointer toward a parmesh structure

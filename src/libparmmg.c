@@ -468,12 +468,11 @@ int PMMG_bdrySet_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   return 1;
 }
 
-
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  *
- * \remark Modeled after the MMG3D_analys function, with additional
+ * \remark Modeled after the MMG3D_analys function, with additional face
  *         communicators construction.
  */
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
@@ -564,7 +563,7 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* set bdry entities to tetra, and build face communicators */
+  /* set bdry entities to tetra */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -572,8 +571,8 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-
-  /* Set communicators indexing, convert tria index into iel face index */
+  /* Set face communicators indexing, convert tria index into iel face index (it
+   * needs a valid cc field in each tria), and tag xtetra face as PARBDY */
   if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
   PMMG_tria2elmFace_coords( parmesh );
 
@@ -619,6 +618,7 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   return 1;
 }
+
 /**
  * \param  parmesh pointer to parmesh structure
  *
