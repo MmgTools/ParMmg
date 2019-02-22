@@ -234,6 +234,73 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
  * \return 0 if fail, 1 if success
  *
  * Set group and internal communicator indexing, given mesh entities temporarily
+ * stored in the external node communicator.
+ *
+ */
+int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  int            ip,nitem_int_node_comm,iext_comm,iext,iint;
+
+  /* Only one group */
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  /* Use flag to mark visited points */
+  for( ip=1; ip<=mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = 0;
+  }
+
+  /* Count internal communicator items */
+  nitem_int_node_comm = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      if( ppt->flag == 1 ) continue;
+      ppt->flag = 1;
+      nitem_int_node_comm++;
+    }
+  }
+ 
+  /* Allocate arrays */
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
+              "allocating int_node_comm",return 0);
+  int_node_comm = parmesh->int_node_comm;
+  int_node_comm->nitem = nitem_int_node_comm;
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,"node2int_node_comm_index1",return 0);
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,nitem_int_node_comm,int,"node2int_node_comm_index2",return 0);
+  grp->nitem_int_node_comm = nitem_int_node_comm;
+
+  /* Set communicators indexing */
+  iint = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      if( ppt->flag == 2 ) continue;
+      ppt->flag = 2;
+      grp->node2int_node_comm_index1[iint] = ip;
+      grp->node2int_node_comm_index2[iint] = iint;
+      ext_node_comm->int_comm_index[iext] = iint++;
+    }
+  }
+  assert( iint == nitem_int_node_comm );
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \return 0 if fail, 1 if success
+ *
+ * Set group and internal communicator indexing, given mesh entities temporarily
  * stored in the external face communicator.
  *
  */
