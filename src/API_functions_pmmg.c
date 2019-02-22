@@ -775,6 +775,8 @@ int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
   pext_comm->color_out = color_out;
 
   /* Allocate communicator */
+  PMMG_CALLOC(parmesh,pext_comm->int_comm_index,nitem,int,
+                  "allocate int_comm_index",return 0);
   PMMG_CALLOC(parmesh,pext_comm->itosend,nitem,int,"allocate itosend",return 0);
   PMMG_CALLOC(parmesh,pext_comm->itorecv,nitem,int,"allocate itorecv",return 0);
   pext_comm->nitem          = nitem;
@@ -821,6 +823,7 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
   /* Save local and global node indices */
   if( ier ) {
     for( i = 0; i < nitem; i++ ) {
+      pext_node_comm->int_comm_index[i] = local_index[i];
       pext_node_comm->itosend[i] = local_index[i];
       pext_node_comm->itorecv[i] = global_index[i];
     }
