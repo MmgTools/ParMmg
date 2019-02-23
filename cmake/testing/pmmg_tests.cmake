@@ -280,7 +280,7 @@ IF( BUILD_TESTING )
 
   FOREACH( options 0 1 )
     FOREACH( API_mode 0 1 )
-      FOREACH( NP 2 )
+      FOREACH( NP 2 4 )
         ADD_TEST ( NAME ${test_name}_io_${options}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:${test_name}>
           ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )

@@ -52,31 +52,31 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask,
   int k,d,icomm;
 
   for( k=0; k<np; k++ ) {
-    inv_pmask[pmask[k]] = k;
+    inv_pmask[pmask[k]-1] = k+1;
     for( d=0; d<3; d++ )
-      pcoor[3*k+d] = pcoor_all[3*pmask[k]+d];
-    pref[k] = pref_all[pmask[k]];
+      pcoor[3*k+d] = pcoor_all[3*(pmask[k]-1)+d];
+    pref[k] = pref_all[pmask[k]-1];
   }
   for( k=0; k<ne; k++ ) {
     for( d=0; d<4; d++ )
-      evert[4*k+d] = inv_pmask[evert_all[4*emask[k]+d]-1]+1;
-    eref[k] = eref_all[emask[k]];
+      evert[4*k+d] = inv_pmask[evert_all[4*(emask[k]-1)+d]-1];
+    eref[k] = eref_all[emask[k]-1];
   }
   for( k=0; k<nt; k++ ) {
-    inv_tmask[tmask[k]] = k;
+    inv_tmask[tmask[k]-1] = k+1;
     for( d=0; d<3; d++ )
-      tvert[3*k+d] = inv_pmask[tvert_all[3*tmask[k]+d]-1]+1;
-    tref[k] = tref_all[tmask[k]];
+      tvert[3*k+d] = inv_pmask[tvert_all[3*(tmask[k]-1)+d]-1];
+    tref[k] = tref_all[tmask[k]-1];
   }
   for( k=0; k<np; k++ ) {
-    met[k] = met_all[pmask[k]];
+    met[k] = met_all[pmask[k]-1];
   }
   for( icomm=0; icomm<ncomm; icomm++ ) {
     for( k=0; k<ntifc[icomm]; k++ ) {
-      ifc_tria_loc[icomm][k] = inv_tmask[ifc_tria_glob[icomm][k]-1]+1;
+      ifc_tria_loc[icomm][k] = inv_tmask[ifc_tria_glob[icomm][k]-1];
     }
     for( k=0; k<npifc[icomm]; k++ ) {
-      ifc_nodes_loc[icomm][k] = inv_pmask[ifc_nodes_glob[icomm][k]-1]+1;
+      ifc_nodes_loc[icomm][k] = inv_pmask[ifc_nodes_glob[icomm][k]-1];
     }
   }
 }
@@ -194,32 +194,40 @@ int main(int argc,char *argv[]) {
   int tetra_ref_all[12] = {1  ,1  ,1  ,1  ,1  ,1  ,2  ,2  ,2  ,2  ,2  ,2  };
 
   /** c) give the triangles (20 tria with 3 vertices = array of size 60  */
-  int tria_vert_all[66] = { 1,  4,  8,
-                            1,  2,  4,
-                            8,  3,  7,
-                            5,  8,  6,
-                            5,  6,  2,
-                            5,  2,  1,
-                            5,  1,  8,
-                            7,  6,  8,
-                            4,  3,  8,
-                            2,  3,  4,
-                            9,  3,  2,
-                            11, 9, 12,
-                            7, 11, 12,
-                            6,  7, 10,
-                            6, 10,  9,
-                            6,  9,  2,
-                            12,10,  7,
-                            12, 9, 10,
-                            3, 11,  7,
-                            9, 11,  3,
-                            7,  6,  2,
-                            7,  3,  2 };
+  int tria_vert_all[84] = { 1,  4,  8,/*  1 */
+                            1,  2,  4,/*  2 */
+                            8,  3,  7,/*  3 */
+                            5,  8,  6,/*  4 */
+                            5,  6,  2,/*  5 */
+                            5,  2,  1,/*  6 */
+                            5,  1,  8,/*  7 */
+                            7,  6,  8,/*  8 */
+                            4,  3,  8,/*  9 */
+                            2,  3,  4,/* 10 */
+                            9,  3,  2,/* 11 */
+                            11, 9, 12,/* 12 */
+                            7, 11, 12,/* 13 */
+                            6,  7, 10,/* 14 */
+                            6, 10,  9,/* 15 */
+                            6,  9,  2,/* 16 */
+                            12,10,  7,/* 17 */
+                            12, 9, 10,/* 18 */
+                            3, 11,  7,/* 19 */
+                            9, 11,  3,/* 20 */
+                            7,  6,  2,/* 21) on 2 procs, ifc 0-1 */
+                            7,  3,  2,/* 22) on 2 procs, ifc 0-1 */
+                            8,  6,  2,/* 23) on 4 procs, ifc 0-1 */
+                            8,  4,  2,/* 24) on 4 procs, ifc 0-3 */
+                            8,  7,  2,/* 25) on 4 procs, ifc 1-3 */
+                            2,  7,  9,/* 26) on 4 procs, ifc 1-3 */
+                            7,  9, 10,/* 27) on 4 procs, ifc 1-2 */
+                            7,  3,  9 /* 28) on 4 procs, ifc 2-3 */
+                            };
 
-  int tria_ref_all[22] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+  int tria_ref_all[28] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                            4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
-                           3, 3 };
+                           3, 3,
+                           3, 3, 3, 4, 4, 4};
 
   /** d) give solutions values and positions */
   double met_all[12] = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
@@ -305,63 +313,192 @@ int main(int argc,char *argv[]) {
       }
       break;
   }
+
   double vert_coor[3*nv],met[nv];
   int vert_ref[nv],tetra_vert[4*ne],tetra_ref[ne],tria_vert[3*nt],tria_ref[nt];
-  int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt],inv_tria_mask[22];
+  int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt],inv_tria_mask[28];
   int *ifc_tria_loc[ncomm],*ifc_nodes_loc[ncomm];
   int *ifc_tria_glob[ncomm],*ifc_nodes_glob[ncomm];
   /** a) Set interface entities (starting from 1) */
 
   for( icomm=0; icomm<ncomm; icomm++ ) {
-    ifc_tria_loc[icomm] = (int *) malloc(ntifc[icomm]*sizeof(int));
-    ifc_tria_glob[icomm] = (int *) malloc(ntifc[icomm]*sizeof(int));
-    ifc_nodes_loc[icomm] = (int *) malloc(npifc[icomm]*sizeof(int));
+    ifc_tria_loc[icomm]   = (int *) malloc(ntifc[icomm]*sizeof(int));
+    ifc_tria_glob[icomm]  = (int *) malloc(ntifc[icomm]*sizeof(int));
+    ifc_nodes_loc[icomm]  = (int *) malloc(npifc[icomm]*sizeof(int));
     ifc_nodes_glob[icomm] = (int *) malloc(npifc[icomm]*sizeof(int));
-    switch( parmesh->nprocs ) {
-      case 2 :
-        ifc_tria_glob[0][0] = 21;
-        ifc_tria_glob[0][1] = 22;
-        ifc_nodes_glob[0][0] = 2;
-        ifc_nodes_glob[0][1] = 3;
-        ifc_nodes_glob[0][2] = 6;
-        ifc_nodes_glob[0][3] = 7;
-        break;
-    }
+  }
+
+  switch( parmesh->nprocs ) {
+    case 2 :
+      ifc_tria_glob[0][0] = 21;
+      ifc_tria_glob[0][1] = 22;
+      ifc_nodes_glob[0][0] = 2;
+      ifc_nodes_glob[0][1] = 3;
+      ifc_nodes_glob[0][2] = 6;
+      ifc_nodes_glob[0][3] = 7;
+      break;
+    case 4 :
+      switch( parmesh->myrank ) {
+        case 0 :
+          ifc_tria_glob[0][0] = 23;
+          ifc_nodes_glob[0][0] = 8;
+          ifc_nodes_glob[0][1] = 6;
+          ifc_nodes_glob[0][2] = 2;
+          ifc_tria_glob[1][0] = 24;
+          ifc_nodes_glob[1][0] = 8;
+          ifc_nodes_glob[1][1] = 4;
+          ifc_nodes_glob[1][2] = 2;
+          break;
+        case 1 :
+          ifc_tria_glob[0][0] = 23;
+          ifc_nodes_glob[0][0] = 8;
+          ifc_nodes_glob[0][1] = 6;
+          ifc_nodes_glob[0][2] = 2;
+          ifc_tria_glob[1][0] = 27;
+          ifc_nodes_glob[1][0] = 7;
+          ifc_nodes_glob[1][1] = 10;
+          ifc_nodes_glob[1][2] = 9;
+          ifc_tria_glob[2][0] = 25;
+          ifc_tria_glob[2][1] = 26;
+          ifc_nodes_glob[2][0] = 8;
+          ifc_nodes_glob[2][1] = 7;
+          ifc_nodes_glob[2][2] = 2;
+          ifc_nodes_glob[2][3] = 9;
+          break;
+        case 2 :
+          ifc_tria_glob[0][0] = 27;
+          ifc_nodes_glob[0][0] = 7;
+          ifc_nodes_glob[0][1] = 10;
+          ifc_nodes_glob[0][2] = 9;
+          ifc_tria_glob[1][0] = 28;
+          ifc_nodes_glob[1][0] = 7;
+          ifc_nodes_glob[1][1] = 3;
+          ifc_nodes_glob[1][2] = 9;
+          break;
+        case 3 :
+          ifc_tria_glob[0][0] = 24;
+          ifc_nodes_glob[0][0] = 8;
+          ifc_nodes_glob[0][1] = 4;
+          ifc_nodes_glob[0][2] = 2;
+          ifc_tria_glob[1][0] = 25;
+          ifc_tria_glob[1][1] = 26;
+          ifc_nodes_glob[1][0] = 8;
+          ifc_nodes_glob[1][1] = 7;
+          ifc_nodes_glob[1][2] = 2;
+          ifc_nodes_glob[1][3] = 9;
+          ifc_tria_glob[2][0] = 28;
+          ifc_nodes_glob[2][0] = 7;
+          ifc_nodes_glob[2][1] = 3;
+          ifc_nodes_glob[2][2] = 9; 
+          break;
+      }
+      break;
   }
 
 
-  switch( parmesh->myrank ) {
-    case 0:
-      {
-        int vert_mask[8]  = {  0,  1,  2,  3,  4,  5,  6,  7};
-        int tetra_mask[6] = {  0,  1,  2,  3,  4,  5};
-        int tria_mask[12] = {  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 20, 21};
-        get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
-                       tria_mask, inv_tria_mask,
-                       vert_coor,vert_coor_all,vert_ref,vert_ref_all,
-                       tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
-                       tria_vert,tria_vert_all,tria_ref,tria_ref_all,
-                       met,met_all,ncomm,
-                       ntifc,ifc_tria_loc,ifc_tria_glob,
-                       npifc,ifc_nodes_loc,ifc_nodes_glob);
-        break;
+  switch( parmesh->nprocs ) {
+    case 2 :
+      /* partitioning into 2 procs */
+      switch( parmesh->myrank ) {
+        case 0:
+          {
+            int vert_mask[8]  = {  1,  2,  3,  4,  5,  6,  7,  8};
+            int tetra_mask[6] = {  1,  2,  3,  4,  5,  6};
+            int tria_mask[12] = {  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 21, 22};
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
+        case 1:
+          {
+            int vert_mask[8]  = {  2,  3,  6,  7,  9, 10, 11, 12};
+            int tetra_mask[6] = {  7,  8,  9, 10, 11, 12};
+            int tria_mask[12] = { 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
       }
-    case 1:
-      {
-        int vert_mask[8]  = {  1,  2,  5,  6,  8,  9, 10, 11};
-        int tetra_mask[6] = {  6,  7,  8,  9, 10, 11};
-        int tria_mask[12] = { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
-        get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
-                       tria_mask, inv_tria_mask,
-                       vert_coor,vert_coor_all,vert_ref,vert_ref_all,
-                       tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
-                       tria_vert,tria_vert_all,tria_ref,tria_ref_all,
-                       met,met_all,ncomm,
-                       ntifc,ifc_tria_loc,ifc_tria_glob,
-                       npifc,ifc_nodes_loc,ifc_nodes_glob);
-        break;
+      break;
+    case 4 :
+      /* partitioning into 4 procs */
+      switch( parmesh->myrank ) {
+        case 0:
+          {
+            int vert_mask[6]  = {  1,  2,  4,  5,  6,  8};
+            int tetra_mask[3] = {  1,  3,  4};
+            int tria_mask[8]  = {  1,  2,  4,  5,  6,  7, 23, 24 };
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
+        case 1:
+          {
+            int vert_mask[6]  = {  2,  6,  7,  8,  9, 10};
+            int tetra_mask[3] = {  5,  9, 10};
+            int tria_mask[8]  = {  8, 14, 15, 16, 23, 25, 26, 27};
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
+        case 2:
+          {
+            int vert_mask[6]  = {  3,  7,  9, 10, 11, 12};
+            int tetra_mask[3] = {  8, 11, 12};
+            int tria_mask[8]  = { 12, 13, 17, 18, 19, 20, 27, 28};
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
+        case 3:
+          {
+            int vert_mask[6]  = {  2,  3,  4,  7,  8,  9};
+            int tetra_mask[3] = {  2,  6,  7};
+            int tria_mask[8]  = {  3,  9, 10, 11, 24, 25, 26, 28};
+            get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                           tria_mask, inv_tria_mask,
+                           vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                           tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                           tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                           met,met_all,ncomm,
+                           ntifc,ifc_tria_loc,ifc_tria_glob,
+                           npifc,ifc_nodes_loc,ifc_nodes_glob);
+            break;
+          }
       }
+      break;
   }
+
 
   /** 4) Pass the mesh in MMG5 format */
   /** Two solutions: just use the PMMG_loadMesh_centralized function that will
@@ -619,37 +756,43 @@ int main(int argc,char *argv[]) {
     /** ------------------------------ STEP  IV -------------------------- */
     /** recover parallel interfaces */
   
-    int next_node_comm,next_face_comm,nitem_node_comm,nitem_face_comm;
+    int next_node_comm,next_face_comm,*nitem_node_comm,*nitem_face_comm;
     ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&next_node_comm);
     ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
   
     free(color_out);
     color_out = (int *) malloc(next_node_comm*sizeof(int));
+    nitem_node_comm = (int *) malloc(next_node_comm*sizeof(int));
     for( icomm=0; icomm<next_node_comm; icomm++ )
       ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm, &color_out[icomm],
-                                             &nitem_node_comm);
+                                             &nitem_node_comm[icomm]);
  
     free(color_out);
     color_out = (int *) malloc(next_face_comm*sizeof(int));
+    nitem_face_comm = (int *) malloc(next_face_comm*sizeof(int));
     for( icomm=0; icomm<next_face_comm; icomm++ )
       ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm, &color_out[icomm],
-                                             &nitem_face_comm);
+                                             &nitem_face_comm[icomm]);
   
     int **out_tria_loc, **out_node_loc;
    
     out_node_loc = (int **) malloc(next_node_comm*sizeof(int *));
-    out_node_loc[0] = (int *) malloc(nitem_node_comm*sizeof(int));
+    for( icomm=0; icomm<next_node_comm; icomm++ )
+      out_node_loc[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
-  
-    for( ier=0; ier < nitem_node_comm; ier++ )
-      printf("rank %d node %d\n",parmesh->myrank,out_node_loc[0][ier]);
+ 
+    for( icomm=0; icomm<next_node_comm; icomm++ )
+      for( i=0; i < nitem_node_comm[icomm]; i++ )
+        printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
   
     out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
-    out_tria_loc[0] = (int *) malloc(nitem_face_comm*sizeof(int));
+    for( icomm=0; icomm<next_face_comm; icomm++ )
+      out_tria_loc[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
-  
-    for( ier=0; ier < nitem_face_comm; ier++ )
-      printf("rank %d tria %d\n",parmesh->myrank,out_tria_loc[0][ier]);
+ 
+    for( icomm=0; icomm<next_face_comm; icomm++ )
+      for( i=0; i < nitem_face_comm[icomm]; i++ )
+        printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
 
 
     /** ------------------------------ STEP III -------------------------- */
