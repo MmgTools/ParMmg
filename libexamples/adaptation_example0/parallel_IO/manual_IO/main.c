@@ -81,7 +81,7 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask, int *ema
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,ierlib,rank,k,opt,i,d;
+  int             ier,ierlib,rank,k,opt,API_mode,i,d;
   char            *metname,*solname,*fileout,*metout,*solout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
@@ -98,7 +98,7 @@ int main(int argc,char *argv[]) {
   metout  = NULL;
   tmp     = NULL;
 
-  if ( (argc!=3) && !rank ) {
+  if ( (argc!=4) && !rank ) {
     printf(" Usage: %s fileout io_option\n",argv[0]);
     printf("     io_option = 0 to Get/Set the mesh/metric/solution by array\n");
     printf("     io_option = 1 to Get/Set the mesh/metric/solution vertex by vertex\n");
@@ -133,7 +133,8 @@ int main(int argc,char *argv[]) {
   sprintf(solout, "%s-P%02d", solout, rank );
   strcat(solout,"-solphys.sol");
 
-  opt = atoi(argv[2]);
+  opt      = atoi(argv[2]);
+  API_mode = atoi(argv[3]);
 
   /** ------------------------------ STEP   I -------------------------- */
   /** 1) Initialisation of th parmesh structures */
@@ -484,18 +485,29 @@ int main(int argc,char *argv[]) {
   
   /** ------------------------------ STEP  II -------------------------- */
   /** initialization of interface communicators */
-  
-//  ier = PMMG_Set_numberOfFaceCommunicators(parmesh, 1);
-//  ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, 0,
-//                                         (parmesh->myrank+1)%2, ntifc);
-//  ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, 0,
-//                                           ifc_tria_loc, ifc_tria_glob, 1 );
  
-  ier = PMMG_Set_numberOfNodeCommunicators(parmesh, 1);
-  ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, 0,
-                                         (parmesh->myrank+1)%2, npifc);
-  ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, 0,
-                                           ifc_nodes_loc, ifc_nodes_glob, 1 );
+  switch( API_mode ) {
+    
+    case PMMG_APIDISTRIB_faces :
+      if( !rank ) printf("\n--- API mode: Setting face communicators\n");
+      
+      ier = PMMG_Set_numberOfFaceCommunicators(parmesh, 1);
+      ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, 0,
+                                             (parmesh->myrank+1)%2, ntifc);
+      ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, 0,
+                                               ifc_tria_loc, ifc_tria_glob, 1 );
+      break;
+    
+    case PMMG_APIDISTRIB_nodes :
+      if( !rank ) printf("\n--- API mode: Setting node communicators\n");
+      
+      ier = PMMG_Set_numberOfNodeCommunicators(parmesh, 1);
+      ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, 0,
+                                             (parmesh->myrank+1)%2, npifc);
+      ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, 0,
+                                               ifc_nodes_loc, ifc_nodes_glob, 1 );
+      break;
+  }
  
   /** ------------------------------ STEP III -------------------------- */
   /** remesh function */

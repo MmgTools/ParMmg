@@ -170,7 +170,7 @@
  * functions
  *
  */
-#define PMMG_APIDISTRIB_faces 1
+#define PMMG_APIDISTRIB_faces 0
 
 /**
  * \def PMMG_APIDISTRIB_nodes
@@ -179,7 +179,7 @@
  * functions
  *
  */
-#define PMMG_APIDISTRIB_nodes 2
+#define PMMG_APIDISTRIB_nodes 1
 
 /**
  * \def PMMG_UNSET
