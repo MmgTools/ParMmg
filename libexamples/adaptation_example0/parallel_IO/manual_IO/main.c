@@ -44,11 +44,11 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask, int *ema
                     double *pcoor, double *pcoor_all, int *pref, int *pref_all,
                     int *evert, int *evert_all, int *eref, int *eref_all,
                     int *tvert, int *tvert_all, int *tref, int *tref_all,
-                    double *met, double *met_all,
-                    int ntifc, int *ifc_tria_loc, int *ifc_tria_glob,
-                    int npifc, int *ifc_nodes_loc, int *ifc_nodes_glob) {
+                    double *met, double *met_all,int ncomm,
+                    int *ntifc, int **ifc_tria_loc, int **ifc_tria_glob,
+                    int *npifc, int **ifc_nodes_loc, int **ifc_nodes_glob) {
 
-  int k,d;
+  int k,d,icomm;
   int inv_tmask[22];
 
   for( k=0; k<np; k++ ) {
@@ -71,17 +71,19 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask, int *ema
   for( k=0; k<np; k++ ) {
     met[k] = met_all[pmask[k]];
   }
-  for( k=0; k<ntifc; k++ ) {
-    ifc_tria_loc[k] = inv_tmask[ifc_tria_glob[k]-1]+1;
-  }
-  for( k=0; k<npifc; k++ ) {
-    ifc_nodes_loc[k] = inv_pmask[ifc_nodes_glob[k]-1]+1;
+  for( icomm=0; icomm<ncomm; icomm++ ) {
+    for( k=0; k<ntifc[icomm]; k++ ) {
+      ifc_tria_loc[icomm][k] = inv_tmask[ifc_tria_glob[icomm][k]-1]+1;
+    }
+    for( k=0; k<npifc[icomm]; k++ ) {
+      ifc_nodes_loc[icomm][k] = inv_pmask[ifc_nodes_glob[icomm][k]-1]+1;
+    }
   }
 }
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,ierlib,rank,k,opt,API_mode,i,d;
+  int             ier,ierlib,rank,k,opt,API_mode,i,d,icomm;
   char            *metname,*solname,*fileout,*metout,*solout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
@@ -224,21 +226,92 @@ int main(int argc,char *argv[]) {
 
 
   /** 3) Manually partition the global mesh */
-  /** a) Set interface entities (starting from 1) */
-  int ifc_tria_glob[2]  = { 21, 22 };
-  int ifc_nodes_glob[4] = {  2,  3,  6,  7};
-
   /** b) Create local meshes */
-  int nv = 8;
-  int nt = 12;
-  int ne = 6;
-  int ntifc = 2;
-  int npifc = 4;
+  int nv, nt, ne, ncomm, *ntifc, *npifc;
+  switch( parmesh->nprocs ) {
+    case 2:
+      nv = 8;
+      nt = 12;
+      ne = 6;
+      ncomm = 1;
+      ntifc = (int *) malloc(ncomm*sizeof(int));
+      npifc = (int *) malloc(ncomm*sizeof(int));
+      ntifc[0] = 2;
+      npifc[0] = 4;
+      break;
+    case 4 :
+      nv = 6;
+      nt = 8;
+      ne = 3;
+      switch( rank ) {
+        case 0 :
+          ncomm = 2;
+          ntifc = (int *) malloc(ncomm*sizeof(int));
+          npifc = (int *) malloc(ncomm*sizeof(int));
+          ntifc[0] = 1;
+          ntifc[1] = 1;
+          npifc[0] = 3;
+          npifc[1] = 3;
+          break;
+        case 1 :
+          ncomm = 3;
+          ntifc = (int *) malloc(ncomm*sizeof(int));
+          npifc = (int *) malloc(ncomm*sizeof(int));
+          ntifc[0] = 1;
+          ntifc[1] = 1;
+          ntifc[2] = 2;
+          npifc[0] = 3;
+          npifc[1] = 3;
+          npifc[2] = 4;
+          break;
+        case 2 :
+          ncomm = 2;
+          ntifc = (int *) malloc(ncomm*sizeof(int));
+          npifc = (int *) malloc(ncomm*sizeof(int));
+          ntifc[0] = 1;
+          ntifc[1] = 1;
+          npifc[0] = 3;
+          npifc[1] = 3;
+          break;
+        case 3 :
+          ncomm = 3;
+          ntifc = (int *) malloc(ncomm*sizeof(int));
+          npifc = (int *) malloc(ncomm*sizeof(int));
+          ntifc[0] = 1;
+          ntifc[1] = 2;
+          ntifc[2] = 1;
+          npifc[0] = 3;
+          npifc[1] = 4;
+          npifc[2] = 3;
+          break;
+      }
+      break;
+  }
   double vert_coor[3*nv],met[nv];
   int vert_ref[nv],tetra_vert[4*ne],tetra_ref[ne],tria_vert[3*nt],tria_ref[nt];
   int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt];
-  int ifc_tria_loc[ntifc],ifc_nodes_loc[npifc];
- 
+  int *ifc_tria_loc[ncomm],*ifc_nodes_loc[ncomm];
+  int *ifc_tria_glob[ncomm],*ifc_nodes_glob[ncomm];
+  /** a) Set interface entities (starting from 1) */
+
+  for( icomm=0; icomm<ncomm; icomm++ ) {
+    ifc_tria_loc[icomm] = (int *) malloc(ntifc[icomm]*sizeof(int));
+    ifc_tria_glob[icomm] = (int *) malloc(ntifc[icomm]*sizeof(int));
+    ifc_nodes_loc[icomm] = (int *) malloc(npifc[icomm]*sizeof(int));
+    ifc_nodes_glob[icomm] = (int *) malloc(npifc[icomm]*sizeof(int));
+    switch( parmesh->nprocs ) {
+      case 2 :
+        ifc_tria_glob[0][0] = 21;
+        ifc_tria_glob[0][1] = 22;
+        ifc_nodes_glob[0][0] = 2;
+        ifc_nodes_glob[0][1] = 3;
+        ifc_nodes_glob[0][2] = 6;
+        ifc_nodes_glob[0][3] = 7;
+        break;
+    }
+  }
+
+
   switch( parmesh->myrank ) {
     case 0:
       {
@@ -249,7 +322,7 @@ int main(int argc,char *argv[]) {
                        vert_coor,vert_coor_all,vert_ref,vert_ref_all,
                        tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
                        tria_vert,tria_vert_all,tria_ref,tria_ref_all,
-                       met,met_all,
+                       met,met_all,ncomm,
                        ntifc,ifc_tria_loc,ifc_tria_glob,
                        npifc,ifc_nodes_loc,ifc_nodes_glob);
         break;
@@ -263,7 +336,7 @@ int main(int argc,char *argv[]) {
                        vert_coor,vert_coor_all,vert_ref,vert_ref_all,
                        tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
                        tria_vert,tria_vert_all,tria_ref,tria_ref_all,
-                       met,met_all,
+                       met,met_all,ncomm,
                        ntifc,ifc_tria_loc,ifc_tria_glob,
                        npifc,ifc_nodes_loc,ifc_nodes_glob);
         break;
@@ -491,21 +564,29 @@ int main(int argc,char *argv[]) {
     case PMMG_APIDISTRIB_faces :
       if( !rank ) printf("\n--- API mode: Setting face communicators\n");
       
-      ier = PMMG_Set_numberOfFaceCommunicators(parmesh, 1);
-      ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, 0,
-                                             (parmesh->myrank+1)%2, ntifc);
-      ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, 0,
-                                               ifc_tria_loc, ifc_tria_glob, 1 );
+      ier = PMMG_Set_numberOfFaceCommunicators(parmesh, ncomm);
+      for( icomm=0; icomm<ncomm; icomm++ ) {
+        ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm,
+                                               (parmesh->myrank+1)%2,
+                                               ntifc[icomm]);
+        ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm,
+                                                 ifc_tria_loc[icomm],
+                                                 ifc_tria_glob[icomm], 1 );
+      }
       break;
     
     case PMMG_APIDISTRIB_nodes :
       if( !rank ) printf("\n--- API mode: Setting node communicators\n");
       
-      ier = PMMG_Set_numberOfNodeCommunicators(parmesh, 1);
-      ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, 0,
-                                             (parmesh->myrank+1)%2, npifc);
-      ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, 0,
-                                               ifc_nodes_loc, ifc_nodes_glob, 1 );
+      ier = PMMG_Set_numberOfNodeCommunicators(parmesh, ncomm);
+      for( icomm=0; icomm<ncomm; icomm++ ) {
+        ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, icomm,
+                                               (parmesh->myrank+1)%2,
+                                               npifc[icomm]);
+        ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm,
+                                                 ifc_nodes_loc[icomm],
+                                                 ifc_nodes_glob[icomm], 1 );
+      }
       break;
   }
  
