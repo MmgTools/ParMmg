@@ -275,14 +275,18 @@ IF( BUILD_TESTING )
   SET ( input_met "" )
   SET ( input_sol "" )
   SET ( output_mesh ${CI_DIR_RESULTS}/io-seq-par-cube.o )
-  SET ( options "0" )
-  SET ( API_mode "0" )
-  SET ( NP 2 )
 
   ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
-  ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-    $<TARGET_FILE:${test_name}>
-    ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )
+
+  FOREACH( options 0 1 )
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 )
+        ADD_TEST ( NAME ${test_name}_io_${options}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )
+      ENDFOREACH()
+    ENDFOREACH()
+  ENDFOREACH()
 
 
 ENDIF()
