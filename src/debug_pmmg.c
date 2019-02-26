@@ -230,7 +230,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
 
 
 /**
- * \param parmesh filename to open
+ * \param parmesh pointer toward the parmesh structure
  * \param basename filenames prefix
  *
  * Write meshes and metrics of all groups in medit format.
@@ -246,6 +246,16 @@ int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator (face or node one)
+ * \param ext_comm pointer toward the external communicators (face or node ones)
+ * \param next_comm number of external communicators
+ *
+ * For each item in the external communicators, print their index in the
+ * internal communicator..
+ *
+ */
 void PMMG_print_ext_comm( PMMG_pParMesh parmesh, PMMG_pInt_comm int_comm,
                           PMMG_pExt_comm ext_comm, int next_comm ) {
   PMMG_pExt_comm pext_comm;

@@ -249,14 +249,23 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  /* Use flag to mark visited points */
-  for( ip=1; ip<=mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    ppt->flag = PMMG_NUL;
+  /* Use flag to mark visited points:
+   * - points are initially marked with PMMG_NUL;
+   * - when counting int comm items, points are marked with PMMG_UNSET;
+   * - when filling communicators, points are marked with their index in the
+   *   internal comm.
+   */
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      ppt->flag = PMMG_NUL;
+    }
   }
 
-  /* Count internal communicator items (the same node can be in several external
-   * communicators) */
+  /** 1) Count internal communicator items (the same node can be in several
+   *     external communicators) */
   nitem_int_node_comm = 0;
   for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[iext_comm];
@@ -278,7 +287,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,nitem_int_node_comm,int,"node2int_node_comm_index2",return 0);
   grp->nitem_int_node_comm = nitem_int_node_comm;
 
-  /* Set communicators indexing */
+  /** 2) Set communicators indexing */
   iint = 0;
   for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[iext_comm];
@@ -292,7 +301,8 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
         grp->node2int_node_comm_index2[iint] = iint;
         ext_node_comm->int_comm_index[iext] = iint++;
       } else {
-        /* Point already in the communicator */
+        /* Point already in the int communicator: only the ext comm needs to be
+         * updated */
         ext_node_comm->int_comm_index[iext] = ppt->flag;
       }
     }
@@ -319,7 +329,8 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
   /* Only one group */
   grp = &parmesh->listgrp[0];
 
-  /* Count internal communicator items */
+  /* Count internal communicator items (as each face can be only in one
+   * ext_comm, simply ssum the nb of items in each ext_comm) */
   nitem_int_face_comm = 0;
   for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
@@ -335,7 +346,8 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,"face2int_face_comm_index2",return 0);
   grp->nitem_int_face_comm = nitem_int_face_comm;
 
-  /* Set communicators indexing */
+  /* Set communicators indexing (faces in the ext comms are concatenated into
+   * the internal comm) */
   iint = 0;
   for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
