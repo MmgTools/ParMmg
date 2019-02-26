@@ -27,20 +27,44 @@
 int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                     int **ifc_node_loc,int **ifc_node_glob,
                     int next_node_comm,int *nitem_node_comm) {
-  PMMG_lnkdList  **proclist;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
-  int            *oldIdx;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
-  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i,idx;
+
+  mesh = parmesh->listgrp[0].mesh;
 
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
-  /* Count nb of new pairs hosted on proc */
-  npairs_loc = 0;
+  /* Use points flag to mark interface points:
+   * - interface points are initialised as PMMG_NUL;
+   * - once a point is counted by an interface, it is marked as PMMG_UNSET;
+   * - once a point is given a global ID, it is flagged with it so that other
+   *   interfaces can see it.
+   */
   for( icomm = 0; icomm < next_node_comm; icomm++ )
-    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_node_comm[icomm];//1;
+    for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+      ppt = &mesh->point[ifc_node_loc[icomm][i]];
+      ppt->flag = PMMG_NUL;
+    }
+
+  /* Count nb of new pairs hosted on proc: points on multiple interfaces
+   * need to be counted only once. */
+  npairs_loc = 0;
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    if( color_out[icomm] > parmesh->myrank ) {
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        if( ppt->flag == PMMG_UNSET ) continue;
+        ppt->flag = PMMG_UNSET;
+        npairs_loc += 1;
+      }
+    }
+  }
+
 
   /* Get nb of pairs and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
@@ -50,13 +74,24 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
   printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
 
-  
+ 
+  /* Points on multiple interfaces need to be counted only once */
   PMMG_CALLOC(parmesh,glob_pair_displ,next_node_comm+1,int,"glob_pair_displ",return 0); 
   for( icomm = 0; icomm < next_node_comm; icomm++ )
     glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    if( color_out[icomm] > parmesh->myrank )
-      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_node_comm[icomm];//+1;
+    if( color_out[icomm] > parmesh->myrank ) {
+      idx = 0;
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm];
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        if( ppt->flag == PMMG_UNSET ) {
+          ppt->flag = glob_pair_displ[icomm]+idx++;
+          glob_pair_displ[icomm+1]++;
+        }
+      }
+    }
   }
 
   /* Compute global pair enumeration (injective, non-surjective map) */
@@ -83,9 +118,24 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     printf("color_in %d color_out %d id %d\n",parmesh->myrank,color_out[icomm],glob_pair_displ[icomm]);
   }
  
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
-    for( i=0; i < nitem_node_comm[icomm]; i++ )
-      ifc_node_glob[icomm][i] = glob_pair_displ[icomm]+i;
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    /* Build global ID if needed, collect IDs otherwise */
+    if( color_out[icomm] < parmesh->myrank ) {
+      idx = 0;
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        if( ppt->flag == PMMG_UNSET ) {
+          ppt->flag = glob_pair_displ[icomm]+idx++;
+        }
+        ifc_node_glob[icomm][i] = ppt->flag;
+      }
+    } else {
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        ifc_node_glob[icomm][i] = ppt->flag;
+      }
+    }
+  }
 
   return 1;
 }
@@ -94,10 +144,8 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
 int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                     int **ifc_tria_loc,int **ifc_tria_glob,
                     int next_face_comm,int *nitem_face_comm) {
-  PMMG_lnkdList  **proclist;
   MPI_Request    request;
   MPI_Status     status;
-  int            *oldIdx;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
 
@@ -443,6 +491,14 @@ int main(int argc,char *argv[]) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
+
+  /* Color interface nodes with global enumeration */
+  if( !color_intfcNode(parmesh,color_node_out,out_node_loc,out_node_glob,
+                       next_node_comm,nitem_node_comm) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
 
 //  if ( ier != PMMG_STRONGFAILURE ) {
 //    /** ------------------------------ STEP III -------------------------- */
