@@ -382,7 +382,9 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
       mesh->point[iloc].flag = iglob;
     }
   }
-
+  PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"ext comm itosend array");
+  PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"ext comm itorecv array");
+  ext_node_comm->nitem_to_share = 0; 
 
   /** 2) Hash triangles with global node index: This avoids the occurrence of
    * non-boundary faces connected to three parallel nodes. */
