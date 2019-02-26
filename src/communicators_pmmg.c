@@ -252,18 +252,19 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
   /* Use flag to mark visited points */
   for( ip=1; ip<=mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    ppt->flag = 0;
+    ppt->flag = PMMG_NUL;
   }
 
-  /* Count internal communicator items */
+  /* Count internal communicator items (the same node can be in several external
+   * communicators) */
   nitem_int_node_comm = 0;
   for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[iext_comm];
     for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
       ip = ext_node_comm->int_comm_index[iext];
       ppt = &mesh->point[ip];
-      if( ppt->flag == 1 ) continue;
-      ppt->flag = 1;
+      if( ppt->flag == PMMG_UNSET ) continue;
+      ppt->flag = PMMG_UNSET;
       nitem_int_node_comm++;
     }
   }
@@ -284,11 +285,16 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
     for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
       ip = ext_node_comm->int_comm_index[iext];
       ppt = &mesh->point[ip];
-      if( ppt->flag == 2 ) continue;
-      ppt->flag = 2;
-      grp->node2int_node_comm_index1[iint] = ip;
-      grp->node2int_node_comm_index2[iint] = iint;
-      ext_node_comm->int_comm_index[iext] = iint++;
+      if( ppt->flag == PMMG_UNSET ) {
+        /* New point */
+        ppt->flag = iint;
+        grp->node2int_node_comm_index1[iint] = ip;
+        grp->node2int_node_comm_index2[iint] = iint;
+        ext_node_comm->int_comm_index[iext] = iint++;
+      } else {
+        /* Point already in the communicator */
+        ext_node_comm->int_comm_index[iext] = ppt->flag;
+      }
     }
   }
   assert( iint == nitem_int_node_comm );
