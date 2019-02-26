@@ -421,6 +421,11 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     }
   }
 
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intFaceComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
+
   return PMMG_SUCCESS;
 }
 
