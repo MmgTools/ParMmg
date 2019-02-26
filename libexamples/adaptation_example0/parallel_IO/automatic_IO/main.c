@@ -24,32 +24,23 @@
 #include "parmmg.h"
 #include "linkedlist_pmmg.h"
 
-int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int next_face_comm_IN,MMG5_pMesh meshIN) {
-  PMMG_pExt_comm pext_face_comm;
+int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
+                    int **ifc_tria_loc,int **ifc_tria_glob,
+                    int next_face_comm,int *nitem_face_comm) {
   PMMG_lnkdList  **proclist;
   MPI_Request    request;
   MPI_Status     status;
-  int            *array1,*array2,*oldIdx;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_index;
+  int            *oldIdx;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
 
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
-  PMMG_CALLOC(parmesh,array1,next_face_comm_IN,int,"array1",return 0);
-  PMMG_CALLOC(parmesh,array2,next_face_comm_IN,int,"array2",return 0);
-  PMMG_CALLOC(parmesh,oldIdx,next_face_comm_IN,int,"oldIdx",return 0);
-
-
   /* Count nb of new pairs hosted on proc */
   npairs_loc = 0;
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    pext_face_comm = &pext_face_comm_IN[icomm];
-    array1[icomm] = icomm;
-    array2[icomm] = pext_face_comm->color_out;
-    if( pext_face_comm->color_out < pext_face_comm->color_in ) continue;
-    npairs_loc += 1;
-  }
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_face_comm[icomm];//1;
 
   /* Get nb of pairs and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
@@ -59,57 +50,42 @@ int color_intfcTria(PMMG_pParMesh parmesh,PMMG_pExt_comm pext_face_comm_IN,int n
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
   printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
 
-  /* Sort lists based on proc pairs, in ascending order */ 
-  if( !PMMG_sort_iarray(parmesh,array1,array2,oldIdx,next_face_comm_IN) )
-    return 0;
   
-  /* Compute global pair enumeration */
-  PMMG_CALLOC(parmesh,glob_pair_index,next_face_comm_IN,int,"glob_pair_index",return 0);
-  iloc = 0;
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-    /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
+  PMMG_CALLOC(parmesh,glob_pair_displ,next_face_comm+1,int,"glob_pair_displ",return 0); 
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+    if( color_out[icomm] > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_face_comm[icomm];//+1;
+  }
+
+  /* Compute global pair enumeration (injective, non-surjective map) */
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
     
     /* Assign global index */
-    src = fmin(pext_face_comm->color_in,pext_face_comm->color_out);
-    dst = fmax(pext_face_comm->color_in,pext_face_comm->color_out);
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
     tag = parmesh->nprocs*src+dst;
-    if( pext_face_comm->color_in == src ) {
-      glob_pair_index[icomm] = displ_pair[parmesh->myrank]+iloc++;
-      sendbuffer = glob_pair_index[icomm];
+    if( parmesh->myrank == src ) {
+      sendbuffer = glob_pair_displ[icomm];
       MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
                             parmesh->comm,&request),return 0 );
     }
-    if ( pext_face_comm->color_in == dst ) {
+    if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      glob_pair_index[icomm] = recvbuffer;
+      glob_pair_displ[icomm] = recvbuffer;
     }
   }
 
-  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
     /* Get face comm in permuted ordered */
-    pext_face_comm = &pext_face_comm_IN[ oldIdx[icomm] ];
-    printf("color_in %d color_out %d id %d\n",pext_face_comm->color_in,pext_face_comm->color_out,glob_pair_index[icomm]);
+    printf("color_in %d color_out %d id %d\n",parmesh->myrank,color_out[icomm],glob_pair_displ[icomm]);
   }
  
-
-//  /* Put global triangle enumeration in the internal communicator */
-//  PMMG_CALLOC(parmesh,parmesh->int_face_comm->intvalues,parmesh->int_face_comm->nitem,int,"global tria indices",return 0);
-//  for( icomm = 0; icomm < next_face_comm_IN; icomm++ ) {
-//    /* Get face comm in permuted ordered */
-//    pext_face_comm = &pext_face_comm_IN[proclist[icomm]->id];
-//    
-//    /* Put index in the internal communicator */
-//    for( i = 0; i < pext_face_comm->nitem; i++ )
-//      parmesh->int_face_comm->intvalues[i] = offset[parmesh->myrank]+displs[icomm]+i+1;
-//
-//  }
-
-  /* Deallocations */
-  PMMG_DEL_MEM(parmesh,array1,int,"array1");
-  PMMG_DEL_MEM(parmesh,array2,int,"array1");
-  PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    for( i=0; i < nitem_face_comm[icomm]; i++ )
+      ifc_tria_glob[icomm][i] = glob_pair_displ[icomm]+i;
 
   return 1;
 }
@@ -251,6 +227,13 @@ int main(int argc,char *argv[]) {
   /** ------------------------------ STEP  III ------------------------- */
   /** Swap meshes, so that you can use meshIN to initialize mesh */
 
+  /* Create boundary entities */
+  mesh = parmesh->listgrp[0].mesh;
+  if( MMG3D_bdryBuild(mesh) == -1) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
   /* Create meshIN */
   meshIN = NULL;
   solIN = NULL;
@@ -267,11 +250,7 @@ int main(int argc,char *argv[]) {
   parmesh->listgrp[0].mesh = mesh;
   mesh = parmesh->listgrp[0].mesh;
 
-  /* Create boundary entities */
-  if( MMG3D_bdryBuild(meshIN) == -1) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
+
   int *local_face_index,*global_face_index;
   PMMG_CALLOC(parmesh,local_face_index,meshIN->nt,int,"local tria indices",return 0);
   PMMG_CALLOC(parmesh,global_face_index,meshIN->nt,int,"global tria indices",return 0);
@@ -391,11 +370,12 @@ int main(int argc,char *argv[]) {
  
 
   
-//  /* Color interface triangles with global enumeration */
-//  if( !color_intfcTria(parmesh,pext_face_comm_IN,next_face_comm_IN,meshIN) ) {
-//    MPI_Finalize();
-//    exit(EXIT_FAILURE);
-//  }
+  /* Color interface triangles with global enumeration */
+  if( !color_intfcTria(parmesh,color_face_out,out_tria_loc,out_tria_glob,
+                       next_face_comm,nitem_face_comm) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
 //  if ( ier != PMMG_STRONGFAILURE ) {
 //    /** ------------------------------ STEP III -------------------------- */
