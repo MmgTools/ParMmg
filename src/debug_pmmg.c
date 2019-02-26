@@ -246,6 +246,23 @@ int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
   return 1;
 }
 
+void PMMG_print_ext_comm( PMMG_pParMesh parmesh, PMMG_pInt_comm int_comm,
+                          PMMG_pExt_comm ext_comm, int next_comm ) {
+  PMMG_pExt_comm pext_comm;
+  int iext_comm,iext;
+
+  printf("myrank %d, int comm nitem %d\n",parmesh->myrank,int_comm->nitem);
+  for( iext_comm = 0; iext_comm < next_comm; iext_comm++ ) {
+    pext_comm = &ext_comm[iext_comm];
+    for( iext = 0; iext < pext_comm->nitem; iext++ ) {
+      printf("  myrank %d, ext comm %d, color out %d, item %d, idx %d\n",
+             parmesh->myrank,iext_comm,pext_comm->color_out,iext,
+             pext_comm->int_comm_index[iext]);
+    }
+  }
+
+}
+
 /**
  * \param msg custom message to print in the beggining of the report
  * \param id process number
