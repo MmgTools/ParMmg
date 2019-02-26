@@ -24,6 +24,73 @@
 #include "parmmg.h"
 #include "linkedlist_pmmg.h"
 
+int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
+                    int **ifc_node_loc,int **ifc_node_glob,
+                    int next_node_comm,int *nitem_node_comm) {
+  PMMG_lnkdList  **proclist;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            *oldIdx;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
+
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+
+  /* Count nb of new pairs hosted on proc */
+  npairs_loc = 0;
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_node_comm[icomm];//1;
+
+  /* Get nb of pairs and compute pair offset */
+  MPI_Allgather( &npairs_loc,1,MPI_INT,
+                 npairs,1,MPI_INT,parmesh->comm );
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
+  printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
+
+  
+  PMMG_CALLOC(parmesh,glob_pair_displ,next_node_comm+1,int,"glob_pair_displ",return 0); 
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    if( color_out[icomm] > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_node_comm[icomm];//+1;
+  }
+
+  /* Compute global pair enumeration (injective, non-surjective map) */
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    
+    /* Assign global index */
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      sendbuffer = glob_pair_displ[icomm];
+      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      glob_pair_displ[icomm] = recvbuffer;
+    }
+  }
+
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    /* Get face comm in permuted ordered */
+    printf("color_in %d color_out %d id %d\n",parmesh->myrank,color_out[icomm],glob_pair_displ[icomm]);
+  }
+ 
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    for( i=0; i < nitem_node_comm[icomm]; i++ )
+      ifc_node_glob[icomm][i] = glob_pair_displ[icomm]+i;
+
+  return 1;
+}
+
+
 int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                     int **ifc_tria_loc,int **ifc_tria_glob,
                     int next_face_comm,int *nitem_face_comm) {
