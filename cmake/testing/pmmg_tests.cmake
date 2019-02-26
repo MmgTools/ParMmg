@@ -269,23 +269,54 @@ IF( BUILD_TESTING )
   ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
 
   # Distributed test
-  SET ( test_name libparmmg_distributed_manual_example0 )
-  SET ( main_path ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c )
-  SET ( input_mesh "" )
-  SET ( input_met "" )
-  SET ( input_sol "" )
-  SET ( output_mesh ${CI_DIR_RESULTS}/io-seq-par-cube.o )
+  SET ( PMMG_DISTR_LIB_TESTS
+    libparmmg_distributed_manual_example0
+    libparmmg_distributed_automatic_example0
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
+    ""
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTMET
+    ""
+    ""
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTSOL
+    ""
+    ""
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
+    ${CI_DIR_RESULTS}/io-seq-par-manual-cube.o
+    ${CI_DIR_RESULTS}/io-seq-par-automatic-cube.o
+    )
 
-  ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+  LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
+  MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
-  FOREACH( options 0 1 )
-    FOREACH( API_mode 0 1 )
-      FOREACH( NP 2 4 )
-        ADD_TEST ( NAME ${test_name}_io_${options}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-          $<TARGET_FILE:${test_name}>
-          ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )
+  FOREACH ( test_idx RANGE ${nbTests} )
+    LIST ( GET PMMG_DISTR_LIB_TESTS            ${test_idx} test_name )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMET   ${test_idx} input_met )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+
+    FOREACH( options 0 1 )
+      FOREACH( API_mode 0 1 )
+        FOREACH( NP 2 4 )
+          ADD_TEST ( NAME ${test_name}_io_${options}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+            $<TARGET_FILE:${test_name}>
+            ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )
+        ENDFOREACH()
       ENDFOREACH()
     ENDFOREACH()
+
   ENDFOREACH()
 
 
