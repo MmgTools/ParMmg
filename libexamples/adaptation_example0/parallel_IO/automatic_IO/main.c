@@ -26,6 +26,17 @@
 #define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
 #define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
 
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_node_loc local IDs of interface nodes
+ * \param ifc_node_glob global IDs of interface nodes
+ * \param next_node_comm number of node interfaces
+ * \param nitem_node_comm number of nodes on each interface
+ *
+ * Create global IDs for nodes on parallel interfaces.
+ *
+ */
 int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                     int **ifc_node_loc,int **ifc_node_glob,
                     int next_node_comm,int *nitem_node_comm) {
@@ -63,7 +74,6 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
-  printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
 
  
   PMMG_CALLOC(parmesh,glob_pair_displ,next_node_comm+1,int,"glob_pair_displ",return 0); 
@@ -93,10 +103,6 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    /* Get face comm in permuted ordered */
-    printf("color_in %d color_out %d id %d\n",parmesh->myrank,color_out[icomm],glob_pair_displ[icomm]);
-  }
  
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     /* Assign global ID if the point is visited for the first time,, collect ID
@@ -136,7 +142,6 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     PMMG_CALLOC(parmesh,itorecv[icomm],nitem_node_comm[icomm],int,"itorecv",return 0); 
     
-    /* Assign global index */
     src = fmin(parmesh->myrank,color_out[icomm]);
     dst = fmax(parmesh->myrank,color_out[icomm]);
     tag = parmesh->nprocs*src+dst;
@@ -159,7 +164,17 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   return 1;
 }
 
-
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_tria_loc local IDs of interface triangles
+ * \param ifc_tria_glob global IDs of interface triangles
+ * \param next_face_comm number of triangle interfaces
+ * \param nitem_face_comm number of triangles on each interface
+ *
+ * Create global IDs for triangles on parallel interfaces.
+ *
+ */
 int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                     int **ifc_tria_loc,int **ifc_tria_glob,
                     int next_face_comm,int *nitem_face_comm) {
@@ -182,7 +197,6 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
-  printf("rank %d npairs_loc %d displ %d\n",parmesh->myrank,npairs_loc,displ_pair[parmesh->myrank]);
 
   
   PMMG_CALLOC(parmesh,glob_pair_displ,next_face_comm+1,int,"glob_pair_displ",return 0); 
@@ -212,14 +226,10 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
-  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
-    /* Get face comm in permuted ordered */
-    printf("color_in %d color_out %d id %d\n",parmesh->myrank,color_out[icomm],glob_pair_displ[icomm]);
-  }
- 
   for( icomm = 0; icomm < next_face_comm; icomm++ )
     for( i=0; i < nitem_face_comm[icomm]; i++ )
       ifc_tria_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+
 
   /* Check global IDs */
   int **itorecv;
@@ -227,7 +237,6 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
   for( icomm = 0; icomm < next_face_comm; icomm++ ) {
     PMMG_CALLOC(parmesh,itorecv[icomm],nitem_face_comm[icomm],int,"itorecv",return 0); 
     
-    /* Assign global index */
     src = fmin(parmesh->myrank,color_out[icomm]);
     dst = fmax(parmesh->myrank,color_out[icomm]);
     tag = parmesh->nprocs*src+dst;
@@ -412,10 +421,6 @@ int main(int argc,char *argv[]) {
   }
 
 
-  int *local_face_index,*global_face_index;
-  PMMG_CALLOC(parmesh,local_face_index,mesh->nt,int,"local tria indices",return 0);
-  PMMG_CALLOC(parmesh,global_face_index,mesh->nt,int,"global tria indices",return 0);
-
   /** recover parallel interfaces */
 
   int next_node_comm,next_face_comm,*nitem_node_comm,*nitem_face_comm;
@@ -471,6 +476,7 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
+/*
   for( icomm=0; icomm<next_face_comm; icomm++ )
     for( i=0; i < nitem_face_comm[icomm]; i++ )
       printf("rank %d comm %d tria loc %d glob %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i],out_tria_glob[icomm][i]);
@@ -479,9 +485,9 @@ int main(int argc,char *argv[]) {
   for( icomm=0; icomm<next_node_comm; icomm++ )
     for( i=0; i < nitem_node_comm[icomm]; i++ )
       printf("rank %d comm %d node loc %d glob %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i],out_node_glob[icomm][i]);
+*/
 
-
-  /* Create meshIN */
+  /* Create input mesh: meshIN */
   meshIN = NULL;
   solIN = NULL;
   MMG3D_Init_mesh(MMG5_ARG_start,
@@ -491,13 +497,14 @@ int main(int argc,char *argv[]) {
   if ( MMG3D_Set_meshSize(meshIN,mesh->np,mesh->ne,mesh->nprism,mesh->nt,
                           mesh->nquad,mesh->na) != 1 ) exit(EXIT_FAILURE);
 
-  /* Swap meshes */
+  /* Swap meshes in order to free and recreate parmesh structures*/
   mesh = meshIN;
   meshIN = parmesh->listgrp[0].mesh;
   parmesh->listgrp[0].mesh = mesh;
   mesh = parmesh->listgrp[0].mesh;
 
 
+  /* Free and recreate parmesh structures */
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,
                 PMMG_ARG_end);
@@ -553,6 +560,7 @@ int main(int argc,char *argv[]) {
   }
 
 
+  /* Set triangles or nodes interfaces depending on API mode */
   switch( API_mode ) {
     
     case PMMG_APIDISTRIB_faces :
@@ -630,18 +638,20 @@ int main(int argc,char *argv[]) {
       out_node_loc[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
  
-    for( icomm=0; icomm<next_node_comm; icomm++ )
-      for( i=0; i < nitem_node_comm[icomm]; i++ )
-        printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
-  
     out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
     for( icomm=0; icomm<next_face_comm; icomm++ )
       out_tria_loc[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
+
+
+    for( icomm=0; icomm<next_node_comm; icomm++ )
+      for( i=0; i < nitem_node_comm[icomm]; i++ )
+        printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
  
     for( icomm=0; icomm<next_face_comm; icomm++ )
       for( i=0; i < nitem_face_comm[icomm]; i++ )
         printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
+
 
     /** ------------------------------ STEP VII --------------------------- */
     /** get results */

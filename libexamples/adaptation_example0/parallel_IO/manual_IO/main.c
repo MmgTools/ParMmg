@@ -781,15 +781,15 @@ int main(int argc,char *argv[]) {
       out_node_loc[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
  
-    for( icomm=0; icomm<next_node_comm; icomm++ )
-      for( i=0; i < nitem_node_comm[icomm]; i++ )
-        printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
-  
     out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
     for( icomm=0; icomm<next_face_comm; icomm++ )
       out_tria_loc[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
  
+    for( icomm=0; icomm<next_node_comm; icomm++ )
+      for( i=0; i < nitem_node_comm[icomm]; i++ )
+        printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
+  
     for( icomm=0; icomm<next_face_comm; icomm++ )
       for( i=0; i < nitem_face_comm[icomm]; i++ )
         printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
