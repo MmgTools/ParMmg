@@ -290,8 +290,8 @@ IF( BUILD_TESTING )
     ""
     )
   SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
-    ${CI_DIR_RESULTS}/io-seq-par-manual-cube.o
-    ${CI_DIR_RESULTS}/io-seq-par-automatic-cube.o
+    ${CI_DIR_RESULTS}/io-par-manual-cube.o
+    ${CI_DIR_RESULTS}/io-par-automatic-cube.o
     )
 
   LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
@@ -307,13 +307,11 @@ IF( BUILD_TESTING )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 
-    FOREACH( options 0 1 )
-      FOREACH( API_mode 0 1 )
-        FOREACH( NP 2 4 )
-          ADD_TEST ( NAME ${test_name}_io_${options}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-            $<TARGET_FILE:${test_name}>
-            ${input_mesh} ${output_mesh} ${options} ${API_mode} ${input_met} )
-        ENDFOREACH()
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 4 )
+        ADD_TEST ( NAME ${test_name}_io_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${input_mesh} ${output_mesh}_io_${API_mode}-${NP} ${API_mode} ${input_met} )
       ENDFOREACH()
     ENDFOREACH()
 

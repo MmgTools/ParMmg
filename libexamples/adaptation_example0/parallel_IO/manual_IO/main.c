@@ -100,10 +100,10 @@ int main(int argc,char *argv[]) {
   metout  = NULL;
   tmp     = NULL;
 
-  if ( (argc!=4) && !rank ) {
+  if ( (argc!=3) && !rank ) {
     printf(" Usage: %s fileout io_option\n",argv[0]);
-    printf("     io_option = 0 to Get/Set the mesh/metric/solution by array\n");
-    printf("     io_option = 1 to Get/Set the mesh/metric/solution vertex by vertex\n");
+    printf("     API_mode = 0 to Get/Set the parallel interfaces through triangles\n");
+    printf("     API_mode = 1 to Get/Set the parallel interfaces through nodes\n");
     return 1;
   }
 
@@ -135,8 +135,8 @@ int main(int argc,char *argv[]) {
   sprintf(solout, "%s-P%02d", solout, rank );
   strcat(solout,"-solphys.sol");
 
-  opt      = atoi(argv[2]);
-  API_mode = atoi(argv[3]);
+  opt      = 1; /* Set mesh entities vertex by vertex */
+  API_mode = atoi(argv[2]);
 
   /** ------------------------------ STEP   I -------------------------- */
   /** 1) Initialisation of th parmesh structures */
@@ -795,7 +795,7 @@ int main(int argc,char *argv[]) {
         printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
 
 
-    /** ------------------------------ STEP III -------------------------- */
+    /** ------------------------------ STEP V  ---------------------------- */
     /** get results */
     /** Two solutions: just use the PMMG_saveMesh/PMMG_saveSol functions
         that will write .mesh(b)/.sol formatted files or manually get your mesh/sol
