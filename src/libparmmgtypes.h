@@ -268,11 +268,14 @@ typedef struct {
   int imprim;  /*!< ParMmg verbosity (may be non-null only on zero rank) */
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
+  int iso;     /*!< ls mode (not yet available) */
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
+  int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
+  int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
 } PMMG_Info;
 
@@ -287,9 +290,6 @@ typedef struct {
   MPI_Comm    comm;   /*!< Global communicator of all parmmg processes */
   int         nprocs; /*!< Number of processes in global communicator */
   int         myrank; /*!< Rank in global communicator */
-
-  /* verbosity */
-  int         imprim;
 
   /* mem info */
   size_t    memGloMax; /*!< Maximum memory available to all structs */

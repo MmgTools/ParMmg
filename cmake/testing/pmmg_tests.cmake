@@ -7,6 +7,8 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
 
+  set ( myargs -niter 2 -mesh-size 16384 -metis-ratio 82 -v 5 )
+
   # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
   # on 1,2,4,6,8 processors
   foreach( MESH cube-unit-dual_density cube-unit-int_sphere )
@@ -15,7 +17,7 @@ IF( BUILD_TESTING )
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
         -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
-        -m 11000 )
+        -m 11000 ${myargs})
     endforeach()
   endforeach()
 
@@ -26,7 +28,7 @@ IF( BUILD_TESTING )
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
         -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
-        -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh )
+        -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh  ${myargs} )
     endforeach()
   endforeach()
 
@@ -38,7 +40,7 @@ IF( BUILD_TESTING )
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR_INPUTS}/Torus/torusholes.mesh
         -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
-        -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh )
+        -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh  ${myargs} )
     endforeach()
   endforeach()
 
@@ -53,7 +55,7 @@ IF( BUILD_TESTING )
     add_test( NAME Sphere-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-      -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh )
+      -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh  ${myargs} )
   endforeach()
 
   # Option without arguments
@@ -63,7 +65,7 @@ IF( BUILD_TESTING )
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         -${OPTION}
         ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-        -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh )
+        -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh  ${myargs} )
     endforeach()
   endforeach()
 
@@ -100,7 +102,7 @@ IF( BUILD_TESTING )
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${test_option}
         ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-        -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh )
+        -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh ${myargs} )
     ENDFOREACH()
   ENDFOREACH ( )
 

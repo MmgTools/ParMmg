@@ -1270,6 +1270,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                            &(*rcv_met)[*rcv_isMet],(*rcv_nmet),(*met_displs),
                            MPI_DOUBLE,root,comm),ier=2);
   }
+
   /* Internal communicator */
   MPI_CHECK( MPI_Gatherv(int_node_comm->intvalues,int_node_comm->nitem,MPI_INT,
                          (*rcv_intvalues),(*rcv_nitem_int_node_comm),
@@ -1660,7 +1661,8 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
  */
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
-  MMG5_pPoint    rcv_point;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    rcv_point,ppt;
   MMG5_pxPoint   rcv_xpoint;
   MMG5_pTetra    rcv_tetra;
   MMG5_pxTetra   rcv_xtetra;
@@ -1812,7 +1814,28 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_parmesh_Free_Comm(parmesh);
 
   /** Step 5: Update tag on points, tetra */
-  ieresult = PMMG_updateTag(parmesh);
+  if ( ieresult > 0 ) {
+    ieresult = PMMG_updateTag(parmesh);
+
+    /** Step 6: In nosurf mode, the updateTag function has added nosurf + required
+     * tag to the boundary mesh : remove its */
+    mesh = parmesh->listgrp[0].mesh;
+
+    if ( mesh->info.nosurf ) {
+
+      MMG3D_unset_reqBoundaries(mesh);
+
+      for (k=1; k<=mesh->np; k++) {
+        ppt = &mesh->point[k];
+        if ( !MG_VOK(ppt) )  continue;
+
+        if ( ppt->tag & MG_NOSURF ) {
+          ppt->tag &= ~MG_NOSURF;
+          ppt->tag &= ~MG_REQ;
+        }
+      }
+    }
+  }
 
   return ieresult;
 }

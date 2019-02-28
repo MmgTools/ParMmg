@@ -10,13 +10,13 @@
 
 /*! Helper macro used only in this file: copies the contents of fromV[fromC]
  *  to toV[toC] updates toC */
-#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {       \
-  PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg,  \
-              on_failure);                                                   \
-  strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 );       \
-  toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                               \
-  ++toC;                                                                     \
-}while(0)
+#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {  \
+    PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg, \
+                on_failure);                                            \
+    strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 ); \
+    toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                        \
+    ++toC;                                                              \
+  }while(0)
 
 /**
  * \param parmesh pointer to pmmg structure
@@ -51,7 +51,15 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
     fprintf(stdout,"maximal memory size       (-m)      : %zu MB\n",
             parmesh->memGloMax/MMG5_MILLION);
     fprintf(stdout,"\n** Parameters\n");
-    fprintf( stdout,"# of remeshing iterations (-niter)  : %d\n",parmesh->niter);
+    fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
+    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
+    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
+    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",
+             abs(PMMG_RATIO_MMG_METIS) );
+
+#ifdef USE_SCOTCH
+    fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
+#endif
 
     if ( parmesh->listgrp[0].mesh ) {
       fprintf(stdout,"\n  --- MMG ---");
@@ -73,10 +81,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n** Generic options :\n");
     fprintf(stdout,"-h         Print this message\n");
     fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
-    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    // fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
     fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
     fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
-    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    // fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
     fprintf(stdout,"-val       Print the default parameters values\n");
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
@@ -87,27 +95,30 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-sol file  load solution or metric file\n");
 
     fprintf(stdout,"\n**  Parameters\n");
-    fprintf(stdout,"-niter  val  number of remeshing iterations\n");
-    fprintf(stdout,"-ar     val  angle detection\n");
-    fprintf(stdout,"-nr          no angle detection\n");
+    fprintf(stdout,"-niter        val  number of remeshing iterations\n");
+    fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
+    fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
+
+    //fprintf(stdout,"-ar     val  angle detection\n");
+    //fprintf(stdout,"-nr          no angle detection\n");
     fprintf(stdout,"-hmin   val  minimal mesh size\n");
     fprintf(stdout,"-hmax   val  maximal mesh size\n");
     fprintf(stdout,"-hsiz   val  constant mesh size\n");
-    fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
+    // fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
     fprintf(stdout,"-hgrad  val  control gradation\n");
-    fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
+    // fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
     fprintf(stdout,"-A           enable anisotropy (without metric file).\n");
-    fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
-            " two domains of the same reference.\n");
+    // fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
+    //        " two domains of the same reference.\n");
 
 #ifdef USE_ELAS
-    fprintf(stdout,"-lag [0/1/2] Lagrangian mesh displacement according to mode 0/1/2\n");
+    // fprintf(stdout,"-lag [0/1/2] Lagrangian mesh displacement according to mode 0/1/2\n");
 #endif
 #ifndef PATTERN
     fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
 #endif
 #ifdef USE_SCOTCH
-    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+    //fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
 #endif
     fprintf(stdout,"\n");
 
@@ -136,15 +147,20 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
    * and call the mmg3d parser. */
-  for ( i = 1; i < argc; ++i )
+  for ( i = 1; i < argc; ++i ) {
     if ( !strcmp( argv[ i ],"-val" ) ) {
       RUN_ON_ROOT_AND_BCAST( PMMG_defaultValues(parmesh),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
+      ret_val = 0;
+      goto fail_mmgargv;
     }
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
       RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
+      ret_val = 0;
+      goto fail_mmgargv;
     }
+  }
 
   /* Create a new set of argc/argv variables adding only the the cl options that
      mmg has to process
@@ -181,9 +197,55 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             }
           }
           else {
-            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_proc);
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+             ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-mesh-size") ) {
+
+          /* Remesher target mesh size */
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+              val = atoi(argv[i]);
+
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_meshSize,val) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-metis-ratio") ) {
+
+          /* Number of metis super nodes per mesh */
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+              val = atoi(argv[i]);
+
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_metisRatio,val) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             ret_val = 0;
             goto fail_proc;
           }
@@ -197,20 +259,22 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         else {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
-            if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) )
+            if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) ) {
               fprintf( stderr,
-                       "Erroneous mem size requested, using default: %zu\n",
-                       parmesh->memGloMax );
+                       "\nErroneous mem size requested (%s)\n",argv[i] );
+              ret_val = 0;
+              goto fail_proc;
+            }
             else
               PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
             PMMG_parmesh_SetMemMax( parmesh, 20 );
           } else {
-            fprintf( stderr, "Missing argument option %c\n", argv[i-1][1] );
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_proc);
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+            ret_val = 0;
+            goto fail_proc;
           }
         }
-      break;
+        break;
 
       case 'n':  /* number of adaptation iterations */
         if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
@@ -220,15 +284,17 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           } else {
             parmesh->niter = PMMG_NITER;
             fprintf( stderr,
-                     "Erroneous adaptation iterations requested, using default: %d\n",
-                     parmesh->niter );
+                     "\nWrong number of adaptation iterations (%s).\n",argv[i]);
+
+            ret_val = 0;
+            goto fail_proc;
           }
         } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
         }
-      break;
+        break;
 
       case 'd':  /* debug */
         if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
@@ -236,6 +302,16 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           goto fail_proc;
         }
         break;
+#ifdef USE_SCOTCH
+      case 'r':
+        if ( !strcmp(argv[i],"-rn") ) {
+          fprintf( stderr,
+                   "\nScoth renumbering not yet available in ParMmg\n");
+          ret_val = 0;
+          goto fail_proc;
+        }
+        break;
+#endif
 
       case 'v':  /* verbosity */
         if ( ++i < argc ) {
@@ -250,10 +326,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             i--;
         }
         else {
-          fprintf(stderr,"Missing argument option %c\n",argv[i-1][1]);
-          RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                 parmesh->myrank,ret_val=0; goto fail_proc );
-          ret_val = 0;
+          fprintf(stderr,"\nMissing argument option %c\n",argv[i-1][1]);
+           ret_val = 0;
           goto fail_proc;
         }
         break;
@@ -263,7 +337,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                     " adding to mmgArgv for mmg: ",
                     ret_val = 0; goto fail_proc);
 
-      break;
+        break;
       }
     } else {
       ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,

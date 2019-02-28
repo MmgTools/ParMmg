@@ -10,10 +10,10 @@ PROJECT (parmmg)
 #####         Release version and date
 #####
 ###############################################################################
-SET (CMAKE_RELEASE_VERSION_MAJOR "0")
+SET (CMAKE_RELEASE_VERSION_MAJOR "1")
 SET (CMAKE_RELEASE_VERSION_MINOR "0")
 SET (CMAKE_RELEASE_VERSION_PATCH "0")
-SET (CMAKE_RELEASE_DATE "July 2, 2015")
+SET (CMAKE_RELEASE_DATE "Feb 15, 2019")
 
 SET (CMAKE_RELEASE_VERSION
   "${CMAKE_RELEASE_VERSION_MAJOR}.${CMAKE_RELEASE_VERSION_MINOR}.${CMAKE_RELEASE_VERSION_PATCH}")
@@ -192,7 +192,7 @@ SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 FIND_PACKAGE(Metis)
 
 IF( METIS_FOUND)
-  OPTION ( USE_METIS "Use METIS TOOL for partioning" ON)
+  OPTION ( USE_METIS "Detected METIS Tool" ON)
   IF( USE_METIS )
     # Set flags for building test program
     INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
@@ -213,8 +213,8 @@ ELSE ( )
 ENDIF ( )
 
 IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
-  MESSAGE ( STATUS "Metis integer uses ${METIS_INTSIZE} bytes."
-    " Parmetis must be build with the same integer size." )
+  MESSAGE ( WARNING "Metis integer uses ${METIS_INTSIZE} bytes."
+    " Only int32 are supported." )
 ENDIF ( )
 
 ############################################################################
@@ -227,7 +227,7 @@ SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
 FIND_PACKAGE(Parmetis)
 
 IF( PARMETIS_FOUND)
-  OPTION ( USE_PARMETIS "Use PARMETIS TOOL for partioning" ON)
+  OPTION ( USE_PARMETIS "Detected PARMETIS TOOL" ON)
   IF( USE_PARMETIS )
     # Set flags for building test program
     INCLUDE_DIRECTORIES(${PARMETIS_INCLUDE_DIRS})
@@ -239,13 +239,33 @@ IF( PARMETIS_FOUND)
     SET( LIBRARIES ${PARMETIS_LIBRARIES} ${LIBRARIES})
   ENDIF()
 ELSE ( )
-  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
-
-  MESSAGE ( ERROR " parmetis library not found: "
-    "If you have already installed ParMetis and want to use it, "
-    "please set the CMake variable or environment variable PARMETIS_DIR "
-    "to your parmetis directory.")
+#  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
+#
+#  MESSAGE ( ERROR " parmetis library not found: "
+#    "If you have already installed ParMetis and want to use it, "
+#    "please set the CMake variable or environment variable PARMETIS_DIR "
+#    "to your parmetis directory.")
 ENDIF ( )
+
+############################################################################
+#####
+#####         Scotch
+#####
+############################################################################
+# Find SCOTCH library?
+INCLUDE(cmake/modules/FindScotch.cmake)
+
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+FIND_PACKAGE(Scotch)
+
+CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
+  "SCOTCH_FOUND" OFF)
+
+IF( USE_SCOTCH )
+  # Scotch renumbering doesn't work for now
+  #  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
+ENDIF()
 
 ############################################################################
 #####

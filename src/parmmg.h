@@ -42,7 +42,7 @@ extern "C" {
  * Default number of iterations
  *
  */
-#define PMMG_NITER   2
+#define PMMG_NITER   3
 
 /**
  * \def PMMG_IMPRIM
@@ -73,6 +73,13 @@ extern "C" {
  *
  */
 #define PMMG_QUAL_MPISIZE 4
+
+/**
+ *
+ * Size of mpi datatype for length histo computation
+ *
+ */
+#define PMMG_LENSTATS_MPISIZE 12
 
 /**
  *
@@ -130,6 +137,32 @@ extern "C" {
  */
 #define PMMG_VERB_DETQUAL 5
 
+/**
+ *
+ * Split groups for metis (split_grps)
+ *
+ */
+#define PMMG_GRPSPL_METIS_TARGET 1
+
+/**
+ *
+ * Split groups for mmg (split_grps)
+ *
+ */
+#define PMMG_GRPSPL_MMG_TARGET 2
+
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_REMESHER_NGRPS_MAX = 100;
+
+/**< Number of metis node per mmg mesh... to test*/
+static const int PMMG_RATIO_MMG_METIS = -100;
+
+/**< Subgroups target size for a fast remeshing step */
+static const int PMMG_METIS_NGRPS_MAX = 1000;
 
 
 /**
@@ -314,9 +347,13 @@ extern "C" {
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param myavailable available memory at the beginning of the process
+ * \param oldMemMax initial value for parmesh->memCur
  *
  * Set memMax to memCur for every group mesh, compute the available memory and
- * give it to the parmesh */
+ * give it to the parmesh
+ *
+ */
 #define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
     int    myj;                                                         \
                                                                         \
@@ -329,6 +366,32 @@ extern "C" {
     }                                                                   \
     parmesh->memMax += myavailable;                                       \
   } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Set memMax to memCur for the parmesh, compute the available memory and
+ * repartite it to the mesh
+ *
+ */
+#define PMMG_TRANSFER_AVMEM_TO_MESHES(Parmesh) do {                     \
+    size_t myavailable;                                                 \
+    int    myj;                                                         \
+                                                                        \
+    parmesh->memMax = parmesh->memCur;                                  \
+    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
+                                                                        \
+    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
+      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
+    }                                                                   \
+    myavailable /= parmesh->ngrp;                                       \
+                                                                        \
+    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
+      parmesh->listgrp[myj].mesh->memMax += myavailable;                \
+    }                                                                   \
+  } while(0)
+
 
 
 /**
@@ -479,6 +542,7 @@ int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
+int PMMG_prilen( PMMG_pParMesh parmesh,char );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

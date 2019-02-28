@@ -407,7 +407,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_split_grps( parmesh,REMESHER_TARGET_MESH_SIZE,0 );
+  ier = PMMG_split_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0 );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -461,6 +461,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** Update old groups for metrics interpolation */
     PMMG_update_oldGrps( parmesh );
+
+    tim = 4;
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(RESET,&(ctim[tim]));
+      chrono(ON,&(ctim[tim]));
+    }
 
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
@@ -541,12 +547,19 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"\n       mmg                               %s\n",stim);
+    }
+
     if ( !ieresult )
       goto failed_handling;
 
     /** Interpolate metrics */
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       tim = 2;
+      chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 
@@ -556,7 +569,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"\n       metric interpolation              %s\n",stim);
+      fprintf(stdout,"       metric interpolation              %s\n",stim);
     }
 
     if ( !ieresult ) {
@@ -568,6 +581,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+      chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 
@@ -640,6 +654,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
+
+  /* Give memory to Mmg for the edge length computation */
+  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+
+  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
+    PMMG_prilen(parmesh,0);
+  }
+
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
 
   /** mmg3d1_delone failure */

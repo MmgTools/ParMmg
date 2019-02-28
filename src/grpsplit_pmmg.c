@@ -988,7 +988,8 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param target_mesh_size wanted number of elements per group
+ * \param target software for which we split the groups
+ * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return -1 : no possibility to save the mesh
@@ -1001,7 +1002,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
 {
   PMMG_pGrp const grpOld = parmesh->listgrp;
   PMMG_pGrp grpsNew = NULL;
@@ -1032,7 +1033,33 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh)
 
   if ( !meshOld ) goto end;
 
-  ngrp = PMMG_howManyGroups( meshOld->ne,target_mesh_size );
+  ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
+  if ( parmesh->info.target_mesh_size < 0 ) {
+    /* default value : do not authorize large number of groups */
+    ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
+  }
+
+  if ( target == PMMG_GRPSPL_METIS_TARGET ) {
+    /* Compute the number of metis nodes from the number of groups */
+    ngrp *= abs(parmesh->info.metis_ratio);
+    if ( parmesh->info.metis_ratio < 0 ) {
+      /* default value : do not authorize large number of groups */
+      if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+        printf("  ## Warning: %s: too much metis nodes needed...\n"
+               "     Partitions may remains freezed. Try to use more processors.\n",
+               __func__);
+        ngrp = PMMG_METIS_NGRPS_MAX;
+      }
+    }
+    if ( ngrp > meshOld->ne ) {
+      /* Correction if it leads to more groups than elements */
+      printf("  ## Warning: %s: too much metis nodes needed...\n"
+             "     Partitions may remains freezed. Try to use more processors.\n",
+             __func__);
+      ngrp = MG_MIN ( meshOld->ne, ngrp );
+    }
+  }
+
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
     if ( parmesh->ddebug )
@@ -1258,7 +1285,8 @@ end:
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param target_mesh_size wanted number of elements per group
+ * \param target software for which we split the groups
+ * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return 0 if fail, 1 if success, -1 if the mesh is not correct
@@ -1266,18 +1294,39 @@ end:
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
-  int     ier,ier1,ier_glob;
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
+  int     ier,ier1;
+#ifndef NDEBUG
+  int     ier_glob;
+#endif
+  int     tim;
+  mytime  ctim[3];
+  char    stim[32];
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
   assert ( PMMG_check_extNodeComm ( parmesh ) );
 
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+      tminit(ctim,3);
+      tim = 0;
+      chrono(ON,&(ctim[tim]));
+  }
+
   /** Merge the parmesh groups into 1 group */
   ier = PMMG_merge_grps(parmesh);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"\n                   merge group           %s\n",stim);
+
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
   }
 
   /** Pack the tetra and update the face communicator */
@@ -1290,6 +1339,12 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   }
   ier = MG_MIN( ier, ier1 );
 
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"                   pack tetra            %s\n",stim);
+  }
+
 #ifndef NDEBUG
   /* In debug mode we have mpi comm in split_grps, thus, if 1 proc fails
    * and the other not we will deadlock */
@@ -1297,9 +1352,32 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target_mesh_size,int fitMesh) {
   if ( ier_glob <=0 ) return ier_glob;
 #endif
 
+  if ( parmesh->ddebug ) {
+    size_t dummy1,dummy2;
+
+    PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+
+    PMMG_qualhisto( parmesh, PMMG_INQUA );
+    PMMG_prilen( parmesh, 0 );
+
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,dummy1,dummy2);
+
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    tim = 2;
+    chrono(ON,&(ctim[tim]));
+  }
+
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_split_grps(parmesh,target_mesh_size,fitMesh);
+    ier = PMMG_split_grps(parmesh,target,fitMesh);
+
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    fprintf(stdout,"                   group split           %s\n",stim);
+  }
 
   if ( ier<=0 )
     fprintf(stderr,"\n  ## Split group problem.\n");

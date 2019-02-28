@@ -35,10 +35,12 @@ static FILE* PMMG_my_fopen( char *name, char *status )
  */
 void PMMG_grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
+  int imsh,k;
+
   FILE *fp = PMMG_my_fopen( name, "w" );
-  for ( int imsh = 0; imsh < ngrp; ++imsh ) {
+  for ( imsh = 0; imsh < ngrp; ++imsh ) {
     fprintf( fp, "Points in mesh %d\n", imsh );
-    for ( int k = 0; k < grp[imsh].mesh->np + 2; k++ ) {
+    for ( k = 0; k < grp[imsh].mesh->np + 2; k++ ) {
       fprintf( fp,
           "\tid#\t%10d\tcoords:\t(%9.6f,%9.6f,%9.6f )"
           "\tnormals:\t(%9.6f,%9.6f,%9.6f )"
@@ -79,9 +81,11 @@ void PMMG_grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp )
  */
 void PMMG_tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num )
 {
+  int k;
+
   FILE *fp = PMMG_my_fopen( name, "w" );
   fprintf( fp, "Tetras in  mesh %d.ne: %d, nei:%d\n", num, mesh->ne, mesh->nei );
-  for ( int k = 1; k < mesh->ne + 2; ++k )
+  for ( k = 1; k < mesh->ne + 2; ++k )
     fprintf( fp,
         "%d %d %d %d\n",
         mesh->tetra->v[0],  mesh->tetra->v[1], mesh->tetra->v[2], mesh->tetra->v[3] );
@@ -100,11 +104,13 @@ void PMMG_find_tetras_referencing_null_points_to_txt( char *name,
                                                       PMMG_pGrp grp,
                                                       int nmsh )
 {
+  int imsh,tet,k;
+
   FILE *fp = PMMG_my_fopen( name, "w" );
-  for ( int imsh = 0; imsh < nmsh; ++imsh ) {
-    for ( int tet = 0; tet < grp[imsh].mesh->ne; ++tet ) {
+  for ( imsh = 0; imsh < nmsh; ++imsh ) {
+    for ( tet = 0; tet < grp[imsh].mesh->ne; ++tet ) {
       int check = 0;
-      for ( int k = 0; k < 4; ++k )
+      for ( k = 0; k < 4; ++k )
         if ( 0 == grp[imsh].mesh->tetra[tet].v[k] )
           ++check;
       if ( 3 == check )
@@ -126,7 +132,9 @@ void PMMG_find_tetras_referencing_null_points_to_txt( char *name,
 int PMMG_adja_idx_of_face( MMG5_pMesh mesh, int element, int face )
 {
   int location = 4 * (element - 1) + 1 + face;
+#ifndef NDEBUG
   int max_loc = 4 * (mesh->ne-1) + 5;
+#endif
 
   assert( (face >= 0)    && (face < 4) && "There are only 4 faces per tetra" );
   assert( (location > 0) && (location < max_loc) && " adja out of bound "  );
@@ -171,12 +179,14 @@ int PMMG_adja_face_to_face( MMG5_pMesh mesh, int element, int face )
  */
 void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp )
 {
+  int imsh,k,i;
+
   FILE *fp = PMMG_my_fopen( name, "w" );
-  for ( int imsh = 0; imsh < ngrp; ++imsh ) {
+  for ( imsh = 0; imsh < ngrp; ++imsh ) {
     fprintf( fp, "Mesh %d, ne= %d\n", imsh, grp[imsh].mesh->ne );
-    for ( int k = 1; k < grp[imsh].mesh->ne + 1; ++k ) {
+    for ( k = 1; k < grp[imsh].mesh->ne + 1; ++k ) {
       fprintf( fp, "tetra %d\t\t", k );
-      for ( int i = 0; i < 4; ++i ) {
+      for ( i = 0; i < 4; ++i ) {
         fprintf( fp, "adja[%d] %d", i, PMMG_adja_idx_of_face( grp[ imsh ].mesh, k, i ) );
         fprintf( fp, ", (tetra:%d, face:%1d)\t",
             PMMG_adja_tetra_to_face( grp[ imsh ].mesh, k, i ),
@@ -324,10 +334,10 @@ void PMMG_dump_malloc_allocator_info( char *msg, int id )
  */
 void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 {
-  size_t n_total = parmesh->memCur;
+  size_t i,n_total = parmesh->memCur;
   const size_t mb = 1024 * 1024;
 
-  for ( size_t i = 0; i < parmesh->ngrp; ++i )
+  for ( i = 0; i < parmesh->ngrp; ++i )
     n_total += parmesh->listgrp[ i ].mesh->memCur;
 
   if ( n_total > parmesh->memGloMax )
@@ -343,7 +353,7 @@ void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
 //             n_total / (float) mb, parmesh->memGloMax / (float) mb );
 
   n_total = parmesh->memMax;
-  for ( size_t i = 0; i < parmesh->ngrp; ++i )
+  for ( i = 0; i < parmesh->ngrp; ++i )
     n_total += parmesh->listgrp[ i ].mesh->memMax;
   if ( n_total > parmesh->memGloMax )
     fprintf( stderr,
