@@ -470,6 +470,7 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
 
   /* Fill the lists */
   for( ie=0; ie<ne; ie++ ) {
+    iproc = part[ie];
     if( !PMMG_add_val2lnkdList(parmesh,partlist[iproc],ie) ) return 0;
   }
 
