@@ -747,16 +747,16 @@ end:
  *
  */
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
-  PMMG_pExt_comm    ext_node_comm,*comm_ptr;
-  PMMG_pInt_comm    int_node_comm;
-  PMMG_cellLnkdList **proclists,list;
-  int               *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
-  int               *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
-  int               *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;
-  int               alloc_size;
-  int8_t            glob_update,loc_update;
-  MPI_Request       *request;
-  MPI_Status        *status;
+  PMMG_pExt_comm  ext_node_comm,*comm_ptr;
+  PMMG_pInt_comm  int_node_comm;
+  PMMG_lnkdList   **proclists,list;
+  int             *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
+  int             *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
+  int             *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;
+  int             alloc_size;
+  int8_t          glob_update,loc_update;
+  MPI_Request     *request;
+  MPI_Status      *status;
 
   ier = 0;
 
@@ -781,7 +781,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
    * initialization to 0.  */
   for ( k=0; k<nitem; ++k ) intvalues[k] = 0;
 
-  PMMG_CALLOC(parmesh,proclists,nitem,PMMG_cellLnkdList*,"array of linked lists",
+  PMMG_CALLOC(parmesh,proclists,nitem,PMMG_lnkdList*,"array of linked lists",
               goto end);
 
   /* Reallocation of the list of external comms at maximal size (nprocs) to
@@ -823,9 +823,9 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
       if ( intvalues[idx] ) continue;
 
-      PMMG_CALLOC(parmesh,proclists[idx],1,PMMG_cellLnkdList,"linked list pointer",
+      PMMG_CALLOC(parmesh,proclists[idx],1,PMMG_lnkdList,"linked list pointer",
                   goto end);
-      if ( !PMMG_cellLnkdListNew(parmesh,proclists[idx],idx,PMMG_LISTSIZE) ) goto end;
+      if ( !PMMG_lnkdListNew(parmesh,proclists[idx],idx,PMMG_LISTSIZE) ) goto end;
 
       if ( !PMMG_add_cell2lnkdList( parmesh,proclists[idx],rank,idx ) )
         goto end;
@@ -854,7 +854,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
   PMMG_CALLOC(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array",goto end);
 
-  if ( !PMMG_cellLnkdListNew(parmesh,&list,0,PMMG_LISTSIZE) ) goto end;
+  if ( !PMMG_lnkdListNew(parmesh,&list,0,PMMG_LISTSIZE) ) goto end;
 
   do {
     glob_update = loc_update = 0;
@@ -888,7 +888,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
       color   = ext_node_comm->color_out;
       for ( i=0; i<ext_node_comm->nitem; ++i ) {
         idx  = ext_node_comm->int_comm_index[i];
-        pos += PMMG_packInArray_cellLnkdList(proclists[idx],&itosend[pos]);
+        pos += PMMG_packInArray_lnkdList(proclists[idx],&itosend[pos]);
       }
       assert ( pos==nitem2comm );
 
@@ -927,13 +927,13 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
           idx  = ext_node_comm->int_comm_index[i];
           assert ( idx>=0 );
 
-          PMMG_reset_cellLnkdList( parmesh,&list );
-          ier2 = PMMG_unpackArray_inCellLnkdList(parmesh,&list,&itorecv[pos]);
+          PMMG_reset_lnkdList( parmesh,&list );
+          ier2 = PMMG_unpackArray_inLnkdList(parmesh,&list,&itorecv[pos]);
 
           if ( ier2 < 0 ) goto end;
           pos += ier2;
 
-          ier2 = PMMG_merge_cellLnkdList(parmesh,proclists[idx],&list);
+          ier2 = PMMG_merge_lnkdList(parmesh,proclists[idx],&list);
           if ( !ier2 ) goto end;
 
           loc_update |= (ier2%2);
@@ -962,14 +962,14 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   /* Sort the list of procs to which each node belong to ensure that we will
    * build the external communicators in the same order on both processors
    * involved in an external comm */
-  qsort(proclists,nproclists,sizeof(PMMG_cellLnkdList*),PMMG_compare_cellLnkdList);
+  qsort(proclists,nproclists,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
 
   /* Remove the non unique paths */
   if ( nproclists ) {
     idx = 0;
     for ( i=1; i<nproclists; ++i ) {
       assert ( proclists[i]->nitem );
-      if ( PMMG_compare_cellLnkdList(&proclists[i],&proclists[idx]) ) {
+      if ( PMMG_compare_lnkdList(&proclists[i],&proclists[idx]) ) {
         ++idx;
         if ( idx != i ) {
           proclists[idx] = proclists[i];
