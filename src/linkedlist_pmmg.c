@@ -20,7 +20,7 @@
  * Initialisation of a linked list of cells.
  *
  */
-int PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int id,int nitem_max )
+int PMMG_cellLnkdListNew( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,int id,int nitem_max )
 {
 
   /* adjust hash table params */
@@ -39,11 +39,37 @@ int PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int id,int nitem
 /**
  * \param parmesh   pointer toward the parmesh structure.
  * \param list      pointer toward a PMMG_lnkdList structure.
+ * \param nitem_max maximal number of cells of the linked list.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Initialisation of a linked list of cells.
+ *
+ */
+int PMMG_valLnkdListNew( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,int id,int nitem_max )
+{
+
+  /* adjust hash table params */
+  list->nitem     = 0;
+  list->nitem_max = nitem_max;
+  list->id        = id;
+
+  PMMG_MALLOC(parmesh,list->item,nitem_max,PMMG_lnkdVal,"linked list array",
+              return 0);
+
+  list->frst = PMMG_UNSET;
+
+  return 1;
+}
+
+/**
+ * \param parmesh   pointer toward the parmesh structure.
+ * \param list      pointer toward a PMMG_lnkdList structure.
  *
  * Reset a linked list without deallocating it.
  *
  */
-void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list ) {
+void PMMG_reset_cellLnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list ) {
 
   /* adjust hash table params */
   list->nitem  = 0;
@@ -66,8 +92,8 @@ void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list ) {
  * in the linked list \a list.
  *
  */
-int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
-                              int val1,int val2 ) {
+int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,
+                            int val1,int val2 ) {
   PMMG_lnkdCell *cell;
   int           k,id,prevId,newsize;
 
@@ -115,7 +141,6 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
       list->frst = cell->id;
     }
     else {
-      /* Insertion inside the list */
       id                      = list->item[prevId].nxt;
       list->item[prevId].nxt  = cell->id;
     }
@@ -130,8 +155,8 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
   return 2;
 }
 
-int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
-                              int *val1,int *val2 ) {
+int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,
+                            int *val1,int *val2 ) {
   PMMG_lnkdCell *cell;
 
   /** Get first cell */
@@ -145,7 +170,68 @@ int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
 
   return 1;
 }
- 
+
+/**
+ * \param parmesh   pointer toward the parmesh structure.
+ * \param list      pointer toward a PMMG_lnkdList structure.
+ * \param val1      value to add to the \a val1 field of the new cell.
+ * \param val2      value to add to the \a val2 field of the new cell.
+ *
+ * \return 1 if we insert a new cell and 0 if fail.
+ *
+ * Non sorted insertion of a new cell with values \a val1 and \a val2
+ * in the linked list \a list.
+ *
+ */
+int PMMG_add_val2lnkdList( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,
+                           int val ) {
+  PMMG_lnkdVal *cell;
+  int           k,newsize;
+
+  /** Start from the first cell of the list */
+
+  if ( list->frst<0 ) {
+    /* Add the first element */
+    list->frst    = 0;
+    cell          = &list->item[list->nitem++];
+    cell->val     = val;
+    cell->nxt     = -1;
+
+    return 1;
+  }
+
+  /** Cell insertion at the end of the list */
+  if ( list->nitem >= list->nitem_max ) {
+    newsize = MG_MAX((int)(1.2*list->nitem_max),list->nitem_max+1);
+    PMMG_REALLOC(parmesh,list->item,newsize,
+                 list->nitem_max,PMMG_lnkdVal,"linked list",return 0);
+    list->nitem_max = newsize;
+  }
+  k             = list->nitem;
+  cell          = &list->item[k];
+  cell->val     = val;
+  cell->nxt     = -1;
+
+  list->item[k-1].nxt = k;
+
+  return 1;
+}
+
+int PMMG_pop_val_lnkdList( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,
+                           int *val ) {
+  PMMG_lnkdVal *cell;
+
+  /** Get first cell */
+  cell = &list->item[list->frst];
+  *val = cell->val;
+
+  /** Pop cell from the head of the list */
+  list->frst = cell->nxt;
+  list->nitem--;
+
+  return 1;
+}
+
 
 /**
  * \param parmesh   pointer toward the parmesh structure.
@@ -160,8 +246,8 @@ int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list,
  * in the linked list \a list.
  *
  */
-int PMMG_merge_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list1,
-                         PMMG_lnkdList *list2) {
+int PMMG_merge_cellLnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list1,
+                             PMMG_cellLnkdList *list2) {
   PMMG_lnkdCell *cell;
   int           k,ier,minier;
 
@@ -194,7 +280,7 @@ int PMMG_merge_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list1,
  *
  * \remark for debug purpose
  */
-void PMMG_print_lnkdList( PMMG_lnkdList *list ) {
+void PMMG_print_cellLnkdList( PMMG_cellLnkdList *list ) {
   PMMG_lnkdCell *cell;
   int           k;
 
@@ -219,7 +305,7 @@ void PMMG_print_lnkdList( PMMG_lnkdList *list ) {
  * val2 fields of each cell.
  *
  */
-int PMMG_packInArray_lnkdList( PMMG_lnkdList *list, int *array ) {
+int PMMG_packInArray_cellLnkdList( PMMG_cellLnkdList *list, int *array ) {
   PMMG_lnkdCell *cell;
   int           k,idx;
 
@@ -251,8 +337,8 @@ int PMMG_packInArray_lnkdList( PMMG_lnkdList *list, int *array ) {
  * array (starting from \a start) into the linked list \a list.
  *
  */
-int PMMG_unpackArray_inLnkdList(  PMMG_pParMesh parmesh, PMMG_lnkdList *list,
-                                  int *array ) {
+int PMMG_unpackArray_inCellLnkdList(  PMMG_pParMesh parmesh, PMMG_cellLnkdList *list,
+                                      int *array ) {
   PMMG_lnkdCell *cell;
   int           k,idx;
 
@@ -293,13 +379,13 @@ int PMMG_unpackArray_inLnkdList(  PMMG_pParMesh parmesh, PMMG_lnkdList *list,
  * their lengths, second ond their \a val1 field then on their \a val2 one.
  *
  */
-int PMMG_compare_lnkdList (const void * a, const void * b) {
-  PMMG_lnkdList *list1,*list2;
-  PMMG_lnkdCell *cell1,*cell2;
-  int           k;
+int PMMG_compare_cellLnkdList (const void * a, const void * b) {
+  PMMG_cellLnkdList *list1,*list2;
+  PMMG_lnkdCell     *cell1,*cell2;
+  int              k;
 
-  list1 = *(PMMG_lnkdList**)a;
-  list2 = *(PMMG_lnkdList**)b;
+  list1 = *(PMMG_cellLnkdList**)a;
+  list2 = *(PMMG_cellLnkdList**)b;
 
   if ( list1->nitem > list2->nitem ) return 1;
 
@@ -318,6 +404,29 @@ int PMMG_compare_lnkdList (const void * a, const void * b) {
     cell1 = &list1->item[cell1->nxt];
     cell2 = &list2->item[cell2->nxt];
   }
+
+  return 0;
+}
+
+/**
+ * \param a  pointer toward a PMMG_lnkdList* structure.
+ * \param b  pointer toward a PMMG_lnkdList* structure.
+ *
+ * \return 1 if a is greater than b, -1 if b is greater than 1, 0 if they are
+ * equals.
+ *
+ * Compare lengths of 2 linked lists (can be used inside the qsort C fnuction)
+ *
+ */
+int PMMG_compare_valLnkdListLen (const void * a, const void * b) {
+  PMMG_valLnkdList *list1,*list2;
+
+  list1 = *(PMMG_valLnkdList**)a;
+  list2 = *(PMMG_valLnkdList**)b;
+
+  if ( list1->nitem > list2->nitem ) return 1;
+
+  if ( list1->nitem < list2->nitem ) return -1;
 
   return 0;
 }
