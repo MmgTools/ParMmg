@@ -362,52 +362,74 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
  *
  */
 int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_t nproc ) {
-  PMMG_lnkdList **partlist;
-  idx_t iproc,ie,dummy;
-  int nempt,iempt;
+  PMMG_valLnkdList **partlist;
+  idx_t            iproc,ie;
+  int              nempt,iempt;
+
 
   /* Initialize lists */
-  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_valLnkdList*,"array of list pointers",return 0);
   for( iproc=0; iproc<nproc; iproc++ ) {
-    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
-    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_valLnkdList,"linked list pointer",return 0);
+    if( !PMMG_valLnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
   }
 
   /* Fill the lists */
+  assert ( ne >= nproc &&  "not enough elements for the number of partitions" );
+
   for( ie=0; ie<ne; ie++ ) {
     iproc = part[ie];
-    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+    if( !PMMG_add_val2lnkdList(parmesh,partlist[iproc],ie) ) return 0;
   }
 
   /* Sort lists based on nb. of entities, in ascending order */
-  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+  qsort(partlist,nproc,sizeof(PMMG_valLnkdList*),PMMG_compare_valLnkdListLen);
 
   /* Count empty partitions */
   nempt = 0;
-  for( iproc=0; iproc<nproc; iproc++ )
-    if( !partlist[iproc]->nitem ) nempt++;
+  for( iproc=0; iproc<nproc; iproc++ ) {
+    if( partlist[iproc]->nitem ) break;
+    nempt++;
+  }
+
   assert( nempt < nproc );
   if( !nempt ) {
     /* Deallocate lists and return */
     for( iproc=0; iproc<nproc; iproc++ ) {
-      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
-      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdVal,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_valLnkdList,"linked list pointer");
     }
-    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_valLnkdList*,"array of linked lists");
 
     return 1;
   }
 
   /** Correct partitioning */
+  assert ( nproc > 1 );
+  iproc = nproc-1;
   iempt = 0;
   while( nempt ) {
     /* Get next "reservoir" proc */
-    iproc = nproc-1;
-    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
+    if ( iproc == nproc-1 ) {
+      while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem ) {
+
+        /* list are sorted depending to their number of items so iproc has more
+         * items than iproc-1 */
+        assert ( partlist[iproc]->nitem == partlist[iproc-1]->nitem );
+        iproc--;
+      }
       iproc--;
+    }
+    ++iproc;
+
+    /* if ne > nproc, normally, we can fill the empty procs without emptying a
+     * proc with only 1 item */
+    assert ( partlist[iproc]->nitem > 1 && "not enough elements for the"
+             " number of partitions");
+
     /* Pop entity ie from iproc, add to iempt */
-    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
-    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    if( !PMMG_pop_val_lnkdList(parmesh,partlist[iproc],&ie) ) return 0;
+    if( !PMMG_add_val2lnkdList(parmesh,partlist[iempt],ie) ) return 0;
     /* Update partition table and go on to next empty proc */
     part[ie] = partlist[iempt]->id;
     iempt++;
@@ -416,10 +438,10 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
 
   /* Deallocate lists */
   for( iproc=0; iproc<nproc; iproc++ ) {
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
-    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdVal,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_valLnkdList,"linked list pointer");
   }
-  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_valLnkdList*,"array of linked lists");
 
   return 1;
 }
@@ -437,11 +459,11 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
  */
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
                                        idx_t* mypart,idx_t nproc ) {
-  PMMG_lnkdList **partlist;
-  idx_t *part;
-  idx_t iproc,ie,ne,dummy,*recvcounts;
-  int myrank,ngrp,nempt,iempt;
-  MPI_Comm comm;
+  PMMG_valLnkdList **partlist;
+  idx_t             *part;
+  idx_t              iproc,ie,ne,*recvcounts;
+  int                myrank,ngrp,nempt,iempt;
+  MPI_Comm           comm;
 
   myrank   = parmesh->myrank;
   ngrp     = parmesh->ngrp;
@@ -461,20 +483,20 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
 
   /* Initialize lists */
-  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_lnkdList*,"array of list pointers",return 0);
+  PMMG_CALLOC(parmesh,partlist,nproc,PMMG_valLnkdList*,"array of list pointers",return 0);
   for( iproc=0; iproc<nproc; iproc++ ) {
-    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_lnkdList,"linked list pointer",return 0);
-    if( !PMMG_lnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
+    PMMG_CALLOC(parmesh,partlist[iproc],1,PMMG_valLnkdList,"linked list pointer",return 0);
+    if( !PMMG_valLnkdListNew(parmesh,partlist[iproc],iproc,PMMG_LISTSIZE) ) return 0;
   }
 
   /* Fill the lists */
   for( ie=0; ie<ne; ie++ ) {
     iproc = part[ie];
-    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iproc],ie,iproc) ) return 0;
+    if( !PMMG_add_val2lnkdList(parmesh,partlist[iproc],ie) ) return 0;
   }
 
   /* Sort lists based on nb. of entities, in ascending order */
-  qsort(partlist,nproc,sizeof(PMMG_lnkdList*),PMMG_compare_lnkdList);
+  qsort(partlist,nproc,sizeof(PMMG_valLnkdList*),PMMG_compare_valLnkdListLen);
 
   /* Count empty partitions */
   nempt = 0;
@@ -486,10 +508,10 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
     PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
 
     for( iproc=0; iproc<nproc; iproc++ ) {
-      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
-      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+      PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdVal,"linked list array");
+      PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_valLnkdList,"linked list pointer");
     }
-    PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+    PMMG_DEL_MEM(parmesh,partlist,PMMG_valLnkdList*,"array of linked lists");
 
    return 1;
   }
@@ -503,8 +525,8 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
     while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
       iproc--;
     /* Pop entity ie from iproc, add to iempt */
-    if( !PMMG_pop_cell_lnkdList(parmesh,partlist[iproc],&ie,&dummy) ) return 0;
-    if( !PMMG_add_cell2lnkdList(parmesh,partlist[iempt],ie,iempt) ) return 0;
+    if( !PMMG_pop_val_lnkdList(parmesh,partlist[iproc],&ie) ) return 0;
+    if( !PMMG_add_val2lnkdList(parmesh,partlist[iempt],ie) ) return 0;
     /* Update partition table and go on to next empty proc */
     part[ie] = partlist[iempt]->id;
     iempt++;
@@ -519,10 +541,10 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
   PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis part");
 
   for( iproc=0; iproc<nproc; iproc++ ) {
-    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdCell,"linked list array");
-    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_lnkdList,"linked list pointer");
+    PMMG_DEL_MEM(parmesh,partlist[iproc]->item,PMMG_lnkdVal,"linked list array");
+    PMMG_DEL_MEM(parmesh,partlist[iproc],PMMG_valLnkdList,"linked list pointer");
   }
-  PMMG_DEL_MEM(parmesh,partlist,PMMG_lnkdList*,"array of linked lists");
+  PMMG_DEL_MEM(parmesh,partlist,PMMG_valLnkdList*,"array of linked lists");
 
   return 1;
 }

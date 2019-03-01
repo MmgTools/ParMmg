@@ -18,7 +18,7 @@
 /**
  * \struct PMMG_lnkdCell
  *
- * \brief Cell of a linked list. This cell allow to store 2 values.
+ * \brief Cell of a linked list. This cell allow to store 2 values and an index.
  *
  */
 typedef struct {
@@ -27,6 +27,31 @@ typedef struct {
   int     id;   /*!< position of the cell in the array */
   int     nxt;  /*!< position of the next cell in the linked list */
 } PMMG_lnkdCell;
+
+/**
+ * \struct PMMG_lnkdVal
+ *
+ * \brief Cell of a linked list. This cell allow to store 1 value.
+ *
+ */
+typedef struct {
+  int     val; /*!< value of the cell */
+  int     nxt;  /*!< position of the next cell in the linked list */
+} PMMG_lnkdVal;
+
+/**
+ * \struct PMMG_lnkdList
+ *
+ * \brief Linked list of Cells of. Each cell can store 2 values.
+ *
+ */
+typedef struct {
+  int nitem; /*!< number of used cells in the list (=position to insert the next cell) */
+  int nitem_max; /*!< maximal number of item in the list */
+  int frst; /*!< position of the first cell of the linked list */
+  int id;  /*!< ID of the linked list */
+  PMMG_lnkdCell *item; /*!< array of cells */
+} PMMG_cellLnkdList;
 
 /**
  * \struct PMMG_lnkdList
@@ -39,18 +64,22 @@ typedef struct {
   int nitem_max; /*!< maximal number of item in the list */
   int frst; /*!< position of the first cell of the linked list */
   int id;  /*!< ID of the linked list */
-  PMMG_lnkdCell *item; /*!< array of cells */
-} PMMG_lnkdList;
+  PMMG_lnkdVal *item; /*!< array of Values */
+} PMMG_valLnkdList;
 
-int  PMMG_lnkdListNew( PMMG_pParMesh parmesh,PMMG_lnkdList *list,int,int );
-void PMMG_reset_lnkdList( PMMG_pParMesh parmesh,PMMG_lnkdList *list );
-int  PMMG_merge_lnkdList( PMMG_pParMesh,PMMG_lnkdList*,PMMG_lnkdList *);
-int  PMMG_add_cell2lnkdList( PMMG_pParMesh,PMMG_lnkdList*,int,int );
-int  PMMG_pop_cell_lnkdList( PMMG_pParMesh,PMMG_lnkdList*,int*,int* );
-void PMMG_print_lnkdList( PMMG_lnkdList *list );
-int  PMMG_packInArray_lnkdList( PMMG_lnkdList *list,int *array );
-int  PMMG_unpackArray_inLnkdList(  PMMG_pParMesh,PMMG_lnkdList*,int* );
-int  PMMG_compare_lnkdList (const void * a, const void * b);
+int  PMMG_cellLnkdListNew( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,int,int );
+int  PMMG_valLnkdListNew( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,int,int );
+void PMMG_reset_cellLnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list );
+int  PMMG_merge_cellLnkdList( PMMG_pParMesh,PMMG_cellLnkdList*,PMMG_cellLnkdList *);
+int  PMMG_add_cell2lnkdList( PMMG_pParMesh,PMMG_cellLnkdList*,int,int );
+int  PMMG_pop_cell_lnkdList( PMMG_pParMesh,PMMG_cellLnkdList*,int*,int* );
+int  PMMG_add_val2lnkdList( PMMG_pParMesh,PMMG_valLnkdList*,int);
+int  PMMG_pop_val_lnkdList( PMMG_pParMesh,PMMG_valLnkdList*,int*);
+void PMMG_print_cellLnkdList( PMMG_cellLnkdList *list );
+int  PMMG_packInArray_cellLnkdList( PMMG_cellLnkdList *list,int *array );
+int  PMMG_unpackArray_inCellLnkdList(  PMMG_pParMesh,PMMG_cellLnkdList*,int* );
+int  PMMG_compare_cellLnkdList (const void * a, const void * b);
+int  PMMG_compare_valLnkdListLen (const void * a, const void * b);
 int  PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
                        int nitem );
 
