@@ -375,6 +375,8 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   }
 
   /* Fill the lists */
+  assert ( ne >= nproc &&  "not enough elements for the number of partitions" );
+
   for( ie=0; ie<ne; ie++ ) {
     iproc = part[ie];
     if( !PMMG_add_val2lnkdList(parmesh,partlist[iproc],ie) ) return 0;
@@ -385,8 +387,10 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
 
   /* Count empty partitions */
   nempt = 0;
-  for( iproc=0; iproc<nproc; iproc++ )
+  for( iproc=0; iproc<nproc; iproc++ ) {
     if( !partlist[iproc]->nitem ) nempt++;
+  }
+
   assert( nempt < nproc );
   if( !nempt ) {
     /* Deallocate lists and return */
@@ -404,8 +408,18 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   while( nempt ) {
     /* Get next "reservoir" proc */
     iproc = nproc-1;
-    while( partlist[iproc]->nitem <= partlist[iproc-1]->nitem )
+    while( (partlist[iproc]->nitem <= partlist[iproc-1]->nitem) && (iproc > 0) ) {
+      /* list are sorted depending to their number of items so iproc has more
+       * items than iproc-1 */
+      assert ( partlist[iproc]->nitem == partlist[iproc-1]->nitem );
       iproc--;
+    }
+
+    /* if ne > nproc, normally, we can fill the empty procs without emptying a
+     * proc with only 1 item */
+    assert ( partlist[iproc]->nitem > 1 && "not enough elements for the"
+             " number of partitions");
+
     /* Pop entity ie from iproc, add to iempt */
     if( !PMMG_pop_val_lnkdList(parmesh,partlist[iproc],&ie) ) return 0;
     if( !PMMG_add_val2lnkdList(parmesh,partlist[iempt],ie) ) return 0;

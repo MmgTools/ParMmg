@@ -207,7 +207,7 @@ int PMMG_add_val2lnkdList( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,
                  list->nitem_max,PMMG_lnkdVal,"linked list",return 0);
     list->nitem_max = newsize;
   }
-  k             = list->nitem;
+  k             = list->nitem++;
   cell          = &list->item[k];
   cell->val     = val;
   cell->nxt     = -1;
