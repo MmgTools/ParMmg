@@ -388,7 +388,8 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
   /* Count empty partitions */
   nempt = 0;
   for( iproc=0; iproc<nproc; iproc++ ) {
-    if( !partlist[iproc]->nitem ) nempt++;
+    if( partlist[iproc]->nitem ) break;
+    nempt++;
   }
 
   assert( nempt < nproc );
