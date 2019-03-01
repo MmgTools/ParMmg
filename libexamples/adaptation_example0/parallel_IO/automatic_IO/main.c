@@ -103,11 +103,26 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
- 
+
+  /* Each proc buils global IDs if color_in < color_out, then sends IDs to
+   * color_out;
+   *  */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    /* Assign global ID if the point is visited for the first time,, collect ID
-     * otherwise */
-    if( color_out[icomm] > parmesh->myrank ) {
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    /* Recv IDs from previous proc */
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      /* Update flag so that you can use it to build your own IDs */
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        ppt->flag = ifc_node_glob[icomm][i];
+      }
+    }
+    /* Build your own IDs and send them to next proc */
+    if( parmesh->myrank == src ) {
       idx = 1; /* index starts from 1 */
       for( i=0; i < nitem_node_comm[icomm]; i++ ) {
         ppt = &mesh->point[ifc_node_loc[icomm][i]];
@@ -116,22 +131,8 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
         }
         ifc_node_glob[icomm][i] = ppt->flag;
       }
-    }
-  }
-
-  /* Communicate global IDs */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    /* Assign global index */
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
-    tag = parmesh->nprocs*src+dst;
-    if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,dst,tag,
                             parmesh->comm,&request),return 0 );
-    }
-    if ( parmesh->myrank == dst ) {
-      MPI_CHECK( MPI_Recv(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
     }
   }
 
