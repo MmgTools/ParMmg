@@ -1928,13 +1928,6 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
 
   send2recv_int_comm = NULL;
 
-  /* Count grps to be sent */
-  count = 0;
-  for ( k=0; k<ngrp; ++k ) {
-    grp = &parmesh->listgrp[k];
-    if ( recv == grp->flag ) ++count;
-  }
- 
   /** Step 1: fill the send2recv_int_comm array that contains the positions (in
    * the internal communicator of the proc \a recv) of the faces of the groups
    * that are transfered */
@@ -1948,6 +1941,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
    */
   *nitem_intcomm_flag = int_comm->nitem;
   PMMG_CALLOC(parmesh,*intcomm_flag,*nitem_intcomm_flag,int,"intcomm_flag",ier=0);
+  count = 0;
 
   if ( *intcomm_flag ) {
     for ( k=0; k<ngrp; ++k ) {
@@ -1960,6 +1954,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
         }
       }
       else {
+        ++count;
         for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
           idx = grp->face2int_face_comm_index2[i];
           (*intcomm_flag)[idx] += 3;
