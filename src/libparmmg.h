@@ -1781,6 +1781,12 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
   int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index);
 
+  int PMMG_Check_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
+                                   int* color, int** trianodes);
+
+  int PMMG_Check_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
+                                   int* color, int** local_index);
+
 #ifdef __cplusplus
 }
 #endif
