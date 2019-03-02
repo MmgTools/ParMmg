@@ -999,51 +999,91 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
 
 int PMMG_Check_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
                                  int* color, int** local_index) {
-  MMG5_Hash      hash;
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
-  int            ip,idx,i,icomm;
+  int            *values,*oldIdx,ip,idx,i,icomm;
   size_t         memAv,oldMemMax;
 
   /* Meshes are merged in grp 0 */
+  int_node_comm = parmesh->int_node_comm;
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
   /* Check number of communicators */
-  if( parmesh->next_node_comm != ncomm ) return 0;
-
-  /* Check communicators size and color */
-  for( icomm = 0; icomm < ncomm; icomm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
-    if( ext_node_comm->nitem != nitem[icomm] ) return 0;
-    if( ext_node_comm->color_out != color[icomm] ) return 0;
+  if( parmesh->next_node_comm != ncomm ) {
+    fprintf(stderr,"## Wrong number of node communicators on proc %d: input %d, set %d. ##\n",parmesh->myrank,ncomm,parmesh->next_node_comm);
+    return 0;
   }
 
-  /** 1) Put nodes index in intvalues */
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  PMMG_CALLOC(parmesh,values,int_node_comm->nitem,int,"values",return 0);
+  PMMG_CALLOC(parmesh,oldIdx,int_node_comm->nitem,int,"oldIdx",return 0);
+
+  /** 1) Put nodes index in intvalues */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     int_node_comm->intvalues[idx] = ip;
-  }
+    printf("i %d ip %d idx %d\n",i,ip,idx);
+   }
 
-  /** 2) Find input nodes in intvalues (hey have been reordered by API_Set
-   *     functions */
-  for( icomm = 0; icomm < ncomm; icomm++ ){
+
+  /* Check communicators size and color */
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    for( i = 0; i < nitem[icomm]; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      if( local_index[icomm][ip] != int_node_comm->intvalues[idx] )
-        return 0;
+    if( ext_node_comm->color_out != color[icomm] ) {
+      fprintf(stderr,"## Wrong color for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,color[icomm],ext_node_comm->color_out);
+      return 0;
+    }
+    if( ext_node_comm->nitem != nitem[icomm] ) {
+      fprintf(stderr,"## Wrong size for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,nitem[icomm],ext_node_comm->nitem);
+      for( i = 0; i < nitem[icomm]; i++ )
+        printf("i %d\n",local_index[icomm][i]);
+      for( i = 0; i < ext_node_comm->nitem; i++ )
+        printf("i %d\n",int_node_comm->intvalues[ext_node_comm->int_comm_index[i]]);
+      return 0;
     }
   }
 
-  MMG5_DEL_MEM(mesh,hash.item);
+
+  /** 2) Find input nodes in intvalues */
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    
+    /* Sort input data */
+    PMMG_sort_iarray( parmesh,
+                      values,local_index[icomm],
+                      oldIdx, nitem[icomm] );
+    
+    /* Sort external communicator */
+    for( i = 0; i < nitem[icomm]; i++ )
+      values[i] = int_node_comm->intvalues[ext_node_comm->int_comm_index[i]];
+    PMMG_sort_iarray( parmesh,
+                      ext_node_comm->int_comm_index,values,
+                      oldIdx, ext_node_comm->nitem );
+
+    /* Check communicator against input data */
+    for( i = 0; i < ext_node_comm->nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      printf("icomm %d idx %d intval %d\n",icomm,local_index[icomm][i],int_node_comm->intvalues[idx]);
+      if( local_index[icomm][i] != int_node_comm->intvalues[idx] )
+        return 0;
+    }
+
+    /* Ripristinate ext comm ordering */
+    for( i = 0; i < ext_node_comm->nitem; i++ )
+      values[i] = ext_node_comm->int_comm_index[i];
+    for( i = 0; i < ext_node_comm->nitem; i++ )
+      ext_node_comm->int_comm_index[oldIdx[i]] = values[i];
+  }
+
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
+  PMMG_DEL_MEM(parmesh,values,int,"values");
   return 1;
 }
 
