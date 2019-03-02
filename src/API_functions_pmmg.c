@@ -997,7 +997,7 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   return 1;
 }
 
-int PMMG_Check_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
+int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
                                  int* color, int** local_index) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
@@ -1087,8 +1087,8 @@ int PMMG_Check_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   return 1;
 }
 
-int PMMG_Check_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
-                                 int* color, int** trianodes) {
+int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
+                                     int* color, int** trianodes) {
   MMG5_Hash      hash;
   PMMG_pGrp      grp;
   PMMG_pExt_comm ext_face_comm;
@@ -1153,6 +1153,21 @@ int PMMG_Check_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   return 1;
 }
 
+int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
+                                     int ncomm_in,int* nitem_in,
+                                     int* color_in, int** local_index_in,
+                                     int ncomm_out,int* nitem_out,
+                                     int* color_out, int** local_index_out) {
+  return 1;
+}
+
+int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
+                                     int ncomm_in,int* nitem_in,
+                                     int* color_in, int** trianodes_in,
+                                     int ncomm_out,int* nitem_out,
+                                     int* color_out, int** trianodes_out) {
+  return 1;
+}
 
 int PMMG_Free_all(const int starter,...)
 {

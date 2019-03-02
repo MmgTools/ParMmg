@@ -634,7 +634,7 @@ int main(int argc,char *argv[]) {
 
   if ( ierlib != PMMG_STRONGFAILURE ) {
 
-//    if( !PMMG_Check_NodeCommunicators(parmesh,n_node_comm,nitem_node_comm,
+//    if( !PMMG_Check_Set_NodeCommunicators(parmesh,n_node_comm,nitem_node_comm,
 //                                       color_node,idx_node_loc) ) {
 //      printf("### Wrong node communicators!\n");
 //      MPI_Finalize();
@@ -642,7 +642,7 @@ int main(int argc,char *argv[]) {
 //    }
 //
 //
-//    if( !PMMG_Check_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
+//    if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
 //                                       color_face,faceNodes) ) {
 //      printf("### Wrong face communicators!\n");
 //      MPI_Finalize();
