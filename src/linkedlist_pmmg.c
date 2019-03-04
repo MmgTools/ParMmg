@@ -466,5 +466,7 @@ int PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
     array2[i] = cell[i].val2;
     oldIdx[i] = cell[i].id;
   }
+
   PMMG_DEL_MEM(parmesh,cell,PMMG_lnkdCell,"array of cells");
+  return 1;
 }
