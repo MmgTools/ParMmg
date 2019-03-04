@@ -1316,6 +1316,93 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
                                      int* color_in, int** trianodes_in,
                                      int ncomm_out,int* nitem_out,
                                      int* color_out, int** trianodes_out) {
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_Hash      hash;
+  MMG5_Hash      hashPair;
+  int            count,ia,ib,ic,i,icomm,getComm;
+  size_t         memAv,oldMemMax;
+
+  /* Meshes are merged in grp 0 */
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
+  /* Check number of communicators */
+  if( ncomm_in != ncomm_out ) return 0;
+
+  /* Create hash table for proc pairs */
+  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm_in, 8*ncomm_in) ) return 0;
+  for( icomm = 0; icomm < ncomm_in; icomm++ ) {
+    /* Store IDs as IDs+1, so that 0 value can be used for error handling */
+    if( !MMG5_hashEdge( mesh, &hashPair,
+                        parmesh->myrank+1, color_out[icomm]+1,
+                        icomm+1 ) ) {
+      fprintf(stderr,"## Impossible to hash proc pair %d -- %d. ##\n",parmesh->myrank,color_out[icomm]);
+      return 0;
+    }
+  }
+
+  /* Check communicators size and color */
+  count = 0;
+  for( icomm = 0; icomm < ncomm_in; icomm++ ) {
+    getComm = MMG5_hashGet( &hashPair, parmesh->myrank+1, color_in[icomm]+1 );
+    if( !getComm ) {
+      fprintf(stderr,"## Interface %d --  %d not found!\n",
+               parmesh->myrank,color_in[icomm]);
+      return 0;
+    }
+    getComm--;
+    if( color_in[icomm] != color_out[getComm] ) {
+      fprintf(stderr,"## Wrong color for face communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,color_in[icomm],color_out[getComm]);
+      return 0;
+    }
+    if( nitem_in[icomm] != nitem_out[getComm] ) {
+      fprintf(stderr,"## Wrong size for face communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,nitem_in[icomm],nitem_out[getComm]);
+      return 0;
+    }
+    count += nitem_in[icomm];
+  }
+
+  /* Create boundary and hash table */
+  if( MMG3D_bdryBuild(mesh) == -1) return 0;
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*count,1.51*count) ) return 0;
+
+  /** 1) Hash triangles in the internal communicator */
+  count = 0;
+  for( icomm = 0; icomm <ncomm_in; icomm++) {
+    for( i = 0; i < nitem_in[icomm]; i++ ) {
+      ia = trianodes_out[icomm][3*i];
+      ib = trianodes_out[icomm][3*i+1];
+      ic = trianodes_out[icomm][3*i+2];
+      /* Store ID+1 to use 0 value for error handling */
+      if( !MMG5_hashFace(mesh,&hash,ia,ib,ic,++count) ) {
+        fprintf(stderr,"## Impossible to hash face (%d,%d,%d) on proc %d. ##\n",ia,ib,ic,parmesh->myrank);
+         MMG5_DEL_MEM(mesh,hash.item);
+        return 0;
+      }
+    }
+  }
+
+  /** 2) Find input triangles in the hash table */
+  for( icomm = 0; icomm < ncomm_in; icomm++ ){
+    for( i = 0; i < nitem_in[icomm]; i++ ) {
+      ia = trianodes_in[icomm][3*i];
+      ib = trianodes_in[icomm][3*i+1];
+      ic = trianodes_in[icomm][3*i+2];
+      if( !MMG5_hashGetFace(&hash,ia,ib,ic) ) {
+        fprintf(stderr,"## Face (%d,%d,%d) not found in face communicator %d on proc %d. ##\n",ia,ib,ic,icomm,parmesh->myrank);
+        MMG5_DEL_MEM(mesh,hash.item);
+        return 0;
+      }
+    }
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+  MMG5_DEL_MEM(mesh,hash.item);
+  MMG5_DEL_MEM(mesh,hashPair.item);
   return 1;
 }
 

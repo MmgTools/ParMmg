@@ -711,7 +711,7 @@ int main(int argc,char *argv[]) {
         printf("OUT rank %d comm %d color %d tria %d\n",parmesh->myrank,icomm,color_face_out[icomm],idx_face_loc_out[icomm][i]);
 */
 
-    /* If no remeshing is required, check get parallel interfaces against input
+    /* If no remeshing is required, check retrieved parallel interfaces against input
      * data */
     if( !niter ) {
 

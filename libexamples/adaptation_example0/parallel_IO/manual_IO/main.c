@@ -860,21 +860,39 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
+      nVertices   = 0;
+      nTetrahedra = 0;
+      nTriangles  = 0;
+      nEdges      = 0;
+      if ( PMMG_Get_meshSize(parmesh,&nVertices,&nTetrahedra,NULL,&nTriangles,NULL,
+                             &nEdges) !=1 ) {
+      ier = PMMG_STRONGFAILURE;
+      }
+
+      int *ref       = (int*)calloc(nTriangles,sizeof(int));
+      int *required  = (int*)calloc(nTriangles,sizeof(int));
+      int *triaNodes = (int*)calloc(3*nTriangles,sizeof(int));
+   
+      if ( PMMG_Get_triangles(parmesh,triaNodes,ref,required) != 1 ) {
+        fprintf(inm,"Unable to get mesh triangles\n");
+        ier = PMMG_STRONGFAILURE;
+      }
+
       int** faceNodes_out = (int **) malloc(next_face_comm*sizeof(int *)); 
       for( icomm = 0; icomm < next_face_comm; icomm++ ) {
         faceNodes_out[icomm] = (int *) malloc(3*nitem_face_comm[icomm]*sizeof(int));
         for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
           pos = out_tria_loc[icomm][i];
-          faceNodes_out[icomm][3*i]   = tria_vert[3*(pos-1)];
-          faceNodes_out[icomm][3*i+1] = tria_vert[3*(pos-1)+1];
-          faceNodes_out[icomm][3*i+2] = tria_vert[3*(pos-1)+2];
+          faceNodes_out[icomm][3*i]   = triaNodes[3*(pos-1)];
+          faceNodes_out[icomm][3*i+1] = triaNodes[3*(pos-1)+1];
+          faceNodes_out[icomm][3*i+2] = triaNodes[3*(pos-1)+2];
         }
       }
 
       if( !PMMG_Check_Get_FaceCommunicators(parmesh,ncomm,ntifc,
                                             color_face,faceNodes,
                                             next_face_comm,nitem_face_comm,
-                                            color_face_out,out_tria_loc) ) {
+                                            color_face_out,faceNodes_out) ) {
         printf("### Wrong retrieved face communicators!\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);
