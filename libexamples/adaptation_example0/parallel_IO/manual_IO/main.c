@@ -782,20 +782,20 @@ int main(int argc,char *argv[]) {
 
   if ( ierlib != PMMG_STRONGFAILURE ) {
 
-    /* If no remeshing is required, check set and get parallel interfaces
-     * against input data */
+    /* If no remeshing is required, check set parallel interfaces against input
+     * data */
     if( !niter ) {
 
       if( !PMMG_Check_Set_NodeCommunicators(parmesh,ncomm,npifc,
                                             color_node,ifc_nodes_loc) ) {
-        printf("### Wrong node communicators!\n");
+        printf("### Wrong set node communicators!\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
 
       if( !PMMG_Check_Set_FaceCommunicators(parmesh,ncomm,ntifc,
                                          color_face,faceNodes) ) {
-        printf("### Wrong face communicators!\n");
+        printf("### Wrong set face communicators!\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
@@ -846,6 +846,40 @@ int main(int argc,char *argv[]) {
       for( i=0; i < nitem_face_comm[icomm]; i++ )
         printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
 
+    /* If no remeshing is required, check retrieved parallel interfaces against input
+     * data */
+    if( !niter ) {
+
+      if( !PMMG_Check_Get_NodeCommunicators(parmesh,
+                                            ncomm,npifc,
+                                            color_node,ifc_nodes_loc,
+                                            next_node_comm,nitem_node_comm,
+                                            color_node_out,out_node_loc) ) {
+        printf("### Wrong retrieved node communicators!\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+
+      int** faceNodes_out = (int **) malloc(next_face_comm*sizeof(int *)); 
+      for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+        faceNodes_out[icomm] = (int *) malloc(3*nitem_face_comm[icomm]*sizeof(int));
+        for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
+          pos = out_tria_loc[icomm][i];
+          faceNodes_out[icomm][3*i]   = tria_vert[3*(pos-1)];
+          faceNodes_out[icomm][3*i+1] = tria_vert[3*(pos-1)+1];
+          faceNodes_out[icomm][3*i+2] = tria_vert[3*(pos-1)+2];
+        }
+      }
+
+      if( !PMMG_Check_Get_FaceCommunicators(parmesh,ncomm,ntifc,
+                                            color_face,faceNodes,
+                                            next_face_comm,nitem_face_comm,
+                                            color_face_out,out_tria_loc) ) {
+        printf("### Wrong retrieved face communicators!\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
 
     /** ------------------------------ STEP V  ---------------------------- */
     /** get results */

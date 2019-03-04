@@ -1218,7 +1218,97 @@ int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
                                      int* color_in, int** local_index_in,
                                      int ncomm_out,int* nitem_out,
                                      int* color_out, int** local_index_out) {
-  return 1;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_Hash      hashPair;
+  int            *values,*oldIdx,i,icomm,getComm,count;
+  size_t         memAv,oldMemMax;
+
+  /* Meshes are merged in grp 0 */
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
+  /* Check number of communicators */
+  if( ncomm_in != ncomm_out) {
+    fprintf(stderr,"## Wrong number of node communicators on proc %d: input %d, set %d. ##\n",parmesh->myrank,ncomm_in,ncomm_out);
+    return 0;
+  }
+
+  /* Create hash table for proc pairs */
+  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm_in, 8*ncomm_in) ) return 0;
+  for( icomm = 0; icomm < ncomm_in; icomm++ ) {
+    /* Store IDs as IDs+1, so that 0 value can be used for error handling */
+    if( !MMG5_hashEdge( mesh, &hashPair,
+                        parmesh->myrank+1, color_out[icomm]+1,
+                        icomm+1 ) ) return 0;
+  }
+
+
+  /* Check communicators size and color */
+  count = 0;
+  for( icomm = 0; icomm < ncomm_in; icomm++ ) {
+    getComm = MMG5_hashGet( &hashPair, parmesh->myrank+1, color_in[icomm]+1 );
+    if( !getComm ) {
+      fprintf(stderr,"## Interface %d --  %d not found!\n",
+               parmesh->myrank,color_in[icomm]);
+      return 0;
+    }
+    getComm--;
+    if( color_in[icomm] != color_out[getComm] ) {
+      fprintf(stderr,"## Wrong color for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,color_in[icomm],color_out[getComm]);
+      return 0;
+    }
+    if( nitem_in[icomm] != nitem_out[getComm] ) {
+      fprintf(stderr,"## Wrong size for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,nitem_in[icomm],nitem_out[getComm]);
+      return 0;
+    }
+    if( nitem_in[icomm] > count ) count = nitem_in[icomm];
+  }
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_CALLOC(parmesh,values,count,int,"values",return 0);
+  PMMG_CALLOC(parmesh,oldIdx,count,int,"oldIdx",return 0);
+
+
+  /** Find input nodes */
+  for( icomm = 0; icomm < ncomm_in; icomm++ ) {
+    getComm = MMG5_hashGet( &hashPair, parmesh->myrank+1, color_in[icomm]+1 );
+    if( !getComm ) {
+      fprintf(stderr,"## Interface %d --  %d not found!\n",
+               parmesh->myrank,color_in[icomm]);
+      return 0;
+    }
+    getComm--;
+    
+    /* Sort input data */
+    PMMG_sort_iarray( parmesh,
+                      values,local_index_in[icomm],
+                      oldIdx, nitem_in[icomm] );
+    
+    /* Sort external communicator */
+    PMMG_sort_iarray( parmesh,
+                      values, local_index_out[getComm],
+                      oldIdx, nitem_out[getComm] );
+
+    /* Check communicator against input data */
+    for( i = 0; i < nitem_in[icomm]; i++ ) {
+      if( local_index_in[icomm][i] != local_index_out[getComm][i] ) return 0;
+    }
+
+    /* Ripristinate ext comm ordering */
+    for( i = 0; i < nitem_in[icomm]; i++ )
+      values[i] = local_index_out[getComm][i];
+    for( i = 0; i < nitem_in[icomm]; i++ )
+      local_index_out[getComm][oldIdx[i]] = values[i];
+  }
+
+  PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
+  PMMG_DEL_MEM(parmesh,values,int,"values");
+  MMG5_DEL_MEM(mesh,hashPair.item);
+ return 1;
 }
 
 int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
