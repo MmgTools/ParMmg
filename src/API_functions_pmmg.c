@@ -1029,7 +1029,10 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Store IDs as IDs+1, so that 0 value can be used for error handling */
     if( !MMG5_hashEdge( mesh, &hashPair,
                         ext_node_comm->color_in+1, ext_node_comm->color_out+1,
-                        icomm+1 ) ) return 0;
+                        icomm+1 ) ) {
+      fprintf(stderr,"## Impossible to hash proc pair %d -- %d. ##\n",ext_node_comm->color_in,ext_node_comm->color_out);
+      return 0;
+    }
   }
 
 
@@ -1093,7 +1096,10 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Check communicator against input data */
     for( i = 0; i < ext_node_comm->nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      if( local_index[icomm][i] != int_node_comm->intvalues[idx] ) return 0;
+      if( local_index[icomm][i] != int_node_comm->intvalues[idx] ) {
+        fprintf(stderr,"## Impossible to find node %d in comm %d on proc %d. ##\n",local_index[icomm][i],icomm,parmesh->myrank);
+        return 0;
+      }
     }
 
     /* Ripristinate ext comm ordering */
@@ -1138,7 +1144,10 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Store IDs as IDs+1, so that 0 value can be used for error handling */
     if( !MMG5_hashEdge( mesh, &hashPair,
                         ext_face_comm->color_in+1, ext_face_comm->color_out+1,
-                        icomm+1 ) ) return 0;
+                        icomm+1 ) ) {
+      fprintf(stderr,"## Impossible to hash proc pair %d -- %d. ##\n",ext_face_comm->color_in,ext_face_comm->color_out);
+      return 0;
+    }
   }
 
   /* Check communicators size and color */
