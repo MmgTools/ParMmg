@@ -1007,7 +1007,8 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
-  int            *values,*oldIdx,ip,idx,i,icomm;
+  MMG5_Hash      hashPair;
+  int            *values,*oldIdx,ip,idx,i,icomm,getComm;
   size_t         memAv,oldMemMax;
 
   /* Meshes are merged in grp 0 */
@@ -1021,6 +1022,17 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     return 0;
   }
 
+  /* Create hash table for proc pairs */
+  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm, 8*ncomm) ) return 0;
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    /* Store IDs as IDs+1, so that 0 value can be used for error handling */
+    if( !MMG5_hashEdge( mesh, &hashPair,
+                        ext_node_comm->color_in+1, ext_node_comm->color_out+1,
+                        icomm+1 ) ) return 0;
+  }
+
+
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   PMMG_CALLOC(parmesh,values,int_node_comm->nitem,int,"values",return 0);
@@ -1031,23 +1043,25 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     int_node_comm->intvalues[idx] = ip;
-    printf("i %d ip %d idx %d\n",i,ip,idx);
    }
 
 
   /* Check communicators size and color */
   for( icomm = 0; icomm < ncomm; icomm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
-    if( ext_node_comm->color_out != color[icomm] ) {
+    getComm = MMG5_hashGet( &hashPair, parmesh->myrank+1, color[icomm]+1 );
+    if( !getComm ) {
+      fprintf(stderr,"## Interface %d --  %d not found!\n",
+               parmesh->myrank,color[icomm]);
+      return 0;
+    }
+    getComm--;
+    ext_node_comm = &parmesh->ext_node_comm[getComm];
+    if( color[icomm] != ext_node_comm->color_out ) {
       fprintf(stderr,"## Wrong color for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,color[icomm],ext_node_comm->color_out);
       return 0;
     }
-    if( ext_node_comm->nitem != nitem[icomm] ) {
+    if( nitem[icomm] != ext_node_comm->nitem ) {
       fprintf(stderr,"## Wrong size for node communicator %d on proc %d: input %d, set %d ##\n",icomm,parmesh->myrank,nitem[icomm],ext_node_comm->nitem);
-      for( i = 0; i < nitem[icomm]; i++ )
-        printf("i %d\n",local_index[icomm][i]);
-      for( i = 0; i < ext_node_comm->nitem; i++ )
-        printf("i %d\n",int_node_comm->intvalues[ext_node_comm->int_comm_index[i]]);
       return 0;
     }
   }
@@ -1055,7 +1069,14 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
 
   /** 2) Find input nodes in intvalues */
   for( icomm = 0; icomm < ncomm; icomm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    getComm = MMG5_hashGet( &hashPair, parmesh->myrank+1, color[icomm]+1 );
+    if( !getComm ) {
+      fprintf(stderr,"## Interface %d --  %d not found!\n",
+               parmesh->myrank,color[icomm]);
+      return 0;
+    }
+    getComm--;
+    ext_node_comm = &parmesh->ext_node_comm[getComm];
     
     /* Sort input data */
     PMMG_sort_iarray( parmesh,
@@ -1072,9 +1093,7 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Check communicator against input data */
     for( i = 0; i < ext_node_comm->nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      printf("icomm %d idx %d intval %d\n",icomm,local_index[icomm][i],int_node_comm->intvalues[idx]);
-      if( local_index[icomm][i] != int_node_comm->intvalues[idx] )
-        return 0;
+      if( local_index[icomm][i] != int_node_comm->intvalues[idx] ) return 0;
     }
 
     /* Ripristinate ext comm ordering */
@@ -1087,6 +1106,7 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,oldIdx,int,"oldIdx");
   PMMG_DEL_MEM(parmesh,values,int,"values");
+  MMG5_DEL_MEM(mesh,hashPair.item);
   return 1;
 }
 
