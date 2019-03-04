@@ -254,6 +254,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;
     break;
+  case PMMG_IPARAM_niter :
+    parmesh->niter = val;
+    break;
 
 #ifndef PATTERN
   case PMMG_IPARAM_octree :
