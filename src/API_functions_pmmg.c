@@ -1016,6 +1016,9 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
   /* Check number of communicators */
   if( parmesh->next_node_comm != ncomm ) {
     fprintf(stderr,"## Wrong number of node communicators on proc %d: input %d, set %d. ##\n",parmesh->myrank,ncomm,parmesh->next_node_comm);
@@ -1035,8 +1038,7 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     }
   }
 
-
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax); 
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   PMMG_CALLOC(parmesh,values,int_node_comm->nitem,int,"values",return 0);
   PMMG_CALLOC(parmesh,oldIdx,int_node_comm->nitem,int,"oldIdx",return 0);
@@ -1268,7 +1270,7 @@ int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
     if( nitem_in[icomm] > count ) count = nitem_in[icomm];
   }
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax); 
   PMMG_CALLOC(parmesh,values,count,int,"values",return 0);
   PMMG_CALLOC(parmesh,oldIdx,count,int,"oldIdx",return 0);
 
