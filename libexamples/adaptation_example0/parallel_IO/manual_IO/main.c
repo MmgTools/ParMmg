@@ -238,7 +238,7 @@ int main(int argc,char *argv[]) {
 
   /** 3) Manually partition the global mesh */
   /** b) Create local meshes */
-  int nv, nt, ne, ncomm, *color_out, *ntifc, *npifc;
+  int nv, nt, ne, ncomm, *color_node, *color_face, *ntifc, *npifc;
   switch( parmesh->nprocs ) {
     case 2:
       /* partitioning into 4 procs */
@@ -246,10 +246,11 @@ int main(int argc,char *argv[]) {
       nt = 12;
       ne = 6;
       ncomm = 1;
-      color_out = (int *) malloc(ncomm*sizeof(int));
+      color_node = (int *) malloc(ncomm*sizeof(int));
+      color_face = (int *) malloc(ncomm*sizeof(int));
       ntifc = (int *) malloc(ncomm*sizeof(int));
       npifc = (int *) malloc(ncomm*sizeof(int));
-      color_out[0] = (parmesh->myrank+1)%2;
+      color_node[0] = color_face[0] = (parmesh->myrank+1)%2;
       ntifc[0] = 2;
       npifc[0] = 4;
       break;
@@ -261,55 +262,59 @@ int main(int argc,char *argv[]) {
       switch( rank ) {
         case 0 :
           ncomm = 2;
-          color_out = (int *) malloc(ncomm*sizeof(int));
+          color_node = (int *) malloc(ncomm*sizeof(int));
+          color_face = (int *) malloc(ncomm*sizeof(int));
           ntifc = (int *) malloc(ncomm*sizeof(int));
           npifc = (int *) malloc(ncomm*sizeof(int));
-          color_out[0] = 1;
+          color_node[0] = color_face[0] = 1;
           ntifc[0] = 1;
           npifc[0] = 3;
-          color_out[1] = 3;
+          color_node[1] = color_face[1] = 3;
           ntifc[1] = 1;
           npifc[1] = 3;
           break;
         case 1 :
           ncomm = 3;
-          color_out = (int *) malloc(ncomm*sizeof(int));
+          color_node = (int *) malloc(ncomm*sizeof(int));
+          color_face = (int *) malloc(ncomm*sizeof(int));
           ntifc = (int *) malloc(ncomm*sizeof(int));
           npifc = (int *) malloc(ncomm*sizeof(int));
-          color_out[0] = 0;
+          color_node[0] = color_face[0] = 0;
           ntifc[0] = 1;
           npifc[0] = 3;
-          color_out[1] = 2;
+          color_node[1] = color_face[1] = 2;
           ntifc[1] = 1;
           npifc[1] = 3;
-          color_out[2] = 3;
+          color_node[2] = color_face[2] = 3;
           ntifc[2] = 2;
           npifc[2] = 4;
           break;
         case 2 :
           ncomm = 2;
-          color_out = (int *) malloc(ncomm*sizeof(int));
+          color_node = (int *) malloc(ncomm*sizeof(int));
+          color_face = (int *) malloc(ncomm*sizeof(int));
           ntifc = (int *) malloc(ncomm*sizeof(int));
           npifc = (int *) malloc(ncomm*sizeof(int));
-          color_out[0] = 1;
+          color_node[0] = color_face[0] = 1;
           ntifc[0] = 1;
           npifc[0] = 3;
-          color_out[1] = 3;
+          color_node[1] = color_face[1] = 3;
           ntifc[1] = 1;
           npifc[1] = 3;
           break;
         case 3 :
           ncomm = 3;
-          color_out = (int *) malloc(ncomm*sizeof(int));
+          color_node = (int *) malloc(ncomm*sizeof(int));
+          color_face = (int *) malloc(ncomm*sizeof(int));
           ntifc = (int *) malloc(ncomm*sizeof(int));
           npifc = (int *) malloc(ncomm*sizeof(int));
-          color_out[0] = 0;
+          color_node[0] = color_face[0] = 0;
           ntifc[0] = 1;
           npifc[0] = 3;
-          color_out[1] = 1;
+          color_node[1] = color_face[1] = 1;
           ntifc[1] = 2;
           npifc[1] = 4;
-          color_out[2] = 2;
+          color_node[2] = color_face[2] = 2;
           ntifc[2] = 1;
           npifc[2] = 3;
           break;
@@ -727,7 +732,7 @@ int main(int argc,char *argv[]) {
       ier = PMMG_Set_numberOfFaceCommunicators(parmesh, ncomm);
       for( icomm=0; icomm<ncomm; icomm++ ) {
         ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm,
-                                               color_out[icomm],
+                                               color_face[icomm],
                                                ntifc[icomm]);
         ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm,
                                                  ifc_tria_loc[icomm],
@@ -741,7 +746,7 @@ int main(int argc,char *argv[]) {
       ier = PMMG_Set_numberOfNodeCommunicators(parmesh, ncomm);
       for( icomm=0; icomm<ncomm; icomm++ ) {
         ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, icomm,
-                                               color_out[icomm],
+                                               color_node[icomm],
                                                npifc[icomm]);
         ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm,
                                                  ifc_nodes_loc[icomm],
@@ -764,39 +769,62 @@ int main(int argc,char *argv[]) {
 
   if ( ierlib != PMMG_STRONGFAILURE ) {
 
+    /* If no remeshing is required, check set and get parallel interfaces
+     * against input data */
+    if( !niter ) {
+
+      if( !PMMG_Check_Set_NodeCommunicators(parmesh,ncomm,npifc,
+                                            color_node,ifc_nodes_loc) ) {
+        printf("### Wrong node communicators!\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+
+//      if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
+//                                         color_face,faceNodes) ) {
+//        printf("### Wrong face communicators!\n");
+//        MPI_Finalize();
+//        exit(EXIT_FAILURE);
+//      }
+    }
+
     /** ------------------------------ STEP  IV -------------------------- */
     /** recover parallel interfaces */
   
     int next_node_comm,next_face_comm,*nitem_node_comm,*nitem_face_comm;
+    int *color_node_out,*color_face_out;
+    int **out_tria_loc, **out_node_loc;
+ 
     ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&next_node_comm);
-    ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
-  
-    free(color_out);
-    color_out = (int *) malloc(next_node_comm*sizeof(int));
+ 
+    color_node_out  = (int *) malloc(next_node_comm*sizeof(int));
     nitem_node_comm = (int *) malloc(next_node_comm*sizeof(int));
     for( icomm=0; icomm<next_node_comm; icomm++ )
-      ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm, &color_out[icomm],
+      ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm,
+                                             &color_node_out[icomm],
                                              &nitem_node_comm[icomm]);
  
-    free(color_out);
-    color_out = (int *) malloc(next_face_comm*sizeof(int));
-    nitem_face_comm = (int *) malloc(next_face_comm*sizeof(int));
-    for( icomm=0; icomm<next_face_comm; icomm++ )
-      ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm, &color_out[icomm],
-                                             &nitem_face_comm[icomm]);
-  
-    int **out_tria_loc, **out_node_loc;
-   
     out_node_loc = (int **) malloc(next_node_comm*sizeof(int *));
     for( icomm=0; icomm<next_node_comm; icomm++ )
       out_node_loc[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
+
+
+    ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
  
+    color_face_out  = (int *) malloc(next_face_comm*sizeof(int));
+    nitem_face_comm = (int *) malloc(next_face_comm*sizeof(int));
+    for( icomm=0; icomm<next_face_comm; icomm++ )
+      ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm,
+                                             &color_face_out[icomm],
+                                             &nitem_face_comm[icomm]);
+
     out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
     for( icomm=0; icomm<next_face_comm; icomm++ )
       out_tria_loc[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
- 
+
+
     for( icomm=0; icomm<next_node_comm; icomm++ )
       for( i=0; i < nitem_node_comm[icomm]; i++ )
         printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
