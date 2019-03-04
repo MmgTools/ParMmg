@@ -309,11 +309,13 @@ IF( BUILD_TESTING )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 
-    FOREACH( API_mode 0 1 )
-      FOREACH( NP 2 4 )
-        ADD_TEST ( NAME ${test_name}_io_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-          $<TARGET_FILE:${test_name}>
-          ${input_mesh} ${output_mesh}_io_${API_mode}-${NP} ${API_mode} ${input_met} )
+    FOREACH( niter 0 3 )
+      FOREACH( API_mode 0 1 )
+        FOREACH( NP 2 4 )
+          ADD_TEST ( NAME ${test_name}_io_${niter}${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+            $<TARGET_FILE:${test_name}>
+            ${input_mesh} ${output_mesh}_io_${niter}${API_mode}-${NP} ${niter} ${API_mode} ${input_met} )
+        ENDFOREACH()
       ENDFOREACH()
     ENDFOREACH()
 

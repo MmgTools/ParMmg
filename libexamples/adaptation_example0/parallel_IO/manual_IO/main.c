@@ -83,7 +83,7 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask,
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,ierlib,rank,k,opt,API_mode,i,d,icomm;
+  int             ier,ierlib,rank,k,opt,API_mode,niter,i,d,icomm;
   char            *metname,*solname,*fileout,*metout,*solout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
@@ -100,10 +100,12 @@ int main(int argc,char *argv[]) {
   metout  = NULL;
   tmp     = NULL;
 
-  if ( (argc!=3) && !rank ) {
+  if ( (argc!=4) && !rank ) {
     printf(" Usage: %s fileout io_option\n",argv[0]);
-    printf("     API_mode = 0 to Get/Set the parallel interfaces through triangles\n");
-    printf("     API_mode = 1 to Get/Set the parallel interfaces through nodes\n");
+    printf("     niter    = 0   to perform a dry run of Parmmg and check paralle interfaces construction\n");
+    printf("     niter    = [n] to perform [n] iterations of remeshing\n");
+    printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
+    printf("     API_mode = 1   to Get/Set the parallel interfaces through nodes\n");
     return 1;
   }
 
@@ -136,7 +138,8 @@ int main(int argc,char *argv[]) {
   strcat(solout,"-solphys.sol");
 
   opt      = 1; /* Set mesh entities vertex by vertex */
-  API_mode = atoi(argv[2]);
+  niter    = atoi(argv[2]);
+  API_mode = atoi(argv[3]);
 
   /** ------------------------------ STEP   I -------------------------- */
   /** 1) Initialisation of th parmesh structures */
@@ -748,7 +751,15 @@ int main(int argc,char *argv[]) {
   }
  
   /** ------------------------------ STEP III -------------------------- */
-  /** remesh function */
+  /** remesh step */
+
+  /* Set number of iterations */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
 
   if ( ierlib != PMMG_STRONGFAILURE ) {

@@ -269,7 +269,7 @@ int main(int argc,char *argv[]) {
   MMG5_pTria      ptt;
   MMG5_pTetra     pt;
   int             ip,ie,ier,ierlib,iresult,rank,i,k,nsols;
-  int             opt,API_mode;
+  int             opt,API_mode,niter;
   char            *filename,*metname,*solname,*fileout,*metout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
@@ -285,10 +285,12 @@ int main(int argc,char *argv[]) {
   metname = NULL;
   tmp     = NULL;
 
-  if ( (argc!=4) && !rank ) {
+  if ( (argc!=5) && !rank ) {
     printf(" Usage: %s fileout io_option\n",argv[0]);
-    printf("     API_mode = 0 to Get/Set the parallel interfaces through triangles\n");
-    printf("     API_mode = 1 to Get/Set the parallel interfaces through nodes\n");
+    printf("     niter    = 0   to perform a dry run of Parmmg and check paralle interfaces construction\n");
+    printf("     niter    = [n] to perform [n] iterations of remeshing\n");
+    printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
+    printf("     API_mode = 1   to Get/Set the parallel interfaces through nodes\n");
     return 1;
   }
 
@@ -322,7 +324,8 @@ int main(int argc,char *argv[]) {
   strcat(metout,"-met.sol");
 
   opt      = 1; /* Set mesh entities vertex by vertex */
-  API_mode = atoi(argv[3]);
+  niter    = atoi(argv[3]);
+  API_mode = atoi(argv[4]);
 
   /** ------------------------------ STEP   I -------------------------- */
   /** 1) Initialisation of th parmesh structures */
@@ -629,7 +632,15 @@ int main(int argc,char *argv[]) {
  
 
   /** ------------------------------ STEP V ---------------------------- */
-  /** remesh function */
+  /** remesh step */
+
+  /* Set number of iterations */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
 
   if ( ierlib != PMMG_STRONGFAILURE ) {
