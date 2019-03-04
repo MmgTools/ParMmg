@@ -490,7 +490,7 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"Unable to get mesh triangles\n");
     ier = PMMG_STRONGFAILURE;
   }
-   
+ 
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
       pos = idx_face_loc[icomm][i];
@@ -656,12 +656,12 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
-//      if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
-//                                         color_face,faceNodes) ) {
-//        printf("### Wrong face communicators!\n");
-//        MPI_Finalize();
-//        exit(EXIT_FAILURE);
-//      }
+      if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
+                                         color_face,faceNodes) ) {
+        printf("### Wrong face communicators!\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
     }
 
     /** ------------------------------ STEP  VI -------------------------- */

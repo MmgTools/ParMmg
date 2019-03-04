@@ -508,6 +508,19 @@ int main(int argc,char *argv[]) {
   }
 
 
+  int**  faceNodes     = (int **) malloc(ncomm*sizeof(int *));
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
+    faceNodes[icomm] = (int *) malloc(3*ntifc[icomm]*sizeof(int));
+    for( i = 0; i < ntifc[icomm]; i++ ) {
+      pos = ifc_tria_loc[icomm][i];
+      faceNodes[icomm][3*i]   = tria_vert[3*(pos-1)];
+      faceNodes[icomm][3*i+1] = tria_vert[3*(pos-1)+1];
+      faceNodes[icomm][3*i+2] = tria_vert[3*(pos-1)+2];
+    }
+  }
+
+
+
   /** 4) Pass the mesh in MMG5 format */
   /** Two solutions: just use the PMMG_loadMesh_centralized function that will
       read a .mesh(b) file formatted or manually set your mesh using the
@@ -780,12 +793,12 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
-//      if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
-//                                         color_face,faceNodes) ) {
-//        printf("### Wrong face communicators!\n");
-//        MPI_Finalize();
-//        exit(EXIT_FAILURE);
-//      }
+      if( !PMMG_Check_Set_FaceCommunicators(parmesh,ncomm,ntifc,
+                                         color_face,faceNodes) ) {
+        printf("### Wrong face communicators!\n");
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
     }
 
     /** ------------------------------ STEP  IV -------------------------- */
