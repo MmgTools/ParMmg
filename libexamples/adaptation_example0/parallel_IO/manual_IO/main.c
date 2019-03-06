@@ -328,6 +328,8 @@ int main(int argc,char *argv[]) {
   int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt],inv_tria_mask[28];
   int *ifc_tria_loc[ncomm],*ifc_nodes_loc[ncomm];
   int *ifc_tria_glob[ncomm],*ifc_nodes_glob[ncomm];
+  int **faceNodes;
+
   /** a) Set interface entities (starting from 1) */
 
   for( icomm=0; icomm<ncomm; icomm++ ) {
@@ -506,18 +508,6 @@ int main(int argc,char *argv[]) {
           }
       }
       break;
-  }
-
-
-  int**  faceNodes     = (int **) malloc(ncomm*sizeof(int *));
-  for( icomm = 0; icomm < ncomm; icomm++ ) {
-    faceNodes[icomm] = (int *) malloc(3*ntifc[icomm]*sizeof(int));
-    for( i = 0; i < ntifc[icomm]; i++ ) {
-      pos = ifc_tria_loc[icomm][i];
-      faceNodes[icomm][3*i]   = tria_vert[3*(pos-1)];
-      faceNodes[icomm][3*i+1] = tria_vert[3*(pos-1)+1];
-      faceNodes[icomm][3*i+2] = tria_vert[3*(pos-1)+2];
-    }
   }
 
 
@@ -812,6 +802,18 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
+      /* Get input triangle nodes */
+      faceNodes = (int **) malloc(ncomm*sizeof(int *));
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
+        faceNodes[icomm] = (int *) malloc(3*ntifc[icomm]*sizeof(int));
+        for( i = 0; i < ntifc[icomm]; i++ ) {
+          pos = ifc_tria_loc[icomm][i];
+          faceNodes[icomm][3*i]   = tria_vert[3*(pos-1)];
+          faceNodes[icomm][3*i+1] = tria_vert[3*(pos-1)+1];
+          faceNodes[icomm][3*i+2] = tria_vert[3*(pos-1)+2];
+        }
+      }
+
       /* Check matching of input interface triangles with the set ones */
       if( !PMMG_Check_Set_FaceCommunicators(parmesh,ncomm,ntifc,
                                          color_face,faceNodes) ) {
@@ -848,7 +850,7 @@ int main(int argc,char *argv[]) {
     /* Get number of face interfaces */ 
     ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
  
-    /* Get outward proc rank and number of nodes on each interface */
+    /* Get outward proc rank and number of faces on each interface */
     color_face_out  = (int *) malloc(next_face_comm*sizeof(int));
     nitem_face_comm = (int *) malloc(next_face_comm*sizeof(int));
     for( icomm=0; icomm<next_face_comm; icomm++ )
