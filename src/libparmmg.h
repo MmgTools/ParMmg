@@ -1757,48 +1757,222 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param next_comm number of communicators
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the number of node communicators (i.e. parallel node interfaces) seen
+ * by the current process.
+ *
+ */
   int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param next_comm number of communicators
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the number of face communicators (i.e. parallel face interfaces) seen
+ * by the current process.
+ *
+ */
   int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param color_out rank of the outward process
+ * \param nitem number of entities in the communicator
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set size (number of entities) and color (rank of the outward process) of a
+ * given node communicator.
+ *
+ */
   int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param color_out rank of the outward process
+ * \param nitem number of entities in the communicator
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set size (number of entities) and color (rank of the outward process) of a
+ * given face communicator.
+ *
+ */
   int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of interface entities
+ * \param global_index array of global mesh IDs of interface entities
+ * \param isNotOrdered flag for reordering interface entities if not already done
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the nodes on a parallel interface. Nodes ordering MUST match on the two
+ * processes sharing the same interface.
+ *
+ */
   int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of interface entities
+ * \param global_index array of global mesh IDs of interface entities
+ * \param isNotOrdered flag for reordering interface entities if not already done
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the faces on a parallel interface. Faces ordering MUST match on the two
+ * processes sharing the same interface.
+ *
+ */
   int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param next_comm number of communicators
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the number of node communicators (i.e. parallel node interfaces) seen
+ * by the current process.
+ *
+ */
   int PMMG_Get_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int *next_comm);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param next_comm number of communicators
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the number of face communicators (i.e. parallel face interfaces) seen
+ * by the current process.
+ *
+ */
   int PMMG_Get_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int *next_comm);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param color_out rank of the outward process
+ * \param nitem number of entities in the communicator
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get size (number of entities) and color (rank of the outward process) of a
+ * given node communicator.
+ *
+ */
   int PMMG_Get_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param color_out rank of the outward process
+ * \param nitem number of entities in the communicator
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get size (number of entities) and color (rank of the outward process) of a
+ * given face communicator.
+ *
+ */
   int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of interface entities
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the nodes on a parallel interface.
+ *
+ */
   int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of interface entities
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the faces on a parallel interface.
+ *
+ */
   int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index);
-
-  int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
-                                   int* color, int** trianodes);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ncomm number of input communicators
+ * \param nitem array of number of items in each communicator
+ * \param color array of ranks of the outward processes
+ * \param local_index array of input local mesh IDs of interface entities
+ * (for each interface)
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the node communicators built through the "Set" functions against input
+ * data. It can be called only after a "dry run" of parmmg (i.e. a parallel
+ * library call performing 0 remeshing iterations).
+ *
+ */
   int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
                                    int* color, int** local_index);
-
-  int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
-                                       int ncomm_in,int* nitem_in,
-                                       int* color_in, int** trianodes_in,
-                                       int ncomm_out,int* nitem_out,
-                                       int* color_out, int** trianodes_out);
-
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ncomm number of input communicators
+ * \param nitem array of number of items in each input communicator
+ * \param color array of ranks of the outward processes
+ * \param trianodes array (nt*3)of vertices of input interface triangles
+ * (for each interface)
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the face communicators built through the "Set" functions against input
+ * data. It can be called only after a "dry run" of parmmg (i.e. a parallel
+ * library call performing 0 remeshing iterations).
+ *
+ */
+  int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
+                                   int* color, int** trianodes);
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ncomm_in number of input communicators
+ * \param nitem_in array of number of items in each input communicator
+ * \param color_in array of ranks of the outward processes
+ * \param local_index_in array of input local mesh IDs of interface entities
+ * (for each interface)
+ * \param ncomm_out number of output communicators
+ * \param nitem_out array of number of items in each output communicator
+ * \param color_out array of ranks of the outward processes
+ * \param local_index_out array of output local mesh IDs of interface entities
+ * (for each interface)
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the node communicators collected through the "Get" functions against
+ * input data. It can be called only after a "dry run" of parmmg (i.e. a
+ * parallel library call performing 0 remeshing iterations). Entities and
+ * interfaces need not be ordered.
+ *
+ */
   int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
                                        int ncomm_in,int* nitem_in,
                                        int* color_in, int** local_index_in,
                                        int ncomm_out,int* nitem_out,
                                        int* color_out, int** local_index_out);
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ncomm_in number of input communicators
+ * \param nitem_in array of number of items in each input communicator
+ * \param color_in array of ranks of the outward processes
+ * \param trianodes_in array (nt*3)of vertices of input interface triangles
+ * (for each interface)
+ * \param ncomm_out number of output communicators
+ * \param nitem_out array of number of items in each output communicator
+ * \param color_out array of ranks of the outward processes
+ * \param trianodes_out array (nt*3)of vertices of output interface triangles
+ * (for each interface)
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the face communicators collected through the "Get" functions against
+ * input data. It can be called only after a "dry run" of parmmg (i.e. a
+ * parallel library call performing 0 remeshing iterations). Entities and
+ * interfaces need not be ordered.
+ *
+ */
+ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
+                                       int ncomm_in,int* nitem_in,
+                                       int* color_in, int** trianodes_in,
+                                       int ncomm_out,int* nitem_out,
+                                       int* color_out, int** trianodes_out);
 
 #ifdef __cplusplus
 }
