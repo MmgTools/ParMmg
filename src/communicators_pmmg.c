@@ -278,9 +278,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
     }
   }
  
-  /* Allocate arrays */
-  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
-              "allocating int_node_comm",return 0);
+  /* Allocate group communicators */
   int_node_comm = parmesh->int_node_comm;
   int_node_comm->nitem = nitem_int_node_comm;
   PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,"node2int_node_comm_index1",return 0);
@@ -337,9 +335,7 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
     nitem_int_face_comm += ext_face_comm->nitem;
   }
  
-  /* Allocate arrays */
-  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
-              "allocating int_face_comm",return 0);
+  /* Allocate group communicators */
   int_face_comm = parmesh->int_face_comm;
   int_face_comm->nitem = nitem_int_face_comm;
   PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,"face2int_face_comm_index1",return 0);
@@ -523,6 +519,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_loc");
   PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_par");
   PMMG_DEL_MEM(parmesh,nb_fNodes_par,int,"nb_fNodes_par");
+  PMMG_DEL_MEM(parmesh,fNodes_par,int,"fNodes_par");
   PMMG_DEL_MEM(parmesh,displs,int,"displs");
   PMMG_DEL_MEM(parmesh,counter,int,"counter");
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");

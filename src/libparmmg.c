@@ -414,7 +414,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
     PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
     parmesh->next_node_comm = 0;
-    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Int_comm,"int node comm");
+    PMMG_DEL_MEM(parmesh, parmesh->int_node_comm,PMMG_Int_comm,"int node comm");
     PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
     if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
       return PMMG_STRONGFAILURE;
