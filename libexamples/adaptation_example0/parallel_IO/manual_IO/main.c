@@ -734,6 +734,12 @@ int main(int argc,char *argv[]) {
    *     interface information (through the PMMG_APIDISTRIB_nodes parameter).
    */
  
+  /* Set API mode */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /* Select face or node interface API */
   switch( API_mode ) {
     

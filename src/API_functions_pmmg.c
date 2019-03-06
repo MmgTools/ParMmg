@@ -126,6 +126,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
   parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio =  PMMG_RATIO_MMG_METIS;
+  parmesh->info.API_mode    =  PMMG_APIDISTRIB_faces;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -254,6 +255,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;
+    break;
+  case PMMG_IPARAM_APImode :
+    parmesh->info.API_mode = val;
     break;
   case PMMG_IPARAM_niter :
     parmesh->niter = val;

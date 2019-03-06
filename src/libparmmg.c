@@ -346,23 +346,17 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
-  /** Set distributed API mode. Interface faces OR nodes need to be set by the
+  /** Check distributed API mode. Interface faces OR nodes need to be set by the
    * user through the API interface at this point, meening that the
    * corresponding external comm is set to the correct size, and filled with
    * local entity indices (for node comms, also itosend and itorecv arrays are
    * filled with local/global node IDs).
-   * .
-   * - By default, if interface faces are provided by the user, the input nodes
-   *   are ignored and node communicators are built from the face ones.
-   * - Otherwise, interfaces nodes serve to build node communicators, then face
-   *   comms are built from node ones.
-   */
-  if( parmesh->next_face_comm ) {
-    parmesh->info.API_mode = PMMG_APIDISTRIB_faces;
-  } else if( parmesh->next_node_comm ) {
-    parmesh->info.API_mode = PMMG_APIDISTRIB_nodes;
-  } else {
-    fprintf(stderr," ## Error: %s: parallel faces or nodes must be set through the API interface\n",__func__);
+  */
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
+    fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
+    return 0;
+  } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
+    fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
     return 0;
   }
 

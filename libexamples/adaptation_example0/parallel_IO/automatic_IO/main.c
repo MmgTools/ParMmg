@@ -620,6 +620,17 @@ int main(int argc,char *argv[]) {
     }
   }
 
+  /**    Initialization of interface communicators in ParMMG.
+   *     The user can choose between providing triangles (faces) interface
+   *     information (through the PMMG_APIDISTRIB_faces parameter), or nodes
+   *     interface information (through the PMMG_APIDISTRIB_nodes parameter).
+   */
+ 
+  /* Set API mode */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
 
   /* Set triangles or nodes interfaces depending on API mode */
   switch( API_mode ) {
