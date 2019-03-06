@@ -2,6 +2,15 @@
  * Example of use of the parmmg library with a distributed input mesh (basic
  * use of mesh adaptation)
  *
+ * This example show how to set and get parallel mesh interfaces using the
+ * ParMmg setters and getters, starting from a global mesh which is
+ * automatically partitioned and distributed among the processes.
+ * Depending on the command line option "niter", the programs performs a dry run
+ * of ParMMG without remeshing steps, to the purpose of checking parallel
+ * interface consistency, or a true run of ParMMG with parallel remeshing.
+ * Depending on the command line option "API_mode", either face or node
+ * interfaces are set.
+
  * \author Luca Cirrottola (Inria)
  * \author Algiane Froehly (InriaSoft)
  * \version 1
@@ -63,12 +72,12 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
       ppt->flag = PMMG_UNSET;
     }
 
-  /* Count nb of new pairs hosted on proc */
+  /* Count nb of new pair nodes hosted on proc */
   npairs_loc = 0;
   for( icomm = 0; icomm < next_node_comm; icomm++ )
     if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_node_comm[icomm];//1;
 
-  /* Get nb of pairs and compute pair offset */
+  /* Get nb of pair nodes and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
                  npairs,1,MPI_INT,parmesh->comm );
 
@@ -84,7 +93,7 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
       glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_node_comm[icomm];//+1;
   }
 
-  /* Compute global pair enumeration (injective, non-surjective map) */
+  /* Compute global pair nodes enumeration (injective, non-surjective map) */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     
     /* Assign global index */
@@ -187,12 +196,12 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
-  /* Count nb of new pairs hosted on proc */
+  /* Count nb of new pair faces hosted on proc */
   npairs_loc = 0;
   for( icomm = 0; icomm < next_face_comm; icomm++ )
     if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_face_comm[icomm];//1;
 
-  /* Get nb of pairs and compute pair offset */
+  /* Get nb of pair faces and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
                  npairs,1,MPI_INT,parmesh->comm );
 
@@ -208,7 +217,7 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
       glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_face_comm[icomm];//+1;
   }
 
-  /* Compute global pair enumeration (injective, non-surjective map) */
+  /* Compute global pair faces enumeration (injective, non-surjective map) */
   for( icomm = 0; icomm < next_face_comm; icomm++ ) {
     
     /* Assign global index */
@@ -479,11 +488,9 @@ int main(int argc,char *argv[]) {
   /* Get IDs of triangles on each interface */
   idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
   idx_face_glob = (int **) malloc(n_face_comm*sizeof(int *));
-  faceNodes     = (int **) malloc(n_face_comm*sizeof(int *));
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     idx_face_loc[icomm]  = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
-    faceNodes[icomm]     = (int *) malloc(3*nitem_face_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
 
@@ -506,23 +513,20 @@ int main(int argc,char *argv[]) {
     ier = PMMG_STRONGFAILURE;
   }
  
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
-      pos = idx_face_loc[icomm][i];
-      faceNodes[icomm][3*i]   = triaNodes[3*(pos-1)];
-      faceNodes[icomm][3*i+1] = triaNodes[3*(pos-1)+1];
-      faceNodes[icomm][3*i+2] = triaNodes[3*(pos-1)+2];
-    }
-  }
-
-  /* Color interface triangles with global enumeration */
+  /* Color interface triangles with a custom global enumeration that encompasses
+   * all boundary and interface triangles currently present in the global mesh
+   * (we don't care about contiguity of global IDs, but only about uniqueness).
+   */
   if( !color_intfcTria(parmesh,color_face,idx_face_loc,idx_face_glob,
                        n_face_comm,nitem_face_comm) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
-  /* Color interface nodes with global enumeration */
+  /* Color interface nodes with a custom global enumeration that encompasses
+   * all boundary and interface nodes currently present in the global mesh
+   * (we don't care about contiguity of global IDs, but only about uniqueness).
+   */
   if( !color_intfcNode(parmesh,color_node,idx_node_loc,idx_node_glob,
                        n_node_comm,nitem_node_comm) ) {
     MPI_Finalize();
@@ -691,8 +695,20 @@ int main(int argc,char *argv[]) {
       }
 
       /* Get input triangle nodes */
+      faceNodes     = (int **) malloc(n_face_comm*sizeof(int *));
+      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+        faceNodes[icomm]     = (int *) malloc(3*nitem_face_comm[icomm]*sizeof(int));
+        for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
+          pos = idx_face_loc[icomm][i];
+          faceNodes[icomm][3*i]   = triaNodes[3*(pos-1)];
+          faceNodes[icomm][3*i+1] = triaNodes[3*(pos-1)+1];
+          faceNodes[icomm][3*i+2] = triaNodes[3*(pos-1)+2];
+        }
+      }
+
+      /* Check matching of input interface triangles with the set ones */  
       if( !PMMG_Check_Set_FaceCommunicators(parmesh,n_face_comm,nitem_face_comm,
-                                         color_face,faceNodes) ) {
+                                            color_face,faceNodes) ) {
         printf("### Wrong set face communicators!\n");
         MPI_Finalize();
         exit(EXIT_FAILURE);

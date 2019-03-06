@@ -1,10 +1,14 @@
 /**
  * Example of use of the parmmg library (basic use of mesh adaptation).
  *
- * This example show how to set and get the mesh, metric and solutions using the
- * ParMmg setters and getters. Depending of the command line option "opt", the
- * values are setted entities by entities or the entire value array is directly
- * setted.
+ * This example show how to set and get parallel mesh interfaces using the
+ * ParMmg setters and getters, starting from a manual partitioning of a global
+ * mesh.
+ * Depending on the command line option "niter", the programs performs a dry run
+ * of ParMMG without remeshing steps, to the purpose of checking parallel
+ * interface consistency, or a true run of ParMMG with parallel remeshing.
+ * Depending on the command line option "API_mode", either face or node
+ * interfaces are set.
  *
  * \author Luca Cirrottola (Inria)
  * \author Algiane Froehly (InriaSoft)
