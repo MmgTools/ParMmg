@@ -30,16 +30,7 @@
 #define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
 #define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
 
-void append_ifaces(int shift, int nifc, int *inv_pmask,
-                   int *tvert, int *tref, int *ticf,int *tifc_ref) {
-  int k,d;
-  for( k=0; k<nifc; k++ ) {
-    for( d=0; d<3; d++ )
-      tvert[3*(k+shift)+d] = inv_pmask[ticf[3*k+d]];
-    tref[k+shift] = tifc_ref[k];
-  }
-}
-
+/* Function to get a local mesh from a global one, */
 void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask,
                     int *emask, int *tmask, int *inv_tmask,
                     double *pcoor, double *pcoor_all, int *pref, int *pref_all,
@@ -81,6 +72,7 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask,
   }
 }
 
+/* Main program */
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
   int             ier,ierlib,rank,k,opt,API_mode,niter,i,d,icomm;
@@ -137,11 +129,20 @@ int main(int argc,char *argv[]) {
   sprintf(solout, "%s-P%02d", solout, rank );
   strcat(solout,"-solphys.sol");
 
-  opt      = 1; /* Set mesh entities vertex by vertex */
+  /* Option to set mesh entities vertex by vertex */
+  opt      = 1;
+
+  /* Get number of remeshing iterations */
   niter    = atoi(argv[2]);
+
+  /* Get API mode (face or node interfaces) */
   API_mode = atoi(argv[3]);
 
   /** ------------------------------ STEP   I -------------------------- */
+  /** Each process initialize the parmesh structure, then creates a global mesh
+   *  and mark its local entities given an assumed partitioning.
+   */
+
   /** 1) Initialisation of th parmesh structures */
   /* args of InitMesh:
    * PMMG_ARG_start: we start to give the args of a variadic func
@@ -237,7 +238,7 @@ int main(int argc,char *argv[]) {
 
 
   /** 3) Manually partition the global mesh */
-  /** b) Create local meshes */
+  /** a) Create local meshes */
   int nv, nt, ne, ncomm, *color_node, *color_face, *ntifc, *npifc;
   switch( parmesh->nprocs ) {
     case 2:
@@ -520,13 +521,12 @@ int main(int argc,char *argv[]) {
   }
 
 
+  /** ------------------------------ STEP  II -------------------------- */ 
+  /** Pass mesh and solution in MMG5 format, set interface entities in ParMMG.*/
 
-  /** 4) Pass the mesh in MMG5 format */
-  /** Two solutions: just use the PMMG_loadMesh_centralized function that will
-      read a .mesh(b) file formatted or manually set your mesh using the
-      PMMG_Set* functions */
 
-  /** with ParMmg setters */
+  /** 1) Manually set your mesh using the PMMG_Set* functions */
+
   /** a) give the size of the mesh */
   int nVertices       = nv;
   int nTetrahedra     = ne;
@@ -616,7 +616,7 @@ int main(int argc,char *argv[]) {
   }
 
 
-  /** 5) Build metric in ParMmg format */
+  /** 2) Build metric in ParMmg format */
   /** Two solutions: just use the PMMG_loadMet_centralized function that will
       read a .sol(b) file formatted or manually set your sol using the
       PMMG_Set* functions */
@@ -648,7 +648,7 @@ int main(int argc,char *argv[]) {
   }
 
 
-  /** 6) Build solutions in PMMG format */
+  /** 3) Build solutions in PMMG format */
   /** Two solutions: just use the PMMG_loadAllSols_centralized function that
       will read a .sol(b) file formatted or manually set your solutions using
       the PMMG_Set* functions */
@@ -734,19 +734,30 @@ int main(int argc,char *argv[]) {
   }
 
   
-  /** ------------------------------ STEP  II -------------------------- */
-  /** initialization of interface communicators */
+  /** 4) Initialization of interface communicators in ParMMG.
+   *     The user can choose between providing triangles (faces) interface
+   *     information (through the PMMG_APIDISTRIB_faces parameter), or nodes
+   *     interface information (through the PMMG_APIDISTRIB_nodes parameter).
+   */
  
+  /* Select face or node interface API */
   switch( API_mode ) {
     
     case PMMG_APIDISTRIB_faces :
       if( !rank ) printf("\n--- API mode: Setting face communicators\n");
       
+      /* Set the number of interfaces */
       ier = PMMG_Set_numberOfFaceCommunicators(parmesh, ncomm);
+
+      /* Loop on each interface (proc pair) seen by the current rank) */
       for( icomm=0; icomm<ncomm; icomm++ ) {
+
+        /* Set nb. of entities on interface and rank of the outward proc */
         ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm,
                                                color_face[icomm],
                                                ntifc[icomm]);
+
+        /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm,
                                                  ifc_tria_loc[icomm],
                                                  ifc_tria_glob[icomm], 1 );
@@ -755,12 +766,19 @@ int main(int argc,char *argv[]) {
     
     case PMMG_APIDISTRIB_nodes :
       if( !rank ) printf("\n--- API mode: Setting node communicators\n");
-      
+ 
+      /* Set the number of interfaces */
       ier = PMMG_Set_numberOfNodeCommunicators(parmesh, ncomm);
+
+      /* Loop on each interface (proc pair) seen by the current rank) */
       for( icomm=0; icomm<ncomm; icomm++ ) {
+
+        /* Set nb. of entities on interface and rank of the outward proc */
         ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, icomm,
                                                color_node[icomm],
                                                npifc[icomm]);
+
+        /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm,
                                                  ifc_nodes_loc[icomm],
                                                  ifc_nodes_glob[icomm], 1 );
@@ -782,10 +800,11 @@ int main(int argc,char *argv[]) {
 
   if ( ierlib != PMMG_STRONGFAILURE ) {
 
-    /* If no remeshing is required, check set parallel interfaces against input
-     * data */
+    /** If no remeshing is performed (zero remeshing iterations), check set
+     * parallel interfaces against input data. */
     if( !niter ) {
 
+      /* Check matching of input interface nodes with the set ones */
       if( !PMMG_Check_Set_NodeCommunicators(parmesh,ncomm,npifc,
                                             color_node,ifc_nodes_loc) ) {
         printf("### Wrong set node communicators!\n");
@@ -793,6 +812,7 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
+      /* Check matching of input interface triangles with the set ones */
       if( !PMMG_Check_Set_FaceCommunicators(parmesh,ncomm,ntifc,
                                          color_face,faceNodes) ) {
         printf("### Wrong set face communicators!\n");
@@ -808,8 +828,10 @@ int main(int argc,char *argv[]) {
     int *color_node_out,*color_face_out;
     int **out_tria_loc, **out_node_loc;
  
+    /* Get number of node interfaces */
     ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&next_node_comm);
  
+    /* Get outward proc rank and number of nodes on each interface */
     color_node_out  = (int *) malloc(next_node_comm*sizeof(int));
     nitem_node_comm = (int *) malloc(next_node_comm*sizeof(int));
     for( icomm=0; icomm<next_node_comm; icomm++ )
@@ -817,14 +839,16 @@ int main(int argc,char *argv[]) {
                                              &color_node_out[icomm],
                                              &nitem_node_comm[icomm]);
  
+    /* Get IDs of nodes on each interface */
     out_node_loc = (int **) malloc(next_node_comm*sizeof(int *));
     for( icomm=0; icomm<next_node_comm; icomm++ )
       out_node_loc[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, out_node_loc);
 
-
+    /* Get number of face interfaces */ 
     ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&next_face_comm);
  
+    /* Get outward proc rank and number of nodes on each interface */
     color_face_out  = (int *) malloc(next_face_comm*sizeof(int));
     nitem_face_comm = (int *) malloc(next_face_comm*sizeof(int));
     for( icomm=0; icomm<next_face_comm; icomm++ )
@@ -832,12 +856,13 @@ int main(int argc,char *argv[]) {
                                              &color_face_out[icomm],
                                              &nitem_face_comm[icomm]);
 
+    /* Get IDs of triangles on each interface */
     out_tria_loc = (int **) malloc(next_face_comm*sizeof(int *));
     for( icomm=0; icomm<next_face_comm; icomm++ )
       out_tria_loc[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, out_tria_loc);
 
-
+/*
     for( icomm=0; icomm<next_node_comm; icomm++ )
       for( i=0; i < nitem_node_comm[icomm]; i++ )
         printf("rank %d comm %d node %d\n",parmesh->myrank,icomm,out_node_loc[icomm][i]);
@@ -845,11 +870,13 @@ int main(int argc,char *argv[]) {
     for( icomm=0; icomm<next_face_comm; icomm++ )
       for( i=0; i < nitem_face_comm[icomm]; i++ )
         printf("rank %d comm %d tria %d\n",parmesh->myrank,icomm,out_tria_loc[icomm][i]);
+*/
 
-    /* If no remeshing is required, check retrieved parallel interfaces against input
-     * data */
+    /** If no remeshing is performed (zero remeshing iterations), check
+     *  retrieved parallel interfaces against input data. */
     if( !niter ) {
 
+      /* Check matching of input interface nodes with the output ones */
       if( !PMMG_Check_Get_NodeCommunicators(parmesh,
                                             ncomm,npifc,
                                             color_node,ifc_nodes_loc,
@@ -860,6 +887,8 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
+      /* Get output triangles (as the boundary is re-generated, triangle IDs
+       * have changed) */
       nVertices   = 0;
       nTetrahedra = 0;
       nTriangles  = 0;
@@ -889,6 +918,7 @@ int main(int argc,char *argv[]) {
         }
       }
 
+      /* Check matching of input interface triangles with the output ones */
       if( !PMMG_Check_Get_FaceCommunicators(parmesh,ncomm,ntifc,
                                             color_face,faceNodes,
                                             next_face_comm,nitem_face_comm,
