@@ -206,6 +206,11 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       /* Set node communicators indexing */
       if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
       /* Build face comms from node ones and set xtetra tags */
+      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
+      PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
+      parmesh->next_face_comm = 0;
+      PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
+      PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,"int face comm",return 0);
       if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
       break;
   }
