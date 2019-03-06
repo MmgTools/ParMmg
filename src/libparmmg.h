@@ -1765,6 +1765,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Set the number of node communicators (i.e. parallel node interfaces) seen
  * by the current process.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_NUMBEROFNODECOMMUNICATORS(parmesh,next_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)            :: next_comm\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Set_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int next_comm);
 /**
@@ -1774,6 +1781,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Set the number of face communicators (i.e. parallel face interfaces) seen
  * by the current process.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_NUMBEROFFACECOMMUNICATORS(parmesh,next_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)            :: next_comm\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
   int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm);
@@ -1787,6 +1801,15 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Set size (number of entities) and color (rank of the outward process) of a
  * given node communicator.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: color_out\n
+ * >     INTEGER, INTENT(IN)            :: nitem\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
 /**
@@ -1798,6 +1821,15 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Set size (number of entities) and color (rank of the outward process) of a
  * given face communicator.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_ITHFACECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: color_out\n
+ * >     INTEGER, INTENT(IN)            :: nitem\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
   int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem);
@@ -1812,6 +1844,18 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Set the nodes on a parallel interface. Nodes ordering MUST match on the two
  * processes sharing the same interface.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,&\n
+ * >                                                 local_index,global_index,&\n
+ * >                                                 isNotOrdered,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)    :: parmesh\n
+ * >     INTEGER, INTENT(IN)               :: ext_comm_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN) :: local_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN) :: global_index\n
+ * >     INTEGER, INTENT(IN)               :: isNotOrdered\n
+ * >     INTEGER, INTENT(OUT)              :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
 /**
@@ -1825,6 +1869,18 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Set the faces on a parallel interface. Faces ordering MUST match on the two
  * processes sharing the same interface.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_ITHFACECOMMUNICATOR_FACES(parmesh,ext_comm_index,&\n
+ * >                                                 local_index,global_index,&\n
+ * >                                                 isNotOrdered,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)    :: parmesh\n
+ * >     INTEGER, INTENT(IN)               :: ext_comm_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN) :: local_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN) :: global_index\n
+ * >     INTEGER, INTENT(IN)               :: isNotOrdered\n
+ * >     INTEGER, INTENT(OUT)              :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered);
 /**
@@ -1835,6 +1891,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Get the number of node communicators (i.e. parallel node interfaces) seen
  * by the current process.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_NUMBEROFNODECOMMUNICATORS(parmesh,next_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: next_comm\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Get_numberOfNodeCommunicators(PMMG_pParMesh parmesh, int *next_comm);
 /**
@@ -1844,6 +1907,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Get the number of face communicators (i.e. parallel face interfaces) seen
  * by the current process.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_NUMBEROFFACECOMMUNICATORS(parmesh,next_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: next_comm\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
   int PMMG_Get_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int *next_comm);
@@ -1857,6 +1927,15 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Get size (number of entities) and color (rank of the outward process) of a
  * given node communicator.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(OUT)           :: color_out\n
+ * >     INTEGER, INTENT(OUT)           :: nitem\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Get_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
 /**
@@ -1869,6 +1948,14 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Get size (number of entities) and color (rank of the outward process) of a
  * given face communicator.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(OUT)           :: color_out\n
+ * >     INTEGER, INTENT(OUT)           :: nitem\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
  */
   int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
 /**
@@ -1879,6 +1966,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Get the nodes on a parallel interface.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index);
 /**
@@ -1888,6 +1982,13 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \return 0 if failed, 1 otherwise.
  *
  * Get the faces on a parallel interface.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
   int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index);
@@ -1904,6 +2005,17 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * data. It can be called only after a "dry run" of parmmg (i.e. a parallel
  * library call performing 0 remeshing iterations).
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_CHECK_SET_NODECOMMUNICATORS(parmesh,ncomm,nitem,&\n
+ * >                                               color,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)      :: parmesh\n
+ * >     INTEGER, INTENT(IN)                 :: ncomm\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: nitem\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: color\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN) :: local_index\n
+ * >     INTEGER, INTENT(OUT)                :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
                                    int* color, int** local_index);
@@ -1912,13 +2024,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param ncomm number of input communicators
  * \param nitem array of number of items in each input communicator
  * \param color array of ranks of the outward processes
- * \param trianodes array (nt*3)of vertices of input interface triangles
+ * \param trianodes array (nt*3) of vertices of input interface triangles
  * (for each interface)
  * \return 0 if failed, 1 otherwise.
  *
  * Check the face communicators built through the "Set" functions against input
  * data. It can be called only after a "dry run" of parmmg (i.e. a parallel
  * library call performing 0 remeshing iterations).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_CHECK_SET_FACECOMMUNICATORS(parmesh,ncomm,nitem,&\n
+ * >                                               color,trianodes,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)      :: parmesh\n
+ * >     INTEGER, INTENT(IN)                 :: ncomm\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: nitem\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: color\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN) :: trianodes\n
+ * >     INTEGER, INTENT(OUT)                :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
   int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
@@ -1942,6 +2065,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * parallel library call performing 0 remeshing iterations). Entities and
  * interfaces need not be ordered.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_CHECK_GET_NODECOMMUNICATORS(parmesh,ncomm_in,nitem_in,&\n
+ * >                                               color_in,local_index_in,&\n
+ * >                                               ncomm_out,nitem_out,&\n
+ * >                                               color_out,local_index_out,&\n
+ * >                                               retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(IN)                  :: ncomm_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_in\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: local_index_in\n
+ * >     INTEGER, INTENT(OUT)                 :: ncomm_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: nitem_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: color_out\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index_out\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ *
  */
   int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
                                        int ncomm_in,int* nitem_in,
@@ -1953,7 +2094,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param ncomm_in number of input communicators
  * \param nitem_in array of number of items in each input communicator
  * \param color_in array of ranks of the outward processes
- * \param trianodes_in array (nt*3)of vertices of input interface triangles
+ * \param trianodes_in array (nt*3) of vertices of input interface triangles
  * (for each interface)
  * \param ncomm_out number of output communicators
  * \param nitem_out array of number of items in each output communicator
@@ -1966,6 +2107,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * input data. It can be called only after a "dry run" of parmmg (i.e. a
  * parallel library call performing 0 remeshing iterations). Entities and
  * interfaces need not be ordered.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_CHECK_GET_FACECOMMUNICATORS(parmesh,ncomm_in,nitem_in,&\n
+ * >                                               color_in,trianodes_in,&\n
+ * >                                               ncomm_out,nitem_out,&\n
+ * >                                               color_out,trianodes_out,&\n
+ * >                                               retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(IN)                  :: ncomm_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_in\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: trianodes_in\n
+ * >     INTEGER, INTENT(OUT)                 :: ncomm_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: nitem_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: color_out\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: trianodes_out\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
  *
  */
  int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
