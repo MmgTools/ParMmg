@@ -933,7 +933,12 @@ int main(int argc,char *argv[]) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
+ 
+      free(ref);
+      free(required);
+      free(triaNodes);
     }
+
 
     /** ------------------------------ STEP V  ---------------------------- */
     /** get results */
@@ -1189,7 +1194,10 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"\nEnd\n");
     fclose(inm);
 
+    free(vert)    ; vert     = NULL;  
     free(tetra)   ; tetra    = NULL;
+    free(tria)    ; tria     = NULL;
+    free(edge)    ; edge     = NULL;
     free(ref)     ; ref      = NULL;
     free(required); required = NULL;
     free(ridge)   ; ridge    = NULL;
