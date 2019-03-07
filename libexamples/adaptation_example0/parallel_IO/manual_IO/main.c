@@ -833,6 +833,7 @@ int main(int argc,char *argv[]) {
       }
     }
 
+
     /** ------------------------------ STEP  IV -------------------------- */
     /** recover parallel interfaces */
   
@@ -943,7 +944,35 @@ int main(int argc,char *argv[]) {
       free(ref);
       free(required);
       free(triaNodes);
+      for( icomm = 0; icomm < ncomm; icomm++ )
+        free(faceNodes[icomm]);
+      free(faceNodes);
+      for( icomm = 0; icomm < next_face_comm; icomm++ )
+        free(faceNodes_out[icomm]);
+      free(faceNodes_out);
     }
+
+    free(color_node);
+    free(color_face);
+    free(npifc);
+    free(ntifc);
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      free(ifc_nodes_loc[icomm]);
+      free(ifc_nodes_glob[icomm]);
+      free(ifc_tria_loc[icomm]);
+      free(ifc_tria_glob[icomm]);
+    }
+
+    free(color_node_out);
+    free(color_face_out);
+    free(nitem_node_comm);
+    free(nitem_face_comm);
+    for( icomm = 0; icomm < next_node_comm; icomm++ )
+      free(out_node_loc[icomm]);
+    free(out_node_loc);
+    for( icomm = 0; icomm < next_face_comm; icomm++ )
+      free(out_tria_loc[icomm]);
+    free(out_tria_loc);
 
 
     /** ------------------------------ STEP V  ---------------------------- */
@@ -1261,6 +1290,8 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"\nEnd\n");
     fclose(inm);
 
+    free(sol);
+  
     /** 4) Get the solutions with ParMmg getters */
     // To implement when ParMmg will be ready
   }
