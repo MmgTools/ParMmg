@@ -145,6 +145,11 @@ int color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
+  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
+  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+
 
   /* Check global IDs */
   int **itorecv;
@@ -239,6 +244,11 @@ int color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
   for( icomm = 0; icomm < next_face_comm; icomm++ )
     for( i=0; i < nitem_face_comm[icomm]; i++ )
       ifc_tria_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
+  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
+  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
 
 
   /* Check global IDs */
@@ -732,8 +742,8 @@ int main(int argc,char *argv[]) {
     int n_node_comm_out,n_face_comm_out;
     int *nitem_node_comm_out,*nitem_face_comm_out;
     int *color_node_out, *color_face_out;
-    int **idx_face_loc_out,**idx_face_glob_out;
-    int **idx_node_loc_out,**idx_node_glob_out;
+    int **idx_face_loc_out;
+    int **idx_node_loc_out;
 
     /* Get number of node interfaces */
     ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&n_node_comm_out);
@@ -817,8 +827,46 @@ int main(int argc,char *argv[]) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
       }
+
+      for( icomm = 0; icomm < n_face_comm; icomm++ )
+        free(faceNodes[icomm]);
+      free(faceNodes);
+      for( icomm = 0; icomm < n_face_comm_out; icomm++ )
+        free(faceNodes_out[icomm]);
+      free(faceNodes_out);
     }
 
+    free(ref);
+    free(required);
+    free(triaNodes);
+    free(nitem_node_comm);
+    free(nitem_face_comm);
+    free(color_node);
+    free(color_face);
+    for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+      free(idx_node_loc[icomm]);
+      free(idx_node_glob[icomm]);
+    }
+    free(idx_node_loc);
+    free(idx_node_glob);
+    for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+      free(idx_face_loc[icomm]);
+      free(idx_face_glob[icomm]);
+    }
+    free(idx_face_loc);
+    free(idx_face_glob);
+
+    free(nitem_node_comm_out);
+    free(nitem_face_comm_out);
+    free(color_node_out);
+    free(color_face_out);
+    for( icomm = 0; icomm < n_node_comm_out; icomm++ )
+      free(idx_node_loc_out[icomm]);
+    free(idx_node_loc_out);
+    for( icomm = 0; icomm < n_face_comm_out; icomm++ )
+      free(idx_face_loc_out[icomm]);
+    free(idx_face_loc_out);
+ 
 
     /** ------------------------------ STEP VII --------------------------- */
     /** get results */
@@ -1074,7 +1122,10 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"\nEnd\n");
     fclose(inm);
 
+    free(vert)    ; vert     = NULL;
     free(tetra)   ; tetra    = NULL;
+    free(tria)    ; tria     = NULL;
+    free(edge)    ; edge     = NULL; 
     free(ref)     ; ref      = NULL;
     free(required); required = NULL;
     free(ridge)   ; ridge    = NULL;
@@ -1132,6 +1183,8 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"\nEnd\n");
     fclose(inm);
 
+    free(sol);
+
     /** 4) Get the solutions with ParMmg getters */
     // To implement when ParMmg will be ready
   }
@@ -1140,7 +1193,12 @@ int main(int argc,char *argv[]) {
   }
 
 
-
+  /* Free auxiliary mesh structures */
+  MMG3D_Free_all(MMG5_ARG_start,
+                 MMG5_ARG_ppMesh,&meshIN,
+                 MMG5_ARG_ppMet,&solIN,
+                 MMG5_ARG_end);
+ 
 
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
@@ -1152,6 +1210,10 @@ int main(int argc,char *argv[]) {
 
   free(fileout);
   fileout = NULL;
+
+  free(metout);
+  metout = NULL;
+
 
   MPI_Finalize();
 
