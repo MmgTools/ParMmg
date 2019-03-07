@@ -89,6 +89,175 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the mesh structure
+ *
+ * \remark Modeled after the MMG3D_analys function, with additional node/face
+ *         communicators indices construction. Also build face comms from node
+ *         ones (before tags are passed to edges and nodes).
+ */
+int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_Hash      hash;
+  int            i,iext_comm,iext;
+
+  /**--- stage 1: data structures for surface */
+  if ( abs(mesh->info.imprim) > 3 )
+    fprintf(stdout,"\n  ** SURFACE ANALYSIS\n");
+
+  /* create tetra adjacency */
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Hashing problem (1). Exit program.\n");
+    return 0;
+  }
+
+  /* create prism adjacency */
+  if ( !MMG3D_hashPrism(mesh) ) {
+    fprintf(stderr,"\n  ## Prism hashing problem. Exit program.\n");
+    return 0;
+  }
+  /* compatibility triangle orientation w/r tetras */
+  if ( !MMG5_bdryPerm(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
+    return 0;
+  }
+
+  /* identify surface mesh */
+  if ( !MMG5_chkBdryTria(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    return 0;
+  }
+  MMG5_freeXTets(mesh);
+  MMG5_freeXPrisms(mesh);
+
+  /* Set surface triangles to required in nosurf mode or for parallel boundaries */
+  MMG3D_set_reqBoundaries(mesh);
+
+
+  /* create surface adjacency */
+  if ( !MMG3D_hashTria(mesh,&hash) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
+    return 0;
+  }
+
+  /* build hash table for geometric edges */
+  if ( !MMG5_hGeom(mesh) ) {
+    fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    return 0;
+  }
+
+  /**--- stage 2: surface analysis */
+  if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
+    fprintf(stdout,"  ** SETTING TOPOLOGY\n");
+
+  /* identify connexity */
+  if ( !MMG5_setadj(mesh) ) {
+    fprintf(stderr,"\n  ## Topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* check for ridges */
+  if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
+    fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* identify singularities */
+  if ( !MMG5_singul(mesh) ) {
+    fprintf(stderr,"\n  ## MMG5_Singularity problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
+    fprintf(stdout,"  ** DEFINING GEOMETRY\n");
+
+  /* define (and regularize) normals */
+  if ( !MMG5_norver(mesh) ) {
+    fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* set bdry entities to tetra */
+  if ( !MMG5_bdrySet(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* For both API modes, build communicators indices and set xtetra as PARBDY */
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /* Set face communicators indexing */
+      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      /* Convert tria index into iel face index (it needs a valid cc field in
+       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+       * to edges and nodes */
+      PMMG_tria2elmFace_coords( parmesh );
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      /* Set node communicators indexing */
+      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
+      /* Build face comms from node ones and set xtetra tags */
+      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
+      PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
+      parmesh->next_face_comm = 0;
+      PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
+      if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
+      break;
+  }
+
+  /* set non-manifold edges sharing non-intersecting multidomains as required */
+  if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
+    fprintf(stdout,"  ** UPDATING TOPOLOGY AT NON-MANIFOLD POINTS\n");
+
+  if ( !MMG5_setNmTag(mesh,&hash) ) {
+    fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* check subdomains connected by a vertex and mark these vertex as corner and required */
+  MMG5_chkVertexConnectedDomains(mesh);
+
+  /* build hash table for geometric edges */
+  if ( !mesh->na && !MMG5_hGeom(mesh) ) {
+    fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    return 0;
+  }
+
+  /* Update edges tags and references for xtetras */
+  if ( !MMG5_bdryUpdate(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
+  /* define geometry for non manifold points */
+  if ( !MMG3D_nmgeom(mesh) ) return 0;
+
+  /* release memory */
+  MMG5_DEL_MEM(mesh,mesh->htab.geom);
+  MMG5_DEL_MEM(mesh,mesh->adjt);
+  MMG5_DEL_MEM(mesh,mesh->tria);
+  mesh->nt = 0;
+
+  if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
+
+  return 1;
+}
+
+/**
  * \param  parmesh pointer to parmesh structure
  *
  * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if fail and return an
@@ -97,7 +266,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  * Mesh preprocessing: set function pointers, scale mesh, perform mesh
  * analysis and display length and quality histos.
  */
-static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
+int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -156,7 +325,107 @@ static int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 }
 
+/**
+ * \param  parmesh pointer to parmesh structure
+ *
+ * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if fail and return an
+ * unscaled mesh, PMMG_STRONGFAILURE if fail and return a scaled mesh.
+ *
+ * Mesh preprocessing (distributed input mesh): set function pointers,
+ * scale mesh, perform mesh analysis, display length and quality histos,
+ * and build communicators.
+ */
+int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
+{
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
 
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
+  assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
+
+  /** Check distributed API mode. Interface faces OR nodes need to be set by the
+   * user through the API interface at this point, meening that the
+   * corresponding external comm is set to the correct size, and filled with
+   * local entity indices (for node comms, also itosend and itorecv arrays are
+   * filled with local/global node IDs).
+  */
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
+    fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
+    return 0;
+  } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
+    fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
+    return 0;
+  }
+
+  /** Function setters (must be assigned before quality computation) */
+  MMG3D_Set_commonFunc();
+
+  /** Mesh scaling and quality histogram */
+  if ( !MMG5_scaleMesh(mesh,met) ) {
+    return PMMG_LOWFAILURE;
+  }
+
+  /** specific meshing */
+  if ( mesh->info.optim && !met->np ) {
+    if ( !MMG3D_doSol(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    MMG3D_solTruncatureForOptim(mesh,met);
+  }
+
+  if ( mesh->info.hsiz > 0. ) {
+    if ( !MMG3D_Set_constantSize(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
+  MMG3D_setfunc(mesh,met);
+
+  if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /** Mesh analysis, face/node communicators indices construction (depending
+   * from the API mode), build face comms from node ones */
+  if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+    MMG3D_prilen(mesh,met,0);
+  }
+
+  /** Mesh unscaling */
+  if ( !MMG5_unscaleMesh(mesh,met) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /** Build node communicators from face ones (here because the (mesh needs to
+   * be unscaled) */
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+    PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+    parmesh->next_node_comm = 0;
+    PMMG_DEL_MEM(parmesh, parmesh->int_node_comm,PMMG_Int_comm,"int node comm");
+    PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
+    if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
+  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_intFaceComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  assert ( PMMG_check_intNodeComm ( parmesh ) );
+
+  return PMMG_SUCCESS;
+}
 
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   MMG5_pMesh    mesh;
@@ -374,7 +643,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( parmesh->ngrp ) {
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
-    ier  = PMMG_preprocessMesh( parmesh );
+    ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
     if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
@@ -421,7 +690,6 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
 
   /** All the memory is devoted to the mesh **/
-  PMMG_parmesh_Free_Comm(parmesh);
   tmpmem = parmesh->memMax - parmesh->memCur;
   parmesh->memMax = parmesh->memCur;
   parmesh->listgrp[0].mesh->memMax += tmpmem;
@@ -430,7 +698,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( (!MMG3D_hashTetra( mesh, 0 )) || ( -1 == MMG3D_bdryBuild(parmesh->listgrp[0].mesh) ) ) {
     /** Impossible to rebuild the triangle **/
     fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-    return PMMG_LOWFAILURE;
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   chrono(OFF,&(ctim[tim]));
@@ -447,5 +715,5 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
             PMMG_STR,PMMG_STR);
   }
 
-  return ierlib;
+  PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
 }

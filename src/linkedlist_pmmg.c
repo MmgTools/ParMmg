@@ -430,3 +430,43 @@ int PMMG_compare_valLnkdListLen (const void * a, const void * b) {
 
   return 0;
 }
+
+int PMMG_compare_cell2 (const void * a, const void * b) {
+  PMMG_lnkdCell cell1,cell2;
+  int           k;
+
+  cell1 = *(PMMG_lnkdCell*)a;
+  cell2 = *(PMMG_lnkdCell*)b;
+
+  if ( cell1.val2 > cell2.val2 ) return 1;
+  if ( cell1.val2 < cell2.val2 ) return -1;
+
+  return 0;
+}
+
+int PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
+                      int nitem ) {
+  PMMG_lnkdCell *cell;
+  int           i;
+
+  /* Initialize and fill lists of int pairs */
+  PMMG_CALLOC(parmesh,cell,nitem,PMMG_lnkdCell,"array of cells",return 0);
+  for( i = 0; i < nitem; i++ ) {
+    cell[i].val1 = array1[i];
+    cell[i].val2 = array2[i];
+    cell[i].id   = i;
+  }
+
+  /* Sort lists based on values in array2, in ascending order */
+  qsort(cell,nitem,sizeof(PMMG_lnkdCell),PMMG_compare_cell2);
+
+  /* Permute arrays and deallocate lists */
+  for( i = 0; i < nitem; i++ ) {
+    array1[i] = cell[i].val1;
+    array2[i] = cell[i].val2;
+    oldIdx[i] = cell[i].id;
+  }
+
+  PMMG_DEL_MEM(parmesh,cell,PMMG_lnkdCell,"array of cells");
+  return 1;
+}

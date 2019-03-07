@@ -164,6 +164,24 @@
 #define PMMG_LOADBALANCING_parmetis 2
 
 /**
+ * \def PMMG_APIDISTRIB_faces
+ *
+ * Use parallel faces information to build communicators with distributed API
+ * functions
+ *
+ */
+#define PMMG_APIDISTRIB_faces 0
+
+/**
+ * \def PMMG_APIDISTRIB_nodes
+ *
+ * Use parallel nodes information to build communicators with distributed API
+ * functions
+ *
+ */
+#define PMMG_APIDISTRIB_nodes 1
+
+/**
  * \def PMMG_UNSET
  *
  * Initialization value
@@ -258,6 +276,7 @@ typedef struct {
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
+  int API_mode; /*!< use faces or nodes information to build communicators */
 } PMMG_Info;
 
 

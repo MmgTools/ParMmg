@@ -116,6 +116,424 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
 }
 
 /**
+ * \param parmesh pointer to parmesh structure
+ *
+ * - Convert triangle index to tetra-face-node triplet, using the "cc" triangle
+ *   field initialized by MMG5_bdryTria, and the global node indices temporarily
+ *   stored in the points flag.
+ * - Store the index triplet in group communicator index 1,
+ * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
+ *   in MMG5_bdryUpdate).
+ */
+void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTria   ptt;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  int          kt,ie,ifac,iploc;
+  int          i,imax,iloc,iglob;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  /* Process tria stored in index1 */
+  for( i=0; i<grp->nitem_int_face_comm; i++ ) {
+    kt    = grp->face2int_face_comm_index1[i];
+    ptt   = &mesh->tria[kt]; 
+    ie    = ptt->cc/4;
+    ifac  = ptt->cc%4;
+
+    /* Get triangle node with highest global index */
+    iploc = imax  = 0;
+    for( iloc=0; iloc<3; iloc++ ) {
+      iglob = mesh->point[ptt->v[iloc]].flag;
+      if( iglob > imax ) {
+        imax   = iglob;
+        iploc = iloc;
+      }
+    }
+
+    /* Store ie-ifac-iploc in index1 */
+    grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
+
+    /* Set xtetra face as parallel */
+    pt  = &mesh->tetra[ie];
+    assert( pt->xt );
+    pxt = &mesh->xtetra[pt->xt];
+    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+  }
+}
+
+/**
+ * \param parmesh pointer to parmesh structure
+ *
+ * - Convert triangle index to tetra-face-node triplet, using the "cc" triangle
+ *   field initialized by MMG5_bdryTria, and the nodes coordinates.
+ * - Store the index triplet in group communicator index 1,
+ * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
+ *   in MMG5_bdryUpdate).
+ */
+void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTria   ptt;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  int          kt,ie,ifac,iploc;
+  double       cmax[3];
+  int          i,idim,iloc,iglob;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+ 
+  /* Process tria stored in index1 */
+  for( i=0; i<grp->nitem_int_face_comm; i++ ) {
+    kt    = grp->face2int_face_comm_index1[i];
+    ptt = &mesh->tria[kt];
+    ie     = ptt->cc/4;
+    ifac   = ptt->cc%4;
+
+    /* Get triangle node with highest coordinates */
+    iploc  = 0;
+    ppt = &mesh->point[ptt->v[0]];
+    cmax[0] = ppt->c[0];
+    cmax[1] = ppt->c[1];
+    cmax[2] = ppt->c[2];
+    for( iloc=1; iloc<3; iloc++ ) {
+      ppt = &mesh->point[ptt->v[iloc]];
+      for( idim=0; idim<3; idim++ ) {
+        if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
+        if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
+          cmax[0] = ppt->c[0];
+          cmax[1] = ppt->c[1];
+          cmax[2] = ppt->c[2];
+          iploc  = iloc;
+          break;
+        }
+      }
+    }
+
+    /* Store ie-ifac-iploc in index1 */
+    grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
+
+    /* Set xtetra face as parallel */
+    pt  = &mesh->tetra[ie];
+    assert( pt->xt );
+    pxt = &mesh->xtetra[pt->xt];
+    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+  }
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \return 0 if fail, 1 if success
+ *
+ * Set group and internal communicator indexing, given mesh entities temporarily
+ * stored in the external node communicator.
+ *
+ */
+int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  int            ip,nitem_int_node_comm,iext_comm,iext,iint;
+
+  /* Only one group */
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  /* Use flag to mark visited points:
+   * - points are initially marked with PMMG_NUL;
+   * - when counting int comm items, points are marked with PMMG_UNSET;
+   * - when filling communicators, points are marked with their index in the
+   *   internal comm.
+   */
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      ppt->flag = PMMG_NUL;
+    }
+  }
+
+  /** 1) Count internal communicator items (the same node can be in several
+   *     external communicators) */
+  nitem_int_node_comm = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      if( ppt->flag == PMMG_UNSET ) continue;
+      ppt->flag = PMMG_UNSET;
+      nitem_int_node_comm++;
+    }
+  }
+ 
+  /* Allocate group communicators */
+  int_node_comm = parmesh->int_node_comm;
+  int_node_comm->nitem = nitem_int_node_comm;
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,nitem_int_node_comm,int,"node2int_node_comm_index1",return 0);
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,nitem_int_node_comm,int,"node2int_node_comm_index2",return 0);
+  grp->nitem_int_node_comm = nitem_int_node_comm;
+
+  /** 2) Set communicators indexing */
+  iint = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_node_comm; iext_comm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[iext_comm];
+    for( iext = 0; iext < ext_node_comm->nitem; iext++ ) {
+      ip = ext_node_comm->int_comm_index[iext];
+      ppt = &mesh->point[ip];
+      if( ppt->flag == PMMG_UNSET ) {
+        /* New point */
+        ppt->flag = iint;
+        grp->node2int_node_comm_index1[iint] = ip;
+        grp->node2int_node_comm_index2[iint] = iint;
+        ext_node_comm->int_comm_index[iext] = iint++;
+      } else {
+        /* Point already in the int communicator: only the ext comm needs to be
+         * updated */
+        ext_node_comm->int_comm_index[iext] = ppt->flag;
+      }
+    }
+  }
+  assert( iint == nitem_int_node_comm );
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \return 0 if fail, 1 if success
+ *
+ * Set group and internal communicator indexing, given mesh entities temporarily
+ * stored in the external face communicator.
+ *
+ */
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  int            nitem_int_face_comm,iext_comm,iext,iint;
+
+  /* Only one group */
+  grp = &parmesh->listgrp[0];
+
+  /* Count internal communicator items (as each face can be only in one
+   * ext_comm, simply ssum the nb of items in each ext_comm) */
+  nitem_int_face_comm = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    nitem_int_face_comm += ext_face_comm->nitem;
+  }
+ 
+  /* Allocate group communicators */
+  int_face_comm = parmesh->int_face_comm;
+  int_face_comm->nitem = nitem_int_face_comm;
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,nitem_int_face_comm,int,"face2int_face_comm_index1",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,nitem_int_face_comm,int,"face2int_face_comm_index2",return 0);
+  grp->nitem_int_face_comm = nitem_int_face_comm;
+
+  /* Set communicators indexing (faces in the ext comms are concatenated into
+   * the internal comm) */
+  iint = 0;
+  for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[iext_comm];
+    for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
+      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      grp->face2int_face_comm_index2[iint] = iint;
+      ext_face_comm->int_comm_index[iext] = iint++;
+    }
+  }
+  assert( iint == nitem_int_face_comm );
+
+  return 1;
+}
+
+int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTria     ptt;
+  MMG5_Hash      hash;
+  int            **local_index,**global_index;
+  int            *fNodes_loc,*fNodes_par,*fColors;
+  int            nb_fNodes_loc,*nb_fNodes_par,*displs,*counter,*iproc2comm;
+  int            kt,ia,ib,ic,i,icomm,iproc,iloc,iglob,myrank,next_face_comm,ier;
+  MPI_Comm       comm;
+
+  comm   = parmesh->comm;
+  myrank = parmesh->myrank;
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+
+
+  /** 1) Store global node ids in point flags */
+  /* Reset point flags */
+  for( i=1; i<=mesh->np; i++ )
+    mesh->point[i].flag = PMMG_NUL;
+
+  /* Loop on ext node communicators to get global node IDs */
+  for( icomm=0; icomm<parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    for( i=0; i<ext_node_comm->nitem_to_share; i++ ) {
+      iloc  = ext_node_comm->itosend[i];
+      iglob = ext_node_comm->itorecv[i];
+      mesh->point[iloc].flag = iglob;
+    }
+  }
+  PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"ext comm itosend array");
+  PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"ext comm itorecv array");
+  ext_node_comm->nitem_to_share = 0; 
+
+  /** 2) Hash triangles with global node index: This avoids the occurrence of
+   * non-boundary faces connected to three parallel nodes. */
+  nb_fNodes_loc = 3*mesh->nt;
+  PMMG_CALLOC(parmesh,fNodes_loc,nb_fNodes_loc,int,"fNodes_loc",return 0);
+  PMMG_CALLOC(parmesh,fColors,2*mesh->nt,int,"fColors",return 0);
+  for( i=0; i<2*mesh->nt; i++ )
+    fColors[i] = PMMG_UNSET;
+
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for (kt=1; kt<=mesh->nt; kt++) {
+    ptt = &mesh->tria[kt];
+    ia = mesh->point[ptt->v[0]].flag;
+    ib = mesh->point[ptt->v[1]].flag;
+    ic = mesh->point[ptt->v[2]].flag;
+    if( ia && ib && ic ) {
+      if ( !MMG5_hashFace(mesh,&hash,ia,ib,ic,kt) ) {
+        MMG5_DEL_MEM(mesh,hash.item);
+        return 0;
+      }
+      fNodes_loc[3*(kt-1)+0] = ia;
+      fNodes_loc[3*(kt-1)+1] = ib;
+      fNodes_loc[3*(kt-1)+2] = ic;
+    }
+  }
+
+
+  /** 3) Communicate face nodes */
+  PMMG_CALLOC(parmesh,nb_fNodes_par,parmesh->nprocs,int,"nb_fNodes_par",return 0);
+  PMMG_CALLOC(parmesh,displs,parmesh->nprocs+1,int,"displs",return 0);
+
+  MPI_CHECK( MPI_Allgather(&nb_fNodes_loc,1,MPI_INT,nb_fNodes_par,1,MPI_INT,comm),
+             return 0 );
+  
+  displs[0] = 0;
+  for( i=0; i<parmesh->nprocs; i++ )
+    displs[i+1] = displs[i]+nb_fNodes_par[i];
+
+  PMMG_CALLOC(parmesh,fNodes_par,displs[parmesh->nprocs],int,"fNodes_par",return 0);
+
+  MPI_CHECK( MPI_Allgatherv(fNodes_loc,nb_fNodes_loc,MPI_INT,
+                            fNodes_par,nb_fNodes_par,displs,MPI_INT,comm), return 0);
+
+
+  /** 4) For each proc pair, get "other" tria in the local hash table,
+   * count and store tria color. */
+  PMMG_CALLOC(parmesh,counter,parmesh->nprocs,int,"counter",return 0);
+  PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  /* Get face colors and count faces for each color */
+  icomm = 0;
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc == myrank ) continue;
+    for( i=displs[iproc]/3; i<displs[iproc+1]/3; i++ ) {
+      ia = fNodes_par[3*i+0];
+      ib = fNodes_par[3*i+1];
+      ic = fNodes_par[3*i+2];
+      kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+      if( kt ) {
+        if( iproc2comm[iproc] == PMMG_UNSET ) iproc2comm[iproc] = icomm++;
+        /* Store face color and face global ID (starting from 1) on the other
+         * proc */
+        fColors[2*(kt-1)+0] = iproc;
+        fColors[2*(kt-1)+1] = displs[iproc]+i+1;
+        counter[iproc]++;
+      }
+    }
+  }
+  assert( iproc2comm[myrank] == PMMG_UNSET );
+
+
+  /** 5) Fill face communicators. */
+
+  /* Set nb of communicators */
+  next_face_comm = 0;
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc2comm[iproc] != PMMG_UNSET ) next_face_comm++;
+  }
+  ier = PMMG_Set_numberOfFaceCommunicators(parmesh,next_face_comm);
+
+  PMMG_CALLOC(parmesh, local_index,next_face_comm,int*, "local_index pointer",return 0);
+  PMMG_CALLOC(parmesh,global_index,next_face_comm,int*,"global_index pointer",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc2comm[iproc] == PMMG_UNSET ) continue;
+    /* Set communicator size and reset counter */
+    icomm = iproc2comm[iproc];
+    PMMG_CALLOC(parmesh, local_index[icomm],counter[iproc],int, "local_index array",return 0);
+    PMMG_CALLOC(parmesh,global_index[icomm],counter[iproc],int,"global_index array",return 0);
+    ier = PMMG_Set_ithFaceCommunicatorSize(parmesh,icomm,iproc,counter[iproc]);
+    counter[iproc] = 0;
+  }
+
+  /* Create injective, non-surjective global face enumeration */
+  for (kt=1; kt<=mesh->nt; kt++) {
+    iproc = fColors[2*(kt-1)];
+    if( iproc == PMMG_UNSET ) continue;
+    iglob = fColors[2*(kt-1)+1];
+    icomm = iproc2comm[iproc];
+    i = counter[iproc]++;
+    local_index[icomm][i] = kt;
+    global_index[icomm][i] = MG_MIN(displs[myrank]+kt,iglob);
+  }
+ 
+ 
+  /* Fill and sort each communicator */
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ ) {
+    if( iproc2comm[iproc] == PMMG_UNSET ) continue;
+    icomm = iproc2comm[iproc];
+    ier = PMMG_Set_ithFaceCommunicator_faces( parmesh, icomm, local_index[icomm],
+                                              global_index[icomm], 1 );
+  }
+
+  /** 6) Set communicators indexing, convert tria index into iel face index */
+  ier = PMMG_build_faceCommIndex( parmesh );
+  PMMG_tria2elmFace_flags( parmesh );
+
+
+  /* Free memory */
+  MMG5_DEL_MEM(mesh,hash.item);
+  PMMG_DEL_MEM(parmesh,fColors,int,"fColors");
+  PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_loc");
+  PMMG_DEL_MEM(parmesh,fNodes_loc,int,"fNodes_par");
+  PMMG_DEL_MEM(parmesh,nb_fNodes_par,int,"nb_fNodes_par");
+  PMMG_DEL_MEM(parmesh,fNodes_par,int,"fNodes_par");
+  PMMG_DEL_MEM(parmesh,displs,int,"displs");
+  PMMG_DEL_MEM(parmesh,counter,int,"counter");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
+  for( icomm=0; icomm<next_face_comm; icomm++ ) {
+    PMMG_DEL_MEM(parmesh, local_index[icomm],int, "local_index array");
+    PMMG_DEL_MEM(parmesh,global_index[icomm],int,"global_index array");
+  }
+  PMMG_DEL_MEM(parmesh, local_index,int*, "local_index pointer");
+  PMMG_DEL_MEM(parmesh,global_index,int*,"global_index pointer");
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward a parmesh structure
  *
  * \return 1 if success, 0 if fail.

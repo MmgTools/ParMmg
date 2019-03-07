@@ -80,5 +80,7 @@ int  PMMG_packInArray_cellLnkdList( PMMG_cellLnkdList *list,int *array );
 int  PMMG_unpackArray_inCellLnkdList(  PMMG_pParMesh,PMMG_cellLnkdList*,int* );
 int  PMMG_compare_cellLnkdList (const void * a, const void * b);
 int  PMMG_compare_valLnkdListLen (const void * a, const void * b);
+int  PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
+                       int nitem );
 
 #endif

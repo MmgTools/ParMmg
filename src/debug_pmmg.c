@@ -240,7 +240,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
 
 
 /**
- * \param parmesh filename to open
+ * \param parmesh pointer toward the parmesh structure
  * \param basename filenames prefix
  *
  * Write meshes and metrics of all groups in medit format.
@@ -254,6 +254,33 @@ int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
       return 0;
 
   return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator (face or node one)
+ * \param ext_comm pointer toward the external communicators (face or node ones)
+ * \param next_comm number of external communicators
+ *
+ * For each item in the external communicators, print their index in the
+ * internal communicator..
+ *
+ */
+void PMMG_print_ext_comm( PMMG_pParMesh parmesh, PMMG_pInt_comm int_comm,
+                          PMMG_pExt_comm ext_comm, int next_comm ) {
+  PMMG_pExt_comm pext_comm;
+  int iext_comm,iext;
+
+  printf("myrank %d, int comm nitem %d\n",parmesh->myrank,int_comm->nitem);
+  for( iext_comm = 0; iext_comm < next_comm; iext_comm++ ) {
+    pext_comm = &ext_comm[iext_comm];
+    for( iext = 0; iext < pext_comm->nitem; iext++ ) {
+      printf("  myrank %d, ext comm %d, color out %d, item %d, idx %d\n",
+             parmesh->myrank,iext_comm,pext_comm->color_out,iext,
+             pext_comm->int_comm_index[iext]);
+    }
+  }
+
 }
 
 /**
