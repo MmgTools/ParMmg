@@ -717,3 +717,282 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   PMMG_CLEAN_AND_RETURN(parmesh,ierlib);
 }
+
+int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int ier,iresult;
+
+  ier = PMMG_check_inputData( parmesh );
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+  if ( !iresult ) return PMMG_LOWFAILURE;
+
+  /** Send mesh to other procs */
+  ier = PMMG_bcast_mesh( parmesh );
+  if ( ier!=1 ) return PMMG_LOWFAILURE;
+
+  /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
+   * analysis and display length and quality histos. */
+  ier = PMMG_preprocessMesh( parmesh );
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
+    ier = PMMG_LOWFAILURE;
+  }
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  if ( iresult!=PMMG_SUCCESS ) {
+    return iresult;
+  }
+
+  /** Send mesh partionning to other procs */
+  if ( !PMMG_distribute_mesh( parmesh ) ) {
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+  }
+
+  return PMMG_SUCCESS;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_node_loc local IDs of interface nodes
+ * \param ifc_node_glob global IDs of interface nodes
+ * \param next_node_comm number of node interfaces
+ * \param nitem_node_comm number of nodes on each interface
+ *
+ * Create global IDs for nodes on parallel interfaces.
+ *
+ */
+int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
+                         int **ifc_node_loc,int **ifc_node_glob,
+                         int next_node_comm,int *nitem_node_comm) {
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i,idx;
+
+  mesh = parmesh->listgrp[0].mesh;
+
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+
+  /* Use points flag to mark interface points:
+   * - interface points are initialised as PMMG_UNSET;
+   * - once a point is given a global ID, it is flagged with it so that other
+   *   interfaces can see it.
+   */
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+      ppt = &mesh->point[ifc_node_loc[icomm][i]];
+      ppt->flag = PMMG_UNSET;
+    }
+
+  /* Count nb of new pair nodes hosted on proc */
+  npairs_loc = 0;
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_node_comm[icomm];//1;
+
+  /* Get nb of pair nodes and compute pair offset */
+  MPI_Allgather( &npairs_loc,1,MPI_INT,
+                 npairs,1,MPI_INT,parmesh->comm );
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
+
+ 
+  PMMG_CALLOC(parmesh,glob_pair_displ,next_node_comm+1,int,"glob_pair_displ",return 0); 
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    if( color_out[icomm] > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_node_comm[icomm];//+1;
+  }
+
+  /* Compute global pair nodes enumeration (injective, non-surjective map) */
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    
+    /* Assign global index */
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      sendbuffer = glob_pair_displ[icomm];
+      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      glob_pair_displ[icomm] = recvbuffer;
+    }
+  }
+
+
+  /* Each proc buils global IDs if color_in < color_out, then sends IDs to
+   * color_out;
+   *  */
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    /* Recv IDs from previous proc */
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      /* Update flag so that you can use it to build your own IDs */
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        ppt->flag = ifc_node_glob[icomm][i];
+      }
+    }
+    /* Build your own IDs and send them to next proc */
+    if( parmesh->myrank == src ) {
+      idx = 1; /* index starts from 1 */
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        if( ppt->flag == PMMG_UNSET ) {
+          ppt->flag = glob_pair_displ[icomm]+idx++;
+        }
+        ifc_node_glob[icomm][i] = ppt->flag;
+      }
+      MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+  }
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
+  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
+  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+
+
+  /* Check global IDs */
+  int **itorecv;
+  PMMG_CALLOC(parmesh,itorecv,next_node_comm,int*,"itorecv pointer",return 0); 
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    PMMG_CALLOC(parmesh,itorecv[icomm],nitem_node_comm[icomm],int,"itorecv",return 0); 
+    
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      for( i=0; i < nitem_node_comm[icomm]; i++ )
+        assert( ifc_node_glob[icomm][i] == itorecv[icomm][i] );
+    }
+  }
+
+  for( icomm = 0; icomm < next_node_comm; icomm++ )
+    PMMG_DEL_MEM(parmesh,itorecv[icomm],int,"itorecv"); 
+  PMMG_DEL_MEM(parmesh,itorecv,int*,"itorecv pointer"); 
+  
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_tria_loc local IDs of interface triangles
+ * \param ifc_tria_glob global IDs of interface triangles
+ * \param next_face_comm number of triangle interfaces
+ * \param nitem_face_comm number of triangles on each interface
+ *
+ * Create global IDs for triangles on parallel interfaces.
+ *
+ */
+int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
+                         int **ifc_tria_loc,int **ifc_tria_glob,
+                         int next_face_comm,int *nitem_face_comm) {
+  MPI_Request    request;
+  MPI_Status     status;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
+
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+
+  /* Count nb of new pair faces hosted on proc */
+  npairs_loc = 0;
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_face_comm[icomm];//1;
+
+  /* Get nb of pair faces and compute pair offset */
+  MPI_Allgather( &npairs_loc,1,MPI_INT,
+                 npairs,1,MPI_INT,parmesh->comm );
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
+
+  
+  PMMG_CALLOC(parmesh,glob_pair_displ,next_face_comm+1,int,"glob_pair_displ",return 0); 
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+    if( color_out[icomm] > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_face_comm[icomm];//+1;
+  }
+
+  /* Compute global pair faces enumeration (injective, non-surjective map) */
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+    
+    /* Assign global index */
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      sendbuffer = glob_pair_displ[icomm];
+      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      glob_pair_displ[icomm] = recvbuffer;
+    }
+  }
+
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    for( i=0; i < nitem_face_comm[icomm]; i++ )
+      ifc_tria_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
+  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
+  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+
+
+  /* Check global IDs */
+  int **itorecv;
+  PMMG_CALLOC(parmesh,itorecv,next_face_comm,int*,"itorecv pointer",return 0); 
+  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+    PMMG_CALLOC(parmesh,itorecv[icomm],nitem_face_comm[icomm],int,"itorecv",return 0); 
+    
+    src = fmin(parmesh->myrank,color_out[icomm]);
+    dst = fmax(parmesh->myrank,color_out[icomm]);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      MPI_CHECK( MPI_Isend(ifc_tria_glob[icomm],nitem_face_comm[icomm],MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_face_comm[icomm],MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      for( i=0; i < nitem_face_comm[icomm]; i++ )
+        assert( ifc_tria_glob[icomm][i] == itorecv[icomm][i] );
+    }
+  }
+
+  for( icomm = 0; icomm < next_face_comm; icomm++ )
+    PMMG_DEL_MEM(parmesh,itorecv[icomm],int,"itorecv");
+  PMMG_DEL_MEM(parmesh,itorecv,int*,"itorecv pointer"); 
+ 
+  return 1;
+}

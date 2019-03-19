@@ -379,6 +379,22 @@ int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
   int PMMG_Free_all(const int starter,...);
 
 /**
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set integer parameter \a iparam at value \a val.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_DISTRIBUTEMESH_CENTRALIZED(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_distributeMesh_centralized(PMMG_pParMesh);
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \return 0 if failed, 1 otherwise.
  *
@@ -2133,6 +2149,36 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
                                        int* color_in, int** trianodes_in,
                                        int ncomm_out,int* nitem_out,
                                        int* color_out, int** trianodes_out);
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_node_loc local IDs of interface nodes
+ * \param ifc_node_glob global IDs of interface nodes
+ * \param next_node_comm number of node interfaces
+ * \param nitem_node_comm number of nodes on each interface
+ *
+ * Create global IDs for nodes on parallel interfaces.
+ *
+ */
+int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
+                         int **ifc_node_loc,int **ifc_node_glob,
+                         int next_node_comm,int *nitem_node_comm);
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param color_out array of interface colors
+ * \param ifc_tria_loc local IDs of interface triangles
+ * \param ifc_tria_glob global IDs of interface triangles
+ * \param next_face_comm number of triangle interfaces
+ * \param nitem_face_comm number of triangles on each interface
+ *
+ * Create global IDs for triangles on parallel interfaces.
+ *
+ */
+int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
+                         int **ifc_tria_loc,int **ifc_tria_glob,
+                         int next_face_comm,int *nitem_face_comm);
 
 #ifdef __cplusplus
 }
