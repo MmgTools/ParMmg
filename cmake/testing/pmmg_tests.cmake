@@ -271,41 +271,41 @@ IF( BUILD_TESTING )
   ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
 
   # Distributed API test
-  SET ( PMMG_DISTR_API_TESTS
-    libparmmg_distributed_API_manual_example0
-    libparmmg_distributed_API_automatic_example0
+  SET ( PMMG_DISTR_LIB_TESTS
+    libparmmg_distributed_manual_example0
+    libparmmg_distributed_automatic_example0
     )
-  SET ( PMMG_DISTR_API_TESTS_MAIN_PATH
+  SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
     ${CI_DIR_INPUTS}/Parallel_IO/manual_IO/main.c
     ${CI_DIR_INPUTS}/Parallel_IO/automatic_IO/main.c
     )
-  SET ( PMMG_DISTR_API_TESTS_INPUTMESH
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
     ""
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
-  SET ( PMMG_DISTR_API_TESTS_INPUTMET
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTMET
     ""
     ""
     )
-  SET ( PMMG_DISTR_API_TESTS_INPUTSOL
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTSOL
     ""
     ""
     )
-  SET ( PMMG_DISTR_API_TESTS_OUTPUTMESH
+  SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-par-manual-cube.o
     ${CI_DIR_RESULTS}/io-par-automatic-cube.o
     )
 
-  LIST(LENGTH PMMG_DISTR_API_TESTS nbTests_tmp)
+  LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
   MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
   FOREACH ( test_idx RANGE ${nbTests} )
-    LIST ( GET PMMG_DISTR_API_TESTS            ${test_idx} test_name )
-    LIST ( GET PMMG_DISTR_API_TESTS_MAIN_PATH  ${test_idx} main_path )
-    LIST ( GET PMMG_DISTR_API_TESTS_INPUTMESH  ${test_idx} input_mesh )
-    LIST ( GET PMMG_DISTR_API_TESTS_INPUTMET   ${test_idx} input_met )
-    LIST ( GET PMMG_DISTR_API_TESTS_INPUTSOL   ${test_idx} input_sol )
-    LIST ( GET PMMG_DISTR_API_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+    LIST ( GET PMMG_DISTR_LIB_TESTS            ${test_idx} test_name )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMET   ${test_idx} input_met )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
+    LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 
@@ -323,16 +323,16 @@ IF( BUILD_TESTING )
 
   # Distributed lib test
   SET ( PMMG_DISTR_LIB_TESTS
-    libparmmg_distributed_automatic_example0
+    libparmmg_distributed_external_example0
     )
   SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
     )
   SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/mesh_in
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube_in
     )
   SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
-    ${CI_DIR_RESULTS}/io-par-automatic-cube.o
+    ${CI_DIR_RESULTS}/io-par-external-cube.o
     )
 
   LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)

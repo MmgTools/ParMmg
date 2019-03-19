@@ -305,6 +305,14 @@ int main(int argc,char *argv[]) {
   /** ------------------------------ STEP V ---------------------------- */
   /** remesh step */
 
+  /* Set the number of remeshing iterations */
+  niter = 3;
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+
   /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
 
