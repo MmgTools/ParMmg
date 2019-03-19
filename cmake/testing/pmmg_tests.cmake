@@ -270,17 +270,65 @@ IF( BUILD_TESTING )
   ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
   ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
 
-  # Distributed test
-  SET ( PMMG_DISTR_LIB_TESTS
-    libparmmg_distributed_manual_example0
-    libparmmg_distributed_automatic_example0
+  # Distributed API test
+  SET ( PMMG_DISTR_API_TESTS
+    libparmmg_distributed_API_manual_example0
+    libparmmg_distributed_API_automatic_example0
     )
-  SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
+  SET ( PMMG_DISTR_API_TESTS_MAIN_PATH
     ${CI_DIR_INPUTS}/Parallel_IO/manual_IO/main.c
     ${CI_DIR_INPUTS}/Parallel_IO/automatic_IO/main.c
     )
-  SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
+  SET ( PMMG_DISTR_API_TESTS_INPUTMESH
     ""
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    )
+  SET ( PMMG_DISTR_API_TESTS_INPUTMET
+    ""
+    ""
+    )
+  SET ( PMMG_DISTR_API_TESTS_INPUTSOL
+    ""
+    ""
+    )
+  SET ( PMMG_DISTR_API_TESTS_OUTPUTMESH
+    ${CI_DIR_RESULTS}/io-par-manual-cube.o
+    ${CI_DIR_RESULTS}/io-par-automatic-cube.o
+    )
+
+  LIST(LENGTH PMMG_DISTR_API_TESTS nbTests_tmp)
+  MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+  FOREACH ( test_idx RANGE ${nbTests} )
+    LIST ( GET PMMG_DISTR_API_TESTS            ${test_idx} test_name )
+    LIST ( GET PMMG_DISTR_API_TESTS_MAIN_PATH  ${test_idx} main_path )
+    LIST ( GET PMMG_DISTR_API_TESTS_INPUTMESH  ${test_idx} input_mesh )
+    LIST ( GET PMMG_DISTR_API_TESTS_INPUTMET   ${test_idx} input_met )
+    LIST ( GET PMMG_DISTR_API_TESTS_INPUTSOL   ${test_idx} input_sol )
+    LIST ( GET PMMG_DISTR_API_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+
+    FOREACH( niter 0 3 )
+      FOREACH( API_mode 0 1 )
+        FOREACH( NP 2 4 )
+          ADD_TEST ( NAME ${test_name}_niter_${niter}-API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+            $<TARGET_FILE:${test_name}>
+            ${input_mesh} ${output_mesh}_niter_${niter}-API_${API_mode}-${NP} ${niter} ${API_mode} ${input_met} )
+        ENDFOREACH()
+      ENDFOREACH()
+    ENDFOREACH()
+
+  ENDFOREACH()
+
+  # Distributed lib test
+  SET ( PMMG_DISTR_LIB_TESTS
+    libparmmg_distributed_automatic_example0
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
+    )
+  SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
   SET ( PMMG_DISTR_LIB_TESTS_INPUTMET
@@ -309,13 +357,11 @@ IF( BUILD_TESTING )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 
-    FOREACH( niter 0 3 )
-      FOREACH( API_mode 0 1 )
-        FOREACH( NP 2 4 )
-          ADD_TEST ( NAME ${test_name}_niter_${niter}-API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-            $<TARGET_FILE:${test_name}>
-            ${input_mesh} ${output_mesh}_niter_${niter}-API_${API_mode}-${NP} ${niter} ${API_mode} ${input_met} )
-        ENDFOREACH()
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 4 )
+        ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} ${input_met} )
       ENDFOREACH()
     ENDFOREACH()
 
