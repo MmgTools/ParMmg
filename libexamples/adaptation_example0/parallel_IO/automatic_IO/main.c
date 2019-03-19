@@ -25,7 +25,7 @@
 
 /** Include the parmmg library hader file */
 // if the header file is in the "include" directory
-#include "parmmg.h"
+#include "libparmmg.h"
 // if the header file is in "include/parmmg"
 //#include "parmmg/libparmmg.h"
 
@@ -64,13 +64,16 @@ int main(int argc,char *argv[]) {
   }
 
   /* Name and path of the mesh file */
-  filename = (char *) calloc(strlen(argv[1]) + 1, sizeof(char));
+  filename = (char *) calloc(strlen(argv[1]) + 1 + 8, sizeof(char));
   if ( filename == NULL ) {
     perror("  ## Memory problem: calloc");
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
   strcpy(filename,argv[1]);
+  sprintf(filename, "%s.%d", filename, rank );
+  strcat(filename,".mesh");
+
 
   fileout = (char *) calloc(strlen(argv[2]) + 9 + 4, sizeof(char));
   if ( fileout == NULL ) {
@@ -79,7 +82,7 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
   strcpy(fileout,argv[2]);
-  sprintf(fileout, "%s-P%02d", fileout, rank );
+  sprintf(fileout, "%s-P%01d", fileout, rank );
   strcat(fileout,".mesh");
 
 
@@ -98,9 +101,86 @@ int main(int argc,char *argv[]) {
   /* Get API mode (face or node interfaces) */
   API_mode = atoi(argv[3]);
 
-  /** ------------------------------ STEP   I -------------------------- */
-  /** Each process loads a global mesh.
+  /** 1) Each process loads a mesh in MMG5 format. This step is intended to
+   **    provide each process with an input mesh which is then used to
+   **    initialize the parmmg distributed mesh, as to mimic the input from
+   **    an external solver
    */
+  meshIN = NULL;
+  solIN = NULL;
+  MMG3D_Init_mesh(MMG5_ARG_start,
+                  MMG5_ARG_ppMesh,&meshIN,MMG5_ARG_ppMet,&solIN,
+                  MMG5_ARG_end);
+ 
+  if ( MMG3D_loadMesh(meshIN,filename) != 1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
+
+
+  /** 2) Each process loads a file with the list of interface faces and nodes,
+   **    with local and global numbering. Again, this is only intended to mimic
+   **    the input from an external solver.
+   */
+  FILE *fid;
+  char fileParFaces[128],fileParNodes[128];
+ 
+  int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
+  int *color_node, *color_face;
+  int **idx_node_loc,**idx_node_glo;
+  int **idx_face_loc,**idx_face_glo;
+  int **faceNodes;
+  int icomm;
+
+  /* Load interface faces */
+  sprintf(fileParFaces,"%s_parFaces",filename);
+  fid = fopen(fileParFaces,"r");
+
+  fscanf(fid,"%d",&n_face_comm);
+  
+  color_face = (int *)calloc(n_face_comm,sizeof(int));
+  nitem_face_comm = (int *)calloc(n_face_comm,sizeof(int));
+  idx_face_loc = (int **)calloc(n_face_comm,sizeof(int *));
+  idx_face_glo = (int **)calloc(n_face_comm,sizeof(int *));
+  
+  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+    fscanf(fid,"\n%d",&color_face[icomm]);
+    fscanf(fid,"%d",&nitem_face_comm[icomm]);
+  
+    idx_face_loc[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
+    idx_face_glo[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
+    
+    for( i = 0; i < nitem_face_comm[icomm]; i++ )
+      fscanf(fid,"%d %d\n",&idx_face_loc[icomm][i],&idx_face_glo[icomm][i]);
+  }
+  fclose(fid);
+
+  /* Load interface nodes */
+  sprintf(fileParNodes,"%s_parNodes",filename);
+  fid = fopen(fileParNodes,"r");
+
+  fscanf(fid,"%d",&n_node_comm);
+  
+  color_node = (int *)calloc(n_node_comm,sizeof(int));
+  nitem_node_comm = (int *)calloc(n_node_comm,sizeof(int));
+  idx_node_loc = (int **)calloc(n_node_comm,sizeof(int *));
+  idx_node_glo = (int **)calloc(n_node_comm,sizeof(int *));
+  
+  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+    fscanf(fid,"\n%d",&color_node[icomm]);
+    fscanf(fid,"%d",&nitem_node_comm[icomm]);
+    
+    idx_node_loc[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
+    idx_node_glo[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
+
+    for( i = 0; i < nitem_node_comm[icomm]; i++ )
+      fscanf(fid,"%d %d\n",&idx_node_loc[icomm][i],&idx_node_glo[icomm][i]);
+  }
+  fclose(fid);
+
+
+
+  /** ------------------------------ STEP   I -------------------------- */
 
   /** 1) Initialisation of th parmesh structures */
   /* args of InitMesh:
@@ -123,41 +203,43 @@ int main(int argc,char *argv[]) {
                     PMMG_ARG_dim,3,PMMG_ARG_MPIComm,MPI_COMM_WORLD,
                     PMMG_ARG_end);
 
-  /** 2) Build mesh in MMG5 format */
-  /** Two solutions: just use the PMMG_loadMesh_centralized function that will
-      read a .mesh(b) file formatted or manually set your mesh using the
-      PMMG_Set* functions */
-
-  /** with PMMG_loadMesh_centralized function */
-  sprintf(filename,"%s.%d.mesh",filename,parmesh->myrank);
-  if ( MMG3D_loadMesh(parmesh->listgrp[0].mesh,filename) != 1 ) {
+  if ( PMMG_Set_meshSize(parmesh,meshIN->np,meshIN->ne,meshIN->nprism,meshIN->nt,
+                               meshIN->nquad,meshIN->na) != 1 ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
-  /** 3) Try to load a metric in PMMG format */
-  /** Two solutions: just use the PMMG_loadMet_centralized function that will
-      read a .sol(b) file formatted or manually set your metric using the PMMG_Set*
-      functions */
-
-  /** With PMMG_loadMet_centralized function */
-  if ( metname )
-    PMMG_loadMet_centralized(parmesh,filename);
-
-  /** 4) Build solutions in PMMG format */
-  /** Two solutions: just use the PMMG_loadAllSols_centralized function that
-      will read a .sol(b) file formatted or manually set your solutions using
-      the PMMG_Set* functions */
-
-  /** With PMMG_loadAllSols_centralized function */
-
-  if ( solname ) {
-    if ( PMMG_loadAllSols_centralized(parmesh,filename) != 1 ) {
+  /* Set points, vertex by vertex */
+  for( ip = 1; ip <= meshIN->np; ip++ ) {
+    ppt = &meshIN->point[ip];
+    if ( PMMG_Set_vertex(parmesh,ppt->c[0],ppt->c[1],ppt->c[2],
+                         ppt->ref, ip) != 1 ) {
       MPI_Finalize();
       exit(EXIT_FAILURE);
     }
   }
 
+  /* Set elements, tetra by tetra */
+  for( ie = 1; ie <= meshIN->ne; ie++ ) {
+    pt = &meshIN->tetra[ie];
+    if ( PMMG_Set_tetrahedron(parmesh,pt->v[0],pt->v[1],pt->v[2],pt->v[3],
+                              pt->ref, ie) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  /* Vertex by vertex: for each triangle, give the vertices index, the
+   * reference and the position of the triangle */
+  for ( ie = 0; ie <= meshIN->nt; ie++ ) {
+    ptt = &meshIN->tria[ie];
+    if ( PMMG_Set_triangle(parmesh,
+                           ptt->v[0],ptt->v[1],ptt->v[2],
+                           ptt->ref,ie) != 1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
 
 
   /**    Initialization of interface communicators in ParMMG.
@@ -171,13 +253,6 @@ int main(int argc,char *argv[]) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
-
-  int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face;
-  int **idx_node_loc,**idx_node_glob;
-  int **idx_face_loc,**idx_face_glob;
-  int **faceNodes;
-  int icomm,dummyRef,dummyReq;
 
 
   /* Set triangles or nodes interfaces depending on API mode */
@@ -200,7 +275,7 @@ int main(int argc,char *argv[]) {
         /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm,
                                                  idx_face_loc[icomm],
-                                                 idx_face_glob[icomm], 1 );
+                                                 idx_face_glo[icomm], 1 );
       }
       break;
     
@@ -221,7 +296,7 @@ int main(int argc,char *argv[]) {
         /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm,
                                                  idx_node_loc[icomm],
-                                                 idx_node_glob[icomm], 1 );
+                                                 idx_node_glo[icomm], 1 );
       }
       break;
   }
@@ -278,33 +353,22 @@ int main(int argc,char *argv[]) {
       idx_face_loc_out[icomm] = (int *) malloc(nitem_face_comm_out[icomm]*sizeof(int));
     ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc_out);
 
-/*
-    for( icomm = 0; icomm < n_node_comm_out; icomm++ )
-      for( i = 0; i < nitem_node_comm_out[icomm]; i++ )
-        printf("OUT rank %d comm %d color %d node %d\n",parmesh->myrank,icomm,color_node_out[icomm],idx_node_loc_out[icomm][i]);
- 
-    for( icomm = 0; icomm < n_face_comm_out; icomm++ )
-      for( i = 0; i < nitem_face_comm_out[icomm]; i++ )
-        printf("OUT rank %d comm %d color %d tria %d\n",parmesh->myrank,icomm,color_face_out[icomm],idx_face_loc_out[icomm][i]);
-*/
-
-
     free(nitem_node_comm);
     free(nitem_face_comm);
     free(color_node);
     free(color_face);
     for( icomm = 0; icomm < n_node_comm; icomm++ ) {
       free(idx_node_loc[icomm]);
-      free(idx_node_glob[icomm]);
+      free(idx_node_glo[icomm]);
     }
     free(idx_node_loc);
-    free(idx_node_glob);
+    free(idx_node_glo);
     for( icomm = 0; icomm < n_face_comm; icomm++ ) {
       free(idx_face_loc[icomm]);
-      free(idx_face_glob[icomm]);
+      free(idx_face_glo[icomm]);
     }
     free(idx_face_loc);
-    free(idx_face_glob);
+    free(idx_face_glo);
 
     free(nitem_node_comm_out);
     free(nitem_face_comm_out);
