@@ -276,8 +276,8 @@ IF( BUILD_TESTING )
     libparmmg_distributed_automatic_example0
     )
   SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
+    ${CI_DIR_INPUTS}/Parallel_IO/manual_IO/main.c
+    ${CI_DIR_INPUTS}/Parallel_IO/automatic_IO/main.c
     )
   SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
     ""
