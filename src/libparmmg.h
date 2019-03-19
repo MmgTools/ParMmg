@@ -2160,6 +2160,18 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Create global IDs for nodes on parallel interfaces.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_COLOR_INTFCNODE(parmesh,color_out,&\n
+ * >                                   ifc_node_loc,ifc_node_glob,&\n
+ * >                                   next_node_comm,nitem_node_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: ifc_node_loc\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: ifc_node_glob\n
+ * >     INTEGER, INTENT(IN)                  :: next_node_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_node_comm\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
  */
 int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_node_loc,int **ifc_node_glob,
@@ -2175,6 +2187,18 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
  *
  * Create global IDs for triangles on parallel interfaces.
  *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_COLOR_INTFCFACE(parmesh,color_out,&\n
+ * >                                   ifc_face_loc,ifc_face_glob,&\n
+ * >                                   next_face_comm,nitem_face_comm,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: ifc_face_loc\n
+ * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: ifc_face_glob\n
+ * >     INTEGER, INTENT(IN)                  :: next_face_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_face_comm\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
  */
 int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_tria_loc,int **ifc_tria_glob,
