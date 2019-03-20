@@ -136,7 +136,9 @@ int main(int argc,char *argv[]) {
   sprintf(fileParFaces,"%s_parFaces",filename);
   fid = fopen(fileParFaces,"r");
 
-  fscanf(fid,"%d",&n_face_comm);
+  /* Get number of communicators */
+  fscanf(fid,"%*[^\n]\n");
+  fscanf(fid,"%d\n",&n_face_comm);
   
   color_face = (int *)calloc(n_face_comm,sizeof(int));
   nitem_face_comm = (int *)calloc(n_face_comm,sizeof(int));
@@ -144,12 +146,17 @@ int main(int argc,char *argv[]) {
   idx_face_glo = (int **)calloc(n_face_comm,sizeof(int *));
   
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    fscanf(fid,"\n%d",&color_face[icomm]);
-    fscanf(fid,"%d",&nitem_face_comm[icomm]);
+    /* Get color and number of entities */
+    fscanf(fid,"\n%*[^\n]\n");
+    fscanf(fid,"%d\n",&color_face[icomm]);
+    fscanf(fid,"%*[^\n]\n");
+    fscanf(fid,"%d\n",&nitem_face_comm[icomm]);
   
     idx_face_loc[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
     idx_face_glo[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
-    
+ 
+    /* Get local and global enumeration */
+    fscanf(fid,"%*[^\n]\n");
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
       fscanf(fid,"%d %d\n",&idx_face_loc[icomm][i],&idx_face_glo[icomm][i]);
   }
@@ -159,7 +166,9 @@ int main(int argc,char *argv[]) {
   sprintf(fileParNodes,"%s_parNodes",filename);
   fid = fopen(fileParNodes,"r");
 
-  fscanf(fid,"%d",&n_node_comm);
+  /* Get number of communicators */
+  fscanf(fid,"%*[^\n]\n");
+  fscanf(fid,"%d\n",&n_node_comm);
   
   color_node = (int *)calloc(n_node_comm,sizeof(int));
   nitem_node_comm = (int *)calloc(n_node_comm,sizeof(int));
@@ -167,12 +176,17 @@ int main(int argc,char *argv[]) {
   idx_node_glo = (int **)calloc(n_node_comm,sizeof(int *));
   
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {
-    fscanf(fid,"\n%d",&color_node[icomm]);
-    fscanf(fid,"%d",&nitem_node_comm[icomm]);
+    /* Get color and number of entities */
+    fscanf(fid,"\n%*[^\n]\n");
+    fscanf(fid,"%d\n",&color_node[icomm]);
+    fscanf(fid,"%*[^\n]\n");
+    fscanf(fid,"%d\n",&nitem_node_comm[icomm]);
     
     idx_node_loc[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
     idx_node_glo[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
 
+    /* Get local and global enumeration */
+    fscanf(fid,"%*[^\n]\n");
     for( i = 0; i < nitem_node_comm[icomm]; i++ )
       fscanf(fid,"%d %d\n",&idx_node_loc[icomm][i],&idx_node_glo[icomm][i]);
   }
