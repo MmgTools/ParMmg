@@ -324,15 +324,19 @@ IF( BUILD_TESTING )
   # Distributed lib test
   SET ( PMMG_DISTR_LIB_TESTS
     libparmmg_distributed_external_example0
+    libparmmg_distributed_external_gen_mesh
     )
   SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/gen_distributedMesh.c
     )
   SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube_in
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
     )
   SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-par-external-cube.o
+    ""
     )
 
   LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
