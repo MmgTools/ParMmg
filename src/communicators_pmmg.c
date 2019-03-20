@@ -453,14 +453,16 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
       ia = fNodes_par[3*i+0];
       ib = fNodes_par[3*i+1];
       ic = fNodes_par[3*i+2];
-      kt = MMG5_hashGetFace(&hash,ia,ib,ic);
-      if( kt ) {
-        if( iproc2comm[iproc] == PMMG_UNSET ) iproc2comm[iproc] = icomm++;
-        /* Store face color and face global ID (starting from 1) on the other
-         * proc */
-        fColors[2*(kt-1)+0] = iproc;
-        fColors[2*(kt-1)+1] = displs[iproc]+i+1;
-        counter[iproc]++;
+      if( ia && ib && ic ) {
+        kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+        if( kt ) { /*it can be zero if (i) is an internal boundary on iproc  */
+          if( iproc2comm[iproc] == PMMG_UNSET ) iproc2comm[iproc] = icomm++;
+          /* Store face color and face global ID (starting from 1) on the other
+           * proc */
+          fColors[2*(kt-1)+0] = iproc;
+          fColors[2*(kt-1)+1] = i+1;
+          counter[iproc]++;
+        }
       }
     }
   }
@@ -496,7 +498,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
     icomm = iproc2comm[iproc];
     i = counter[iproc]++;
     local_index[icomm][i] = kt;
-    global_index[icomm][i] = MG_MIN(displs[myrank]+kt,iglob);
+    global_index[icomm][i] = MG_MIN(displs[myrank]/3+kt,iglob);
   }
  
  
