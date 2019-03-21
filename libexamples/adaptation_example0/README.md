@@ -29,7 +29,7 @@ To call the **parmmg** library, you must:
   Results and communicators are saved using **PMMG_saveMesh**, **PMMG_saveSol**
   and **PMMG_saveComm** functions.
 
-#### manual_IO
+#### manual_IO (not yet implemented)
   The mesh, solution and communicators are hard coded on each processor.    
   They are build in PMMG format using API functions and are recovered by the
   same way.  
@@ -40,6 +40,9 @@ To call the **parmmg** library, you must:
   Each process loads its portion of a partitioned mesh, then initializes the
   parallel library through API function, so as to mimic the input from an
   external solver.
+  The gen_distributedMesh.c program is provided in order to generate a
+  distributed input mesh by loading a centralized mesh, partitioning it and
+  saving it on one file for each process.
 
 ## II/ Compilation
   1. Build and install the **mmg3d** shared or static library. We suppose in the following that you have installed the **mmg3d** library in the **_$CMAKE_INSTALL_PREFIX_** directory (see the [installation](https://github.com/MmgTools/Mmg/wiki/Setup-guide#iii-installation) section of the setup guide);

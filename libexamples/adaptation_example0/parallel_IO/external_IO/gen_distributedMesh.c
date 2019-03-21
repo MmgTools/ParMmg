@@ -271,17 +271,6 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-/*
-  for( icomm = 0; icomm < n_face_comm; icomm++ )
-    for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d tria loc %d glob %d\n",parmesh->myrank,icomm,color_face[icomm],idx_face_loc[icomm][i],idx_face_glob[icomm][i]);
-
-
-  for( icomm = 0; icomm < n_node_comm; icomm++ )
-    for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d node loc %d glob %d\n",parmesh->myrank,icomm,color_node[icomm],idx_node_loc[icomm][i],idx_node_glob[icomm][i]);
-*/
-
 
   /** save mesh and interfaces **/
   char filemesh[128];
