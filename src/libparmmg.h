@@ -379,7 +379,6 @@ int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
   int PMMG_Free_all(const int starter,...);
 
 /**
-/**
  * \param parmesh pointer toward the parmesh structure.
  * \return 0 if failed, 1 otherwise.
  *

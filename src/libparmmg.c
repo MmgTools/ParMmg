@@ -97,9 +97,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  *         ones (before tags are passed to edges and nodes).
  */
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  PMMG_pExt_comm ext_node_comm;
   MMG5_Hash      hash;
-  int            i,iext_comm,iext;
 
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )
@@ -772,7 +770,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   MPI_Request    request;
   MPI_Status     status;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
-  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i,idx;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i,idx;
 
   mesh = parmesh->listgrp[0].mesh;
 
@@ -914,7 +912,7 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
   MPI_Request    request;
   MPI_Status     status;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
-  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,iloc,i;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
 
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);

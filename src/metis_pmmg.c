@@ -416,7 +416,7 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
         /* list are sorted depending to their number of items so iproc has more
          * items than iproc-1 */
         assert ( partlist[iproc]->nitem == partlist[iproc-1]->nitem );
-        iproc--;
+      iproc--;
       }
       iproc--;
     }

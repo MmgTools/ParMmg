@@ -131,7 +131,6 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   MMG5_pTria   ptt;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt;
   int          kt,ie,ifac,iploc;
   int          i,imax,iloc,iglob;
 
@@ -142,7 +141,7 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
-    ptt   = &mesh->tria[kt]; 
+    ptt   = &mesh->tria[kt];
     ie    = ptt->cc/4;
     ifac  = ptt->cc%4;
 
@@ -185,7 +184,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   MMG5_pPoint  ppt;
   int          kt,ie,ifac,iploc;
   double       cmax[3];
-  int          i,idim,iloc,iglob;
+  int          i,idim,iloc;
 
   /* Only one group */
   grp = &parmesh->listgrp[0];

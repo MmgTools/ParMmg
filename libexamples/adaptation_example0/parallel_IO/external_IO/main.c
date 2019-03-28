@@ -34,17 +34,17 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  MMG5_pMesh      mesh,meshIN;
-  MMG5_pSol       met,solIN;
+  MMG5_pMesh      meshIN;
+  MMG5_pSol       solIN;
   MMG5_pPoint     ppt;
   MMG5_pTria      ptt;
   MMG5_pTetra     pt;
-  int             ip,ie,ier,ierlib,iresult,rank,i,k,nsols;
+  int             ip,ie,ier,ierlib,rank,i,k;
   int             opt,API_mode,niter;
   char            *filename,*metname,*solname,*fileout,*metout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
-  int             nVertices,nTetrahedra,nPrisms,nTriangles,nQuadrilaterals,nEdges;
+  int             nVertices,nTetrahedra,nTriangles,nEdges;
 
 
   MPI_Init( &argc, &argv );
@@ -129,7 +129,6 @@ int main(int argc,char *argv[]) {
   int *color_node, *color_face;
   int **idx_node_loc,**idx_node_glo;
   int **idx_face_loc,**idx_face_glo;
-  int **faceNodes;
   int icomm;
 
   /* Load interface faces */

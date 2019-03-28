@@ -1010,7 +1010,6 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
-  MMG5_pPoint    ppt;
   MMG5_Hash      hashPair;
   int            *values,*oldIdx,ip,idx,i,icomm,getComm;
   size_t         memAv,oldMemMax;

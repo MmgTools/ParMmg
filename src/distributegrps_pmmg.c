@@ -2267,6 +2267,7 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
 
   /* Send its */
   *drequest = MPI_REQUEST_NULL;
+  printf("%d send  %d data to %d\n",parmesh->myrank,*pack_size,recv);
   MPI_CHECK ( MPI_Isend ( *grps2send,*pack_size,MPI_CHAR,recv,MPI_SENDGRP_TAG,
                            comm,drequest), ier = 0 );
 
@@ -2505,6 +2506,8 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 
   PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer", ier = 0 );
 
+
+  printf("%d wait for %d data from %d\n",parmesh->myrank,pack_size,sndr);
   MPI_CHECK ( MPI_Recv(buffer,pack_size,MPI_CHAR,sndr,MPI_SENDGRP_TAG,comm,&status),
               ier = 0 );
 
