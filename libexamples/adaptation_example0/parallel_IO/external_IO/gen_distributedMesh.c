@@ -273,7 +273,7 @@ int main(int argc,char *argv[]) {
 
 
   /** save mesh and interfaces **/
-  char filemesh[128];
+  char filemesh[256];
   sprintf(filemesh,"%s_out.%d.mesh",filename,parmesh->myrank);
   MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
 
