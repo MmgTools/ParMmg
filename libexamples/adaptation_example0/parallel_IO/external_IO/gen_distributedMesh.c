@@ -143,8 +143,12 @@ int main(int argc,char *argv[]) {
       functions */
 
   /** With PMMG_loadMet_centralized function */
-  if ( metname )
-    PMMG_loadMet_centralized(parmesh,filename);
+  if ( metname ) {
+    if ( PMMG_loadMet_centralized(parmesh,filename) !=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
 
   /** 4) Build solutions in PMMG format */
   /** Two solutions: just use the PMMG_loadAllSols_centralized function that
@@ -193,15 +197,23 @@ int main(int argc,char *argv[]) {
 
   /* Get number of node interfaces */
   ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&n_node_comm);
+  if ( ier!=1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
   /* Get outward proc rank and number of nodes on each interface */
   color_node      = (int *) malloc(n_node_comm*sizeof(int));
   nitem_node_comm = (int *) malloc(n_node_comm*sizeof(int));
-  for( icomm = 0; icomm < n_node_comm; icomm++ )
+  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
     ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm,
                                            &color_node[icomm],
                                            &nitem_node_comm[icomm]);
-
+    if ( ier !=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
 
   /* Get IDs of nodes on each interface */
   idx_node_loc  = (int **) malloc(n_node_comm*sizeof(int *));
@@ -211,17 +223,30 @@ int main(int argc,char *argv[]) {
     idx_node_glob[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc);
+  if ( ier!=1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
-  /* Get number of face interfaces */ 
+  /* Get number of face interfaces */
   ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&n_face_comm);
+  if ( ier!=1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
   /* Get outward proc rank and number of faces on each interface */
   color_face      = (int *) malloc(n_face_comm*sizeof(int));
   nitem_face_comm = (int *) malloc(n_face_comm*sizeof(int));
-  for( icomm = 0; icomm < n_face_comm; icomm++ )
+  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm,
                                            &color_face[icomm],
                                            &nitem_face_comm[icomm]);
+    if ( ier!=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+  }
 
   /* Get IDs of triangles on each interface */
   idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
@@ -231,6 +256,10 @@ int main(int argc,char *argv[]) {
     idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
+  if ( ier!=1 ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  }
 
   /* Get triangle nodes */
   nVertices   = 0;
@@ -239,18 +268,20 @@ int main(int argc,char *argv[]) {
   nEdges      = 0;
   if ( PMMG_Get_meshSize(parmesh,&nVertices,&nTetrahedra,NULL,&nTriangles,NULL,
                          &nEdges) !=1 ) {
-    ier = PMMG_STRONGFAILURE;
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
   }
 
   int *ref       = (int*)calloc(nTriangles,sizeof(int));
   int *required  = (int*)calloc(nTriangles,sizeof(int));
   int *triaNodes = (int*)calloc(3*nTriangles,sizeof(int));
-   
+
   if ( PMMG_Get_triangles(parmesh,triaNodes,ref,required) != 1 ) {
     fprintf(inm,"Unable to get mesh triangles\n");
-    ier = PMMG_STRONGFAILURE;
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
   }
- 
+
   /* Color interface triangles with a custom global enumeration that encompasses
    * all boundary and interface triangles currently present in the global mesh
    * (we don't care about contiguity of global IDs, but only about uniqueness).
