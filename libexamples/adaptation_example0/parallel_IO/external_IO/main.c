@@ -111,7 +111,7 @@ int main(int argc,char *argv[]) {
   MMG3D_Init_mesh(MMG5_ARG_start,
                   MMG5_ARG_ppMesh,&meshIN,MMG5_ARG_ppMet,&solIN,
                   MMG5_ARG_end);
- 
+
   if ( MMG3D_loadMesh(meshIN,filename) != 1 ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
@@ -123,8 +123,8 @@ int main(int argc,char *argv[]) {
    **    the input from an external solver.
    */
   FILE *fid;
-  char fileParFaces[128],fileParNodes[128];
- 
+  char fileParFaces[256],fileParNodes[256];
+
   int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
   int *color_node, *color_face;
   int **idx_node_loc,**idx_node_glo;
@@ -138,22 +138,22 @@ int main(int argc,char *argv[]) {
   /* Get number of communicators */
   fscanf(fid,"%*[^\n]\n");
   fscanf(fid,"%d\n",&n_face_comm);
-  
+
   color_face = (int *)calloc(n_face_comm,sizeof(int));
   nitem_face_comm = (int *)calloc(n_face_comm,sizeof(int));
   idx_face_loc = (int **)calloc(n_face_comm,sizeof(int *));
   idx_face_glo = (int **)calloc(n_face_comm,sizeof(int *));
-  
+
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     /* Get color and number of entities */
     fscanf(fid,"\n%*[^\n]\n");
     fscanf(fid,"%d\n",&color_face[icomm]);
     fscanf(fid,"%*[^\n]\n");
     fscanf(fid,"%d\n",&nitem_face_comm[icomm]);
-  
+
     idx_face_loc[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
     idx_face_glo[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
- 
+
     /* Get local and global enumeration */
     fscanf(fid,"%*[^\n]\n");
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
@@ -168,19 +168,19 @@ int main(int argc,char *argv[]) {
   /* Get number of communicators */
   fscanf(fid,"%*[^\n]\n");
   fscanf(fid,"%d\n",&n_node_comm);
-  
+
   color_node = (int *)calloc(n_node_comm,sizeof(int));
   nitem_node_comm = (int *)calloc(n_node_comm,sizeof(int));
   idx_node_loc = (int **)calloc(n_node_comm,sizeof(int *));
   idx_node_glo = (int **)calloc(n_node_comm,sizeof(int *));
-  
+
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {
     /* Get color and number of entities */
     fscanf(fid,"\n%*[^\n]\n");
     fscanf(fid,"%d\n",&color_node[icomm]);
     fscanf(fid,"%*[^\n]\n");
     fscanf(fid,"%d\n",&nitem_node_comm[icomm]);
-    
+
     idx_node_loc[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
     idx_node_glo[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
 
@@ -260,7 +260,7 @@ int main(int argc,char *argv[]) {
    *     information (through the PMMG_APIDISTRIB_faces parameter), or nodes
    *     interface information (through the PMMG_APIDISTRIB_nodes parameter).
    */
- 
+
   /* Set API mode */
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
     MPI_Finalize();
@@ -270,11 +270,11 @@ int main(int argc,char *argv[]) {
 
   /* Set triangles or nodes interfaces depending on API mode */
   switch( API_mode ) {
-    
+
     case PMMG_APIDISTRIB_faces :
       if( !rank ) printf("\n--- API mode: Setting face communicators\n");
 
-      /* Set the number of interfaces */    
+      /* Set the number of interfaces */
       ier = PMMG_Set_numberOfFaceCommunicators(parmesh, n_face_comm);
 
       /* Loop on each interface (proc pair) seen by the current rank) */
@@ -291,11 +291,11 @@ int main(int argc,char *argv[]) {
                                                  idx_face_glo[icomm], 1 );
       }
       break;
-    
+
     case PMMG_APIDISTRIB_nodes :
       if( !rank ) printf("\n--- API mode: Setting node communicators\n");
 
-      /* Set the number of interfaces */ 
+      /* Set the number of interfaces */
       ier = PMMG_Set_numberOfNodeCommunicators(parmesh, n_node_comm);
 
       /* Loop on each interface (proc pair) seen by the current rank) */
@@ -313,7 +313,7 @@ int main(int argc,char *argv[]) {
       }
       break;
   }
- 
+
 
   /** ------------------------------ STEP V ---------------------------- */
   /** remesh step */
@@ -343,7 +343,7 @@ int main(int argc,char *argv[]) {
     /* Get number of node interfaces */
     ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&n_node_comm_out);
 
-    /* Get outward proc rank and number of nodes on each interface */ 
+    /* Get outward proc rank and number of nodes on each interface */
     color_node_out      = (int *) malloc(n_node_comm_out*sizeof(int));
     nitem_node_comm_out = (int *) malloc(n_node_comm_out*sizeof(int));
     for( icomm = 0; icomm < n_node_comm_out; icomm++ )
@@ -356,8 +356,8 @@ int main(int argc,char *argv[]) {
     for( icomm = 0; icomm < n_node_comm_out; icomm++ )
       idx_node_loc_out[icomm] = (int *) malloc(nitem_node_comm_out[icomm]*sizeof(int));
     ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc_out);
- 
-    /* Get number of face interfaces */     
+
+    /* Get number of face interfaces */
     ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&n_face_comm_out);
 
     /* Get outward proc rank and number of faces on each interface */
@@ -401,7 +401,7 @@ int main(int argc,char *argv[]) {
     for( icomm = 0; icomm < n_face_comm_out; icomm++ )
       free(idx_face_loc_out[icomm]);
     free(idx_face_loc_out);
- 
+
 
     /** ------------------------------ STEP VII --------------------------- */
     /** get results */
@@ -660,7 +660,7 @@ int main(int argc,char *argv[]) {
     free(vert)    ; vert     = NULL;
     free(tetra)   ; tetra    = NULL;
     free(tria)    ; tria     = NULL;
-    free(edge)    ; edge     = NULL; 
+    free(edge)    ; edge     = NULL;
     free(ref)     ; ref      = NULL;
     free(required); required = NULL;
     free(ridge)   ; ridge    = NULL;
@@ -733,7 +733,7 @@ int main(int argc,char *argv[]) {
                  MMG5_ARG_ppMesh,&meshIN,
                  MMG5_ARG_ppMet,&solIN,
                  MMG5_ARG_end);
- 
+
 
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
