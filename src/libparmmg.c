@@ -97,9 +97,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  *         ones (before tags are passed to edges and nodes).
  */
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  PMMG_pExt_comm ext_node_comm;
   MMG5_Hash      hash;
-  int            i,iext_comm,iext;
 
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )

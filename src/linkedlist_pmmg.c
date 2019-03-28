@@ -433,7 +433,6 @@ int PMMG_compare_valLnkdListLen (const void * a, const void * b) {
 
 int PMMG_compare_cell2 (const void * a, const void * b) {
   PMMG_lnkdCell cell1,cell2;
-  int           k;
 
   cell1 = *(PMMG_lnkdCell*)a;
   cell2 = *(PMMG_lnkdCell*)b;

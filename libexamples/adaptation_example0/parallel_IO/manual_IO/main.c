@@ -79,7 +79,7 @@ void get_local_mesh(int np, int ne, int nt, int *pmask, int *inv_pmask,
 /* Main program */
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  int             ier,ierlib,rank,k,opt,API_mode,niter,i,d,icomm;
+  int             ier,ierlib,rank,k,opt,API_mode,niter,i,icomm;
   char            *metname,*solname,*fileout,*metout,*solout,*tmp;
   FILE            *inm;
   int             pos,nreq,nc,nr;
@@ -329,7 +329,7 @@ int main(int argc,char *argv[]) {
 
   double vert_coor[3*nv],met[nv];
   int vert_ref[nv],tetra_vert[4*ne],tetra_ref[ne],tria_vert[3*nt],tria_ref[nt];
-  int vert_mask[nv],inv_vert_mask[12],tetra_mask[ne],tria_mask[nt],inv_tria_mask[28];
+  int inv_vert_mask[12],inv_tria_mask[28];
   int *ifc_tria_loc[ncomm],*ifc_nodes_loc[ncomm];
   int *ifc_tria_glob[ncomm],*ifc_nodes_glob[ncomm];
   int **faceNodes;
@@ -916,7 +916,7 @@ int main(int argc,char *argv[]) {
       int *triaNodes = (int*)calloc(3*nTriangles,sizeof(int));
    
       if ( PMMG_Get_triangles(parmesh,triaNodes,ref,required) != 1 ) {
-        fprintf(inm,"Unable to get mesh triangles\n");
+        fprintf(stderr,"Unable to get mesh triangles\n");
         ier = PMMG_STRONGFAILURE;
       }
 
