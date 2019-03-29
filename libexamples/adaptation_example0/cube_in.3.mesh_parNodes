@@ -1,0 +1,30 @@
+# Number of communicators
+3
+
+# Color
+0
+# Number of items
+3
+# Local and global enumeration
+1 2
+3 4
+5 8
+
+# Color
+1
+# Number of items
+4
+# Local and global enumeration
+1 2
+4 7
+5 8
+6 9
+
+# Color
+2
+# Number of items
+3
+# Local and global enumeration
+2 3
+4 7
+6 9

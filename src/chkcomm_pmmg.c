@@ -972,8 +972,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
-               " (dist = %e)\n",__func__,i,l,
-               parmesh->myrank,color,doublevalues[9*idx],doublevalues[9*idx+1],
+               " (dist = %e)\n",__func__,i,
+               parmesh->myrank,color,idx,doublevalues[9*idx],doublevalues[9*idx+1],
                doublevalues[9*idx+2],rtorecv[9*i],rtorecv[9*i+1],rtorecv[9*i+2],
                x*x + y*y + z*z);
         ier = 0;
@@ -985,8 +985,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
-               " (dist = %e)\n",__func__,i,l,
-               parmesh->myrank,color,doublevalues[9*idx+3],doublevalues[9*idx+4],
+               " (dist = %e)\n",__func__,i,
+               parmesh->myrank,color,idx,doublevalues[9*idx+3],doublevalues[9*idx+4],
                doublevalues[9*idx+5],rtorecv[9*i+6],rtorecv[9*i+7],rtorecv[9*i+8],
                x*x + y*y + z*z);
         ier = 0;
@@ -998,8 +998,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       if ( x*x + y*y + z*z > MMG5_EPSD ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
-               " (dist = %e)\n",__func__,i,l,
-               parmesh->myrank,color,doublevalues[9*idx+6],doublevalues[9*idx+7],
+               " (dist = %e)\n",__func__,i,
+               parmesh->myrank,color,idx,doublevalues[9*idx+6],doublevalues[9*idx+7],
                doublevalues[9*idx+8],rtorecv[9*i+3],rtorecv[9*i+4],rtorecv[9*i+5],
                x*x + y*y + z*z);
         ier = 0;
