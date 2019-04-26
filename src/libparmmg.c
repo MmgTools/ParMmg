@@ -287,7 +287,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_doSol(mesh,met) ) {
       return PMMG_STRONGFAILURE;
     }
-    MMG3D_solTruncatureForOptim(mesh,met);
+    MMG5_solTruncatureForOptim(mesh,met);
   }
 
   if ( mesh->info.hsiz > 0. ) {
@@ -370,7 +370,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( !MMG3D_doSol(mesh,met) ) {
       return PMMG_STRONGFAILURE;
     }
-    MMG3D_solTruncatureForOptim(mesh,met);
+    MMG5_solTruncatureForOptim(mesh,met);
   }
 
   if ( mesh->info.hsiz > 0. ) {
