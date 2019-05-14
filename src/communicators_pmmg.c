@@ -397,7 +397,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
    * non-boundary faces connected to three parallel nodes. */
   nb_fNodes_loc = 3*mesh->nt;
   PMMG_CALLOC(parmesh,fNodes_loc,nb_fNodes_loc,int,"fNodes_loc",return 0);
-  PMMG_CALLOC(parmesh,fColors,2*mesh->nt,int,"fColors",return 0);
+  PMMG_MALLOC(parmesh,fColors,2*mesh->nt,int,"fColors",return 0);
   for( i=0; i<2*mesh->nt; i++ )
     fColors[i] = PMMG_UNSET;
 
