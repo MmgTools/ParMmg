@@ -404,6 +404,7 @@ int PMMG_correct_meshElts2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t ne,idx_
     return 1;
   }
 
+  fprintf(stdout,"   ### Warning: Empty partitions on proc %d, nelts %d\n",parmesh->myrank,ne);
   /** Correct partitioning */
   assert ( nproc > 1 );
   iproc = nproc-1;

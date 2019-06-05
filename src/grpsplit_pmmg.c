@@ -1022,6 +1022,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   int poiPerGrp = 0;
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, tet, fac, ie;
+  int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs];
 
   if ( !parmesh->ngrp ) goto end;
 
@@ -1058,6 +1059,20 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
              __func__);
       ngrp = MG_MIN ( meshOld->ne, ngrp );
     }
+  }
+
+  /* Print split info */
+  MPI_CHECK( MPI_Gather(&ngrp,1,MPI_INT,
+                        ngrps_all,1,MPI_INT,0,parmesh->comm),
+             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  MPI_CHECK( MPI_Gather(&meshOld->ne,1,MPI_INT,
+                        ne_all,1,MPI_INT,0,parmesh->comm),
+             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    int i;
+    for( i=0; i<parmesh->nprocs; i++ )
+      fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
+              i,ne_all[i],ngrps_all[i]);
   }
 
   /* Does the group need to be further subdivided to subgroups or not? */
