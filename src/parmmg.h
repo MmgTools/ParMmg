@@ -164,6 +164,9 @@ static const int PMMG_RATIO_MMG_METIS = -100;
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_METIS_NGRPS_MAX = 1000;
 
+/**< Subgroups minimum size to try to avoid empty partitions */
+static const int PMMG_METIS_NELEM_MIN = 6;
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
