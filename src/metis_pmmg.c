@@ -645,18 +645,18 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
         pxt = &mesh->xtetra[pt->xt];
         if( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Put high weight on old parallel faces */
-          wgt = PMMG_WGTVAL_HUGEINT;
+          wgt = pow(1.0/pt->qual,3.0)+pow(1.0/mesh->tetra[jel].qual,3.0);
         } else {
           /* Default weight on other faces */
-          wgt = 1;
+          wgt = 0;
         }
       } else {
         /* Default weight if no xtetra found */
-        wgt = 1;
+        wgt = 0;
       }
 
       (*adjncy)[count]   = jel-1;
-      (*adjwgt)[count++] = wgt;
+      (*adjwgt)[count++] = MG_MAX(wgt,1);
     }
     assert( count == ( (*xadj)[k] ) );
   }
@@ -704,6 +704,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   MPI_Status     status;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            *intvalues,*itosend,*itorecv;
+  double         *doublevalues,*rtosend,*rtorecv;
   int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,ishift,wgt;
 
@@ -764,9 +765,12 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
               "face communicator",goto fail_5);
+  PMMG_CALLOC(parmesh,int_face_comm->doublevalues,int_face_comm->nitem,double,
+              "face communicator",goto fail_5);
 
   /* Face communicator initialization */
   intvalues = parmesh->int_face_comm->intvalues;
+  doublevalues = parmesh->int_face_comm->doublevalues;
   for ( k=0; k < int_face_comm->nitem; ++k )
     intvalues[k] = PMMG_UNSET;
 
@@ -780,14 +784,18 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
-    for ( k=0; k<grp->nitem_int_face_comm; ++k )
-      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      ie   =  face2int_face_comm_index1[k]/12;
+      ifac = (face2int_face_comm_index1[k]%12)/3;
+      pt = &mesh->tetra[ie];
+      assert( MG_EOK(pt) && pt->xt );
+      pxt = &mesh->xtetra[pt->xt];
 
-        ie   =  face2int_face_comm_index1[k]/12;
-        ifac = (face2int_face_comm_index1[k]%12)/3;
-        pt = &mesh->tetra[ie];
-        assert( MG_EOK(pt) && pt->xt );
-        pxt = &mesh->xtetra[pt->xt];
+      /* Increase grp weight by the inverse of the interface element quality */
+      if( pxt->ftag[ifac] & MG_OLDPARBDY )
+        doublevalues[face2int_face_comm_index2[k]] += pow(1.0/pt->qual,3.0);
+
+      if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
 
         /* Save group ID with a minus sign if the face was parallel in the
          * previous adaptation iteration */
@@ -797,6 +805,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
           intvalues[face2int_face_comm_index2[k]]= igrp+ishift;
 
       }
+    }
   }
 
   /** Step 4: Send and receive external communicators filled by the (group id +
@@ -814,8 +823,17 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
                 goto fail_6);
     itorecv       = ext_face_comm->itorecv;
 
+    PMMG_CALLOC(parmesh,ext_face_comm->rtosend,nitem,double,"rtosend array",
+                goto fail_6);
+    rtosend = ext_face_comm->rtosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->rtorecv,nitem,double,"rtorecv array",
+                goto fail_6);
+    rtorecv       = ext_face_comm->rtorecv;
+
     for ( i=0; i<nitem; ++i ) {
       idx            = ext_face_comm->int_comm_index[i];
+      rtosend[i]     = doublevalues[idx] ;
       itosend[i]     = intvalues[idx] ;
       /* Mark the face as boundary in the intvalues array */
       intvalues[idx] = PMMG_UNSET;
@@ -824,6 +842,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   comm,&status),goto fail_6 );
+    MPI_CHECK(
+      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   rtorecv,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG,
                    comm,&status),goto fail_6 );
   }
 
@@ -839,6 +861,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     ext_face_comm = &parmesh->ext_face_comm[k];
     itosend       = ext_face_comm->itosend;
     itorecv       = ext_face_comm->itorecv;
+    rtosend       = ext_face_comm->rtosend;
+    rtorecv       = ext_face_comm->rtorecv;
     nitem         = ext_face_comm->nitem;
 
     /* i2send array contains the group id of the boundary faces and i2recv the
@@ -853,12 +877,12 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
        * and reset signs; then, get grp indices starting from 0 */
       if( igrp_adj <= -ishift ) {
         assert( igrp <= -ishift );
-        wgt = PMMG_WGTVAL_HUGEINT;
+        wgt = rtosend[i]+rtorecv[i];
         igrp     *= -1;
         igrp_adj *= -1;
       } else {
         assert( igrp >=  ishift );
-        wgt = 1;
+        wgt = 0;
       }
       igrp     -= ishift;
       igrp_adj -= ishift;
@@ -894,10 +918,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       /* Put high weight on old parallel faces (marked by a minus sign) and
        * reset signs; then, get grp index starting from 0 */
       if ( igrp_adj <= -ishift ) {
-        wgt = PMMG_WGTVAL_HUGEINT;
+        wgt = doublevalues[face2int_face_comm_index2[i]];
         igrp_adj *= -1;
       } else {
-        wgt = 1;
+        wgt = 0;
       }
       igrp_adj -= ishift;
 
@@ -964,12 +988,12 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     if ( PMMG_UNSET==ph->adj ) continue;
 
     (*adjncy)[(*nadjncy)]   = ph->adj;
-    (*adjwgt)[(*nadjncy)++] = ph->wgt;
+    (*adjwgt)[(*nadjncy)++] = MG_MAX(ph->wgt,1);
 
     while ( ph->nxt ) {
       ph                = &hash.item[ph->nxt];
       (*adjncy)[(*nadjncy)]   = ph->adj;
-      (*adjwgt)[(*nadjncy)++] = ph->wgt;
+      (*adjwgt)[(*nadjncy)++] = MG_MAX(ph->wgt,1);
     }
   }
   assert ( (*nadjncy)==(*xadj)[ngrp] );
@@ -1001,6 +1025,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
     if ( ext_face_comm->itosend )
       PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
+    if ( ext_face_comm->rtorecv )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->rtorecv,double,"rtorecv array");
+    if ( ext_face_comm->rtosend )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->rtosend,double,"rtosend array");
   }
   PMMG_DEL_MEM(parmesh,hash.item,PMMG_hgrp,"group hash table");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
@@ -1021,8 +1049,20 @@ fail_6:
     if ( ext_face_comm->itosend )
       PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
   }
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->rtorecv )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->rtorecv,double,"rtorecv array");
+  }
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    if ( ext_face_comm->rtosend )
+      PMMG_DEL_MEM(parmesh,ext_face_comm->rtosend,double,"rtosend array");
+  }
   if ( int_face_comm->intvalues )
     PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
+  if ( int_face_comm->doublevalues )
+    PMMG_DEL_MEM(parmesh,int_face_comm->doublevalues,double,"face communicator");
 fail_5:
   PMMG_DEL_MEM(parmesh,*xadj,idx_t,"parmetis xadj");
 fail_4:
