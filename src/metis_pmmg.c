@@ -998,6 +998,23 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   }
   assert ( (*nadjncy)==(*xadj)[ngrp] );
 
+#ifndef NDEBUG
+  /* Print graph to file */
+/*  FILE* fid;
+  char filename[48];
+  sprintf(filename,"graph_proc%d",parmesh->myrank);
+  fid = fopen(filename,"w");
+  for( k = 0; k < parmesh->nprocs+1; k++ )
+    fprintf(fid,"%d\n",(*vtxdist)[k]);
+  fprintf(fid,"\n");
+  for( k = 0; k < parmesh->ngrp+1; k++ )
+    fprintf(fid,"%d\n",(*xadj)[k]);
+  fprintf(fid,"\n");
+  for( k = 0; k < (*xadj)[parmesh->ngrp]; k++ )
+    fprintf(fid,"%d %d\n",(*adjncy)[k],(*adjwgt)[k]);  
+  fclose(fid);*/
+#endif
+
   /* Nullify unnecessary weights */
   switch (*wgtflag) {
     case PMMG_WGTFLAG_NONE:
@@ -1291,6 +1308,16 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
         }
         return 0;
       }
+#ifndef NDEBUG
+      /* Print graph to file */
+/*      FILE* fid;
+      char filename[48];
+      sprintf(filename,"part_centralized");
+      fid = fopen(filename,"w");
+      for( iproc = 0; iproc < vtxdist[nproc]; iproc++ )
+        fprintf(fid,"%d\n",part_seq[iproc]);
+      fclose(fid);*/
+#endif
     }
 
     /** Scatter the partition array */
