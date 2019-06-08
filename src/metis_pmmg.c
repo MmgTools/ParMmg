@@ -1171,8 +1171,13 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   parmesh->memMax += memAv;
 
   /** Call metis and get the partition array */
-  ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
-                             NULL,NULL,options,&objval, part );
+  if( nproc >= 8 ) {
+    ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
+                               NULL,NULL,options,&objval, part );
+  } 
+  else
+    ier = METIS_PartGraphRecursive( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
+                               NULL,NULL,options,&objval, part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
       case METIS_ERROR_INPUT:
