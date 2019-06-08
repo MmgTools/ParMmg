@@ -5,6 +5,9 @@
 #include <malloc.h> // mallinfo
 #endif
 
+#define sw 4
+#define sd 8
+
 /**
  * \param name   filename to open
  * \param status file desriptor's desired mode
@@ -199,6 +202,186 @@ void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int n
 }
 
 /**
+ * \param mesh pointer toward the mesh structure
+ * \param qual quality value.
+ * \param inm pointer toward the solution file
+ * \param bin 1 if binary file
+ *
+ * Write the quality value for a tetra in double precision.
+ *
+ */
+void PMMG_writeDoubleQual3D(MMG5_pMesh mesh,double qual,FILE *inm,int bin) {
+
+  if(!bin){
+    fprintf(inm," %.15lg",qual);
+  } else {
+    fwrite((unsigned char*)&qual,sd,1,inm);
+  }
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param filename name of file.
+ * \param inm allocatable pointer toward the FILE structure.
+ * \param ver file version (1=simple precision, 2=double).
+ * \param bin 1 if the file is a binary.
+ * \param np number of solutions of each type.
+ * \param dim solution dimension.
+ * \param nsols number of solutions of different types in the file.
+ * \param type type of solutions.
+ * \param size size of solutions.
+ *
+ * \return 0 if unable to open the file, 1 if success.
+ *
+ * Open the "filename" quality file and read the file header.
+ *
+ * \warning Binary version not tested.
+ *
+ */
+int PMMG_saveQualHeader( MMG5_pMesh mesh,const char *filename,
+                        FILE **inm,int ver,int *bin,int np,int dim,
+                        int nsols,int *type,int *size) {
+  MMG5_pTetra pt;
+  int         binch,bpos;
+  int         k;
+  char        *ptr,*data,chaine[128];
+
+  *bin = 0;
+
+  MMG5_SAFE_CALLOC(data,strlen(filename)+6,char,return 0);
+  strcpy(data,filename);
+  ptr = strstr(data,".sol");
+  if ( ptr ) {
+    // filename contains the solution extension
+    ptr = strstr(data,".solb");
+
+    if ( ptr )  *bin = 1;
+
+    if( !(*inm = fopen(data,"wb")) ) {
+      fprintf(stderr,"  ** UNABLE TO OPEN %s.\n",data);
+      MMG5_SAFE_FREE(data);
+      return 0;
+    }
+  }
+  else
+  {
+    // filename don't contains the solution extension
+    ptr = strstr(data,".mesh");
+    if ( ptr ) *ptr = '\0';
+
+    strcat(data,".sol");
+    if (!(*inm = fopen(data,"wb")) ) {
+      ptr  = strstr(data,".solb");
+      *ptr = '\0';
+      strcat(data,".sol");
+      if (!(*inm = fopen(data,"wb")) ) {
+        fprintf(stderr,"  ** UNABLE TO OPEN %s.\n",data);
+        MMG5_SAFE_FREE(data);
+        return 0;
+      }
+      else *bin = 1;
+    }
+  }
+
+  if ( mesh->info.imprim >= 0 )
+    fprintf(stdout,"  %%%% %s OPENED\n",data);
+  MMG5_SAFE_FREE(data);
+
+  /*entete fichier*/
+  binch=bpos=0;
+  if(!*bin) {
+    strcpy(&chaine[0],"MeshVersionFormatted\n");
+    fprintf(*inm,"%s %d",chaine,ver);
+    strcpy(&chaine[0],"\n\nDimension\n");
+    fprintf(*inm,"%s %d",chaine,dim);
+  } else {
+    binch = 1; //MeshVersionFormatted
+    fwrite(&binch,sw,1,*inm);
+    binch = ver; //version
+    fwrite(&binch,sw,1,*inm);
+    binch = 3; //Dimension
+    fwrite(&binch,sw,1,*inm);
+    bpos = 20; //Pos
+    fwrite(&bpos,sw,1,*inm);
+    binch = dim;
+    fwrite(&binch,sw,1,*inm);
+  }
+
+  np = 0;
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( MG_EOK(pt) )  np++;
+  }
+
+  if(!*bin) {
+    strcpy(&chaine[0],"\n\nSolAtTetrahedra\n");
+    fprintf(*inm,"%s",chaine);
+    fprintf(*inm,"%d\n",np);
+    fprintf(*inm,"%d",nsols);
+    for (k=0; k<nsols; ++k )
+      fprintf(*inm," %d",type[k]);
+    fprintf(*inm,"\n");
+  } else {
+    binch = 62; //Vertices
+    fwrite(&binch,sw,1,*inm);
+    bpos += 16;
+
+    for (k=0; k<nsols; ++k )
+      bpos += 4 + (size[k]*ver)*4*np; //Pos
+    fwrite(&bpos,sw,1,*inm);
+
+    fwrite(&np,sw,1,*inm);
+    fwrite(&nsols,sw,1,*inm);
+    for (k=0; k<nsols; ++k )
+      fwrite(&type[k],sw,1,*inm);
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the sol structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write isotropic or anisotropic metric.
+ *
+ */
+int PMMG_saveQual(MMG5_pMesh mesh, const char *filename) {
+  FILE*        inm;
+  MMG5_pTetra  pt;
+  int          ver,type,size;
+  int          binch,bin,ier,k;
+
+  ver = 2;
+  type = MMG5_Scalar;
+  size = 1;
+  ier = PMMG_saveQualHeader( mesh,filename,&inm,ver,&bin,1,3,
+                            1,&type,&size);
+
+  if ( ier < 1 )  return ier;
+
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
+    PMMG_writeDoubleQual3D(mesh,pt->qual,inm,bin);
+    fprintf(inm,"\n");
+  }
+
+  /* End file */
+  if(!bin) {
+    fprintf(inm,"\n\nEnd\n");
+  } else {
+    binch = 54; //End
+    fwrite(&binch,sw,1,inm);
+  }
+  fclose(inm);
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param grpId index of the group
  * \param basename filename prefix
@@ -238,6 +421,43 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   return ier;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param grpId index of the group
+ * \param basename filename prefix
+ *
+ * Write group mesh and quality in medit format.
+ *
+ */
+int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  size_t     memAv,oldMemMax;
+  char       name[ 2048 ];
+  int        ier;
+ 
+  grp  = &parmesh->listgrp[grpId];
+  mesh = grp->mesh;
+
+  assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
+  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  
+  oldMemMax = parmesh->memCur;
+  memAv = parmesh->memMax-oldMemMax;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+ 
+  ier = MMG3D_hashTetra( mesh, 1 );
+  MMG3D_bdryBuild( mesh ); //note: no error checking
+  MMG3D_saveMesh( mesh, name );
+ 
+  sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+  PMMG_saveQual( mesh, name );
+
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+  return ier;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure
@@ -251,6 +471,23 @@ int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
 
   for ( grpId = 0 ; grpId < parmesh->ngrp ; grpId++ )
     if( !PMMG_grp_to_saveMesh( parmesh, grpId, basename ) )
+      return 0;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param basename filenames prefix
+ *
+ * Write meshes and quality of all groups in medit format.
+ *
+ */
+int PMMG_listgrp_quality_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
+  int grpId;
+
+  for ( grpId = 0 ; grpId < parmesh->ngrp ; grpId++ )
+    if( !PMMG_grp_quality_to_saveMesh( parmesh, grpId, basename ) )
       return 0;
 
   return 1;
