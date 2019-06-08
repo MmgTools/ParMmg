@@ -118,6 +118,35 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 }
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \param met  pointer toward the met structure
+ * \param pt   pointer toward the tetrahedron structure.
+ *             an adjacent.
+ * \param adj  global id of the adjacent group
+ *
+ * \return The weight value
+ *
+ * Compute an element weight to be used for the metis weight on parallel
+ * interfaces.
+ *
+ */
+double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt ) {
+  double len,res;
+  int    ia;
+
+  res = 0.0;
+  for( ia=0; ia<6; ia++ ) {
+    len = MMG5_lenedg(mesh,met,ia,pt);
+    if( len <= 1.0 )
+      res += len-1.0;
+    else
+      res += 1.0/len-1.0;
+  }
+  res = MG_MIN(1.0/exp(24*res/6.0),PMMG_WGTVAL_HUGEINT);
+
+  return res;
+}
+/**
  * \param parmesh pointer toward the parmesh structure.
  *
  * \return The number of contiguous subgroups.
@@ -566,10 +595,10 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  * \warning the mesh must be packed
  *
  */
-int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol met,
                                idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
                                idx_t *nadjncy,size_t *memAv) {
-  MMG5_pTetra  pt;
+  MMG5_pTetra  pt,pt1;
   MMG5_pxTetra pxt;
   size_t       memMaxOld;
   int          *adja;
@@ -639,13 +668,14 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
     for ( j = 0; j < 4; j++ ) {
       jel = adja[j] / 4;
       if ( !jel ) continue;
+      pt1 = &mesh->tetra[jel];
 
       /* Assign graph edge weights */
       if ( pt->xt ) {
         pxt = &mesh->xtetra[pt->xt];
         if( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Put high weight on old parallel faces */
-          wgt = pow(1.0/pt->qual,3.0)+pow(1.0/mesh->tetra[jel].qual,3.0);
+          wgt = PMMG_computeWgt(mesh,met,pt)+PMMG_computeWgt(mesh,met,pt1);
         } else {
           /* Default weight on other faces */
           wgt = 0;
@@ -698,6 +728,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   PMMG_HGrp      hash;
   PMMG_hgrp      *ph;
   MMG5_pMesh     mesh;
+  MMG5_pSol      met;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MPI_Comm       comm;
@@ -781,6 +812,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   for ( igrp=ngrp-1; igrp>=0; --igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
+    met                       = grp->met;
     face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
@@ -793,7 +825,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Increase grp weight by the inverse of the interface element quality */
       if( pxt->ftag[ifac] & MG_OLDPARBDY )
-        doublevalues[face2int_face_comm_index2[k]] += pow(1.0/pt->qual,3.0);
+        doublevalues[face2int_face_comm_index2[k]] += PMMG_computeWgt(mesh,met,pt);
 
       if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
 
@@ -1108,6 +1140,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 {
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
+  MMG5_pSol  met  = grp[0].met;
   size_t     memAv;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
   idx_t      adjsize;
@@ -1131,7 +1164,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memMax;
 
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
     return 0;
 
   /* Give the memory to the parmesh */

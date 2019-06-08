@@ -38,7 +38,7 @@
  * Huge integer weight for parallel faces in load balancing
  *
  */
-#define PMMG_WGTVAL_HUGEINT   10000
+#define PMMG_WGTVAL_HUGEINT   100000
 
 /**
  * \def PMMG_UBVEC_DEF
@@ -90,12 +90,13 @@ typedef struct {
 
 int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh );
 int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh );
-int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,idx_t**,idx_t**,idx_t**,idx_t*,size_t*);
+int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,idx_t**,idx_t**,idx_t**,idx_t*,size_t*);
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*,
                                     idx_t**,idx_t**,idx_t*,idx_t*,idx_t*,idx_t,
                                     real_t**,real_t**);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
+double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt );
 
 #endif
