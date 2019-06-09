@@ -1006,7 +1006,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
  */
 int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
 {
-  PMMG_pGrp const grpOld = parmesh->listgrp;
+  PMMG_pGrp grpOld;
   PMMG_pGrp grpsNew = NULL;
   PMMG_pGrp grpCur = NULL;
   MMG5_pMesh meshOld;
@@ -1015,25 +1015,17 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   int ret_val = 1;
   /** remember meshOld->ne to correctly free the metis buffer */
   int meshOld_ne = 0;
-  /** size of allocated node2int_node_comm_idx. when comm is ready trim to
-   *  actual node2int_node_comm */
-  int n2inc_max,f2ifc_max;
   idx_t ngrp = 1;
   idx_t *part = NULL;
-  size_t memAv,oldMemMax;
-  int poiPerGrp = 0;
-  int *posInIntFaceComm,*iplocFaceComm;
-  int i, grpId, grpIdOld, poi, tet, fac, ie;
+  int grpIdOld, tet;
   int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs];
 
   if ( !parmesh->ngrp ) goto end;
 
   /* We are splitting group 0 */
   grpIdOld = 0;
-
+  grpOld = &parmesh->listgrp[grpIdOld];
   meshOld = parmesh->listgrp[grpIdOld].mesh;
-
-  n2inc_max = f2ifc_max = 0;
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
 
@@ -1096,7 +1088,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   }
 
   /* Crude check whether there is enough free memory to allocate the new group */
-  if ( parmesh->memCur+2*parmesh->listgrp[0].mesh->memCur>parmesh->memGloMax ) {
+  if ( parmesh->memCur+2*parmesh->listgrp[grpIdOld].mesh->memCur>parmesh->memGloMax ) {
     fprintf( stderr, "Not enough memory to create listgrp struct\n" );
     return 0;
   }
@@ -1121,6 +1113,16 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
               ret_val = 0; goto fail_counters);
 
+  
+  /** size of allocated node2int_node_comm_idx. when comm is ready trim to
+   *  actual node2int_node_comm */
+  int n2inc_max,f2ifc_max;
+  n2inc_max = f2ifc_max = 0;
+  size_t memAv,oldMemMax;
+  int poiPerGrp = 0;
+  int *posInIntFaceComm,*iplocFaceComm;
+  int i, grpId, poi, fac, ie;
+ 
   /* Use the posInIntFaceComm array to remember the position of the tetra faces
    * in the internal face communicator */
   posInIntFaceComm = NULL;
