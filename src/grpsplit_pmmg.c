@@ -358,6 +358,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to create
+ * \param igrp index of the old group which is splitted
  * \param memAv available mem for the mesh allocation
  * \param ne number of elements in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
@@ -372,10 +373,10 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
  *
  */
 static int
-PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,size_t *memAv,
-                         int ne,int *f2ifc_max,int *n2inc_max ) {
-  PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
-  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
+                         size_t *memAv,int ne,int *f2ifc_max,int *n2inc_max ) {
+  PMMG_pGrp  const grpOld = &parmesh->listgrp[igrp];
+  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
   MMG5_pMesh       mesh;
   size_t           oldMemMax;
 
@@ -534,6 +535,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
+ * \param grpIdOld index of the group that is splitted in the old list of groups
  * \param grpId index of the group that we create in the list of groups
  * \param ne number of elements in the new group mesh
  * \param np pointer toward number of points in the new group mesh
@@ -552,12 +554,12 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  *
  */
 static int
-PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpId,int ne,
+PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int grpId,int ne,
                           int *np,int *f2ifc_max,int *n2inc_max,idx_t *part,
                           int* posInIntFaceComm,int* iplocFaceComm,size_t *memAv ) {
 
-  PMMG_pGrp  const grpOld = &parmesh->listgrp[0];
-  MMG5_pMesh const meshOld= parmesh->listgrp[0].mesh;
+  PMMG_pGrp  const grpOld = &parmesh->listgrp[grpIdOld];
+  MMG5_pMesh const meshOld= parmesh->listgrp[grpIdOld].mesh;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   MMG5_pTetra      pt,ptadj,tetraCur;
@@ -1021,12 +1023,15 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   size_t memAv,oldMemMax;
   int poiPerGrp = 0;
   int *posInIntFaceComm,*iplocFaceComm;
-  int i, grpId, poi, tet, fac, ie;
+  int i, grpId, grpIdOld, poi, tet, fac, ie;
   int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs];
 
   if ( !parmesh->ngrp ) goto end;
 
-  meshOld = parmesh->listgrp[0].mesh;
+  /* We are splitting group 0 */
+  grpIdOld = 0;
+
+  meshOld = parmesh->listgrp[grpIdOld].mesh;
 
   n2inc_max = f2ifc_max = 0;
 
@@ -1151,15 +1156,15 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
 
   /* Available memory to create the groups */
   parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
-  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memCur;
+  parmesh->listgrp[grpIdOld].mesh->memMax = parmesh->listgrp[grpIdOld].mesh->memCur;
+  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[grpIdOld].mesh->memCur;
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group filling */
     grpCur  = &grpsNew[grpId];
 
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],&memAv,
+    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],grpIdOld,&memAv,
                                   countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
               " group (%d).\n",__func__,grpId);
@@ -1168,7 +1173,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
     }
     meshCur = grpCur->mesh;
 
-    if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpId,
+    if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpIdOld,grpId,
                                    countPerGrp[grpId],&poiPerGrp,&f2ifc_max,
                                    &n2inc_max,part,posInIntFaceComm,
                                    iplocFaceComm,&memAv) ) {
