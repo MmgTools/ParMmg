@@ -408,7 +408,6 @@ ENDIF ( DOXYGEN_FOUND )
 OPTION ( BUILD_TESTING "Enable / Disable tests" OFF )
 CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
-  (non library tests)" OFF
-  "BUILD_TESTING" OFF )
+  (non library tests)" OFF  "BUILD_TESTING" OFF )
 
 INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
