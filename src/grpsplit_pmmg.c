@@ -1212,7 +1212,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
 
   if ( target == PMMG_GRPSPL_METIS_TARGET ) {
     /* Compute the number of metis nodes from the number of groups */
-    ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN );
+    ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
     if ( parmesh->info.metis_ratio < 0 ) {
       /* default value : do not authorize large number of groups */
       if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
