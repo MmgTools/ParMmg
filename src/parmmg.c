@@ -55,11 +55,11 @@ int main( int argc, char *argv[] )
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
   if ( !rank ) {
-    fprintf(stdout,"  -- PARMMG3d, Release %s (%s) \n",PMMG_VER,PMMG_REL);
+    fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
     fprintf(stdout,"     %s\n",PMMG_CPY);
     fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
 
-    fprintf(stdout,"  -- MMG3d,    Release %s (%s) \n",MG_VER,MG_REL);
+    fprintf(stdout,"  -- MMG3D,    Release %s (%s) \n",MG_VER,MG_REL);
     fprintf(stdout,"     %s\n",MG_CPY);
   }
 
