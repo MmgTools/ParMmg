@@ -147,3 +147,132 @@ void PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part ) {
     part[ie-1] = pt->mark/parmesh->nprocs;
   }
 }
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param part groups partitions array
+ *
+ * Move old groups interfaces by retrieving the grp ID from the mark field
+ * of each tetra.
+ *
+ */
+int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt,pt1;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  PMMG_pExt_comm ext_node_comm;
+  MPI_Comm       comm;
+  MPI_Status     status;
+  int          *node2int_node_comm_index1,*node2int_node_comm_index2;
+  int          *intvalues,*itosend,*itorecv;
+  int          *adja;
+  int          nlayers;
+  int          nprocs,ngrp,shift;
+  int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
+  int          list[MMG3D_LMAX-2]; //FIXME
+  int          ier;
+
+  ne_min = 6; //FIXME
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  comm   = parmesh->comm;
+  assert( parmesh->ngrp == 0 );
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+  node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+
+  nprocs = parmesh->nprocs;
+  ngrp   = parmesh->ngrp;
+  shift  = nprocs*ngrp+1;
+
+  /* 0 == Not visited
+   * -(n+1) == visited only once by grp n+1
+   * +(n+1) == visited by multiple procs, of whom n+1 is the maximum */
+
+  /* Reset point tmp field */
+  for( ip = 1; ip <= mesh->np; ip++ )
+    mesh->point[ip].tmp = 0;
+
+  /* Mark interface points with the maximum color */
+  ier = PMMG_mark_interfacePoints( parmesh, mesh );
+
+  /* Reset internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    idx = node2int_node_comm_index2[i];
+    intvalues[idx] = PMMG_UNSET;
+  }
+
+  /* Save grp index and proc in the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    idx = node2int_node_comm_index2[i];
+    ip  = node2int_node_comm_index1[i];
+    ppt = &mesh->point[ip];
+    assert( MG_VOK(ppt) );
+    intvalues[idx] = abs( ppt->tmp % shift );  // contains nprocs*igrp+iproc
+  }
+
+  /* Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    itosend = ext_node_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itorecv       = ext_node_comm->itorecv;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      itosend[i]     = intvalues[idx] ;
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   comm,&status),return 0 );
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+
+  }
+
+  /* Update grp index and proc after communication */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    idx = node2int_node_comm_index2[i];
+    ip  = node2int_node_comm_index1[i];
+    ppt = &mesh->point[ip];
+    assert( MG_VOK(ppt) );
+    ie = ppt->tmp / shift;
+    if( intvalues[idx] > abs( ppt->tmp % shift ) ) // contains nprocs*igrp+iproc
+      ppt->tmp = intvalues[idx] + shift*ie;
+  }
+
+  /* Move interfaces */
+  nlayers = 2;
+  for( i = 0; i < nlayers; i++ ) {
+
+    /* Mark interface points with the maximum color */
+    if( i ) ier = PMMG_mark_interfacePoints( parmesh, mesh );
+
+    /* Mark tetra in the ball of interface points */
+    for( ip = 1; ip <= mesh->np; ip++ ) {
+      ppt = &mesh->point[ip];
+      if( !MG_VOK(ppt) ) continue;
+      if( ppt->tmp < 0 ) continue;
+      ie = ppt->tmp/shift;
+      ier = PMMG_mark_boulevolp( parmesh, mesh, ie, ip, list);
+    }
+  }
+
+  return 1;
+}
