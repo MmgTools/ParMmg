@@ -805,6 +805,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   if ( !mesh0 ) return 1;
 
+  /* Use mark field to store previous grp index */
+  for( iel = 1; iel <= mesh0->ne; iel++ )
+    mesh0->tetra[iel].mark = 0;
+
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja,int, "adjacency table" );
 
@@ -845,6 +849,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
+
+    /* Use mark field to store previous grp index */
+    for( iel = 1; iel <= grp->mesh->ne; iel++ )
+      grp->mesh->tetra[iel].mark = imsh;
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
