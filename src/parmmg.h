@@ -515,6 +515,9 @@ int PMMG_mergeGrpJinI_interfaceTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
 int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp,PMMG_pGrp );
 int PMMG_merge_grps ( PMMG_pParMesh parmesh );
 
+/* Move interfaces */
+void PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part );
+
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
 int PMMG_mark_packedTetra(MMG5_pMesh mesh,int *ne);
