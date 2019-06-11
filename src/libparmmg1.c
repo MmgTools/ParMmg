@@ -504,7 +504,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         /** Call the remesher */
         /* Here we need to scale the mesh */
-        if ( !PMMG_scaleMesh(mesh,met) ) { goto strong_failed; }
+        if ( !MMG5_scaleMesh(mesh,met) ) { goto strong_failed; }
 
         if ( !mesh->adja ) {
           if ( !MMG3D_hashTetra(mesh,0) ) {
