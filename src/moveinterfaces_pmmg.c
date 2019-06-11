@@ -40,7 +40,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int 
   /* Get point color */
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
-  colorp = mesh->point[ip].tmp / (nprocs*ngrp+1) - 1;
+  colorp = (mesh->point[ip].tmp % (nprocs*ngrp+1)) - 1;
 
   /* Store initial tetrahedron */
   pt->flag = base;
@@ -106,7 +106,7 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
 
     for( iloc = 0; iloc < 4; iloc++ ) {
       ppt = &mesh->point[pt->v[iloc]];
-      colorp = abs( ppt->tmp/shift );
+      colorp = abs( ppt->tmp % shift );
 
       if( !colorp ) {
         ppt->tmp = -( colort+shift*ie );
