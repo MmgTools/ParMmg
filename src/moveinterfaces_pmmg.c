@@ -27,11 +27,12 @@
  * the value brought by the point.
  *
  */
-int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int ip, int * list){
+int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front, int ip, int * list){
   MMG5_pTetra  pt,pt1;
+  MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1;
-  int     nprocs,ngrp,colorp;
-  char    j,l,i;
+  int     nprocs,ngrp,shift,start,color;
+  char    j,l,i,j1;
 
   base = ++mesh->base;
   pt   = &mesh->tetra[start];
@@ -40,7 +41,10 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int 
   /* Get point color */
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
-  colorp = (mesh->point[ip].tmp % (nprocs*ngrp+1)) - 1;
+  shift  = nprocs*ngrp;
+
+  start  = mesh->point[ip].tmp / shift;
+  color  = mesh->point[ip].tmp % shift;
 
   /* Store initial tetrahedron */
   pt->flag = base;
@@ -61,21 +65,28 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int 
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       if ( pt1->flag == base )  continue;
-      if ( pt1->mark <= colorp ) continue;
+      if ( pt1->mark <= color ) continue;
       pt1->flag = base;
-      pt1->mark = colorp;
-      for (j=0; j<4; j++)
-        if ( pt1->v[j] == nump )  break;
-      assert(j<4);
+      pt1->mark = color;
+      for (j=0; j<4; j++) {
+        if ( pt1->v[j] == nump )  j1 = j;
+        else {
+          ppt1 = &mesh->point[pt1->v[j]];
+          /* Mark and flag new interface points */
+          if ( ppt1->flag < base_front ) {
+            ppt1->tmp = color + shift*k1;
+            ppt1->flag = base_front+1;
+          }
+        }
+      }
+      assert(j1<4);
       /* overflow */
       if ( ilist > MMG3D_LMAX-3 )  return 0;
-      list[ilist] = 4*k1+j;
+      list[ilist] = 4*k1+j1;
       ilist++;
     }
     cur++;
   }
-
-  mesh->point[ip].tmp *= -1;
   return ilist;
 }
 
@@ -83,7 +94,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int 
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  *
- * \return 1 if success, 0 if fail.
+ * \return The flag base value used to track the front.
  *
  * Mark interface points from the maximum tetra mark field in their ball, and
  * flag them as mesh->base.
@@ -128,7 +139,7 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
     }
   }
 
-  return 1;
+  return mesh->base;
 }
 
 
@@ -180,7 +191,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   int          *intvalues,*itosend,*itorecv;
   int          *adja;
   int          nlayers;
-  int          nprocs,ngrp,shift;
+  int          nprocs,ngrp,shift,base_front;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
   int          ier;
@@ -201,7 +212,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   shift  = nprocs*ngrp;
 
   /* Mark interface points with the maximum color */
-  ier = PMMG_mark_interfacePoints( parmesh, mesh );
+  base_front = PMMG_mark_interfacePoints( parmesh, mesh );
 
   /* Reset internal communicator */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
@@ -267,7 +278,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   for( i = 0; i < nlayers; i++ ) {
 
     /* Mark interface points with the maximum color (only in the first wave */
-    if( i ) ier = PMMG_mark_interfacePoints( parmesh, mesh );
+    if( i ) base_front = PMMG_mark_interfacePoints( parmesh, mesh );
 
     /* Mark tetra in the ball of interface points */
     for( ip = 1; ip <= mesh->np; ip++ ) {
@@ -275,9 +286,15 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
       if( !MG_VOK(ppt) ) continue;
 
       /* Skip not-interface points */
-      if( ppt->flag != mesh->base ) continue;
-      ier = PMMG_mark_boulevolp( parmesh, mesh, ppt->tmp/shift, ip, list);
+      if( ppt->flag != base_front ) continue;
+
+      /* Advance the front: New interface points will be flagged as
+       * base_front+1 */
+      ier = PMMG_mark_boulevolp( parmesh, mesh, base_front, ip, list);
     }
+
+    /* Update flag base for next wave */
+    base_front++;
   }
 
   return 1;
