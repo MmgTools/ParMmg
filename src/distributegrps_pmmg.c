@@ -2948,7 +2948,7 @@ end:
  * processors and send and recieve the groups from the other processors.
  *
  */
-int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
+int PMMG_distribute_grps( PMMG_pParMesh parmesh,int moveIfcs ) {
   idx_t *part;
   int   ngrp,ier,ier_glob;
 

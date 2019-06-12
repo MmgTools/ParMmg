@@ -1179,7 +1179,7 @@ fail_facePos:
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
+int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
 {
   PMMG_pGrp grpOld;
   PMMG_pGrp grpsNew = NULL;
@@ -1333,7 +1333,7 @@ end:
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs) {
   int     ier,ier1;
 #ifndef NDEBUG
   int     ier_glob;
@@ -1410,7 +1410,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_split_grps(parmesh,target,fitMesh);
+    ier = PMMG_split_grps(parmesh,target,fitMesh,moveIfcs);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
