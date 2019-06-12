@@ -15,7 +15,6 @@ extern "C" {
 #endif
 
 #include "libparmmgtypes.h"
-#include "mmg3d.h"
 #include "metis.h"
 
 

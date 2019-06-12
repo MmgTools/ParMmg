@@ -119,6 +119,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS
     libparmmg_centralized_auto_example0
+    libparmmg_centralized_auto_cpp_example0
     libparmmg_centralized_manual_example0_io_0
     libparmmg_centralized_manual_example0_io_1
     #libparmmg_distributed_manual_example0
@@ -126,6 +127,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_MAIN_PATH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
@@ -133,12 +135,14 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     ""
     ""
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMET
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ""
     ""
@@ -149,17 +153,20 @@ IF( BUILD_TESTING )
     ""
     ""
     ""
+    ""
     #""
     )
 
   SET ( PMMG_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
+    ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
     #${CI_DIR_RESULTS}/io-seq-par-cube.o
     )
 
   SET ( PMMG_LIB_TESTS_OPTIONS
+    "-met"
     "-met"
     "0"
     "1"

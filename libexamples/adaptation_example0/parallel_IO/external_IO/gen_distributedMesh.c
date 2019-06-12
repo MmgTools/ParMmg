@@ -27,10 +27,8 @@
 #include <float.h>
 
 /** Include the parmmg library hader file */
-// if the header file is in the "include" directory
 #include "libparmmg.h"
-// if the header file is in "include/parmmg"
-//#include "parmmg/libparmmg.h"
+#include "mmg3d.h" // for developpers only: to use MMG3D_bdryBuild
 
 #define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
 #define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
