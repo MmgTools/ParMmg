@@ -146,6 +146,9 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
 /**
  * \param parmesh pointer toward a parmesh structure
  * \param part groups partitions array
+ * \param ngrps array of nb of old grps on each proc
+ *
+ * \return the number of groups required on the current proc.
  *
  * Fill the groups partitions array by retrieving the grp ID from the mark field
  * of each tetra.
