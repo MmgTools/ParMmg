@@ -110,6 +110,15 @@ SET( CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
 
 INCLUDE_DIRECTORIES( ${MPI_INCLUDE_PATH} )
 
+# openmpi is bugged (deadlocks) : warn the user
+EXECUTE_PROCESS ( COMMAND grep "OMPI_MAJOR_VERSION"  "${MPI_C_INCLUDE_PATH}/mpi.h"
+  RESULT_VARIABLE CMD_ERROR
+  OUTPUT_VARIABLE CMD_OUTPUT )
+
+IF ( ${CMD_ERROR} MATCHES 0 )
+  MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
+ENDIF()
+
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
 SET( LIBRARIES ${MPI_C_LIBRARIES} ${LIBRARIES} )
