@@ -183,20 +183,11 @@ IF( BUILD_TESTING )
   ENDIF ( )
 
   #####         Fortran Tests
-  IF ( CMAKE_Fortran_COMPILER )
-    ENABLE_LANGUAGE ( Fortran )
 
-    FIND_PACKAGE( MPI COMPONENTS Fortran REQUIRED )
-
-    IF ( MPI_Fortran_FOUND )
-      SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
-      SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
-      SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
-
-    ELSE ( )
-      MESSAGE(FATAL_ERROR " Fortran MPI library not found")
-    ENDIF ( )
-
+  IF ( MPI_Fortran_FOUND )
+    SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+    SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+    SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
 
     LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
       # libparmmg_centralized_manual_example0_io_0
@@ -245,8 +236,7 @@ IF( BUILD_TESTING )
       #"1"
       #"-met"
       )
-  ENDIF ( CMAKE_Fortran_COMPILER )
-
+  ENDIF ( )
 
   LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
   MATH(EXPR nbTests "${nbTests_tmp} - 1")
