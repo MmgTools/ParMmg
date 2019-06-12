@@ -2965,19 +2965,26 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh,int moveIfcs ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  switch ( parmesh->info.loadbalancing_mode ) {
+  if( moveIfcs ) {
 
+    ier = PMMG_part_getProcs( parmesh, part );
+
+  } else {
+
+    switch ( parmesh->info.loadbalancing_mode ) {
+ 
 #ifdef USE_PARMETIS
-  case PMMG_LOADBALANCING_parmetis:
-    ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
-    break;
+    case PMMG_LOADBALANCING_parmetis:
+      ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+      break;
 #endif
 
-  case PMMG_LOADBALANCING_metis:
-  default:
+    case PMMG_LOADBALANCING_metis:
+    default:
 
-    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
-    break;
+      ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
+      break;
+    }
   }
 
   if ( !ier )

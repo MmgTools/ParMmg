@@ -518,6 +518,7 @@ int PMMG_merge_grps ( PMMG_pParMesh parmesh,int );
 
 /* Move interfaces */
 int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps );
+int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );

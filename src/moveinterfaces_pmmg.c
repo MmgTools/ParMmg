@@ -142,6 +142,35 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
   return mesh->base;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param part groups partitions array
+ *
+ * \return 1 if success.
+ *
+ * Fill the groups partitions array by retrieving the proc ID from the mark
+ * field of their first valid tetra.
+ *
+ */
+int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt;
+  int         igrp,ie;
+
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    grp  = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+    for( ie = 1; ie <= mesh->ne; ie++ ) {
+      pt = &mesh->tetra[ie];
+      if( !MG_EOK(pt) ) continue;
+      part[igrp-1] = pt->mark % parmesh->nprocs;
+      break;
+    }
+  }
+
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward a parmesh structure
