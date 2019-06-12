@@ -198,11 +198,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
-  shift  = nprocs*ngrp+1;
-
-  /* 0 == Not visited
-   * -(n+1) == visited only once by grp n+1
-   * +(n+1) == visited by multiple procs, of whom n+1 is the maximum */
+  shift  = nprocs*ngrp;
 
   /* Mark interface points with the maximum color */
   ier = PMMG_mark_interfacePoints( parmesh, mesh );
@@ -219,7 +215,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ip  = node2int_node_comm_index1[i];
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
-    intvalues[idx] = abs( ppt->tmp % shift );  // contains nprocs*igrp+iproc
+    intvalues[idx] = ppt->tmp % shift;  // contains nprocs*igrp+iproc
   }
 
   /* Exchange values on the interfaces among procs */
@@ -260,24 +256,27 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
     ie = ppt->tmp / shift;
-    if( intvalues[idx] > abs( ppt->tmp % shift ) ) // contains nprocs*igrp+iproc
+    if( intvalues[idx] > (ppt->tmp % shift) ) {
       ppt->tmp = intvalues[idx] + shift*ie;
+      ppt->flag = mesh->base;
+    }
   }
 
   /* Move interfaces */
   nlayers = 2;
   for( i = 0; i < nlayers; i++ ) {
 
-    /* Mark interface points with the maximum color */
+    /* Mark interface points with the maximum color (only in the first wave */
     if( i ) ier = PMMG_mark_interfacePoints( parmesh, mesh );
 
     /* Mark tetra in the ball of interface points */
     for( ip = 1; ip <= mesh->np; ip++ ) {
       ppt = &mesh->point[ip];
       if( !MG_VOK(ppt) ) continue;
-      if( ppt->tmp < 0 ) continue;
-      ie = ppt->tmp/shift;
-      ier = PMMG_mark_boulevolp( parmesh, mesh, ie, ip, list);
+
+      /* Skip not-interface points */
+      if( ppt->flag != mesh->base ) continue;
+      ier = PMMG_mark_boulevolp( parmesh, mesh, ppt->tmp/shift, ip, list);
     }
   }
 
