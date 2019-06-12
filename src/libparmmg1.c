@@ -644,7 +644,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_merge_grps(parmesh);
+  ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
@@ -690,7 +690,7 @@ failed_handling:
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(ON,&(ctim[5]));
   }
-  if ( !PMMG_merge_grps(parmesh) ) {
+  if ( !PMMG_merge_grps(parmesh,0) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }

@@ -1359,7 +1359,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs
   }
 
   /** Merge the parmesh groups into 1 group */
-  ier = PMMG_merge_grps(parmesh);
+  ier = PMMG_merge_grps(parmesh,target);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
   }

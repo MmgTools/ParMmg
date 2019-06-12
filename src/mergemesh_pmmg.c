@@ -789,7 +789,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
  * \remark the tetra must be packed.
  *
  */
-int PMMG_merge_grps( PMMG_pParMesh parmesh )
+int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0;
@@ -807,9 +807,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
 
   if ( !mesh0 ) return 1;
 
-  /* Use mark field to store previous grp index */
-  for( iel = 1; iel <= mesh0->ne; iel++ )
-    mesh0->tetra[iel].mark = parmesh->myrank;
+  if( target == PMMG_GRPSPL_METIS_TARGET ) {
+    /* Use mark field to store previous grp index */
+    for( iel = 1; iel <= mesh0->ne; iel++ )
+      mesh0->tetra[iel].mark = parmesh->myrank;
+  }
 
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja,int, "adjacency table" );
@@ -852,9 +854,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
 
-    /* Use mark field to store previous grp index */
-    for( iel = 1; iel <= grp->mesh->ne; iel++ )
-      grp->mesh->tetra[iel].mark = parmesh->nprocs*imsh+parmesh->myrank;
+    if( target == PMMG_GRPSPL_METIS_TARGET ) {
+      /* Use mark field to store previous grp index */
+      for( iel = 1; iel <= grp->mesh->ne; iel++ )
+        grp->mesh->tetra[iel].mark = parmesh->nprocs*imsh+parmesh->myrank;
+    }
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
