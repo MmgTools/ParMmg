@@ -1204,30 +1204,47 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
 
   if ( !meshOld ) goto end;
 
-  ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
-  if ( parmesh->info.target_mesh_size < 0 ) {
-    /* default value : do not authorize large number of groups */
-    ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
-  }
+  if( moveIfcs ) {
+#warning Luca: This can be replaced by correctly setting nold_grp
+    ngrp = 0;
+    int mygrp;
+    for( tet = 1; tet <= meshOld->ne; tet++ ) {
+      if( (meshOld->tetra[tet].mark % parmesh->nprocs) != parmesh->myrank ) continue;
+      mygrp = meshOld->tetra[tet].mark/parmesh->nprocs;
+      if( mygrp > ngrp ) ngrp = mygrp;
+    }
+    ngrp++;
 
-  if ( target == PMMG_GRPSPL_METIS_TARGET ) {
-    /* Compute the number of metis nodes from the number of groups */
-    ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
-    if ( parmesh->info.metis_ratio < 0 ) {
+    MPI_CHECK( MPI_Allgather(&ngrp,1,MPI_INT,ngrps_all,1,MPI_INT,parmesh->comm),
+               return 0 );
+
+  } else {
+
+    ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
+    if ( parmesh->info.target_mesh_size < 0 ) {
       /* default value : do not authorize large number of groups */
-      if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+      ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
+    }
+  
+    if ( target == PMMG_GRPSPL_METIS_TARGET ) {
+      /* Compute the number of metis nodes from the number of groups */
+      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
+      if ( parmesh->info.metis_ratio < 0 ) {
+        /* default value : do not authorize large number of groups */
+        if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+          printf("  ## Warning: %s: too much metis nodes needed...\n"
+                 "     Partitions may remains freezed. Try to use more processors.\n",
+                 __func__);
+          ngrp = PMMG_METIS_NGRPS_MAX;
+        }
+      }
+      if ( ngrp > meshOld->ne ) {
+        /* Correction if it leads to more groups than elements */
         printf("  ## Warning: %s: too much metis nodes needed...\n"
                "     Partitions may remains freezed. Try to use more processors.\n",
                __func__);
-        ngrp = PMMG_METIS_NGRPS_MAX;
+        ngrp = MG_MIN ( meshOld->ne, ngrp );
       }
-    }
-    if ( ngrp > meshOld->ne ) {
-      /* Correction if it leads to more groups than elements */
-      printf("  ## Warning: %s: too much metis nodes needed...\n"
-             "     Partitions may remains freezed. Try to use more processors.\n",
-             __func__);
-      ngrp = MG_MIN ( meshOld->ne, ngrp );
     }
   }
 
@@ -1272,7 +1289,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   meshOld_ne = meshOld->ne;
 
   if( moveIfcs ) {
-    PMMG_part_getInterfaces( parmesh, part );
+    ngrp = PMMG_part_getInterfaces( parmesh, part, ngrps_all );
   }
   else {
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {

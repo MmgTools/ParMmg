@@ -151,11 +151,14 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
  * of each tetra.
  *
  */
-void PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part ) {
+int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
-  int         ie;
+  int *map_grps; 
+  int         igrp,iproc,color;
+  int         sumngrps[parmesh->nprocs+1];
+  int         ie,i,count;
 
   /* It has to be called on a merged partition */
   assert( parmesh->ngrp == 1 );
@@ -163,12 +166,42 @@ void PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part ) {
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
+  sumngrps[0] = 0;
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    sumngrps[iproc+1] = sumngrps[iproc]+ngrps[iproc];
+
+  PMMG_CALLOC(parmesh,map_grps,sumngrps[parmesh->nprocs],int,"map_grps",
+              return 0);
+ 
   /* Retrieve the grp ID from the tetra mark field */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    part[ie-1] = pt->mark/parmesh->nprocs;
+    igrp  = pt->mark / parmesh->nprocs;
+    iproc = pt->mark % parmesh->nprocs;
+    color = igrp+sumngrps[iproc];
+    map_grps[color] = 1;
+    part[ie-1] = color;
   }
+
+  /* Pack the map */
+  count = 0;
+  for( i = 0; i < parmesh->nprocs; i++ ) {
+    iproc = ( i+parmesh->myrank ) % parmesh->nprocs;
+    for( igrp = 0; igrp < ngrps[iproc]; igrp++ ) {
+    color = igrp+sumngrps[iproc];
+    if( map_grps[color] ) map_grps[color] = count++;
+    }
+  }
+
+  /* Permute the partition array */
+  for( ie = 1; ie <= mesh->ne; ie++ )
+    part[ie-1] = map_grps[part[ie-1]];
+
+  PMMG_DEL_MEM(parmesh,map_grps,int,"map_grps");
+
+  /* Return the nb of groups on the current proc */
+  return count;
 }
 
 /**
