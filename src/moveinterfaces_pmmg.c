@@ -85,35 +85,46 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int start, int 
  *
  * \return 1 if success, 0 if fail.
  *
- * Mark interface points from the tetra mark field.
+ * Mark interface points from the maximum tetra mark field in their ball, and
+ * flag them as mesh->base.
  *
- * */
+ */
 int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   int         nprocs,ngrp,shift;
-  int         colort,colorp,ie,iloc;
+  int         ip,ie,iloc;
 
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
-  shift  = nprocs*ngrp+1;
+  shift  = nprocs*ngrp;
+
+  /* New base flag */
+  mesh->base++;
+
+  /* Reset point flag field */
+  for( ip = 1; ip <= mesh->np; ip++ )
+    mesh->point[ip].tmp = PMMG_UNSET;
 
   /* Mark interface points with the maximum color */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    colort = pt->mark+1;
 
     for( iloc = 0; iloc < 4; iloc++ ) {
       ppt = &mesh->point[pt->v[iloc]];
-      colorp = abs( ppt->tmp % shift );
 
-      if( !colorp ) {
-        ppt->tmp = -( colort+shift*ie );
+      /* Mark new point */
+      if( ppt->tmp == PMMG_UNSET ) {
+        ppt->tmp = pt->mark + shift*ie;
         continue;
       }
-      else if( colorp < colort )
-        ppt->tmp = colort+shift*ie;
+
+      /* Mark and flag interface point */
+      if( (ppt->tmp % shift) < pt->mark ) {
+        ppt->tmp = pt->mark+shift*ie;
+        ppt->flag = mesh->base;
+      }
     }
   }
 
@@ -171,7 +182,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   int          nlayers;
   int          nprocs,ngrp,shift;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
-  int          list[MMG3D_LMAX-2]; //FIXME
+  int          list[MMG3D_LMAX+2];
   int          ier;
 
   ne_min = 6; //FIXME
@@ -192,10 +203,6 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   /* 0 == Not visited
    * -(n+1) == visited only once by grp n+1
    * +(n+1) == visited by multiple procs, of whom n+1 is the maximum */
-
-  /* Reset point tmp field */
-  for( ip = 1; ip <= mesh->np; ip++ )
-    mesh->point[ip].tmp = 0;
 
   /* Mark interface points with the maximum color */
   ier = PMMG_mark_interfacePoints( parmesh, mesh );
