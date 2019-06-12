@@ -303,6 +303,7 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
     for ( i=0; i<4; ++i ) ptI->v[i] = meshJ->point[ptJ->v[i]].tmp;
     ptI->ref  = ptJ->ref;
     ptI->qual = ptJ->qual;
+    ptI->mark = ptJ->mark;
 
     ptJ->flag = ie;
 
@@ -376,6 +377,7 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     for ( i=0; i<4; ++i ) ptI->v[i] = meshJ->point[ptJ->v[i]].tmp;
     ptI->ref  = ptJ->ref;
     ptI->qual = ptJ->qual;
+    ptI->mark = ptJ->mark;
 
     /** Add xtetra if needed */
     if ( ptJ->xt ) {
