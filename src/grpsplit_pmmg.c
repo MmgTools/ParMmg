@@ -1285,7 +1285,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
 
   /* use metis to partition the mesh into the computed number of groups needed
      part array contains the groupID computed by metis for each tetra */
-  PMMG_MALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
+  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
 
   if( moveIfcs ) {
