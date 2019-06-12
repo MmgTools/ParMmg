@@ -251,6 +251,9 @@ IF( BUILD_TESTING )
   LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
   MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
+  LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
+  LIST ( APPEND lib_name ${MPI_CXX_LIBRARIES})
+
   FOREACH ( test_idx RANGE ${nbTests} )
     LIST ( GET PMMG_LIB_TESTS            ${test_idx} test_name )
     LIST ( GET PMMG_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
@@ -259,8 +262,6 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
-
-    LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 

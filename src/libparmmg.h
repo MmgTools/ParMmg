@@ -10,13 +10,12 @@
 #ifndef _PMMGLIB_H
 #define _PMMGLIB_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "libparmmgtypes.h"
 #include "metis.h"
 
+#if defined(c_plusplus) || defined(__cplusplus)
+extern "C" {
+#endif
 
 #define PMMG_VER   "1.0.0"
 #define PMMG_REL   "2016"
@@ -1984,7 +1983,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2001,7 +2000,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2027,7 +2026,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >     INTEGER, INTENT(IN)                 :: ncomm\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)   :: nitem\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)   :: color\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN) :: local_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2054,7 +2053,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >     INTEGER, INTENT(IN)                 :: ncomm\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)   :: nitem\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)   :: color\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN) :: trianodes\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)   :: trianodes\n
  * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2090,11 +2089,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >     INTEGER, INTENT(IN)                  :: ncomm_in\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_in\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_in\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: local_index_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: local_index_in\n
  * >     INTEGER, INTENT(OUT)                 :: ncomm_out\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: nitem_out\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: color_out\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: local_index_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index_out\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2133,11 +2132,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >     INTEGER, INTENT(IN)                  :: ncomm_in\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_in\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_in\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: trianodes_in\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: trianodes_in\n
  * >     INTEGER, INTENT(OUT)                 :: ncomm_out\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: nitem_out\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: color_out\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: trianodes_out\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: trianodes_out\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
@@ -2164,8 +2163,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >                                   next_node_comm,nitem_node_comm,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: ifc_node_loc\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: ifc_node_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_node_loc\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_node_glob\n
  * >     INTEGER, INTENT(IN)                  :: next_node_comm\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_node_comm\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
@@ -2191,8 +2190,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
  * >                                   next_face_comm,nitem_face_comm,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*,*), INTENT(IN)  :: ifc_face_loc\n
- * >     INTEGER, DIMENSION(*,*), INTENT(OUT) :: ifc_face_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_face_loc\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_face_glob\n
  * >     INTEGER, INTENT(IN)                  :: next_face_comm\n
  * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_face_comm\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
@@ -2202,7 +2201,7 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_tria_loc,int **ifc_tria_glob,
                          int next_face_comm,int *nitem_face_comm);
 
-#ifdef __cplusplus
+#if defined(c_plusplus) || defined(__cplusplus)
 }
 #endif
 
