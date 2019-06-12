@@ -348,6 +348,48 @@ int PMMG_saveQualHeader( MMG5_pMesh mesh,const char *filename,
  * Write isotropic or anisotropic metric.
  *
  */
+int PMMG_saveMark(MMG5_pMesh mesh, const char *filename) {
+  FILE*        inm;
+  MMG5_pTetra  pt;
+  int          ver,type,size;
+  int          binch,bin,ier,k;
+
+  ver = 2;
+  type = MMG5_Scalar;
+  size = 1;
+  ier = PMMG_saveQualHeader( mesh,filename,&inm,ver,&bin,1,3,
+                            1,&type,&size);
+
+  if ( ier < 1 )  return ier;
+
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
+    PMMG_writeDoubleQual3D(mesh,pt->mark,inm,bin);
+    fprintf(inm,"\n");
+  }
+
+  /* End file */
+  if(!bin) {
+    fprintf(inm,"\n\nEnd\n");
+  } else {
+    binch = 54; //End
+    fwrite(&binch,sw,1,inm);
+  }
+  fclose(inm);
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the sol structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write isotropic or anisotropic metric.
+ *
+ */
 int PMMG_saveQual(MMG5_pMesh mesh, const char *filename) {
   FILE*        inm;
   MMG5_pTetra  pt;
@@ -426,6 +468,44 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
  * \param grpId index of the group
  * \param basename filename prefix
  *
+ * Write group mesh and tetra mark in medit format.
+ *
+ */
+int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  size_t     memAv,oldMemMax;
+  char       name[ 2048 ];
+  int        ier;
+ 
+  grp  = &parmesh->listgrp[grpId];
+  mesh = grp->mesh;
+
+  assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
+  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  
+  oldMemMax = parmesh->memCur;
+  memAv = parmesh->memMax-oldMemMax;
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+ 
+  ier = MMG3D_hashTetra( mesh, 1 );
+  MMG3D_bdryBuild( mesh ); //note: no error checking
+  MMG3D_saveMesh( mesh, name );
+ 
+  sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+  PMMG_saveMark( mesh, name );
+
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param grpId index of the group
+ * \param basename filename prefix
+ *
  * Write group mesh and quality in medit format.
  *
  */
@@ -471,6 +551,23 @@ int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
 
   for ( grpId = 0 ; grpId < parmesh->ngrp ; grpId++ )
     if( !PMMG_grp_to_saveMesh( parmesh, grpId, basename ) )
+      return 0;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param basename filenames prefix
+ *
+ * Write meshes and tetra mark of all groups in medit format.
+ *
+ */
+int PMMG_listgrp_mark_to_saveMesh( PMMG_pParMesh parmesh, char *basename ) {
+  int grpId;
+
+  for ( grpId = 0 ; grpId < parmesh->ngrp ; grpId++ )
+    if( !PMMG_grp_mark_to_saveMesh( parmesh, grpId, basename ) )
       return 0;
 
   return 1;
