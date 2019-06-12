@@ -1430,6 +1430,9 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs
     chrono(ON,&(ctim[tim]));
   }
 
+  if( moveIfcs && ( target == PMMG_GRPSPL_METIS_TARGET ) )
+    ier = PMMG_part_moveInterfaces( parmesh );
+
   /** Split the group into the suitable number of groups */
   if ( ier )
     ier = PMMG_split_grps(parmesh,target,fitMesh,moveIfcs);
