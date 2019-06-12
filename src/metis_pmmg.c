@@ -1326,9 +1326,16 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
       options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
 
       /** Call metis and get the partition array */
-      status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
-                                    vwgt_seq,NULL,adjwgt_seq,&nproc,
-                                    NULL,NULL,options,&objval, part_seq );
+      if( nprocs >= 8 )
+        status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
+                                      vwgt_seq,NULL,adjwgt_seq,&nproc,
+                                      NULL,NULL,options,&objval, part_seq );
+      else
+        status = METIS_PartGraphRecursive( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
+                                      vwgt_seq,NULL,adjwgt_seq,&nproc,
+                                      NULL,NULL,options,&objval, part_seq );
+ 
+
       if ( status != METIS_OK ) {
         switch ( status ) {
           case METIS_ERROR_INPUT:
