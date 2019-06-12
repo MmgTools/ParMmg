@@ -166,6 +166,7 @@ void PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part ) {
   /* Retrieve the grp ID from the tetra mark field */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
     part[ie-1] = pt->mark/parmesh->nprocs;
   }
 }

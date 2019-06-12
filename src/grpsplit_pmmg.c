@@ -1271,9 +1271,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   PMMG_MALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
 
-  if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
-    ret_val = 0;
-    goto fail_part;
+  if( moveIfcs ) {
+    PMMG_part_getInterfaces( parmesh, part );
+  }
+  else {
+    if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
+      ret_val = 0;
+      goto fail_part;
+    }
   }
 
   /* count_per_grp: how many elements per group are there? */
