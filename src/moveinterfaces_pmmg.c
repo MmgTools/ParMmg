@@ -277,9 +277,6 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   nlayers = 2;
   for( i = 0; i < nlayers; i++ ) {
 
-    /* Mark interface points with the maximum color (only in the first wave */
-    if( i ) base_front = PMMG_mark_interfacePoints( parmesh, mesh );
-
     /* Mark tetra in the ball of interface points */
     for( ip = 1; ip <= mesh->np; ip++ ) {
       ppt = &mesh->point[ip];
