@@ -73,6 +73,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
   base = ++mesh->base;
   pt   = &mesh->tetra[start];
   nump = pt->v[iloc];
+  assert( nump == ip );
 
   /* Store initial tetrahedron */
   pt->flag = base;
@@ -93,7 +94,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       if ( pt1->flag == base )  continue;
-      if ( pt1->mark <= color ) continue;
+      if ( pt1->mark >= color ) continue;
       pt1->flag = base;
       pt1->mark = color;
       for (j=0; j<4; j++) {
