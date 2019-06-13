@@ -59,7 +59,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1;
   int     nprocs,ngrp,shift,start,color,iloc;
-  char    j,l,i,j1;
+  char    j,l,i;
 
   /* Get point color */
   nprocs = parmesh->nprocs;
@@ -94,12 +94,9 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       if ( pt1->flag == base )  continue;
-      if ( pt1->mark >= color ) continue;
-      pt1->flag = base;
-      pt1->mark = color;
-      for (j=0; j<4; j++) {
-        if ( pt1->v[j] == nump )  j1 = j;
-        else {
+      if ( pt1->mark < color ) {
+        pt1->mark = color;
+        for (j=0; j<4; j++) {
           ppt1 = &mesh->point[pt1->v[j]];
           /* Mark and flag new interface points */
           if ( ppt1->flag < base_front ) {
@@ -108,10 +105,13 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
           }
         }
       }
-      assert(j1<4);
+      pt1->flag = base;
+      for (j=0; j<4; j++)
+        if ( pt1->v[j] == nump )  break;
+      assert(j<4);
       /* overflow */
       if ( ilist > MMG3D_LMAX-3 )  return 0;
-      list[ilist] = 4*k1+j1;
+      list[ilist] = 4*k1+j;
       ilist++;
     }
     cur++;
@@ -162,7 +162,7 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
 
       /* Mark and flag interface point */
       if( (ppt->tmp % shift) < pt->mark ) {
-        ppt->tmp = pt->mark+shift*(4*ie+iloc);
+        ppt->tmp = pt->mark + shift*(4*ie+iloc);
         ppt->flag = mesh->base;
       }
     }
