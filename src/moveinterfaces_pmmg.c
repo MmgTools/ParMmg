@@ -32,6 +32,7 @@ int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
     igrp  = pt->mark / parmesh->nprocs;
     if( igrp > ngrp ) ngrp = igrp;
   }
+  ngrp++;
 
   return ngrp;
 }
