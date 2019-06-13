@@ -11,6 +11,32 @@
  */
 #include "parmmg.h"
 
+#warning Luca: to remove when nold_grp will be updated
+int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt;
+  int         ie,igrp,ngrp;
+
+  /* It has to be called on a merged partition */
+  assert( parmesh->ngrp == 1 );
+
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+ 
+  /* Retrieve the grp ID from the tetra mark field */
+  ngrp = 0;
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    igrp  = pt->mark / parmesh->nprocs;
+    if( igrp > ngrp ) ngrp = igrp;
+  }
+
+  return ngrp;
+}
+
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
@@ -31,24 +57,25 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1;
-  int     nprocs,ngrp,shift,start,color;
+  int     nprocs,ngrp,shift,start,color,iloc;
   char    j,l,i,j1;
-
-  base = ++mesh->base;
-  pt   = &mesh->tetra[start];
-  nump = pt->v[ip];
 
   /* Get point color */
   nprocs = parmesh->nprocs;
-  ngrp   = parmesh->ngrp;
+  ngrp   = PMMG_get_ngrp( parmesh );
   shift  = nprocs*ngrp;
 
-  start  = mesh->point[ip].tmp / shift;
+  start  = (mesh->point[ip].tmp / shift) / 4;
+  iloc   = (mesh->point[ip].tmp / shift) % 4;
   color  = mesh->point[ip].tmp % shift;
+
+  base = ++mesh->base;
+  pt   = &mesh->tetra[start];
+  nump = pt->v[iloc];
 
   /* Store initial tetrahedron */
   pt->flag = base;
-  list[0] = 4*start + ip;
+  list[0] = 4*start + iloc;
   ilist=1;
 
   /* Explore list and travel by adjacency through elements sharing p */
@@ -74,7 +101,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
           ppt1 = &mesh->point[pt1->v[j]];
           /* Mark and flag new interface points */
           if ( ppt1->flag < base_front ) {
-            ppt1->tmp = color + shift*k1;
+            ppt1->tmp = color + shift*(4*k1+j);
             ppt1->flag = base_front+1;
           }
         }
@@ -107,7 +134,7 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
   int         ip,ie,iloc;
 
   nprocs = parmesh->nprocs;
-  ngrp   = parmesh->ngrp;
+  ngrp   = PMMG_get_ngrp( parmesh );
   shift  = nprocs*ngrp;
 
   /* New base flag */
@@ -127,13 +154,13 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
 
       /* Mark new point */
       if( ppt->tmp == PMMG_UNSET ) {
-        ppt->tmp = pt->mark + shift*ie;
+        ppt->tmp = pt->mark + shift*(4*ie+iloc);
         continue;
       }
 
       /* Mark and flag interface point */
       if( (ppt->tmp % shift) < pt->mark ) {
-        ppt->tmp = pt->mark+shift*ie;
+        ppt->tmp = pt->mark+shift*(4*ie+iloc);
         ppt->flag = mesh->base;
       }
     }
@@ -250,6 +277,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   MMG5_pTetra  pt,pt1;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
+  PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Status     status;
@@ -264,23 +292,24 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
   ne_min = 6; //FIXME
 
-  intvalues = parmesh->int_node_comm->intvalues;
-
   comm   = parmesh->comm;
-  assert( parmesh->ngrp == 0 );
+  assert( parmesh->ngrp == 1 );
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
   node2int_node_comm_index1 = grp->node2int_node_comm_index1;
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
 
   nprocs = parmesh->nprocs;
-  ngrp   = parmesh->ngrp;
+  ngrp   = PMMG_get_ngrp( parmesh );
   shift  = nprocs*ngrp;
 
   /* Mark interface points with the maximum color */
   base_front = PMMG_mark_interfacePoints( parmesh, mesh );
 
   /* Reset internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     idx = node2int_node_comm_index2[i];
     intvalues[idx] = PMMG_UNSET;
@@ -360,5 +389,12 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     base_front++;
   }
 
+  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
+  }
+  
   return 1;
 }
