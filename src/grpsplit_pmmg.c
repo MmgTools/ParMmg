@@ -1022,6 +1022,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   int poiPerGrp = 0;
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, tet, fac, ie;
+  int npmax,nemax,xpmax,xtmax;
 
   if ( !parmesh->ngrp ) goto end;
 
@@ -1054,7 +1055,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
     if ( ngrp > meshOld->ne ) {
       /* Correction if it leads to more groups than elements */
       printf("  ## Warning: %s: too much metis nodes needed...\n"
-             "     Partitions may remains freezed. Try to use more processors.\n",
+             "     Partitions may remains freezed. Try to reduce the number of processors.\n",
              __func__);
       ngrp = MG_MIN ( meshOld->ne, ngrp );
     }
@@ -1076,9 +1077,20 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   }
 
   /* Crude check whether there is enough free memory to allocate the new group */
-  if ( parmesh->memCur+2*parmesh->listgrp[0].mesh->memCur>parmesh->memGloMax ) {
-    fprintf( stderr, "Not enough memory to create listgrp struct\n" );
-    return 0;
+  if ( parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
+    npmax = meshOld->npmax;
+    nemax = meshOld->nemax;
+    xpmax = meshOld->xpmax;
+    xtmax = meshOld->xtmax;
+    meshOld->npmax = meshOld->np;
+    meshOld->nemax = meshOld->ne;
+    meshOld->xpmax = meshOld->xp;
+    meshOld->xtmax = meshOld->xt;
+    if ( (!PMMG_setMemMax_realloc( meshOld, npmax, xpmax, nemax, xtmax )) ||
+         parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
+      fprintf( stderr, "Not enough memory to create listgrp struct\n" );
+      return 0;
+    }
   }
 
   /* use metis to partition the mesh into the computed number of groups needed
