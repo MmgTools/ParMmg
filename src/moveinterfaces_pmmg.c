@@ -193,7 +193,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
     for( ie = 1; ie <= mesh->ne; ie++ ) {
       pt = &mesh->tetra[ie];
       if( !MG_EOK(pt) ) continue;
-      part[igrp-1] = pt->mark % parmesh->nprocs;
+      part[igrp] = pt->mark % parmesh->nprocs;
       break;
     }
   }
