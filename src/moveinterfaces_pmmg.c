@@ -54,16 +54,15 @@ int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
  * the value brought by the point.
  *
  */
-int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front, int ip, int * list){
+int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int base_front, int ip, int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1;
-  int     nprocs,ngrp,shift,start,color,iloc;
+  int     nprocs,shift,start,color,iloc;
   char    j,l,i;
 
   /* Get point color */
   nprocs = parmesh->nprocs;
-  ngrp   = PMMG_get_ngrp( parmesh );
   shift  = nprocs*ngrp;
 
   start  = (mesh->point[ip].tmp / shift) / 4;
@@ -129,14 +128,13 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh, int base_front,
  * flag them as mesh->base.
  *
  */
-int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh ) {
+int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
-  int         nprocs,ngrp,shift;
+  int         nprocs,shift;
   int         ip,ie,iloc;
 
   nprocs = parmesh->nprocs;
-  ngrp   = PMMG_get_ngrp( parmesh );
   shift  = nprocs*ngrp;
 
   /* New base flag */
@@ -306,7 +304,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   shift  = nprocs*ngrp;
 
   /* Mark interface points with the maximum color */
-  base_front = PMMG_mark_interfacePoints( parmesh, mesh );
+  base_front = PMMG_mark_interfacePoints( parmesh, mesh, ngrp );
 
   /* Reset internal communicator */
   int_node_comm = parmesh->int_node_comm;
@@ -384,7 +382,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
-      ier = PMMG_mark_boulevolp( parmesh, mesh, base_front, ip, list);
+      ier = PMMG_mark_boulevolp( parmesh, mesh, ngrp, base_front, ip, list);
     }
 
     /* Update flag base for next wave */
