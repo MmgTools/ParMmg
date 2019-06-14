@@ -1093,6 +1093,8 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
     idx += sizeof(int); // mesh->tetra[k].xt;
     /* Ref */
     idx += sizeof(int); // mesh->tetra[k].ref;
+    /* Mark */
+    idx += sizeof(int); // mesh->point[k].mark;
     /* Tag */
     idx += sizeof(int16_t); // mesh->tetra[k].tag;
     /* Quality */
@@ -1337,6 +1339,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
     *( (int *) tmp) = mesh->tetra[k].xt; tmp += sizeof(int);
     /* Ref */
     *( (int *) tmp) = mesh->tetra[k].ref; tmp += sizeof(int);
+    /* Mark */
+    *( (int *) tmp) = mesh->tetra[k].mark; tmp += sizeof(int);
     /* Tag */
     *( (int16_t *) tmp) = mesh->tetra[k].tag; tmp += sizeof(int16_t);
     /* Quality */
@@ -1689,6 +1693,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
       mesh->tetra[k].xt = *( (int *) *buffer); *buffer += sizeof(int);
       /* Ref */
       mesh->tetra[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Mark */
+      mesh->tetra[k].mark = *( (int *) *buffer); *buffer += sizeof(int);
       /* Tag */
       mesh->tetra[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       /* Quality */
