@@ -1430,8 +1430,23 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs
     chrono(ON,&(ctim[tim]));
   }
 
-  if( moveIfcs && ( target == PMMG_GRPSPL_METIS_TARGET ) )
-    ier = PMMG_part_moveInterfaces( parmesh );
+  if( moveIfcs ) {
+    /* Rebuild tetra adjacency (mesh graph construction is skipped) */
+    size_t available,oldMemMax;
+    MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,1) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        return 0;
+      }
+    }
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
+    /*  Move interfaces */
+    if( target == PMMG_GRPSPL_METIS_TARGET )
+      ier = PMMG_part_moveInterfaces( parmesh );
+  }
 
   /** Split the group into the suitable number of groups */
   if ( ier )
