@@ -164,7 +164,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
 
   /* Default memory */
-  PMMG_parmesh_SetMemGloMax( parmesh, 0 );
+  PMMG_parmesh_SetMemGloMax( parmesh );
+
 }
 
 int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
@@ -176,7 +177,29 @@ int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
 
   ier = 1;
   mesh = parmesh->listgrp[0].mesh;
-  ier = MMG3D_Set_meshSize(mesh,np,ne,nprism,nt,nquad,na);
+
+  /* Check input data and set mesh->ne/na/np/nt to the suitable values */
+  if ( !MMG3D_setMeshSize_initData(mesh,np,ne,nprism,nt,nquad,na) )
+    return 0;
+
+  /* Check the -m option */
+  if( parmesh->info.mem > 0) {
+    assert ( mesh->info.mem > 0 );
+    if(mesh->info.mem < 39) {
+      fprintf(stderr,"\n  ## Error: %s: not enough memory per mesh  %d\n",__func__,
+              mesh->info.mem);
+      return 0;
+    }
+
+    if((mesh->npmax < mesh->np || mesh->ntmax < mesh->nt || mesh->nemax < mesh->ne)) {
+       if ( !MMG3D_memOption_keepMaxMem(mesh) )  return 0;
+    }
+  } else {
+    if ( !MMG3D_memOption_keepMaxMem(mesh) )  return 0;
+  }
+
+  /* Mesh allocation and linkage */
+  if ( !MMG3D_setMeshSize_alloc( mesh ) ) return 0;
 
   return ier;
 }
@@ -215,7 +238,8 @@ int PMMG_Set_metSize(PMMG_pParMesh parmesh,int typEntity,int np,int typSol){
 int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
-  int         k,mem;
+  size_t      mem;
+  int         k;
 
   switch ( iparam ) {
   case PMMG_IPARAM_verbose :
@@ -238,16 +262,18 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_mem :
     if ( val <= 0 ) {
       fprintf( stdout,
-        "  ## Warning: maximal memory authorized must be strictly positive.\n");
+        "  ## Warning: maximal memory per process must be strictly positive.\n");
       fprintf(stdout,"  Reset to default value.\n");
-    } else
-      parmesh->memMax = val;
+    } else {
+      parmesh->info.mem = val;
+    }
+    PMMG_parmesh_SetMemGloMax(parmesh);
 
-    mem = (int)(val/parmesh->ngrp);
+    mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
 
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,mem) ) return 0;
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,(int)mem) ) return 0;
     }
     break;
   case PMMG_IPARAM_meshSize :
