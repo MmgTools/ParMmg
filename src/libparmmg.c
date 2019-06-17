@@ -457,7 +457,6 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
 
-
   chrono(ON,&(ctim[2]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
@@ -716,7 +715,6 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   mesh->nemax = mesh->ne;
   mesh->xpmax = mesh->xp;
   mesh->xtmax = mesh->xt;
-
   if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
     fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
