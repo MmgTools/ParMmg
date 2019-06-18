@@ -97,6 +97,8 @@ int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*
                                     real_t**,real_t**);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
+int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
+                                       idx_t* mypart,idx_t nproc );  
 double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt );
 
 #endif

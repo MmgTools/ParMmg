@@ -10,6 +10,7 @@
  *
  */
 #include "parmmg.h"
+#include "metis_pmmg.h"
 
 #warning Luca: to remove when nold_grp will be updated
 int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
@@ -183,7 +184,8 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
-  int         igrp,ie;
+  idx_t       *vtxdist;
+  int         igrp,ie,ier;
 
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp  = &parmesh->listgrp[igrp];
@@ -195,8 +197,20 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
       break;
     }
   }
+  ier = 1;
 
-  return 1;
+  PMMG_CALLOC(parmesh,vtxdist,parmesh->nprocs+1,idx_t,"parmetis vtxdist", return 0);
+
+  MPI_CHECK( MPI_Allgather(&parmesh->ngrp,1,MPI_INT,&vtxdist[1],1,MPI_INT,parmesh->comm),
+             PMMG_DEL_MEM(parmesh,vtxdist,idx_t,"parmetis vtxdist"); return 0 );
+  for( int iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    vtxdist[iproc+1] += vtxdist[iproc];
+
+  ier = PMMG_correct_parmeshGrps2parmetis( parmesh, vtxdist, part, parmesh->nprocs );
+
+  PMMG_DEL_MEM(parmesh,vtxdist,idx_t,"parmetis vtxdist");
+
+  return ier;
 }
 
 /**
