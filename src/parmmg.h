@@ -534,7 +534,7 @@ int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_setMemMax_realloc( MMG5_pMesh,int,int,int,int);
 int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met);
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
-void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh,size_t memReq );
+void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );

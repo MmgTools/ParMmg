@@ -13,18 +13,21 @@
  * \param parmesh pointer to pmmg structure
  * \param memReq  size of memory in Mb. If memReq is zero then it is
  *                automatically set to half of the machine's available memory.
- *                On machines with multicore processors (ie most of today's cpus)
+ *                On machines with multicore processors
  *                the total available memory is shared equally to pmmg processes
  *                running on the same machine.
  *                If memReq is negative or more than the detected available
  *                memory, then the requested value is discarded and the maximum
  *                allowed memory is set to half the detected available memory.
  *
- *  Sets the maximum amount of memory that a parmmg process is allowed to use.
- *  This includes both the memory used for the parmmg struct and the mmg structs
- *  in listgrp
+ *  Sets the maximum amount of memory that a parmmg process is allowed
+ *  to use depending on the user specifications and the available
+ *  memory. On machines with multicore processors the memory is shared
+ *  equally to pmmg processes running on the same machine.  This
+ *  includes both the memory used for the parmmg struct and the mmg
+ *  structs in listgrp.
  */
-void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, size_t memReq )
+void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 {
   size_t   maxAvail = 0;
   MPI_Comm comm_shm = 0;
@@ -33,6 +36,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, size_t memReq )
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
 
+  /** Step 1: Get the numper of processes per node */
   MPI_Initialized( &flag );
 
   if ( flag ) {
@@ -44,19 +48,35 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh, size_t memReq )
     size_shm = 1;
   }
 
-  maxAvail = MMG5_memSize();
-  // if detection failed => default value of MMG5_MEMMAX Mo
-  if ( maxAvail == 0 )
-    maxAvail = MMG5_MEMMAX << 20;
+  /** Step 2: Set maximal memory per process depending on the -m option setting */
+  maxAvail = MMG5_memSize()/size_shm;
 
-  // Multiple MPI processes may be running on the same node => distribute equally
-  if ( (memReq > 0) && ((memReq * MMG5_MILLION) < maxAvail) )
-    parmesh->memGloMax = (memReq * MMG5_MILLION) / size_shm;
-  else
-    parmesh->memGloMax = (maxAvail * 50) / (size_shm * 100);
+  if ( parmesh->info.mem <= 0 ) {
+    /* Nos users specifications */
+    if ( !maxAvail ) {
+      /* default value when not able to compute the available memory = 800 MB */
+      printf("  Maximum memory per process set to default value: %d MB.\n",MMG5_MEMMAX);
+      parmesh->memGloMax = MMG5_MEMMAX << 20;
+    }
+    else {
+      /* maximal memory = 50% of total physical memory */
+      parmesh->memGloMax = maxAvail * MMG5_MEMPERCENT;
+    }
+  }
+  else {
+    /* memory asked by user if possible, otherwise total physical memory */
+    if ( maxAvail && (size_t)parmesh->info.mem*MMG5_MILLION > maxAvail ) {
+      fprintf(stderr,"\n  ## Warning: %s: asking for %d MB of memory per process ",
+              __func__,parmesh->info.mem);
+      fprintf(stderr,"when only %zu available.\n",maxAvail/MMG5_MILLION);
+    }
+    else {
+      parmesh->memGloMax= (size_t)parmesh->info.mem*MMG5_MILLION;
+    }
+  }
 
   if ( abs(parmesh->info.imprim) > 4 || parmesh->ddebug ) {
-    fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED FOR PARMMG (MB)    %zu\n",
+    fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED PER PROCESS (MB)    %zu\n",
             parmesh->memGloMax/MMG5_MILLION);
   }
 }
@@ -94,8 +114,9 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
 
   if ( usedMem > mesh->memMax  ) {
     fprintf(stderr,"\n  ## Error: %s: %zu Mo of memory ",__func__,mesh->memMax/MMG5_MILLION);
-    fprintf(stderr,"is not enough to load mesh. You need to ask %zu Mo minimum\n",
+    fprintf(stderr,"is not enough to load mesh. You need to ask %zu Mo per process minimum.\n",
             usedMem/MMG5_MILLION+1);
+    fprintf(stderr,"\nTry to use the -m option to impose the maximal memory per process.\n");
     return 0;
   }
 
@@ -122,7 +143,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   met->npmax  = mesh->npmax;
 
   if ( abs(mesh->info.imprim) > 5 || mesh->info.ddebug ) {
-    fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED (Mo)    %zu\n",
+    fprintf(stdout,"  MAXIMUM MEMORY PER PROCESS AUTHORIZED (Mo)    %zu\n",
             mesh->memMax/MMG5_MILLION);
 
     fprintf(stdout,"  MMG3D_NPMAX    %d\n",mesh->npmax);

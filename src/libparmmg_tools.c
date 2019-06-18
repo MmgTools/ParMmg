@@ -265,8 +265,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
               ret_val = 0;
               goto fail_proc;
             }
-            else
-              PMMG_parmesh_SetMemGloMax( parmesh, atoi( argv[i] ) );
+            else {
+              parmesh->info.mem = atoi( argv[i] );
+              PMMG_parmesh_SetMemGloMax( parmesh );
+            }
             PMMG_parmesh_SetMemMax( parmesh, 20 );
           } else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
