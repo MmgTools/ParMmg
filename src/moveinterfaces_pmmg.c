@@ -297,12 +297,11 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   MPI_Status     status;
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
-  int          *adja;
   int          nlayers;
   int          nprocs,ngrp,shift,base_front;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
-  int          ier;
+  int          ier=1;
 
   ne_min = 6; //FIXME
 
@@ -397,7 +396,10 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
       ier = PMMG_mark_boulevolp( parmesh, mesh, ngrp, base_front, ip, list);
+      if( !ier ) break;
+
     }
+    if( !ier ) break;
 
     /* Update flag base for next wave */
     base_front++;
@@ -410,5 +412,5 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
   }
   
-  return 1;
+  return ier;
 }
