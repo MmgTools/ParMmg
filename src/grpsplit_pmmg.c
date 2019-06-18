@@ -1168,6 +1168,7 @@ fail_facePos:
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
+ * \param moveIfcs 0 for metis, 1 for advancing front method
  *
  * \return -1 : no possibility to save the mesh
  *         0  : failed but the mesh is correct
@@ -1361,6 +1362,7 @@ end:
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
+ * \param moveIfcs 0 for metis, 1 for advancing-front method
  *
  * \return 0 if fail, 1 if success, -1 if the mesh is not correct
  *

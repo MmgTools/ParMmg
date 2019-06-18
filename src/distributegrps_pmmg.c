@@ -2946,6 +2946,7 @@ end:
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \param moveIfcs 0 for metis, 1 for advancing-front method.
  *
  * \return -1 if we fail and can not save the meshes, 0 if we fail but can save
  * the meshes, 1 otherwise

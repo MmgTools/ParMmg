@@ -59,6 +59,7 @@ int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param moveIfcs 0 if using metis, 1 if using an advancing-front method
  *
  * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *

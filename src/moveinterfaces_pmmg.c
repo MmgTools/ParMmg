@@ -13,6 +13,12 @@
 #include "metis_pmmg.h"
 
 #warning Luca: to remove when nold_grp will be updated
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return The number of groups on the current process once that elements have
+ * been marked for splitting on a merged mesh on the current proc.
+ *
+ */
 int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
@@ -277,8 +283,7 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
  * \param parmesh pointer toward a parmesh structure
  * \param part groups partitions array
  *
- * Move old groups interfaces by retrieving the grp ID from the mark field
- * of each tetra.
+ * Move old groups interfaces through an advancing-front method.
  *
  */
 int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
@@ -295,11 +300,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   int          *intvalues,*itosend,*itorecv;
   int          nlayers;
   int          nprocs,ngrp,base_front;
-  int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
+  int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
   int          ier=1;
-
-  ne_min = 6; //FIXME
 
   comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
