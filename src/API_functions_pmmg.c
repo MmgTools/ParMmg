@@ -112,6 +112,7 @@ int PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout) {
 
 void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   MMG5_pMesh mesh;
+  size_t     mem;
   int        k,flag;
 
   memset(&parmesh->info,0, sizeof(PMMG_Info));
@@ -166,6 +167,13 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
 
+  mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,(int)mem);
+  }
+
 }
 
 int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
@@ -192,10 +200,10 @@ int PMMG_Set_meshSize(PMMG_pParMesh parmesh, int np, int ne, int nprism, int nt,
     }
 
     if((mesh->npmax < mesh->np || mesh->ntmax < mesh->nt || mesh->nemax < mesh->ne)) {
-       if ( !MMG3D_memOption_keepMaxMem(mesh) )  return 0;
+       if ( !MMG3D_memOption(mesh) )  return 0;
     }
   } else {
-    if ( !MMG3D_memOption_keepMaxMem(mesh) )  return 0;
+    if ( !MMG3D_memOption(mesh) )  return 0;
   }
 
   /* Mesh allocation and linkage */
