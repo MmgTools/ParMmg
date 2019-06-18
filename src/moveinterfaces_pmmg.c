@@ -59,16 +59,13 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int bas
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1;
-  int     nprocs,shift,start,color,iloc;
+  int     start,color,iloc;
   char    j,l,i;
 
   /* Get point color */
-  nprocs = parmesh->nprocs;
-  shift  = nprocs*ngrp;
-
-  start  = (mesh->point[ip].tmp / shift) / 4;
-  iloc   = (mesh->point[ip].tmp / shift) % 4;
-  color  = mesh->point[ip].tmp % shift;
+  start  = mesh->point[ip].s / 4;
+  iloc   = mesh->point[ip].s % 4;
+  color  = mesh->point[ip].tmp;
 
   base = ++mesh->base;
   pt   = &mesh->tetra[start];
@@ -100,7 +97,8 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int bas
           ppt1 = &mesh->point[pt1->v[j]];
           /* Mark and flag new interface points */
           if ( ppt1->flag < base_front ) {
-            ppt1->tmp = color + shift*(4*k1+j);
+            ppt1->tmp  = color;
+            ppt1->s    = 4*k1+j;
             ppt1->flag = base_front+1;
           }
         }
@@ -132,11 +130,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int bas
 int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
-  int         nprocs,shift;
   int         ip,ie,iloc;
-
-  nprocs = parmesh->nprocs;
-  shift  = nprocs*ngrp;
 
   /* New base flag */
   mesh->base++;
@@ -155,13 +149,15 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp )
 
       /* Mark new point */
       if( ppt->tmp == PMMG_UNSET ) {
-        ppt->tmp = pt->mark + shift*(4*ie+iloc);
+        ppt->tmp = pt->mark;
+        ppt->s   = 4*ie+iloc;
         continue;
       }
 
       /* Mark and flag interface point */
-      if( (ppt->tmp % shift) < pt->mark ) {
-        ppt->tmp = pt->mark + shift*(4*ie+iloc);
+      if( ppt->tmp < pt->mark ) {
+        ppt->tmp  = pt->mark;
+        ppt->s    = 4*ie+iloc;
         ppt->flag = mesh->base;
       }
     }
@@ -298,7 +294,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
   int          nlayers;
-  int          nprocs,ngrp,shift,base_front;
+  int          nprocs,ngrp,base_front;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,ne_min,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
   int          ier=1;
@@ -314,7 +310,6 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
   nprocs = parmesh->nprocs;
   ngrp   = PMMG_get_ngrp( parmesh );
-  shift  = nprocs*ngrp;
 
   /* Mark interface points with the maximum color */
   base_front = PMMG_mark_interfacePoints( parmesh, mesh, ngrp );
@@ -334,7 +329,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ip  = node2int_node_comm_index1[i];
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
-    intvalues[idx] = ppt->tmp % shift;  // contains nprocs*igrp+iproc
+    intvalues[idx] = ppt->tmp;  // contains nprocs*igrp+iproc
   }
 
   /* Exchange values on the interfaces among procs */
@@ -374,9 +369,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ip  = node2int_node_comm_index1[i];
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
-    ie = ppt->tmp / shift;
-    if( intvalues[idx] > (ppt->tmp % shift) ) {
-      ppt->tmp = intvalues[idx] + shift*ie;
+    if( intvalues[idx] > ppt->tmp ) {
+      ppt->tmp = intvalues[idx];
       ppt->flag = mesh->base;
     }
   }
