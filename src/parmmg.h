@@ -139,10 +139,10 @@ extern "C" {
 
 /**
  *
- * Split groups for metis (split_grps)
+ * Split groups for redistribution (split_grps)
  *
  */
-#define PMMG_GRPSPL_METIS_TARGET 1
+#define PMMG_GRPSPL_DISTR_TARGET 1
 
 /**
  *

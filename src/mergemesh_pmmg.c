@@ -807,7 +807,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 
   if ( !mesh0 ) return 1;
 
-  if( target == PMMG_GRPSPL_METIS_TARGET ) {
+  if( target == PMMG_GRPSPL_DISTR_TARGET ) {
     /* Use mark field to store previous grp index */
     for( iel = 1; iel <= mesh0->ne; iel++ )
       mesh0->tetra[iel].mark = parmesh->myrank;
@@ -854,7 +854,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
 
-    if( target == PMMG_GRPSPL_METIS_TARGET ) {
+    if( target == PMMG_GRPSPL_DISTR_TARGET ) {
       /* Use mark field to store previous grp index */
       for( iel = 1; iel <= grp->mesh->ne; iel++ )
         grp->mesh->tetra[iel].mark = parmesh->nprocs*imsh+parmesh->myrank;

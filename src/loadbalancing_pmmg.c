@@ -108,7 +108,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_METIS_TARGET,1,moveIfcs);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,moveIfcs);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc

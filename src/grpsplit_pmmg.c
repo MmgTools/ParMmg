@@ -1166,7 +1166,7 @@ fail_facePos:
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param target software for which we split the groups
- * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
+ * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return -1 : no possibility to save the mesh
@@ -1227,7 +1227,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
       ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
     }
   
-    if ( target == PMMG_GRPSPL_METIS_TARGET ) {
+    if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
       /* Compute the number of metis nodes from the number of groups */
       ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
       if ( parmesh->info.metis_ratio < 0 ) {
@@ -1359,7 +1359,7 @@ end:
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param target software for which we split the groups
- * (\a PMMG_GRPSPL_METIS_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
+ * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return 0 if fail, 1 if success, -1 if the mesh is not correct
@@ -1456,7 +1456,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs
     }
     PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
     /*  Move interfaces */
-    if( target == PMMG_GRPSPL_METIS_TARGET )
+    if( target == PMMG_GRPSPL_DISTR_TARGET )
       ier = PMMG_part_moveInterfaces( parmesh );
   }
 
