@@ -429,7 +429,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
   int           ier;
-  int           iresult,ierlib;
+  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
   long int      tmpmem;
   mytime        ctim[TIMEMAX];
   int8_t        tim;
@@ -456,7 +456,6 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"  -- CHECK INPUT DATA COMPLETED.     %s\n",stim);
   }
-
 
   chrono(ON,&(ctim[2]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -574,6 +573,21 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     parmesh->listgrp[0].mesh->memMax += tmpmem;
 
     mesh = parmesh->listgrp[0].mesh;
+    mesh  = parmesh->listgrp[0].mesh;
+    npmax = mesh->npmax;
+    nemax = mesh->nemax;
+    xpmax = mesh->xpmax;
+    xtmax = mesh->xtmax;
+    mesh->npmax = mesh->np;
+    mesh->nemax = mesh->ne;
+    mesh->xpmax = mesh->xp;
+    mesh->xtmax = mesh->xt;
+
+    if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+      fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+    }
+
     if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
       /** Impossible to rebuild the triangle */
       fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
@@ -601,7 +615,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  int              ier,iresult,ierlib;
+  int              ier,iresult,ierlib,nepax,npmax,nemax,xpmax,xtmax;
   long int         tmpmem;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
@@ -692,7 +706,20 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   parmesh->memMax = parmesh->memCur;
   parmesh->listgrp[0].mesh->memMax += tmpmem;
 
-  mesh = parmesh->listgrp[0].mesh;
+  mesh  = parmesh->listgrp[0].mesh;
+  npmax = mesh->npmax;
+  nemax = mesh->nemax;
+  xpmax = mesh->xpmax;
+  xtmax = mesh->xtmax;
+  mesh->npmax = mesh->np;
+  mesh->nemax = mesh->ne;
+  mesh->xpmax = mesh->xp;
+  mesh->xtmax = mesh->xt;
+  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+    fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
+    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+  }
+
   if ( (!MMG3D_hashTetra( mesh, 0 )) || ( -1 == MMG3D_bdryBuild(parmesh->listgrp[0].mesh) ) ) {
     /** Impossible to rebuild the triangle **/
     fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");

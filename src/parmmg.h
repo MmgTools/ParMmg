@@ -529,7 +529,7 @@ int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_setMemMax_realloc( MMG5_pMesh,int,int,int,int);
 int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met);
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
-void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh,size_t memReq );
+void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
@@ -539,9 +539,6 @@ int  PMMG_updateTag(PMMG_pParMesh parmesh);
 
 /* Tools */
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
-
-/* Scaling */
-int PMMG_scaleMesh(MMG5_pMesh mesh,MMG5_pSol met);
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
