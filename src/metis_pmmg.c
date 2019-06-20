@@ -120,6 +120,40 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 /**
  * \param mesh pointer toward the mesh structure.
  * \param met  pointer toward the met structure.
+ * \param tag  face tag to be checked
+ *
+ * Compute and store metis weight in the tetra qual field.
+ *
+ */
+void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag ) {
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  int          ie,ifac;
+
+  /* Reset quality field */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    if( !pt->xt ) continue;
+    pt->qual = 0.0;
+  }
+
+  /* INcrement weight for a given face tag */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    for( ifac = 0; ifac < 4; ifac++ )
+      if( pxt->ftag[ifac] & tag )
+        pt->qual += PMMG_computeWgt( mesh, met, pt, ifac );
+  }
+
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param met  pointer toward the met structure.
  * \param pt   pointer toward the tetrahedron structure.
  * \param ifac face index of the tetrahedron.
  *

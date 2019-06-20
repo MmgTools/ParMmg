@@ -448,6 +448,7 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
  
   ier = MMG3D_hashTetra( mesh, 1 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
+  mesh->nt = 0;
   MMG3D_saveMesh( mesh, name );
  
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
