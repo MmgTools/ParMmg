@@ -130,22 +130,23 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
  * interfaces.
  *
  */
-double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt ) {
-  double len,res;
-  int    ia;
+double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac ) {
+  double       len,res,alpha=28.0;
+  int          i,ia;
 
   res = 0.0;
-  for( ia=0; ia<6; ia++ ) {
+  for( i=0; i<3; i++ ) {
+    ia = MMG5_iarf[ifac][i];
     len = MMG5_lenedg(mesh,met,ia,pt);
     if( len <= 1.0 )
       res += len-1.0;
     else
       res += 1.0/len-1.0;
   }
-  res = MG_MIN(1.0/exp(24*res/6.0),PMMG_WGTVAL_HUGEINT);
-
+  res = MG_MIN(1.0/exp(alpha*res/3.0),PMMG_WGTVAL_HUGEINT);
   return res;
 }
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  *
@@ -598,7 +599,7 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol met,
                                idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
                                idx_t *nadjncy,size_t *memAv) {
-  MMG5_pTetra  pt,pt1;
+  MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   size_t       memMaxOld;
   int          *adja;
@@ -668,14 +669,13 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     for ( j = 0; j < 4; j++ ) {
       jel = adja[j] / 4;
       if ( !jel ) continue;
-      pt1 = &mesh->tetra[jel];
 
       /* Assign graph edge weights */
       if ( pt->xt ) {
         pxt = &mesh->xtetra[pt->xt];
         if( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Put high weight on old parallel faces */
-          wgt = PMMG_computeWgt(mesh,met,pt)+PMMG_computeWgt(mesh,met,pt1);
+          wgt = PMMG_computeWgt(mesh,met,pt,j);
         } else {
           /* Default weight on other faces */
           wgt = 0;
@@ -825,7 +825,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
 
       /* Increase grp weight by the inverse of the interface element quality */
       if( pxt->ftag[ifac] & MG_OLDPARBDY )
-        doublevalues[face2int_face_comm_index2[k]] += PMMG_computeWgt(mesh,met,pt);
+        doublevalues[face2int_face_comm_index2[k]] += PMMG_computeWgt(mesh,met,pt,ifac);
 
       if ( PMMG_UNSET == intvalues[face2int_face_comm_index2[k] ] ) {
 
