@@ -708,7 +708,7 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
         pxt = &mesh->xtetra[pt->xt];
         if( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Put high weight on old parallel faces */
-          wgt = PMMG_computeWgt(mesh,met,pt,j);
+          wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
         } else {
           /* Default weight on other faces */
           wgt = 0;
@@ -942,7 +942,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
        * and reset signs; then, get grp indices starting from 0 */
       if( igrp_adj <= -ishift ) {
         assert( igrp <= -ishift );
-        wgt = rtosend[i]+rtorecv[i];
+        wgt = (int)( rtosend[i]+rtorecv[i] );
         igrp     *= -1;
         igrp_adj *= -1;
       } else {
@@ -983,7 +983,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
       /* Put high weight on old parallel faces (marked by a minus sign) and
        * reset signs; then, get grp index starting from 0 */
       if ( igrp_adj <= -ishift ) {
-        wgt = doublevalues[face2int_face_comm_index2[i]];
+        wgt = (int)doublevalues[face2int_face_comm_index2[i]];
         igrp_adj *= -1;
       } else {
         wgt = 0;
