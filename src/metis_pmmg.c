@@ -119,10 +119,9 @@ int PMMG_hashGrp( PMMG_pParMesh parmesh,PMMG_HGrp *hash, int k, idx_t adj,
 
 /**
  * \param mesh pointer toward the mesh structure.
- * \param met  pointer toward the met structure
+ * \param met  pointer toward the met structure.
  * \param pt   pointer toward the tetrahedron structure.
- *             an adjacent.
- * \param adj  global id of the adjacent group
+ * \param ifac face index of the tetrahedron.
  *
  * \return The weight value
  *
