@@ -164,6 +164,9 @@ static const int PMMG_RATIO_MMG_METIS = -100;
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_METIS_NGRPS_MAX = 1000;
 
+/**< Subgroups minimum size to try to avoid empty partitions */
+static const int PMMG_METIS_NELEM_MIN = 6;
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -472,6 +475,8 @@ int PMMG_split_grps( PMMG_pParMesh,int,int );
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
+double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac );
+void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 
 /* Mesh interpolation */
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
@@ -540,6 +545,7 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
 int PMMG_prilen( PMMG_pParMesh parmesh,char );
+int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

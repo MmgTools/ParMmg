@@ -578,6 +578,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
 
+    /* Compute quality in the interpolated metrics */
+    ier = PMMG_tetraQual( parmesh,0 );
+
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
