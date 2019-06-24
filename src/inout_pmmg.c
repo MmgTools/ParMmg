@@ -38,13 +38,6 @@ int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
   if ( 1 != ier ) return 0;
 
-  if ( parmesh->myrank==parmesh->info.root ) {
-    /* LoadMesh overWrites memMax so we must set it again here */
-    if ( 1 != PMMG_parmesh_SetMemMax(parmesh, 20) ) {
-      return 0;
-    }
-  }
-
   return 1;
 }
 
