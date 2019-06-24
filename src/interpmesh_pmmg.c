@@ -271,9 +271,9 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
-  PMMG_baryCoord *barycoord;
+  PMMG_baryCoord barycoord[4];
   double      **faceAreas,*normal;
-  int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc,np,max_np;
+  int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
@@ -309,13 +309,6 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
     }
   }
 
-  /* Allocate barycentric coordinates with maximum nb of nodes */
-  max_np = 0;
-  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
-    np = parmesh->listgrp[igrp].mesh->np;
-    if( np > max_np ) max_np = np;
-  }
-  PMMG_MALLOC( parmesh,barycoord,4*(max_np+1),PMMG_baryCoord,"barycentric coordinates",return 0);
 
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
@@ -362,7 +355,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
 
             /** Locate point in the old mesh */
             istart = PMMG_locatePoint( oldMesh, ppt, istart,
-                                       faceAreas[igrp], &barycoord[4*ip] );
+                                       faceAreas[igrp], barycoord );
             if( !istart ) {
               fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
                       " point %d not found, coords %e %e %e\n",__func__,
@@ -384,7 +377,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
 
             /** Interpolate point metrics */
             ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
-                                           ip,&barycoord[4*ip]);
+                                           ip,barycoord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
@@ -394,7 +387,6 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
     }
 
   }
-  PMMG_DEL_MEM( parmesh,barycoord,PMMG_baryCoord,"barycoord");
   for( igrp = 0; igrp < parmesh->nold_grp; igrp++)
     PMMG_DEL_MEM( parmesh,faceAreas[igrp],double,"faceAreas");
   PMMG_DEL_MEM( parmesh,faceAreas,double*,"faceAreas pointer");
