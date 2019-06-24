@@ -119,6 +119,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS
     libparmmg_centralized_auto_example0
+    libparmmg_centralized_auto_cpp_example0
     libparmmg_centralized_manual_example0_io_0
     libparmmg_centralized_manual_example0_io_1
     #libparmmg_distributed_manual_example0
@@ -126,6 +127,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_MAIN_PATH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
@@ -133,12 +135,14 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     ""
     ""
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMET
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ""
     ""
@@ -149,17 +153,20 @@ IF( BUILD_TESTING )
     ""
     ""
     ""
+    ""
     #""
     )
 
   SET ( PMMG_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
+    ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
     #${CI_DIR_RESULTS}/io-seq-par-cube.o
     )
 
   SET ( PMMG_LIB_TESTS_OPTIONS
+    "-met"
     "-met"
     "0"
     "1"
@@ -176,20 +183,11 @@ IF( BUILD_TESTING )
   ENDIF ( )
 
   #####         Fortran Tests
-  IF ( CMAKE_Fortran_COMPILER )
-    ENABLE_LANGUAGE ( Fortran )
 
-    FIND_PACKAGE( MPI COMPONENTS Fortran REQUIRED )
-
-    IF ( MPI_Fortran_FOUND )
-      SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
-      SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
-      SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
-
-    ELSE ( )
-      MESSAGE(FATAL_ERROR " Fortran MPI library not found")
-    ENDIF ( )
-
+  IF ( MPI_Fortran_FOUND )
+    SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+    SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+    SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
 
     LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
       # libparmmg_centralized_manual_example0_io_0
@@ -238,11 +236,13 @@ IF( BUILD_TESTING )
       #"1"
       #"-met"
       )
-  ENDIF ( CMAKE_Fortran_COMPILER )
-
+  ENDIF ( )
 
   LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
   MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+  LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
+  LIST ( APPEND lib_name ${MPI_CXX_LIBRARIES})
 
   FOREACH ( test_idx RANGE ${nbTests} )
     LIST ( GET PMMG_LIB_TESTS            ${test_idx} test_name )
@@ -252,8 +252,6 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
-
-    LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 

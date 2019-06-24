@@ -6,13 +6,11 @@
  * \version 5
  * \copyright GNU Lesser General Public License.
  */
-
+#ifndef _LIBPARMMGTYPES_H
+#define _LIBPARMMGTYPES_H
 
 #include "mmg/mmg3d/libmmgtypes.h"
 #include <mpi.h>
-
-#ifndef _LIBPARMMGTYPES_H
-#define _LIBPARMMGTYPES_H
 
 
 /**
@@ -325,4 +323,5 @@ typedef struct {
 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
+
 #endif

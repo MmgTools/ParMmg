@@ -23,11 +23,9 @@
 #include <math.h>
 #include <float.h>
 
-/** Include the parmmg library hader file */
-// if the header file is in the "include" directory
+/** Include the parmmg and mmg3d library header file */
 #include "libparmmg.h"
-// if the header file is in "include/parmmg"
-//#include "parmmg/libparmmg.h"
+#include "libmmg3d.h"
 
 #define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
 #define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
