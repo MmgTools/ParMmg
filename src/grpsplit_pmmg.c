@@ -593,15 +593,13 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
 
     if ( !MG_EOK(pt) ) continue;
 
-    /** MMG3D_Tetra.flag is used to update adjacency vector:
-       if the tetra belongs to the group we store the local tetrahedron id
-       in the tet.flag */
-    pt->flag = 0;
-
     /* Skip elements that do not belong in the group processed in this iteration */
     if ( grpId != part[ tet - 1 ] )
       continue;
 
+    /** MMG3D_Tetra.flag is used to update adjacency vector:
+       if the tetra belongs to the group we store the local tetrahedron id
+       in the tet.flag */
     ++tetPerGrp;
     assert( ( tetPerGrp <= mesh->nemax ) && "overflowing tetra array?" );
     tetraCur = mesh->tetra + tetPerGrp;
