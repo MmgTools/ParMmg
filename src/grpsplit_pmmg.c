@@ -581,10 +581,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
       grps assigned to n2inc_max */
   (*n2inc_max) = ne/3;
 
-  /* use point[].flag field to "remember" assigned local(in subgroup) numbering */
-  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-    meshOld->point[poi].flag = 0;
-
   /* Loop over tetras and choose the ones to add in the submesh being constructed */
   tetPerGrp = 0;
   *np       = 0;
@@ -620,7 +616,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
     /* Add tetrahedron vertices in points struct and
        adjust tetrahedron vertices indices */
     for ( poi = 0; poi < 4 ; ++poi ) {
-      if ( !meshOld->point[ pt->v[poi] ].flag ) {
+      if ( meshOld->point[ pt->v[poi] ].s != grpId ) {
         /* 1st time that this point is seen in this subgroup
            Add point in subgroup point array */
         ++(*np);
@@ -652,6 +648,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
 
         /* Update tetra vertex index */
         tetraCur->v[poi] = (*np);
+
+        /* Store the point group */
+        meshOld->point[ pt->v[poi] ].s = grpId;
 
         /* Store the point id */
         meshOld->point[ pt->v[poi] ].flag = (*np);
@@ -1025,11 +1024,18 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     iplocFaceComm[4*(ie-1)+1+fac] = (grpOld->face2int_face_comm_index1[i]%12)%3;
   }
 
-  /* use point[].tmp field to store index in internal communicator of
+  /* 
+   * Use point[].tmp field to store index in internal communicator of
      vertices. specifically: place a copy of vertices' node2index2 position at
-     point[].tmp field or -1 if they are not in the comm */
-  for ( poi = 1; poi < meshOld->np + 1; ++poi )
-    meshOld->point[poi].tmp = PMMG_UNSET;
+     point[].tmp field or -1 if they are not in the comm.
+     Use point[].s field to store assigned point subgroup.
+     Use point[].flag field to "remember" assigned local(in subgroup) numbering
+     (no need to initialize it).
+   */
+  for ( poi = 1; poi < meshOld->np + 1; ++poi ) {
+    meshOld->point[poi].tmp  = PMMG_UNSET;
+    meshOld->point[poi].s    = PMMG_UNSET;
+  }
 
   for ( i = 0; i < grpOld->nitem_int_node_comm; i++ )
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
