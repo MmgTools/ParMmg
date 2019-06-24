@@ -1,5 +1,6 @@
 #include "parmmg.h"
 #include <stddef.h>
+#include "inlined_functions_3d.h"
 
 typedef struct {
   double min;
@@ -329,6 +330,30 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
                                        lenStats_result.bmax,lenStats_result.lmax,
                                        lenStats_result.nullEdge,bd,
                                        lenStats_result.hl,1,parmesh->info.imprim);
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure
+ * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
+ *
+ * \return 1 if success, 0 if fail;
+ *
+ * Compute elements quality in a given metrics.
+ *
+ */
+int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp ) {
+  PMMG_pGrp grp;
+  int       igrp;
+
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ){
+    grp  = &parmesh->listgrp[igrp];
+    if( !MMG3D_tetraQual( grp->mesh, grp->met, metRidTyp ) ) {
+      fprintf(stderr,"\n  ## Quality computation problem.\n");
+      return 0;
+    }
   }
 
   return 1;

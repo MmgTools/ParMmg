@@ -44,7 +44,7 @@ int main(int argc,char *argv[]) {
   filename = (char *) calloc(strlen(argv[1]) + 1, sizeof(char));
   if ( filename == NULL ) {
     perror("  ## Memory problem: calloc");
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,2);
     exit(EXIT_FAILURE);
   }
   strcpy(filename,argv[1]);
@@ -52,7 +52,7 @@ int main(int argc,char *argv[]) {
   fileout = (char *) calloc(strlen(argv[2]) + 1, sizeof(char));
   if ( fileout == NULL ) {
     perror("  ## Memory problem: calloc");
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,2);
     exit(EXIT_FAILURE);
   }
   strcpy(fileout,argv[2]);
@@ -76,7 +76,7 @@ int main(int argc,char *argv[]) {
 
     else {
       printf("Unexpected argument: %s \n",tmp);
-      MPI_Finalize();
+      MPI_Abort(MPI_COMM_WORLD,2);
       return 1;
     }
   }
@@ -120,8 +120,13 @@ int main(int argc,char *argv[]) {
       functions */
 
   /** With PMMG_loadMet_centralized function */
-  if ( metname )
-    PMMG_loadMet_centralized(parmesh,metname);
+  if ( metname ) {
+    if ( PMMG_loadMet_centralized(parmesh,metname) != 1 ) {
+      printf("Unable to load metric file.\n");
+      MPI_Abort(MPI_COMM_WORLD,2);
+      exit(EXIT_FAILURE);
+    }
+  }
 
   /** 4) Build solutions in PMMG format */
   /** Two solutions: just use the PMMG_loadAllSols_centralized function that
@@ -132,11 +137,11 @@ int main(int argc,char *argv[]) {
 
   if ( solname ) {
     if ( PMMG_loadAllSols_centralized(parmesh,solname) != 1 ) {
-      MPI_Finalize();
+      printf("Unable to load solutions file.\n");
+      MPI_Abort(MPI_COMM_WORLD,3);
       exit(EXIT_FAILURE);
     }
   }
-
   /** ------------------------------ STEP  II -------------------------- */
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);

@@ -59,7 +59,7 @@ int main(int argc,char *argv[]) {
   fileout = (char *) calloc(strlen(argv[1]) + 6, sizeof(char));
   if ( fileout == NULL ) {
     perror("  ## Memory problem: calloc");
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,2);
     exit(EXIT_FAILURE);
   }
   strcpy(fileout,argv[1]);
@@ -122,7 +122,7 @@ int main(int argc,char *argv[]) {
   if(parmesh->myrank == parmesh->info.root){
     if ( PMMG_Set_meshSize(parmesh,nVertices,nTetrahedra,nPrisms,nTriangles,
                               nQuadrilaterals,nEdges) != 1 ) {
-      MPI_Finalize();
+      MPI_Abort(MPI_COMM_WORLD,2);
       exit(EXIT_FAILURE);
     }
   }
@@ -149,7 +149,7 @@ int main(int argc,char *argv[]) {
        * coordinates of the k^th point are stored in vert_coor[3*(k-1)],
        * vert_coor[3*(k-1)+1] and vert_coor[3*(k-1)+2] */
       if ( PMMG_Set_vertices(parmesh,vert_coor,vert_ref) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
     }
@@ -160,7 +160,7 @@ int main(int argc,char *argv[]) {
         pos = 3*k;
         if ( PMMG_Set_vertex(parmesh,vert_coor[pos],vert_coor[pos+1],vert_coor[pos+2],
                              vert_ref[k], k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
       }
@@ -191,7 +191,7 @@ int main(int argc,char *argv[]) {
        * tetra_vert[4*(k-1)],tetra_vert[4*(k-1)+1],tetra_vert[4*(k-1)+2] and
        * tetra_vert[4*(k-1)+3]. */
       if ( PMMG_Set_tetrahedra(parmesh,tetra_vert,tetra_ref) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
     }
@@ -200,10 +200,10 @@ int main(int argc,char *argv[]) {
         give the vertices index, the reference and the position of the tetra */
       for ( k=0; k<nTetrahedra; ++k ) {
         pos = 4*k;
-  
+
         if ( PMMG_Set_tetrahedron(parmesh,tetra_vert[pos],tetra_vert[pos+1],
                                   tetra_vert[pos+2],tetra_vert[pos+3],tetra_ref[k],k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
       }
@@ -242,7 +242,7 @@ int main(int argc,char *argv[]) {
        * vertices of the k^th tria are stored in
        * tria_vert[3*(k-1)], tria_vert[3*(k-1)+1] and tria_vert[4*(k-1)+2] */
       if ( PMMG_Set_triangles(parmesh,tria_vert,tria_ref) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
     }
@@ -254,7 +254,7 @@ int main(int argc,char *argv[]) {
         if ( PMMG_Set_triangle(parmesh,
                                tria_vert[pos],tria_vert[pos+1],tria_vert[pos+2],
                                tria_ref[k],k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
       }
@@ -271,7 +271,8 @@ int main(int argc,char *argv[]) {
       number of vertices, the metric is scalar*/
   if(parmesh->myrank == parmesh->info.root){
     if ( PMMG_Set_metSize(parmesh,MMG5_Vertex,nVertices,MMG5_Scalar) != 1 ) {
-      MPI_Finalize();
+      printf("Unable to allocate the metric array.\n");
+      MPI_Abort(MPI_COMM_WORLD,2);
       exit(EXIT_FAILURE);
     }
   }
@@ -283,7 +284,8 @@ int main(int argc,char *argv[]) {
     if ( !opt ) {
       /* by array */
       if ( PMMG_Set_scalarMets(parmesh,met) != 1 ) {
-        MPI_Finalize();
+       printf("Unable to set metric.\n");
+       MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
     }
@@ -291,7 +293,7 @@ int main(int argc,char *argv[]) {
       /* vertex by vertex */
       for ( k=0; k<nVertices ; k++ ) {
         if ( PMMG_Set_scalarMet(parmesh,met[k],k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
       }
@@ -310,7 +312,7 @@ int main(int argc,char *argv[]) {
 
   if(parmesh->myrank == parmesh->info.root){
     if ( PMMG_Set_solsAtVerticesSize(parmesh,nSolsAtVertices,nVertices,solType) != 1 ) {
-      MPI_Finalize();
+      MPI_Abort(MPI_COMM_WORLD,2);
       exit(EXIT_FAILURE);
     }
   }
@@ -348,17 +350,17 @@ int main(int argc,char *argv[]) {
       /* Give the solution by array */
       /* First solution */
       if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,1,scalar_sol) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
       /* Second */
       if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,2,vector_sol) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
       /* Third */
       if ( PMMG_Set_ithSols_inSolsAtVertices(parmesh,3,tensor_sol) != 1 ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
     }
@@ -367,19 +369,19 @@ int main(int argc,char *argv[]) {
       for ( k=0; k<nVertices; k++ ) {
         /* First solution */
         if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,1,&(scalar_sol[k]),k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
         /* Second */
         pos = 3*k;
         if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,2,&(vector_sol[pos]),k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
         /* Third */
         pos = 6*(k-1);
         if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
-          MPI_Finalize();
+          MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
         }
       }
@@ -456,7 +458,7 @@ int main(int argc,char *argv[]) {
       int *ref = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
       if ( !ref ) {
         perror("  ## Memory problem: ref calloc");
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
 
@@ -464,7 +466,7 @@ int main(int argc,char *argv[]) {
       int *corner = (int*)calloc(nVertices,sizeof(int));
       if ( !corner ) {
         perror("  ## Memory problem: corner calloc");
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
 
@@ -472,7 +474,7 @@ int main(int argc,char *argv[]) {
       int *required = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
       if ( !required ) {
         perror("  ## Memory problem: required calloc");
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
 
@@ -480,7 +482,7 @@ int main(int argc,char *argv[]) {
       int *ridge = (int*)calloc(nEdges ,sizeof(int));
       if ( !ridge ) {
         perror("  ## Memory problem: ridge calloc");
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
 
@@ -675,7 +677,7 @@ int main(int argc,char *argv[]) {
 
       /* We set a scalar metric so the output metric must be scalar */
       if ( ( typEntity != MMG5_Vertex )  || ( typSol != MMG5_Scalar ) ) {
-        MPI_Finalize();
+        MPI_Abort(MPI_COMM_WORLD,2);
         exit(EXIT_FAILURE);
       }
 
