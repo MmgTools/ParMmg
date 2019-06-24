@@ -271,8 +271,9 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
+  MMG5_pPoint ppt;
   double      **faceAreas,*normal;
-  int         igrp,ip,ie,ifac,ia,ib,ic,ier;
+  int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc,ier;
   static int  mmgWarn=0;
 
   /** Pre-compute oriented face areas */
@@ -337,38 +338,48 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
           pt->flag = oldMesh->base;
         }
 
+        mesh->base++;
+        istart = 1;
+        for( ie = 1; ie <= mesh->ne; ie++ ) {
+          pt = &mesh->tetra[ie];
+          if( !MG_EOK(pt) ) continue;
+          for( iloc = 0; iloc < 4; iloc++ ) {
+            ip = pt->v[iloc];
+            ppt = &mesh->point[ip];
+            if( !MG_VOK(ppt) ) continue;
 
-        ie = 1;
-        for( ip=1; ip<mesh->np+1; ip++ ) {
-          if( !MG_VOK(&mesh->point[ip]) ) continue;
+            /* Skip already interpolated points */
+            if( ppt->flag == mesh->base ) continue;
 
-          /** Locate point in the old mesh */
-          ie = PMMG_locatePoint( oldMesh, &mesh->point[ip], ie, faceAreas[igrp] );
-          if( !ie ) {
-            fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
-                    " point %d not found, coords %e %e %e\n",__func__,
-                    parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
-                    mesh->point[ip].c[1],mesh->point[ip].c[2]);
-            return 0;
-          } else if( ie < 0 ) {
-            if ( !mmgWarn ) {
-              mmgWarn = 1;
-              if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
-                        " found, coords %e %e %e\n",__func__,parmesh->myrank,
-                        igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                        mesh->point[ip].c[2]);
+            /** Locate point in the old mesh */
+            istart = PMMG_locatePoint( oldMesh, ppt, istart, faceAreas[igrp] );
+            if( !istart ) {
+              fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
+                      " point %d not found, coords %e %e %e\n",__func__,
+                      parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
+                      mesh->point[ip].c[1],mesh->point[ip].c[2]);
+              return 0;
+            } else if( istart < 0 ) {
+              if ( !mmgWarn ) {
+                mmgWarn = 1;
+                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+                  fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
+                          " found, coords %e %e %e\n",__func__,parmesh->myrank,
+                          igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                          mesh->point[ip].c[2]);
+                }
               }
+              istart = -istart;
             }
-            ie = -ie;
+
+            /** Interpolate point metrics */
+            ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
+                                           ip,istart,faceAreas[igrp]);
+
+            /* Flag point as interpolated */
+            ppt->flag = mesh->base;
           }
-
-          pt = &oldMesh->tetra[ie];
-
-          /** Interpolate point metrics */
-          ier = PMMG_interpMetrics_point(grp,oldGrp,pt,ip,ie,faceAreas[igrp]);
         }
-
       }
     }
 
