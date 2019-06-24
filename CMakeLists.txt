@@ -103,7 +103,8 @@ ENDIF()
 #####
 ############################################################################
 # compile parallel version
-FIND_PACKAGE( MPI COMPONENTS C REQUIRED )
+ENABLE_LANGUAGE ( Fortran )
+FIND_PACKAGE( MPI COMPONENTS C CXX OPTIONAL_COMPONENTS Fortran )
 
 SET( CMAKE_C_COMPILE_FLAGS "${CMAKE_C_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
 SET( CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS}" )

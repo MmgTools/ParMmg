@@ -186,6 +186,11 @@ sub Convert {
                     $chaine = sprintf("! %s",$line);
                     printTab($chaine,0,0 );
                 }
+                elsif ($line =~ /\#if defined\(c_plusplus\)/ ) {
+                    $cppdef = 1;
+                    $chaine = sprintf("! %s",$line);
+                    printTab($chaine,0,0 );
+                }
                 elsif($line =~ /\#endif/ )
                 {
                     if ( $cppdef ) {

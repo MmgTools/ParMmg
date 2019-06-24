@@ -23,6 +23,7 @@
 #include <mpi_pmmg.h>
 
 #include "libparmmg.h"
+#include "mmg3d.h"
 
 #ifdef __cplusplus
 extern "C" {
