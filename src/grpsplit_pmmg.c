@@ -1010,6 +1010,28 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure
+ * \param meshOld pointer toward the old mesh
+ * \param part partition array for the tetra in the old mesh
+ * \param tetPerGrp array of number of tetra for each new group
+ *
+ * Count the number of new tetra in each group, and store the new tetra ID in
+ * the old tetra flag.
+ *
+ */
+static void
+PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
+                               idx_t *part,int *tetPerGrp) {
+  MMG5_pTetra pt;
+  int ie;
+
+  for( ie = 1; ie <= meshOld->ne; ie++ ) {
+    pt = &meshOld->tetra[ie];
+    pt->flag = ++tetPerGrp[ part[ie-1] ];
+  }
+}
+
+/**
  * \param mesh pointer toward an MMG5 mesh structure
  * \param met pointer toward an MMG5 metric structure
  * \param np number of points in the mesh
