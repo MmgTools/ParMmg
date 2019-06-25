@@ -557,9 +557,6 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
   MMG5_pPoint ppt;
   int *adja,fac,poi,adjidx;
 
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
-
   adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
   for ( fac = 0; fac < 4; ++fac ) {
     adjidx = adja[ fac ] / 4;
@@ -583,8 +580,6 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
       }
     }
   }
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
-
   return 1;
 }
 
@@ -808,7 +803,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   MMG5_pPoint      ppt;
   size_t           oldMemMax;
   int              *adja,adjidx,vidx,fac,pos,ip,iploc,iplocadj;
-  int              tetPerGrp,tet,poi,j,newsize;
+  int              ie,tetPerGrp,tet,poi,j,newsize;
   int              ier;
 
   mesh = grp->mesh;
@@ -846,7 +841,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
     /* add tetrahedron to subgroup (copy from original group) */
     memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
     tetraCur->base = 0;
-    tetraCur->flag = 0;
+    tetraCur->flag = tet;
 
     /* xTetra: this element was already an xtetra (in meshOld) */
     if ( tetraCur->xt != 0 ) {
@@ -991,11 +986,25 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
       }
     }
 
-    if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
-          tet,grpId,n2inc_max,part,memAv,&oldMemMax ) ) return 0;
-
   }
   assert( (mesh->ne == tetPerGrp) && "Error in the tetra count" );
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
+
+  for ( ie = 1; ie <= mesh->ne; ie++ ) {
+    /* Get tetra in the new mesh */
+    tetraCur = &mesh->tetra[ie];
+
+    /* Get tetra in the old mesh */
+    tet = tetraCur->flag;
+    pt = &meshOld->tetra[tet];
+
+    if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
+          tet,grpId,n2inc_max,part,memAv,&oldMemMax ) ) return 0;
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
 
   return 1;
 }
