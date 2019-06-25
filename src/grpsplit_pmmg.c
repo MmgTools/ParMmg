@@ -536,6 +536,45 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
  * \param mesh pointer toward the new mesh to fill
+ * \param ppt pointer to the current point
+ * \param it index of the current point
+ * \param fac intex of the current face
+ * \param n2ifc_max maximum number of nodes in the node2int_node_comm arrays
+ * \param memAv pointer to the available memory
+ * \param oldMemMax pointer to the old max memory
+ * \param pos pointer to the tetra+face index
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Fill the node communicator if the node was already parallel.
+ *
+ */
+static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp,
+    MMG5_pMesh mesh,MMG5_pPoint ppt,int ip,int *n2inc_max,size_t *memAv,size_t *oldMemMax ) {
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  /* Add point in subgroup's communicator if it already was in group's
+     communicator */
+  if ( ppt->tmp != PMMG_UNSET ) {
+    if (  !PMMG_n2incAppend( parmesh, grp, n2inc_max,
+                             ip, ppt->tmp ) ) {
+      return 0;
+    }
+    ++parmesh->int_node_comm->nitem;
+  }
+
+  /* Give back the memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to fill
+ * \param mesh pointer toward the new mesh to fill
  * \param meshOld pointer toward the old mesh
  * \param fac intex of the current face
  * \param adjidx index of the old tetra
@@ -811,21 +850,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           mesh->point[*np].xp = mesh->xp;
         }
 
-        /* Give the available memory to the parmesh */
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
-
-        /* Add point in subgroup's communicator if it already was in group's
-           ommunicator */
-        if ( ppt->tmp != -1 ) {
-          if (  !PMMG_n2incAppend( parmesh, grp, n2inc_max,
-                                  *np, ppt->tmp ) ) {
-            return 0;
-          }
-          ++parmesh->int_node_comm->nitem;
-        }
-
-        /* Give back the memory to the mesh */
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+        if( !PMMG_splitGrps_updateNodeCommOld( parmesh,grp,mesh,ppt,*np,
+              n2inc_max,memAv,&oldMemMax ) ) return 0;
 
       } else {
         // point is already included in this subgroup, update current tetra
