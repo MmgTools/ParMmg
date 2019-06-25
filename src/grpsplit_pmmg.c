@@ -536,6 +536,62 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
  * \param mesh pointer toward the new mesh to fill
+ * \param meshOld pointer toward the old mesh
+ * \param tetraCur pointer to the current tetra
+ * \param pt pointer to the old tetra
+ * \param tet index of the old tetra
+ * \param grpId intex of the current group
+ * \param n2ifc_max maximum number of nodes in the node2int_node_comm arrays
+ * \param part partition array for the old tetrahedra
+ * \param memAv pointer to the available memory
+ * \param oldMemMax pointer to the old max memory
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Fill the node communicator with new interface nodes.
+ *
+ */
+static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp,
+    MMG5_pMesh mesh, MMG5_pMesh meshOld,MMG5_pTetra tetraCur,MMG5_pTetra pt,
+    int tet,int grpId,int *n2inc_max,int *part,size_t *memAv,size_t *oldMemMax ) {
+  MMG5_pPoint ppt;
+  int *adja,fac,poi,adjidx;
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
+  for ( fac = 0; fac < 4; ++fac ) {
+    adjidx = adja[ fac ] / 4;
+
+    if ( adjidx && grpId != part[ adjidx - 1 ] ) {
+      for ( poi = 0; poi < 3; ++poi ) {
+        ppt = & mesh->point[ tetraCur->v[ MMG5_idir[fac][poi] ] ];
+        if ( ppt->tmp == -1 ) {
+          if (   !PMMG_n2incAppend( parmesh, grp, n2inc_max,
+                                   tetraCur->v[ MMG5_idir[fac][poi] ],
+                                   parmesh->int_node_comm->nitem + 1 ) ) {
+            return 0;
+          }
+
+          meshOld->point[ pt->v[ MMG5_idir[fac][poi]  ] ].tmp =
+            parmesh->int_node_comm->nitem + 1;
+          ppt->tmp = parmesh->int_node_comm->nitem + 1;
+
+          ++parmesh->int_node_comm->nitem;
+        }
+      }
+    }
+  }
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to fill
+ * \param mesh pointer toward the new mesh to fill
  * \param ppt pointer to the current point
  * \param it index of the current point
  * \param fac intex of the current face
@@ -935,33 +991,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
       }
     }
 
-    /* Give the available memory to the parmesh */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
-
-    adja = &meshOld->adja[ 4 * ( tet - 1 ) + 1 ];
-    for ( fac = 0; fac < 4; ++fac ) {
-      adjidx = adja[ fac ] / 4;
-
-      if ( adjidx && grpId != part[ adjidx - 1 ] ) {
-        for ( poi = 0; poi < 3; ++poi ) {
-          ppt = & mesh->point[ tetraCur->v[ MMG5_idir[fac][poi] ] ];
-          if ( ppt->tmp == -1 ) {
-            if (   !PMMG_n2incAppend( parmesh, grp, n2inc_max,
-                                     tetraCur->v[ MMG5_idir[fac][poi] ],
-                                     parmesh->int_node_comm->nitem + 1 ) ) {
-              return 0;
-            }
-
-            meshOld->point[ pt->v[ MMG5_idir[fac][poi]  ] ].tmp =
-              parmesh->int_node_comm->nitem + 1;
-            ppt->tmp = parmesh->int_node_comm->nitem + 1;
-
-            ++parmesh->int_node_comm->nitem;
-          }
-        }
-      }
-    }
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+    if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
+          tet,grpId,n2inc_max,part,memAv,&oldMemMax ) ) return 0;
 
   }
   assert( (mesh->ne == tetPerGrp) && "Error in the tetra count" );
