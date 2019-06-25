@@ -536,6 +536,88 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
  * \param mesh pointer toward the new mesh to fill
+ * \param meshOld pointer toward the old mesh
+ * \param fac intex of the current face
+ * \param adjidx index of the old tetra
+ * \param vidx face of the old tetra
+,* \param posInIntFaceComm position of each tetra face in the internal face
+ * \param iplocFaceComm starting index to list the vertices of the faces in the
+ * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
+ * face2int_face arrays (to be able to build the node communicators from the
+ * face ones).
+ * communicator (-1 if not in the internal face comm)
+ * \param tetPerGrp number of tetra in the group
+ * \param memAv pointer to the available memory
+ * \param oldMemMax pointer to the old max memory
+ * \param pos tetra+face index
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Fill the face communicator with new parallel faces.
+ *
+ */
+static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
+    PMMG_pGrp grp, MMG5_pMesh mesh,MMG5_pMesh meshOld,MMG5_pTetra pt,int fac,int adjidx,int vidx,
+    int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
+    size_t *memAv,size_t *oldMemMax,int pos ) {
+  MMG5_pTetra ptadj;
+  int ip,iploc,iplocadj;
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  /** Build the internal communicator for the boundary faces */
+  /* 1) Check if this face has already a position in the internal face
+   * communicator, and if not, increment the internal face comm and
+   * store the face position in posInIntFaceComm */
+  if ( posInIntFaceComm[4*(adjidx-1)+1+vidx]<0 ) {
+
+    posInIntFaceComm[pos]                 = parmesh->int_face_comm->nitem;
+    posInIntFaceComm[4*(adjidx-1)+1+vidx] = parmesh->int_face_comm->nitem;
+
+    /* Find a common starting point inside the face for both tetra */
+    iploc = 0; // We impose the starting point in tet
+    ip    = pt->v[MMG5_idir[fac][iploc]];
+
+    ptadj = &meshOld->tetra[adjidx];
+    for ( iplocadj=0; iplocadj < 3; ++iplocadj )
+      if ( ptadj->v[MMG5_idir[vidx][iplocadj]] == ip ) break;
+    assert ( iplocadj < 3 );
+
+    iplocFaceComm[pos]                 = iploc;
+    iplocFaceComm[4*(adjidx-1)+1+vidx] = iplocadj;
+
+    /* 2) Add the face in the list of interface faces of the group */
+    if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                           posInIntFaceComm[pos] ) ) {
+
+      return 0;
+    }
+    ++parmesh->int_face_comm->nitem;
+  }
+  else {
+    assert ( posInIntFaceComm[pos] >=0 );
+    assert ( iplocFaceComm   [pos] >=0 );
+
+    /* 2) Add the face in the list of interface faces of the group */
+    iploc = iplocFaceComm[pos];
+    if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                           posInIntFaceComm[pos] ) ) {
+
+      return 0;
+    }
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  return 1;
+
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to fill
+ * \param mesh pointer toward the new mesh to fill
  * \param adja pointer to the current tetra adjacency
  * \param tet index of the current tetra
  * \param fac intex of the current face
@@ -790,53 +872,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
         if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY; 
         pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
-        /* Give the available memory to the parmesh */
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
-
-        /** Build the internal communicator for the boundary faces */
-        /* 1) Check if this face has already a position in the internal face
-         * communicator, and if not, increment the internal face comm and
-         * store the face position in posInIntFaceComm */
-        if ( posInIntFaceComm[4*(adjidx-1)+1+vidx]<0 ) {
-
-          posInIntFaceComm[pos]                 = parmesh->int_face_comm->nitem;
-          posInIntFaceComm[4*(adjidx-1)+1+vidx] = parmesh->int_face_comm->nitem;
-
-          /* Find a common starting point inside the face for both tetra */
-          iploc = 0; // We impose the starting point in tet
-          ip    = pt->v[MMG5_idir[fac][iploc]];
-
-          ptadj = &meshOld->tetra[adjidx];
-          for ( iplocadj=0; iplocadj < 3; ++iplocadj )
-            if ( ptadj->v[MMG5_idir[vidx][iplocadj]] == ip ) break;
-          assert ( iplocadj < 3 );
-
-          iplocFaceComm[pos]                 = iploc;
-          iplocFaceComm[4*(adjidx-1)+1+vidx] = iplocadj;
-
-          /* 2) Add the face in the list of interface faces of the group */
-          if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                                 posInIntFaceComm[pos] ) ) {
-
-            return 0;
-          }
-          ++parmesh->int_face_comm->nitem;
-        }
-        else {
-          assert ( posInIntFaceComm[pos] >=0 );
-          assert ( iplocFaceComm   [pos] >=0 );
-
-          /* 2) Add the face in the list of interface faces of the group */
-          iploc = iplocFaceComm[pos];
-          if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                                 posInIntFaceComm[pos] ) ) {
-
-            return 0;
-          }
-        }
-
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
-
+        if( !PMMG_splitGrps_updateFaceCommNew( parmesh,grp,mesh,meshOld,pt,fac,adjidx,vidx,posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,pos ) ) return 0;
 
         for ( j=0; j<3; ++j ) {
           /* Update the face and face vertices tags */
