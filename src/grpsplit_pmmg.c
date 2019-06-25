@@ -535,6 +535,70 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
+ * \param mesh pointer toward the new mesh to fill
+ * \param adja pointer to the current tetra adjacency
+ * \param tet index of the current tetra
+ * \param fac intex of the current face
+,* \param posInIntFaceComm position of each tetra face in the internal face
+ * \param iplocFaceComm starting index to list the vertices of the faces in the
+ * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
+ * face2int_face arrays (to be able to build the node communicators from the
+ * face ones).
+ * communicator (-1 if not in the internal face comm)
+ * \param tetPerGrp number of tetra in the group
+ * \param memAv pointer to the available memory
+ * \param oldMemMax pointer to the old max memory
+ * \param pos pointer to the tetra+face index
+ *
+ * \return 0 if fail, 1 if success, -1 if you can continue to the next tetra
+ *
+ * Fill the face communicator if the face was already parallel.
+ *
+ */
+static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
+    PMMG_pGrp grp, MMG5_pMesh mesh,int *adja,int tet,int fac,
+    int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
+    size_t *memAv,size_t *oldMemMax,int *pos ) {
+  int iploc;
+ 
+  *pos   = 4*(tet-1)+1+fac;
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  if ( adja[ fac ] == 0 ) {
+    /** Build the internal communicator for the parallel faces */
+    /* 1) Check if this face has a position in the internal face
+     * communicator. If not, the face is not parallel and we have nothing
+     * to do */
+    if ( posInIntFaceComm[*pos]<0 ) {
+      /* Give the available memory to the mesh */
+      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+      return -1;
+    }
+
+    /* 2) Add the point in the list of interface faces of the group */
+    iploc = iplocFaceComm[*pos];
+    assert ( iploc >=0 );
+
+    if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
+                           posInIntFaceComm[*pos] ) ) {
+      return 0;
+    }
+    /* Give the available memory to the mesh */
+    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+    return -1;
+  }
+
+  /* Give the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to fill
  * \param grpIdOld index of the group that is splitted in the old list of groups
  * \param grpId index of the group that we create in the list of groups
  * \param ne number of elements in the new group mesh
@@ -568,6 +632,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   size_t           oldMemMax;
   int              *adja,adjidx,vidx,fac,pos,ip,iploc,iplocadj;
   int              tetPerGrp,tet,poi,j,newsize;
+  int              ier;
 
   mesh = grp->mesh;
   met  = grp->met;
@@ -699,37 +764,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
     /* Update element's adjaceny to elements in the new mesh */
     for ( fac = 0; fac < 4; ++fac ) {
 
-      pos   = 4*(tet-1)+1+fac;
-
-      /* Give the available memory to the parmesh */
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
-
-      if ( adja[ fac ] == 0 ) {
-        /** Build the internal communicator for the parallel faces */
-        /* 1) Check if this face has a position in the internal face
-         * communicator. If not, the face is not parallel and we have nothing
-         * to do */
-        if ( posInIntFaceComm[pos]<0 ) {
-          /* Give the available memory to the mesh */
-          PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
-          continue;
-        }
-
-        /* 2) Add the point in the list of interface faces of the group */
-        iploc = iplocFaceComm[pos];
-        assert ( iploc >=0 );
-
-        if ( !PMMG_f2ifcAppend( parmesh, grp, f2ifc_max,12*tetPerGrp+3*fac+iploc,
-                               posInIntFaceComm[pos] ) ) {
-          return 0;
-        }
-        /* Give the available memory to the mesh */
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
-        continue;
-      }
-
-      /* Give the available memory to the mesh */
-      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+      ier = PMMG_splitGrps_updateFaceCommOld( parmesh,grp,mesh,adja,tet,fac,
+          posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,&pos );
+      if( ier == 0 )  return 0;
+      if( ier == -1 ) continue;
 
       adjidx = adja[ fac ] / 4;
       vidx   = adja[ fac ] % 4;
