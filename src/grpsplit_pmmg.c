@@ -819,24 +819,23 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   (*n2inc_max) = ne/3;
 
   /* Loop over tetras and choose the ones to add in the submesh being constructed */
-  tetPerGrp = 0;
   *np       = 0;
-  for ( tet = 1; tet < meshOld->ne + 1; ++tet ) {
+
+  for( tetPerGrp = 1; tetPerGrp <= ne; tetPerGrp++ ) {
+    tetraCur = mesh->tetra + tetPerGrp;
+    tet = tetraCur->flag;
     pt = &meshOld->tetra[tet];
 
     if ( !MG_EOK(pt) ) continue;
 
     /* Skip elements that do not belong in the group processed in this iteration */
-    if ( grpId != part[ tet - 1 ] )
-      continue;
+    assert( grpId == part[ tet - 1 ] );
 
     /** MMG3D_Tetra.flag is used to update adjacency vector:
        if the tetra belongs to the group we store the local tetrahedron id
        in the tet.flag */
-    ++tetPerGrp;
     assert( ( tetPerGrp <= mesh->nemax ) && "overflowing tetra array?" );
-    tetraCur = mesh->tetra + tetPerGrp;
-    pt->flag = tetPerGrp;
+    assert( pt->flag == tetPerGrp );
 
     /* add tetrahedron to subgroup (copy from original group) */
     memcpy( tetraCur, pt, sizeof(MMG5_Tetra) );
@@ -987,7 +986,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
     }
 
   }
-  assert( (mesh->ne == tetPerGrp) && "Error in the tetra count" );
+  assert( (mesh->ne == ne) && "Error in the tetra count" );
 
   /* Give the available memory to the parmesh */
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
