@@ -1454,12 +1454,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
     goto fail_part;
   }
 
-  /* count_per_grp: how many elements per group are there? */
+  /* count_per_grp: count new tetra per group, and store new ID in the old
+   * tetra flag */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
               ret_val = 0;goto fail_part);
-  for ( tet = 0; tet < meshOld->ne ; ++tet )
-    ++countPerGrp[ part[ tet ] ];
-
+  PMMG_splitGrps_countTetPerGrp( parmesh,meshOld,part,countPerGrp );
+  
   /* Allocate list of subgroups struct and allocate memory */
   PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
               ret_val = 0; goto fail_counters);
