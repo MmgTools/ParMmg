@@ -1152,16 +1152,21 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
   MMG5_pMesh meshOld,meshCur;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
    *  actual node2int_node_comm */
-  int n2inc_max,f2ifc_max;
-  n2inc_max = f2ifc_max = 0;
+  int *n2inc_max,*f2ifc_max,*poiPerGrp;
   size_t memAv,oldMemMax;
-  int poiPerGrp = 0;
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, fac, ie;
   int ret_val = 1;
  
   grpOld  = &parmesh->listgrp[grpIdOld];
   meshOld = grpOld->mesh;
+
+  PMMG_CALLOC(parmesh,n2inc_max,ngrp,int,"n2inc_max",
+              ret_val = 0;goto fail_facePos);
+  PMMG_CALLOC(parmesh,f2ifc_max,ngrp,int,"f2ifc_max",
+              ret_val = 0;goto fail_facePos);
+  PMMG_CALLOC(parmesh,poiPerGrp,ngrp,int,"poiPerGrp",
+              ret_val = 0;goto fail_facePos);
 
   /* Use the posInIntFaceComm array to remember the position of the tetra faces
    * in the internal face communicator */
@@ -1214,7 +1219,8 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
 
     /** New group initialisation */
     if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],grpIdOld,&memAv,
-                                  countPerGrp[grpId],&f2ifc_max,&n2inc_max) ) {
+                                  countPerGrp[grpId],&f2ifc_max[grpId],
+                                  &n2inc_max[grpId]) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
               " group (%d).\n",__func__,grpId);
       ret_val = -1;
@@ -1236,8 +1242,9 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     meshCur = grpCur->mesh;
 
     if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpIdOld,grpId,
-                                   countPerGrp[grpId],&poiPerGrp,&f2ifc_max,
-                                   &n2inc_max,part,posInIntFaceComm,
+                                   countPerGrp[grpId],&poiPerGrp[grpId],
+                                   &f2ifc_max[grpId],
+                                   &n2inc_max[grpId],part,posInIntFaceComm,
                                    iplocFaceComm,&memAv) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to fill new group (%d).\n",
               __func__,grpId);
@@ -1246,7 +1253,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     }
 
     /* Mesh cleaning in the new group */
-    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp) ) {
+    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp[grpId]) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
       ret_val = -1;
@@ -1266,20 +1273,20 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
 
     /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
-                  grpCur->nitem_int_node_comm, n2inc_max, int,
+                  grpCur->nitem_int_node_comm, n2inc_max[grpId], int,
                   "subgroup internal1 communicator ",
                   ret_val = -1;goto fail_sgrp );
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index2,
-                  grpCur->nitem_int_node_comm, n2inc_max, int,
+                  grpCur->nitem_int_node_comm, n2inc_max[grpId], int,
                   "subgroup internal2 communicator ",
                   ret_val = -1;goto fail_sgrp );
-    n2inc_max = grpCur->nitem_int_node_comm;
+    n2inc_max[grpId] = grpCur->nitem_int_node_comm;
     PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index1,
-                  grpCur->nitem_int_face_comm, f2ifc_max, int,
+                  grpCur->nitem_int_face_comm, f2ifc_max[grpId], int,
                   "subgroup interface faces communicator ",
                   ret_val = -1;goto fail_sgrp );
     PMMG_RECALLOC(parmesh, grpCur->face2int_face_comm_index2,
-                  grpCur->nitem_int_face_comm, f2ifc_max, int,
+                  grpCur->nitem_int_face_comm, f2ifc_max[grpId], int,
                   "subgroup interface faces communicator ",
                   ret_val = -1;goto fail_sgrp );
 
@@ -1332,6 +1339,9 @@ fail_sgrp:
   /* these labels should be executed as part of normal code execution before
      returning as well as error handling */
 fail_facePos:
+  PMMG_DEL_MEM(parmesh,n2inc_max,int,"n2inc_max");
+  PMMG_DEL_MEM(parmesh,f2ifc_max,int,"f2ifc_max");
+  PMMG_DEL_MEM(parmesh,poiPerGrp,int,"poiPerGrp");
   PMMG_DEL_MEM(parmesh,iplocFaceComm,int,
                "starting vertices of the faces of face2int_face_comm_index1");
 
