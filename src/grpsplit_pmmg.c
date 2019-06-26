@@ -1209,7 +1209,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
   memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[grpIdOld].mesh->memCur;
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
-    /** New group filling */
+    /** New group */
     grpCur  = &grpsNew[grpId];
 
     /** New group initialisation */
@@ -1220,6 +1220,19 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
       ret_val = -1;
       goto fail_sgrp;
     }
+  }
+
+  /* Store index of the old tetra in the new tetra field, for all grps */
+  for ( ie = 1; ie <= meshOld->ne; ie++ ) {
+    grpId = part[ ie-1 ];
+    grpCur  = &grpsNew[grpId];
+    meshCur = grpCur->mesh;
+    meshCur->tetra[ meshOld->tetra[ie].flag ].flag = ie;
+  }
+
+  for ( grpId = 0; grpId < ngrp; ++grpId ) {
+    /** New group filling */
+    grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
 
     if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpIdOld,grpId,
