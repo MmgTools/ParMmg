@@ -73,14 +73,24 @@ IF( BUILD_TESTING )
 
     # Option with arguments
     SET ( OPTION
-      "-v 5"
-      "-hsiz 0.02"
-      "-hausd 0.005"
-      "-hgrad 1.1"
-      "-hgrad -1"
-      "-hmax 0.05"
+      "-v"
+      "-hsiz"
+      "-hausd"
+      "-hgrad"
+      "-hgrad"
+      "-hmax"
       "-nr"
-      "-ar 10" )
+      "-ar" )
+
+    SET ( VAL
+      "5"
+      "0.02"
+      "0.005"
+      "1.1"
+      "-1"
+      "0.05"
+      ""
+      "10" )
 
     SET ( NAME
       "v5"
@@ -92,17 +102,18 @@ IF( BUILD_TESTING )
       "nr"
       "ar10" )
 
-    LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
+    LIST(LENGTH OPTION nbTests_tmp)
     MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
     FOREACH ( test_idx RANGE ${nbTests} )
       LIST ( GET OPTION  ${test_idx} test_option )
+      LIST ( GET VAL     ${test_idx} test_val )
       LIST ( GET NAME    ${test_idx} test_name )
 
       FOREACH( NP 1 6 8 )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${test_option}
+          ${test_option} ${test_val}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh ${myargs} )
       ENDFOREACH()
