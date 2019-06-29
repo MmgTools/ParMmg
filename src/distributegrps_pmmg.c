@@ -2717,21 +2717,8 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
     }
   }
 
-  /** Step 3: pack the groups and face communicators */
-  err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
-  ier = MG_MIN ( ier, err );
-  if ( (!parmesh->ngrp) && parmesh->ddebug ) {
-    fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
-            __func__,myrank);
-  }
 
-  if ( ier ) {
-    /* Pack the face communicators */
-    err = PMMG_pack_faceCommunicators(parmesh);
-    ier = MG_MIN ( ier, err );
-  }
-
-  /** Step 4: Wait for the end of the MPI communications */
+  /** Step 3: Wait for the end of the MPI communications */
   if ( myrank == sndr) {
     MPI_CHECK( MPI_Waitall(nprocs,trequest,MPI_STATUSES_IGNORE), return 0 );
     PMMG_DEL_MEM ( parmesh, trequest,MPI_Request,"request_tab" );
@@ -2744,6 +2731,20 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   }
   else if ( myrank == recv ) {
     MPI_CHECK( MPI_Wait(&irequest,&status), return 0 );
+  }
+
+  /** Step 4: pack the groups and face communicators */
+  err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
+  ier = MG_MIN ( ier, err );
+  if ( (!parmesh->ngrp) && parmesh->ddebug ) {
+    fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
+            __func__,myrank);
+  }
+
+  if ( ier ) {
+    /* Pack the face communicators */
+    err = PMMG_pack_faceCommunicators(parmesh);
+    ier = MG_MIN ( ier, err );
   }
 
   PMMG_DEL_MEM ( parmesh,intcomm_flag,int,"intcomm_flag" );
