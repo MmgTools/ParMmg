@@ -9,7 +9,8 @@ IF( BUILD_TESTING )
   IF ( NOT ONLY_LIBRARY_TESTS )
     set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
 
-    set ( myargs -niter 2 -mesh-size 16384 -metis-ratio 82 -v 5 )
+    set ( mesh_size 16384 )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -19,7 +20,7 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
-          -m 11000 ${myargs})
+          -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
     endforeach()
 
@@ -30,7 +31,8 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
           -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
-          -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -42,7 +44,8 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Torus/torusholes.mesh
           -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
-          -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -57,7 +60,8 @@ IF( BUILD_TESTING )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-        -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh  ${myargs} )
+        -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
+        -mesh-size ${mesh_size} ${myargs} )
     endforeach()
 
     # Option without arguments
@@ -67,7 +71,8 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-          -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -102,20 +107,32 @@ IF( BUILD_TESTING )
       "nr"
       "ar10" )
 
+    SET ( MESH_SIZE
+      "16384"
+      "163840"
+      "16384"
+      "16384"
+      "16384"
+      "16384"
+      "16384"
+      "16384" )
+
     LIST(LENGTH OPTION nbTests_tmp)
     MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
     FOREACH ( test_idx RANGE ${nbTests} )
-      LIST ( GET OPTION  ${test_idx} test_option )
-      LIST ( GET VAL     ${test_idx} test_val )
-      LIST ( GET NAME    ${test_idx} test_name )
+      LIST ( GET OPTION    ${test_idx} test_option )
+      LIST ( GET VAL       ${test_idx} test_val )
+      LIST ( GET NAME      ${test_idx} test_name )
+      LIST ( GET MESH_SIZE ${test_idx} test_mesh_size )
 
       FOREACH( NP 1 6 8 )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${test_option} ${test_val}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-          -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh ${myargs} )
+          -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
+          -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
     ENDFOREACH ( )
 
