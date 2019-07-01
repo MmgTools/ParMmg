@@ -132,7 +132,7 @@ IF( BUILD_TESTING )
           ${test_option} ${test_val}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
-          -mesh-size ${test_mesh_size} ${myargs} )
+          -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
     ENDFOREACH ( )
 
