@@ -89,7 +89,7 @@ IF( BUILD_TESTING )
 
     SET ( VAL
       "5"
-      "0.02"
+      "0.05"
       "0.005"
       "1.1"
       "-1"
@@ -99,7 +99,7 @@ IF( BUILD_TESTING )
 
     SET ( NAME
       "v5"
-      "hsiz0.02"
+      "hsiz0.05"
       "hausd0.005"
       "hgrad1.1"
       "nohgrad"
