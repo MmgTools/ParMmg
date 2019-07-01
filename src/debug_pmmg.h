@@ -12,6 +12,7 @@ void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int n
 int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename );
 int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename );
 int PMMG_listgrp_quality_to_saveMesh( PMMG_pParMesh parmesh, char *basename );
+int PMMG_listgrp_mark_to_saveMesh( PMMG_pParMesh parmesh, char *basename );
 void PMMG_print_ext_comm( PMMG_pParMesh parmesh, PMMG_pInt_comm int_comm,
                           PMMG_pExt_comm ext_comm, int next_comm );
 void PMMG_dump_malloc_allocator_info( char *msg, int id );
