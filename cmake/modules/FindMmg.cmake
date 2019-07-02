@@ -318,7 +318,6 @@ if (MMG_LIBRARIES)
     set(MMG_DIR_FOUND "${first_lib_path}" CACHE PATH "Installation directory of MMG library" FORCE)
   endif()
 endif()
-mark_as_advanced(MMG_DIR)
 mark_as_advanced(MMG_DIR_FOUND)
 
 # check that MMG has been found
