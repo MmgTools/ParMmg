@@ -131,91 +131,141 @@ ENDIF()
 #####        MMG (for mesh data structure)
 #####
 ############################################################################
-SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
+INCLUDE ( ExternalProject )
 
-FIND_PACKAGE(Mmg)
+OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
-IF(NOT MMG_FOUND )
-  MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
-    "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-    "If you have already installed Mmg and want to use it, "
-    "please set the CMake variable or environment variable MMG_DIR "
-    "to your mmg directory and the CMake variable or environment variable"
-    " MMG_BUILDDIR "
-    "to your mmg build directory.")
-ELSE()
-  INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+IF ( DOWNLOAD_MMG )
+  UNSET(MMG_DIR CACHE)
+  UNSET(MMG_BUILDDIR CACHE)
 
+  EXTERNALPROJECT_ADD ( Mmg
+    GIT_REPOSITORY https://github.com/MmgTools/mmg.git
+    GIT_TAG 6aacafb9
+    INSTALL_COMMAND  echo "DISABLED"
+    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=OFF  -DBUILD=MMG3D )
+
+  EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
+  SET ( MMG_BINARY_DIR ${BINARY_DIR} )
+  EXTERNALPROJECT_GET_PROPERTY ( Mmg SOURCE_DIR )
+  SET ( MMG_SOURCE_DIR ${SOURCE_DIR} )
+
+  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
+
+  SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d.a)
   MESSAGE(STATUS
-    "Compilation with Mmg: ${MMG_LIBRARIES}")
-  SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
+    "Compilation with Mmg: ${MMG3D_LIBRARY}")
+  SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
 
   # Additionnal directories to access the Mmg sources
-  INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
-  IF ( MMG_DIR )
-    INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
-    INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-    INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
-  ELSE ( )
-    MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
+  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/src/common)
+  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/mmg3d)
+  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
+
+ELSE ( )
+  MESSAGE ( "Manual installation of Mmg:")
+  MESSAGE ( " please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+
+  SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
+  SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
+
+  FIND_PACKAGE(Mmg)
+
+  IF(NOT MMG_FOUND )
+    MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
       "(see https://github.com/MmgTools/mmg and  download the branch develop)."
       "If you have already installed Mmg and want to use it, "
       "please set the CMake variable or environment variable MMG_DIR "
-      "to your mmg directory.")
+      "to your mmg directory and the CMake variable or environment variable"
+      " MMG_BUILDDIR "
+      "to your mmg build directory.")
+  ELSE()
+    INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+
+    MESSAGE(STATUS
+      "Compilation with Mmg: ${MMG_LIBRARIES}")
+    SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
+
+    # Additionnal directories to access the Mmg sources
+    INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
+    IF ( MMG_DIR )
+      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
+      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
+      INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+    ELSE ( )
+      MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
+        "(see https://github.com/MmgTools/mmg and  download the branch develop)."
+        "If you have already installed Mmg and want to use it, "
+        "please set the CMake variable or environment variable MMG_DIR "
+        "to your mmg directory.")
+    ENDIF ( )
   ENDIF ( )
-ENDIF ( )
-
-############################################################################
-#####
-#####        Mmg PATTERN?
-#####
-############################################################################
-
-FILE(READ ${MMG_BUILDDIR_INTERNAL}/CMakeFiles/libmmg_a.dir/flags.make TMPTXT)
-STRING(FIND "${TMPTXT}" "PATTERN" matchres)
-
-IF(${matchres} EQUAL -1)
-  SET ( PATTERN OFF )
-ELSE ( )
-  SET ( PATTERN ON )
-  SET(CMAKE_C_FLAGS "-DPATTERN ${CMAKE_C_FLAGS}")
 ENDIF()
 
 ############################################################################
 #####
-#####        Metis
+#####        Metis / ParMetis
 #####
 ############################################################################
-# add metis library?
-SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
+OPTION ( DOWNLOAD_METIS "Download and build automatically Metis/ParMetis." ON )
 
-FIND_PACKAGE(Metis)
+IF ( DOWNLOAD_METIS )
+  UNSET ( METIS_DIR CACHE )
 
-IF( METIS_FOUND)
-  OPTION ( USE_METIS "Detected METIS Tool" ON)
-  IF( USE_METIS )
-    # Set flags for building test program
-    INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
+  # Metis
+  EXTERNALPROJECT_ADD ( Metis
+    URL http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz
+    UPDATE_COMMAND ""
+    CONFIGURE_COMMAND ${CMAKE_MAKE_PROGRAM} config prefix=../../../Metis-install
+    BUILD_IN_SOURCE 1
+    BUILD_COMMAND unset MFLAGS && unset MAKEFLAGS && unset MAKELEVEL && ${CMAKE_MAKE_PROGRAM}
+    INSTALL_COMMAND unset MFLAGS && unset MAKEFLAGS && unset MAKELEVEL && ${CMAKE_MAKE_PROGRAM} install
+    )
 
-    SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+  EXTERNALPROJECT_GET_PROPERTY(Metis SOURCE_DIR)
+  SET ( METIS_INSTALL_DIR ${SOURCE_DIR}/../Metis-install)
 
-    MESSAGE(STATUS
-      "Compilation with metis: ${METIS_LIBRARIES}")
-    SET( LIBRARIES ${METIS_LIBRARIES} ${LIBRARIES})
-  ENDIF()
+  INCLUDE_DIRECTORIES(${METIS_INSTALL_DIR}/include)
+  SET ( METIS_LIBRARIES ${METIS_INSTALL_DIR}/lib/libmetis.a )
+
+  SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+
+  MESSAGE(STATUS
+    "Compilation with metis: ${METIS_LIBRARIES}")
+  SET( LIBRARIES ${METIS_LIBRARIES} ${LIBRARIES})
+
 ELSE ( )
-  MESSAGE(STATUS ${METIS_INCLUDE_DIR} ${METIS_LIBRARIES} )
+  # add metis library?
+  SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 
-  MESSAGE ( ERROR " Metis library not found: "
-    "If you have already installed Metis and want to use it, "
-    "please set the CMake variable or environment variable METIS_DIR "
-    "to your metis directory.")
-ENDIF ( )
+  FIND_PACKAGE(Metis)
 
-IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
-  MESSAGE ( WARNING "Metis integer uses ${METIS_INTSIZE} bytes."
-    " Only int32 are supported." )
+  IF( METIS_FOUND)
+    OPTION ( USE_METIS "Detected METIS Tool" ON)
+    IF( USE_METIS )
+      # Set flags for building test program
+      INCLUDE_DIRECTORIES(${METIS_INCLUDE_DIRS})
+
+      SET(CMAKE_C_FLAGS "-DUSE_METIS ${CMAKE_C_FLAGS}")
+
+      MESSAGE(STATUS
+        "Compilation with metis: ${METIS_LIBRARIES}")
+      SET( LIBRARIES ${METIS_LIBRARIES} ${LIBRARIES})
+    ENDIF()
+  ELSE ( )
+    MESSAGE(STATUS ${METIS_INCLUDE_DIR} ${METIS_LIBRARIES} )
+
+    MESSAGE ( ERROR " Metis library not found: "
+      "If you have already installed Metis and want to use it, "
+      "please set the CMake variable or environment variable METIS_DIR "
+      "to your metis directory.")
+  ENDIF ( )
+
+  IF ( NOT ${METIS_INTSIZE} EQUAL 4 )
+    MESSAGE ( WARNING "Metis integer uses ${METIS_INTSIZE} bytes."
+      " Only int32 are supported." )
+  ENDIF ( )
+
 ENDIF ( )
 
 ############################################################################
@@ -223,50 +273,31 @@ ENDIF ( )
 #####        ParMetis
 #####
 ############################################################################
+
 # add parmetis library?
-SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
-FIND_PACKAGE(Parmetis)
-
-IF( PARMETIS_FOUND)
-  OPTION ( USE_PARMETIS "Detected PARMETIS TOOL" ON)
-  IF( USE_PARMETIS )
-    # Set flags for building test program
-    INCLUDE_DIRECTORIES(${PARMETIS_INCLUDE_DIRS})
-
-    SET(CMAKE_C_FLAGS "-DUSE_PARMETIS ${CMAKE_C_FLAGS}")
-
-    MESSAGE(STATUS
-      "Compilation with parmetis: ${PARMETIS_LIBRARIES}")
-    SET( LIBRARIES ${PARMETIS_LIBRARIES} ${LIBRARIES})
-  ENDIF()
-ELSE ( )
-#  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
+#SET(PARMETIS_DIR "" CACHE PATH "Installation directory for parmetis")
+#FIND_PACKAGE(Parmetis)
 #
-#  MESSAGE ( ERROR " parmetis library not found: "
-#    "If you have already installed ParMetis and want to use it, "
-#    "please set the CMake variable or environment variable PARMETIS_DIR "
-#    "to your parmetis directory.")
-ENDIF ( )
-
-############################################################################
-#####
-#####         Scotch
-#####
-############################################################################
-# Find SCOTCH library?
-INCLUDE(cmake/modules/FindScotch.cmake)
-
-SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-FIND_PACKAGE(Scotch)
-
-CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
-  "SCOTCH_FOUND" OFF)
-
-IF( USE_SCOTCH )
-  # Scotch renumbering doesn't work for now
-  #  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
-ENDIF()
+#IF( PARMETIS_FOUND)
+#  OPTION ( USE_PARMETIS "Detected PARMETIS TOOL" ON)
+#  IF( USE_PARMETIS )
+#    # Set flags for building test program
+#    INCLUDE_DIRECTORIES(${PARMETIS_INCLUDE_DIRS})
+#
+#    SET(CMAKE_C_FLAGS "-DUSE_PARMETIS ${CMAKE_C_FLAGS}")
+#
+#    MESSAGE(STATUS
+#      "Compilation with parmetis: ${PARMETIS_LIBRARIES}")
+#    SET( LIBRARIES ${PARMETIS_LIBRARIES} ${LIBRARIES})
+#  ENDIF()
+#ELSE ( )
+#  #  MESSAGE(STATUS ${PARMETIS_INCLUDE_DIR} ${PARMETIS_LIBRARY} )
+#  #
+#  #  MESSAGE ( ERROR " parmetis library not found: "
+#  #    "If you have already installed ParMetis and want to use it, "
+#  #    "please set the CMake variable or environment variable PARMETIS_DIR "
+#  #    "to your parmetis directory.")
+#ENDIF ( )
 
 ############################################################################
 #####
@@ -276,8 +307,7 @@ ENDIF()
 
 IF (NOT WIN32)
 
-  ADD_EXECUTABLE(genheader ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
-  TARGET_LINK_LIBRARIES ( genheader ${LIBRARIES}  )
+  ADD_EXECUTABLE(genheader_pmmg ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
 
   GENERATE_FORTRAN_HEADER ( pmmgtypes
     ${PMMG_SOURCE_DIR} libparmmgtypes.h
@@ -340,6 +370,15 @@ OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
+
+  IF ( DOWNLOAD_MMG )
+    Add_Dependencies(libparmmg_a Mmg)
+  ENDIF ( )
+
+  IF ( DOWNLOAD_METIS )
+    Add_Dependencies(libparmmg_a Metis)
+  ENDIF ( )
+
 ENDIF()
 
 # Compile shared library
@@ -347,6 +386,15 @@ OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
+
+  IF ( DOWNLOAD_MMG )
+    Add_Dependencies(libparmmg_so Mmg)
+  ENDIF ( )
+
+  IF ( DOWNLOAD_METIS )
+    Add_Dependencies(libparmmg_so Metis)
+  ENDIF ( )
+
 ENDIF()
 
 # parmmg header files needed for library
@@ -374,6 +422,14 @@ FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
 ###############################################################################
 ADD_AND_INSTALL_EXECUTABLE ( ${PROJECT_NAME}
   "${pmmg_library_files}" ${pmmg_main_file} )
+
+IF ( DOWNLOAD_MMG )
+  Add_Dependencies(parmmg Mmg)
+ENDIF ( )
+
+IF ( DOWNLOAD_METIS )
+  Add_Dependencies(parmmg Metis)
+ENDIF ( )
 
 ###############################################################################
 #####

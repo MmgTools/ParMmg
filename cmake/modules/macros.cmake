@@ -11,10 +11,10 @@ MACRO ( GENERATE_FORTRAN_HEADER name
   # the custom command and thus allow parallel build.
   ADD_CUSTOM_COMMAND (
     OUTPUT ${out_dir}/${out_file}
-    COMMAND genheader ${out_dir}/${out_file} ${in_dir}/${in_file} ${include_dir}
+    COMMAND genheader_pmmg ${out_dir}/${out_file} ${in_dir}/${in_file} ${include_dir}
     ${PROJECT_SOURCE_DIR}/scripts/genfort.pl
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
-    DEPENDS genheader ${in_dir}/${in_file}
+    DEPENDS genheader_pmmg ${in_dir}/${in_file}
     ${PROJECT_SOURCE_DIR}/scripts/genfort.pl
     COMMENT "Generating Fortran header for ${name}"
     )
