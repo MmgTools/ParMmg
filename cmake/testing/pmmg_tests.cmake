@@ -9,7 +9,8 @@ IF( BUILD_TESTING )
   IF ( NOT ONLY_LIBRARY_TESTS )
     set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
 
-    set ( myargs -niter 2 -mesh-size 16384 -metis-ratio 82 -v 5 )
+    set ( mesh_size 16384 )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -19,7 +20,7 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
-          -m 11000 ${myargs})
+          -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
     endforeach()
 
@@ -30,7 +31,8 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
           -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
-          -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -42,7 +44,8 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR_INPUTS}/Torus/torusholes.mesh
           -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
-          -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -57,7 +60,8 @@ IF( BUILD_TESTING )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-        -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh  ${myargs} )
+        -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
+        -mesh-size ${mesh_size} ${myargs} )
     endforeach()
 
     # Option without arguments
@@ -67,24 +71,35 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-          -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh  ${myargs} )
+          -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
     # Option with arguments
     SET ( OPTION
-      "-v 5"
-      "-hsiz 0.02"
-      "-hausd 0.005"
-      "-hgrad 1.1"
-      "-hgrad -1"
-      "-hmax 0.05"
+      "-v"
+      "-hsiz"
+      "-hausd"
+      "-hgrad"
+      "-hgrad"
+      "-hmax"
       "-nr"
-      "-ar 10" )
+      "-ar" )
+
+    SET ( VAL
+      "5"
+      "0.05"
+      "0.005"
+      "1.1"
+      "-1"
+      "0.05"
+      ""
+      "10" )
 
     SET ( NAME
       "v5"
-      "hsiz0.02"
+      "hsiz0.05"
       "hausd0.005"
       "hgrad1.1"
       "nohgrad"
@@ -92,19 +107,32 @@ IF( BUILD_TESTING )
       "nr"
       "ar10" )
 
-    LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
+    SET ( MESH_SIZE
+      "16384"
+      "163840"
+      "16384"
+      "16384"
+      "16384"
+      "16384"
+      "16384"
+      "16384" )
+
+    LIST(LENGTH OPTION nbTests_tmp)
     MATH(EXPR nbTests "${nbTests_tmp} - 1")
 
     FOREACH ( test_idx RANGE ${nbTests} )
-      LIST ( GET OPTION  ${test_idx} test_option )
-      LIST ( GET NAME    ${test_idx} test_name )
+      LIST ( GET OPTION    ${test_idx} test_option )
+      LIST ( GET VAL       ${test_idx} test_val )
+      LIST ( GET NAME      ${test_idx} test_name )
+      LIST ( GET MESH_SIZE ${test_idx} test_mesh_size )
 
       FOREACH( NP 1 6 8 )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${test_option}
+          ${test_option} ${test_val}
           ${CI_DIR_INPUTS}/Sphere/sphere.mesh
-          -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh ${myargs} )
+          -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
+          -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
     ENDFOREACH ( )
 
@@ -119,6 +147,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS
     libparmmg_centralized_auto_example0
+    libparmmg_centralized_auto_cpp_example0
     libparmmg_centralized_manual_example0_io_0
     libparmmg_centralized_manual_example0_io_1
     #libparmmg_distributed_manual_example0
@@ -126,6 +155,7 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_MAIN_PATH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
@@ -133,12 +163,14 @@ IF( BUILD_TESTING )
 
   SET ( PMMG_LIB_TESTS_INPUTMESH
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     ""
     ""
     #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMET
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ""
     ""
@@ -149,17 +181,20 @@ IF( BUILD_TESTING )
     ""
     ""
     ""
+    ""
     #""
     )
 
   SET ( PMMG_LIB_TESTS_OUTPUTMESH
     ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
+    ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
     #${CI_DIR_RESULTS}/io-seq-par-cube.o
     )
 
   SET ( PMMG_LIB_TESTS_OPTIONS
+    "-met"
     "-met"
     "0"
     "1"
@@ -176,20 +211,11 @@ IF( BUILD_TESTING )
   ENDIF ( )
 
   #####         Fortran Tests
-  IF ( CMAKE_Fortran_COMPILER )
-    ENABLE_LANGUAGE ( Fortran )
 
-    FIND_PACKAGE( MPI COMPONENTS Fortran REQUIRED )
-
-    IF ( MPI_Fortran_FOUND )
-      SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
-      SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
-      SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
-
-    ELSE ( )
-      MESSAGE(FATAL_ERROR " Fortran MPI library not found")
-    ENDIF ( )
-
+  IF ( MPI_Fortran_FOUND )
+    SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+    SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+    SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
 
     LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
       # libparmmg_centralized_manual_example0_io_0
@@ -238,11 +264,13 @@ IF( BUILD_TESTING )
       #"1"
       #"-met"
       )
-  ENDIF ( CMAKE_Fortran_COMPILER )
-
+  ENDIF ( )
 
   LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
   MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+  LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
+  LIST ( APPEND lib_name ${MPI_CXX_LIBRARIES})
 
   FOREACH ( test_idx RANGE ${nbTests} )
     LIST ( GET PMMG_LIB_TESTS            ${test_idx} test_name )
@@ -252,8 +280,6 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
-
-    LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
 

@@ -172,23 +172,25 @@ int PMMG_create_MPI_lightTetra(MPI_Datatype *mpi_light_tetra)
 int PMMG_create_MPI_Tetra(MPI_Datatype *mpi_tetra)
 {
   MMG5_Tetra   tetra[2];
-  int          i,blck_lengths[4] = {4, 1, 1, 1};
-  MPI_Aint     displs[4],lb,ub;
+  int          i,blck_lengths[6] = {4, 1, 1, 1, 1, 1};
+  MPI_Aint     displs[6],lb,ub;
   MPI_Datatype mpi_noextent;
-  MPI_Datatype types[4] = {MPI_INT,MPI_INT,MPI_INT,MPI_INT16_T};
+  MPI_Datatype types[6] = {MPI_INT,MPI_INT,MPI_INT,MPI_INT16_T,MPI_INT,MPI_DOUBLE};
 
    MPI_CHECK( MPI_Get_address(&(tetra[0]),      &lb),return 0);
    MPI_CHECK( MPI_Get_address(&(tetra[0].v[0]), &displs[0]),return 0);
    MPI_CHECK( MPI_Get_address(&(tetra[0].ref),  &displs[1]),return 0);
    MPI_CHECK( MPI_Get_address(&(tetra[0].xt),   &displs[2]),return 0);
    MPI_CHECK( MPI_Get_address(&(tetra[0].tag),  &displs[3]),return 0);
+   MPI_CHECK( MPI_Get_address(&(tetra[0].mark), &displs[4]),return 0);
+   MPI_CHECK( MPI_Get_address(&(tetra[0].qual), &displs[5]),return 0);
    MPI_CHECK( MPI_Get_address(&(tetra[1]),      &ub),return 0);
 
   /* Relative displacement from field 0 to field i */
-  for ( i=3 ; i>= 0; --i )
+  for ( i=5 ; i>= 0; --i )
     displs[i] -= lb;
 
-  MPI_CHECK( MPI_Type_create_struct(4, blck_lengths, displs, types, &mpi_noextent),
+  MPI_CHECK( MPI_Type_create_struct(6, blck_lengths, displs, types, &mpi_noextent),
              return 0);
 
   MPI_CHECK( MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_tetra),return 0);

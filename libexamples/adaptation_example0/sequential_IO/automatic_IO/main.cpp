@@ -6,14 +6,17 @@
  * \copyright GNU Lesser General Public License.
  */
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <string.h>
-#include <ctype.h>
-#include <math.h>
-#include <float.h>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include <csignal>
+#include <string>
+#include <cctype>
+#include <cmath>
+#include <cfloat>
+#include <iostream>
+
+using namespace std;
 
 /** Include the parmmg library hader file */
 // if the header file is in the "include" directory
@@ -24,16 +27,12 @@
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
   int             ier,rank,i,nsols;
-  char            *filename,*metname,*solname,*fileout,*tmp;
+  string          filename,metname,solname,fileout,tmp;
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
   if ( !rank ) fprintf(stdout,"  -- TEST PARMMGLIB \n");
-
-  solname = NULL;
-  metname = NULL;
-  tmp     = NULL;
 
   if ( (argc<3) && !rank ) {
     printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile] \n",argv[0]);
@@ -41,42 +40,26 @@ int main(int argc,char *argv[]) {
   }
 
   /* Name and path of the mesh file */
-  filename = (char *) calloc(strlen(argv[1]) + 1, sizeof(char));
-  if ( filename == NULL ) {
-    perror("  ## Memory problem: calloc");
-    MPI_Abort(MPI_COMM_WORLD,2);
-    exit(EXIT_FAILURE);
-  }
-  strcpy(filename,argv[1]);
-
-  fileout = (char *) calloc(strlen(argv[2]) + 1, sizeof(char));
-  if ( fileout == NULL ) {
-    perror("  ## Memory problem: calloc");
-    MPI_Abort(MPI_COMM_WORLD,2);
-    exit(EXIT_FAILURE);
-  }
-  strcpy(fileout,argv[2]);
+  filename = argv[1];
+  fileout = argv[2];
 
   i = 2;
   while ( ++i<argc ) {
-    tmp = (char *) calloc(strlen(argv[i]) + 1, sizeof(char));
-    strcpy(tmp,argv[i]);
+    tmp = argv[i];
 
-    if ( (!strcmp(tmp, "-met"))||(!strcmp(tmp, "-sol")) ) {
-      metname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
-      strcpy(metname,argv[i+1]);
+    if ( tmp.compare("-met")==0 || tmp.compare("-sol")==0 ) {
+      metname = argv[i+1];
       ++i;
     }
 
-    else if ( !strcmp(tmp,"-solphys") ) {
-      solname = (char *) calloc(strlen(argv[i+1]) + 1, sizeof(char));
-      strcpy(solname,argv[i+1]);
+    else if ( tmp.compare("-solphys")==0 ) {
+      solname = argv[i+1];
       ++i;
     }
 
     else {
-      printf("Unexpected argument: %s \n",tmp);
-      MPI_Abort(MPI_COMM_WORLD,2);
+      std::cout << "Unexpected argument " << tmp << std::endl;
+      MPI_Finalize();
       return 1;
     }
   }
@@ -109,7 +92,7 @@ int main(int argc,char *argv[]) {
       PMMG_Set* functions */
 
   /** with PMMG_loadMesh_centralized function */
-  if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 ) {
+  if ( PMMG_loadMesh_centralized(parmesh,filename.c_str()) != 1 ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
@@ -120,13 +103,8 @@ int main(int argc,char *argv[]) {
       functions */
 
   /** With PMMG_loadMet_centralized function */
-  if ( metname ) {
-    if ( PMMG_loadMet_centralized(parmesh,metname) != 1 ) {
-      printf("Unable to load metric file.\n");
-      MPI_Abort(MPI_COMM_WORLD,2);
-      exit(EXIT_FAILURE);
-    }
-  }
+  if ( !metname.empty() )
+    PMMG_loadMet_centralized(parmesh,metname.c_str());
 
   /** 4) Build solutions in PMMG format */
   /** Two solutions: just use the PMMG_loadAllSols_centralized function that
@@ -135,13 +113,13 @@ int main(int argc,char *argv[]) {
 
   /** With PMMG_loadAllSols_centralized function */
 
-  if ( solname ) {
-    if ( PMMG_loadAllSols_centralized(parmesh,solname) != 1 ) {
-      printf("Unable to load solutions file.\n");
-      MPI_Abort(MPI_COMM_WORLD,3);
+  if ( !solname.empty() ) {
+    if ( PMMG_loadAllSols_centralized(parmesh,solname.c_str()) != 1 ) {
+      MPI_Finalize();
       exit(EXIT_FAILURE);
     }
   }
+
   /** ------------------------------ STEP  II -------------------------- */
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
@@ -154,13 +132,13 @@ int main(int argc,char *argv[]) {
         using the PMMG_getMesh/PMMG_getSol functions */
 
     /** 1) Automatically save the mesh */
-    if ( PMMG_saveMesh_centralized(parmesh,fileout) != 1 ) {
+    if ( PMMG_saveMesh_centralized(parmesh,fileout.c_str()) != 1 ) {
       fprintf(stdout,"UNABLE TO SAVE MESH\n");
       ier = PMMG_STRONGFAILURE;
     }
 
     /** 2) Automatically save the metric */
-    if ( PMMG_saveMet_centralized(parmesh,fileout) != 1 ) {
+    if ( PMMG_saveMet_centralized(parmesh,fileout.c_str()) != 1 ) {
       fprintf(stdout,"UNABLE TO SAVE METRIC\n");
       ier = PMMG_LOWFAILURE;
     }
@@ -168,7 +146,7 @@ int main(int argc,char *argv[]) {
     /** 3) Automatically save the solutions if needed */
     PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
     if ( nsols ) {
-      if ( PMMG_saveAllSols_centralized(parmesh,fileout) != 1 ) {
+      if ( PMMG_saveAllSols_centralized(parmesh,fileout.c_str()) != 1 ) {
         fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
         ier = PMMG_LOWFAILURE;
       }
@@ -182,12 +160,6 @@ int main(int argc,char *argv[]) {
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,
                 PMMG_ARG_end);
-
-  free(filename);
-  filename = NULL;
-
-  free(fileout);
-  fileout = NULL;
 
   MPI_Finalize();
 

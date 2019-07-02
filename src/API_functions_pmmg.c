@@ -247,7 +247,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   size_t      mem;
-  int         k;
+  int         k,npmax,xpmax,nemax,xtmax;
 
   switch ( iparam ) {
   case PMMG_IPARAM_verbose :
@@ -281,6 +281,14 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
 
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
+
+      /* Mesh reallocation if needed */
+      if ( (mesh->memCur >> MMG5_BITWIZE_MB_TO_B) > mem ) {
+        fprintf(stderr,"\n  ## Error: %s: Maximal memory must be setted "
+                "before reading the mesh.\n",__func__);
+        return 0;
+      }
+
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,(int)mem) ) return 0;
     }
     break;

@@ -40,6 +40,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  * \param mesh pointer to the mesh structure
  * \param pt pointer to the current tetra
  * \param coord pointer to the point coordinates
+ * \param faceAreas oriented face areas of the current tetrahedron
  * \param barycoord pointer to the point barycentric coordinates in the current
  * tetra
  *
@@ -49,25 +50,22 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *
  */
 int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
-                    double *coord, PMMG_baryCoord *barycoord ) {
-  double *c0,*c1,*c2,*c3,vol;
+                    double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
+  double *c0,*normal,vol;
+  int    ifac;
 
-  vol = MMG5_orvol( mesh->point, pt->v );
+  /* Retrieve tetra volume */
+  vol = pt->qual;
 
-  c0 = mesh->point[pt->v[0]].c;
-  c1 = mesh->point[pt->v[1]].c;
-  c2 = mesh->point[pt->v[2]].c;
-  c3 = mesh->point[pt->v[3]].c;
-
-  barycoord[0].val = MMG5_det4pt( coord, c1,    c2,    c3    )/vol;
-  barycoord[1].val = MMG5_det4pt( c0,    coord, c2,    c3    )/vol;
-  barycoord[2].val = MMG5_det4pt( c0,    c1,    coord, c3    )/vol;
-  barycoord[3].val = MMG5_det4pt( c0,    c1,    c2,    coord )/vol;
-
-  barycoord[0].idx = 0;
-  barycoord[1].idx = 1;
-  barycoord[2].idx = 2;
-  barycoord[3].idx = 3;
+  /* Retrieve face areas and compute barycentric coordinates */
+  for( ifac = 0; ifac < 4; ifac++ ) {
+    normal = &faceAreas[3*ifac];
+    c0 = mesh->point[pt->v[MMG5_idir[ifac][0]]].c;
+    barycoord[ifac].val = -( (coord[0]-c0[0])*normal[0] +
+                             (coord[1]-c0[1])*normal[1] +
+                             (coord[2]-c0[2])*normal[2] )/vol;
+    barycoord[ifac].idx = ifac;
+  }
 
   return 1;
 }
@@ -98,6 +96,8 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
  * \param init index of the starting element
+ * \param faceAreas oriented face areas of the all tetrahedra in the mesh
+ * \param barycoord barycentric coordinates of the point to be located
  *
  * \return ie if positive, index of the target element; if negative, index of
  * the closest element; 0 if not found
@@ -105,9 +105,9 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
+int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init, 
+                      double *faceAreas, PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
-  PMMG_baryCoord barycoord[4];
   int            *adja,iel,ip,idxTet,step,closestTet;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
@@ -127,14 +127,14 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
     if ( !MG_EOK(ptr) ) continue;
 
     adja = &mesh->adja[4*(idxTet-1)+1];
-    vol = MMG5_orvol( mesh->point, ptr->v );
+    vol = ptr->qual;
     eps = MMG5_EPS;
 
     /** Mark tetra */
     ptr->flag = mesh->base;
 
     /** Get barycentric coordinates and sort them in ascending order */
-    PMMG_compute_baryCoord(mesh, ptr, ppt->c, barycoord);
+    PMMG_compute_baryCoord(mesh, ptr, ppt->c, &faceAreas[12*idxTet], barycoord);
     qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
     /** Exit if inside the element */
@@ -180,14 +180,14 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
       if ( !MG_EOK(ptr) ) continue;
 
       adja = &mesh->adja[4*(idxTet-1)+1];
-      vol = MMG5_orvol( mesh->point, ptr->v );
+      vol = ptr->qual;
       eps = MMG5_EPS;
 
       /** Mark tetra */
       ptr->flag = mesh->base;
 
       /** Get barycentric coordinates and sort them in ascending order */
-      PMMG_compute_baryCoord(mesh, ptr, ppt->c, barycoord);
+      PMMG_compute_baryCoord(mesh, ptr, ppt->c, &faceAreas[12*idxTet], barycoord);
       qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
       /** Exit if inside the element */
@@ -222,18 +222,19 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init ) {
  * \param oldGrp pointer to the bqckground group structure
  * \param pt pointer to the target background tetrahedron
  * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
  *
  *  Linearly interpolate point metrics on a target background tetrahedron..
  *
  */
-int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,int ip ) {
+int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
+                              int ip,PMMG_baryCoord *phi ) {
   MMG5_pMesh     mesh;
   MMG5_pSol      met,oldMet;
   MMG5_pPoint    ppt;
-  PMMG_baryCoord phi[4];
-  int            iloc,isize,nsize,ier;
+  int            iloc,i,isize,nsize,ier;
 
   met    = grp->met;
   oldMet = oldGrp->met;
@@ -241,14 +242,13 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,int 
   ppt    = &mesh->point[ip];
   nsize  = met->size;
 
-  /** Get barycentric coordinates **/
-  ier = PMMG_compute_baryCoord( oldGrp->mesh, pt, ppt->c, phi );
-
   /** Linear interpolation of the metrics */
   for( isize = 0; isize<nsize; isize++ ) {
     met->m[nsize*ip+isize] = 0.0;
-    for( iloc=0; iloc<4; iloc++ ) {
-      met->m[nsize*ip+isize] += phi[iloc].val*oldMet->m[nsize*pt->v[iloc]+isize];
+    /* Barycentric coordinates could be permuted */
+    for( i=0; i<4; i++ ) {
+      iloc = phi[i].idx;
+      met->m[nsize*ip+isize] += phi[i].val*oldMet->m[nsize*pt->v[iloc]+isize];
     }
   }
 
@@ -270,8 +270,44 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
-  int         igrp,ip,ie,ier;
+  MMG5_pPoint ppt;
+  PMMG_baryCoord barycoord[4];
+  double      **faceAreas,*normal;
+  int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc;
+  int         ier;
   static int  mmgWarn=0;
+
+  /** Pre-compute oriented face areas */
+  PMMG_MALLOC( parmesh,faceAreas,parmesh->nold_grp,double*,"faceAreas pointer",return 0);
+
+  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {
+    grp = &parmesh->old_listgrp[igrp];
+    mesh = grp->mesh;
+
+    ier = 1;
+    PMMG_MALLOC( parmesh,faceAreas[igrp],12*(mesh->ne+1),double,"faceAreas",ier=0 );
+    if( !ier ) {
+      int igrp1;
+      for( igrp1 = 0; igrp1 < igrp; igrp1++ )
+        PMMG_DEL_MEM(parmesh,faceAreas[igrp1],double,"faceAreas");
+      PMMG_DEL_MEM(parmesh,faceAreas,double*,"faceAreas pointer");
+      return 0;
+    }
+
+    for( ie = 1; ie <= mesh->ne; ie++ ) {
+      pt = &mesh->tetra[ie];
+      /* Store tetra volume in the qual field */
+      pt->qual = MMG5_orvol( mesh->point, pt->v );
+      /* Store oriented face normals */
+      for( ifac = 0; ifac < 4; ifac++ ) {
+        normal = &faceAreas[igrp][12*ie+3*ifac];
+        ia = pt->v[MMG5_idir[ifac][0]];
+        ib = pt->v[MMG5_idir[ifac][1]];
+        ic = pt->v[MMG5_idir[ifac][2]];
+        ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
+      }
+    }
+  }
 
 
   /** Loop on current groups */
@@ -304,41 +340,55 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
           pt->flag = oldMesh->base;
         }
 
+        mesh->base++;
+        istart = 1;
+        for( ie = 1; ie <= mesh->ne; ie++ ) {
+          pt = &mesh->tetra[ie];
+          if( !MG_EOK(pt) ) continue;
+          for( iloc = 0; iloc < 4; iloc++ ) {
+            ip = pt->v[iloc];
+            ppt = &mesh->point[ip];
+            if( !MG_VOK(ppt) ) continue;
 
-        ie = 1;
-        for( ip=1; ip<mesh->np+1; ip++ ) {
-          if( !MG_VOK(&mesh->point[ip]) ) continue;
+            /* Skip already interpolated points */
+            if( ppt->flag == mesh->base ) continue;
 
-          /** Locate point in the old mesh */
-          ie = PMMG_locatePoint( oldMesh, &mesh->point[ip], ie );
-          if( !ie ) {
-            fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
-                    " point %d not found, coords %e %e %e\n",__func__,
-                    parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
-                    mesh->point[ip].c[1],mesh->point[ip].c[2]);
-            return 0;
-          } else if( ie < 0 ) {
-            if ( !mmgWarn ) {
-              mmgWarn = 1;
-              if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
-                        " found, coords %e %e %e\n",__func__,parmesh->myrank,
-                        igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                        mesh->point[ip].c[2]);
+            /** Locate point in the old mesh */
+            istart = PMMG_locatePoint( oldMesh, ppt, istart,
+                                       faceAreas[igrp], barycoord );
+            if( !istart ) {
+              fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
+                      " point %d not found, coords %e %e %e\n",__func__,
+                      parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
+                      mesh->point[ip].c[1],mesh->point[ip].c[2]);
+              return 0;
+            } else if( istart < 0 ) {
+              if ( !mmgWarn ) {
+                mmgWarn = 1;
+                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+                  fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
+                          " found, coords %e %e %e\n",__func__,parmesh->myrank,
+                          igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                          mesh->point[ip].c[2]);
+                }
               }
+              istart = -istart;
             }
-            ie = -ie;
+
+            /** Interpolate point metrics */
+            ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
+                                           ip,barycoord);
+
+            /* Flag point as interpolated */
+            ppt->flag = mesh->base;
           }
-
-          pt = &oldMesh->tetra[ie];
-
-          /** Interpolate point metrics */
-          ier = PMMG_interpMetrics_point(grp,oldGrp,pt,ip);
         }
-
       }
     }
 
   }
+  for( igrp = 0; igrp < parmesh->nold_grp; igrp++)
+    PMMG_DEL_MEM( parmesh,faceAreas[igrp],double,"faceAreas");
+  PMMG_DEL_MEM( parmesh,faceAreas,double*,"faceAreas pointer");
   return 1;
 }
