@@ -222,7 +222,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &mesh->info.hmax,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.hsiz,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.hgrad,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
-  //MPI_CHECK( MPI_Bcast( &mesh->info.hgradreq, 1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &mesh->info.hgradreq,  1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.hausd,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
 
   MPI_CHECK( MPI_Bcast( &mesh->info.delta,     1, MPI_DOUBLE, root, parmesh->comm ), ier=6); 
