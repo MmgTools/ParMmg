@@ -1397,13 +1397,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   if( moveIfcs ) {
 #warning Luca: This can be replaced by correctly setting nold_grp
     ngrp = 0;
-    int mygrp;
+    int mygrp,maxgrp=-1;
     for( tet = 1; tet <= meshOld->ne; tet++ ) {
-      if( (meshOld->tetra[tet].mark % parmesh->nprocs) != parmesh->myrank ) continue;
-      mygrp = meshOld->tetra[tet].mark/parmesh->nprocs;
-      if( mygrp > ngrp ) ngrp = mygrp;
+      mygrp = meshOld->tetra[tet].mark;
+      if( mygrp > maxgrp ) {
+        maxgrp = mygrp;
+        ngrp++;
+      }
     }
-    ngrp++;
 
     MPI_CHECK( MPI_Allgather(&ngrp,1,MPI_INT,ngrps_all,1,MPI_INT,parmesh->comm),
                return 0 );
