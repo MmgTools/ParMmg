@@ -544,6 +544,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         if ( !ier ) { break; }
       }
+#warning Luca: Check modifications in Mmg
+      /* Reset the mesh->gap field in case Mmg have modified it */
+      mesh->gap = 0.2;
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
