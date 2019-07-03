@@ -12,6 +12,47 @@
 #include "parmmg.h"
 #include "metis_pmmg.h"
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param ngrps pointer to the number of groups on each proc.
+ * \return The number of groups on the current process after front advancement..
+ *
+ */
+int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps ) {
+  MMG5_pMesh const mesh = parmesh->listgrp[0].mesh;
+  MMG5_pTetra pt;
+  int sumngrps[parmesh->nprocs+1];
+  int *map_grps;
+  int ie,igrp,iproc,color;
+  int ngrp;
+
+  sumngrps[0] = 0;
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    sumngrps[iproc+1] = sumngrps[iproc]+ngrps[iproc];
+
+  PMMG_CALLOC(parmesh,map_grps,sumngrps[parmesh->nprocs],int,"map_grps",
+              return 0);
+#warning Luca: Largely inefficient, loop on communicators instead
+  /* Retrieve the grp ID from the tetra mark field */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    igrp  = pt->mark / parmesh->nprocs;
+    iproc = pt->mark % parmesh->nprocs;
+    color = igrp+sumngrps[iproc];
+    map_grps[color] = 1;
+  }
+
+  /* Count grps on local proc */
+  ngrp = 0;
+  for( igrp = 0; igrp < sumngrps[parmesh->nprocs]; igrp++ ) {
+    if( map_grps[igrp] ) ngrp++;
+  }
+
+  PMMG_DEL_MEM(parmesh,map_grps,int,"map_grps");
+  return ngrp;
+}
+
 #warning Luca: to remove when nold_grp will be updated
 /**
  * \param parmesh pointer toward the parmesh structure.

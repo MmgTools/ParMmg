@@ -1395,20 +1395,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   if ( !meshOld ) goto end;
 
   if( moveIfcs ) {
-#warning Luca: This can be replaced by correctly setting nold_grp
-    ngrp = 0;
-    int mygrp,maxgrp=-1;
-    for( tet = 1; tet <= meshOld->ne; tet++ ) {
-      mygrp = meshOld->tetra[tet].mark;
-      if( mygrp > maxgrp ) {
-        maxgrp = mygrp;
-        ngrp++;
-      }
-    }
-
-    MPI_CHECK( MPI_Allgather(&ngrp,1,MPI_INT,ngrps_all,1,MPI_INT,parmesh->comm),
-               return 0 );
-
+    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,ngrps_all,1,MPI_INT,
+                             parmesh->comm), return 0 );
+    ngrp = PMMG_count_grpsPerProc( parmesh, ngrps_all );
   } else {
 
     ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
