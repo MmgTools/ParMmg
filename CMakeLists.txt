@@ -214,7 +214,7 @@ IF ( DOWNLOAD_METIS )
 
   # Metis
   EXTERNALPROJECT_ADD ( Metis
-    URL http://glaros.dtc.umn.edu/gkhome/fetch/sw/metis/metis-5.1.0.tar.gz
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/metis-5.1.0.tar.gz
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ${CMAKE_MAKE_PROGRAM} config prefix=../../../Metis-install
     BUILD_IN_SOURCE 1
