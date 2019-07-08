@@ -105,7 +105,7 @@ int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
 int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int base_front, int ip, int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
-  int    *adja,nump,ilist,base,cur,k,k1;
+  int    *adja,nump,ilist,base,cur,k,k1,j1;
   int     start,color,iloc;
   char    j,l,i;
 
@@ -123,6 +123,19 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int bas
   pt->flag = base;
   list[0] = 4*start + iloc;
   ilist=1;
+  /** Analyse initial tetra: It could be on the other side of the front */
+  if ( pt->mark < color ) {
+    pt->mark = color;
+    for (j=0; j<4; j++) {
+      ppt1 = &mesh->point[pt->v[j]];
+      /* Mark and flag points not on the current front */
+      if ( ppt1->flag != base_front ) {
+        ppt1->tmp  = color;
+        ppt1->s    = 4*start+j;
+        ppt1->flag = base_front+1;
+      }
+    }
+  }
 
   /* Explore list and travel by adjacency through elements sharing p */
   cur = 0;
@@ -137,26 +150,32 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh, MMG5_pMesh mesh,int ngrp,int bas
       if ( !k1 )  continue;
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
+      /* Skip already visited tetra */
       if ( pt1->flag == base )  continue;
+      /* Get local node index */
+      for (j=0; j<4; j++)
+        if ( pt1->v[j] == nump ) { j1 = j; break; }
+      assert(j1<4);
+      /** Flag not-owned tetra but don't put it in the list */
+      if ( pt1->mark > color ) { pt1->flag = base; continue; }
+      /** Mark owned tetra and its vertices */
       if ( pt1->mark < color ) {
         pt1->mark = color;
         for (j=0; j<4; j++) {
           ppt1 = &mesh->point[pt1->v[j]];
-          /* Mark and flag new interface points */
-          if ( ppt1->flag < base_front ) {
+          /* Mark and flag points not on the current front */
+          if ( ppt1->flag != base_front ) {
             ppt1->tmp  = color;
             ppt1->s    = 4*k1+j;
             ppt1->flag = base_front+1;
           }
         }
       }
+      /** Flag tetra and put it in the list */
       pt1->flag = base;
-      for (j=0; j<4; j++)
-        if ( pt1->v[j] == nump )  break;
-      assert(j<4);
       /* overflow */
       if ( ilist > MMG3D_LMAX-3 )  return 0;
-      list[ilist] = 4*k1+j;
+      list[ilist] = 4*k1+j1;
       ilist++;
     }
     cur++;
@@ -355,7 +374,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   nprocs = parmesh->nprocs;
   ngrp   = PMMG_get_ngrp( parmesh );
 
-  /* Mark interface points with the maximum color */
+  /* Mark each point with the maximum color among the tetras in the ball,
+   * flag interface points */
   base_front = PMMG_mark_interfacePoints( parmesh, mesh, ngrp );
 
   /* Reset internal communicator */
@@ -395,6 +415,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
       itosend[i]     = intvalues[idx] ;
     }
 
+#warning Luca: change this tag
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
@@ -415,7 +436,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     assert( MG_VOK(ppt) );
     if( intvalues[idx] > ppt->tmp ) {
       ppt->tmp = intvalues[idx];
-      ppt->flag = mesh->base;
+      ppt->flag = base_front;
     }
   }
 
