@@ -99,12 +99,12 @@ int PMMG_addPROctreeRec(MMG5_pMesh mesh, MMG3D_PROctree_s* q, double* ver,
               pt[k] *= 2;
             }
           }
-          if (!MMG3D_addPROctreeRec(mesh, q, pt, q->v[i],nv))
+          if (!PMMG_addPROctreeRec(mesh, q, pt, q->v[i],nv))
             return 0;
           q->nbVer--;
         }
       }
-      if (!MMG3D_addPROctreeRec(mesh, q, ver, no, nv))
+      if (!PMMG_addPROctreeRec(mesh, q, ver, no, nv))
         return 0;
       q->nbVer--;
       MMG5_DEL_MEM(mesh,q->v);
@@ -120,7 +120,7 @@ int PMMG_addPROctreeRec(MMG5_pMesh mesh, MMG3D_PROctree_s* q, double* ver,
       }
 
       q->nbVer++;
-      if (!MMG3D_addPROctreeRec(mesh, &(q->branches[quadrant]), ver, no, nv))
+      if (!PMMG_addPROctreeRec(mesh, &(q->branches[quadrant]), ver, no, nv))
         return 0;
     }
   }else // maximum PROctree depth reached
