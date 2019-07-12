@@ -485,6 +485,10 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
 int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh );
 
+/* Octrees */
+int PMMG_initPROctree(MMG5_pMesh mesh,MMG3D_pPROctree* q, int nv);
+void PMMG_freePROctrees(PMMG_pParMesh parmesh,MMG3D_pPROctree *q);
+
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
 void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);

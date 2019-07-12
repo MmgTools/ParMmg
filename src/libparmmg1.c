@@ -390,6 +390,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
+  MMG3D_pPROctree *q;
   size_t     oldMemMax,available;
   int        it,ier,ier_end,ieresult,i,k, *facesData;
   mytime     ctim[TIMEMAX];
@@ -461,6 +462,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** Update old groups for metrics interpolation */
     PMMG_update_oldGrps( parmesh );
+    PMMG_CALLOC( parmesh, q, parmesh->ngrp, MMG3D_pPROctree, "octrees",
+                 PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE) );
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -512,6 +515,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
             goto strong_failed;
           }
         }
+
+        /** Build tetras octree */
+        if( !PMMG_initPROctree( mesh, &q[i], mesh->info.PROctree ) ) goto strong_failed;
 
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met );
@@ -580,6 +586,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
+
+    /* Destroy octrees */
+    PMMG_freePROctrees( parmesh, q );
+    PMMG_DEL_MEM( parmesh, q, MMG3D_pPROctree, "octrees" );
 
     /* Compute quality in the interpolated metrics */
     ier = PMMG_tetraQual( parmesh,0 );
