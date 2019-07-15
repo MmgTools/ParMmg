@@ -517,7 +517,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
 
         /** Build tetras octree */
-        if( !PMMG_initPROctree( mesh, &q[i], mesh->info.PROctree ) ) goto strong_failed;
+        if( !PMMG_initPROctree( mesh, &q[i], 1000 ) ) goto strong_failed;
 
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met );
