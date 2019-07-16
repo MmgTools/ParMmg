@@ -20,7 +20,7 @@
  *
  */
 int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves ) {
-  MMG3D_PROctree_s *root;
+  MMG3D_PROctree_s *root,*root1;
   int64_t z;
   int nleaves;
 
@@ -31,13 +31,18 @@ int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves ) {
   while( 1 )
     if( root->branches ) {
       /* Get the branch and right-shift z */
-      root = &root->branches[ z % 8 ];
-      z = z >> 3;
+      root1 = &root->branches[ z % 8 ];
+      if( root1->nbVer ) {
+        root = root1;
+        z = z >> 3;
+      } else break;
     } else break;
 
   /* Get the leaves */
   *leaves = root->v;
   nleaves = root->nbVer;
+  assert( *leaves );
+  assert( nleaves );
 
   return nleaves;
 }
