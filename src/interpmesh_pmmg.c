@@ -354,14 +354,14 @@ int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int *permNodGlob ) {
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
   double      *faceAreas,*normal;
-  int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc;
+  int         ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
@@ -470,6 +470,27 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int *permNodGlob ) {
       }
     }
   }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to the parmesh structure
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Interpolate metrics for all groups from background to current meshes.
+ *  Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
+ *  - if the metrics is constant, recompute it;
+ *  - else, interpolate the non-constant metrics.
+ *
+ */
+int PMMG_interpMetrics( PMMG_pParMesh parmesh ) {
+  int         igrp,ier;
+
+  /** Loop on current groups */
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
+    if( !PMMG_interpMetrics_grp( parmesh, igrp ) ) return 0;
 
   return 1;
 }
