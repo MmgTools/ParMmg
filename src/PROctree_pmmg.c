@@ -35,7 +35,7 @@ int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves ) {
       if( root1->nbVer ) {
         root = root1;
         z = z >> 3;
-      } else break;
+      } else return 0;
     } else break;
 
   /* Get the leaves */
