@@ -277,38 +277,12 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   int         ier;
   static int  mmgWarn=0;
 
-  /** Pre-compute oriented face areas */
-  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {
-    grp = &parmesh->old_listgrp[igrp];
-    mesh = grp->mesh;
-
-    ier = 1;
-    PMMG_MALLOC( parmesh,faceAreas,12*(mesh->ne+1),double,"faceAreas",ier=0 );
-    if( !ier ) {
-      PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
-      return 0;
-    }
-
-    for( ie = 1; ie <= mesh->ne; ie++ ) {
-      pt = &mesh->tetra[ie];
-      /* Store tetra volume in the qual field */
-      pt->qual = MMG5_orvol( mesh->point, pt->v );
-      /* Store oriented face normals */
-      for( ifac = 0; ifac < 4; ifac++ ) {
-        normal = &faceAreas[12*ie+3*ifac];
-        ia = pt->v[MMG5_idir[ifac][0]];
-        ib = pt->v[MMG5_idir[ifac][1]];
-        ic = pt->v[MMG5_idir[ifac][2]];
-        ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
-      }
-    }
-  }
-
-
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
+    oldGrp = &parmesh->old_listgrp[igrp];
+    oldMesh = oldGrp->mesh;
 
     if( mesh->info.inputMet != 1 ) {
 
@@ -324,10 +298,30 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
 
       } else {
 
-        /* Interpolate metrics */
-        oldGrp = &parmesh->old_listgrp[igrp];
-        oldMesh = oldGrp->mesh;
+        /** Pre-compute oriented face areas */   
+        ier = 1;
+        PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
+        if( !ier ) {
+          PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+          return 0;
+        }
+    
+        for( ie = 1; ie <= oldMesh->ne; ie++ ) {
+          pt = &oldMesh->tetra[ie];
+          /* Store tetra volume in the qual field */
+          pt->qual = MMG5_orvol( oldMesh->point, pt->v );
+          /* Store oriented face normals */
+          for( ifac = 0; ifac < 4; ifac++ ) {
+            normal = &faceAreas[12*ie+3*ifac];
+            ia = pt->v[MMG5_idir[ifac][0]];
+            ib = pt->v[MMG5_idir[ifac][1]];
+            ic = pt->v[MMG5_idir[ifac][2]];
+            ier = MMG5_nonUnitNorPts( oldMesh,ia,ib,ic,normal );
+          }
+        }
 
+
+        /** Interpolate metrics */
         oldMesh->base = 0;
         for ( ie = 1; ie < oldMesh->ne+1; ie++ ) {
           pt = &oldMesh->tetra[ie];
