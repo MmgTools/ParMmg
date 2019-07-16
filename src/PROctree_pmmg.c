@@ -11,6 +11,38 @@
 #include "parmmg.h"
 
 /**
+ * \param mesh pointer toward the PROctree structure.
+ * \param coord z-ordered coordinate in the octree
+ * \param leaves double pointer to the leaf entities
+ * \return 1 if ok 0 if fail
+ *
+ * Get the list of entities in the PROctree cell given a z-ordered coordinate.
+ *
+ */
+int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves ) {
+  MMG3D_PROctree_s *root;
+  int64_t z;
+  int nleaves;
+
+  nleaves = 0;
+  root = q->q0;
+  z = coord;
+
+  while( 1 )
+    if( root->branches ) {
+      /* Get the branch and right-shift z */
+      root = &root->branches[ z % 8 ];
+      z = z >> 3;
+    } else break;
+
+  /* Get the leaves */
+  *leaves = root->v;
+  nleaves = root->nbVer;
+
+  return nleaves;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param q pointer toward a pointer toward the global PROctree.
  *
