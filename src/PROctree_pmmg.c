@@ -41,7 +41,7 @@ int PMMG_addPROctreeRec(MMG5_pMesh mesh, MMG3D_PROctree_s* q, double* ver,
                         const int no, int nv)
 {
   double   pt[3];
-  int      dim, nbBitsInt,depthMax,i,j,k,iloc;
+  int      dim, nbBitsInt,depthMax,i,j,k;
   int      quadrant,sizBr;
   int      sizeRealloc;
 
@@ -89,20 +89,18 @@ int PMMG_addPROctreeRec(MMG5_pMesh mesh, MMG3D_PROctree_s* q, double* ver,
       for (i = 0; i<nv; i++)
       {
 
-        for( iloc = 0; iloc < 4; iloc++ ) {
-          memcpy(&pt, mesh->point[mesh->tetra[q->v[i]].v[iloc]].c ,dim*sizeof(double));
-          for ( j =0; j < q->depth; j++)
+        memcpy(&pt, mesh->point[mesh->tetra[q->v[i]].v[0]].c ,dim*sizeof(double));
+        for ( j =0; j < q->depth; j++)
+        {
+          for (k = 0; k<dim; k++)
           {
-            for (k = 0; k<dim; k++)
-            {
-              pt[k] -= ((double) (pt[k]>0.5))*0.5;
-              pt[k] *= 2;
-            }
+            pt[k] -= ((double) (pt[k]>0.5))*0.5;
+            pt[k] *= 2;
           }
-          if (!PMMG_addPROctreeRec(mesh, q, pt, q->v[i],nv))
-            return 0;
-          q->nbVer--;
         }
+        if (!PMMG_addPROctreeRec(mesh, q, pt, q->v[i],nv))
+          return 0;
+        q->nbVer--;
       }
       if (!PMMG_addPROctreeRec(mesh, q, ver, no, nv))
         return 0;
@@ -198,10 +196,8 @@ int PMMG_initPROctree(MMG5_pMesh mesh,MMG3D_pPROctree* q, int nv)
 
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
-    for( iloc = 0; iloc < 4; iloc++ ) {
-      memcpy(&coor,mesh->point[pt->v[iloc]].c,mesh->dim*sizeof(double));
-      if( !PMMG_addPROctreeRec(mesh,(*q)->q0, coor, ie, (*q)->nv) ) return 0;
-    }
+    memcpy(&coor,mesh->point[pt->v[0]].c,mesh->dim*sizeof(double));
+    if( !PMMG_addPROctreeRec(mesh,(*q)->q0, coor, ie, (*q)->nv) ) return 0;
   }
 
   return 1;
