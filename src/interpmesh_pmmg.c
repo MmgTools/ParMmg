@@ -272,25 +272,20 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
-  double      **faceAreas,*normal;
+  double      *faceAreas,*normal;
   int         igrp,ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
   /** Pre-compute oriented face areas */
-  PMMG_MALLOC( parmesh,faceAreas,parmesh->nold_grp,double*,"faceAreas pointer",return 0);
-
   for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {
     grp = &parmesh->old_listgrp[igrp];
     mesh = grp->mesh;
 
     ier = 1;
-    PMMG_MALLOC( parmesh,faceAreas[igrp],12*(mesh->ne+1),double,"faceAreas",ier=0 );
+    PMMG_MALLOC( parmesh,faceAreas,12*(mesh->ne+1),double,"faceAreas",ier=0 );
     if( !ier ) {
-      int igrp1;
-      for( igrp1 = 0; igrp1 < igrp; igrp1++ )
-        PMMG_DEL_MEM(parmesh,faceAreas[igrp1],double,"faceAreas");
-      PMMG_DEL_MEM(parmesh,faceAreas,double*,"faceAreas pointer");
+      PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
       return 0;
     }
 
@@ -300,7 +295,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
       pt->qual = MMG5_orvol( mesh->point, pt->v );
       /* Store oriented face normals */
       for( ifac = 0; ifac < 4; ifac++ ) {
-        normal = &faceAreas[igrp][12*ie+3*ifac];
+        normal = &faceAreas[12*ie+3*ifac];
         ia = pt->v[MMG5_idir[ifac][0]];
         ib = pt->v[MMG5_idir[ifac][1]];
         ic = pt->v[MMG5_idir[ifac][2]];
@@ -355,7 +350,7 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
 
             /** Locate point in the old mesh */
             istart = PMMG_locatePoint( oldMesh, ppt, istart,
-                                       faceAreas[igrp], barycoord );
+                                       faceAreas, barycoord );
             if( !istart ) {
               fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
                       " point %d not found, coords %e %e %e\n",__func__,
@@ -386,9 +381,8 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
       }
     }
 
+    PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
   }
-  for( igrp = 0; igrp < parmesh->nold_grp; igrp++)
-    PMMG_DEL_MEM( parmesh,faceAreas[igrp],double,"faceAreas");
-  PMMG_DEL_MEM( parmesh,faceAreas,double*,"faceAreas pointer");
+
   return 1;
 }
