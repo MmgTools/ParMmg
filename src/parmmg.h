@@ -483,7 +483,7 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
-int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh );
+int PMMG_interpMetrics( PMMG_pParMesh parmesh );
 int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves );
 
 /* Octrees */
