@@ -483,12 +483,13 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
-int PMMG_interpMetrics( PMMG_pParMesh parmesh );
-int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves );
+int PMMG_interpMetrics( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps );
+void PMMG_storeScalingParam( PMMG_pParMesh parmesh,int igrp );
 
 /* Octrees */
 int PMMG_initPROctree(MMG5_pMesh mesh,MMG3D_pPROctree* q, int nv);
 void PMMG_freePROctrees(PMMG_pParMesh parmesh,MMG3D_pPROctree *q);
+int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves );
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);

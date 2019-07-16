@@ -543,6 +543,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
           goto strong_failed;
         }
+
+        PMMG_storeScalingParam( parmesh, i );
         if ( !MMG5_unscaleMesh(mesh,met) ) { goto strong_failed; }
 
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
@@ -572,7 +574,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics( parmesh );
+    ier = PMMG_interpMetrics( parmesh, q );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {

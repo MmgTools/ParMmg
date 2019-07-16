@@ -11,6 +11,19 @@
 #include "parmmg.h"
 #include "locate_pmmg.h"
 
+void PMMG_storeScalingParam( PMMG_pParMesh parmesh,int igrp ) {
+  MMG5_pMesh mesh, meshOld;
+  int i;
+
+  mesh    = parmesh->listgrp[igrp].mesh;
+  meshOld = parmesh->old_listgrp[igrp].mesh;
+
+  meshOld->info.delta = mesh->info.delta;
+  for( i = 0; i < mesh->dim; i++ )
+    meshOld->info.min[i] = mesh->info.min[i];
+
+}
+
 /**
  * \param minNew lower bounds of the new box in each space direction
  * \param maxNew upper bounds of the new box in each space direction
@@ -105,15 +118,25 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init, 
+int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
+                      int init,
                       double *faceAreas, PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
-  int            *adja,iel,ip,idxTet,step,closestTet;
-  double         vol,eps,closestDist;
+  int            *adja,iel,i,idxTet,step,closestTet;
+  double         vol,eps,closestDist,coord[3];
   static int     mmgWarn0=0,mmgWarn1=0;
+  int64_t        zcoord;
+  int            ileaf,nleaves,*leaves;
+
+  /* Compute z-ordered coordinate */
+  for( i = 0; i < mesh->dim; i++ )
+    coord[i] = ( 1.0 / mesh->info.delta )*( ppt->c[i] - mesh->info.min[i] );
+  zcoord = MMG3D_getPROctreeCoordinate( q, coord, mesh->dim );
+  nleaves = PMMG_getPROctree_leaves( q, zcoord, &leaves );
+  if( !nleaves ) return 0;
 
   if(!init)
-    idxTet = 1;
+    idxTet = leaves[0] / 4;
   else
     idxTet = init;
 
@@ -141,8 +164,8 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
     if( barycoord[0].val > -eps ) break;
 
     /** Compute new direction */
-    for( ip=0; ip<4; ip++ ) {
-      iel = adja[barycoord[ip].idx]/4;
+    for( i=0; i<4; i++ ) {
+      iel = adja[barycoord[i].idx]/4;
 
       /* Skip if on boundary */
       if (!iel) continue;
@@ -157,7 +180,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
     }
 
     /** Stuck: Start exhaustive research */
-    if (ip == 4) step = mesh->ne+1;
+    if (i == 4) step = mesh->ne+1;
 
   }
 
@@ -173,9 +196,10 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 
     closestTet = 0;
     closestDist = 1.0e10;
-    for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
+    for( ileaf=0; ileaf<nleaves; ileaf++ ) {
 
       /** Get tetra */
+      idxTet = leaves[ileaf]/4;
       ptr = &mesh->tetra[idxTet];
       if ( !MG_EOK(ptr) ) continue;
 
@@ -202,7 +226,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
     }
 
     /** Element not found: Return the closest one with negative sign (if found) */
-    if ( idxTet == mesh->ne+1 ) {
+    if ( ileaf == nleaves ) {
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
         if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -255,9 +279,10 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
   return 1;
 }
 
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp ) {
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
+  MMG3D_pPROctree q;
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
@@ -271,6 +296,7 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp ) {
   mesh = grp->mesh;
   oldGrp = &parmesh->old_listgrp[igrp];
   oldMesh = oldGrp->mesh;
+  q = qgrps[igrp];
 
   if( mesh->info.inputMet != 1 ) {
 
@@ -331,7 +357,7 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp ) {
           if( ppt->flag == mesh->base ) continue;
 
           /** Locate point in the old mesh */
-          istart = PMMG_locatePoint( oldMesh, ppt, istart,
+          istart = PMMG_locatePoint( oldMesh, q, ppt, istart,
                                      faceAreas, barycoord );
           if( !istart ) {
             fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
@@ -378,12 +404,13 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp ) {
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics( PMMG_pParMesh parmesh ) {
+int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q ) {
   int         igrp,ier;
 
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
-    if( !PMMG_interpMetrics_grp( parmesh, igrp ) ) return 0;
+    if( !PMMG_interpMetrics_grp( parmesh, q, igrp ) )
+      return 0;
 
   return 1;
 }
