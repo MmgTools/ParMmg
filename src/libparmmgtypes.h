@@ -180,6 +180,14 @@
 #define PMMG_APIDISTRIB_nodes 1
 
 /**
+ * \def PMMG_USE_PROCTREE
+ *
+ * Build and use a PROctree for metrics interpolation
+ *
+ */
+#define PMMG_USE_PROCTREE 0
+
+/**
  * \def PMMG_UNSET
  *
  * Initialization value
@@ -275,6 +283,7 @@ typedef struct {
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
+  int PROctree_mode; /*!< build and use, or not (1/0) the PROctree for interpolation */
 } PMMG_Info;
 
 

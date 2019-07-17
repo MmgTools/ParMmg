@@ -462,8 +462,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     /** Update old groups for metrics interpolation */
     PMMG_update_oldGrps( parmesh );
-    PMMG_CALLOC( parmesh, q, parmesh->ngrp, MMG3D_pPROctree, "octrees",
-                 PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE) );
+    if( parmesh->info.PROctree_mode )
+      PMMG_CALLOC( parmesh, q, parmesh->ngrp, MMG3D_pPROctree, "octrees",
+                   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE) );
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -517,7 +518,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
 
         /** Build tetras octree */
-        if( !PMMG_initPROctree( mesh, &q[i], 1000 ) ) goto strong_failed;
+        if( parmesh->info.PROctree_mode )
+          if( !PMMG_initPROctree( mesh, &q[i], 1000 ) ) goto strong_failed;
 
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met );
@@ -574,7 +576,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics( parmesh, q, 0 );
+    ier = PMMG_interpMetrics( parmesh, q );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -590,8 +592,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /* Destroy octrees */
-    PMMG_freePROctrees( parmesh, q );
-    PMMG_DEL_MEM( parmesh, q, MMG3D_pPROctree, "octrees" );
+    if( parmesh->info.PROctree_mode ) {
+      PMMG_freePROctrees( parmesh, q );
+      PMMG_DEL_MEM( parmesh, q, MMG3D_pPROctree, "octrees" );
+    }
 
     /* Compute quality in the interpolated metrics */
     ier = PMMG_tetraQual( parmesh,0 );

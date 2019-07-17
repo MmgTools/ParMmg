@@ -333,7 +333,7 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
   return 1;
 }
 
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp,int useOctree ) {
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG3D_pPROctree q;
@@ -411,7 +411,8 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
           if( ppt->flag == mesh->base ) continue;
 
           /** Locate point in the old mesh */
-          istart = PMMG_locatePoint( oldMesh, q, useOctree, ppt, istart,
+          istart = PMMG_locatePoint( oldMesh, q, parmesh->info.PROctree_mode,
+                                     ppt, istart,
                                      faceAreas, barycoord );
           if( !istart ) {
             fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
@@ -458,12 +459,12 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q, int useOctree ) {
+int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q ) {
   int         igrp,ier;
 
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
-    if( !PMMG_interpMetrics_grp( parmesh, q, igrp, useOctree ) )
+    if( !PMMG_interpMetrics_grp( parmesh, q, igrp ) )
       return 0;
 
   return 1;
