@@ -35,7 +35,12 @@ int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves ) {
       if( root1->nbVer ) {
         root = root1;
         z = z >> 3;
-      } else return 0;
+      } else {
+        fprintf(stderr,"  ## Error: Empty cell found during point search, octree depth %d.\n",root1->depth);
+        fprintf(stderr,"  ##        Check that the cells of your octree are not too small.\n");
+        fprintf(stderr,"  ##        Entities per cell: %d. Max nb of cells: %d",q->nv,q->nc);
+        return 0;
+      }
     } else break;
 
   /* Get the leaves */
