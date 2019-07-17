@@ -574,7 +574,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics( parmesh, q );
+    ier = PMMG_interpMetrics( parmesh, q, 0 );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {

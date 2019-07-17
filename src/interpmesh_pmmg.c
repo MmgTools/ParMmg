@@ -152,8 +152,8 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh, MMG5_pTetra ptr, MMG5_pPoint ppt,
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
-                      int init,
+int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
+                      MMG5_pPoint ppt, int init,
                       double *faceAreas, PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
   int            *adja,iel,i,idxTet,step,closestTet;
@@ -162,15 +162,17 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
   int64_t        zcoord;
   int            ileaf,nleaves,*leaves;
 
-  /* Compute z-ordered coordinate */
-  for( i = 0; i < mesh->dim; i++ )
-    coord[i] = ( 1.0 / mesh->info.delta )*( ppt->c[i] - mesh->info.min[i] );
-  zcoord = MMG3D_getPROctreeCoordinate( q, coord, mesh->dim );
-  nleaves = PMMG_getPROctree_leaves( q, zcoord, &leaves );
-  if( !nleaves ) return 0;
+  if( useOctree ) {
+    /* Compute z-ordered coordinate */
+    for( i = 0; i < mesh->dim; i++ )
+      coord[i] = ( 1.0 / mesh->info.delta )*( ppt->c[i] - mesh->info.min[i] );
+    zcoord = MMG3D_getPROctreeCoordinate( q, coord, mesh->dim );
+    nleaves = PMMG_getPROctree_leaves( q, zcoord, &leaves );
+    if( !nleaves ) return 0;
+  }
 
   if(!init)
-    idxTet = leaves[0] / 4;
+    idxTet = 1;
   else
     idxTet = init;
 
@@ -221,39 +223,75 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
 
     closestTet = 0;
     closestDist = 1.0e10;
-    for( ileaf=0; ileaf<nleaves; ileaf++ ) {
+    if( useOctree ) {
 
-      /** Get tetra */
-      idxTet = leaves[ileaf]/4;
-      ptr = &mesh->tetra[idxTet];
-      if ( !MG_EOK(ptr) ) continue;
+      for( ileaf=0; ileaf<nleaves; ileaf++ ) {
 
-      /** Exit the loop if you find the element */
-      if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
-                                   barycoord ) ) break;
-
-
-      /** Save element index (with negative sign) if it is the closest one */
-      if( fabs(barycoord[0].val)*vol < closestDist ) {
-        closestDist = fabs(barycoord[0].val)*vol;
-        closestTet = -idxTet;
-      }
-
-    }
-
-    /** Element not found: Return the closest one with negative sign (if found) */
-    if ( ileaf == nleaves ) {
-      if ( !mmgWarn1 ) {
-        mmgWarn1 = 1;
-        if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-          fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external volume %e.",
-                  __func__,closestDist);
+        /** Get tetra */
+        idxTet = leaves[ileaf]/4;
+        ptr = &mesh->tetra[idxTet];
+        if ( !MG_EOK(ptr) ) continue;
+  
+        /** Exit the loop if you find the element */
+        if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                     barycoord ) ) break;
+  
+  
+        /** Save element index (with negative sign) if it is the closest one */
+        if( fabs(barycoord[0].val)*vol < closestDist ) {
+          closestDist = fabs(barycoord[0].val)*vol;
+          closestTet = -idxTet;
         }
+
       }
-      return closestTet;
+
+      /** Element not found: Return the closest one with negative sign (if found) */
+      if ( ileaf == nleaves ) {
+        if ( !mmgWarn1 ) {
+          mmgWarn1 = 1;
+          if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+            fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external volume %e.",
+                    __func__,closestDist);
+          }
+        }
+        return closestTet;
+      }
+    } else {
+      for( idxTet=1; idxTet<=mesh->ne; idxTet++ ) {
+
+        /** Get tetra */
+        ptr = &mesh->tetra[idxTet];
+        if ( !MG_EOK(ptr) ) continue;
+  
+        /** Exit the loop if you find the element */
+        if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                     barycoord ) ) break;
+
+
+        /** Save element index (with negative sign) if it is the closest one */
+        if( fabs(barycoord[0].val)*vol < closestDist ) {
+          closestDist = fabs(barycoord[0].val)*vol;
+          closestTet = -idxTet;
+        }
+
+      }
+
+      /** Element not found: Return the closest one with negative sign (if found) */
+      if ( idxTet == mesh->ne+1 ) {
+        if ( !mmgWarn1 ) {
+          mmgWarn1 = 1;
+          if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+            fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external volume %e.",
+                    __func__,closestDist);
+          }
+        }
+        return closestTet;
+      }
+
     }
 
   }
+  
   return idxTet;
 }
 
@@ -295,7 +333,7 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
   return 1;
 }
 
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp ) {
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp,int useOctree ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG3D_pPROctree q;
@@ -373,7 +411,7 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
           if( ppt->flag == mesh->base ) continue;
 
           /** Locate point in the old mesh */
-          istart = PMMG_locatePoint( oldMesh, q, ppt, istart,
+          istart = PMMG_locatePoint( oldMesh, q, useOctree, ppt, istart,
                                      faceAreas, barycoord );
           if( !istart ) {
             fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
@@ -420,12 +458,12 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q ) {
+int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q, int useOctree ) {
   int         igrp,ier;
 
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
-    if( !PMMG_interpMetrics_grp( parmesh, q, igrp ) )
+    if( !PMMG_interpMetrics_grp( parmesh, q, igrp, useOctree ) )
       return 0;
 
   return 1;
