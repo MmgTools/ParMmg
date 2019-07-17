@@ -107,6 +107,40 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the tetra to analyze
+ * \param ppt pointer to the point to locate
+ * \param faceAreas oriented face areas of the current tetrahedra
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in a background tetrahedron, and provide its barycentric
+ *  coordinates..
+ *
+ */
+int PMMG_locatePointInTetra( MMG5_pMesh mesh, MMG5_pTetra ptr, MMG5_pPoint ppt,
+                             double *faceAreas, PMMG_baryCoord *barycoord ) {
+  double         vol,eps;
+  int            found = 0;
+
+  vol = ptr->qual;
+  eps = MMG5_EPS;
+
+  /** Mark tetra */
+  ptr->flag = mesh->base;
+
+  /** Get barycentric coordinates and sort them in ascending order */
+  PMMG_compute_baryCoord(mesh, ptr, ppt->c, faceAreas, barycoord);
+  qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  /** Exit if inside the element */
+  if( barycoord[0].val > -eps ) found = 1;
+
+  return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
  * \param init index of the starting element
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
@@ -149,21 +183,12 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
     ptr = &mesh->tetra[idxTet];
     if ( !MG_EOK(ptr) ) continue;
 
-    adja = &mesh->adja[4*(idxTet-1)+1];
-    vol = ptr->qual;
-    eps = MMG5_EPS;
-
-    /** Mark tetra */
-    ptr->flag = mesh->base;
-
-    /** Get barycentric coordinates and sort them in ascending order */
-    PMMG_compute_baryCoord(mesh, ptr, ppt->c, &faceAreas[12*idxTet], barycoord);
-    qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
-
-    /** Exit if inside the element */
-    if( barycoord[0].val > -eps ) break;
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                 barycoord ) ) break;
 
     /** Compute new direction */
+    adja = &mesh->adja[4*(idxTet-1)+1];
     for( i=0; i<4; i++ ) {
       iel = adja[barycoord[i].idx]/4;
 
@@ -203,19 +228,10 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, MMG5_pPoint ppt,
       ptr = &mesh->tetra[idxTet];
       if ( !MG_EOK(ptr) ) continue;
 
-      adja = &mesh->adja[4*(idxTet-1)+1];
-      vol = ptr->qual;
-      eps = MMG5_EPS;
+      /** Exit the loop if you find the element */
+      if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                   barycoord ) ) break;
 
-      /** Mark tetra */
-      ptr->flag = mesh->base;
-
-      /** Get barycentric coordinates and sort them in ascending order */
-      PMMG_compute_baryCoord(mesh, ptr, ppt->c, &faceAreas[12*idxTet], barycoord);
-      qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
-
-      /** Exit if inside the element */
-      if( barycoord[0].val > -eps ) break;
 
       /** Save element index (with negative sign) if it is the closest one */
       if( fabs(barycoord[0].val)*vol < closestDist ) {
