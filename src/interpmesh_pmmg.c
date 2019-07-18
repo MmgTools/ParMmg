@@ -179,6 +179,9 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
       ptr = &mesh->tetra[idxTet];
       if ( !MG_EOK(ptr) ) continue;
 
+      /*¨Skip already analized tetras */
+      if( ptr->flag == mesh->base ) continue;
+
       adja = &mesh->adja[4*(idxTet-1)+1];
       vol = ptr->qual;
       eps = MMG5_EPS;
