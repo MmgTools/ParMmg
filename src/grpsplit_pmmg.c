@@ -499,6 +499,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
     memcpy( ptCur, pt, sizeof(MMG5_Tetra) );
 
     /* Copy element's adjacency */
+    assert( meshOld->adja );
     if( meshOld->adja ) {
       adja    =    &mesh->adja[ 4*( ie-1 )+1 ];
       oldAdja = &meshOld->adja[ 4*( ie-1 )+1 ];
