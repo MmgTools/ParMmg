@@ -231,6 +231,9 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
         idxTet = leaves[ileaf]/4;
         ptr = &mesh->tetra[idxTet];
         if ( !MG_EOK(ptr) ) continue;
+
+        /*¨Skip already analized tetras */
+        if( ptr->flag == mesh->base ) continue;
   
         /** Exit the loop if you find the element */
         if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
@@ -262,6 +265,9 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
         /** Get tetra */
         ptr = &mesh->tetra[idxTet];
         if ( !MG_EOK(ptr) ) continue;
+
+        /*¨Skip already analized tetras */
+        if( ptr->flag == mesh->base ) continue;
   
         /** Exit the loop if you find the element */
         if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
