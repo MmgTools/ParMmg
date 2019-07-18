@@ -67,6 +67,7 @@ int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
  *
  */
 int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
+  MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
   mytime     ctim[5];
   int8_t     tim;
@@ -163,6 +164,17 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  /* Rebuild mesh adjacency for the next adaptation iteration */
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    mesh = parmesh->listgrp[igrp].mesh;
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,0) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        ier_glob = 0;
+      }
+    }
+  }
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
