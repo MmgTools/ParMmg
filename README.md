@@ -1,7 +1,7 @@
  [![Build status](https://gitlab.inria.fr/ParMmg/ParMmg/badges/master/build.svg)](https://gitlab.inria.fr/ParMmg/ParMmg/commits/master) 
 
 ParMmg is an open source software for parallel mesh adaptation of 3D volume meshes.
-The algorithm of parallel mesh adaptation is inspired from the [Yales2](https://www.coria-cfd.fr/index.php/YALES2) algorithm, see [1](https://onlinelibrary.wiley.com/doi/abs/10.1002/fld.4204).
+The algorithm of parallel mesh adaptation is inspired from the [Yales2](https://www.coria-cfd.fr/index.php/YALES2) algorithm (see [1](https://onlinelibrary.wiley.com/doi/abs/10.1002/fld.4204)).
 ParMmg uses the [Mmg](http://mmgtools.org) software to perform the sequential remeshing steps.
 
 ## Get and compile the ParMmg project
@@ -24,10 +24,6 @@ To get and build ParMmg, you will need:
     ```
     </span>  
 
-  * **Mmg** :  Mmg can be download on [GitHub](https://github.com/MmgTools/mmg). Please, follow the [installation guide](https://github.com/MmgTools/Mmg/wiki/Setup-guide#iii-installation) of the [setup guide](https://github.com/MmgTools/Mmg/wiki/Setup-guide#setup-guide)
-
-  * **Metis** : ParMmg uses the Metis graph partitionner. Please, consult the [project webpage](http://glaros.dtc.umn.edu/gkhome/metis/metis/download) and follow the instructions.
-
 ### ParMmg download and compilation
 #### Unix-like OS (Linux, MacOS...)
 
@@ -44,19 +40,36 @@ or
 
   The project sources are available under the **_src/_** directory.
 
-  2. ParMmg uses the Mmg sources, thus, to compile, you must provide the path to your Mmg directory and the path to your build directory of Mmg. Example :
+  2. By default ParMmg download and install automatically Mmg and Metis (as CMake external projects):
 ```Shell
       cd ParMmg  
       mkdir build  
       cd build  
-      cmake -DMMG_DIR=~/path-to-mmg-dir -DMMG_BUILDDIR=~/path-to-mmg-builddir ..  
+      cmake ..  
       make  
       make install
 ```
-  In this example, we supposed that metis is available in the Path. If not, you can help ParMmg to find Metis by providing the ```METIS_DIR``` variable to CMake.
-
   If the `make install` command fail, try to run the `sudo make install` command.
   If you don't have root access, please refers to the [Installation section](https://github.com/MmgTools/Mmg/wiki/Setup-guide#iii-installation) of the [setup guide](https://github.com/MmgTools/Mmg/wiki/Setup-guide#setup-guide) of Mmg and follow the same steps.
+
+  If you don't have internet access and/or want to use your own installation of
+  Mmg (resp. Metis), you can disable the automatic download of Mmg setting the
+  `DOWNLOAD_MMG` (resp. `DOWNLOAD_METIS`) CMake variable to `OFF`. In this case,
+  you can help CMake to find Mmg (resp. Metis) by specifying the source
+  directory of Mmg in the `MMG_DIR` variable and the build directory of Mmg in
+  the `MMG_BUILDDIR` variable (resp. the installation directory of Metis in the
+  `METIS_DIR` variable).
+  
+  Example:
+  ```Shell
+      cd ParMmg  
+      mkdir build  
+      cd build  
+      cmake -DDOWNLOAD_MMG=OFF -DMMG_DIR=~/mmg -DMMG_BUILDDIR=~/mmg/build ..  
+      cmake -DDOWNLOAD_METIS=OFF -DMETIS_DIR=~/metis-install ..  
+      make  
+      make install
+```
 
   The **parmmg** application is available under the `parmmg_O3` command.
 
