@@ -175,7 +175,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   }
 
   if( !PMMG_list_contiguous( parmesh, mesh, color, start, list, &main_head,
-        &main_head, &main_base, &main_ocolor ) ) return 0;
+        &main_len, &main_base, &main_ocolor ) ) return 0;
 
   /** Find the next list head */
   start++;
@@ -189,7 +189,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   while( start <= mesh->ne ) {
 
     if( !PMMG_list_contiguous( parmesh, mesh, color, start, list, &next_head,
-          &next_head, &next_base, &next_ocolor ) ) return 0;
+          &next_len, &next_base, &next_ocolor ) ) return 0;
 
     /* Compare the next subgroup with the main one */
     if( next_len > main_len ) {
