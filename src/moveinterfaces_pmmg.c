@@ -50,6 +50,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
     for (l=0; l<4; l++) {
       k1 = adja[l];
       if ( !k1 )  continue;
+      k1 /= 4;
       pt1 = &mesh->tetra[k1];
       /* Skip already visited tetra */
       if ( pt1->flag == base )  continue;
@@ -101,6 +102,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
     for (l=0; l<4; l++) {
       k1 = adja[l];
       if ( !k1 )  continue;
+      k1 /= 4;
       pt1 = &mesh->tetra[k1];
       /* Skip already visited tetra */
       if ( pt1->flag == base )  continue;
@@ -115,7 +117,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
   }
 
   /** Return list head, length, flavour, and a neighbour color */
-  *list_head   = start;
+  *list_head   = start-1;
   *list_len    = ilist;
   *list_base   = base;
   *list_ocolor = PMMG_UNSET;
@@ -127,6 +129,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
     for (l=0; l<4; l++) {
       k1 = adja[l];
       if ( !k1 )  continue;
+      k1 /= 4;
       pt1 = &mesh->tetra[k1];
       if ( pt1->mark != color ) {
         *list_ocolor = pt1->mark;
