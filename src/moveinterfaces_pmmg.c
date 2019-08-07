@@ -194,17 +194,25 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
     /* Compare the next subgroup with the main one */
     if( next_len > main_len ) {
       /* Merge main */
-      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, main_head, main_ocolor ) )
-        return 0;
-      /* Swap */
-      main_head   = next_head;
-      main_len    = next_len;
-      main_base   = next_base;
-      main_ocolor = next_ocolor;
+      if( main_ocolor == PMMG_UNSET )
+        fprintf(stderr,"\n### Warning: Cannot merge main subgroup on proc %d\n",parmesh->myrank);
+      else {
+        if( !PMMG_merge_subgroup( parmesh, mesh, color, list, main_head, main_ocolor ) )
+          return 0;
+        /* Swap */
+        main_head   = next_head;
+        main_len    = next_len;
+        main_base   = next_base;
+        main_ocolor = next_ocolor;
+      }
     } else {
       /* Merge next */
-      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_head, next_ocolor ) )
-        return 0;
+      if( next_ocolor == PMMG_UNSET )
+        fprintf(stderr,"\n### Warning: Cannot merge next subgroup on proc %d\n",parmesh->myrank);
+      else {
+        if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_head, next_ocolor ) )
+          return 0;
+      }
     }
 
     /* Find the next list head */
