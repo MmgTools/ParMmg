@@ -117,7 +117,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
   }
 
   /** Return list head, length, flavour, and a neighbour color */
-  *list_head   = start-1;
+  *list_head   = start;
   *list_len    = ilist;
   *list_base   = base;
   *list_ocolor = PMMG_UNSET;
@@ -162,18 +162,21 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   /** 1) Find the first subgroup with the given color */
   start = 1;
   while( start <= mesh->ne ) {
-    pt = &mesh->tetra[start++];
+    pt = &mesh->tetra[start];
     if( pt->mark == color ) break; /* break when a new subgroup is found */
+    start++;
   }
 
   if( !PMMG_list_contiguous( parmesh, mesh, color, start, &main_head,
         &main_head, &main_base, &main_ocolor ) ) return 0;
 
   /** Find the next list head */
+  start++;
   while( start <= mesh->ne ) {
-    pt = &mesh->tetra[start++];
+    pt = &mesh->tetra[start];
     if( pt->flag ) continue;       /* skip tetra in the previous subgroups */
     if( pt->mark == color ) break; /* break when a new subgroup is found */
+    start++;
   }
 
   /** 2) Look for new subgroups until all the mesh is scanned */
@@ -199,10 +202,12 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
     }
 
     /* Find the next list head */
+    start++;
     while( start <= mesh->ne ) {
-      pt = &mesh->tetra[start++];
+      pt = &mesh->tetra[start];
       if( pt->flag ) continue;       /* skip tetra in the previous subgroups */
       if( pt->mark == color ) break; /* break when a new subgroup is found */
+      start++;
     }
   }
 
