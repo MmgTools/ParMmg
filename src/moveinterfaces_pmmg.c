@@ -12,10 +12,20 @@
 #include "parmmg.h"
 #include "metis_pmmg.h"
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param color color of the group to scan.
+ * \param start head of the list to be merged.
+ * \param ocolor color to be used for merging.
+ * \return 0 if fail, 1 if success.
+ *
+ */
+
 int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
-                          int start,int ilist,int ocolor ) {
+                          int start,int ocolor ) {
   MMG5_pTetra      pt,pt1;
-  int              list[MMG3D_LMAX+2],*adja,cur,k,k1,l;
+  int              ilist,list[MMG3D_LMAX+2],*adja,cur,k,k1,l;
   int              base;
 
   base = ++mesh->base;
@@ -56,6 +66,13 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param color color of the group to scan.
+ * \return 0 if fail, 1 if success.
+ *
+ */
 int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
                            int start,int *list_head,int *list_len,
                            int *list_base,int *list_ocolor ) {
@@ -70,7 +87,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
   list[0] = start;
   ilist = 1;
 
-  /** 2.1) Explore list and fill it by adjacency */
+  /** Explore list and fill it by adjacency */
   cur = 0;
   while ( cur < ilist ) {
     k = list[cur];
@@ -97,6 +114,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
     cur++;
   }
 
+  /** Return list head, length, flavour, and a neighbour color */
   *list_head   = start;
   *list_len    = ilist;
   *list_base   = base;
@@ -121,22 +139,27 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
   return 1;
 }
 
-int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp,int color,
-                           int ncolors,int *seencolors ) {
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param igrp index of the group to check.
+ * \param color color of the group to make contiguous.
+ * \return 0 if fail, 1 if success.
+ *
+ */
+int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   MMG5_pMesh const mesh = parmesh->listgrp[igrp].mesh;
   MMG5_pTetra      pt;
-  int              list[MMG3D_LMAX+2],*adja,ilist,cur,k,k1,l;
   int              main_head,main_len,main_base,main_ocolor;
   int              next_head,next_len,next_base,next_ocolor;
-  int              base,start;
+  int              base,start,k;
 
   for( k = 1; k <= mesh->ne; k++ )
     mesh->tetra[k].flag = 0;
 
   /** 1) Find the first subgroup with the given color */
-  start = 0;
-  while( start < mesh->ne ) {
-    pt = &mesh->tetra[++start];
+  start = 1;
+  while( start <= mesh->ne ) {
+    pt = &mesh->tetra[start++];
     if( pt->mark == color ) break; /* break when a new subgroup is found */
   }
 
@@ -144,8 +167,8 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp,int color,
         &main_head, &main_base, &main_ocolor ) ) return 0;
 
   /** Find the next list head */
-  while( start < mesh->ne ) {
-    pt = &mesh->tetra[++start];
+  while( start <= mesh->ne ) {
+    pt = &mesh->tetra[start++];
     if( pt->flag ) continue;       /* skip tetra in the previous subgroups */
     if( pt->mark == color ) break; /* break when a new subgroup is found */
   }
@@ -159,8 +182,8 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp,int color,
     /* Compare the next subgroup with the main one */
     if( next_len > main_len ) {
       /* Merge main */
-      if( !PMMG_merge_subgroup( parmesh, mesh, color, main_head, main_len,
-            main_ocolor ) ) return 0;
+      if( !PMMG_merge_subgroup( parmesh, mesh, color, main_head, main_ocolor ) )
+        return 0;
       /* Swap */
       main_head   = next_head;
       main_len    = next_len;
@@ -168,13 +191,13 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp,int color,
       main_ocolor = next_ocolor;
     } else {
       /* Merge next */
-      if( !PMMG_merge_subgroup( parmesh, mesh, color, next_head, next_len,
-            next_ocolor ) ) return 0;
+      if( !PMMG_merge_subgroup( parmesh, mesh, color, next_head, next_ocolor ) )
+        return 0;
     }
 
     /* Find the next list head */
-    while( start < mesh->ne ) {
-      pt = &mesh->tetra[++start];
+    while( start <= mesh->ne ) {
+      pt = &mesh->tetra[start++];
       if( pt->flag ) continue;       /* skip tetra in the previous subgroups */
       if( pt->mark == color ) break; /* break when a new subgroup is found */
     }
