@@ -315,6 +315,8 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int unseen ) {
     ie  = face2int_face_comm_index1[i]/12;
     pt  = &mesh->tetra[ie];
     color = intvalues[idx];
+    /* Skip faces not on the external comm */
+    if( color == PMMG_UNSET ) continue;
     /* Skip tetra with color different from the interface */
     if( pt->mark != color ) continue;
     /* Skip already seen tetra */
