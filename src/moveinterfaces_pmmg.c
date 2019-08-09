@@ -166,6 +166,9 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   for( k = 1; k <= mesh->ne; k++ )
     mesh->tetra[k].flag = 0;
 
+  /* Get the starting base flag */
+  base = mesh->base;
+
   /** 1) Find the first subgroup with the given color */
   start = 1;
   while( start <= mesh->ne ) {
@@ -226,10 +229,11 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
-  return 1;
+  /* Return the flag of the non-treated elements */
+  return base;
 }
 
-int PMMG_check_reachability( PMMG_pParMesh parmesh ) {
+int PMMG_check_reachability( PMMG_pParMesh parmesh,int unseen ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
@@ -312,11 +316,46 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     color = intvalues[idx];
     /* Skip tetra with color different from the interface */
-    if( color != pt->mark ) continue;
+    if( pt->mark != color ) continue;
+    /* Skip already seen tetra */
+    if( pt->flag > unseen ) continue;
     /* Flag the reachable adjacents */
     if( !PMMG_list_contiguous( parmesh, mesh, color, ie, list, &next_head,
           &next_len, &next_base, &next_ocolor ) ) return 0;
   }
+
+  /* Merge the unreachable subgroups */
+  ie = 1;
+  while( ie <= mesh->ne ) {
+    pt = &mesh->tetra[ie];
+    if( pt->flag <= unseen ) break; /* break when an unseen element is found */
+    ie++;
+  }
+
+  while( ie <= mesh->ne ) {
+    color = pt->mark;
+
+    if( !PMMG_list_contiguous( parmesh, mesh, color, ie, list, &next_head,
+          &next_len, &next_base, &next_ocolor ) ) return 0;
+
+    printf("Merging unseen %d into %d \n",color,next_ocolor);
+
+    if( next_ocolor == PMMG_UNSET )
+      fprintf(stderr,"\n### Warning: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
+    else {
+      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_head, next_ocolor ) )
+        return 0;
+    }
+
+    /* Find the next list head */
+    ie++;
+    while( ie <= mesh->ne ) {
+      pt = &mesh->tetra[ie];
+      if( pt->flag <= unseen ) break;
+      ie++;
+    }
+  }
+
 
 
   PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"intvalues" );
