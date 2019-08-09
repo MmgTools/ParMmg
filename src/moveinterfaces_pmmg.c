@@ -229,6 +229,108 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   return 1;
 }
 
+int PMMG_check_reachability( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp    grp;
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt;
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  MPI_Comm       comm;
+  MPI_Status     status;
+  int          *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int          *intvalues,*itosend,*itorecv;
+  int          *list;
+  int          next_head,next_len,next_base,next_ocolor;
+  int          nitem,color;
+  int          ie,i,idx,k;
+
+  comm   = parmesh->comm;
+  assert( parmesh->ngrp == 1 );
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+
+  /* Reset internal communicator */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_CALLOC( parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_face_comm->intvalues;
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    idx = face2int_face_comm_index2[i];
+    intvalues[idx] = PMMG_UNSET;
+  }
+
+  /* Save grp index and proc in the internal communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    idx = face2int_face_comm_index2[i];
+    ie  = face2int_face_comm_index1[i]/12;
+    pt = &mesh->tetra[ie];
+    assert( MG_EOK(pt) );
+    intvalues[idx] = pt->mark;
+  }
+
+  /* Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itorecv       = ext_face_comm->itorecv;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      itosend[i]     = intvalues[idx] ;
+    }
+
+#warning Luca: change this tag
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   comm,&status),return 0 );
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+
+  }
+
+  PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
+
+
+  /* Start walk search */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    idx = face2int_face_comm_index2[i];
+    ie  = face2int_face_comm_index1[i]/12;
+    pt  = &mesh->tetra[ie];
+    color = intvalues[idx];
+    /* Skip tetra with color different from the interface */
+    if( color != pt->mark ) continue;
+    /* Flag the reachable adjacents */
+    if( !PMMG_list_contiguous( parmesh, mesh, color, ie, list, &next_head,
+          &next_len, &next_base, &next_ocolor ) ) return 0;
+  }
+
+
+  PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"intvalues" );
+  for ( k = 0; k < parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
+  }
+
+  PMMG_DEL_MEM(parmesh,list,int,"tetra list");
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param ngrps pointer to the number of groups on each proc.
