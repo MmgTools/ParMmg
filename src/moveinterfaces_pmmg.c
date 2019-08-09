@@ -163,11 +163,11 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
-  for( k = 1; k <= mesh->ne; k++ )
-    mesh->tetra[k].flag = 0;
-
   /* Get the starting base flag */
   base = mesh->base;
+
+  for( k = 1; k <= mesh->ne; k++ )
+    mesh->tetra[k].flag = base;
 
   /** 1) Find the first subgroup with the given color */
   start = 1;
@@ -184,7 +184,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
   start++;
   while( start <= mesh->ne ) {
     pt = &mesh->tetra[start];
-    if( !pt->flag && (pt->mark == color) ) break;
+    if( (pt->flag == base) && (pt->mark == color) ) break;
     start++;
   }
 
@@ -222,7 +222,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color ) {
     start++;
     while( start <= mesh->ne ) {
       pt = &mesh->tetra[start];
-      if( !pt->flag && (pt->mark == color) ) break;
+      if( (pt->flag == base) && (pt->mark == color) ) break;
       start++;
     }
   }
