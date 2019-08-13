@@ -53,11 +53,13 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       /* Skip already visited tetra */
-      if ( pt1->flag == base )  continue;
+      if ( abs(pt1->flag) == base )  continue;
       /* Flag tetra as visited */
-      pt1->flag = base;
+      if( !pt1->flag ) pt1->flag = -base;
       /* Skip tetra with different color */
       if ( pt1->mark != color ) continue;
+      /* Flag tetra as treated */
+      pt1->flag = base;
       /* Add tetra to the list */
       assert( ilist <= mesh->ne );
       list[ilist] = k1;
@@ -220,6 +222,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure.
  * \param igrp index of the group to check.
  * \param color color of the group to make contiguous.
+ * \param counter pointer to the remaining number of tetra of the given color
  * \return 0 if fail, 1 if success.
  *
  */
@@ -266,7 +269,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
 
     if( !PMMG_list_contiguous( parmesh, mesh, start, list, &next_head,
           &next_len, &next_base, &next_ocolor ) ) return 0;
-    counter += next_len;
+    *counter += next_len;
 
 
     /* Compare the next subgroup with the main one */
@@ -277,6 +280,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
       else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, list, main_head, main_ocolor ) )
           return 0;
+        *counter -= main_len;
         /* Swap */
         main_head   = next_head;
         main_len    = next_len;
@@ -290,6 +294,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
       else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_head, next_ocolor ) )
           return 0;
+        *counter -= next_len;
       }
     }
 
@@ -302,10 +307,13 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
     }
   }
 
+  int count = 0;
   for( start = 1; start <= mesh->ne; start++ )
     if( mesh->tetra[start].mark == color )  {
+      count++;
       assert( mesh->tetra[start].flag > 0 );
     }
+  assert( count == *counter );
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
