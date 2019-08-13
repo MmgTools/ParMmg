@@ -305,6 +305,8 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
     }
   }
 
+  /* Check that all the contiguous tetra have been visited */
+#ifndef NDEBUG
   int count = 0;
   for( start = 1; start <= mesh->ne; start++ )
     if( mesh->tetra[start].mark == color )  {
@@ -312,12 +314,22 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
       assert( mesh->tetra[start].flag > 0 );
     }
   assert( count == *counter );
+#endif
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param counter pointer to the number of tetra of the grp color
+ * \return 0 if fail, 1 if success.
+ *
+ * Check that subgroups created by interface migration are reachable from
+ * the target groups.
+ *
+ */
 int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -394,7 +406,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
 
-  /* Start walk search */
+  /* Reach as many tetra as possible from the interface through walk search */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
     idx = face2int_face_comm_index2[i];
     ie  = face2int_face_comm_index1[i]/12;
@@ -446,8 +458,11 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   }
 
 
+  /* Check that all tetra have been visited, and taken into account in a list */
+#ifndef NDEBUG
   for( ie = 1; ie <= mesh->ne; ie++ )
     assert( mesh->tetra[ie].flag > 0 );
+#endif
   assert( *counter == mesh->ne );
 
 
@@ -460,7 +475,6 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
-  printf("COUNTER %d, mesh %d, rank %d\n",*counter,mesh->ne,parmesh->myrank );
   return 1;
 }
 
