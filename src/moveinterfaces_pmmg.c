@@ -448,6 +448,8 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
   for( ie = 1; ie <= mesh->ne; ie++ )
     assert( mesh->tetra[ie].flag > 0 );
+  assert( *counter == mesh->ne );
+
 
   PMMG_DEL_MEM( parmesh,int_face_comm->intvalues,int,"intvalues" );
   for ( k = 0; k < parmesh->next_face_comm; ++k ) {
