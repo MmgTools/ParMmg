@@ -232,15 +232,13 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
   int              *list;
   int              main_head,main_len,main_base,main_ocolor;
   int              next_head,next_len,next_base,next_ocolor;
-  int              base,start,k;
+  int              start,k;
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
   *counter = 0;
 
-  /* Get the starting base flag */
-  base = mesh->base;
-
+  /* Reset the tetra flag */
   for( k = 1; k <= mesh->ne; k++ )
     mesh->tetra[k].flag = 0;
 
@@ -317,11 +315,10 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
-  /* Return the flag of the non-treated elements */
-  return base;
+  return 1;
 }
 
-int PMMG_check_reachability( PMMG_pParMesh parmesh,int unseen,int *counter ) {
+int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
@@ -918,10 +915,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   }
 
   PMMG_check_contiguity( parmesh,0 );
-  int unseen,counter;
-  unseen = PMMG_fix_contiguity( parmesh,0,parmesh->myrank,&counter );
-  if( !unseen ) return 0;
-  if( !PMMG_check_reachability( parmesh, unseen, &counter ) ) return 0;
+  int counter;
+  if( !PMMG_fix_contiguity( parmesh,0,parmesh->myrank,&counter ) ) return 0;
+  if( !PMMG_check_reachability( parmesh, &counter ) ) return 0;
 
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
