@@ -899,7 +899,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     base_front++;
   }
 
+#ifndef NDEBUG
   PMMG_check_contiguity( parmesh,0 );
+#endif
   int counter;
   if( !PMMG_fix_contiguity( parmesh,0,parmesh->myrank,&counter ) ) return 0;
   if( !PMMG_check_reachability( parmesh, &counter ) ) return 0;
