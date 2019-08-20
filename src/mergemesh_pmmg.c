@@ -9,6 +9,7 @@
  */
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
+#include "moveinterfaces_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -807,11 +808,8 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 
   if ( !mesh0 ) return 1;
 
-  if( target == PMMG_GRPSPL_DISTR_TARGET ) {
-    /* Use mark field to store previous grp index */
-    for( iel = 1; iel <= mesh0->ne; iel++ )
-      mesh0->tetra[iel].mark = parmesh->myrank;
-  }
+  /* Use mark field to store previous grp index */
+  if( target == PMMG_GRPSPL_DISTR_TARGET ) PMMG_set_color_tetra( parmesh,0 );
 
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja,int, "adjacency table" );
@@ -854,11 +852,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
 
-    if( target == PMMG_GRPSPL_DISTR_TARGET ) {
-      /* Use mark field to store previous grp index */
-      for( iel = 1; iel <= grp->mesh->ne; iel++ )
-        grp->mesh->tetra[iel].mark = parmesh->nprocs*imsh+parmesh->myrank;
-    }
+    /* Use mark field to store previous grp index */
+    if( target == PMMG_GRPSPL_DISTR_TARGET )
+      PMMG_set_color_tetra( parmesh,imsh );
 
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )

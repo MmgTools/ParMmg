@@ -14,6 +14,30 @@
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param igrp index of the group.
+ *
+ * Store a global group ID into the tetra mark field, according to the format
+ * parmesh->nprocs*igrp+parmesh->myrank.
+ *
+ */
+void PMMG_set_color_tetra( PMMG_pParMesh parmesh,int igrp ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt;
+  int         ie;
+
+  grp = &parmesh->listgrp[igrp];
+  mesh = grp->mesh;
+
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    pt->mark = parmesh->nprocs*igrp+parmesh->myrank;
+  }
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  * \param color color of the group to scan.
  * \param len length of the list to be merged.
