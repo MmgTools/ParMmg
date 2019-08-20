@@ -14,6 +14,34 @@
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param color color of the group.
+ * \return iproc the proc index.
+ *
+ * Get rank from a global group ID, according to the format
+ * parmesh->nprocs*igrp+parmesh->myrank.
+ *
+ */
+int PMMG_get_proc( PMMG_pParMesh parmesh,int color ) {
+  return color % parmesh->nprocs;
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param color color of the group.
+ * \return igrp the group index.
+ *
+ * Get group from a global group ID, according to the format
+ * parmesh->nprocs*igrp+parmesh->myrank.
+ *
+ */
+int PMMG_get_grp( PMMG_pParMesh parmesh,int color ) {
+  return color / parmesh->nprocs;
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param igrp index of the group.
  *
  * Set a global group ID, according to the format
@@ -508,8 +536,8 @@ int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps ) {
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    igrp  = pt->mark / parmesh->nprocs;
-    iproc = pt->mark % parmesh->nprocs;
+    igrp = PMMG_get_grp( parmesh, pt->mark );
+    iproc = PMMG_get_proc( parmesh, pt->mark );
     color = igrp+sumngrps[iproc];
     map_grps[color] = 1;
   }
@@ -548,7 +576,7 @@ int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    igrp  = pt->mark / parmesh->nprocs;
+    igrp  = PMMG_get_grp( parmesh, pt->mark );
     if( igrp > ngrp ) ngrp = igrp;
   }
   ngrp++;
@@ -726,7 +754,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
     for( ie = 1; ie <= mesh->ne; ie++ ) {
       pt = &mesh->tetra[ie];
       if( !MG_EOK(pt) ) continue;
-      part[igrp] = pt->mark % parmesh->nprocs;
+      part[igrp] = PMMG_get_proc( parmesh, pt->mark );
       break;
     }
   }
@@ -783,8 +811,8 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    igrp  = pt->mark / parmesh->nprocs;
-    iproc = pt->mark % parmesh->nprocs;
+    igrp  = PMMG_get_grp( parmesh, pt->mark );
+    iproc = PMMG_get_proc( parmesh, pt->mark );
     color = igrp+sumngrps[iproc];
     map_grps[color] = 1;
     part[ie-1] = color;
@@ -864,7 +892,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ip  = node2int_node_comm_index1[i];
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
-    intvalues[idx] = ppt->tmp;  // contains nprocs*igrp+iproc
+    intvalues[idx] = ppt->tmp;  // contains the point color
   }
 
   /* Exchange values on the interfaces among procs */
