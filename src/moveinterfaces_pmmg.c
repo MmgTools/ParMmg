@@ -16,23 +16,35 @@
  * \param parmesh pointer toward the parmesh structure.
  * \param igrp index of the group.
  *
- * Store a global group ID into the tetra mark field, according to the format
+ * Set a global group ID, according to the format
  * parmesh->nprocs*igrp+parmesh->myrank.
+ *
+ */
+int PMMG_set_color( PMMG_pParMesh parmesh,int igrp ) {
+  return parmesh->nprocs*igrp+parmesh->myrank;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param igrp index of the group.
+ *
+ * Store a global group ID into the tetra mark field.
  *
  */
 void PMMG_set_color_tetra( PMMG_pParMesh parmesh,int igrp ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
-  int         ie;
+  int         color,ie;
 
-  grp = &parmesh->listgrp[igrp];
-  mesh = grp->mesh;
+  grp   = &parmesh->listgrp[igrp];
+  mesh  = grp->mesh;
+  color = PMMG_set_color(parmesh,igrp);
 
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
-    pt->mark = parmesh->nprocs*igrp+parmesh->myrank;
+    pt->mark = color;
   }
 }
 
