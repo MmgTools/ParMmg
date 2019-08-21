@@ -554,39 +554,6 @@ int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps ) {
   return ngrp;
 }
 
-#warning Luca: to remove when nold_grp will be updated
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \return The number of groups on the current process once that elements have
- * been marked for splitting on a merged mesh on the current proc.
- *
- */
-int PMMG_get_ngrp( PMMG_pParMesh parmesh ) {
-  PMMG_pGrp   grp;
-  MMG5_pMesh  mesh;
-  MMG5_pTetra pt;
-  int         ie,igrp,ngrp;
-
-  /* It has to be called on a merged partition */
-  assert( parmesh->ngrp == 1 );
-
-  grp  = &parmesh->listgrp[0];
-  mesh = grp->mesh;
- 
-  /* Retrieve the grp ID from the tetra mark field */
-  ngrp = 0;
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) ) continue;
-    igrp  = PMMG_get_grp( parmesh, pt->mark );
-    if( igrp > ngrp ) ngrp = igrp;
-  }
-  ngrp++;
-
-  return ngrp;
-}
-
-
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
@@ -873,7 +840,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   node2int_node_comm_index2 = grp->node2int_node_comm_index2;
 
   nprocs = parmesh->nprocs;
-  ngrp   = PMMG_get_ngrp( parmesh );
+  ngrp   = parmesh->nold_grp;
 
   /* Mark each point with the maximum color among the tetras in the ball,
    * flag interface points */
