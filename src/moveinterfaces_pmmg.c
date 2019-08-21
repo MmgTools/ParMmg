@@ -282,9 +282,11 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
     start++;
   }
 
-  if( !PMMG_list_contiguous( parmesh, mesh, start, main_list, &main_head,
-        &main_len, &main_base, &main_ocolor ) ) return 0;
-  *counter += main_len;
+  if( start <= mesh->ne ) {
+    if( !PMMG_list_contiguous( parmesh, mesh, start, main_list, &main_head,
+          &main_len, &main_base, &main_ocolor ) ) return 0;
+    *counter += main_len;
+  }
 
   /** Find the next list head */
   start++;
