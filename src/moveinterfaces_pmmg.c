@@ -126,15 +126,15 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   list[0] = start;
   ilist = 1;
 
+  /* Flag initial tetra as treated */
+  mesh->tetra[start].flag = base;
+
   /** Explore list and fill it by adjacency */
   cur = 0;
   while ( cur < ilist ) {
     k = list[cur];
     pt = &mesh->tetra[k];
     adja = &mesh->adja[4*(k-1)+1];
-
-    /* Mark the tetra as treated */
-    pt->flag = base;
 
     /* Add neighbours to the list */
     for (l=0; l<4; l++) {
@@ -143,9 +143,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       /* Skip already visited tetra */
-      if ( abs(pt1->flag) == base )  continue;
-      /* Flag tetra as visited */
-      if( !pt1->flag ) pt1->flag = -base;
+      if ( pt1->flag == base )  continue;
       /* Skip tetra with different color */
       if ( pt1->mark != color ) continue;
       /* Flag tetra as treated */
