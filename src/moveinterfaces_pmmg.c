@@ -216,7 +216,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
   start++;
   while( start <= mesh->ne ) {
     pt = &mesh->tetra[start];
-    if( pt->flag <= 0 ) break;
+    if( !pt->flag ) break;
     start++;
   }
 
@@ -231,14 +231,14 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
     start++;
     while( start <= mesh->ne ) {
       pt = &mesh->tetra[start];
-      if( pt->flag <= 0 ) break;
+      if( !pt->flag ) break;
       start++;
     }
   }
 
   /* Check that all the elements have been listed */
   for( start = 1; start <= mesh->ne; start++ )
-    assert( mesh->tetra[start].flag > 0 );
+    assert( mesh->tetra[start].flag );
   assert( counter == mesh->ne );
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
@@ -290,7 +290,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
   start++;
   while( start <= mesh->ne ) {
     pt = &mesh->tetra[start];
-    if( (pt->flag <= 0) && (pt->mark == color) ) break;
+    if( !pt->flag && (pt->mark == color) ) break;
     start++;
   }
 
@@ -332,7 +332,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
     start++;
     while( start <= mesh->ne ) {
       pt = &mesh->tetra[start];
-      if( (pt->flag <= 0) && (pt->mark == color) ) break;
+      if( !pt->flag && (pt->mark == color) ) break;
       start++;
     }
   }
@@ -343,7 +343,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
   for( start = 1; start <= mesh->ne; start++ )
     if( mesh->tetra[start].mark == color )  {
       count++;
-      assert( mesh->tetra[start].flag > 0 );
+      assert( mesh->tetra[start].flag );
     }
   assert( count == *counter );
 #endif
@@ -450,7 +450,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     /* Skip tetra with color different from the interface */
     if( pt->mark != color ) continue;
     /* Skip already seen tetra */
-    if( pt->flag > 0 ) continue;
+    if( pt->flag ) continue;
     /* Flag the reachable adjacents */
     if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
           &next_len, &next_base, &next_ocolor ) ) return 0;
@@ -461,7 +461,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   ie = 1;
   while( ie <= mesh->ne ) {
     pt = &mesh->tetra[ie];
-    if( pt->flag <= 0 ) break; /* break when an unseen element is found */
+    if( !pt->flag ) break; /* break when an unseen element is found */
     ie++;
   }
 
@@ -485,7 +485,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     ie++;
     while( ie <= mesh->ne ) {
       pt = &mesh->tetra[ie];
-      if( pt->flag <= 0 ) break;
+      if( !pt->flag ) break;
       ie++;
     }
   }
@@ -494,7 +494,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   /* Check that all tetra have been visited, and taken into account in a list */
 #ifndef NDEBUG
   for( ie = 1; ie <= mesh->ne; ie++ )
-    assert( mesh->tetra[ie].flag > 0 );
+    assert( mesh->tetra[ie].flag );
 #endif
   assert( *counter == mesh->ne );
 
