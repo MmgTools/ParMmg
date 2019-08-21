@@ -1381,7 +1381,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   idx_t ngrp = 1;
   idx_t *part = NULL;
   int grpId,grpIdOld, tet;
-  int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs];
+  int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs],noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
   if ( !parmesh->ngrp ) goto end;
@@ -1396,9 +1396,17 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   if ( !meshOld ) goto end;
 
   if( moveIfcs ) {
-    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,ngrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
-    ngrp = PMMG_count_grpsPerProc( parmesh, ngrps_all );
+    ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
+    if ( parmesh->info.target_mesh_size < 0 ) {
+      /* default value : do not authorize large number of groups */
+      ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
+    }
+
+    if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
+      MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                               parmesh->comm), return 0 );
+      ngrp = PMMG_count_grpsPerProc( parmesh, noldgrps_all );
+    }
   } else {
 
     ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
@@ -1406,7 +1414,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
       /* default value : do not authorize large number of groups */
       ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
     }
-  
+
     if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
       /* Compute the number of metis nodes from the number of groups */
       ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
@@ -1481,7 +1489,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   meshOld_ne = meshOld->ne;
 
   if( moveIfcs ) {
-    ngrp = PMMG_part_getInterfaces( parmesh, part, ngrps_all );
+    ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all );
   }
   else {
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
