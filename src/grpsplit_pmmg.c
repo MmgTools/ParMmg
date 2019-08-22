@@ -1396,17 +1396,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int moveIfcs)
   if ( !meshOld ) goto end;
 
   if( moveIfcs ) {
-    ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
-    if ( parmesh->info.target_mesh_size < 0 ) {
-      /* default value : do not authorize large number of groups */
-      ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
-    }
-
-    if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
-      MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                               parmesh->comm), return 0 );
-      ngrp = PMMG_count_grpsPerProc( parmesh, noldgrps_all );
-    }
+    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                             parmesh->comm), return 0 );
+    ngrp = PMMG_count_grpsPerProc( parmesh, noldgrps_all );
   } else {
 
     ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
