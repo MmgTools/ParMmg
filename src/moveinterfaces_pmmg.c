@@ -81,22 +81,25 @@ void PMMG_set_color_tetra( PMMG_pParMesh parmesh,int igrp ) {
  * \param mesh pointer toward the mesh structure.
  * \param color color of the group to scan.
  * \param len length of the list to be merged.
- * \param ocolor color to be used for merging.
+ * \param otetra tetra of different color to be used for merging.
  * \return 0 if fail, 1 if success.
  *
  * Merge the subgroup into a neighbour subgroup with different color.
  *
  */
 int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
-                         int *list,int len,int ocolor ) {
-  MMG5_pTetra      pt,pt1;
+                         int *list,int len,int otetra ) {
+  MMG5_pTetra      pt,pto;
   int              cur,k;
+
+  pto = &mesh->tetra[otetra];
 
   for( cur = 0; cur < len; cur++ ) {
     k = list[cur];
     pt = &mesh->tetra[k];
     /** Merge it */
-    pt->mark = ocolor;
+    pt->mark = pto->mark;
+    pt->flag = pto->flag;
   }
 
   return 1;
@@ -111,7 +114,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  */
 int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                            int start,int *list,int *list_head,int *list_len,
-                           int *list_base,int *list_ocolor ) {
+                           int *list_base,int *list_otetra ) {
   MMG5_pTetra      pt,pt1;
   int              *adja,ilist,cur,k,k1,l;
   int              base,color;
@@ -160,7 +163,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   *list_head   = start;
   *list_len    = ilist;
   *list_base   = base;
-  *list_ocolor = PMMG_UNSET;
+  *list_otetra = PMMG_UNSET;
   for( cur = 0; cur < ilist; cur++ ) {
     k = list[cur];
     pt = &mesh->tetra[k];
@@ -172,11 +175,11 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
       if ( pt1->mark != color ) {
-        *list_ocolor = pt1->mark;
+        *list_otetra = k1;
         break;
       }
     }
-    if( *list_ocolor != PMMG_UNSET ) break;
+    if( *list_otetra != PMMG_UNSET ) break;
   }
 
   return 1;
@@ -194,7 +197,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
   MMG5_pMesh const mesh = parmesh->listgrp[igrp].mesh;
   MMG5_pTetra      pt;
   int              *list;
-  int              next_head,next_len,next_base,next_ocolor;
+  int              next_head,next_len,next_base,next_otetra;
   int              start,k,counter;
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
@@ -209,7 +212,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
   /** 1) Find the first subgroup */
   start = 1;
   if( !PMMG_list_contiguous( parmesh, mesh, start, list, &next_head,
-        &next_len, &next_base, &next_ocolor ) ) return 0;
+        &next_len, &next_base, &next_otetra ) ) return 0;
   counter += next_len;
 
   /** Find the next list head */
@@ -224,7 +227,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
   while( start <= mesh->ne ) {
 
     if( !PMMG_list_contiguous( parmesh, mesh, start, list, &next_head,
-          &next_len, &next_base, &next_ocolor ) ) return 0;
+          &next_len, &next_base, &next_otetra ) ) return 0;
     counter += next_len;
 
     /* Find the next list head */
@@ -259,8 +262,8 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
   MMG5_pMesh const mesh = parmesh->listgrp[igrp].mesh;
   MMG5_pTetra      pt;
   int              *main_list,*next_list;
-  int              main_head,main_len,main_base,main_ocolor;
-  int              next_head,next_len,next_base,next_ocolor;
+  int              main_head,main_len,main_base,main_otetra;
+  int              next_head,next_len,next_base,next_otetra;
   int              start,k;
 
   PMMG_MALLOC(parmesh,main_list,mesh->ne,int,"tetra main list",return 0);
@@ -282,7 +285,7 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
 
   if( start <= mesh->ne ) {
     if( !PMMG_list_contiguous( parmesh, mesh, start, main_list, &main_head,
-          &main_len, &main_base, &main_ocolor ) ) return 0;
+          &main_len, &main_base, &main_otetra ) ) return 0;
     *counter += main_len;
   }
 
@@ -298,31 +301,31 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
   while( start <= mesh->ne ) {
 
     if( !PMMG_list_contiguous( parmesh, mesh, start, next_list, &next_head,
-          &next_len, &next_base, &next_ocolor ) ) return 0;
+          &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
 
 
     /* Compare the next subgroup with the main one */
     if( next_len > main_len ) {
       /* Merge main */
-      if( main_ocolor == PMMG_UNSET )
+      if( main_otetra == PMMG_UNSET )
         fprintf(stderr,"\n### Warning: Cannot merge main subgroup on proc %d\n",parmesh->myrank);
       else {
-        if( !PMMG_merge_subgroup( parmesh, mesh, color, main_list, main_len, main_ocolor ) )
+        if( !PMMG_merge_subgroup( parmesh, mesh, color, main_list, main_len, main_otetra ) )
           return 0;
         *counter -= main_len;
         /* Swap */
         main_head   = next_head;
         main_len    = next_len;
         main_base   = next_base;
-        main_ocolor = next_ocolor;
+        main_otetra = next_otetra;
       }
     } else {
       /* Merge next */
-      if( next_ocolor == PMMG_UNSET )
+      if( next_otetra == PMMG_UNSET )
         fprintf(stderr,"\n### Warning: Cannot merge next subgroup on proc %d\n",parmesh->myrank);
       else {
-        if( !PMMG_merge_subgroup( parmesh, mesh, color, next_list, next_len, next_ocolor ) )
+        if( !PMMG_merge_subgroup( parmesh, mesh, color, next_list, next_len, next_otetra ) )
           return 0;
         *counter -= next_len;
       }
@@ -374,7 +377,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   int          *face2int_face_comm_index1,*face2int_face_comm_index2;
   int          *intvalues,*itosend,*itorecv;
   int          *list;
-  int          next_head,next_len,next_base,next_ocolor;
+  int          next_head,next_len,next_base,next_otetra;
   int          nitem,color;
   int          ie,i,idx,k;
 
@@ -453,7 +456,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     if( pt->flag ) continue;
     /* Flag the reachable adjacents */
     if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
-          &next_len, &next_base, &next_ocolor ) ) return 0;
+          &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
   }
 
@@ -469,15 +472,15 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     color = pt->mark;
 
     if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
-          &next_len, &next_base, &next_ocolor ) ) return 0;
+          &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
 
-    printf("Merging unseen %d into %d \n",color,next_ocolor);
+    printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);
 
-    if( next_ocolor == PMMG_UNSET )
+    if( next_otetra == PMMG_UNSET )
       fprintf(stderr,"\n### Warning: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
     else {
-      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_len, next_ocolor ) )
+      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_len, next_otetra ) )
         return 0;
     }
 
