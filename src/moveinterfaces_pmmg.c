@@ -313,7 +313,8 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
       else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, main_list, main_len, main_otetra ) )
           return 0;
-        *counter -= main_len;
+        /* Decrease counter if the merged list will be scanned again */
+        if( !mesh->tetra[main_otetra].flag ) *counter -= main_len;
         /* Swap */
         main_head   = next_head;
         main_len    = next_len;
@@ -327,7 +328,8 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
       else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, next_list, next_len, next_otetra ) )
           return 0;
-        *counter -= next_len;
+        /* Decrease counter if the merged list will be scanned again */
+        if( !mesh->tetra[next_otetra].flag ) *counter -= next_len;
       }
     }
 
