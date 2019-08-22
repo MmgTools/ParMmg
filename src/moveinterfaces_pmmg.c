@@ -254,26 +254,22 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure.
  * \param igrp index of the group to check.
  * \param color color of the group to make contiguous.
+ * \param main_list pointer to the first tetra list.
+ * \param next_list pointer to the second tetra list.
  * \param counter pointer to the remaining number of tetra of the given color
  * \return 0 if fail, 1 if success.
  *
  */
-int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter ) {
-  MMG5_pMesh const mesh = parmesh->listgrp[igrp].mesh;
+int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *main_list,
+                                int *next_list,int *counter ) {
+  MMG5_pMesh const mesh = parmesh->listgrp[0].mesh;
   MMG5_pTetra      pt;
-  int              *main_list,*next_list;
   int              main_head,main_len,main_base,main_otetra;
   int              next_head,next_len,next_base,next_otetra;
   int              start,k;
 
-  PMMG_MALLOC(parmesh,main_list,mesh->ne,int,"tetra main list",return 0);
-  PMMG_MALLOC(parmesh,next_list,mesh->ne,int,"tetra next list",return 0);
-
-  *counter = 0;
-
-  /* Reset the tetra flag */
-  for( k = 1; k <= mesh->ne; k++ )
-    mesh->tetra[k].flag = 0;
+  /* Only works on a merged group */
+  assert( parmesh->ngrp == 1 );
 
   /** 1) Find the first subgroup with the given color */
   start = 1;
@@ -342,17 +338,59 @@ int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int igrp,int color,int *counter )
     }
   }
 
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param counter pointer to the number of tetra of counted/OK tetra.
+ * \return 0 if fail, 1 if success.
+ *
+ */
+int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter ) {
+  MMG5_pMesh const mesh = parmesh->listgrp[0].mesh;
+  int              *main_list,*next_list;
+  int              k,color,igrp;
+
+  /* Only works on a merged group */
+  assert( parmesh->ngrp == 1 );
+
+  /* Allocate tetra lists */
+  PMMG_MALLOC(parmesh,main_list,mesh->ne,int,"tetra main list",return 0);
+  PMMG_MALLOC(parmesh,next_list,mesh->ne,int,"tetra next list",return 0);
+
+  /* Initialize list counter */
+  *counter = 0;
+
+  /* Reset the tetra flag */
+  for( k = 1; k <= mesh->ne; k++ )
+    mesh->tetra[k].flag = 0;
+
+  /* Loop on the old groups */
+  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {
+
+    /* Get group color */
+    color = PMMG_set_color( parmesh, igrp );
+
+    /* Check and fix contiguity of the old group */
+    if( !PMMG_fix_subgrp_contiguity( parmesh, color, main_list, next_list,
+          counter ) ) {
+      PMMG_DEL_MEM(parmesh,main_list,int,"tetra main list");
+      PMMG_DEL_MEM(parmesh,next_list,int,"tetra next list");
+      return 0;
+    };
+
+  }
+
   /* Check that all the contiguous tetra have been visited */
 #ifndef NDEBUG
   int count = 0;
-  for( start = 1; start <= mesh->ne; start++ )
-    if( mesh->tetra[start].mark == color )  {
-      count++;
-      assert( mesh->tetra[start].flag );
-    }
+  for( k = 1; k <= mesh->ne; k++ )
+    if( mesh->tetra[k].flag ) count++;
   assert( count == *counter );
 #endif
 
+  /* Deallocate lists and return */
   PMMG_DEL_MEM(parmesh,main_list,int,"tetra main list");
   PMMG_DEL_MEM(parmesh,next_list,int,"tetra next list");
 
@@ -939,7 +977,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   PMMG_check_contiguity( parmesh,0 );
 #endif
   int counter;
-  if( !PMMG_fix_contiguity( parmesh,0,parmesh->myrank,&counter ) ) return 0;
+  if( !PMMG_fix_contiguity( parmesh, &counter ) ) return 0;
   if( !PMMG_check_reachability( parmesh, &counter ) ) return 0;
 
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
