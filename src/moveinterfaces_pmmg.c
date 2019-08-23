@@ -976,8 +976,6 @@ int PMMG_sort_procs( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
     for ( i=0; i<nitem; ++i ) {
       idx            = ext_node_comm->int_comm_index[i];
       itosend[i]     = intvalues[idx] ;
-      /* Mark the node as boundary in the intvalues array */
-      intvalues[idx] = PMMG_UNSET;
     }
 
     MPI_CHECK(
