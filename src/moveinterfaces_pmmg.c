@@ -637,10 +637,11 @@ int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps ) {
  *
  */
 int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
-    int *map,int ngrp,int base_front, int ip, int * list){
+    int *map,int *nelem,int ngrp,int base_front, int ip, int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1,j1;
+  int    igrp;
   int     start,color,iloc;
   char    j,l,i;
 
@@ -660,6 +661,11 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
   ilist=1;
   /** Analyse initial tetra: It could be on the other side of the front */
   if ( PMMG_compare_grps( parmesh, vtxdist, map, pt->mark, color ) ) {
+    if( PMMG_get_proc( parmesh, pt->mark ) == parmesh->myrank ) {
+      igrp = PMMG_get_grp( parmesh, pt->mark );
+      if( nelem[igrp] == PMMG_METIS_NELEM_MIN ) return 1;
+      nelem[igrp]--;
+    }
     pt->mark = color;
     for (j=0; j<4; j++) {
       ppt1 = &mesh->point[pt->v[j]];
@@ -698,6 +704,11 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
       }
       /** Mark owned tetra and its vertices */
       if ( PMMG_compare_grps( parmesh, vtxdist, map, pt1->mark, color ) ) {
+        if( PMMG_get_proc( parmesh, pt1->mark ) == parmesh->myrank ) {
+          igrp = PMMG_get_grp( parmesh, pt1->mark );
+          if( nelem[igrp] == PMMG_METIS_NELEM_MIN ) return 1;
+          nelem[igrp]--;
+        }
         pt1->mark = color;
         for (j=0; j<4; j++) {
           ppt1 = &mesh->point[pt1->v[j]];
@@ -1110,7 +1121,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   MPI_Status     status;
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
-  int          *vtxdist,*map;
+  int          *vtxdist,*map,*nelem;
   int          nlayers;
   int          nprocs,ngrp,base_front;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
@@ -1135,6 +1146,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
   if( !PMMG_sort_procs( parmesh, &vtxdist, &map ) ) return 0;
 
+  PMMG_CALLOC( parmesh,nelem,parmesh->nold_grp,int,"nelem",return 0);
+  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ )
+    nelem[igrp] = map[igrp+vtxdist[parmesh->myrank]];
 
   /* Reset internal communicator */
   int_node_comm = parmesh->int_node_comm;
@@ -1212,8 +1226,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
-      ier = PMMG_mark_boulevolp( parmesh, mesh, vtxdist, map, ngrp, base_front,
-                                 ip, list);
+      ier = PMMG_mark_boulevolp( parmesh, mesh, vtxdist, map, nelem, ngrp,
+                                 base_front, ip, list);
       if( !ier ) break;
 
     }
@@ -1230,6 +1244,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   if( !PMMG_fix_contiguity( parmesh, &counter ) ) return 0;
   if( !PMMG_check_reachability( parmesh, &counter ) ) return 0;
 
+  PMMG_DEL_MEM( parmesh,nelem,int,"nelem" );
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
