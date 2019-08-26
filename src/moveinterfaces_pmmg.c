@@ -440,7 +440,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   MPI_Comm       comm;
   MPI_Status     status;
   int          *face2int_face_comm_index1,*face2int_face_comm_index2;
-  int          *intvalues,*itosend,*itorecv;
+  int          *intvalues,*itosend,*itorecv,rank_out;
   int          *list;
   int          next_head,next_len,next_base,next_otetra;
   int          nitem,color;
@@ -506,6 +506,16 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
+  /* Ignore values if coming from a proc different than color_out */
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    rank_out = ext_face_comm->color_out;
+    for( i = 0; i < ext_face_comm->nitem; i++ ) {
+      idx = ext_face_comm->int_comm_index[i];
+      if( PMMG_get_proc( parmesh,intvalues[idx] ) != rank_out )
+        intvalues[idx] = PMMG_UNSET;
+    }
+  }
 
   /* Reach as many tetra as possible from the interface through walk search */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
