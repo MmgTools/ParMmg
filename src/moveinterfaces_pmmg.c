@@ -168,8 +168,8 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       if ( !k1 )  continue;
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
-      /* Skip already visited tetra */
-      if ( pt1->flag == base )  continue;
+      /* Skip already visited tetra (by this or another list */
+      if ( pt1->flag )  continue;
       /* Skip tetra with different color */
       if ( pt1->mark != color ) continue;
       /* Flag tetra as treated */
@@ -197,7 +197,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       if ( !k1 )  continue;
       k1 /= 4;
       pt1 = &mesh->tetra[k1];
-      if ( pt1->mark != color ) {
+      if ( pt1->flag != base ) {
         *list_otetra = k1;
         break;
       }
@@ -533,7 +533,15 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
           &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
+    assert( *counter <= mesh->ne );
   }
+
+#ifndef NDEBUG
+  int count = 0;
+  for( k = 1; k <= mesh->ne; k++ )
+    if( mesh->tetra[k].flag ) count++;
+  assert( count == *counter );
+#endif
 
   /* Merge the unreachable subgroups */
   ie = 1;
@@ -554,10 +562,13 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
       fprintf(stderr,"\n### Error: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
       return 0;
     } else {
-     printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);
-     if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_len, next_otetra ) )
+      printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);
+      if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_len, next_otetra ) )
         return 0;
+      /* Decrease counter if the merged list will be scanned again */
+      if( !mesh->tetra[next_otetra].flag ) *counter -= next_len;
     }
+    assert( *counter <= mesh->ne );
 
     /* Find the next list head */
     ie++;
