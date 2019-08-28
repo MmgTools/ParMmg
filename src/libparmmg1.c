@@ -504,7 +504,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         /** Call the remesher */
         /* Here we need to scale the mesh */
-        if ( !MMG5_scaleMesh(mesh,met,NULL) ) { goto strong_failed; }
+        if ( !MMG5_scaleMesh(mesh,met) ) { goto strong_failed; }
 
         if ( !mesh->adja ) {
           if ( !MMG3D_hashTetra(mesh,0) ) {
@@ -537,7 +537,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
           goto strong_failed;
         }
-        if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
+        if ( !MMG5_unscaleMesh(mesh,met) ) { goto strong_failed; }
 
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);

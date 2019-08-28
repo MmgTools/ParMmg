@@ -278,7 +278,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -316,7 +316,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -361,7 +361,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -400,7 +400,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -493,7 +493,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
     ier = PMMG_LOWFAILURE;
   }
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
@@ -658,7 +658,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
       ier = PMMG_LOWFAILURE;
     }
   }
@@ -762,7 +762,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met ) ) {
     ier = PMMG_LOWFAILURE;
   }
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );

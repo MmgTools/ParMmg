@@ -352,8 +352,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   // parmmg finished parsing arguments, the rest will be handled by mmg3d
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
-                          parmesh->listgrp[0].met,
-                          NULL ) ) {
+                          parmesh->listgrp[0].met ) ) {
     ret_val = 0;
     goto fail_proc;
   }
