@@ -162,7 +162,8 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+    if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+    pxt->ftag[ifac] |= MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF;
   }
 }
 
@@ -224,7 +225,8 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+    if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+    pxt->ftag[ifac] |= MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF;
   }
 }
 
