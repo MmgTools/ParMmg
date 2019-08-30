@@ -1262,10 +1262,14 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   PMMG_check_contiguity( parmesh,0 );
 #endif
   int counter;
+
   ier = PMMG_fix_contiguity( parmesh, &counter );
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if( !ier_glob ) return 0;
-  if( !PMMG_check_reachability( parmesh, &counter ) ) return 0;
+
+  ier = PMMG_check_reachability( parmesh, &counter );
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if( !ier_glob ) return 0;
 
   PMMG_DEL_MEM( parmesh,nelem,int,"nelem" );
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
