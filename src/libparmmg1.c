@@ -407,7 +407,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_split_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,0 );
+  ier = PMMG_split_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
+                         PMMG_REDISTRIBUTION_graph_balancing );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -591,7 +592,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_loadBalancing(parmesh,0);
+    ier = PMMG_loadBalancing(parmesh);
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {

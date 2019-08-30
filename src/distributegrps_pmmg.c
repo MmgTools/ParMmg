@@ -2947,7 +2947,6 @@ end:
 
 /**
  * \param parmesh pointer toward the mesh structure.
- * \param moveIfcs 0 for metis, 1 for advancing-front method.
  *
  * \return -1 if we fail and can not save the meshes, 0 if we fail but can save
  * the meshes, 1 otherwise
@@ -2956,7 +2955,7 @@ end:
  * processors and send and recieve the groups from the other processors.
  *
  */
-int PMMG_distribute_grps( PMMG_pParMesh parmesh,int moveIfcs ) {
+int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
   int   ngrp,ier,ier_glob;
 
@@ -2973,7 +2972,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh,int moveIfcs ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  if( moveIfcs ) {
+  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration ) {
 
     ier = PMMG_part_getProcs( parmesh, part );
 

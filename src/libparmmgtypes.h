@@ -146,6 +146,30 @@
 #define PMMG_ARG_end    11
 
 /**
+ * \def PMMG_REDISTRIBUTION_graph_balancing
+ *
+ * Use graph redistribution to load balance the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_graph_balancing 0
+
+/**
+ * \def PMMG_REDISTRIBUTION_ifc_migration
+ *
+ * Use interface migration to redistribute the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_ifc_migration 1
+
+/**
+ * \def PMMG_REDISTRIBUTION_mode
+ *
+ * Choose how to redistribute the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_ifc_migration
+
+/**
  * \def PMMG_LOADBALANCING_metis
  *
  * Use metis to compute and balance the graph during the loadbalancing step

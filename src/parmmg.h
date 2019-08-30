@@ -473,9 +473,9 @@ int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh,int,int,int );
 
 /* Load Balancing */
-int PMMG_distribute_grps( PMMG_pParMesh parmesh,int );
-int PMMG_loadBalancing( PMMG_pParMesh parmesh,int );
-int PMMG_split_n2mGrps( PMMG_pParMesh,int,int,int );
+int PMMG_distribute_grps( PMMG_pParMesh parmesh );
+int PMMG_loadBalancing( PMMG_pParMesh parmesh );
+int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
 int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh );
 double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac );
 void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );

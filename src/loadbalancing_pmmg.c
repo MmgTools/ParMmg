@@ -59,14 +59,13 @@ int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
 
 /**
  * \param parmesh pointer toward a parmesh structure
- * \param moveIfcs 0 if using metis, 1 if using an advancing-front method
  *
  * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *
  * Load balancing of the mesh groups over the processors.
  *
  */
-int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
+int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
   mytime     ctim[5];
@@ -111,7 +110,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,moveIfcs);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
@@ -134,7 +133,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_distribute_grps(parmesh,moveIfcs);
+  ier = PMMG_distribute_grps(parmesh);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
@@ -158,7 +157,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int moveIfcs) {
 
   if ( ier ) {
     /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,moveIfcs);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
   }
