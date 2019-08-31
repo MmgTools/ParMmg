@@ -523,6 +523,9 @@ int PMMG_merge_grps ( PMMG_pParMesh parmesh,int );
 int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps );
 int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part );
 int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps );
+int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter );
+int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part );
+int PMMG_fix_contiguity_split( PMMG_pParMesh parmesh,idx_t ngrp,idx_t *part );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );

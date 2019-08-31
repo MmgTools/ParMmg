@@ -922,51 +922,6 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
  * \param parmesh pointer toward a PMMG parmesh structure.
  * \param part pointer toward the metis array containing the partitions.
  *
- * \return 0 if fail, 1 otherwise
- *
- * Check and fix contiguity of the partitioning of the centralized mesh.
- */
-int PMMG_check_initial_contiguity( PMMG_pParMesh parmesh,idx_t *part ) {
-  MMG5_pMesh  mesh;
-  MMG5_pTetra pt;
-  int         ie,counter;
-
-  assert( parmesh->ngrp == 1 );
-  assert( !parmesh->myrank );
-  mesh = parmesh->listgrp[0].mesh;
-
-  /* Store the partition number into the mark field */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) ) continue;
-    pt->mark = part[ie-1];
-  }
-
-  /* Store the procs nb into the nold_grp field */
-  parmesh->nold_grp = parmesh->nprocs;
-  parmesh->nprocs   = 1;
-
-  counter = 0;
-  if( !PMMG_fix_contiguity( parmesh,&counter ) ) return 0;
-
-  /* Reset the nold_grp field */
-  parmesh->nprocs   = parmesh->nold_grp;
-  parmesh->nold_grp = 0;
-
-  /* Update the partition number */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) ) continue;
-    part[ie-1] = pt->mark;
-  }
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a PMMG parmesh structure.
- * \param part pointer toward the metis array containing the partitions.
- *
  * \return 0 (on all procs) if fail, 1 otherwise
  *
  * Delete parts of the mesh not on the processor.
@@ -1003,7 +958,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
       ier = 5;
     }
-    PMMG_check_initial_contiguity( parmesh,part );
+    if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
   }
 
   /** Send the partition data to the other procs */

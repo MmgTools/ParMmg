@@ -1488,6 +1488,11 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
       ret_val = 0;
       goto fail_part;
     }
+    
+    /* If this is the first split of the input mesh, and interface migration
+     * will beb performed, check that the groups are contiguous. */
+    if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration )
+      if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
 
   /* count_per_grp: count new tetra per group, and store new ID in the old
