@@ -13,7 +13,6 @@
 #include "metis_pmmg.h"
 
 
-
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param color color of the group.
@@ -26,7 +25,6 @@
 int PMMG_get_proc( PMMG_pParMesh parmesh,int color ) {
   return color % parmesh->nprocs;
 }
-
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -41,7 +39,18 @@ int PMMG_get_grp( PMMG_pParMesh parmesh,int color ) {
   return color / parmesh->nprocs;
 }
 
-int PMMG_compare_grps( PMMG_pParMesh parmesh,int *vtxdist,int *map,
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param vtxdist sparse representation of the number of old groups.
+ * \param color0 color of the first group.
+ * \param color1 color of the second group.
+ * \return 0 if group 0 has higher priority than group 1, group 1 if group 1
+ * has higher priority than group 0.
+ *
+ * Compare groups priority to get the direction of the interface propagation.
+ *
+ */
+int PMMG_get_ifcDirection( PMMG_pParMesh parmesh,int *vtxdist,int *map,
     int color0, int color1 ) {
   int igrp0,iproc0,idx0;
   int igrp1,iproc1,idx1;
@@ -63,6 +72,7 @@ int PMMG_compare_grps( PMMG_pParMesh parmesh,int *vtxdist,int *map,
     return 0;
 
 }
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param igrp index of the group.
@@ -772,7 +782,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
   list[0] = 4*start + iloc;
   ilist=1;
   /** Analyse initial tetra: It could be on the other side of the front */
-  if ( PMMG_compare_grps( parmesh, vtxdist, map, pt->mark, color ) ) {
+  if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, pt->mark, color ) ) {
     if( PMMG_get_proc( parmesh, pt->mark ) == parmesh->myrank ) {
       igrp = PMMG_get_grp( parmesh, pt->mark );
       if( nelem[igrp] == PMMG_METIS_NELEM_MIN ) return 1;
@@ -810,12 +820,12 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
         if ( pt1->v[j] == nump ) { j1 = j; break; }
       assert(j1<4);
       /** Flag not-owned tetra but don't put it in the list */
-      if ( PMMG_compare_grps( parmesh, vtxdist, map, color, pt1->mark ) ) {
+      if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, color, pt1->mark ) ) {
         pt1->flag = base;
         continue;
       }
       /** Mark owned tetra and its vertices */
-      if ( PMMG_compare_grps( parmesh, vtxdist, map, pt1->mark, color ) ) {
+      if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, pt1->mark, color ) ) {
         if( PMMG_get_proc( parmesh, pt1->mark ) == parmesh->myrank ) {
           igrp = PMMG_get_grp( parmesh, pt1->mark );
           if( nelem[igrp] == PMMG_METIS_NELEM_MIN ) return 1;
@@ -883,7 +893,7 @@ int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ngrp,
       }
 
       /* Mark and flag interface point */
-      if( PMMG_compare_grps( parmesh,vtxdist,map,ppt->tmp,pt->mark ) ) {
+      if( PMMG_get_ifcDirection( parmesh,vtxdist,map,ppt->tmp,pt->mark ) ) {
         ppt->tmp  = pt->mark;
         ppt->s    = 4*ie+iloc;
         ppt->flag = mesh->base;
@@ -1011,7 +1021,7 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
  * Initialize an array with the number of elements in each old group.
  *
  */
-int PMMG_init_map( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
+int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
@@ -1062,7 +1072,7 @@ int PMMG_init_map( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
  * Complete the array with the number of elements in each old group.
  *
  */
-int PMMG_sort_procs( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
+int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   PMMG_pGrp      grp;
   PMMG_pExt_comm ext_node_comm;
   PMMG_pInt_comm int_node_comm;
@@ -1271,7 +1281,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   ngrp   = parmesh->nold_grp;
 
   /* Initialise processors interaction map */
-  if( !PMMG_init_map( parmesh, &vtxdist, &map ) ) return 0;
+  if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
 
   /* Mark each point with the maximum color among the tetras in the ball,
    * flag interface points */
@@ -1279,7 +1289,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
 
   /* Complete the processors interaction map and choose the interface
    * propagation direction. */
-  if( !PMMG_sort_procs( parmesh, &vtxdist, &map ) ) return 0;
+  if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
 
   PMMG_CALLOC( parmesh,nelem,parmesh->nold_grp,int,"nelem",return 0);
   for( igrp = 0; igrp < parmesh->nold_grp; igrp++ )
@@ -1341,7 +1351,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     ip  = node2int_node_comm_index1[i];
     ppt = &mesh->point[ip];
     assert( MG_VOK(ppt) );
-    if( PMMG_compare_grps( parmesh, vtxdist, map, ppt->tmp, intvalues[idx] ) ) {
+    if( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, intvalues[idx] ) ) {
       ppt->tmp = intvalues[idx];
       ppt->flag = base_front;
     }
