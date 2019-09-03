@@ -864,7 +864,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
  * flag them as mesh->base.
  *
  */
-int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ngrp,
+int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                                int *vtxdist,int *map ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
@@ -1251,7 +1251,7 @@ fail_3:
  * Move old groups interfaces through an advancing-front method.
  *
  */
-int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
+int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *base_front ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt,pt1;
@@ -1263,9 +1263,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   MPI_Status     status;
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
-  int          *vtxdist,*map,*nelem;
+  int          *nelem;
   int          nlayers;
-  int          nprocs,ngrp,base_front;
+  int          nprocs,ngrp;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
   int          ier=1,ier_glob;
@@ -1280,16 +1280,16 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->nold_grp;
 
-  /* Initialise processors interaction map */
-  if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
-
-  /* Mark each point with the maximum color among the tetras in the ball,
-   * flag interface points */
-  base_front = PMMG_mark_interfacePoints( parmesh, mesh, ngrp, vtxdist, map );
-
-  /* Complete the processors interaction map and choose the interface
-   * propagation direction. */
-  if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
+//  /* Initialise processors interaction map */
+//  if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
+//
+//  /* Mark each point with the maximum color among the tetras in the ball,
+//   * flag interface points */
+//  base_front = PMMG_mark_interfacePoints( parmesh, mesh, vtxdist, map );
+//
+//  /* Complete the processors interaction map and choose the interface
+//   * propagation direction. */
+//  if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
 
   PMMG_CALLOC( parmesh,nelem,parmesh->nold_grp,int,"nelem",return 0);
   for( igrp = 0; igrp < parmesh->nold_grp; igrp++ )
@@ -1353,7 +1353,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
     assert( MG_VOK(ppt) );
     if( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, intvalues[idx] ) ) {
       ppt->tmp = intvalues[idx];
-      ppt->flag = base_front;
+      ppt->flag = *base_front;
     }
   }
 
@@ -1367,19 +1367,19 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
       if( !MG_VOK(ppt) ) continue;
 
       /* Skip not-interface points */
-      if( ppt->flag != base_front ) continue;
+      if( ppt->flag != *base_front ) continue;
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
       ier = PMMG_mark_boulevolp( parmesh, mesh, vtxdist, map, nelem, ngrp,
-                                 base_front, ip, list);
+                                 *base_front, ip, list);
       if( !ier ) break;
 
     }
     if( !ier ) break;
 
     /* Update flag base for next wave */
-    base_front++;
+    (*base_front)++;
   }
 
 #ifndef NDEBUG

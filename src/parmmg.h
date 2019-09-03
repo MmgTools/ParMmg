@@ -476,7 +476,6 @@ int PMMG_split_grps( PMMG_pParMesh,int,int,int );
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
-int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh );
 double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac );
 void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 
@@ -526,6 +525,11 @@ int PMMG_count_grpsPerProc( PMMG_pParMesh parmesh,int *ngrps );
 int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter );
 int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part );
 int PMMG_fix_contiguity_split( PMMG_pParMesh parmesh,idx_t ngrp,idx_t *part );
+int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *base_front );
+int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int* vtxdist,int* priorityMap );
+int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_get_ifcDirection( PMMG_pParMesh parmesh,int *vtxdist,int *map,int color0,int color1 );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );

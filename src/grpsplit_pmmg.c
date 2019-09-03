@@ -1553,6 +1553,7 @@ end:
  *
  */
 int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
+  int     *vtxdist,*priorityMap;
   int     ier,ier1;
 #ifndef NDEBUG
   int     ier_glob;
@@ -1641,8 +1642,13 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     }
     PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
     /*  Move interfaces */
-    if( target == PMMG_GRPSPL_DISTR_TARGET )
-      ier = PMMG_part_moveInterfaces( parmesh );
+    if( target == PMMG_GRPSPL_DISTR_TARGET ) {
+      int base_front;
+      if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
+      base_front = PMMG_mark_interfacePoints( parmesh, mesh, vtxdist, priorityMap );
+      if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
+      ier = PMMG_part_moveInterfaces( parmesh, vtxdist, priorityMap, &base_front );
+    }
   }
 
   /** Split the group into the suitable number of groups */
