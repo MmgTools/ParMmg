@@ -1573,6 +1573,12 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
       chrono(ON,&(ctim[tim]));
   }
 
+  /* Store the nb of tetra per group bbefore merging */
+  if( (PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration) &&
+      (target == PMMG_GRPSPL_DISTR_TARGET) ) {
+    if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
+  }
+
   /** Merge the parmesh groups into 1 group */
   ier = PMMG_merge_grps(parmesh,target);
   if ( !ier ) {
@@ -1644,7 +1650,6 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     /*  Move interfaces */
     if( target == PMMG_GRPSPL_DISTR_TARGET ) {
       int base_front;
-      if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
       base_front = PMMG_mark_interfacePoints( parmesh, mesh, vtxdist, priorityMap );
       if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
       ier = PMMG_part_moveInterfaces( parmesh, vtxdist, priorityMap, &base_front );

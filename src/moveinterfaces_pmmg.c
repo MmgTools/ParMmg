@@ -1018,26 +1018,19 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
  *
  * \return 0 if fail, 1 if success.
  *
- * Initialize an array with the number of elements in each old group.
+ * Initialize an array with the number of elements in each group (to be called
+ * before group merging).
  *
  */
 int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
-  PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
-  MMG5_pTetra    pt;
   MPI_Comm       comm;
-  int            igrp;
-  int            ngrp,nproc,myrank,k,ie;
-
-  assert( parmesh->ngrp == 1 );
+  int            ngrp,nproc,myrank,k,igrp;
 
   comm   = parmesh->comm;
   myrank = parmesh->myrank;
-  ngrp   = parmesh->nold_grp;
+  ngrp   = parmesh->ngrp;
   nproc  = parmesh->nprocs;
-
-  grp                       = &parmesh->listgrp[0];
-  mesh                      = grp->mesh;
 
   /** Step 1: Fill vtxdist array with the range of groups local to each
    * processor */
@@ -1051,12 +1044,10 @@ int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
 
   PMMG_CALLOC(parmesh,*map,(*vtxdist)[nproc],int,"map", return 0);
 
-  /* Count the nb of tetra for each local old group */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) ) continue;
-    igrp = PMMG_get_grp( parmesh, pt->mark );
-    ++(*map)[ igrp + (*vtxdist)[parmesh->myrank] ];
+  /** Step 2: Store the nb of tetra for each local group */
+  for( igrp = 0; igrp < ngrp; igrp++ ) {
+    mesh = parmesh->listgrp[igrp].mesh;
+    (*map)[ igrp + (*vtxdist)[myrank] ] = mesh->ne;
   }
 
   return 1;
