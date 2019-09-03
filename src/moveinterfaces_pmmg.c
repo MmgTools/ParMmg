@@ -1000,6 +1000,17 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
   /* Return the nb of groups on the current proc */
   return count;
 }
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param vtxdist sparse representation of the nb of old groups
+ * \param map sparse array for the number of elements in the old groups
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Initialize an array with the number of elements in each old group.
+ *
+ */
 int PMMG_init_map( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
@@ -1030,7 +1041,7 @@ int PMMG_init_map( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
 
   PMMG_CALLOC(parmesh,*map,(*vtxdist)[nproc],int,"map", return 0);
 
-  /* Count the nb of tetra for each old group */
+  /* Count the nb of tetra for each local old group */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
@@ -1041,6 +1052,16 @@ int PMMG_init_map( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param vtxdist sparse representation of the nb of old groups
+ * \param map sparse array for the number of elements in the old groups
+ *
+ * \return 0 if fail, 1 if success.
+ *
+ * Complete the array with the number of elements in each old group.
+ *
+ */
 int PMMG_sort_procs( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   PMMG_pGrp      grp;
   PMMG_pExt_comm ext_node_comm;
@@ -1216,7 +1237,6 @@ fail_3:
 
 /**
  * \param parmesh pointer toward a parmesh structure
- * \param part groups partitions array
  *
  * Move old groups interfaces through an advancing-front method.
  *
@@ -1250,12 +1270,15 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh ) {
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->nold_grp;
 
+  /* Initialise processors interaction map */
   if( !PMMG_init_map( parmesh, &vtxdist, &map ) ) return 0;
 
   /* Mark each point with the maximum color among the tetras in the ball,
    * flag interface points */
   base_front = PMMG_mark_interfacePoints( parmesh, mesh, ngrp, vtxdist, map );
 
+  /* Complete the processors interaction map and choose the interface
+   * propagation direction. */
   if( !PMMG_sort_procs( parmesh, &vtxdist, &map ) ) return 0;
 
   PMMG_CALLOC( parmesh,nelem,parmesh->nold_grp,int,"nelem",return 0);
