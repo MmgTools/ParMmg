@@ -12,6 +12,39 @@
 
 #include "parmmg.h"
 
+int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh  mesh;
+  FILE*       inm;
+  int         bin,ier;
+  char        *data;
+
+  if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+
+  ier = MMG3D_openMesh(mesh,filename,&inm,&bin);
+  if( ier < 1 ) return ier;
+  ier = MMG3D_loadMesh_opened(mesh,inm,bin);
+  if( ier < 1 ) return ier;
+
+  fclose(inm);
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  if ( 1 != ier ) return 0;
+
+  return 1;
+}
+
 int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   int        ier;
