@@ -909,7 +909,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
   idx_t       *vtxdist;
-  int         igrp,ie,ier;
+  int         igrp,iproc,ie,ier;
 
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp  = &parmesh->listgrp[igrp];
@@ -927,7 +927,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
 
   MPI_CHECK( MPI_Allgather(&parmesh->ngrp,1,MPI_INT,&vtxdist[1],1,MPI_INT,parmesh->comm),
              PMMG_DEL_MEM(parmesh,vtxdist,idx_t,"parmetis vtxdist"); return 0 );
-  for( int iproc = 0; iproc < parmesh->nprocs; iproc++ )
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     vtxdist[iproc+1] += vtxdist[iproc];
 
   ier = PMMG_correct_parmeshGrps2parmetis( parmesh, vtxdist, part, parmesh->nprocs );
