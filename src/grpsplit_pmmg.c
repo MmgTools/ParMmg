@@ -1482,6 +1482,13 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
   if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all );
+    if ( ngrp == 1 )  {
+      if ( parmesh->ddebug )
+        fprintf( stdout,
+                 "[%d-%d]: %d group is enough, no need to create sub groups.\n",
+                 parmesh->myrank+1, parmesh->nprocs, ngrp );
+      goto fail_part;
+    } 
   }
   else {
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
