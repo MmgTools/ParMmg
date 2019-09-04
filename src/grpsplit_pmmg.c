@@ -1398,7 +1398,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
     MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
                              parmesh->comm), return 0 );
-    ngrp = PMMG_count_grpsPerProc( parmesh, noldgrps_all );
+    ngrp = 2; //only to avoid errors
   } else {
 
     ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
