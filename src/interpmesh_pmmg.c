@@ -384,7 +384,8 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
             /* Skip already interpolated points */
             if( ppt->flag == mesh->base ) continue;
 
-            if( ppt->tag & MG_PARBDY ) {
+#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
+            if( ppt->tag & MG_REQ ) {
 
               /* Copy metrics for interface points */
               ier = PMMG_copyMetrics_point( grp,oldGrp,ip );
