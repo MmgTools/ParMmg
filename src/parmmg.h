@@ -519,7 +519,7 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp,PMMG_pGrp );
 int PMMG_merge_grps ( PMMG_pParMesh parmesh,int );
 
 /* Move interfaces */
-int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps );
+int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps,int target );
 int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part );
 int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter );
 int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part );

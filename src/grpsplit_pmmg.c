@@ -1481,7 +1481,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   meshOld_ne = meshOld->ne;
 
   if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
-    ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all );
+    ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
         fprintf( stdout,

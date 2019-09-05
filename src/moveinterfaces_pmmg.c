@@ -917,7 +917,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
  * of each tetra.
  *
  */
-int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
+int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps,int target ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
@@ -931,6 +931,17 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps ) {
 
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
+
+  if( target == PMMG_GRPSPL_MMG_TARGET ) {
+    /* Retrieve the grp ID from the tetra mark field */
+    for( ie = 1; ie <= mesh->ne; ie++ ) {
+      pt = &mesh->tetra[ie];
+      if( !MG_EOK(pt) ) continue;
+      assert( PMMG_get_proc( parmesh, pt->mark ) == parmesh->myrank );
+      part[ie-1] = PMMG_get_grp( parmesh, pt->mark );
+    }
+    return parmesh->nold_grp;
+  }
 
   sumngrps[0] = 0;
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
