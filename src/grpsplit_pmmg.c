@@ -1397,9 +1397,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
-    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
-    ngrp = 2; //only to avoid errors
+    ngrp = parmesh->nold_grp; //only to avoid errors, true nb is computed after
   } else {
 
     ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
@@ -1482,6 +1480,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   meshOld_ne = meshOld->ne;
 
   if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
+    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                             parmesh->comm), return 0 );
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
