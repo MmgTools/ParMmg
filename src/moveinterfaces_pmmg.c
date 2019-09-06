@@ -594,8 +594,8 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
 #warning Luca: change this tag
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
                    comm,&status),return 0 );
 
     for ( i=0; i<nitem; ++i ) {
@@ -1044,7 +1044,7 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
   int            *intvalues,*itosend,*itorecv;
   int            color,igrp,iproc;
-  int            ngrp,nproc,myrank,nitem,k,i,idx,ip;
+  int            ngrp,nproc,myrank,nitem_snd,nitem_rcv,k,i,idx,ip;
 
   assert( parmesh->ngrp == 1 );
 
@@ -1079,25 +1079,25 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
    * ishift) of the neighbours (through the nodes) */
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem         = ext_node_comm->nitem;
+    nitem_snd     = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem_snd,int,"itosend array",
                 goto fail_3);
     itosend = ext_node_comm->itosend;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem_snd,int,"itorecv array",
                 goto fail_4);
     itorecv       = ext_node_comm->itorecv;
 
-    for ( i=0; i<nitem; ++i ) {
+    for ( i=0; i<nitem_snd; ++i ) {
       idx            = ext_node_comm->int_comm_index[i];
       itosend[i]     = intvalues[idx] ;
     }
 
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+      MPI_Sendrecv(itosend,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
+                   itorecv,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
                    comm,&status),goto fail_5 );
   }
 
@@ -1109,11 +1109,11 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     itosend       = ext_node_comm->itosend;
     itorecv       = ext_node_comm->itorecv;
-    nitem         = ext_node_comm->nitem;
+    nitem_snd     = ext_node_comm->nitem;
 
     /* i2send array contains the group id of the boundary nodes and i2recv the
      * group id of the same node in the other proc */
-    for ( i=0; i<nitem; ++i ) {
+    for ( i=0; i<nitem_snd; ++i ) {
       /* Get the group id (+ishift) of the node in our proc and the group id
        * (+ishift) of the node in the adjacent proc */
       color = itorecv[i];
@@ -1138,24 +1138,25 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     color         = ext_node_comm->color_out;
-    nitem         = (*vtxdist)[myrank+1]-(*vtxdist)[myrank];
+    nitem_snd     = (*vtxdist)[myrank+1]-(*vtxdist)[myrank];
+    nitem_rcv     = (*vtxdist)[color+1] -(*vtxdist)[color];
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem_snd,int,"itosend array",
                 goto fail_3);
     itosend = ext_node_comm->itosend;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem_rcv,int,"itorecv array",
                 goto fail_4);
     itorecv       = ext_node_comm->itorecv;
 
-    for ( i=0; i<nitem; ++i ) {
+    for ( i=0; i<nitem_snd; ++i ) {
       idx = i + (*vtxdist)[myrank];
       itosend[i] = (*map)[idx];
     }
 
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+      MPI_Sendrecv(itosend,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
+                   itorecv,nitem_rcv,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
                    comm,&status),goto fail_5 );
   }
 
@@ -1168,11 +1169,11 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
     itosend       = ext_node_comm->itosend;
     itorecv       = ext_node_comm->itorecv;
     color         = ext_node_comm->color_out;
-    nitem         = (*vtxdist)[color+1]-(*vtxdist)[color];
+    nitem_rcv     = (*vtxdist)[color+1]-(*vtxdist)[color];
 
     /* i2send array contains the group id of the boundary nodes and i2recv the
      * group id of the same node in the other proc */
-    for ( i=0; i<nitem; ++i ) {
+    for ( i=0; i<nitem_rcv; ++i ) {
       idx = i + (*vtxdist)[color];
       if( (*map)[idx] ) (*map)[idx] = itorecv[i];
     }
@@ -1295,8 +1296,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
 
 #warning Luca: change this tag
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
                    comm,&status),return 0 );
 
     for ( i=0; i<nitem; ++i ) {
