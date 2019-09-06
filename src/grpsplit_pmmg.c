@@ -1435,6 +1435,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   MPI_CHECK( MPI_Gather(&meshOld->ne,1,MPI_INT,
                         ne_all,1,MPI_INT,0,parmesh->comm),
              PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                             parmesh->comm), return 0 );
+
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     int i;
     for( i=0; i<parmesh->nprocs; i++ )
@@ -1479,9 +1482,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
 
-  if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
-    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
+
+  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+      (ngrp <= parmesh->nold_grp) ) {
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
