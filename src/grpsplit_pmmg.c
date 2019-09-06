@@ -1395,7 +1395,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
   if ( !meshOld ) goto end;
 
-  if( redistrMode == PMMG_REDISTRIBUTION_ifc_migration ) {
+  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+      (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
                              parmesh->comm), return 0 );
     ngrp = 2; //only to avoid errors
