@@ -365,7 +365,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 static inline
 int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
   MMG5_pTetra pt,ptnew;
-  int         ne,nbl,k;
+  int         ne,nbl,k,iadr;
 
   ne  = 0;
   nbl = 1;
@@ -390,6 +390,15 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
   }
   mesh->ne = ne;
 
+  /* Treat empty tetra (prepare to link mesh) */
+  for( k=mesh->ne+1; k<= mesh->nemax; k++ ) {
+    pt = &mesh->tetra[k];
+    memset(pt,0,sizeof(MMG5_Tetra));
+    iadr = 4*(k-1) + 1;
+    if ( mesh->adja )
+      memset(&mesh->adja[iadr],0,4*sizeof(int));
+  }
+
   return 1;
 }
 
@@ -408,7 +417,8 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
  */
 static inline
 int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
-                     int *pointPerm,int *xPointPerm,int *xTetraPerm) {
+                     int *pointPerm,int *xPointPerm,int *xTetraPerm,
+                     int np,int nxp,int nxt) {
   int k;
 
   /** Compact xtetra on the proc: in place permutations */
@@ -425,6 +435,21 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
   for ( k=1; k<=mesh->xp; ++k )
     while ( xPointPerm[k] != k && xPointPerm[k] )
       PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
+
+  mesh->np = np;
+  met->np  = np;
+  mesh->xp = nxp;
+  mesh->xt = nxt;
+
+  /* Treat empty points (prepare to link mesh) */
+  for( k=mesh->np+1;k<=mesh->npmax;k++ ) {
+    /* Set tangent field of point to 0 */
+    mesh->point[k].n[0] = 0;
+    mesh->point[k].n[1] = 0;
+    mesh->point[k].n[2] = 0;
+  }
+  mesh->point[mesh->npmax-1].tmp = 0;
+  mesh->point[mesh->npmax].tmp   = 0;
 
   return 1;
 }
@@ -894,13 +919,8 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
   if ( !PMMG_packTetraOnProc(mesh,rank) ) return 0;
 
   /** Mesh permutations */
-  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
+  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm,np,nxp,nxt) )
     return 0;
-
-  mesh->np = np;
-  met->np  = np;
-  mesh->xp = nxp;
-  mesh->xt = nxt;
 
   if ( !PMMG_link_mesh( mesh ) ) return 0;
 
