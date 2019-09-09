@@ -293,16 +293,20 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
  * \return 0 if fail, 1 if success.
  *
  */
-int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *main_list,
-                                int *next_list,int *counter ) {
+int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
+                                int *list1,int *counter ) {
   MMG5_pMesh const mesh = parmesh->listgrp[0].mesh;
   MMG5_pTetra      pt;
-  int              main_head,main_len,main_base,main_otetra;
-  int              next_head,next_len,next_base,next_otetra;
+  int              *main_list,main_head,main_len,main_base,main_otetra;
+  int              *next_list,next_head,next_len,next_base,next_otetra;
+  int              *tmp_list;
   int              start,k;
 
   /* Only works on a merged group */
   assert( parmesh->ngrp == 1 );
+
+  main_list = list0;
+  next_list = list1;
 
   /** 1) Find the first subgroup with the given color */
   start = 1;
@@ -346,6 +350,9 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *main_list,
         /* Decrease counter if the merged list will be scanned again */
         if( !mesh->tetra[main_otetra].flag ) *counter -= main_len;
         /* Swap */
+        tmp_list    = main_list;
+        main_list   = next_list;
+        next_list   = tmp_list;
         main_head   = next_head;
         main_len    = next_len;
         main_base   = next_base;
