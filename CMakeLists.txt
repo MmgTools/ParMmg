@@ -431,6 +431,29 @@ IF ( DOWNLOAD_METIS )
   Add_Dependencies(parmmg Metis)
 ENDIF ( )
 
+############################################################################
+#####
+#####         Print git hash to source file
+#####
+############################################################################
+
+IF (NOT WIN32)
+
+  ADD_CUSTOM_TARGET(GenerateGitHash
+    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
+    COMMENT "Getting git commit hash"
+  )
+  ADD_DEPENDENCIES(parmmg GenerateGitHash)
+  IF( LIBPARMMG_STATIC )
+    ADD_DEPENDENCIES(libparmmg_a GenerateGitHash)
+  ENDIF ()
+  IF( LIBPARMMG_SHARED )
+    ADD_DEPENDENCIES(libparmmg_so GenerateGitHash)
+  ENDIF ()
+
+ENDIF ()
+
 ###############################################################################
 #####
 #####         Create API Documentation
