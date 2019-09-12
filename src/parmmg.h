@@ -168,6 +168,9 @@ static const int PMMG_METIS_NGRPS_MAX = 1000;
 /**< Subgroups minimum size to try to avoid empty partitions */
 static const int PMMG_METIS_NELEM_MIN = 6;
 
+/**< Allowed imbalance ratio between demanded groups and available groups */
+static const double PMMG_GRPS_RATIO = 1.3;
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
