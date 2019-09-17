@@ -1501,6 +1501,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
     } 
   }
   else {
+    if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+         (parmesh->info.imprim > PMMG_VERB_ITWAVES) )
+      fprintf(stdout,"\n         calling Metis on proc%d\n\n",parmesh->myrank);
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
       ret_val = 0;
       goto fail_part;
