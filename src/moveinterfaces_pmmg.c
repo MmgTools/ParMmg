@@ -759,8 +759,10 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
       ppt1 = &mesh->point[pt->v[j]];
       /* Mark and flag points not on the current front */
       if ( ppt1->flag != base_front ) {
-        ppt1->tmp  = color;
-        ppt1->s    = 4*start+j;
+        if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
+          ppt1->tmp  = color;
+          ppt1->s    = 4*start+j;
+        }
         ppt1->flag = base_front+1;
       }
     }
@@ -802,8 +804,10 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
           ppt1 = &mesh->point[pt1->v[j]];
           /* Mark and flag points not on the current front */
           if ( ppt1->flag != base_front ) {
-            ppt1->tmp  = color;
-            ppt1->s    = 4*k1+j;
+            if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
+              ppt1->tmp  = color;
+              ppt1->s    = 4*k1+j;
+            }
             ppt1->flag = base_front+1;
           }
         }
