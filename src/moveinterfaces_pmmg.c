@@ -1237,7 +1237,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
   int          *nelem;
-  int          nlayers;
+  int          nlayers,ilayer;
   int          nprocs,ngrp;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
@@ -1277,62 +1277,67 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
     intvalues[idx] = PMMG_UNSET;
   }
 
-  /* Save grp index and proc in the internal communicator */
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    idx = node2int_node_comm_index2[i];
-    ip  = node2int_node_comm_index1[i];
-    ppt = &mesh->point[ip];
-    assert( MG_VOK(ppt) );
-    intvalues[idx] = ppt->tmp;  // contains the point color
-  }
-
-  /* Exchange values on the interfaces among procs */
+  /* Allocate external buffers */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     nitem         = ext_node_comm->nitem;
-    color         = ext_node_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
                 return 0);
-    itosend = ext_node_comm->itosend;
-
     PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
                 return 0);
-    itorecv       = ext_node_comm->itorecv;
-
-    for ( i=0; i<nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      itosend[i]     = intvalues[idx] ;
-    }
-
-#warning Luca: change this tag
-    MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
-                   comm,&status),return 0 );
-
-    for ( i=0; i<nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      intvalues[idx] = itorecv[i];
-    }
-
   }
-
-  /* Update grp index and proc after communication */
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    idx = node2int_node_comm_index2[i];
-    ip  = node2int_node_comm_index1[i];
-    ppt = &mesh->point[ip];
-    assert( MG_VOK(ppt) );
-    if( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, intvalues[idx] ) ) {
-      ppt->tmp = intvalues[idx];
-      ppt->flag = *base_front;
-    }
-  }
-
+ 
   /* Move interfaces */
   nlayers = 2;
-  for( i = 0; i < nlayers; i++ ) {
+  for( ilayer = 0; ilayer < nlayers; ilayer++ ) {
+
+    /* Save grp index and proc in the internal communicator */
+    for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+      idx = node2int_node_comm_index2[i];
+      ip  = node2int_node_comm_index1[i];
+      ppt = &mesh->point[ip];
+      assert( MG_VOK(ppt) );
+      intvalues[idx] = ppt->tmp;  // contains the point color
+    }
+
+    /* Exchange values on the interfaces among procs */
+    for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+      ext_node_comm = &parmesh->ext_node_comm[k];
+      nitem         = ext_node_comm->nitem;
+      color         = ext_node_comm->color_out;
+
+      itosend = ext_node_comm->itosend;
+      itorecv = ext_node_comm->itorecv;
+
+      for ( i=0; i<nitem; ++i ) {
+        idx            = ext_node_comm->int_comm_index[i];
+        itosend[i]     = intvalues[idx] ;
+      }
+
+#warning Luca: change this tag
+      MPI_CHECK(
+        MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
+                     itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
+                     comm,&status),return 0 );
+
+      for ( i=0; i<nitem; ++i ) {
+        idx            = ext_node_comm->int_comm_index[i];
+        intvalues[idx] = itorecv[i];
+      }
+    }
+
+    /* Update grp index and proc after communication */
+    for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+      idx = node2int_node_comm_index2[i];
+      ip  = node2int_node_comm_index1[i];
+      ppt = &mesh->point[ip];
+      assert( MG_VOK(ppt) );
+      if( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, intvalues[idx] ) ) {
+        ppt->tmp = intvalues[idx];
+        ppt->flag = *base_front;
+      }
+    }
 
     /* Mark tetra in the ball of interface points */
     for( ip = 1; ip <= mesh->np; ip++ ) {
