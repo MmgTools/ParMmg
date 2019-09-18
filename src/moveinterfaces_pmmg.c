@@ -1237,7 +1237,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
   int          *nelem;
-  int          nlayers,ilayer;
+  int          ilayer;
   int          nprocs,ngrp;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
   int          list[MMG3D_LMAX+2];
@@ -1289,8 +1289,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
   }
  
   /* Move interfaces */
-  nlayers = 2;
-  for( ilayer = 0; ilayer < nlayers; ilayer++ ) {
+  for( ilayer = 0; ilayer < PMMG_MVIFCS_NLAYERS; ilayer++ ) {
 
     /* Save grp index and proc in the internal communicator */
     for( i = 0; i < grp->nitem_int_node_comm; i++ ) {

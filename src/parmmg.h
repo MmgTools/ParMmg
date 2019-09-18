@@ -171,6 +171,8 @@ static const int PMMG_METIS_NELEM_MIN = 6;
 /**< Allowed imbalance ratio between demanded groups and available groups */
 static const double PMMG_GRPS_RATIO = 1.3;
 
+/**< Number of elements layers for interface displacement */
+static const int PMMG_MVIFCS_NLAYERS = 2;
 
 /**
  * \param parmesh pointer toward a parmesh structure
