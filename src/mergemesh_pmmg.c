@@ -1704,7 +1704,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
-  /* Give all the memory to the communicators */
+  /* Give all the memory to the Process 0 and to the communicators: we
+   * overflow slightly the maximal memory here because the other
+   * parmeshes are not totally empty but they must take only few hundred of Ko */
+  parmesh->memGloMax *= parmesh->size_shm;
+
   available = parmesh->memGloMax;
   if ( grp ) {
     grp->mesh->memMax = grp->mesh->memCur;
@@ -1749,22 +1753,28 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
                             &rcv_xt,&rcv_nmet,&rcv_int_comm_index,&nitem_icidx_tot,
                             &rcv_next_node_comm,&rcv_nitem_int_node_comm);
 
-
   if ( ier ) {
+    /** Free mem */
+    if ( parmesh->myrank != parmesh->info.root ) {
+      /* the entire parmesh may be freed */
+      PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+    }
+    else {
+      MMG3D_Free_arrays(&grp->mesh,&grp->met,&grp->disp);
+      if ( grp->sol ) {
+        assert ( grp->mesh->nsols );
+        for ( k=1; k<=grp->mesh->nsols; ++k ) {
+          if ( &grp->sol[k] && grp->sol[k].m ) {
+            PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->sol[k].m,int,"sol array");
+          }
+        }
+      }
+    }
+    PMMG_parmesh_Free_Comm(parmesh);
+
     /** Step 3: Proc 0 merges the meshes: We travel through the external
      * communicators to recover the numbering of the points shared with a lower
      * proc. The other points are concatenated with the proc 0. */
-
-    /* Give all the memory to mesh0 */
-    parmesh->memMax = parmesh->memCur;
-    available = parmesh->memGloMax - parmesh->memMax;
-    if ( grp ) {
-      available -= grp->mesh->memMax;
-      assert ( available >= 0 );
-
-      grp->mesh->memMax +=  available;
-    }
-
     ier = PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
                                          rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
                                          rcv_color_in_tab,rcv_color_out_tab,point_displs,
@@ -1773,7 +1783,6 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
                                          int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
                                          rcv_int_comm_index,rcv_next_node_comm);
   }
-
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
   /** Step 4: Free memory */
@@ -1802,8 +1811,10 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
     parmesh->ngrp = 1;
   }
-  else parmesh->ngrp = 0;
-
+  else {
+    parmesh->memGloMax = parmesh->memCur;
+    parmesh->ngrp = 0;
+  }
 
   /* 2: communicators data */
   PMMG_DEL_MEM(parmesh,rcv_int_comm_index,int,"rcv_ic_idx");
@@ -1826,7 +1837,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_parmesh_Free_Comm(parmesh);
 
   /** Step 5: Update tag on points, tetra */
-  if ( ieresult > 0 ) {
+  if ( parmesh->myrank == parmesh->info.root && ieresult > 0 ) {
     ieresult = PMMG_updateTag(parmesh);
 
     /** Step 6: In nosurf mode, the updateTag function has added nosurf + required
