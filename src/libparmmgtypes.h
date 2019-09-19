@@ -312,6 +312,7 @@ typedef struct {
   MPI_Comm    comm;   /*!< Global communicator of all parmmg processes */
   int         nprocs; /*!< Number of processes in global communicator */
   int         myrank; /*!< Rank in global communicator */
+  int         size_shm; /*!< Number or MPI process per Node */
 
   /* mem info */
   size_t    memGloMax; /*!< Maximum memory available to all structs */
