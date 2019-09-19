@@ -1548,11 +1548,13 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   mesh->xtmax  = mesh->xt = xt_tot;
 
   MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"tetra",
-                fprintf(stderr,"  Exit program.\n");
-                return 0);
+               fprintf(stderr,"  Exit program.\n");
+               return 0);
+
   MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"xtetra",
-                fprintf(stderr,"  Exit program.\n");
-                return 0);
+               fprintf(stderr,"  Exit program.\n");
+               return 0);
+
   MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
   MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,return 0);
 

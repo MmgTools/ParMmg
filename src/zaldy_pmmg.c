@@ -31,7 +31,6 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 {
   size_t   maxAvail = 0;
   MPI_Comm comm_shm = 0;
-  int      size_shm = 1;
   int      flag;
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
@@ -42,14 +41,14 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   if ( flag ) {
     MPI_Comm_split_type( parmesh->comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
-    MPI_Comm_size( comm_shm, &size_shm );
+    MPI_Comm_size( comm_shm, &parmesh->size_shm );
   }
   else {
-    size_shm = 1;
+    parmesh->size_shm = 1;
   }
 
   /** Step 2: Set maximal memory per process depending on the -m option setting */
-  maxAvail = MMG5_memSize()/size_shm;
+  maxAvail = MMG5_memSize()/parmesh->size_shm;
 
   if ( parmesh->info.mem <= 0 ) {
     /* Nos users specifications */

@@ -139,6 +139,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->comm   = comm;
 
   MPI_Initialized(&flag);
+  parmesh->size_shm = 1;
   if ( flag ) {
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );

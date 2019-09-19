@@ -1428,7 +1428,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh)
   MPI_CHECK( MPI_Gather(&meshOld->ne,1,MPI_INT,
                         ne_all,1,MPI_INT,0,parmesh->comm),
              PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     int i;
     for( i=0; i<parmesh->nprocs; i++ )
       fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",

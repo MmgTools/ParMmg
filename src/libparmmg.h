@@ -1702,7 +1702,60 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);/**
+  int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load displacement field. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADDISP_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadDisp_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load level-set field. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load displacement, level-set or metric field depending on the
+ * option setted. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADSOL_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
  * \return -1 data invalid, 0 no file, 1 ok.

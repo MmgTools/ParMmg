@@ -809,6 +809,60 @@ FORTRAN_NAME(PMMG_LOADMET_CENTRALIZED,pmmg_loadmet_centralized,
 
   return;
 }
+/**
+ * See \ref PMMG_loadLs_centralized function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADLS_CENTRALIZED,pmmg_loadls_centralized,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadLs_centralized(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+/**
+ * See \ref PMMG_loadDisp_centralized function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADDISP_CENTRALIZED,pmmg_loaddisp_centralized,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadDisp_centralized(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+/**
+ * See \ref PMMG_loadSol_centralized function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADSOL_CENTRALIZED,pmmg_loadsol_centralized,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadSol_centralized(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
 
 /**
  * See \ref PMMG_loadAllSols_centralized function in \ref libparmmg.h file.
