@@ -1028,6 +1028,7 @@ int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   /** Step 2: Store the nb of tetra for each local group */
   for( igrp = 0; igrp < ngrp; igrp++ ) {
     mesh = parmesh->listgrp[igrp].mesh;
+    assert(mesh->ne);
     (*map)[ igrp + (*vtxdist)[myrank] ] = mesh->ne;
   }
 
@@ -1051,170 +1052,30 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map ) {
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
   MPI_Comm       comm;
-  MPI_Status     status;
-  int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            *intvalues,*itosend,*itorecv;
-  int            color,igrp,iproc;
-  int            ngrp,nproc,myrank,nitem_snd,nitem_rcv,k,i,idx,ip;
+  int            *ngrps;
+  int            myrank,nproc;
+  int            k;
 
   assert( parmesh->ngrp == 1 );
 
   comm   = parmesh->comm;
   myrank = parmesh->myrank;
-  ngrp   = parmesh->nold_grp;
   nproc  = parmesh->nprocs;
 
-  grp                       = &parmesh->listgrp[0];
-  mesh                      = grp->mesh;
-  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
-  node2int_node_comm_index2 = grp->node2int_node_comm_index2;
+  PMMG_MALLOC(parmesh,ngrps,nproc,int,"ngrps",return 0);
+  for( k=0; k<nproc; k++ )
+    ngrps[k] = (*vtxdist)[k+1]-(*vtxdist)[k];
 
-  /** Step 2: Fill the internal communicator.*/
-  int_node_comm = parmesh->int_node_comm;
-  PMMG_MALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
-              "node communicator",return 0);
-
-  /* Node communicator initialization */
-  intvalues = parmesh->int_node_comm->intvalues;
-
-  /*Fill the internal communicator */
-  for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
-    ip   =  node2int_node_comm_index1[k];
-    ppt = &mesh->point[ip];
-    assert( MG_VOK(ppt) );
-    intvalues[node2int_node_comm_index2[k]] = ppt->tmp;
-  }
-
-
-  /** Step 3: Send and receive external communicators filled by the (group id +
-   * ishift) of the neighbours (through the nodes) */
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem_snd     = ext_node_comm->nitem;
-    color         = ext_node_comm->color_out;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem_snd,int,"itosend array",
-                goto fail_3);
-    itosend = ext_node_comm->itosend;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem_snd,int,"itorecv array",
-                goto fail_4);
-    itorecv       = ext_node_comm->itorecv;
-
-    for ( i=0; i<nitem_snd; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      itosend[i]     = intvalues[idx] ;
-    }
-
-    MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
-                   itorecv,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
-                   comm,&status),goto fail_5 );
-  }
-
-  /** Step 4: Process the external communicators to count for each group the
-   * adjacent groups located on another processor and fill the sorted linked
-   * list of adjacency */
-
-  for (  k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    itosend       = ext_node_comm->itosend;
-    itorecv       = ext_node_comm->itorecv;
-    nitem_snd     = ext_node_comm->nitem;
-
-    /* i2send array contains the group id of the boundary nodes and i2recv the
-     * group id of the same node in the other proc */
-    for ( i=0; i<nitem_snd; ++i ) {
-      /* Get the group id (+ishift) of the node in our proc and the group id
-       * (+ishift) of the node in the adjacent proc */
-      color = itorecv[i];
-      igrp  = PMMG_get_grp( parmesh, color );
-      iproc = PMMG_get_proc( parmesh, color );
-      (*map)[ igrp + (*vtxdist)[iproc] ] = 1;
-
-
-    }
-  }
-
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    if ( ext_node_comm->itorecv )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    if ( ext_node_comm->itosend )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-  }
+  MPI_CHECK(
+    MPI_Allgatherv(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,
+                   &(*map)[0],ngrps,&(*vtxdist)[0],MPI_INT,
+                   comm),goto fail );
  
-  /** Step 5: Send and receive external communicators filled by the (group id +
-   * ishift) of the neighbours (through the nodes) */
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    color         = ext_node_comm->color_out;
-    nitem_snd     = (*vtxdist)[myrank+1]-(*vtxdist)[myrank];
-    nitem_rcv     = (*vtxdist)[color+1] -(*vtxdist)[color];
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem_snd,int,"itosend array",
-                goto fail_3);
-    itosend = ext_node_comm->itosend;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem_rcv,int,"itorecv array",
-                goto fail_4);
-    itorecv       = ext_node_comm->itorecv;
-
-    for ( i=0; i<nitem_snd; ++i ) {
-      idx = i + (*vtxdist)[myrank];
-      itosend[i] = (*map)[idx];
-    }
-
-    MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem_snd,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
-                   itorecv,nitem_rcv,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
-                   comm,&status),goto fail_5 );
-  }
-
-  /** Step 6: Process the external communicators to count for each group the
-   * adjacent groups located on another processor and fill the sorted linked
-   * list of adjacency */
-
-  for (  k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    itosend       = ext_node_comm->itosend;
-    itorecv       = ext_node_comm->itorecv;
-    color         = ext_node_comm->color_out;
-    nitem_rcv     = (*vtxdist)[color+1]-(*vtxdist)[color];
-
-    /* i2send array contains the group id of the boundary nodes and i2recv the
-     * group id of the same node in the other proc */
-    for ( i=0; i<nitem_rcv; ++i ) {
-      idx = i + (*vtxdist)[color];
-      if( (*map)[idx] ) (*map)[idx] = itorecv[i];
-    }
-  }
-
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    if ( ext_node_comm->itorecv )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    if ( ext_node_comm->itosend )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-  }
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
+  PMMG_DEL_MEM(parmesh,ngrps,int,"ngrps");
   return 1;
 
-fail_5:
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    if ( ext_node_comm->itorecv )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-  }
-fail_4:
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    if ( ext_node_comm->itosend )
-      PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-  }
-fail_3:
-  if ( int_node_comm->intvalues )
-    PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
+fail:
+  PMMG_DEL_MEM(parmesh,ngrps,int,"ngrps");
   return 0;
 }
 
