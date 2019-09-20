@@ -1832,8 +1832,6 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index2,int,"rcv_inc_idx2");
   PMMG_DEL_MEM(parmesh,int_comm_index_displs,int,"icidx_displs");
 
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intval");
-
   PMMG_parmesh_Free_Comm(parmesh);
 
   /** Step 5: Update tag on points, tetra */
