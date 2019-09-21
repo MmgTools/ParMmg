@@ -1763,8 +1763,8 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
       MMG3D_Free_arrays(&grp->mesh,&grp->met,&grp->disp);
       if ( grp->sol ) {
         assert ( grp->mesh->nsols );
-        for ( k=1; k<=grp->mesh->nsols; ++k ) {
-          if ( &grp->sol[k] && grp->sol[k].m ) {
+        for ( k=0; k<grp->mesh->nsols; ++k ) {
+          if ( grp->sol + k && grp->sol[k].m ) {
             PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->sol[k].m,int,"sol array");
           }
         }
