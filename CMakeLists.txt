@@ -150,7 +150,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 400ef17c60
+    GIT_TAG 95f77472c38673384b7df8f57ca82cc4668725a9
     INSTALL_COMMAND  echo "DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=OFF -DUSE_VTK=OFF -DBUILD=MMG3D )
 
@@ -332,6 +332,25 @@ IF (NOT WIN32)
 
 ENDIF ()
 
+############################################################################
+#####
+#####         Scotch
+#####
+############################################################################
+# Find SCOTCH library?
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+FIND_PACKAGE(Scotch)
+
+IF ( NOT SCOTCH_FOUND )
+  MESSAGE ( WARNING "Scotch library not found:"
+    "Using scotch reduce the execution time of mmg3d "
+    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
+    "If you have already installed Scotch and want to use it, "
+    "please set the CMake variable or environment variable SCOTCH_DIR "
+    "to your scotch directory.")
+ENDIF ( )
+
 ###############################################################################
 #####
 #####         Sources and libraries
@@ -367,6 +386,23 @@ ENDIF()
 ############################################################################
 
 SET(CMAKE_MACOSX_RPATH 1)
+
+###############################################################################
+#####
+#####         Add dependent options
+#####
+###############################################################################
+
+# add Scotch library?
+CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
+  "SCOTCH_FOUND" OFF)
+
+IF( USE_SCOTCH )
+  SET(CMAKE_C_FLAGS "-DUSE_SCOTCH ${CMAKE_C_FLAGS}")
+ MESSAGE(STATUS
+    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
+  SET( LIBRARIES ${SCOTCH_LIBRARIES} ${LIBRARIES})
+ENDIF()
 
 ############################################################################
 #####

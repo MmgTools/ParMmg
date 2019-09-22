@@ -259,35 +259,67 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
 }
 
 /**
- * \param grp pointer to the current group structure
- * \param oldGrp pointer to the bqckground group structure
- * \param pt pointer to the target background tetrahedron
- * \param ip index of the current point
- * \param phi barycentric coordinates of the point to be interpolated
+ * \param grp pointer to the current group structure.
+ * \param oldGrp pointer to the bqckground group structure.
+ * \param permNodGlob permutation array for nodes.
  *
  * \return 0 if fail, 1 if success
  *
- *  Linearly interpolate point metrics on a target background tetrahedron..
+ * Copy the metric of a freezed interface point.
  *
  */
-int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,int ip ) {
+int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
+  MMG5_pMesh     mesh,oldMesh;
   MMG5_pSol      met,oldMet;
-  int            isize,nsize;
+  MMG5_pPoint    ppt;
+  int            isize,nsize,ip;
 
-  met    = grp->met;
-  oldMet = oldGrp->met;
-  nsize  = met->size;
+  mesh    = grp->mesh;
+  met     = grp->met;
+  oldMesh = oldGrp->mesh;
+  oldMet  = oldGrp->met;
+  nsize   = met->size;
 
-  /** Linear interpolation of the metrics */
-  for( isize = 0; isize<nsize; isize++ )
-    met->m[nsize*ip+isize] = oldMet->m[nsize*ip+isize];
+#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
+
+  /** Freezed points: Copy the  metrics  */
+  if ( (!oldGrp->mesh->info.renum) || !permNodGlob ) {
+    /* No permutation array: simple copy */
+    for( ip = 1; ip <= oldMesh->np; ++ip ) {
+      ppt = &oldMesh->point[ip];
+      if( !MG_VOK(ppt) ) continue;
+
+      ppt->flag = mesh->base;
+      if( ppt->tag & MG_REQ ) {
+        for( isize = 0; isize<nsize; isize++ ) {
+          met->m[nsize*ip+isize] = oldMet->m[nsize*ip+isize];
+        }
+      }
+    }
+  }
+  else {
+    /* Due to the scotch renumbering we must copy from the old mesh to the
+     * new one */
+    for( ip = 1; ip <= oldMesh->np; ++ip ) {
+      ppt = &oldMesh->point[ip];
+      if( !MG_VOK(ppt) ) continue;
+
+      ppt->flag = mesh->base;
+      if( ppt->tag & MG_REQ ) {
+        for( isize = 0; isize<nsize; isize++ ) {
+          met->m[nsize*permNodGlob[ip]+isize] = oldMet->m[nsize*ip+isize];
+        }
+      }
+    }
+  }
 
   return 1;
 }
 
 
 /**
- * \param parmesh pointer to the parmesh structure
+ * \param parmesh pointer to the parmesh structure.
+ * \param permNodGlob permutation array of nodes.
  *
  * \return 0 if fail, 1 if success
  *
@@ -297,7 +329,7 @@ int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,int ip ) {
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
+int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pTetra pt;
@@ -373,6 +405,10 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
 
         mesh->base++;
         istart = 1;
+
+        /* Copy the metric of interface points */
+        ier = PMMG_copyMetrics_point( grp,oldGrp,permNodGlob );
+
         for( ie = 1; ie <= mesh->ne; ie++ ) {
           pt = &mesh->tetra[ie];
           if( !MG_EOK(pt) ) continue;
@@ -384,12 +420,8 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh ) {
             /* Skip already interpolated points */
             if( ppt->flag == mesh->base ) continue;
 
-#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
             if( ppt->tag & MG_REQ ) {
-
-              /* Copy metrics for interface points */
-              ier = PMMG_copyMetrics_point( grp,oldGrp,ip );
-
+              continue; // treated by copyMetric_points
             } else {
 
               /** Locate point in the old mesh */

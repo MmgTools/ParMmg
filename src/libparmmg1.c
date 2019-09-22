@@ -41,6 +41,32 @@ int PMMG_update_node2intPackedVertices( PMMG_pGrp grp ) {
 }
 
 /**
+ * \param grp pointer toward the current group
+ * \param permNodGlob pointer toward the array storing the node permutation
+ *
+ * \return 1 if success
+ *
+ * Update the nodal communicators of the group \a grp after point renumbering
+ * (with scotch).
+ *
+ */
+static inline
+int PMMG_update_node2intRnbg(PMMG_pGrp grp, int *permNodGlob) {
+  int *node2int_node_comm_index1;
+  int k;
+
+  if ( !grp->mesh->info.renum ) return 1;
+
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+
+  for (k=0; k<grp->nitem_int_node_comm; ++k) {
+    node2int_node_comm_index1[k] = permNodGlob[node2int_node_comm_index1[k]];
+  }
+
+  return 1;
+}
+
+/**
  * \param mesh pointer toward the mesh structure (unused).
  * \param ne pointer toward the number of packed tetra
  *
@@ -283,6 +309,8 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
  * \param igrp index of the group that we want to treat
  * \param facesData list the node vertices of the interface faces
  * present in the list of interface triangles of the group.
+ * \param permNodGlob arrayt storing the nodal permutation if stoch renumbering
+ * is enabled
  *
  * \return 1 if success, 0 if fail.
  *
@@ -294,7 +322,7 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
  */
 static inline
 int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
-                                         int *facesData ) {
+                                         int *facesData, int *permNodGlob ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
@@ -346,6 +374,14 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     ib = facesData[3*k+1];
     ic = facesData[3*k+2];
 
+#ifdef USE_SCOTCH
+    if ( permNodGlob && mesh->info.renum ) {
+      ia = permNodGlob[ia];
+      ib = permNodGlob[ib];
+      ic = permNodGlob[ic];
+    }
+#endif
+
     hashVal = MMG5_hashGetFace(&hash,ia,ib,ic);
     assert( hashVal );
 
@@ -373,6 +409,15 @@ facesData:
   return ier;
 }
 
+static inline void PMMG_scotch_message( int8_t *warnScotch ) {
+
+  fprintf(stdout, "\n  ## Warning: %s: Unable to renumber mesh entites.\n"
+          "Renumbering disabled.\n",__func__);
+  *warnScotch = 1;
+
+  return;
+}
+
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
@@ -391,9 +436,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MMG5_pMesh mesh;
   MMG5_pSol  met;
   size_t     oldMemMax,available;
-  int        it,ier,ier_end,ieresult,i,k, *facesData;
   mytime     ctim[TIMEMAX];
-  int8_t     tim;
+  int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
+  int8_t     tim,warnScotch;
   char       stim[32];
 
 
@@ -444,8 +489,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
+  warnScotch = 0;
   for ( it = 0; it < parmesh->niter; ++it ) {
-
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
       if ( it > 0 ) {
@@ -482,6 +527,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
+      if ( it==1 && parmesh->myrank==1) {
+        MMG3D_saveMesh(mesh,"1init.mesh");
+      }
+
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
@@ -492,8 +541,34 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       else {
         /* We can remesh */
 
+        permNodGlob = NULL;
+
+#ifdef USE_SCOTCH
+#warning add clean flags forwarding from parmmg toward Mmg
+#warning deal with the -rn option
+#warning better memory management using a hash table
+
+        /* Allocation of the array that will store the node permutation */
+        PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+                    PMMG_scotch_message(&warnScotch) );
+        if ( permNodGlob ) {
+          for ( k=1; k<=mesh->np; ++k ) {
+            permNodGlob[k] = k;
+          }
+        }
+
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
+
+        /* renumerotation if available */
+        if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+        {
+          PMMG_scotch_message(&warnScotch);
+        }
+#else
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
+                                               available,oldMemMax);
+#endif
 
         /* Mark reinitialisation in order to be able to remesh all the mesh */
         mesh->mark = 0;
@@ -515,9 +590,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
 
 #ifdef PATTERN
-        ier = MMG5_mmg3d1_pattern( mesh, met );
+        ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
 #else
-        ier = MMG5_mmg3d1_delone( mesh, met );
+        ier = MMG5_mmg3d1_delone( mesh, met, permNodGlob );
 #endif
 
         if ( !ier ) {
@@ -533,11 +608,25 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           goto strong_failed;
         }
 
+        if ( it==1 && parmesh->myrank==1) {
+          MMG3D_saveMesh(mesh,"1end.mesh");
+        }
+
         /** Update interface tetra indices in the face communicator */
-        if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) {
+        if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData,permNodGlob) ) {
           fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
           goto strong_failed;
         }
+
+#ifdef USE_SCOTCH
+        /** Update nodal communicators if node renumbering is enabled */
+        if ( mesh->info.renum &&
+             !PMMG_update_node2intRnbg(&parmesh->listgrp[i],permNodGlob) ) {
+          fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+          goto strong_failed;
+        }
+#endif
+
         if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
 
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
@@ -567,7 +656,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics_grps( parmesh );
+    ier = PMMG_interpMetrics_grps( parmesh, permNodGlob );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
