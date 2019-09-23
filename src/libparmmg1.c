@@ -517,6 +517,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.fem;
 
@@ -545,7 +546,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
 #ifdef USE_SCOTCH
 #warning add clean flags forwarding from parmmg toward Mmg
-#warning deal with the -rn option
 #warning better memory management using a hash table
 
         /* Allocation of the array that will store the node permutation */
