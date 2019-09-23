@@ -670,7 +670,9 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
       fprintf(stderr,"\n### Error: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
       return 0;
     } else {
-      printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);
+      if ( parmesh->ddebug ) {
+        printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);
+      }
       if( !PMMG_merge_subgroup( parmesh, mesh, color, list, next_len, next_otetra ) )
         return 0;
       /* Decrease counter if the merged list will be scanned again */

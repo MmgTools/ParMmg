@@ -1443,9 +1443,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     int i;
-    for( i=0; i<parmesh->nprocs; i++ )
+    for( i=0; i<parmesh->nprocs; i++ ) {
       fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
               i,ne_all[i],ngrps_all[i]);
+    }
   }
 
   /* Does the group need to be further subdivided to subgroups or not? */
