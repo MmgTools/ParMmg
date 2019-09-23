@@ -58,7 +58,9 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
              abs(PMMG_RATIO_MMG_METIS) );
 
 #ifdef USE_SCOTCH
-    fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
+    fprintf(stdout,"SCOTCH renumbering                  : enabled\n");
+#else
+    fprintf(stdout,"SCOTCH renumbering                  : disabled\n");
 #endif
 
     if ( parmesh->listgrp[0].mesh ) {
@@ -81,10 +83,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n** Generic options :\n");
     fprintf(stdout,"-h         Print this message\n");
     fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
-    // fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
     fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
     fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
-    // fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
     fprintf(stdout,"-val       Print the default parameters values\n");
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
@@ -118,7 +120,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
 #endif
 #ifdef USE_SCOTCH
-    //fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
 #endif
     fprintf(stdout,"\n");
 
@@ -307,10 +309,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 #ifdef USE_SCOTCH
       case 'r':
         if ( !strcmp(argv[i],"-rn") ) {
-          fprintf( stderr,
-                   "\nScoth renumbering not yet available in ParMmg\n");
-          ret_val = 0;
-          goto fail_proc;
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 #endif
