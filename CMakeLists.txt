@@ -137,10 +137,78 @@ ENDIF()
 
 ############################################################################
 #####
+#####         Scotch
+#####
+############################################################################
+# Find SCOTCH library?
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+FIND_PACKAGE(Scotch)
+
+IF ( NOT SCOTCH_FOUND )
+  MESSAGE ( WARNING "Scotch library not found:"
+    "Using scotch reduce the execution time of mmg3d "
+    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
+    "If you have already installed Scotch and want to use it, "
+    "please set the CMake variable or environment variable SCOTCH_DIR "
+    "to your scotch directory.")
+ENDIF ( )
+
+############################################################################
+#####
+#####         VTK (to parse (p)vtp/(p)vtu files )
+#####
+############################################################################
+FIND_PACKAGE(VTK)
+
+###############################################################################
+#####
+#####         Add dependent options
+#####
+###############################################################################
+
+# add Scotch library?
+CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
+  "SCOTCH_FOUND" OFF)
+
+IF( USE_SCOTCH )
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
+ MESSAGE(STATUS
+    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
+  SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
+ENDIF()
+
+# add the VTK library ?
+CMAKE_DEPENDENT_OPTION ( USE_VTK "Use VTK I/O" ON
+  "VTK_FOUND" OFF)
+
+IF ( USE_VTK )
+  ENABLE_LANGUAGE ( CXX )
+  ADD_DEFINITIONS(-DUSE_VTK)
+  MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
+  INCLUDE ( ${VTK_USE_FILE} )
+  SET( LIBRARIES  ${LIBRARIES} "-lstdc++" ${VTK_LIBRARIES} )
+ENDIF ( )
+
+############################################################################
+#####
 #####        MMG (for mesh data structure)
 #####
 ############################################################################
 INCLUDE ( ExternalProject )
+
+# forward scotch configuration
+SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
+  -DSCOTCH_scotch.h_DIRS=${SCOTCH_scotch.h_DIRS}
+  -DSCOTCH_scotch_LIBRARY=${SCOTCH_scotch_LIBRARY}
+  -DSCOTCH_scotcherrexit_LIBRARY=${SCOTCH_scotcherrexit_LIBRARY} )
+
+# forward VTK config
+SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
+
+# forward compiler (for c++ compatibility)
+SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} )
 
 OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
@@ -152,7 +220,9 @@ IF ( DOWNLOAD_MMG )
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
     GIT_TAG b36aa706cac051dce93884c7c692e787f08d0a0c
     INSTALL_COMMAND  echo "DISABLED"
-    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR} -DUSE_VTK=OFF -DBUILD=MMG3D )
+    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
+    ${SCOTCH_CFG} ${VTK_CFG}
+    -DBUILD=MMG3D )
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
@@ -193,6 +263,7 @@ ELSE ( )
 
     MESSAGE(STATUS
       "Compilation with Mmg: ${MMG_LIBRARIES}")
+
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
     # Additionnal directories to access the Mmg sources
@@ -332,25 +403,6 @@ IF (NOT WIN32)
 
 ENDIF ()
 
-############################################################################
-#####
-#####         Scotch
-#####
-############################################################################
-# Find SCOTCH library?
-SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-FIND_PACKAGE(Scotch)
-
-IF ( NOT SCOTCH_FOUND )
-  MESSAGE ( WARNING "Scotch library not found:"
-    "Using scotch reduce the execution time of mmg3d "
-    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-    "If you have already installed Scotch and want to use it, "
-    "please set the CMake variable or environment variable SCOTCH_DIR "
-    "to your scotch directory.")
-ENDIF ( )
-
 ###############################################################################
 #####
 #####         Sources and libraries
@@ -386,23 +438,6 @@ ENDIF()
 ############################################################################
 
 SET(CMAKE_MACOSX_RPATH 1)
-
-###############################################################################
-#####
-#####         Add dependent options
-#####
-###############################################################################
-
-# add Scotch library?
-CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
-  "SCOTCH_FOUND" OFF)
-
-IF( USE_SCOTCH )
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
- MESSAGE(STATUS
-    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
-  SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
-ENDIF()
 
 ############################################################################
 #####
