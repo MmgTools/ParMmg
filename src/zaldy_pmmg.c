@@ -385,10 +385,10 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->xtmax = mesh->xt;
     }
     else {
-      mesh->npmax = MG_MAX(1.5*mesh->np,MMG3D_NPMAX);
+      mesh->npmax = 1.5*mesh->np;
       mesh->xpmax = 1.5*mesh->xp;
-      mesh->nemax = MG_MAX(1.5*mesh->ne,MMG3D_NEMAX);
-      mesh->xtmax = MG_MAX(1.5*mesh->xt,MMG3D_NTMAX);
+      mesh->nemax = 1.5*mesh->ne;
+      mesh->xtmax = 1.5*mesh->xt;
     }
 
     met = parmesh->listgrp[i].met;
