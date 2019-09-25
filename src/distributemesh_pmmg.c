@@ -388,7 +388,7 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
     }
     ++nbl;
   }
-  mesh->ne = ne;
+  mesh->ne = mesh->nei = ne;
 
   /* Treat empty tetra (prepare to link mesh) */
   for( k=mesh->ne+1; k<= mesh->nemax; k++ ) {
@@ -436,8 +436,8 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
     while ( xPointPerm[k] != k && xPointPerm[k] )
       PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
 
-  mesh->np = np;
-  met->np  = np;
+  mesh->np = mesh->npi = np;
+  met->np  = met->npi  = np;
   mesh->xp = nxp;
   mesh->xt = nxt;
 

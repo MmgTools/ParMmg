@@ -868,10 +868,14 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     if ( !PMMG_mergeGrpJinI_internalTetra(&listgrp[0],grp) )
       goto fail_comms;
 
+    mesh0->npi = mesh0->np;
+    mesh0->nei = mesh0->ne;
+
     /* Free merged mesh and increase mesh0->memMax*/
     mesh0->memMax += grp->mesh->memCur;
     PMMG_grp_free(parmesh,grp);
   }
+
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
