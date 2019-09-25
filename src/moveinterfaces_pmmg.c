@@ -758,13 +758,15 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
     for (j=0; j<4; j++) {
       ppt1 = &mesh->point[pt->v[j]];
       /* Mark and flag points not on the current front */
-      if ( ppt1->flag != base_front ) {
+      if ( (ppt1->flag != base_front) && (ppt1->flag != base_front+1) ) {
         if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
           ppt1->tmp  = color;
           ppt1->s    = 4*start+j;
         }
-        ppt1->flag = base_front+1;
+        ppt1->flag = base_front+2;
       }
+      else
+        ppt1->flag = base_front+1;
     }
   }
 
@@ -803,13 +805,15 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
         for (j=0; j<4; j++) {
           ppt1 = &mesh->point[pt1->v[j]];
           /* Mark and flag points not on the current front */
-          if ( ppt1->flag != base_front ) {
+          if ( (ppt1->flag != base_front) && (ppt1->flag != base_front+1) ) {
             if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
               ppt1->tmp  = color;
               ppt1->s    = 4*k1+j;
             }
-            ppt1->flag = base_front+1;
+            ppt1->flag = base_front+2;
           }
+          else
+            ppt1->flag = base_front+1;
         }
       }
       /** Flag tetra and put it in the list */
@@ -822,6 +826,87 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
     cur++;
   }
   return ilist;
+}
+
+int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
+                             int *vtxdist,int *map,int *list ) {
+  MMG5_pTetra  pt,pt1;
+  MMG5_pPoint  ppt;
+  int    *adja,nump,ilist,base,cur,k,k1,j1;
+  int     start,iloc;
+  char    j,l,i;
+
+  /* Get point color */
+  start  = mesh->point[ip].s / 4;
+  iloc   = mesh->point[ip].s % 4;
+  ppt    = &mesh->point[ip];
+
+  base = ++mesh->base;
+  pt   = &mesh->tetra[start];
+  nump = pt->v[iloc];
+  assert( nump == ip );
+
+  /* Store initial tetrahedron */
+  pt->flag = base;
+  list[0] = 4*start + iloc;
+  ilist=1;
+  /** Analyse initial tetra: It could be on the other side of the front */
+  if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, pt->mark ) ) {
+    ppt->tmp = pt->mark;
+  }
+
+  /* Explore list and travel by adjacency through elements sharing p */
+  cur = 0;
+  while ( cur < ilist ) {
+    k = list[cur] / 4;
+    i = list[cur] % 4; // index of point p in tetra k
+    adja = &mesh->adja[4*(k-1)+1];
+
+    for (l=0; l<3; l++) {
+      i  = MMG5_inxt3[i];
+      k1 = adja[i];
+      if ( !k1 )  continue;
+      k1 /= 4;
+      pt1 = &mesh->tetra[k1];
+      /* Skip already visited tetra */
+      if ( pt1->flag == base )  continue;
+      /* Get local node index */
+      for (j=0; j<4; j++)
+        if ( pt1->v[j] == nump ) { j1 = j; break; }
+      assert(j1<4);
+      /** Mark point */
+      if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, pt1->mark ) ) {
+        ppt->tmp = pt1->mark;
+      }
+      /** Flag tetra and put it in the list */
+      pt1->flag = base;
+      /* overflow */
+      if ( ilist > MMG3D_LMAX-3 )  return 0;
+      list[ilist] = 4*k1+j1;
+      ilist++;
+    }
+    cur++;
+  }
+  return ilist;
+}
+
+int PMMG_mark_sideFront( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int base_front,
+                         int *vtxdist,int *map,int *list ) {
+  MMG5_pTetra pt;
+  MMG5_pPoint ppt;
+  int         ip,ie,iloc;
+
+  /* Search and mark points on the front side */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+
+    if( ppt->flag != base_front+1 ) continue;
+    if( !PMMG_mark_sideFront_ppt( parmesh, mesh, ip, vtxdist, map, list ) )
+      return 0;
+    ppt->flag++;
+  }
+
+  return 1;
 }
 
 /**
@@ -1205,7 +1290,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
       if( !MG_VOK(ppt) ) continue;
 
       /* Skip not-interface points */
-      if( ppt->flag != *base_front ) continue;
+      if( (ppt->flag != *base_front) && (ppt->flag != (*base_front)+1)) continue;
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
@@ -1216,8 +1301,11 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
     }
     if( !ier ) break;
 
+    ier = PMMG_mark_sideFront( parmesh, mesh, *base_front, vtxdist, map, list );
+    if( !ier ) break;
+
     /* Update flag base for next wave */
-    (*base_front)++;
+    *base_front = (*base_front)+2;
   }
 
 #ifndef NDEBUG
