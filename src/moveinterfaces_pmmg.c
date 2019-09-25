@@ -728,7 +728,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
     int *map,int *nelem,int ngrp,int base_front, int ip, int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
-  int    *adja,nump,ilist,base,cur,k,k1,j1;
+  int    *adja,nump,ilist,base,cur,k,k1,j1,j2;
   int    igrp;
   int     start,color,iloc;
   char    j,l,i;
@@ -755,13 +755,14 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
       nelem[igrp]--;
     }
     pt->mark = color;
-    for (j=0; j<4; j++) {
-      ppt1 = &mesh->point[pt->v[j]];
+    for (j=0; j<3; j++) {
+      j2 = MMG5_inxt3[j1+j];
+      ppt1 = &mesh->point[pt->v[j2]];
       /* Mark and flag points not on the current front */
       if ( (ppt1->flag != base_front) && (ppt1->flag != base_front+1) ) {
         if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
           ppt1->tmp  = color;
-          ppt1->s    = 4*start+j;
+          ppt1->s    = 4*start+j2;
         }
         ppt1->flag = base_front+2;
       }
@@ -802,13 +803,14 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
           nelem[igrp]--;
         }
         pt1->mark = color;
-        for (j=0; j<4; j++) {
-          ppt1 = &mesh->point[pt1->v[j]];
+        for (j=0; j<3; j++) {
+          j2 = MMG5_inxt3[j1+j];
+          ppt1 = &mesh->point[pt1->v[j2]];
           /* Mark and flag points not on the current front */
           if ( (ppt1->flag != base_front) && (ppt1->flag != base_front+1) ) {
             if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt1->tmp, color ) ) {
               ppt1->tmp  = color;
-              ppt1->s    = 4*k1+j;
+              ppt1->s    = 4*k1+j2;
             }
             ppt1->flag = base_front+2;
           }
@@ -877,6 +879,7 @@ int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
       /** Mark point */
       if ( PMMG_get_ifcDirection( parmesh, vtxdist, map, ppt->tmp, pt1->mark ) ) {
         ppt->tmp = pt1->mark;
+        ppt->s   = 4*k1+j1;
       }
       /** Flag tetra and put it in the list */
       pt1->flag = base;
