@@ -275,6 +275,8 @@ int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
   int            isize,nsize,ip;
 
   mesh    = grp->mesh;
+  if ( !mesh->info.inputMet || mesh->info.hsiz > 0.0 ) return 1;
+
   met     = grp->met;
   oldMesh = oldGrp->mesh;
   oldMet  = oldGrp->met;
@@ -405,9 +407,6 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
         mesh->base++;
         istart = 1;
-
-        /* Copy the metric of interface points */
-        ier = PMMG_copyMetrics_point( grp,oldGrp,permNodGlob );
 
         for( ie = 1; ie <= mesh->ne; ie++ ) {
           pt = &mesh->tetra[ie];

@@ -607,6 +607,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           goto strong_failed;
         }
 
+
 #ifdef USE_SCOTCH
         /** Update nodal communicators if node renumbering is enabled */
         if ( mesh->info.renum &&
@@ -620,6 +621,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
+
+        if ( !PMMG_copyMetrics_point( &parmesh->listgrp[i],&parmesh->old_listgrp[i],
+                                      permNodGlob) ) {
+          goto strong_failed;
+        }
 
         if ( !ier ) { break; }
       }
