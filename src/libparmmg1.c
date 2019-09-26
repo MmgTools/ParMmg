@@ -528,10 +528,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
-      if ( it==1 && parmesh->myrank==1) {
-        MMG3D_saveMesh(mesh,"1init.mesh");
-      }
-
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
@@ -545,9 +541,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         permNodGlob = NULL;
 
 #ifdef USE_SCOTCH
-#warning add clean flags forwarding from parmmg toward Mmg
-#warning better memory management using a hash table
-
         /* Allocation of the array that will store the node permutation */
         PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
                     PMMG_scotch_message(&warnScotch) );
@@ -608,15 +601,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           goto strong_failed;
         }
 
-        if ( it==1 && parmesh->myrank==1) {
-          MMG3D_saveMesh(mesh,"1end.mesh");
-        }
-
         /** Update interface tetra indices in the face communicator */
         if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData,permNodGlob) ) {
           fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
           goto strong_failed;
         }
+
 
 #ifdef USE_SCOTCH
         /** Update nodal communicators if node renumbering is enabled */
@@ -632,11 +622,15 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
 
+        if ( !PMMG_copyMetrics_point( &parmesh->listgrp[i],&parmesh->old_listgrp[i],
+                                      permNodGlob) ) {
+          goto strong_failed;
+        }
+
         if ( !ier ) { break; }
       }
-#warning Luca: Check modifications in Mmg
       /* Reset the mesh->gap field in case Mmg have modified it */
-      mesh->gap = 0.2;
+      mesh->gap = MMG5_GAP;
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
