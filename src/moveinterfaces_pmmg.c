@@ -994,11 +994,14 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
   PMMG_CALLOC(parmesh,vtxdist,parmesh->nprocs+1,idx_t,"parmetis vtxdist", return 0);
 
   MPI_CHECK( MPI_Allgather(&parmesh->ngrp,1,MPI_INT,&vtxdist[1],1,MPI_INT,parmesh->comm),
-             PMMG_DEL_MEM(parmesh,vtxdist,idx_t,"parmetis vtxdist"); return 0 );
-  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
-    vtxdist[iproc+1] += vtxdist[iproc];
+             ier = 0 );
 
-  ier = PMMG_correct_parmeshGrps2parmetis( parmesh, vtxdist, part, parmesh->nprocs );
+  if( ier ) {
+    for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+      vtxdist[iproc+1] += vtxdist[iproc];
+
+    ier = PMMG_correct_parmeshGrps2parmetis( parmesh, vtxdist, part, parmesh->nprocs );
+  }
 
   PMMG_DEL_MEM(parmesh,vtxdist,idx_t,"parmetis vtxdist");
 
