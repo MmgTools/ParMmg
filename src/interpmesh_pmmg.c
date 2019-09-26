@@ -105,7 +105,7 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init, 
+int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
                       double *faceAreas, PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
   int            *adja,iel,ip,idxTet,step,closestTet;

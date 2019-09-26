@@ -528,10 +528,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
-      if ( it==1 && parmesh->myrank==1) {
-        MMG3D_saveMesh(mesh,"1init.mesh");
-      }
-
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
         /* We are not able to remesh */
@@ -545,9 +541,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         permNodGlob = NULL;
 
 #ifdef USE_SCOTCH
-#warning add clean flags forwarding from parmmg toward Mmg
-#warning better memory management using a hash table
-
         /* Allocation of the array that will store the node permutation */
         PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
                     PMMG_scotch_message(&warnScotch) );
@@ -606,10 +599,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         if ( !MMG5_paktet(mesh) ) {
           fprintf(stderr,"\n  ## Tetra packing problem. Exit program.\n");
           goto strong_failed;
-        }
-
-        if ( it==1 && parmesh->myrank==1) {
-          MMG3D_saveMesh(mesh,"1end.mesh");
         }
 
         /** Update interface tetra indices in the face communicator */
