@@ -756,7 +756,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
     }
     pt->mark = color;
     for (j=0; j<3; j++) {
-      j2 = MMG5_inxt3[j1+j];
+      j2 = MMG5_inxt3[iloc+j];
       ppt1 = &mesh->point[pt->v[j2]];
       /* Mark and flag points not on the current front */
       if ( (ppt1->flag != base_front) && (ppt1->flag != base_front+1) ) {
