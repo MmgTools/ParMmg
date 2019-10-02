@@ -299,6 +299,7 @@ typedef struct {
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
+  int fmtout; /*!< store the output format asked */
 } PMMG_Info;
 
 

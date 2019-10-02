@@ -218,7 +218,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 5bc6f7763bbf
+    GIT_TAG 58257ea2dc9308bdf60775edddc2d263d3262e8c
     INSTALL_COMMAND  echo "DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
     ${SCOTCH_CFG} ${VTK_CFG}
@@ -416,6 +416,7 @@ FILE(
   GLOB
   pmmg_library_files
   ${PMMG_SOURCE_DIR}/*.c
+  ${PMMG_SOURCE_DIR}/inoutcpp_pmmg.cpp
   )
 LIST(REMOVE_ITEM pmmg_library_files
   ${PMMG_SOURCE_DIR}/parmmg.c

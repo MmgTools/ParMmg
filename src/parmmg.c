@@ -41,7 +41,7 @@ int main( int argc, char *argv[] )
   PMMG_pGrp     grp;
   MMG5_pSol     sol;
   int           rank;
-  int           ier,iresult,ierSave,fmtin,fmtout;
+  int           ier,iresult,ierSave,fmtin;
   int8_t        tim;
   char          stim[32],*ptr;
 
@@ -123,6 +123,9 @@ int main( int argc, char *argv[] )
 
   ptr   = MMG5_Get_filenameExt(grp->mesh->namein);
   fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
+
+  ptr                  = MMG5_Get_filenameExt(grp->mesh->nameout);
+  parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
 
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
@@ -231,10 +234,10 @@ check_mesh_loading:
   if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
     grp = &parmesh->listgrp[0];
 
-    ptr    = MMG5_Get_filenameExt(grp->mesh->nameout);
-    fmtout = MMG5_Get_format(ptr,fmtin);
-
-    switch ( fmtout ) {
+    switch ( parmesh->info.fmtout ) {
+    case ( MMG5_FMT_VtkPvtu ):
+      PMMG_savePvtuMesh(parmesh,grp->mesh->nameout);
+      break;
     case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
     case ( MMG5_FMT_VtkVtu ):
     case ( MMG5_FMT_VtkVtk ):

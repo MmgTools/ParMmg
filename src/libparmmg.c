@@ -546,62 +546,72 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     return ierlib;
   }
 
-  /** Merge all the meshes on the proc 0 */
-  tim = 4;
-  chrono(ON,&(ctim[tim]));
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
-  }
+#warning remove the lib_centralized and lib_distributed library to have modular centralized input + annalysis or parallel input + analysis , libparmmg1 call, then centralized or distributed output
+  switch ( parmesh->info.fmtout ) {
+  case ( MMG5_FMT_VtkPvtu ):
+    // Distributed Output
+#warning boundaries arent rebuilded
 
-  iresult = PMMG_merge_parmesh( parmesh );
-  if ( !iresult ) {
-    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
-  }
-
-  chrono(OFF,&(ctim[tim]));
-  if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
-    printim(ctim[tim].gdif,stim);
-    fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
-  }
-
-  if ( !parmesh->myrank ) {
-    /** Boundaries reconstruction */
-    tim = 5;
+    break;
+  default:
+    // Centralized Output
+    /** Merge all the meshes on the proc 0 */
+    tim = 4;
     chrono(ON,&(ctim[tim]));
-    if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
     }
 
-    tmpmem = parmesh->memMax - parmesh->memCur;
-    parmesh->memMax = parmesh->memCur;
-    parmesh->listgrp[0].mesh->memMax += tmpmem;
-
-    mesh = parmesh->listgrp[0].mesh;
-    mesh  = parmesh->listgrp[0].mesh;
-    npmax = mesh->npmax;
-    nemax = mesh->nemax;
-    xpmax = mesh->xpmax;
-    xtmax = mesh->xtmax;
-    mesh->npmax = mesh->np;
-    mesh->nemax = mesh->ne;
-    mesh->xpmax = mesh->xp;
-    mesh->xtmax = mesh->xt;
-
-    if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
-      fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
-      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-    }
-
-    if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
-      /** Impossible to rebuild the triangle */
-      fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+    iresult = PMMG_merge_parmesh( parmesh );
+    if ( !iresult ) {
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
 
     chrono(OFF,&(ctim[tim]));
-    if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
+    if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
       printim(ctim[tim].gdif,stim);
-      fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
+      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
+    }
+
+    if ( !parmesh->myrank ) {
+      /** Boundaries reconstruction */
+      tim = 5;
+      chrono(ON,&(ctim[tim]));
+      if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
+      }
+
+      tmpmem = parmesh->memMax - parmesh->memCur;
+      parmesh->memMax = parmesh->memCur;
+      parmesh->listgrp[0].mesh->memMax += tmpmem;
+
+      mesh = parmesh->listgrp[0].mesh;
+      mesh  = parmesh->listgrp[0].mesh;
+      npmax = mesh->npmax;
+      nemax = mesh->nemax;
+      xpmax = mesh->xpmax;
+      xtmax = mesh->xtmax;
+      mesh->npmax = mesh->np;
+      mesh->nemax = mesh->ne;
+      mesh->xpmax = mesh->xp;
+      mesh->xtmax = mesh->xt;
+
+      if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+        fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
+        PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+      }
+
+      if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
+        /** Impossible to rebuild the triangle */
+        fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
+        PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+      }
+
+      chrono(OFF,&(ctim[tim]));
+      if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
+        printim(ctim[tim].gdif,stim);
+        fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
+      }
     }
   }
 

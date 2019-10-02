@@ -1824,6 +1824,9 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
+
+int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param next_comm number of communicators
