@@ -97,6 +97,20 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
+# Only allow building of static OR shared libraries
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+FUNCTION (INVERT_BOOL OUTVAR INVAR)
+  IF(${INVAR})
+    SET(${OUTVAR} OFF PARENT_SCOPE)
+  ELSE()
+    SET(${OUTVAR} ON PARENT_SCOPE)
+  ENDIF()
+ENDFUNCTION()
+
+OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
+OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
+INVERT_BOOL("LIBPARMMG_STATIC" ${LIBPARMMG_SHARED})
+
 ############################################################################
 #####
 #####         MPI
@@ -142,17 +156,26 @@ IF ( DOWNLOAD_MMG )
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
     GIT_TAG 6aacafb9
-    INSTALL_COMMAND  echo "DISABLED"
-    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=OFF  -DBUILD=MMG3D )
+    INSTALL_COMMAND  echo "Mmg installation DISABLED"
+    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=OFF  -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
   EXTERNALPROJECT_GET_PROPERTY ( Mmg SOURCE_DIR )
   SET ( MMG_SOURCE_DIR ${SOURCE_DIR} )
 
+  EXTERNALPROJECT_ADD_STEP ( Mmg reconfigure
+    COMMAND ${CMAKE_COMMAND} -E remove ${MMG_BINARY_DIR}/CMakeCache.txt
+    DEPENDEES update
+    DEPENDERS configure )
+
   INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
 
-  SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d.a)
+  IF( LIBPARMMG_STATIC )
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
+  ELSE()
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
   SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
@@ -364,9 +387,8 @@ SET(CMAKE_MACOSX_RPATH 1)
 #####         Compile parmmg libraries
 #####
 ############################################################################
-SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
+# Compile static library
 IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
@@ -382,7 +404,6 @@ IF ( LIBPARMMG_STATIC )
 ENDIF()
 
 # Compile shared library
-OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
