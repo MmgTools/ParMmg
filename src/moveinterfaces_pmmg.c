@@ -42,6 +42,7 @@ int PMMG_get_grp( PMMG_pParMesh parmesh,int color ) {
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param vtxdist sparse representation of the number of old groups.
+ * \param map groups priority map.
  * \param color0 color of the first group.
  * \param color1 color of the second group.
  * \return 0 if group 0 has higher priority than group 1, group 1 if group 1
@@ -113,6 +114,7 @@ void PMMG_set_color_tetra( PMMG_pParMesh parmesh,int igrp ) {
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  * \param color color of the group to scan.
+ * \param list list of tetras in the sugroup.
  * \param len length of the list to be merged.
  * \param otetra tetra of different color to be used for merging.
  * \return 0 if fail, 1 if success.
@@ -144,6 +146,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  * \param color color of the group to scan.
  * \return 0 if fail, 1 if success.
  *
+ * Fill a list of contiguous tetrahedra having the same color.
  */
 int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                            int start,int *list,int *list_head,int *list_len,
@@ -285,13 +288,14 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param igrp index of the group to check.
  * \param color color of the group to make contiguous.
- * \param main_list pointer to the first tetra list.
- * \param next_list pointer to the second tetra list.
+ * \param list0 pointer to the first tetra list.
+ * \param list1 pointer to the second tetra list.
  * \param counter pointer to the remaining number of tetra of the given color
  * \return 0 if fail, 1 if success.
  *
+ * Fix contiguity of a group of a given color by merging all its non-adjacent
+ * subgroups into a neighbouring one (with different color).
  */
 int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
                                 int *list1,int *counter ) {
@@ -388,6 +392,8 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
  * \param counter pointer to the number of tetra of counted/OK tetra.
  * \return 0 if fail, 1 if success.
  *
+ * Fix contiguity of original mesh groups by merging non-adjacent subgroups
+ * into neighbouring ones.
  */
 int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter ) {
   MMG5_pMesh const mesh = parmesh->listgrp[0].mesh;
@@ -481,7 +487,6 @@ int PMMG_fix_contiguity_split( PMMG_pParMesh parmesh,idx_t ngrp,idx_t *part ) {
   }
 
   return 1;
-
 }
 
 /**
@@ -529,13 +534,12 @@ int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part ) {
   return 1;
 }
 
-
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param counter pointer to the number of tetra of the grp color
  * \return 0 if fail, 1 if success.
  *
- * Check that subgroups created by interface migration are reachable from
+ * Check that subgroups created by interface displacement are reachable from
  * the target groups.
  *
  */
@@ -713,7 +717,10 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
- * \param start index of the starting tetrahedra.
+ * \param vtxdist sparse representation of the number of groups.
+ * \param map groups priority map.
+ * \param nelem number of elements in the local partition groups.
+ * \param base_front label of the current interface front points.
  * \param ip local index of the point in the tetrahedra \a start.
  * \param list pointer toward the list of the tetra in the volumic ball of
  * \a ip.
@@ -722,12 +729,12 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
  * Fill the volumic ball (i.e. filled with tetrahedra) of point \a ip in tetra
  * \a start. Results are stored under the form \f$4*kel + jel\f$, kel = number
  * of the tetra, jel = local index of p within kel.
- * Mark each tetrahedron in the ball with the maximum between its own value and
- * the value brought by the point.
+ * Mark each tetrahedron in the ball with the highest priority color between
+ * its own color and the color brought by the point.
  *
  */
 int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
-    int *map,int *nelem,int ngrp,int base_front, int ip, int * list){
+    int *map,int *nelem,int base_front,int ip,int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1,j1,j2;
@@ -832,6 +839,18 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *vtxdist,
   return ilist;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param ip point ID.
+ * \param vtxdist sparse representation of the number or groups.
+ * \param map groups priority map.
+ * \param list preallocated list for tetras in the point ball.
+ * \return 0 if fail, 1 if success.
+ *
+ * Mark the intersection of two advancing interfaces in the ball of a point.
+ *
+ */
 int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
                              int *vtxdist,int *map,int *list ) {
   MMG5_pTetra  pt,pt1;
@@ -895,6 +914,18 @@ int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
   return ilist;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param base_front label of the current front interface points.
+ * \param vtxdist sparse representation of the number or groups.
+ * \param map groups priority map.
+ * \param list preallocated list for tetras in the point ball.
+ * \return 0 if fail, 1 if success.
+ *
+ * Mark the intersection of two advancing interfaces.
+ *
+ */
 int PMMG_mark_sideFront( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int base_front,
                          int *vtxdist,int *map,int *list ) {
   MMG5_pTetra pt;
@@ -917,11 +948,13 @@ int PMMG_mark_sideFront( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int base_front,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
+ * \param vtxdist sparse representation of the number of groups.
+ * \param map groups priority map.
  *
  * \return The flag base value used to track the front.
  *
- * Mark interface points from the maximum tetra mark field in their ball, and
- * flag them as mesh->base.
+ * Mark interface points from the highest priority tetra color (in the mark
+ * field) in their ball, and flag them as mesh->base.
  *
  */
 int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
@@ -1014,6 +1047,7 @@ int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part ) {
  * \param parmesh pointer toward a parmesh structure
  * \param part groups partitions array
  * \param ngrps array of nb of old grps on each proc
+ * \param target Mmg or mesh migration
  *
  * \return the number of groups required on the current proc.
  *
@@ -1173,7 +1207,11 @@ fail:
 }
 
 /**
- * \param parmesh pointer toward a parmesh structure
+ * \param parmesh pointer toward a parmesh structure.
+ * \param vtxdist sparse representation of the number of groups.
+ * \param map groups priority map.
+ * \param base_front label of the current interface front points.
+ * \return 0 if fail, 1 if success.
  *
  * Move old groups interfaces through an advancing-front method.
  *
@@ -1207,16 +1245,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->nold_grp;
 
-//  /* Initialise processors interaction map */
-//  if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
-//
-//  /* Mark each point with the maximum color among the tetras in the ball,
-//   * flag interface points */
-//  base_front = PMMG_mark_interfacePoints( parmesh, mesh, vtxdist, map );
-//
-//  /* Complete the processors interaction map and choose the interface
-//   * propagation direction. */
-//  if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &map ) ) return 0;
+  /** Groups priority map and the first interface front points have already
+   *  been set.
+   */
 
   PMMG_CALLOC( parmesh,nelem,parmesh->nold_grp,int,"nelem",return 0);
   for( igrp = 0; igrp < parmesh->nold_grp; igrp++ )
@@ -1302,7 +1333,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *b
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
-      ier = PMMG_mark_boulevolp( parmesh, mesh, vtxdist, map, nelem, ngrp,
+      ier = PMMG_mark_boulevolp( parmesh, mesh, vtxdist, map, nelem,
                                  *base_front, ip, list);
       if( !ier ) break;
 
