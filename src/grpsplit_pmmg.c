@@ -1513,8 +1513,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
-        (MG_MIN(ngrp,parmesh->nold_grp) <=
-         PMMG_GRPS_RATIO*MG_MAX(ngrp,parmesh->nold_grp)))) ) {
+        (ngrp <=
+         PMMG_GRPS_RATIO*parmesh->nold_grp))) ) {
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
