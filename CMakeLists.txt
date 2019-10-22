@@ -554,6 +554,8 @@ IF (NOT WIN32)
     ADD_DEPENDENCIES(libparmmg_so GenerateGitHash)
   ENDIF ()
 
+  INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})
+
 ENDIF ()
 
 ###############################################################################
