@@ -163,10 +163,10 @@ static const int PMMG_REMESHER_NGRPS_MAX = 100;
 static const int PMMG_RATIO_MMG_METIS = -100;
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_METIS_NGRPS_MAX = 1000;
+static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 
 /**< Subgroups minimum size to try to avoid empty partitions */
-static const int PMMG_METIS_NELEM_MIN = 6;
+static const int PMMG_REDISTR_NELEM_MIN = 6;
 
 /**< Allowed imbalance ratio between demanded groups and available groups */
 static const double PMMG_GRPS_RATIO = 1.3;

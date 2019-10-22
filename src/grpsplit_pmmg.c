@@ -1411,14 +1411,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
     if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
       /* Compute the number of metis nodes from the number of groups */
-      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
+      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_REDISTR_NELEM_MIN+1 );
       if ( parmesh->info.metis_ratio < 0 ) {
         /* default value : do not authorize large number of groups */
-        if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+        if ( ngrp > PMMG_REDISTR_NGRPS_MAX ) {
           printf("  ## Warning: %s: too much metis nodes needed...\n"
                  "     Partitions may remains freezed. Try to use more processors.\n",
                  __func__);
-          ngrp = PMMG_METIS_NGRPS_MAX;
+          ngrp = PMMG_REDISTR_NGRPS_MAX;
         }
       }
       if ( ngrp > meshOld->ne ) {
