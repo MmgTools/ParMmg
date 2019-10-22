@@ -2,15 +2,15 @@
 
 # get arguments
 CMAKE_SOURCE_DIR=$1
-PMMG_SOURCE_DIR=$2
+PMMG_BINARY_DIR=$2
 HEADER_FILE="git_log_pmmg.h"
 
 # test if $HEADER_FILE is present
-if [ ! -f "$PMMG_SOURCE_DIR/$HEADER_FILE" ]; then
-   \touch $PMMG_SOURCE_DIR/$HEADER_FILE
-   echo "#define PMMG_GIT_BRANCH \"No git branch found\"" >> "$PMMG_SOURCE_DIR/$HEADER_FILE"
-   echo "#define PMMG_GIT_COMMIT \"No git commit found\"" >> "$PMMG_SOURCE_DIR/$HEADER_FILE"
-   echo "#define PMMG_GIT_DATE   \"No git commit found\"" >> "$PMMG_SOURCE_DIR/$HEADER_FILE"
+if [ ! -f "$PMMG_BINARY_DIR/$HEADER_FILE" ]; then
+   \touch $PMMG_BINARY_DIR/$HEADER_FILE
+   echo "#define PMMG_GIT_BRANCH \"No git branch found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
+   echo "#define PMMG_GIT_COMMIT \"No git commit found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
+   echo "#define PMMG_GIT_DATE   \"No git commit found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
 fi
 
 # parameter
@@ -34,18 +34,18 @@ if [ $git_is_present -eq 1 ]; then
    echo "   > Found a git date: $git_date"
 
    # erase any previous version file
-   \rm -f $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
-   \touch $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
-   echo "#define PMMG_GIT_BRANCH \"$git_branch\"" >> $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
-   echo "#define PMMG_GIT_COMMIT \"$git_commit\"" >> $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
-   echo "#define PMMG_GIT_DATE   \"$git_date\""   >> $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
+   \rm -f $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   \touch $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#define PMMG_GIT_BRANCH \"$git_branch\"" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#define PMMG_GIT_COMMIT \"$git_commit\"" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#define PMMG_GIT_DATE   \"$git_date\""   >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
 
    # diff
-   diff=`diff $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp" "$PMMG_SOURCE_DIR/$HEADER_FILE"`
+   diff=`diff $PMMG_BINARY_DIR/$HEADER_FILE"_tmp" "$PMMG_BINARY_DIR/$HEADER_FILE"`
    if [ "$diff" != "" ]; then
-      \cp $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp" "$PMMG_SOURCE_DIR/$HEADER_FILE"
+      \cp $PMMG_BINARY_DIR/$HEADER_FILE"_tmp" "$PMMG_BINARY_DIR/$HEADER_FILE"
    fi
 
    # clean
-   \rm -f $PMMG_SOURCE_DIR/$HEADER_FILE"_tmp"
+   \rm -f $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
 fi
