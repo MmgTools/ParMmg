@@ -265,8 +265,7 @@ IF ( DOWNLOAD_MMG )
   INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
 
 ELSE ( )
-  MESSAGE ( "Manual installation of Mmg:")
-  MESSAGE ( " please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
@@ -543,7 +542,7 @@ ENDIF ( )
 IF (NOT WIN32)
 
   ADD_CUSTOM_TARGET(GenerateGitHash
-    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_SOURCE_DIR}
+    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_BINARY_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
     COMMENT "Getting git commit hash"
   )
