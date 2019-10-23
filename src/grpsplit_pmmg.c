@@ -538,19 +538,25 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
   for ( ip = 1; ip < meshOld->np+1; ++ip ) {
     ppt = &meshOld->point[ip];
     pptCur = &mesh->point[ip];
- 
-    if ( !MG_VOK(ppt) ) continue;
 
-    /* Copy point */
-    memcpy( pptCur, ppt, sizeof(MMG5_Point) );
+    if ( !MG_VOK(ppt) ) {
 
-    /* Copy metrics */
-    if ( mesh->info.inputMet == 1 )
-      memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+      /* Only copy the tag (to detect the not VOK point) */
+      pptCur->tag = ppt->tag;
 
-    /* Skip xpoint */
-    pptCur->xp = 0;
+    } else {
 
+      /* Copy point */
+      memcpy( pptCur, ppt, sizeof(MMG5_Point) );
+
+      /* Copy metrics */
+      if ( mesh->info.inputMet == 1 )
+        memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+
+      /* Skip xpoint */
+      pptCur->xp = 0;
+
+    }
   }
   
   return 1;
