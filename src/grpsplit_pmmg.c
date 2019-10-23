@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file grpsplit_pmmg.c
  * \brief Split groups into sub groups.
@@ -1411,14 +1434,14 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
     if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
       /* Compute the number of metis nodes from the number of groups */
-      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_METIS_NELEM_MIN+1 );
+      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_REDISTR_NELEM_MIN+1 );
       if ( parmesh->info.metis_ratio < 0 ) {
         /* default value : do not authorize large number of groups */
-        if ( ngrp > PMMG_METIS_NGRPS_MAX ) {
+        if ( ngrp > PMMG_REDISTR_NGRPS_MAX ) {
           printf("  ## Warning: %s: too much metis nodes needed...\n"
                  "     Partitions may remains freezed. Try to use more processors.\n",
                  __func__);
-          ngrp = PMMG_METIS_NGRPS_MAX;
+          ngrp = PMMG_REDISTR_NGRPS_MAX;
         }
       }
       if ( ngrp > meshOld->ne ) {
@@ -1490,8 +1513,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
-        (MG_MIN(ngrp,parmesh->nold_grp) <=
-         PMMG_GRPS_RATIO*MG_MAX(ngrp,parmesh->nold_grp)))) ) {
+        (ngrp <=
+         PMMG_GRPS_RATIO*parmesh->nold_grp))) ) {
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )

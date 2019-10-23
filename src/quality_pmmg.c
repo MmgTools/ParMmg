@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 #include "parmmg.h"
 #include <stddef.h>
 #include "inlined_functions_3d.h"
@@ -7,6 +30,55 @@ typedef struct {
   int iel, iel_grp, cpu;
 } min_iel_t;
 
+static int PMMG_count_nodes_par(PMMG_pParMesh parmesh,PMMG_pGrp grp){
+  MMG5_pTetra    pt;
+  MMG5_pPoint    ppt;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  int            *intvalues,base;
+  int            k,i,ip,idx,np,iel;
+
+  grp->mesh->base++;
+  base = grp->mesh->base;
+  int_node_comm = parmesh->int_node_comm;
+  intvalues = int_node_comm->intvalues;
+
+  /** Reset flags */
+  for( ip = 1; ip <= grp->mesh->np; ip++ ) {
+    ppt = &grp->mesh->point[ip];
+    ppt->flag = 0;
+  }
+
+  /** Initialize counter */
+  np = 0;
+
+  /* 1) Count points if not marked in the internal communicator,
+   *    then mqrk them in the internal communicator and flag them. */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    if( !intvalues[idx] ) {
+      intvalues[idx] = base;
+      np++;
+    }
+    grp->mesh->point[ip].flag = base;
+  }
+
+  /* 2) Count all other points (touched by a tetra) */
+  for( iel = 1; iel <= grp->mesh->ne; iel++ ) {
+    pt = &grp->mesh->tetra[iel];
+    if( !MG_EOK(pt) ) continue;
+    for( i = 0; i < 4; i++ ) {
+      ppt = &grp->mesh->point[pt->v[i]];
+      if( !ppt->flag ) {
+        ppt->flag = base;
+        np++;
+      }
+    }
+  }
+
+  return np;
+}
 
 static void PMMG_min_iel_compute(void *in1, void* out1, int *len, MPI_Datatype *dptr )
 {
@@ -83,8 +155,14 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
 int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 {
   PMMG_pGrp    grp;
-  int          i, j, iel_grp;
-  int          ne, ne_cur, ne_result;
+  MMG5_pTetra  pt;
+  MMG5_pPoint  ppt;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  int          *intvalues;
+  int          i, j, k, iel_grp;
+  int          np_cur,ne_cur;
+  int64_t      np, np_result, ne, ne_result;
   double       max, max_cur, max_result;
   double       avg, avg_cur, avg_result;
   double       min, min_cur;
@@ -105,6 +183,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 
   /* Calculate the quality values for local process */
   iel_grp = 0;
+  np = 0;
   ne = 0;
   max = DBL_MIN;
   avg = 0.;
@@ -114,6 +193,22 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
   med = 0;
   grp = &parmesh->listgrp[0];
   optimLES = ( grp && grp->mesh ) ? grp->mesh->info.optimLES : 0;
+
+  /* Reset node intvalues (in order to avoid counting parallel nodes twice) */
+  int_node_comm = parmesh->int_node_comm;
+  if( int_node_comm ) {
+    PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+    intvalues = int_node_comm->intvalues;
+
+    /* Mark nodes not to be counted if the outer rank is lower than myrank */
+    for( k = 0; k < parmesh->next_node_comm; k++ ) {
+      ext_node_comm = &parmesh->ext_node_comm[k];
+      if( parmesh->myrank > ext_node_comm->color_out ) continue;
+      for( i = 0; i < ext_node_comm->nitem; i++ )
+        intvalues[ext_node_comm->int_comm_index[i]] = 1;
+    }
+  }
+
 
   for ( i = 0; i < PMMG_QUAL_HISSIZE; ++i )
     his[ i ] = 0;
@@ -141,7 +236,12 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
       }
     }
 
-    ne   += ne_cur;
+    if( !int_node_comm )
+      np_cur = grp->mesh->np;
+    else
+      np_cur = PMMG_count_nodes_par( parmesh,grp );
+    np   += (int64_t)np_cur;
+    ne   += (int64_t)ne_cur;
     avg  += avg_cur;
     med  += med_cur;
     good += good_cur;
@@ -164,7 +264,8 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
     return 1;
 
   /* Calculate the quality values for all processes */
-  MPI_Reduce( &ne, &ne_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
+  MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
   MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
@@ -194,7 +295,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
         fprintf( stdout," (LES)" );
       }
 
-      fprintf( stdout, "  %d\n", ne_result );
+      fprintf( stdout, "  %"PRId64"   %"PRId64"\n", np_result, ne_result );
 
       fprintf( stdout, "     BEST   %8.6f  AVRG.   %8.6f  WRST.   %8.6f (",
                max_result, avg_result / ne_result, min_iel_result.min);
@@ -216,6 +317,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
                                        parmesh->info.imprim );
     if ( !ier ) return 0;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
 
   return 1;
 }

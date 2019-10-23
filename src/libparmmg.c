@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmg.c
  * \brief Wrapper for the parallel remeshing library.
@@ -386,10 +409,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   /** Mesh analysis, face/node communicators indices construction (depending
    * from the API mode), build face comms from node ones */
   if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
@@ -416,6 +435,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
       return PMMG_STRONGFAILURE;
     }
+  }
+
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   assert ( PMMG_check_extFaceComm ( parmesh ) );

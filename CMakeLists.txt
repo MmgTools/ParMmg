@@ -97,6 +97,20 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
+# Only allow building of static OR shared libraries
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+FUNCTION (INVERT_BOOL OUTVAR INVAR)
+  IF(${INVAR})
+    SET(${OUTVAR} OFF PARENT_SCOPE)
+  ELSE()
+    SET(${OUTVAR} ON PARENT_SCOPE)
+  ENDIF()
+ENDFUNCTION()
+
+OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
+OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
+INVERT_BOOL("LIBPARMMG_STATIC" ${LIBPARMMG_SHARED})
+
 ############################################################################
 #####
 #####         MPI
@@ -218,20 +232,29 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 5bc6f7763bbf
-    INSTALL_COMMAND  echo "DISABLED"
+    GIT_TAG b36aa706cac051dce93884c7c692e787f08d0a0c
+    INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
     ${SCOTCH_CFG} ${VTK_CFG}
-    -DBUILD=MMG3D )
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
   EXTERNALPROJECT_GET_PROPERTY ( Mmg SOURCE_DIR )
   SET ( MMG_SOURCE_DIR ${SOURCE_DIR} )
 
+  EXTERNALPROJECT_ADD_STEP ( Mmg reconfigure
+    COMMAND ${CMAKE_COMMAND} -E remove ${MMG_BINARY_DIR}/CMakeCache.txt
+    DEPENDEES update
+    DEPENDERS configure )
+
   INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
 
-  SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d.a)
+  IF( LIBPARMMG_STATIC )
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
+  ELSE()
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
   SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
@@ -242,8 +265,7 @@ IF ( DOWNLOAD_MMG )
   INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
 
 ELSE ( )
-  MESSAGE ( "Manual installation of Mmg:")
-  MESSAGE ( " please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
@@ -520,7 +542,7 @@ ENDIF ( )
 IF (NOT WIN32)
 
   ADD_CUSTOM_TARGET(GenerateGitHash
-    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_SOURCE_DIR}
+    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_BINARY_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
     COMMENT "Getting git commit hash"
   )
@@ -531,6 +553,8 @@ IF (NOT WIN32)
   IF( LIBPARMMG_SHARED )
     ADD_DEPENDENCIES(libparmmg_so GenerateGitHash)
   ENDIF ()
+
+  INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})
 
 ENDIF ()
 

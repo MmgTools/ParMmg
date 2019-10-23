@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file zaldy_pmmg.c
  * \brief Memory management
@@ -385,10 +408,10 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->xtmax = mesh->xt;
     }
     else {
-      mesh->npmax = MG_MAX(1.5*mesh->np,MMG3D_NPMAX);
+      mesh->npmax = 1.5*mesh->np;
       mesh->xpmax = 1.5*mesh->xp;
-      mesh->nemax = MG_MAX(1.5*mesh->ne,MMG3D_NEMAX);
-      mesh->xtmax = MG_MAX(1.5*mesh->xt,MMG3D_NTMAX);
+      mesh->nemax = 1.5*mesh->ne;
+      mesh->xtmax = 1.5*mesh->xt;
     }
 
     met = parmesh->listgrp[i].met;

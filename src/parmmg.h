@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file parmmg.h
  * \brief internal functions headers for parmmg
@@ -163,13 +186,13 @@ static const int PMMG_REMESHER_NGRPS_MAX = 100;
 static const int PMMG_RATIO_MMG_METIS = -100;
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_METIS_NGRPS_MAX = 1000;
+static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 
 /**< Subgroups minimum size to try to avoid empty partitions */
-static const int PMMG_METIS_NELEM_MIN = 6;
+static const int PMMG_REDISTR_NELEM_MIN = 6;
 
 /**< Allowed imbalance ratio between demanded groups and available groups */
-static const double PMMG_GRPS_RATIO = 1.3;
+static const double PMMG_GRPS_RATIO = 2.0;
 
 /**< Number of elements layers for interface displacement */
 static const int PMMG_MVIFCS_NLAYERS = 2;
