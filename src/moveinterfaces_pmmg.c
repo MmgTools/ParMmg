@@ -757,7 +757,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
  *
  */
 int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
-    int *mapgrp,int *negrp,int base_front,int ip,int * list){
+    int *mapgrp,int *negrp,int *nemin,int base_front,int ip,int * list){
   MMG5_pTetra  pt,pt1;
   MMG5_pPoint  ppt1;
   int    *adja,nump,ilist,base,cur,k,k1,j1,j2;
@@ -783,7 +783,8 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
   if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, pt->mark, color ) ) {
     if( PMMG_get_proc( parmesh, pt->mark ) == parmesh->myrank ) {
       igrp = PMMG_get_grp( parmesh, pt->mark );
-      if( negrp[igrp] <= PMMG_REDISTR_NELEM_MIN ) return 1;
+      /* Block interface displacement if there are not enough tetrahedra */
+      if( negrp[igrp] <= nemin[igrp] ) return 1;
       negrp[igrp]--;
     }
     pt->mark = color;
@@ -831,7 +832,8 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
       if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, pt1->mark, color ) ) {
         if( PMMG_get_proc( parmesh, pt1->mark ) == parmesh->myrank ) {
           igrp = PMMG_get_grp( parmesh, pt1->mark );
-          if( negrp[igrp] == PMMG_REDISTR_NELEM_MIN ) return 1;
+          /* Block interface displacement if there are not enough tetrahedra */
+          if( negrp[igrp] == nemin[igrp] ) return 1;
           negrp[igrp]--;
         }
         pt1->mark = color;
@@ -1251,7 +1253,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
   MPI_Status     status;
   int          *node2int_node_comm_index1,*node2int_node_comm_index2;
   int          *intvalues,*itosend,*itorecv;
-  int          *negrp;
+  int          *negrp,*nemin;
   int          ilayer;
   int          nprocs,ngrp;
   int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
@@ -1272,9 +1274,14 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
    *  been set.
    */
 
+  /* Get number of tetrahedra on the local partition, and set the minimum
+   * number of tetrahedra to keep in each group. */
   PMMG_CALLOC( parmesh,negrp,parmesh->nold_grp,int,"negrp",return 0);
-  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ )
+  PMMG_CALLOC( parmesh,nemin,parmesh->nold_grp,int,"nemin",return 0);
+  for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {
     negrp[igrp] = mapgrp[igrp+displsgrp[parmesh->myrank]];
+    nemin[igrp] = MG_MIN( PMMG_REDISTR_NELEM_MIN, negrp[igrp]/2+1 );
+  }
 
   /* Reset internal communicator */
   int_node_comm = parmesh->int_node_comm;
@@ -1356,7 +1363,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
 
       /* Advance the front: New interface points will be flagged as
        * base_front+1 */
-      ier = PMMG_mark_boulevolp( parmesh, mesh, displsgrp, mapgrp, negrp,
+      ier = PMMG_mark_boulevolp( parmesh, mesh, displsgrp, mapgrp, negrp, nemin,
                                  *base_front, ip, list);
       if( !ier ) break;
 
@@ -1384,6 +1391,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
   if( !ier_glob ) return 0;
 
   PMMG_DEL_MEM( parmesh,negrp,int,"negrp" );
+  PMMG_DEL_MEM( parmesh,nemin,int,"nemin" );
   PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
