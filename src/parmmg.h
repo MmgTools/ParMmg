@@ -192,7 +192,7 @@ static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 static const int PMMG_REDISTR_NELEM_MIN = 6;
 
 /**< Allowed imbalance ratio between demanded groups and available groups */
-static const double PMMG_GRPS_RATIO = 1.3;
+static const double PMMG_GRPS_RATIO = 2.0;
 
 /**< Number of elements layers for interface displacement */
 static const int PMMG_MVIFCS_NLAYERS = 2;

@@ -30,8 +30,7 @@ typedef struct {
   int iel, iel_grp, cpu;
 } min_iel_t;
 
-static int PMMG_count_nodes_par(PMMG_pParMesh parmesh){
-  PMMG_pGrp      grp;
+static int PMMG_count_nodes_par(PMMG_pParMesh parmesh,PMMG_pGrp grp){
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
@@ -39,43 +38,33 @@ static int PMMG_count_nodes_par(PMMG_pParMesh parmesh){
   int            *intvalues,base;
   int            k,i,ip,idx,np,iel;
 
-  /* You can work only on 1 group, so that the internal communicator coincides
-   * with the external one */
-  assert( parmesh->ngrp == 1 );
-  grp  = &parmesh->listgrp[0];
   grp->mesh->base++;
   base = grp->mesh->base;
-
   int_node_comm = parmesh->int_node_comm;
-  if( !int_node_comm ) return grp->mesh->np;
-
-  PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   intvalues = int_node_comm->intvalues;
 
-  /* Reset flags */
+  /** Reset flags */
   for( ip = 1; ip <= grp->mesh->np; ip++ ) {
     ppt = &grp->mesh->point[ip];
     ppt->flag = 0;
   }
 
-  /* Mark nodes not to be counted if the outer rank is higher than myrank */
-  for( k = 0; k < parmesh->next_node_comm; k++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    if( parmesh->myrank < ext_node_comm->color_out ) continue;
-    for( i = 0; i < ext_node_comm->nitem; i++ )
-      intvalues[ext_node_comm->int_comm_index[i]] = 1;
-  }
+  /** Initialize counter */
+  np = 0;
 
-  /* Flag points if marked in the internal communicator */
+  /* 1) Count points if not marked in the internal communicator,
+   *    then mqrk them in the internal communicator and flag them. */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
-    if( intvalues[idx] )
-      grp->mesh->point[ip].flag = base;
+    if( !intvalues[idx] ) {
+      intvalues[idx] = base;
+      np++;
+    }
+    grp->mesh->point[ip].flag = base;
   }
 
-  /* Count points */
-  np = 0;
+  /* 2) Count all other points (touched by a tetra) */
   for( iel = 1; iel <= grp->mesh->ne; iel++ ) {
     pt = &grp->mesh->tetra[iel];
     if( !MG_EOK(pt) ) continue;
@@ -88,7 +77,6 @@ static int PMMG_count_nodes_par(PMMG_pParMesh parmesh){
     }
   }
 
-  PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
   return np;
 }
 
@@ -169,7 +157,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
   PMMG_pGrp    grp;
   MMG5_pTetra  pt;
   MMG5_pPoint  ppt;
-  int          i, j, iel_grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  int          *intvalues;
+  int          i, j, k, iel_grp;
   int          np_cur,ne_cur;
   int64_t      np, np_result, ne, ne_result;
   double       max, max_cur, max_result;
@@ -203,6 +194,22 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
   grp = &parmesh->listgrp[0];
   optimLES = ( grp && grp->mesh ) ? grp->mesh->info.optimLES : 0;
 
+  /* Reset node intvalues (in order to avoid counting parallel nodes twice) */
+  int_node_comm = parmesh->int_node_comm;
+  if( int_node_comm ) {
+    PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+    intvalues = int_node_comm->intvalues;
+
+    /* Mark nodes not to be counted if the outer rank is lower than myrank */
+    for( k = 0; k < parmesh->next_node_comm; k++ ) {
+      ext_node_comm = &parmesh->ext_node_comm[k];
+      if( parmesh->myrank > ext_node_comm->color_out ) continue;
+      for( i = 0; i < ext_node_comm->nitem; i++ )
+        intvalues[ext_node_comm->int_comm_index[i]] = 1;
+    }
+  }
+
+
   for ( i = 0; i < PMMG_QUAL_HISSIZE; ++i )
     his[ i ] = 0;
 
@@ -229,8 +236,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
       }
     }
 
-    assert( parmesh->ngrp == 1 );
-    np_cur = PMMG_count_nodes_par( parmesh );
+    if( !int_node_comm )
+      np_cur = grp->mesh->np;
+    else
+      np_cur = PMMG_count_nodes_par( parmesh,grp );
     np   += (int64_t)np_cur;
     ne   += (int64_t)ne_cur;
     avg  += avg_cur;
@@ -308,6 +317,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
                                        parmesh->info.imprim );
     if ( !ier ) return 0;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
 
   return 1;
 }

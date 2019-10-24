@@ -409,10 +409,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   /** Mesh analysis, face/node communicators indices construction (depending
    * from the API mode), build face comms from node ones */
   if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
@@ -439,6 +435,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
       return PMMG_STRONGFAILURE;
     }
+  }
+
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   assert ( PMMG_check_extFaceComm ( parmesh ) );
