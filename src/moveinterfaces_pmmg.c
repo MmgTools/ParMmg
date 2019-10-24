@@ -783,7 +783,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
   if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, pt->mark, color ) ) {
     if( PMMG_get_proc( parmesh, pt->mark ) == parmesh->myrank ) {
       igrp = PMMG_get_grp( parmesh, pt->mark );
-      if( negrp[igrp] == PMMG_REDISTR_NELEM_MIN ) return 1;
+      if( negrp[igrp] <= PMMG_REDISTR_NELEM_MIN ) return 1;
       negrp[igrp]--;
     }
     pt->mark = color;
