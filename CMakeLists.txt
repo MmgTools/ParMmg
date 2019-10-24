@@ -438,6 +438,7 @@ FILE(
   GLOB
   pmmg_library_files
   ${PMMG_SOURCE_DIR}/*.c
+  ${PMMG_SOURCE_DIR}/*.cpp
   )
 LIST(REMOVE_ITEM pmmg_library_files
   ${PMMG_SOURCE_DIR}/parmmg.c
