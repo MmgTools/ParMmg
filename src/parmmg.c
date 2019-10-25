@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file parmmg.c
  * \brief main file for the parmmg application
@@ -39,16 +62,16 @@ int main( int argc, char *argv[] )
 {
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
+  MMG5_pSol     sol;
   int           rank;
-  int           ier,iresult,ierSave,msh;
+  int           ier,iresult,ierSave,fmtin;
   int8_t        tim;
-  char          stim[32];
+  char          stim[32],*ptr;
 
   // Shared memory communicator: processes that are on the same node, sharing
   //    local memory and can potentially communicate without using the network
   MPI_Comm comm_shm = 0;
   int      rank_shm = 0;
-  int      size_shm = 1;
 
   /** Initializations: MPI, mesh, and memory */
   MPI_Init( &argc, &argv );
@@ -100,11 +123,11 @@ int main( int argc, char *argv[] )
     MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
     MPI_Comm_rank( comm_shm, &rank_shm );
-    MPI_Comm_size( comm_shm, &size_shm );
+    MPI_Comm_size( comm_shm, &parmesh->size_shm );
 
     if ( !rank_shm )
       printf("\n     %d MPI PROCESSES (%d ON LOCAL NODE):\n",parmesh->nprocs,
-             size_shm);
+             parmesh->size_shm);
 
     printf("         MPI RANK %d (LOCAL RANK %d)\n", parmesh->myrank,rank_shm );
   }
@@ -121,18 +144,77 @@ int main( int argc, char *argv[] )
   iresult = 1;
   ier     = 1;
 
-  if ( 1 != PMMG_loadMesh_centralized(parmesh,grp->mesh->namein) ) {
-    ier = 0;
-    goto check_mesh_loading;
-  }
+  ptr   = MMG5_Get_filenameExt(grp->mesh->namein);
+  fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
 
-  if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
+  ptr                  = MMG5_Get_filenameExt(grp->mesh->nameout);
+  parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
+
+  switch ( fmtin ) {
+  case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
+
+    if ( 1 != PMMG_loadMesh_centralized(parmesh,grp->mesh->namein) ) {
+      ier = 0;
+      goto check_mesh_loading;
+    }
+
+    if ( grp->mesh->info.lag >= 0 ) {
+
+      if ( rank == parmesh->info.root ) {
+        fprintf(stderr,"\n  ## ERROR: LAGRANGIAN MODE I/O NOT YET IMPLEMENTED\n");
+      }
+      ier = 0;
+      goto check_mesh_loading;
+
+      // Check what happens: where is stored the input displacement name?
+      // Mmg code
+      // /* In Lagrangian mode, the name of the displacement file has been parsed in ls */
+      //if ( !MMG3D_Set_inputSolName(grp->mesh,grp->disp,grp->ls->namein) ) {
+      //  MMG5_RETURN_AND_FREE(mesh,met,ls,disp,MMG5_STRONGFAILURE);
+      //}
+      //MMG5_DEL_MEM(mesh,ls->namein);
+    }
+
+    if ( grp->mesh->info.lag >= 0 || grp->mesh->info.iso ) {
+      /* displacement or isovalue are mandatory */
+      if ( PMMG_loadSol_centralized( parmesh, NULL ) < 1 ) {
+        if ( rank == parmesh->info.root ) {
+          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD SOLUTION FILE.\n");
+        }
+        ier = 0;
+        goto check_mesh_loading;
+      }
+    }
+    else {
+      /* Facultative metric */
+      if ( -1 == PMMG_loadSol_centralized( parmesh, NULL ) ) {
+        if ( rank == parmesh->info.root ) {
+          fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
+        }
+        ier = 0;
+        goto check_mesh_loading;
+      }
+    }
+    /* In iso mode: read metric if any */
+    if ( grp->mesh->info.iso && grp->met->namein ) {
+      if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
+        if ( rank == parmesh->info.root ) {
+          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
+        }
+        ier = 0;
+        goto check_mesh_loading;
+      }
+    }
+    break;
+
+  default:
     if ( rank == parmesh->info.root ) {
-      fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
+      fprintf(stderr,"  ** I/O AT FORMAT %s NOT IMPLEMENTED.\n",MMG5_Get_formatName(fmtin) );
     }
     ier = 0;
     goto check_mesh_loading;
   }
+
 
   if ( !PMMG_parsop(parmesh) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
@@ -174,21 +256,22 @@ check_mesh_loading:
 
   if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
     grp = &parmesh->listgrp[0];
-    MMG5_chooseOutputFormat(grp->mesh,&msh);
 
-    if ( !msh ) {
-      ierSave = PMMG_saveMesh_centralized(parmesh,grp->mesh->nameout);
-    }
-    else {
-      printf("  ## Error: Gmsh output format not yet implemented.\n");
-      ierSave = 2;//PMMG_saveMshMesh_centralized(grp->mesh,grp->met,mesh->nameout);
-    }
-
-    if ( !ierSave ) {
+    switch ( parmesh->info.fmtout ) {
+    case ( MMG5_FMT_VtkPvtu ):
+      PMMG_savePvtuMesh(parmesh,grp->mesh->nameout);
+      break;
+    case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
+    case ( MMG5_FMT_VtkVtu ):
+    case ( MMG5_FMT_VtkVtk ):
+      printf("  ## Error: Output format not yet implemented.\n");
       PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-    }
-
-    if ( !msh ) {
+      break;
+    default:
+      ierSave = PMMG_saveMesh_centralized(parmesh,grp->mesh->nameout);
+      if ( !ierSave ) {
+        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      }
       if ( !PMMG_saveMet_centralized(parmesh,grp->mesh->nameout) ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
@@ -196,6 +279,8 @@ check_mesh_loading:
       if ( grp->sol && !PMMG_saveAllSols_centralized(parmesh,grp->sol->nameout) ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
+
+      break;
     }
   }
 

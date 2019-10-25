@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file mergemesh.c
  * \brief Merge the mesh.
@@ -9,6 +32,7 @@
  */
 #include "parmmg.h"
 #include "mpitypes_pmmg.h"
+#include "moveinterfaces_pmmg.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -789,7 +813,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
  * \remark the tetra must be packed.
  *
  */
-int PMMG_merge_grps( PMMG_pParMesh parmesh )
+int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 {
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0;
@@ -806,6 +830,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   mesh0 = listgrp[0].mesh;
 
   if ( !mesh0 ) return 1;
+
+  /* Use mark field to store previous grp index */
+  if( target == PMMG_GRPSPL_DISTR_TARGET ) PMMG_set_color_tetra( parmesh,0 );
 
   if ( mesh0->adja )
     PMMG_DEL_MEM(mesh0, mesh0->adja,int, "adjacency table" );
@@ -848,6 +875,10 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
   for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
     grp = &listgrp[imsh];
 
+    /* Use mark field to store previous grp index */
+    if( target == PMMG_GRPSPL_DISTR_TARGET )
+      PMMG_set_color_tetra( parmesh,imsh );
+
     /** Step 2: Merge internal points of the mesh mesh into the mesh0 mesh */
     if ( !PMMG_mergeGrpJinI_internalPoints(&listgrp[0],grp) )
       goto fail_comms;
@@ -860,10 +891,14 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh )
     if ( !PMMG_mergeGrpJinI_internalTetra(&listgrp[0],grp) )
       goto fail_comms;
 
+    mesh0->npi = mesh0->np;
+    mesh0->nei = mesh0->ne;
+
     /* Free merged mesh and increase mesh0->memMax*/
     mesh0->memMax += grp->mesh->memCur;
     PMMG_grp_free(parmesh,grp);
   }
+
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
@@ -1548,11 +1583,13 @@ int PMMG_mergeParmesh_rcvParMeshes(PMMG_pParMesh parmesh,MMG5_pPoint rcv_point,
   mesh->xtmax  = mesh->xt = xt_tot;
 
   MMG5_ADD_MEM(mesh,(mesh->nemax+1)*sizeof(MMG5_Tetra),"tetra",
-                fprintf(stderr,"  Exit program.\n");
-                return 0);
+               fprintf(stderr,"  Exit program.\n");
+               return 0);
+
   MMG5_ADD_MEM(mesh,(mesh->xtmax+1)*sizeof(MMG5_xTetra),"xtetra",
-                fprintf(stderr,"  Exit program.\n");
-                return 0);
+               fprintf(stderr,"  Exit program.\n");
+               return 0);
+
   MMG5_SAFE_CALLOC(mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,return 0);
   MMG5_SAFE_CALLOC(mesh->tetra,mesh->nemax+1,MMG5_Tetra,return 0);
 
@@ -1694,7 +1731,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
-  /* Give all the memory to the communicators */
+  /* Give all the memory to the Process 0 and to the communicators: we
+   * overflow slightly the maximal memory here because the other
+   * parmeshes are not totally empty but they must take only few hundred of Ko */
+  parmesh->memGloMax *= parmesh->size_shm;
+
   available = parmesh->memGloMax;
   if ( grp ) {
     grp->mesh->memMax = grp->mesh->memCur;
@@ -1739,22 +1780,28 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
                             &rcv_xt,&rcv_nmet,&rcv_int_comm_index,&nitem_icidx_tot,
                             &rcv_next_node_comm,&rcv_nitem_int_node_comm);
 
-
   if ( ier ) {
+    /** Free mem */
+    if ( parmesh->myrank != parmesh->info.root ) {
+      /* the entire parmesh may be freed */
+      PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+    }
+    else {
+      MMG3D_Free_arrays(&grp->mesh,&grp->met,&grp->disp);
+      if ( grp->sol ) {
+        assert ( grp->mesh->nsols );
+        for ( k=0; k<grp->mesh->nsols; ++k ) {
+          if ( grp->sol + k && grp->sol[k].m ) {
+            PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->sol[k].m,int,"sol array");
+          }
+        }
+      }
+    }
+    PMMG_parmesh_Free_Comm(parmesh);
+
     /** Step 3: Proc 0 merges the meshes: We travel through the external
      * communicators to recover the numbering of the points shared with a lower
      * proc. The other points are concatenated with the proc 0. */
-
-    /* Give all the memory to mesh0 */
-    parmesh->memMax = parmesh->memCur;
-    available = parmesh->memGloMax - parmesh->memMax;
-    if ( grp ) {
-      available -= grp->mesh->memMax;
-      assert ( available >= 0 );
-
-      grp->mesh->memMax +=  available;
-    }
-
     ier = PMMG_mergeParmesh_rcvParMeshes(parmesh,rcv_point,rcv_xpoint,rcv_tetra,
                                          rcv_xtetra,rcv_met,rcv_intvalues,rcv_nitem_ext_tab,
                                          rcv_color_in_tab,rcv_color_out_tab,point_displs,
@@ -1763,7 +1810,6 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
                                          int_comm_index_displs,rcv_np,rcv_ne,rcv_xt,
                                          rcv_int_comm_index,rcv_next_node_comm);
   }
-
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm),ieresult=0);
 
   /** Step 4: Free memory */
@@ -1792,8 +1838,10 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
     parmesh->ngrp = 1;
   }
-  else parmesh->ngrp = 0;
-
+  else {
+    parmesh->memGloMax = parmesh->memCur;
+    parmesh->ngrp = 0;
+  }
 
   /* 2: communicators data */
   PMMG_DEL_MEM(parmesh,rcv_int_comm_index,int,"rcv_ic_idx");
@@ -1811,12 +1859,10 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_DEL_MEM(parmesh,rcv_node2int_node_comm_index2,int,"rcv_inc_idx2");
   PMMG_DEL_MEM(parmesh,int_comm_index_displs,int,"icidx_displs");
 
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intval");
-
   PMMG_parmesh_Free_Comm(parmesh);
 
   /** Step 5: Update tag on points, tetra */
-  if ( ieresult > 0 ) {
+  if ( parmesh->myrank == parmesh->info.root && ieresult > 0 ) {
     ieresult = PMMG_updateTag(parmesh);
 
     /** Step 6: In nosurf mode, the updateTag function has added nosurf + required

@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmg.h
  * \brief API headers for the parmmg library
@@ -1719,7 +1742,60 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);/**
+  int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load displacement field. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADDISP_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadDisp_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load level-set field. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load displacement, level-set or metric field depending on the
+ * option setted. The solution file must contains only 1 solution.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADSOL_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
  * \return -1 data invalid, 0 no file, 1 ok.
@@ -1788,6 +1864,9 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
+
+int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param next_comm number of communicators

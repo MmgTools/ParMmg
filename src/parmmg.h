@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file parmmg.h
  * \brief internal functions headers for parmmg
@@ -140,10 +163,10 @@ extern "C" {
 
 /**
  *
- * Split groups for metis (split_grps)
+ * Split groups for redistribution (split_grps)
  *
  */
-#define PMMG_GRPSPL_METIS_TARGET 1
+#define PMMG_GRPSPL_DISTR_TARGET 1
 
 /**
  *
@@ -163,11 +186,16 @@ static const int PMMG_REMESHER_NGRPS_MAX = 100;
 static const int PMMG_RATIO_MMG_METIS = -100;
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_METIS_NGRPS_MAX = 1000;
+static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 
 /**< Subgroups minimum size to try to avoid empty partitions */
-static const int PMMG_METIS_NELEM_MIN = 6;
+static const int PMMG_REDISTR_NELEM_MIN = 6;
 
+/**< Allowed imbalance ratio between demanded groups and available groups */
+static const double PMMG_GRPS_RATIO = 2.0;
+
+/**< Number of elements layers for interface displacement */
+static const int PMMG_MVIFCS_NLAYERS = 2;
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -470,7 +498,7 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
 int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
-int PMMG_split_grps( PMMG_pParMesh,int,int );
+int PMMG_split_grps( PMMG_pParMesh,int,int,int );
 
 /* Load Balancing */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
@@ -483,7 +511,8 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
-int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh );
+int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int* );
+int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
@@ -516,7 +545,19 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh );
 int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp,PMMG_pGrp grpJ );
 int PMMG_mergeGrpJinI_interfaceTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
 int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp,PMMG_pGrp );
-int PMMG_merge_grps ( PMMG_pParMesh parmesh );
+int PMMG_merge_grps ( PMMG_pParMesh parmesh,int );
+
+/* Move interfaces */
+int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps,int target );
+int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part );
+int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter );
+int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part );
+int PMMG_fix_contiguity_split( PMMG_pParMesh parmesh,idx_t ngrp,idx_t *part );
+int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *base_front );
+int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int* vtxdist,int* priorityMap );
+int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_get_ifcDirection( PMMG_pParMesh parmesh,int *vtxdist,int *map,int color0,int color1 );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );

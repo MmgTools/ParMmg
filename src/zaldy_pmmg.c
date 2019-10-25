@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file zaldy_pmmg.c
  * \brief Memory management
@@ -31,7 +54,6 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 {
   size_t   maxAvail = 0;
   MPI_Comm comm_shm = 0;
-  int      size_shm = 1;
   int      flag;
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
@@ -42,14 +64,14 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   if ( flag ) {
     MPI_Comm_split_type( parmesh->comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
-    MPI_Comm_size( comm_shm, &size_shm );
+    MPI_Comm_size( comm_shm, &parmesh->size_shm );
   }
   else {
-    size_shm = 1;
+    parmesh->size_shm = 1;
   }
 
   /** Step 2: Set maximal memory per process depending on the -m option setting */
-  maxAvail = MMG5_memSize()/size_shm;
+  maxAvail = MMG5_memSize()/parmesh->size_shm;
 
   if ( parmesh->info.mem <= 0 ) {
     /* Nos users specifications */
@@ -170,16 +192,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
   /* keep track of empty links */
   if ( mesh->npmax > mesh->np ) {
     mesh->npnil = mesh->np + 1;
-    for (k=mesh->npnil; k<=mesh->npmax; k++) {
-      /* Set tangent field of point to 0 */
-      mesh->point[k].n[0] = 0;
-      mesh->point[k].n[1] = 0;
-      mesh->point[k].n[2] = 0;
-      /* link */
-      if(k<mesh->npmax-1) mesh->point[k].tmp  = k+1;
-    }
-    /*if this point has already been used we have to reset tmp*/
-    mesh->point[mesh->npmax].tmp = 0;
+    for (k=mesh->npnil; k<mesh->npmax-1; k++)
+      mesh->point[k].tmp  = k+1;
   }
   else {
     assert ( mesh->np == mesh->npmax );
@@ -188,17 +202,8 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
 
   if ( mesh->nemax > mesh->ne ) {
     mesh->nenil = mesh->ne + 1;
-    for (k=mesh->nenil; k<=mesh->nemax; k++) {
-      pt = &mesh->tetra[k];
-      memset(pt,0,sizeof(MMG5_Tetra));
-      iadr = 4*(k-1) + 1;
-      if ( mesh->adja )
-        memset(&mesh->adja[iadr],0,4*sizeof(int));
-
-      if(k<mesh->nemax-1) pt->v[3] = k+1;
-    }
-    /*if this tetra has already been used, we have to put v[3]=0*/
-    mesh->tetra[mesh->nemax].v[3] = 0;
+    for (k=mesh->nenil; k<mesh->nemax-1; k++)
+      mesh->tetra[k].v[3] = k+1;
   }
   else {
     assert ( mesh->ne == mesh->nemax );
@@ -403,10 +408,10 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       mesh->xtmax = mesh->xt;
     }
     else {
-      mesh->npmax = MG_MAX(1.5*mesh->np,MMG3D_NPMAX);
+      mesh->npmax = 1.5*mesh->np;
       mesh->xpmax = 1.5*mesh->xp;
-      mesh->nemax = MG_MAX(1.5*mesh->ne,MMG3D_NEMAX);
-      mesh->xtmax = MG_MAX(1.5*mesh->xt,MMG3D_NTMAX);
+      mesh->nemax = 1.5*mesh->ne;
+      mesh->xtmax = 1.5*mesh->xt;
     }
 
     met = parmesh->listgrp[i].met;

@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmg_tools.c
  * \brief C API functions definitions for PARMMG library.
@@ -58,7 +81,9 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
              abs(PMMG_RATIO_MMG_METIS) );
 
 #ifdef USE_SCOTCH
-    fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
+    fprintf(stdout,"SCOTCH renumbering                  : enabled\n");
+#else
+    fprintf(stdout,"SCOTCH renumbering                  : disabled\n");
 #endif
 
     if ( parmesh->listgrp[0].mesh ) {
@@ -81,10 +106,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n** Generic options :\n");
     fprintf(stdout,"-h         Print this message\n");
     fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
-    // fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
     fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
     fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
-    // fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
     fprintf(stdout,"-val       Print the default parameters values\n");
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
@@ -118,7 +143,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
 #endif
 #ifdef USE_SCOTCH
-    //fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
 #endif
     fprintf(stdout,"\n");
 
@@ -307,10 +332,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 #ifdef USE_SCOTCH
       case 'r':
         if ( !strcmp(argv[i],"-rn") ) {
-          fprintf( stderr,
-                   "\nScoth renumbering not yet available in ParMmg\n");
-          ret_val = 0;
-          goto fail_proc;
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 #endif

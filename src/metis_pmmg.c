@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file metis_pmmg.c
  * \brief Partition mesh using metis
@@ -1359,9 +1382,16 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
       options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
 
       /** Call metis and get the partition array */
-      status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
-                                    vwgt_seq,NULL,adjwgt_seq,&nproc,
-                                    NULL,NULL,options,&objval, part_seq );
+      if( nprocs >= 8 )
+        status = METIS_PartGraphKway( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
+                                      vwgt_seq,NULL,adjwgt_seq,&nproc,
+                                      NULL,NULL,options,&objval, part_seq );
+      else
+        status = METIS_PartGraphRecursive( &vtxdist[nproc],&ncon,xadj_seq,adjncy_seq,
+                                      vwgt_seq,NULL,adjwgt_seq,&nproc,
+                                      NULL,NULL,options,&objval, part_seq );
+ 
+
       if ( status != METIS_OK ) {
         switch ( status ) {
           case METIS_ERROR_INPUT:
