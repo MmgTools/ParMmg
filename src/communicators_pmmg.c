@@ -27,6 +27,7 @@
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (Inria Soft)
  * \author Nikos Pattakos (Inria)
+ * \author Luca Cirrottola (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
  */
@@ -136,6 +137,121 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
 
   parmesh->next_node_comm       = 0;
   parmesh->int_node_comm->nitem = 0;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure.
+ * \return 0 if fail, 1 if success.
+ *
+ * Check if faces on a parallel communicator connect elements with different
+ * references, and mark tag them as a "true" boundary (thus PARBDYBDY).
+ */
+int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MPI_Comm       comm;
+  MPI_Status     status;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int            *intvalues,*itosend,*itorecv;
+  int            ngrp,myrank,color,nitem,k,igrp,i,idx,ie,ifac;
+
+  comm   = parmesh->comm;
+  grp    = parmesh->listgrp;
+  myrank = parmesh->myrank;
+  ngrp   = parmesh->ngrp;
+
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+              "face communicator",return 0); //FIXME: error handling, initializing at 0 is not OK
+  intvalues = parmesh->int_face_comm->intvalues;
+
+  /*Fill the internal communicator */
+  for( igrp = 0; igrp < ngrp; igrp++ ) {
+    grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      ie   =  face2int_face_comm_index1[k]/12;
+      ifac = (face2int_face_comm_index1[k]%12)/3;
+      idx  =  face2int_face_comm_index2[k];
+      pt = &mesh->tetra[ie];
+      assert( MG_EOK(pt) && pt->xt );
+      pxt = &mesh->xtetra[pt->xt];
+
+      /* Tag faces as "true" boundary */
+      if( !intvalues[k] )
+        intvalues[k] = pt->ref;
+      else if( intvalues[k] != pt->ref )
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
+
+    }
+  }
+
+  /** Send and receive external communicators */
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
+                return 0); // FIXME: error handling
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
+                return 0); // FIXME: error handling
+    itorecv       = ext_face_comm->itorecv;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      itosend[i]     = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
+                   comm,&status),return 0 ); // FIXME: error handling, tag
+
+    /* Store the info in intvalues */
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* Check the internal communicator */
+  for( igrp = 0; igrp < ngrp; igrp++ ) {
+    grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      ie   =  face2int_face_comm_index1[k]/12;
+      ifac = (face2int_face_comm_index1[k]%12)/3;
+      idx  =  face2int_face_comm_index2[k];
+      pt = &mesh->tetra[ie];
+      assert( MG_EOK(pt) && pt->xt );
+      pxt = &mesh->xtetra[pt->xt];
+
+      /* Tag face as "true" boundary */
+      if( intvalues[k] != pt->ref )
+        pxt->ftag[ifac] |= MG_PARBDYBDY; // FIXME check only faces on ext_comm?
+    }
+  }
+
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues array");
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
+  }
+  return 1;
 }
 
 /**
