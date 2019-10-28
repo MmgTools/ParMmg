@@ -144,7 +144,7 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
  * \return 0 if fail, 1 if success.
  *
  * Check if faces on a parallel communicator connect elements with different
- * references, and mark tag them as a "true" boundary (thus PARBDYBDY).
+ * references, and tag them as a "true" boundary (thus PARBDYBDY).
  */
 int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
@@ -156,7 +156,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   MPI_Comm       comm;
   MPI_Status     status;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
-  int            *intvalues,*itosend,*itorecv;
+  int            *seenFace,*intvalues,*itosend,*itorecv;
   int            ngrp,myrank,color,nitem,k,igrp,i,idx,ie,ifac;
 
   comm   = parmesh->comm;
@@ -165,9 +165,25 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   ngrp   = parmesh->ngrp;
 
   int_face_comm = parmesh->int_face_comm;
-  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "face communicator",return 0); //FIXME: error handling, initializing at 0 is not OK
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+              "face communicator",return 0);
   intvalues = parmesh->int_face_comm->intvalues;
+  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
+
+  /* Reset tetra mark */
+  for( igrp = 0; igrp < ngrp; igrp++ ) {
+    grp                       = &parmesh->listgrp[igrp];
+    mesh                      = grp->mesh;
+    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      ie = face2int_face_comm_index1[k]/12;
+      pt = &mesh->tetra[ie];
+      pt->mark = PMMG_NUL;
+      assert( MG_EOK(pt) && pt->xt );
+      pxt = &mesh->xtetra[pt->xt];
+    }
+  }
 
   /*Fill the internal communicator */
   for( igrp = 0; igrp < ngrp; igrp++ ) {
@@ -185,11 +201,13 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       pxt = &mesh->xtetra[pt->xt];
 
       /* Tag faces as "true" boundary */
-      if( !intvalues[k] )
-        intvalues[k] = pt->ref;
-      else if( intvalues[k] != pt->ref )
+      if( !seenFace[idx] )
+        intvalues[idx] = pt->ref;
+      else if( intvalues[idx] != pt->ref )
         pxt->ftag[ifac] |= MG_PARBDYBDY;
 
+      /* Mark face each time that it's seen */
+      seenFace[idx]++;
     }
   }
 
@@ -200,11 +218,11 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     color         = ext_face_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                return 0); // FIXME: error handling
+                return 0);
     itosend = ext_face_comm->itosend;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                return 0); // FIXME: error handling
+                return 0);
     itorecv       = ext_face_comm->itorecv;
 
     for ( i=0; i<nitem; ++i ) {
@@ -239,13 +257,17 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       assert( MG_EOK(pt) && pt->xt );
       pxt = &mesh->xtetra[pt->xt];
 
+      /* Faces on the external communicator have been visited only once */
+      if( seenFace[idx] != 1 ) continue;
+
       /* Tag face as "true" boundary */
-      if( intvalues[k] != pt->ref )
+      if( intvalues[idx] != pt->ref )
         pxt->ftag[ifac] |= MG_PARBDYBDY; // FIXME check only faces on ext_comm?
     }
   }
 
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues array");
+  PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
