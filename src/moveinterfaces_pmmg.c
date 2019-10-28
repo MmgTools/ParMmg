@@ -1370,6 +1370,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
     }
     if( !ier ) break;
 
+    /* Check front "sides" (i.e. intersection of several interfaces) to be sure
+     * of moving them */
     ier = PMMG_mark_sideFront( parmesh, mesh, *base_front, displsgrp, mapgrp, list );
     if( !ier ) break;
 

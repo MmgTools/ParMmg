@@ -1386,7 +1386,7 @@ fail_facePos:
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
- * \param redistrMode 0 for graph balancing, 1 for interface migration
+ * \param redistrMode 0 for graph balancing, 1 for interface displacement
  *
  * \return -1 : no possibility to save the mesh
  *         0  : failed but the mesh is correct
@@ -1424,7 +1424,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
 
   if ( !meshOld ) goto end;
 
-  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     /* Set to a value higher than 1 just to continue until the true
      * computation (which is after a jump on ngrp==1) */
@@ -1516,7 +1516,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
   meshOld_ne = meshOld->ne;
 
 
-  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
         (ngrp <=
@@ -1531,7 +1531,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
     } 
   }
   else {
-    if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_migration) &&
+    if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
          (parmesh->info.imprim > PMMG_VERB_ITWAVES) )
       fprintf(stdout,"\n         calling Metis on proc%d\n\n",parmesh->myrank);
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
@@ -1539,9 +1539,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
       goto fail_part;
     }
     
-    /* If this is the first split of the input mesh, and interface migration
+    /* If this is the first split of the input mesh, and interface displacement
      * will beb performed, check that the groups are contiguous. */
-    if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration )
+    if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement )
       if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
 
@@ -1624,7 +1624,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   }
 
   /* Store the nb of tetra per group bbefore merging */
-  if( (PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration) &&
+  if( (PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
   }
@@ -1684,7 +1684,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration ) {
+  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
     size_t available,oldMemMax;
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;

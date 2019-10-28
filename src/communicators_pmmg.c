@@ -233,7 +233,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG,
-                   comm,&status),return 0 ); // FIXME: error handling, tag
+                   comm,&status),return 0 );
 
     /* Store the info in intvalues */
     for ( i=0; i<nitem; ++i ) {
@@ -262,7 +262,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
 
       /* Tag face as "true" boundary */
       if( intvalues[idx] != pt->ref )
-        pxt->ftag[ifac] |= MG_PARBDYBDY; // FIXME check only faces on ext_comm?
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
     }
   }
 

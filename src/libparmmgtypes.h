@@ -177,12 +177,12 @@
 #define PMMG_REDISTRIBUTION_graph_balancing 0
 
 /**
- * \def PMMG_REDISTRIBUTION_ifc_migration
+ * \def PMMG_REDISTRIBUTION_ifc_displacement
  *
- * Use interface migration to redistribute the parallel mesh
+ * Use interface displacement to redistribute the parallel mesh
  *
  */
-#define PMMG_REDISTRIBUTION_ifc_migration 1
+#define PMMG_REDISTRIBUTION_ifc_displacement 1
 
 /**
  * \def PMMG_REDISTRIBUTION_mode
@@ -190,7 +190,7 @@
  * Choose how to redistribute the parallel mesh
  *
  */
-#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_ifc_migration
+#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_ifc_displacement
 
 /**
  * \def PMMG_LOADBALANCING_metis
