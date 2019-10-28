@@ -166,7 +166,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
 
   int_face_comm = parmesh->int_face_comm;
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "face communicator",return 0);
+              "intvalues",return 0);
   intvalues = parmesh->int_face_comm->intvalues;
   PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
 
@@ -266,7 +266,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     }
   }
 
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues array");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
