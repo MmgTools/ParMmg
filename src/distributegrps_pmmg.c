@@ -2995,7 +2995,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_migration ) {
+  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement ) {
 
     ier = PMMG_part_getProcs( parmesh, part );
 
