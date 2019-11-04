@@ -95,12 +95,7 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
 }
 
 int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
-  MMG5_pTetra pt;
-  MMG5_pPrism pp;
-  MMG5_pTria  pt1;
-  MMG5_pQuad  pq1;
-  MMG5_pEdge  pa;
-  MMG5_pPoint ppt;
+  int         meshver;
   int         API_mode,icomm,ier;
   int         ncomm,*nitem_comm,*color;
   int         **idx_loc,**idx_glo;
@@ -142,175 +137,45 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
       }
     }
   } else { //binary file
-//    bdim = 0;
-//    MMG_FREAD(&mesh->ver,MMG5_SW,1,inm);
-//    iswp=0;
-//    if(mesh->ver==16777216)
-//      iswp=1;
-//    else if(mesh->ver!=1) {
-//      fprintf(stderr,"BAD FILE ENCODING\n");
-//    }
-//    MMG_FREAD(&mesh->ver,MMG5_SW,1,inm);
-//    if(iswp) mesh->ver = MMG5_swapbin(mesh->ver);
-//    while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
-//      if(iswp) binch=MMG5_swapbin(binch);
-//      if(binch==54) break;
-//      if(!bdim && binch==3) {  //Dimension
-//        MMG_FREAD(&bdim,MMG5_SW,1,inm);  //NulPos=>20
-//        if(iswp) bdim=MMG5_swapbin(bdim);
-//        MMG_FREAD(&bdim,MMG5_SW,1,inm);
-//        if(iswp) bdim=MMG5_swapbin(bdim);
-//        mesh->dim = bdim;
-//        if(bdim!=3) {
-//          fprintf(stderr,"BAD MESH DIMENSION : %d\n",mesh->dim);
-//          fprintf(stderr," Exit program.\n");
-//          return -1;
-//        }
-//        continue;
-//      } else if(!mesh->npi && binch==4) {  //Vertices
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->npi,MMG5_SW,1,inm);
-//        if(iswp) mesh->npi=MMG5_swapbin(mesh->npi);
-//        posnp = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==15) {  //RequiredVertices
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&npreq,MMG5_SW,1,inm);
-//        if(iswp) npreq=MMG5_swapbin(npreq);
-//        posnpreq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!mesh->nti && binch==6) {//Triangles
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nti,MMG5_SW,1,inm);
-//        if(iswp) mesh->nti=MMG5_swapbin(mesh->nti);
-//        posnt = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==17) {  //RequiredTriangles
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&ntreq,MMG5_SW,1,inm);
-//        if(iswp) ntreq=MMG5_swapbin(ntreq);
-//        posntreq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      }
-//      else if(!mesh->nquad && binch==7) {//Quadrilaterals
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nquad,MMG5_SW,1,inm);
-//        if(iswp) mesh->nquad=MMG5_swapbin(mesh->nquad);
-//        posnq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==18) {  //RequiredQuadrilaterals
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&nqreq,MMG5_SW,1,inm);
-//        if(iswp) nqreq=MMG5_swapbin(nqreq);
-//        posnqreq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!mesh->nei && binch==8) {//Tetra
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nei,MMG5_SW,1,inm);
-//        if(iswp) mesh->nei=MMG5_swapbin(mesh->nei);
-//        posne = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!mesh->nprism && binch==9) {//Prism
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nprism,MMG5_SW,1,inm);
-//        if(iswp) mesh->nprism=MMG5_swapbin(mesh->nprism);
-//        posnprism = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==12) {  //RequiredTetra
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&nereq,MMG5_SW,1,inm);
-//        if(iswp) nereq=MMG5_swapbin(nereq);
-//        posnereq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!ncor && binch==13) { //Corners
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&ncor,MMG5_SW,1,inm);
-//        if(iswp) ncor=MMG5_swapbin(ncor);
-//        posncor = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!mesh->nai && binch==5) { //Edges
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nai,MMG5_SW,1,inm);
-//        if(iswp) mesh->nai=MMG5_swapbin(mesh->nai);
-//        posned = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==16) {  //RequiredEdges
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&nedreq,MMG5_SW,1,inm);
-//        if(iswp) nedreq=MMG5_swapbin(nedreq);
-//        posnedreq = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      }  else if(binch==14) {  //Ridges
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&nr,MMG5_SW,1,inm);
-//        if(iswp) nr=MMG5_swapbin(nr);
-//        posnr = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(!ng && binch==60) {  //Normals
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&ng,MMG5_SW,1,inm);
-//        if(iswp) ng=MMG5_swapbin(ng);
-//        posnormal = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else if(binch==20) {  //NormalAtVertices
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//        MMG_FREAD(&mesh->nc1,MMG5_SW,1,inm);
-//        if(iswp) mesh->nc1=MMG5_swapbin(mesh->nc1);
-//        posnc1 = ftell(inm);
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//        continue;
-//      } else {
-//        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
-//        if(iswp) bpos=MMG5_swapbin(bpos);
-//
-//        rewind(inm);
-//        fseek(inm,bpos,SEEK_SET);
-//      }
-//    }
+    bdim = 0;
+    MMG_FREAD(&meshver,MMG5_SW,1,inm);
+    iswp=0;
+    if(meshver==16777216)
+      iswp=1;
+    else if(meshver!=1) {
+      fprintf(stderr,"BAD FILE ENCODING\n");
+    }
+    MMG_FREAD(&meshver,MMG5_SW,1,inm);
+    if(iswp) meshver = MMG5_swapbin(meshver);
+    while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
+      if(iswp) binch=MMG5_swapbin(binch);
+      if(binch==54) break;
+      if(!ncomm && binch==70) { // ParallelTriangles
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        MMG_FREAD(&ncomm,MMG5_SW,1,inm);
+        if(iswp) ncomm=MMG5_swapbin(ncomm);
+        pos = ftell(inm);
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+        break;
+      } else if(!ncomm && binch==71) { // ParallelVertices
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        MMG_FREAD(&ncomm,MMG5_SW,1,inm);
+        if(iswp) ncomm=MMG5_swapbin(ncomm);
+        pos = ftell(inm);
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+        break;
+      } else {
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+      }
+    }
   }
 
   /* Set API mode */
