@@ -99,19 +99,14 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
   int         API_mode,icomm,ier;
   int         ncomm,*nitem_comm,*color;
   int         **idx_loc,**idx_glo;
-  double      *norm,*n,dd;
-  float       fc;
   long        pos;
   int         iswp;
-  int         binch,bdim,bpos,i,k,ip,idn;
-  int         *ina;
-  char        *ptr;
+  int         binch,bpos;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
 
   pos = 0;
   ncomm = 0;
   iswp = 0;
-  ina = NULL;
   API_mode = PMMG_UNSET;
 
 
@@ -137,7 +132,6 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
       }
     }
   } else { //binary file
-    bdim = 0;
     MMG_FREAD(&meshver,MMG5_SW,1,inm);
     iswp=0;
     if(meshver==16777216)
