@@ -35,6 +35,65 @@
 
 #include "parmmg.h"
 
+int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
+                           int pos,int ncomm,int *nitem_comm,int *color,
+                           int **idx_loc,int **idx_glo ) {
+  int icomm,i;
+
+  rewind(inm);
+  fseek(inm,pos,SEEK_SET);
+  /* Read nb of items */
+  if(!bin) {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      MMG_FSCANF(inm,"%d",&nitem_comm[icomm]);
+    }
+  }
+  else {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      MMG_FREAD(&nitem_comm[icomm],MMG5_SW,1,inm);
+      if(iswp) nitem_comm[icomm]=MMG5_swapbin(nitem_comm[icomm]);
+    }
+  }
+  /* Read colors */
+  if(!bin) {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      MMG_FSCANF(inm,"%d",&color[icomm]);
+    }
+  }
+  else {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      MMG_FREAD(&color[icomm],MMG5_SW,1,inm);
+      if(iswp) color[icomm]=MMG5_swapbin(color[icomm]);
+    }
+  }
+  /* Allocate indices arrays */
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
+    PMMG_CALLOC(parmesh,idx_loc[icomm],nitem_comm[icomm],int,
+                "idx_loc",return 0);
+    PMMG_CALLOC(parmesh,idx_glo[icomm],nitem_comm[icomm],int,
+                "idx_glo",return 0);
+  }
+  /* Read indices */
+  if(!bin) {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      for( i = 0; i < nitem_comm[icomm]; i++ ) {
+        MMG_FSCANF(inm,"%d %d",&idx_loc[icomm][i],&idx_glo[icomm][i]);
+      }
+    }
+  } else {
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      for( i = 0; i < nitem_comm[icomm]; i++ ) {
+        MMG_FREAD(&idx_loc[icomm][i],MMG5_SW,1,inm);
+        if(iswp) idx_loc[icomm][i]=MMG5_swapbin(idx_loc[icomm][i]);
+        MMG_FREAD(&idx_glo[icomm][i],MMG5_SW,1,inm);
+        if(iswp) idx_glo[icomm][i]=MMG5_swapbin(idx_glo[icomm][i]);
+      }
+    }
+  }
+
+ return 1;
+}
+
 int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
   MMG5_pTetra pt;
   MMG5_pPrism pp;
@@ -43,14 +102,13 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
   MMG5_pEdge  pa;
   MMG5_pPoint ppt;
   int         API_mode,icomm,ier;
-  int         n_face_comm,n_node_comm;
-  int         *nitem_face_comm,*nitem_node_comm;
-  int         *color_face,*color_node;
-  int         **idx_face_loc,**idx_face_glo;
-  int         **idx_node_loc,**idx_node_glo;
+  int         n_face_comm,n_node_comm,ncomm;
+  int         *nitem_comm;
+  int         *color;
+  int         **idx_loc,**idx_glo;
   double      *norm,*n,dd;
   float       fc;
-  long        posfaces,posnodes;
+  long        posfaces,posnodes,pos;
   int         iswp;
   int         binch,bdim,bpos,i,k,ip,idn;
   int         *ina;
@@ -253,78 +311,30 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
 //    }
   }
 
-  /* memory allocation */
-  PMMG_CALLOC(parmesh,color_face,n_face_comm,int,
-                  "color_face",return 0);
-  PMMG_CALLOC(parmesh,idx_face_loc,n_face_comm,int*,
-                  "idx_face_loc pointer",return 0);
-  PMMG_CALLOC(parmesh,idx_face_glo,n_face_comm,int*,
-                  "idx_face_glo pointer",return 0);
-
-  rewind(inm);
-  /* get parallel faces */
-  if(n_face_comm) {
-    rewind(inm);
-    fseek(inm,posfaces,SEEK_SET);
-    /* Read nb of items */
-    if(!bin) {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        MMG_FSCANF(inm,"%d",&nitem_face_comm[icomm]);
-      }
-    }
-    else {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        MMG_FREAD(&nitem_face_comm[icomm],MMG5_SW,1,inm);
-        if(iswp) nitem_face_comm[icomm]=MMG5_swapbin(nitem_face_comm[icomm]);
-      }
-    }
-    /* Read colors */
-    if(!bin) {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        MMG_FSCANF(inm,"%d",&color_face[icomm]);
-      }
-    }
-    else {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        MMG_FREAD(&color_face[icomm],MMG5_SW,1,inm);
-        if(iswp) color_face[icomm]=MMG5_swapbin(color_face[icomm]);
-      }
-    }
-    /* Allocate indices arrays */
-    for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-      PMMG_CALLOC(parmesh,idx_face_loc[icomm],nitem_face_comm[icomm],int,
-                  "idx_face_loc",return 0);
-      PMMG_CALLOC(parmesh,idx_face_glo[icomm],nitem_face_comm[icomm],int,
-                  "idx_face_glo",return 0);
-    }
-    /* Read indices */
-    if(!bin) {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
-          MMG_FSCANF(inm,"%d %d",&idx_face_loc[icomm][i],&idx_face_glo[icomm][i]);
-        }
-      }
-    } else {
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-        for( i = 0; i < nitem_face_comm[icomm]; i++ ) {
-          MMG_FREAD(&idx_face_loc[icomm][i],MMG5_SW,1,inm);
-          if(iswp) idx_face_loc[icomm][i]=MMG5_swapbin(idx_face_loc[icomm][i]);
-          MMG_FREAD(&idx_face_glo[icomm][i],MMG5_SW,1,inm);
-          if(iswp) idx_face_glo[icomm][i]=MMG5_swapbin(idx_face_glo[icomm][i]);
-        }
-      }
-    }
-  }
-
-
-  if( n_face_comm )
+  if( n_face_comm ) {
     API_mode = PMMG_APIDISTRIB_faces;
-  else if( n_node_comm )
+    pos      = posfaces;
+    ncomm    = n_face_comm;
+  } else if( n_node_comm ) {
     API_mode = PMMG_APIDISTRIB_nodes;
-  else {
+    pos      = posnodes;
+    ncomm    = n_node_comm;
+  } else {
     fprintf(stderr,"### Error: No parallel communicators provided!\n");
     return 0;
   }
+
+  /* memory allocation */
+  PMMG_CALLOC(parmesh,color,ncomm,int,
+                  "color",return 0);
+  PMMG_CALLOC(parmesh,idx_loc,ncomm,int*,
+                  "idx_loc pointer",return 0);
+  PMMG_CALLOC(parmesh,idx_glo,ncomm,int*,
+                  "idx_glo pointer",return 0);
+
+  if( !PMMG_loadCommunicator( parmesh,inm,bin,iswp,pos,ncomm,nitem_comm,color,
+                              idx_loc,idx_glo ) ) return 0;
+
 
   /* Set API mode */
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
@@ -339,56 +349,55 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
     case PMMG_APIDISTRIB_faces :
 
       /* Set the number of interfaces */
-      ier = PMMG_Set_numberOfFaceCommunicators(parmesh, n_face_comm);
+      ier = PMMG_Set_numberOfFaceCommunicators(parmesh, ncomm);
 
       /* Loop on each interface (proc pair) seen by the current rank) */
-      for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
 
         /* Set nb. of entities on interface and rank of the outward proc */
         ier = PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm,
-                                               color_face[icomm],
-                                               nitem_face_comm[icomm]);
+                                               color[icomm],
+                                               nitem_comm[icomm]);
 
         /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm,
-                                                 idx_face_loc[icomm],
-                                                 idx_face_glo[icomm], 1 );
+                                                 idx_loc[icomm],
+                                                 idx_glo[icomm], 1 );
       }
       break;
 
     case PMMG_APIDISTRIB_nodes :
 
       /* Set the number of interfaces */
-      ier = PMMG_Set_numberOfNodeCommunicators(parmesh, n_node_comm);
+      ier = PMMG_Set_numberOfNodeCommunicators(parmesh, ncomm);
 
       /* Loop on each interface (proc pair) seen by the current rank) */
-      for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
 
         /* Set nb. of entities on interface and rank of the outward proc */
         ier = PMMG_Set_ithNodeCommunicatorSize(parmesh, icomm,
-                                               color_node[icomm],
-                                               nitem_node_comm[icomm]);
+                                               color[icomm],
+                                               nitem_comm[icomm]);
 
         /* Set local and global index for each entity on the interface */
         ier = PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm,
-                                                 idx_node_loc[icomm],
-                                                 idx_node_glo[icomm], 1 );
+                                                 idx_loc[icomm],
+                                                 idx_glo[icomm], 1 );
       }
       break;
   }
 
 
-  PMMG_DEL_MEM(parmesh,nitem_face_comm,int,"nitem_face_comm");
-  PMMG_DEL_MEM(parmesh,color_face,int,"color_face");
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    PMMG_DEL_MEM(parmesh,idx_face_loc[icomm],int,"idx_face_loc");
-    PMMG_DEL_MEM(parmesh,idx_face_glo[icomm],int,"idx_face_glo");
+  PMMG_DEL_MEM(parmesh,nitem_comm,int,"nitem_comm");
+  PMMG_DEL_MEM(parmesh,color,int,"color");
+  for( icomm = 0; icomm < ncomm; icomm++ ) {
+    PMMG_DEL_MEM(parmesh,idx_loc[icomm],int,"idx_loc");
+    PMMG_DEL_MEM(parmesh,idx_glo[icomm],int,"idx_glo");
   }
-  PMMG_DEL_MEM(parmesh,idx_face_loc,int*,"idx_face_loc pointer");
-  PMMG_DEL_MEM(parmesh,idx_face_glo,int*,"idx_face_glo pointer");
+  PMMG_DEL_MEM(parmesh,idx_loc,int*,"idx_loc pointer");
+  PMMG_DEL_MEM(parmesh,idx_glo,int*,"idx_glo pointer");
 
   return 1;
-
 }
 
 int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
