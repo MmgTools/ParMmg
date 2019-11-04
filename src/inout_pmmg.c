@@ -102,25 +102,25 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
   MMG5_pEdge  pa;
   MMG5_pPoint ppt;
   int         API_mode,icomm,ier;
-  int         n_face_comm,n_node_comm,ncomm;
-  int         *nitem_comm;
-  int         *color;
+  int         ncomm,*nitem_comm,*color;
   int         **idx_loc,**idx_glo;
   double      *norm,*n,dd;
   float       fc;
-  long        posfaces,posnodes,pos;
+  long        pos;
   int         iswp;
   int         binch,bdim,bpos,i,k,ip,idn;
   int         *ina;
   char        *ptr;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
 
-  posfaces = posnodes = 0;
-  n_face_comm = n_node_comm = 0;
+  pos = 0;
+  ncomm = 0;
   iswp = 0;
   ina = NULL;
+  API_mode = PMMG_UNSET;
 
 
+  rewind(inm);
   if (!bin) {
     strcpy(chaine,"D");
     while(fscanf(inm,"%127s",&chaine[0])!=EOF && strncmp(chaine,"End",strlen("End")) ) {
@@ -130,13 +130,15 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
       }
 
       if(!strncmp(chaine,"ParallelTriangles",strlen("ParallelTriangles"))) {
-        MMG_FSCANF(inm,"%d",&n_face_comm);
-        posfaces = ftell(inm);
-        continue;
+        MMG_FSCANF(inm,"%d",&ncomm);
+        pos = ftell(inm);
+        API_mode = PMMG_APIDISTRIB_faces;
+        break;
       } else if(!strncmp(chaine,"ParallelVertices",strlen("ParallelVertices"))) {
-        MMG_FSCANF(inm,"%d",&n_node_comm);
-        posnodes = ftell(inm);
-        continue;
+        MMG_FSCANF(inm,"%d",&ncomm);
+        pos = ftell(inm);
+        API_mode = PMMG_APIDISTRIB_nodes;
+        break;
       }
     }
   } else { //binary file
@@ -311,37 +313,23 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
 //    }
   }
 
-  if( n_face_comm ) {
-    API_mode = PMMG_APIDISTRIB_faces;
-    pos      = posfaces;
-    ncomm    = n_face_comm;
-  } else if( n_node_comm ) {
-    API_mode = PMMG_APIDISTRIB_nodes;
-    pos      = posnodes;
-    ncomm    = n_node_comm;
-  } else {
+  /* Set API mode */
+  if( API_mode == PMMG_UNSET ) {
     fprintf(stderr,"### Error: No parallel communicators provided!\n");
+    return 0;
+  } else if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
     return 0;
   }
 
   /* memory allocation */
-  PMMG_CALLOC(parmesh,color,ncomm,int,
-                  "color",return 0);
-  PMMG_CALLOC(parmesh,idx_loc,ncomm,int*,
-                  "idx_loc pointer",return 0);
-  PMMG_CALLOC(parmesh,idx_glo,ncomm,int*,
-                  "idx_glo pointer",return 0);
+  PMMG_CALLOC(parmesh,nitem_comm,ncomm,int,"nitem_comm",return 0);
+  PMMG_CALLOC(parmesh,color,ncomm,int,"color",return 0);
+  PMMG_CALLOC(parmesh,idx_loc,ncomm,int*,"idx_loc pointer",return 0);
+  PMMG_CALLOC(parmesh,idx_glo,ncomm,int*,"idx_glo pointer",return 0);
 
+  /* Load the communicator */
   if( !PMMG_loadCommunicator( parmesh,inm,bin,iswp,pos,ncomm,nitem_comm,color,
                               idx_loc,idx_glo ) ) return 0;
-
-
-  /* Set API mode */
-  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  };
-
 
   /* Set triangles or nodes interfaces depending on API mode */
   switch( API_mode ) {
@@ -387,7 +375,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
       break;
   }
 
-
+  /* Release memory and return */
   PMMG_DEL_MEM(parmesh,nitem_comm,int,"nitem_comm");
   PMMG_DEL_MEM(parmesh,color,int,"color");
   for( icomm = 0; icomm < ncomm; icomm++ ) {
