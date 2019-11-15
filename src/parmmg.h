@@ -498,7 +498,7 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
 int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
-int PMMG_split_grps( PMMG_pParMesh,int,int,int );
+int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
 
 /* Load Balancing */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
