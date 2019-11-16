@@ -454,29 +454,14 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   return PMMG_SUCCESS;
 }
-
-int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim ) {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
-  int           ier;
-  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
-  long int      tmpmem;
-  mytime        ctim[TIMEMAX];
+  int           ier,iresult;
   int8_t        tim;
   char          stim[32];
 
- if ( parmesh->info.imprim > PMMG_VERB_NO ) {
-    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
-    fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
-    fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
-    fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
-  }
-
-  tminit(ctim,TIMEMAX);
-  chrono(ON,&(ctim[0]));
-
-  /** Check input data */
+ /** Check input data */
   tim = 1;
   chrono(ON,&(ctim[tim]));
 
@@ -554,6 +539,34 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     printim(ctim[2].gdif,stim);
     fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
+
+  return iresult;
+}
+
+int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+  MMG5_pMesh    mesh;
+  MMG5_pSol     met;
+  int           ier;
+  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
+  long int      tmpmem;
+  mytime        ctim[TIMEMAX];
+  int8_t        tim;
+  char          stim[32];
+
+ if ( parmesh->info.imprim > PMMG_VERB_NO ) {
+    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+    fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
+    fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
+    fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
+  }
+
+  tminit(ctim,TIMEMAX);
+  chrono(ON,&(ctim[0]));
+
+  /* Distribute the mesh */
+  ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
+  if( ier != PMMG_SUCCESS ) return ier;
 
   /** Remeshing */
   tim = 3;
