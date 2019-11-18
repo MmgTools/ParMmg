@@ -618,6 +618,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   request     = NULL;
   status      = NULL;
 
+  if( !parmesh->next_node_comm ) return 1;
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
  
   /** Step 1: Find the internal communicator bounding box */
@@ -832,6 +833,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   request     = NULL;
   status      = NULL;
 
+  if( !parmesh->next_face_comm ) return 1;
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
  
   /** Step 0: Find the internal communicator bounding box */
