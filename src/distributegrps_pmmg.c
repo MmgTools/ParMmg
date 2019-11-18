@@ -2800,7 +2800,6 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  * Deallocate the \a part array.
  *
  */
-static inline
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   MPI_Comm       comm;
   int            myrank,nprocs;

@@ -454,6 +454,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   return PMMG_SUCCESS;
 }
+
 int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim ) {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -480,44 +481,46 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
   }
 
-  /** Send mesh to other procs */
-  tim = 6;
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(ON,&(ctim[tim]));
-    fprintf(stdout,"\n  -- BCAST" );
-  }
-  ier = PMMG_bcast_mesh( parmesh );
-  if ( ier!=1 ) return PMMG_LOWFAILURE;
-
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS  ) {
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
-  }
+//  /** Send mesh to other procs */
+//  tim = 6;
+//  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+//    chrono(ON,&(ctim[tim]));
+//    fprintf(stdout,"\n  -- BCAST" );
+//  }
+//  ier = PMMG_bcast_mesh( parmesh );
+//  if ( ier!=1 ) return PMMG_LOWFAILURE;
+//
+//  if ( parmesh->info.imprim >= PMMG_VERB_STEPS  ) {
+//    chrono(OFF,&(ctim[tim]));
+//    printim(ctim[tim].gdif,stim);
+//    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
+//  }
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  tim = 7;
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(ON,&(ctim[tim]));
-    fprintf(stdout,"\n  -- ANALYSIS" );
+  if( parmesh->myrank == parmesh->info.root ) {
+    tim = 7;
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      chrono(ON,&(ctim[tim]));
+      fprintf(stdout,"\n  -- ANALYSIS" );
+    }
+    ier = PMMG_preprocessMesh( parmesh );
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
+    }
+ 
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+      ier = PMMG_LOWFAILURE;
+    }
   }
-  ier = PMMG_preprocessMesh( parmesh );
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
-  }
-
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-    ier = PMMG_LOWFAILURE;
-  }
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
-  if ( iresult!=PMMG_SUCCESS ) {
-    return iresult;
-  }
+//  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+//  if ( iresult!=PMMG_SUCCESS ) {
+//    return iresult;
+//  }
 
   /** Send mesh partionning to other procs */
   tim = 8;
@@ -540,10 +543,12 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
+  iresult = PMMG_SUCCESS;
   return iresult;
 }
 
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+  PMMG_pGrp     grp;
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
   int           ier;
@@ -567,6 +572,10 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   /* Distribute the mesh */
   ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
   if( ier != PMMG_SUCCESS ) return ier;
+
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+  met    = grp->met;
 
   /** Remeshing */
   tim = 3;
@@ -830,7 +839,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   }
 
   /** Send mesh partionning to other procs */
-  if ( !PMMG_distribute_mesh( parmesh ) ) {
+  if ( !PMMG_partBcast_mesh( parmesh ) ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 

@@ -693,6 +693,28 @@ fail_alloc2:
   return ret_val;
 }
 
+static inline
+int PMMG_create_empty_communicators( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp       grp;
+
+  grp    = &parmesh->listgrp[0];
+
+  /** Internal communicators allocation */
+  parmesh->next_node_comm = 0;
+  parmesh->next_face_comm = 0;
+  grp->nitem_int_node_comm = 0;
+  grp->nitem_int_face_comm = 0;
+
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
+              "allocating int_node_comm",return 0);
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
+              "allocating int_face_comm",return 0);
+  parmesh->int_node_comm->nitem = 0;
+  parmesh->int_face_comm->nitem = 0;
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward a PMMG parmesh structure.
  * \param part pointer toward the metis array containing the partitions.
@@ -969,7 +991,7 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
  *
  * Delete parts of the mesh not on the processor.
  */
-int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
+int PMMG_partBcast_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
@@ -1070,5 +1092,121 @@ unalloc:
   }
 #endif
 
+  return ieresult==1;
+}
+
+/**
+ * \param parmesh pointer toward a PMMG parmesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ *
+ * \return 0 (on all procs) if fail, 1 otherwise
+ *
+ * Delete parts of the mesh not on the processor.
+ */
+int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  idx_t      *part;
+  int        igrp,ier,ieresult;
+  size_t     available,oldMemMax;
+
+  ier = 1;
+
+  if( !PMMG_create_empty_communicators( parmesh ) ) return 0;
+  if( parmesh->nprocs == 1 ) return 1;
+
+  /** Proc 0 send the mesh to the other procs */
+  if( parmesh->myrank == parmesh->info.root ) {
+
+    grp    = &parmesh->listgrp[0];
+    mesh   = grp->mesh;
+
+    /** Call metis for partionning */
+    PMMG_CALLOC ( parmesh,part,mesh->ne,idx_t,"allocate metis buffer", ier=5 );
+
+    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
+      ier = 5;
+    }
+    if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
+
+    /* Split grp 0 into (nprocs) groups */
+    ier = PMMG_split_grps( parmesh,0,parmesh->nprocs,part,1 );
+
+    /** Check grps contiguity */
+    ier = PMMG_checkAndReset_grps_contiguity( parmesh );
+
+    PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");
+  }
+
+  {
+    int igrp;
+    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+      grp    = &parmesh->listgrp[igrp];
+      int i,iel,ifac;
+      MMG5_pTetra pt;
+      MMG5_pxTetra pxt;
+      for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+        iel  =  grp->face2int_face_comm_index1[i] / 12;
+        ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+        pt = &grp->mesh->tetra[iel];
+        assert( pt->xt );
+        pxt = &grp->mesh->xtetra[pt->xt];
+        assert( pxt->ftag[ifac] & MG_PARBDY );
+      }
+    }
+  }
+
+  /** Distribute the groups over the processors */
+  if( parmesh->myrank != parmesh->info.root ) parmesh->ngrp = 0;
+ 
+  PMMG_CALLOC ( parmesh,part,parmesh->nprocs+1,idx_t,"allocate metis buffer", ier=5 );
+  for( igrp = 0; igrp <= parmesh->nprocs; igrp++ ) part[igrp] = igrp;
+  ier = PMMG_transfer_all_grps(parmesh,part);
+  if ( ier <= 0 ) {
+    fprintf(stderr,"\n  ## Group distribution problem.\n");
+  }
+
+  assert( parmesh->ngrp = 1);
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+ 
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+  if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
+            __func__);
+    return 0;
+  }
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+
+  {
+    grp = &parmesh->listgrp[0];
+    int i,iel,ifac;
+    MMG5_pTetra pt;
+    MMG5_pxTetra pxt;
+    for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+      iel  =  grp->face2int_face_comm_index1[i] / 12;
+      ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+      pt = &grp->mesh->tetra[iel];
+      assert( pt->xt );
+      pxt = &grp->mesh->xtetra[pt->xt];
+      assert( pxt->ftag[ifac] & MG_PARBDY );
+    }
+  }
+
+//  char basename[48];
+//  sprintf(basename,"my_transfer_");
+//  PMMG_listgrp_to_saveMesh( parmesh,basename ); 
+
+  /* Check the communicators */
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
+  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+
+  /* The part array is deallocated when groups to be sent are merged */
+
+ieresult = 1;
   return ieresult==1;
 }

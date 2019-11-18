@@ -955,7 +955,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
       ier = PMMG_splitGrps_updateFaceCommOld( parmesh,grp,mesh,adja,tet,fac,
           posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,&pos );
       if( ier == 0 )  return 0;
-      if( ier == -1 ) continue;
+      if( ier == -1 ) continue; /* not in the old communicator, continue */
 
       adjidx = adja[ fac ] / 4;
       vidx   = adja[ fac ] % 4;
