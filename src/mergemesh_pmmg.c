@@ -749,7 +749,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
 
     /** Step 3: if communicators are allocated: tag new parallel interface
      * entities starting from int_face_comm. */
-    if ( parmesh->ext_face_comm ) {
+//    if ( parmesh->ext_face_comm ) {
       for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
         iel  =   face2int_face_comm0_index1[i] / 12;
         ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
@@ -774,7 +774,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
           ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
         }
       }
-    }
+//    }
 
     /** Step 4: Get edge tag and delete hash table */
     for ( k=1; k<=mesh->ne; k++ ) {

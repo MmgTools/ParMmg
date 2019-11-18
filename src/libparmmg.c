@@ -332,18 +332,18 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-    return PMMG_STRONGFAILURE;
-  }
+//  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+//    return PMMG_STRONGFAILURE;
+//  }
 
   /** Mesh analysis */
   if ( !MMG3D_analys(mesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
-  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-    PMMG_prilen(parmesh,0);
-  }
+//  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+//    PMMG_prilen(parmesh,0);
+//  }
 
   /** Mesh unscaling */
   if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
