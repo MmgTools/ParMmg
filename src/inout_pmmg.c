@@ -52,7 +52,7 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
     for( icomm = 0; icomm < ncomm; icomm++ ) {
       MMG_FREAD(&k,MMG5_SW,1,inm);
       if(iswp) k=MMG5_swapbin(k);
-      color[icomm][i] = k;
+      color[icomm] = k;
       MMG_FREAD(k,MMG5_SW,1,inm);
       if(iswp) k=MMG5_swapbin(k);
       nitem_comm[icomm] = k;
