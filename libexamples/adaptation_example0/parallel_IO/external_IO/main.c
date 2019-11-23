@@ -197,7 +197,8 @@ int main(int argc,char *argv[]) {
   }
   fclose(fid);
 
-
+  free(inxt_face);
+  free(inxt_node);
 
   /** ------------------------------ STEP   I -------------------------- */
 
