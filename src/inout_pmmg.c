@@ -38,32 +38,24 @@
 int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
                            int pos,int ncomm,int *nitem_comm,int *color,
                            int **idx_loc,int **idx_glo ) {
-  int icomm,i;
+  int k,icomm,i;
 
   rewind(inm);
   fseek(inm,pos,SEEK_SET);
-  /* Read nb of items */
+  /* Read color and nb of items */
   if(!bin) {
     for( icomm = 0; icomm < ncomm; icomm++ ) {
-      MMG_FSCANF(inm,"%d",&nitem_comm[icomm]);
+      MMG_FSCANF(inm,"%d %d",&color[icomm],&nitem_comm[icomm]);
     }
   }
   else {
     for( icomm = 0; icomm < ncomm; icomm++ ) {
-      MMG_FREAD(&nitem_comm[icomm],MMG5_SW,1,inm);
-      if(iswp) nitem_comm[icomm]=MMG5_swapbin(nitem_comm[icomm]);
-    }
-  }
-  /* Read colors */
-  if(!bin) {
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      MMG_FSCANF(inm,"%d",&color[icomm]);
-    }
-  }
-  else {
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      MMG_FREAD(&color[icomm],MMG5_SW,1,inm);
-      if(iswp) color[icomm]=MMG5_swapbin(color[icomm]);
+      MMG_FREAD(&k,MMG5_SW,1,inm);
+      if(iswp) k=MMG5_swapbin(k);
+      color[icomm][i] = k;
+      MMG_FREAD(k,MMG5_SW,1,inm);
+      if(iswp) k=MMG5_swapbin(k);
+      nitem_comm[icomm] = k;
     }
   }
   /* Allocate indices arrays */
@@ -83,10 +75,12 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
   } else {
     for( icomm = 0; icomm < ncomm; icomm++ ) {
       for( i = 0; i < nitem_comm[icomm]; i++ ) {
-        MMG_FREAD(&idx_loc[icomm][i],MMG5_SW,1,inm);
-        if(iswp) idx_loc[icomm][i]=MMG5_swapbin(idx_loc[icomm][i]);
-        MMG_FREAD(&idx_glo[icomm][i],MMG5_SW,1,inm);
-        if(iswp) idx_glo[icomm][i]=MMG5_swapbin(idx_glo[icomm][i]);
+        MMG_FREAD(&k,MMG5_SW,1,inm);
+        if(iswp) k=MMG5_swapbin(k);
+        idx_loc[icomm][i] = k;
+        MMG_FREAD(&k,MMG5_SW,1,inm);
+        if(iswp) k=MMG5_swapbin(k);
+        idx_glo[icomm][i] = k;
       }
     }
   }
