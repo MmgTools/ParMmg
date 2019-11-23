@@ -123,11 +123,11 @@ int main(int argc,char *argv[]) {
   FILE *fid;
   char fileParFaces[256],fileParNodes[256];
 
-  int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face;
+  int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm,ntot;
+  int *color_node, *color_face, *inxt_face,*inxt_node;
   int **idx_node_loc,**idx_node_glo;
   int **idx_face_loc,**idx_face_glo;
-  int icomm;
+  int icomm,idxl,idxg;
 
   /* Load interface faces */
   sprintf(fileParFaces,"%s_parFaces",filename);
@@ -139,23 +139,27 @@ int main(int argc,char *argv[]) {
 
   color_face = (int *)calloc(n_face_comm,sizeof(int));
   nitem_face_comm = (int *)calloc(n_face_comm,sizeof(int));
+  inxt_face = (int *)calloc(n_face_comm,sizeof(int));
   idx_face_loc = (int **)calloc(n_face_comm,sizeof(int *));
   idx_face_glo = (int **)calloc(n_face_comm,sizeof(int *));
+  inxt_face = (int *)calloc(n_face_comm,sizeof(int));
 
+  ntot = 0;
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     /* Get color and number of entities */
-    fscanf(fid,"\n%*[^\n]\n");
-    fscanf(fid,"%d\n",&color_face[icomm]);
-    fscanf(fid,"%*[^\n]\n");
-    fscanf(fid,"%d\n",&nitem_face_comm[icomm]);
+    fscanf(fid,"%d %d\n",&color_face[icomm],&nitem_face_comm[icomm]);
 
     idx_face_loc[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
     idx_face_glo[icomm] = (int *)calloc(nitem_face_comm[icomm],sizeof(int));
 
+    ntot += nitem_face_comm[icomm];
+  }
+  for( i = 0; i < ntot; i++ ) {
     /* Get local and global enumeration */
-    fscanf(fid,"%*[^\n]\n");
-    for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      fscanf(fid,"%d %d\n",&idx_face_loc[icomm][i],&idx_face_glo[icomm][i]);
+    fscanf(fid,"%d %d %d\n", &idxl,&idxg,&icomm);
+    idx_face_loc[icomm][inxt_face[icomm]] = idxl;
+    idx_face_glo[icomm][inxt_face[icomm]] = idxg;
+    inxt_face[icomm]++;
   }
   fclose(fid);
 
@@ -169,23 +173,27 @@ int main(int argc,char *argv[]) {
 
   color_node = (int *)calloc(n_node_comm,sizeof(int));
   nitem_node_comm = (int *)calloc(n_node_comm,sizeof(int));
+  inxt_node = (int *)calloc(n_node_comm,sizeof(int));
   idx_node_loc = (int **)calloc(n_node_comm,sizeof(int *));
   idx_node_glo = (int **)calloc(n_node_comm,sizeof(int *));
 
+  ntot = 0;
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {
     /* Get color and number of entities */
-    fscanf(fid,"\n%*[^\n]\n");
-    fscanf(fid,"%d\n",&color_node[icomm]);
-    fscanf(fid,"%*[^\n]\n");
-    fscanf(fid,"%d\n",&nitem_node_comm[icomm]);
+    fscanf(fid,"%d %d\n",&color_node[icomm],&nitem_node_comm[icomm]);
 
     idx_node_loc[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
     idx_node_glo[icomm] = (int *)calloc(nitem_node_comm[icomm],sizeof(int));
 
+    ntot += nitem_node_comm[icomm];
+  }
+
+  for( i = 0; i < ntot; i++ ) { 
     /* Get local and global enumeration */
-    fscanf(fid,"%*[^\n]\n");
-    for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      fscanf(fid,"%d %d\n",&idx_node_loc[icomm][i],&idx_node_glo[icomm][i]);
+    fscanf(fid,"%d %d %d\n",&idxl,&idxg,&icomm);
+    idx_node_loc[icomm][inxt_node[icomm]] = idxl;
+    idx_node_glo[icomm][inxt_node[icomm]] = idxg;
+    inxt_node[icomm]++;
   }
   fclose(fid);
 
