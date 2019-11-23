@@ -199,7 +199,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         if(iswp) ncomm=MMG5_swapbin(ncomm);
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_faces;
-        break;
+        break; // if parallel triangles are found, ignore parallel nodes
       } else if(!ncomm && binch==71) { // ParallelVertices
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
@@ -207,7 +207,9 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         if(iswp) ncomm=MMG5_swapbin(ncomm);
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_nodes;
-        break;
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+        continue;
       } else {
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
@@ -219,7 +221,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
 
   /* Set API mode */
   if( API_mode == PMMG_UNSET ) {
-    fprintf(stderr,"### Error: No parallel communicators provided!\n");
+    fprintf(stderr,"### Error: No parallel communicators provided on rank %d!\n",parmesh->myrank);
     return 0;
   } else if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
     return 0;
