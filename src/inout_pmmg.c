@@ -100,16 +100,60 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
   return 1;
 }
 
-int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
+int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
+  MMG5_pMesh  mesh;
   int         meshver;
   int         API_mode,icomm,ier;
   int         ncomm,*nitem_comm,*color;
   int         **idx_loc,**idx_glo;
+  FILE        *inm;
+  int         bin;
   long        pos;
   int         iswp;
   int         binch,bpos;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
+  char        *ptr,*data;
 
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  /** Open mesh file */
+  bin = 0;
+  PMMG_CALLOC(parmesh,data,strlen(filename)+7,char,"data",return -1);
+
+  strcpy(data,filename);
+  ptr = strstr(data,".mesh");
+
+  if ( !ptr ) {
+    /* data contains the filename without extension */
+    strcat(data,".meshb");
+    if( !(inm = fopen(data,"rb")) ) {
+      /* our file is not a .meshb file, try with .mesh ext */
+      ptr = strstr(data,".mesh");
+      *ptr = '\0';
+      strcat(data,".mesh");
+      if( !(inm = fopen(data,"rb")) ) {
+        MMG5_SAFE_FREE(data);
+        return 0;
+      }
+    }
+    else  bin = 1;
+  }
+  else {
+    ptr = strstr(data,".meshb");
+    if ( ptr )  bin = 1;
+    if( !(inm = fopen(data,"rb")) ) {
+      MMG5_SAFE_FREE(data);
+      return 0;
+    }
+  }
+
+  if ( mesh->info.imprim >= 0 ) {
+    fprintf(stdout,"  %%%% %s OPENED\n",data);
+  }
+  PMMG_DEL_MEM(parmesh,data,char,"data");
+
+  /** Read communicators */
   pos = 0;
   ncomm = 0;
   iswp = 0;
@@ -145,8 +189,6 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
     else if(meshver!=1) {
       fprintf(stderr,"BAD FILE ENCODING\n");
     }
-    MMG_FREAD(&meshver,MMG5_SW,1,inm);
-    if(iswp) meshver = MMG5_swapbin(meshver);
     while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
       if(iswp) binch=MMG5_swapbin(binch);
       if(binch==54) break;
@@ -156,8 +198,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
         if(iswp) ncomm=MMG5_swapbin(ncomm);
         pos = ftell(inm);
-        rewind(inm);
-        fseek(inm,bpos,SEEK_SET);
+        API_mode = PMMG_APIDISTRIB_faces;
         break;
       } else if(!ncomm && binch==71) { // ParallelVertices
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
@@ -165,13 +206,11 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
         if(iswp) ncomm=MMG5_swapbin(ncomm);
         pos = ftell(inm);
-        rewind(inm);
-        fseek(inm,bpos,SEEK_SET);
+        API_mode = PMMG_APIDISTRIB_nodes;
         break;
       } else {
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
-
         rewind(inm);
         fseek(inm,bpos,SEEK_SET);
       }
@@ -271,16 +310,15 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
 
-  ier = MMG3D_openMesh(mesh,filename,&inm,&bin);
+  ier = MMG3D_loadMesh(mesh,filename);
   if( ier < 1 ) return ier;
-  ier = MMG3D_loadMesh_opened(mesh,inm,bin);
-  if( ier < 1 ) return ier;
-
-  fclose(inm);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
 
+  /* Load parallel communicators */
+  ier = PMMG_loadCommunicators( parmesh,filename );
+ 
   if ( 1 != ier ) return 0;
 
   return 1;
