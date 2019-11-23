@@ -38,14 +38,19 @@
 int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
                            int pos,int ncomm,int *nitem_comm,int *color,
                            int **idx_loc,int **idx_glo ) {
-  int k,icomm,i;
+  int *inxt;
+  int ntot,k,idxl,idxg,icomm,i;
 
+  PMMG_CALLOC(parmesh,inxt,ncomm,int,"inxt",return 0);
+ 
   rewind(inm);
   fseek(inm,pos,SEEK_SET);
   /* Read color and nb of items */
+  ntot = 0;
   if(!bin) {
     for( icomm = 0; icomm < ncomm; icomm++ ) {
       MMG_FSCANF(inm,"%d %d",&color[icomm],&nitem_comm[icomm]);
+      ntot += nitem_comm[icomm];
     }
   }
   else {
@@ -53,9 +58,10 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
       MMG_FREAD(&k,MMG5_SW,1,inm);
       if(iswp) k=MMG5_swapbin(k);
       color[icomm] = k;
-      MMG_FREAD(k,MMG5_SW,1,inm);
+      MMG_FREAD(&k,MMG5_SW,1,inm);
       if(iswp) k=MMG5_swapbin(k);
       nitem_comm[icomm] = k;
+      ntot += nitem_comm[icomm];
     }
   }
   /* Allocate indices arrays */
@@ -67,25 +73,31 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
   }
   /* Read indices */
   if(!bin) {
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      for( i = 0; i < nitem_comm[icomm]; i++ ) {
-        MMG_FSCANF(inm,"%d %d",&idx_loc[icomm][i],&idx_glo[icomm][i]);
-      }
+    for( i = 0; i < ntot; i++ ) {
+      MMG_FSCANF(inm,"%d %d %d",&idxl,&idxg,&icomm);
+      idx_loc[icomm][inxt[icomm]] = idxl;
+      idx_glo[icomm][inxt[icomm]] = idxg;
+      inxt[icomm]++;
     }
   } else {
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      for( i = 0; i < nitem_comm[icomm]; i++ ) {
-        MMG_FREAD(&k,MMG5_SW,1,inm);
-        if(iswp) k=MMG5_swapbin(k);
-        idx_loc[icomm][i] = k;
-        MMG_FREAD(&k,MMG5_SW,1,inm);
-        if(iswp) k=MMG5_swapbin(k);
-        idx_glo[icomm][i] = k;
+    for( i = 0; i < ntot; i++ ) {
+      MMG_FREAD(&k,MMG5_SW,1,inm);
+      if(iswp) k=MMG5_swapbin(k);
+      idxl = k;
+      MMG_FREAD(&k,MMG5_SW,1,inm);
+      if(iswp) k=MMG5_swapbin(k);
+      idxg = k;
+      MMG_FREAD(&k,MMG5_SW,1,inm);
+      if(iswp) k=MMG5_swapbin(k);
+      icomm = k;
+      idx_loc[icomm][inxt[icomm]] = idxl;
+      idx_glo[icomm][inxt[icomm]] = idxg;
+      inxt[icomm]++;
       }
-    }
   }
 
- return 1;
+  PMMG_DEL_MEM(parmesh,inxt,int,"inxt");
+  return 1;
 }
 
 int PMMG_loadCommunicators( PMMG_pParMesh parmesh,FILE* inm,int bin ) {
