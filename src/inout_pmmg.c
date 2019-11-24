@@ -35,6 +35,24 @@
 
 #include "parmmg.h"
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param inm pointer to the mesh file.
+ * \param bin binary (1) or ascii (0) file.
+ * \param iswp perform byte swapping (1) or not (0).
+ * \param pos position of the communicators in the binary file.
+ * \param ncomm number of communicators to read.
+ * \param nitem_comm pointer to the nb of items in each communicator.
+ * \param color pointer to the color of each communicator.
+ * \param idx_loc pointer to the local indices of entities in each communicator.
+ * \param idx_glo pointer to the global indices of entities in each communicator.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load parallel communicator in Medit format (only one group per process is
+ * allowed).
+ *
+ */
 int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
                            int pos,int ncomm,int *nitem_comm,int *color,
                            int **idx_loc,int **idx_glo ) {
@@ -100,6 +118,16 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to load the mesh from.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load parallel communicators in Medit format (only one group per process is
+ * allowed).
+ *
+ */
 int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   MMG5_pMesh  mesh;
   int         meshver;
@@ -294,6 +322,16 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to load the mesh from.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load a distributed mesh with parallel communicators in Medit format (only one
+ * group per process is allowed).
+ *
+ */
 int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh  mesh;
   FILE*       inm;
