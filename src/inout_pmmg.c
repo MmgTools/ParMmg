@@ -133,7 +133,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
       *ptr = '\0';
       strcat(data,".mesh");
       if( !(inm = fopen(data,"rb")) ) {
-        MMG5_SAFE_FREE(data);
+        PMMG_DEL_MEM(parmesh,data,char,"data");
         return 0;
       }
     }
@@ -143,7 +143,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
     ptr = strstr(data,".meshb");
     if ( ptr )  bin = 1;
     if( !(inm = fopen(data,"rb")) ) {
-      MMG5_SAFE_FREE(data);
+      PMMG_DEL_MEM(parmesh,data,char,"data");
       return 0;
     }
   }
