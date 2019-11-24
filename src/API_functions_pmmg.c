@@ -146,6 +146,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug      = PMMG_NUL;
   parmesh->niter       = PMMG_NITER;
   parmesh->info.fem    = MMG5_FEM;
+  parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
   parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;

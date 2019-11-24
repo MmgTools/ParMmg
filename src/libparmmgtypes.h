@@ -317,6 +317,7 @@ typedef struct {
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
+  int repartitioning; /*!< way to perform mesh repartitioning */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
