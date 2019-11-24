@@ -74,6 +74,7 @@ enum PMMG_Param {
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
   PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
   PMMG_IPARAM_metisRatio,        /*!< [n], wanted ratio # mesh / # metis super nodes (advanced use) */
+  PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */

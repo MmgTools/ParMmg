@@ -1304,7 +1304,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
   }
  
   /* Move interfaces */
-  for( ilayer = 0; ilayer < PMMG_MVIFCS_NLAYERS; ilayer++ ) {
+  for( ilayer = 0; ilayer < parmesh->info.ifc_layers; ilayer++ ) {
 
     /* Save grp index and proc in the internal communicator */
     for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
