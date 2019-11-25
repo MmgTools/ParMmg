@@ -191,7 +191,7 @@ static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 /**< Subgroups minimum size to try to avoid empty partitions */
 static const int PMMG_REDISTR_NELEM_MIN = 6;
 
-/**< Allowed imbalance ratio between demanded groups and available groups */
+/**< Allowed imbalance ratio between current and demanded groups size */
 static const double PMMG_GRPS_RATIO = 2.0;
 
 /**< Number of elements layers for interface displacement */

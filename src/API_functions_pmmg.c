@@ -148,6 +148,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.fem    = MMG5_FEM;
   parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
   parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+  parmesh->info.grps_ratio = PMMG_GRPS_RATIO;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
   parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
@@ -499,6 +500,9 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
         return 0;
       }
     }
+    break;
+  case PMMG_DPARAM_groupsRatio :
+    parmesh->info.grps_ratio = val;
     break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
