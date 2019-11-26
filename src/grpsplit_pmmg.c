@@ -1706,8 +1706,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
     PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
-    PMMG_qualhisto( parmesh, PMMG_INQUA,0 );
-    PMMG_prilen( parmesh, 0 );
+    PMMG_qualhisto( parmesh, PMMG_INQUA, 0 );
+    PMMG_prilen( parmesh, 0, 0 );
 
     PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,dummy1,dummy2);
 

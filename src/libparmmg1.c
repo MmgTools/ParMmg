@@ -772,7 +772,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
-    PMMG_prilen(parmesh,0);
+    PMMG_prilen(parmesh,0,0);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);

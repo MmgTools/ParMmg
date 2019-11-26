@@ -590,7 +590,7 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,char );
+int PMMG_prilen( PMMG_pParMesh parmesh,char,int );
 int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
 
 /* Variadic_pmmg.c */

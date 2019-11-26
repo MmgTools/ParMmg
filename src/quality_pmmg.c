@@ -350,6 +350,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 /**
  * \param parmesh pointer to parmesh structure
  * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
+ * \param isCentral 1 for centralized mesh, 0 for distributed mesh.
  *
  * \return 1 if success, 0 if fail;
  *
@@ -361,7 +362,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
  * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
  *
  */
-int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
+int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
 {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -421,14 +422,21 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
                                &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
   }
 
-  MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+  if( isCentral )
+    ieresult = ier;
+  else
+    MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
 
   if ( !ieresult ) {
     MPI_Op_free( &mpi_lenStats_op );
     return 0;
   }
 
-  MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+  if( isCentral )
+    memcpy(&lenStats_result,&lenStats,sizeof(PMMG_lenStats));
+  else
+    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+
   MPI_Op_free( &mpi_lenStats_op );
 
   if ( parmesh->myrank == parmesh->info.root ) {

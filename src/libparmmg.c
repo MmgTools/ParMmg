@@ -341,9 +341,9 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-//  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-//    PMMG_prilen(parmesh,0);
-//  }
+  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+    PMMG_prilen(parmesh,0,1);
+  }
 
   /** Mesh unscaling */
   if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
@@ -422,6 +422,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+#warning: Luca: check this function
     MMG3D_prilen(mesh,met,0);
   }
 
