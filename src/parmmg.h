@@ -394,6 +394,10 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
     oldMemMax   = parmesh->memCur;                                      \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
     }                                                                   \
     parmesh->memMax += myavailable;                                       \
@@ -415,6 +419,10 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
                                                                         \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
     }                                                                   \
     myavailable /= parmesh->ngrp;                                       \
