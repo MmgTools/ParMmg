@@ -516,6 +516,10 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
       ier = PMMG_LOWFAILURE;
     }
+
+    /* Memory repartition */
+    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+
   }
 //  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
 //  if ( iresult!=PMMG_SUCCESS ) {
@@ -535,6 +539,14 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     fprintf(stdout,"\n  -- PARTITIONING COMPLETED    %s\n",stim );
+  }
+
+  /** Function setters (must be assigned before quality computation) */
+  if( parmesh->myrank != parmesh->info.root ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(mesh,met);
   }
 
   chrono(OFF,&(ctim[2]));

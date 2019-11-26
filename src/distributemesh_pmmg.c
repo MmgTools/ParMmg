@@ -1178,7 +1178,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
             __func__);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
 
   {
     grp = &parmesh->listgrp[0];
