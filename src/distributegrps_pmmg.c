@@ -1831,20 +1831,22 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   }
 
   /** Pack metric */
-  if ( ier_sol ) {
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        met->m[size*k + i] = *( (double *) *buffer);
-        *buffer += sizeof(double);
+  if( np ) {/* only if the metrics size is non null, i.e. not default metrics */
+    if ( ier_sol ) {
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          met->m[size*k + i] = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
-  }
-  else {
-    /* The solution array can't be allocated */
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        ddummy = *( (double *) *buffer);
-        *buffer += sizeof(double);
+    else {
+      /* The solution array can't be allocated */
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          ddummy = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
   }
