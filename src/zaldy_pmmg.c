@@ -386,6 +386,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
     available -= mesh->memMax;
     used      += mesh->memMax;
   }
+  assert( parmesh->memGloMax == (available+used) );
 
   /* Increase parmesh memory */
   delta = percent * available/100;
