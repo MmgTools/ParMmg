@@ -75,10 +75,12 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
             parmesh->memGloMax/MMG5_MILLION);
     fprintf(stdout,"\n** Parameters\n");
     fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
-    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
-    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
-    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",
-             abs(PMMG_RATIO_MMG_METIS) );
+    fprintf( stdout,"repartitioning mode                       : PMMG_REDISTRIBUTION_ifc_displacement\n");
+//    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
+//    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
+//    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",abs(PMMG_RATIO_MMG_METIS) );
+    fprintf( stdout,"# of layers for interface displacement (-nlayers) : %d\n",PMMG_MVIFCS_NLAYERS);
+    fprintf( stdout,"allowed imbalance between current and desired groups size (-groups-ratio) : %d\n",PMMG_GRPS_RATIO);
 
 #ifdef USE_SCOTCH
     fprintf(stdout,"SCOTCH renumbering                  : enabled\n");
@@ -123,6 +125,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
     fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
     fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
+    fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
+    fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -203,6 +207,29 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'g':
+        if ( !strcmp(argv[i],"-groups-ratio") ) {
+
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+
+              if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_groupsRatio,atof(argv[i])) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              i--;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+             ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        break;
+
       case 'm':
         if ( !strcmp(argv[i],"-mmg-v") ) {
 
@@ -316,7 +343,19 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
-        } else {
+        } else if ( ( 0 == strncmp( argv[i], "-nlayers", 5 ) ) && ( ( i + 1 ) < argc ) ) {
+          ++i;
+          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
+            parmesh->info.ifc_layers = atoi( argv[i] );
+          } else {
+            parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+            fprintf( stderr,
+                     "\nWrong number of layers for interface displacement (%s).\n",argv[i]);
+
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );

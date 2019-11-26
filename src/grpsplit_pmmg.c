@@ -1582,8 +1582,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
-        (ngrp <=
-         PMMG_GRPS_RATIO*parmesh->nold_grp))) ) {
+        (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
@@ -1604,7 +1603,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     
     /* If this is the first split of the input mesh, and interface displacement
      * will beb performed, check that the groups are contiguous. */
-    if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement )
+    if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
       if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
 
@@ -1658,7 +1657,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   }
 
   /* Store the nb of tetra per group bbefore merging */
-  if( (PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement) &&
+  if( (parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
   }
@@ -1718,7 +1717,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  if( PMMG_REDISTRIBUTION_mode == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
     size_t available,oldMemMax;
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
@@ -1742,7 +1741,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,PMMG_REDISTRIBUTION_mode);
+    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,parmesh->info.repartitioning);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

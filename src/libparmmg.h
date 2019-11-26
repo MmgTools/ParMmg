@@ -74,6 +74,8 @@ enum PMMG_Param {
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
   PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
   PMMG_IPARAM_metisRatio,        /*!< [n], wanted ratio # mesh / # metis super nodes (advanced use) */
+  PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
+  PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
@@ -1691,6 +1693,23 @@ int PMMG_parsop( PMMG_pParMesh parmesh );
 int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /* input/output functions */
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Read mesh data.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMESH_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.

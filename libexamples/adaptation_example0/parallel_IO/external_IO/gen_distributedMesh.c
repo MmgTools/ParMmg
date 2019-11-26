@@ -302,22 +302,22 @@ int main(int argc,char *argv[]) {
   FILE *fid;
   sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank); 
   fid = fopen(filemesh,"w");
-  fprintf(fid,"# Number of communicators\n%d\n",n_face_comm);
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    fprintf(fid,"\n# Color\n%d\n# Number of items\n%d\n# Local and global enumeration\n",color_face[icomm],nitem_face_comm[icomm]);
+  fprintf(fid,"ParallelTriangles\n%d\n",n_face_comm);
+  for( icomm = 0; icomm < n_face_comm; icomm++ )
+    fprintf(fid,"%d %d\n",color_face[icomm],nitem_face_comm[icomm]);
+  for( icomm = 0; icomm < n_face_comm; icomm++ )
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      fprintf(fid,"%d %d\n",idx_face_loc[icomm][i],idx_face_glob[icomm][i]);
-  }
+      fprintf(fid,"%d %d %d\n",idx_face_loc[icomm][i],idx_face_glob[icomm][i],icomm);
   fclose(fid);
 
   sprintf(filemesh,"%s_out.%d.mesh_parNodes",filename,parmesh->myrank);
   fid = fopen(filemesh,"w");
-  fprintf(fid,"# Number of communicators\n%d\n",n_node_comm);
-  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
-    fprintf(fid,"\n# Color\n%d\n# Number of items\n%d\n# Local and global enumeration\n",color_node[icomm],nitem_node_comm[icomm]);
+  fprintf(fid,"ParallelVertices\n%d\n",n_node_comm);
+  for( icomm = 0; icomm < n_node_comm; icomm++ )
+    fprintf(fid,"%d %d\n",color_node[icomm],nitem_node_comm[icomm]);
+  for( icomm = 0; icomm < n_node_comm; icomm++ )
     for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      fprintf(fid,"%d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i]);
-  }
+      fprintf(fid,"%d %d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i],icomm);
   fclose(fid);
 
 
