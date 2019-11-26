@@ -332,9 +332,9 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-//  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
-//    return PMMG_STRONGFAILURE;
-//  }
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,1) ) {
+    return PMMG_STRONGFAILURE;
+  }
 
   /** Mesh analysis */
   if ( !MMG3D_analys(mesh) ) {
@@ -443,7 +443,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     }
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0) ) {
     return PMMG_STRONGFAILURE;
   }
 

@@ -722,7 +722,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     printf("\n");
   }
 
-  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
