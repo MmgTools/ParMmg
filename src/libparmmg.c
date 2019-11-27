@@ -891,11 +891,12 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
 int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_node_loc,int **ifc_node_glob,
                          int next_node_comm,int *nitem_node_comm) {
+  PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ,*iproc2comm;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i,idx;
 
   mesh = parmesh->listgrp[0].mesh;
@@ -903,16 +904,26 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
+  /* Array for sorting communicators */
+  PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
   /* Use points flag to mark interface points:
    * - interface points are initialised as PMMG_UNSET;
    * - once a point is given a global ID, it is flagged with it so that other
    *   interfaces can see it.
    */
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    /* Store comm index for the corresponding proc */
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc2comm[ext_node_comm->color_out] = icomm;
+    /* Initialize points flag */
     for( i=0; i < nitem_node_comm[icomm]; i++ ) {
       ppt = &mesh->point[ifc_node_loc[icomm][i]];
       ppt->flag = PMMG_UNSET;
     }
+  }
 
   /* Count nb of new pair nodes hosted on proc */
   npairs_loc = 0;
@@ -936,7 +947,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   }
 
   /* Compute global pair nodes enumeration (injective, non-surjective map) */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    icomm = iproc2comm[iproc];
+
+    /* Skip empty comm */
+    if( icomm == PMMG_UNSET ) continue;
     
     /* Assign global index */
     src = fmin(parmesh->myrank,color_out[icomm]);
@@ -956,9 +971,15 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
 
 
   /* Each proc buils global IDs if color_in < color_out, then sends IDs to
-   * color_out;
-   *  */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+   * color_out.
+   * Communicators need to be sorted, or a value could be sent before having
+   * received the good value from an owner processor.
+   */
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    icomm = iproc2comm[iproc];
+
+    /* Skip empty comm */
+    if( icomm == PMMG_UNSET ) continue;
     src = fmin(parmesh->myrank,color_out[icomm]);
     dst = fmax(parmesh->myrank,color_out[icomm]);
     tag = parmesh->nprocs*src+dst;
@@ -991,6 +1012,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
   PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
   PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
 
 
   /* Check global IDs */
@@ -1009,8 +1031,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      for( i=0; i < nitem_node_comm[icomm]; i++ )
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        assert( ifc_node_glob[icomm][i] == ppt->flag );
         assert( ifc_node_glob[icomm][i] == itorecv[icomm][i] );
+      }
     }
   }
 
