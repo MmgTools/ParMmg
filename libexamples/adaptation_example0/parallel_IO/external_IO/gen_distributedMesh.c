@@ -169,14 +169,9 @@ int main(int argc,char *argv[]) {
   /** ------------------------------ STEP  III ------------------------- */
   /** Get parallel interfaces and swap meshes, so that you can use meshIN to
    * initialize a new mesh in parmesh */
-  mesh = parmesh->listgrp[0].mesh;
-
-  size_t available;
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax-parmesh->memMax;
-  mesh->memMax = mesh->memCur+available;
 
   /* Create boundary entities */
+  mesh = parmesh->listgrp[0].mesh;
   if( MMG3D_bdryBuild(mesh) == -1) {
     MPI_Finalize();
     exit(EXIT_FAILURE);

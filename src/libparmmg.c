@@ -870,6 +870,9 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
     MMG3D_setfunc(mesh,met);
   }
 
+  /* Memory repartition */
+  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) return 3;
+
   iresult = PMMG_SUCCESS;
   return iresult;
 }
