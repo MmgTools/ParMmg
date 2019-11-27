@@ -1113,10 +1113,16 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   ier = 1;
 
+  /* Create empty communicators on all procs */
   if( !PMMG_create_empty_communicators( parmesh ) ) return 0;
+
+  /* There is nothing to distribute on just 1 proc */
   if( parmesh->nprocs == 1 ) return 1;
 
-  /** Proc 0 send the mesh to the other procs */
+
+  /**
+   * 1) Proc 0 partitions the mesh.
+   */
   if( parmesh->myrank == parmesh->info.root ) {
 
     grp    = &parmesh->listgrp[0];
@@ -1138,30 +1144,20 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
     PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");
   }
+  /* At this point all communicators have been created and all tags are OK */
 
-  {
-    int igrp;
-    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
-      grp    = &parmesh->listgrp[igrp];
-      int i,iel,ifac;
-      MMG5_pTetra pt;
-      MMG5_pxTetra pxt;
-      for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
-        iel  =  grp->face2int_face_comm_index1[i] / 12;
-        ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
-        pt = &grp->mesh->tetra[iel];
-        assert( pt->xt );
-        pxt = &grp->mesh->xtetra[pt->xt];
-        assert( pxt->ftag[ifac] & MG_PARBDY );
-      }
-    }
-  }
 
-  /** Distribute the groups over the processors */
+  /**
+   * 2) Distribute the groups over the processors.
+   */
   if( parmesh->myrank != parmesh->info.root ) parmesh->ngrp = 0;
- 
+
+  /* Create the groups partition array */
   PMMG_CALLOC ( parmesh,part,parmesh->nprocs+1,idx_t,"allocate metis buffer", ier=5 );
-  for( igrp = 0; igrp <= parmesh->nprocs; igrp++ ) part[igrp] = igrp;
+  for( igrp = 0; igrp <= parmesh->nprocs; igrp++ )
+    part[igrp] = igrp;
+
+  /* Transfer the groups in parallel */
   ier = PMMG_transfer_all_grps(parmesh,part);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
@@ -1180,24 +1176,8 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   }
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
 
-  {
-    grp = &parmesh->listgrp[0];
-    int i,iel,ifac;
-    MMG5_pTetra pt;
-    MMG5_pxTetra pxt;
-    for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
-      iel  =  grp->face2int_face_comm_index1[i] / 12;
-      ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
-      pt = &grp->mesh->tetra[iel];
-      assert( pt->xt );
-      pxt = &grp->mesh->xtetra[pt->xt];
-      assert( pxt->ftag[ifac] & MG_PARBDY );
-    }
-  }
+  /* At this point all communicators have been created and all tags are OK */
 
-//  char basename[48];
-//  sprintf(basename,"my_transfer_");
-//  PMMG_listgrp_to_saveMesh( parmesh,basename ); 
 
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
@@ -1205,8 +1185,9 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
   assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
 
-  /* The part array is deallocated when groups to be sent are merged */
+  /* The part array is deallocated when groups to be sent are merged (do not
+   * do it here) */
 
-ieresult = 1;
+  ieresult = 1;
   return ieresult==1;
 }
