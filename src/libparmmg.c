@@ -463,7 +463,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
   int8_t        tim;
   char          stim[32];
 
- /** Check input data */
+  /** Check input data */
   tim = 1;
   chrono(ON,&(ctim[tim]));
 
@@ -481,21 +481,6 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
   }
-
-//  /** Send mesh to other procs */
-//  tim = 6;
-//  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-//    chrono(ON,&(ctim[tim]));
-//    fprintf(stdout,"\n  -- BCAST" );
-//  }
-//  ier = PMMG_bcast_mesh( parmesh );
-//  if ( ier!=1 ) return PMMG_LOWFAILURE;
-//
-//  if ( parmesh->info.imprim >= PMMG_VERB_STEPS  ) {
-//    chrono(OFF,&(ctim[tim]));
-//    printim(ctim[tim].gdif,stim);
-//    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
-//  }
 
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
@@ -521,11 +506,14 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     /* Memory repartition */
     if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
 
+  } else {
+    ier = PMMG_SUCCESS;
   }
-//  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
-//  if ( iresult!=PMMG_SUCCESS ) {
-//    return iresult;
-//  }
+
+  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  if ( iresult!=PMMG_SUCCESS ) {
+    return iresult;
+  }
 
   /** Send mesh partionning to other procs */
   tim = 8;
@@ -829,34 +817,61 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   MMG5_pSol  met;
   int ier,iresult;
 
+  /** Check input data */
   ier = PMMG_check_inputData( parmesh );
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !iresult ) return PMMG_LOWFAILURE;
 
-  /** Send mesh to other procs */
-  ier = PMMG_bcast_mesh( parmesh );
-  if ( ier!=1 ) return PMMG_LOWFAILURE;
-
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  ier = PMMG_preprocessMesh( parmesh );
+  if( parmesh->myrank == parmesh->info.root ) {
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      fprintf(stdout,"\n  -- ANALYSIS" );
+    }
+    ier = PMMG_preprocessMesh( parmesh );
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      fprintf(stdout,"\n  -- ANALYSIS COMPLETED\n");
+    }
 
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-    ier = PMMG_LOWFAILURE;
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+      ier = PMMG_LOWFAILURE;
+    }
+
+    /* Memory repartition */
+    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+
+  } else {
+    ier = PMMG_SUCCESS;
   }
+
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
   }
 
   /** Send mesh partionning to other procs */
-  if ( !PMMG_partBcast_mesh( parmesh ) ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    fprintf(stdout,"\n  -- PARTITIONING" );
+  }
+  if ( !PMMG_distribute_mesh( parmesh ) ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    fprintf(stdout,"\n  -- PARTITIONING COMPLETED\n");
+  }
 
-  return PMMG_SUCCESS;
+  /** Function setters (must be assigned before quality computation) */
+  if( parmesh->myrank != parmesh->info.root ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(mesh,met);
+  }
+
+  iresult = PMMG_SUCCESS;
+  return iresult;
 }
 
 /**
