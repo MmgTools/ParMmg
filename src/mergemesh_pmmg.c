@@ -747,34 +747,37 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       }
     }
 
-    /** Step 3: if communicators are allocated: tag new parallel interface
-     * entities starting from int_face_comm. */
-//    if ( parmesh->ext_face_comm ) {
-      for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
-        iel  =   face2int_face_comm0_index1[i] / 12;
-        ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
-        pt = &mesh->tetra[iel];
-        assert( pt->xt );
-        pxt = &mesh->xtetra[pt->xt];
-        /* If already boundary, make it recognizable as a "true" boundary */
-        if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-        /* Tag face */
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-        /* Tag face edges */
-        for ( j=0; j<3; j++ ) {
-          ia = MMG5_iarf[ifac][j];
-          ip0 = pt->v[MMG5_iare[ia][0]];
-          ip1 = pt->v[MMG5_iare[ia][1]];
-          if( !MMG5_hTag( &hash, ip0, ip1, 0,
-                          MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
-        }
-        /* Tag face nodes */
-        for ( j=0 ; j<3 ; j++) {
-          ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
-          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
-        }
+    /** Step 3: Tag new parallel interface entities starting from int_face_comm.
+     *
+     *  This step needs to be done even if the external face communicator is
+     *  not allocated (for example, when a centralized mesh is loaded and split
+     *  on a single proc: in this case the internal communicator is allocated,
+     *  but not the external one).
+     */
+    for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
+      iel  =   face2int_face_comm0_index1[i] / 12;
+      ifac = ( face2int_face_comm0_index1[i] % 12 ) / 3;
+      pt = &mesh->tetra[iel];
+      assert( pt->xt );
+      pxt = &mesh->xtetra[pt->xt];
+      /* If already boundary, make it recognizable as a "true" boundary */
+      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+      /* Tag face */
+      pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+      /* Tag face edges */
+      for ( j=0; j<3; j++ ) {
+        ia = MMG5_iarf[ifac][j];
+        ip0 = pt->v[MMG5_iare[ia][0]];
+        ip1 = pt->v[MMG5_iare[ia][1]];
+        if( !MMG5_hTag( &hash, ip0, ip1, 0,
+                        MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
       }
-//    }
+      /* Tag face nodes */
+      for ( j=0 ; j<3 ; j++) {
+        ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+        ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+      }
+    }
 
     /** Step 4: Get edge tag and delete hash table */
     for ( k=1; k<=mesh->ne; k++ ) {
