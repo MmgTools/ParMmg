@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmgtypes.h
  * \brief parmmg types and functions that must be accessible to the library users
@@ -146,6 +169,30 @@
 #define PMMG_ARG_end    11
 
 /**
+ * \def PMMG_REDISTRIBUTION_graph_balancing
+ *
+ * Use graph redistribution to load balance the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_graph_balancing 0
+
+/**
+ * \def PMMG_REDISTRIBUTION_ifc_displacement
+ *
+ * Use interface displacement to redistribute the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_ifc_displacement 1
+
+/**
+ * \def PMMG_REDISTRIBUTION_mode
+ *
+ * Choose how to redistribute the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_ifc_displacement
+
+/**
  * \def PMMG_LOADBALANCING_metis
  *
  * Use metis to compute and balance the graph during the loadbalancing step
@@ -270,11 +317,15 @@ typedef struct {
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
+  int repartitioning; /*!< way to perform mesh repartitioning */
+  int ifc_layers;  /*!< nb of layers for interface displacement */
+  double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
+  int fmtout; /*!< store the output format asked */
 } PMMG_Info;
 
 
@@ -288,6 +339,7 @@ typedef struct {
   MPI_Comm    comm;   /*!< Global communicator of all parmmg processes */
   int         nprocs; /*!< Number of processes in global communicator */
   int         myrank; /*!< Rank in global communicator */
+  int         size_shm; /*!< Number or MPI process per Node */
 
   /* mem info */
   size_t    memGloMax; /*!< Maximum memory available to all structs */

@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file loadbalancing_pmmg.c
  * \brief Load balancing after a remeshing step
@@ -66,10 +89,12 @@ int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
  *
  */
 int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
+  MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
   mytime     ctim[5];
   int8_t     tim;
   char       stim[32];
+  size_t     memAv,oldMemMax;
 
 
   tminit(ctim,5);
@@ -108,7 +133,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_METIS_TARGET,1);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
@@ -162,6 +187,19 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  /* Rebuild mesh adjacency for the next adaptation iteration */
+  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    mesh = parmesh->listgrp[igrp].mesh;
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,0) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        ier_glob = 0;
+      }
+    }
+  }
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file distributegrps_pmmg.c
  * \brief Group distribution on the processors
@@ -2972,19 +2995,26 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  switch ( parmesh->info.loadbalancing_mode ) {
+  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
 
+    ier = PMMG_part_getProcs( parmesh, part );
+
+  } else {
+
+    switch ( parmesh->info.loadbalancing_mode ) {
+ 
 #ifdef USE_PARMETIS
-  case PMMG_LOADBALANCING_parmetis:
-    ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
-    break;
+    case PMMG_LOADBALANCING_parmetis:
+      ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+      break;
 #endif
 
-  case PMMG_LOADBALANCING_metis:
-  default:
+    case PMMG_LOADBALANCING_metis:
+    default:
 
-    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
-    break;
+      ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
+      break;
+    }
   }
 
   if ( !ier )

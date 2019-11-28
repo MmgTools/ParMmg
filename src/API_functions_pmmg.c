@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file API_functions_pmmg.c
  * \brief C API functions definitions for PARMMG library.
@@ -123,6 +146,9 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug      = PMMG_NUL;
   parmesh->niter       = PMMG_NITER;
   parmesh->info.fem    = MMG5_FEM;
+  parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
+  parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+  parmesh->info.grps_ratio = PMMG_GRPS_RATIO;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
   parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
@@ -139,6 +165,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->comm   = comm;
 
   MPI_Initialized(&flag);
+  parmesh->size_shm = 1;
   if ( flag ) {
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
@@ -297,6 +324,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;
+    break;
+  case PMMG_IPARAM_ifcLayers :
+    parmesh->info.ifc_layers = val;
     break;
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
@@ -470,6 +500,9 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
         return 0;
       }
     }
+    break;
+  case PMMG_DPARAM_groupsRatio :
+    parmesh->info.grps_ratio = val;
     break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
