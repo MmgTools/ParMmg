@@ -55,7 +55,7 @@ int main(int argc,char *argv[]) {
   tmp     = NULL;
 
   if ( (argc!=4) && !rank ) {
-    printf(" Usage: %s fileout io_option\n",argv[0]);
+    printf(" Usage: %s filein fileout io_option\n",argv[0]);
     printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
     printf("     API_mode = 1   to Get/Set the parallel interfaces through nodes\n");
     return 1;

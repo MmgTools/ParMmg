@@ -600,4 +600,16 @@ CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
   (non library tests)" OFF  "BUILD_TESTING" OFF )
 
-INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
+IF ( BUILD_TESTING )
+  EXTERNALPROJECT_ADD ( testparmmg
+    GIT_REPOSITORY https://gitlab.inria.fr/ParMmg/testparmmg.git
+    GIT_TAG 1813fea5
+    CONFIGURE_COMMAND echo "Nothing to configure"
+    BUILD_COMMAND echo "Nothing to Build"
+    INSTALL_COMMAND echo "Nothing to install")
+
+  EXTERNALPROJECT_GET_PROPERTY ( testparmmg SOURCE_DIR )
+  SET ( TESTPARMMG_SOURCE_DIR ${SOURCE_DIR} )
+
+  INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
+ENDIF()

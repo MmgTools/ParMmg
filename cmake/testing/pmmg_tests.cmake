@@ -7,7 +7,7 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
-    set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
+    set( CI_DIR_INPUTS ${TESTPARMMG_SOURCE_DIR} CACHE PATH "path to test meshes repository" )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )
@@ -384,7 +384,7 @@ IF( BUILD_TESTING )
       FOREACH( NP 4 )
         ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:${test_name}>
-          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} ${input_met} )
+          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} )
       ENDFOREACH()
     ENDFOREACH()
 
