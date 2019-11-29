@@ -2887,7 +2887,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
    * procs (worst case)
    *
    */
-//#warning add interaction map
+#warning add interaction map
   ier = 0;
   PMMG_CALLOC(parmesh,interaction_map,nprocs,int,"interaction_map",goto end);
   for ( k=0; k<nprocs; ++k ) {

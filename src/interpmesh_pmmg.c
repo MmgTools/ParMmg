@@ -305,7 +305,7 @@ int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
   oldMet  = oldGrp->met;
   nsize   = met->size;
 
-//#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
+#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
 
   /** Freezed points: Copy the  metrics  */
   if ( (!oldGrp->mesh->info.renum) || !permNodGlob ) {
