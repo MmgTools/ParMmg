@@ -422,7 +422,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-#warning: Luca: check this function
+//#warning: Luca: check this function
     MMG3D_prilen(mesh,met,0);
   }
 
@@ -598,11 +598,11 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     return ierlib;
   }
 
-#warning remove the lib_centralized and lib_distributed library to have modular centralized input + annalysis or parallel input + analysis , libparmmg1 call, then centralized or distributed output
+//#warning remove the lib_centralized and lib_distributed library to have modular centralized input + annalysis or parallel input + analysis , libparmmg1 call, then centralized or distributed output
   switch ( parmesh->info.fmtout ) {
   case ( MMG5_FMT_VtkPvtu ):
     // Distributed Output
-#warning boundaries arent rebuilded
+//#warning boundaries arent rebuilded
 
     break;
   default:
