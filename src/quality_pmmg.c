@@ -147,12 +147,14 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
 /**
  * \param parmesh pointer to parmesh structure
  * \param opt PMMG_INQUA if called before the Mmg call, PMMG_OUTQUA otherwise
+ * \param isCentral 1 for centralized mesh (no parallel communication), 0 for
+ * distributed mesh
  *
  * \return 1 if success, 0 if fail;
  *
  * Print quality histogram among all group meshes and all processors
  */
-int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
+int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 {
   PMMG_pGrp    grp;
   MMG5_pTetra  pt;
@@ -264,27 +266,48 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
     return 1;
 
   /* Calculate the quality values for all processes */
-  MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
-  MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
+  if( isCentral ) {
+    np_result = np;
+    ne_result = ne;
+    avg_result = avg;
+    med_result = med;
+    good_result = good;
+    max_result = max;
+    optimLES_result = optimLES;
+  } else {
+    MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
+    MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
+  }
 
 
   MPI_Type_create_struct( PMMG_QUAL_MPISIZE, lens, disps, types, &mpi_iel_min_t );
   MPI_Type_commit( &mpi_iel_min_t );
-  MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
   min_iel.min = min;
   min_iel.iel = iel;
   min_iel.iel_grp = iel_grp;
   min_iel.cpu = parmesh->myrank;
-  MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
-  MPI_Op_free( &iel_min_op );
 
-  MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
-  MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+  if( isCentral ) {
+    min_iel_result.min = min_iel.min;
+    min_iel_result.iel = min_iel.iel;
+    min_iel_result.iel_grp = min_iel.iel_grp;
+    min_iel_result.cpu = min_iel.cpu;
+    for ( i = 0; i < PMMG_QUAL_HISSIZE; ++i )
+      his_result[i] = his[i];
+    nrid_result = nrid;
+  } else {
+    MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
+    MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
+    MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Op_free( &iel_min_op );
+  }
+
 
   if ( parmesh->myrank == 0 ) {
 
@@ -327,6 +350,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
 /**
  * \param parmesh pointer to parmesh structure
  * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
+ * \param isCentral 1 for centralized mesh, 0 for distributed mesh.
  *
  * \return 1 if success, 0 if fail;
  *
@@ -338,7 +362,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt )
  * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
  *
  */
-int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
+int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
 {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -398,14 +422,21 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp )
                                &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
   }
 
-  MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+  if( isCentral )
+    ieresult = ier;
+  else
+    MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
 
   if ( !ieresult ) {
     MPI_Op_free( &mpi_lenStats_op );
     return 0;
   }
 
-  MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+  if( isCentral )
+    memcpy(&lenStats_result,&lenStats,sizeof(PMMG_lenStats));
+  else
+    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+
   MPI_Op_free( &mpi_lenStats_op );
 
   if ( parmesh->myrank == parmesh->info.root ) {

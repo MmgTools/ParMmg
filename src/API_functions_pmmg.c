@@ -1216,10 +1216,16 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
   /** 1) Check number of communicators */
-  if( parmesh->next_face_comm != ncomm ) return 0;
+  if( parmesh->next_face_comm != ncomm ) {
+    fprintf(stderr,"## Wrong number of face communicators in function %s\n",__func__);
+    return 0;
+  }
 
   /** 2) Create hash table for proc pairs */
-  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm, 8*ncomm) ) return 0;
+  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm, 8*ncomm) ) {
+    fprintf(stderr,"## Impossible to create hash table for process pairs in function %s\n",__func__);
+    return 0;
+  }
   for( icomm = 0; icomm < ncomm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     /* Store IDs as IDs+1, so that 0 value can be used for error handling */
@@ -1254,8 +1260,14 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   }
 
   /** 4) Create boundary and hash table */
-  if( MMG3D_bdryBuild(mesh) == -1) return 0;
-  if ( ! MMG5_hashNew(mesh,&hash,0.51*count,1.51*count) ) return 0;
+  if( MMG3D_bdryBuild(mesh) == -1) {
+    fprintf(stderr,"## Impossible to build boundary in function %s\n",__func__);
+    return 0;
+  }
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*count,1.51*count) ) {
+    fprintf(stderr,"## Impossible to build hash table for boundary faces in function %s\n",__func__);
+    return 0;
+  }
 
   /* Hash triangles in the internal communicator */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
@@ -1269,7 +1281,7 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Store ID+1 to use 0 value for error handling */
     if( !MMG5_hashFace(mesh,&hash,ia,ib,ic,idx+1) ) {
       fprintf(stderr,"## Impossible to hash face (%d,%d,%d) on proc %d. ##\n",ia,ib,ic,parmesh->myrank);
-       MMG5_DEL_MEM(mesh,hash.item);
+      MMG5_DEL_MEM(mesh,hash.item);
       return 0;
     }
   }

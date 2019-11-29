@@ -955,7 +955,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
       ier = PMMG_splitGrps_updateFaceCommOld( parmesh,grp,mesh,adja,tet,fac,
           posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,&pos );
       if( ier == 0 )  return 0;
-      if( ier == -1 ) continue;
+      if( ier == -1 ) continue; /* not in the old communicator, continue */
 
       adjidx = adja[ fac ] / 4;
       vidx   = adja[ fac ] % 4;
@@ -1383,6 +1383,71 @@ fail_facePos:
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param grpIdOld label of the original group to be splitted.
+ * \param ngrp number of groups to split the mesh into.
+ * \param part array of the mesh element partitioning.
+ * \param fitMesh alloc the meshes at their exact sizes
+ *
+ * \return -1 : no possibility to save the mesh
+ *         0  : failed but the mesh is correct
+ *         1  : success
+ *
+ * Split one mesh it into into several meshes.
+ *
+ * \warning tetra must be packed.
+ *
+ */
+int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh ) {
+  PMMG_pGrp grpOld;
+  PMMG_pGrp grpsNew = NULL;
+  MMG5_pMesh meshOld;
+  int *countPerGrp = NULL;
+  int ret_val = 1;
+
+  /* Get mesh to split */
+  grpOld = &parmesh->listgrp[grpIdOld];
+  meshOld = parmesh->listgrp[grpIdOld].mesh;
+
+  /* count_per_grp: count new tetra per group, and store new ID in the old
+   * tetra flag */
+  PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",return 0);
+  PMMG_splitGrps_countTetPerGrp( parmesh,meshOld,part,countPerGrp );
+
+  /* Allocate list of subgroups struct and allocate memory */
+  PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
+              ret_val = 0; goto fail_counters);
+
+
+  /** Perform group splitting */
+  ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part );
+  if( ret_val != 1) goto fail_counters;
+
+//DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
+
+  PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
+  parmesh->listgrp = grpsNew;
+  parmesh->ngrp = ngrp;
+
+  /** Check grps contiguity */
+  ret_val = PMMG_checkAndReset_grps_contiguity( parmesh );
+
+  if ( PMMG_parmesh_updateMemMax(parmesh, 5, fitMesh) ) {
+    /* No error so far, skip deallocation of lstgrps */
+    goto fail_counters;
+  }
+  else
+    ret_val = -1;
+
+fail_counters:
+  PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
+end:
+
+  return ret_val;
+
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
@@ -1398,12 +1463,10 @@ fail_facePos:
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMode )
+int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMode )
 {
   PMMG_pGrp grpOld;
-  PMMG_pGrp grpsNew = NULL;
   MMG5_pMesh meshOld;
-  int *countPerGrp = NULL;
   int ret_val = 1;
   /** remember meshOld->ne to correctly free the metis buffer */
   int meshOld_ne = 0;
@@ -1544,39 +1607,10 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redistrMod
       if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
 
-  /* count_per_grp: count new tetra per group, and store new ID in the old
-   * tetra flag */
-  PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",
-              ret_val = 0;goto fail_part);
-  PMMG_splitGrps_countTetPerGrp( parmesh,meshOld,part,countPerGrp );
-  
-  /* Allocate list of subgroups struct and allocate memory */
-  PMMG_CALLOC(parmesh,grpsNew,ngrp,PMMG_Grp,"subgourp list ",
-              ret_val = 0; goto fail_counters);
 
+  /* Split the mesh */
+  ret_val = PMMG_split_grps( parmesh,grpIdOld,ngrp,part,fitMesh );
 
-  /** Perform group splitting */
-  ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part );
-  if( ret_val != 1) goto fail_counters;
- 
-//DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
-
-  PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
-  parmesh->listgrp = grpsNew;
-  parmesh->ngrp = ngrp;
-
-  /** Check grps contiguity */
-  ret_val = PMMG_checkAndReset_grps_contiguity( parmesh );
-
-  if ( PMMG_parmesh_updateMemMax(parmesh, 5, fitMesh) ) {
-    /* No error so far, skip deallocation of lstgrps */
-    goto fail_counters;
-  }
-  else
-    ret_val = -1;
-
-fail_counters:
-  PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
 
@@ -1671,8 +1705,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
     PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
-    PMMG_qualhisto( parmesh, PMMG_INQUA );
-    PMMG_prilen( parmesh, 0 );
+    PMMG_qualhisto( parmesh, PMMG_INQUA, 0 );
+    PMMG_prilen( parmesh, 0, 0 );
 
     PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,dummy1,dummy2);
 
@@ -1707,7 +1741,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_split_grps(parmesh,target,fitMesh,parmesh->info.repartitioning);
+    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,parmesh->info.repartitioning);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

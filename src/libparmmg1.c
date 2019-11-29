@@ -475,7 +475,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_split_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
+  ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
                          PMMG_REDISTRIBUTION_graph_balancing );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
@@ -722,7 +722,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     printf("\n");
   }
 
-  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
@@ -772,7 +772,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
-    PMMG_prilen(parmesh,0);
+    PMMG_prilen(parmesh,0,0);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);

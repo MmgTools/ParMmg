@@ -936,9 +936,11 @@ low_fail:
 end:
 
   /** Step 3: Update the parmesh */
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,PMMG_Grp,"listgrp");
-  parmesh->listgrp = grps;
-  parmesh->ngrp    = ngrp;
+  if( parmesh->ngrp ) {
+    PMMG_DEL_MEM(parmesh,parmesh->listgrp,PMMG_Grp,"listgrp");
+    parmesh->listgrp = grps;
+    parmesh->ngrp    = ngrp;
+  }
 
   /* Pack the communicators */
   if ( !PMMG_pack_nodeCommunicators(parmesh) ) ier = -1;
@@ -1829,20 +1831,22 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   }
 
   /** Pack metric */
-  if ( ier_sol ) {
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        met->m[size*k + i] = *( (double *) *buffer);
-        *buffer += sizeof(double);
+  if( np ) {/* only if the metrics size is non null, i.e. not default metrics */
+    if ( ier_sol ) {
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          met->m[size*k + i] = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
-  }
-  else {
-    /* The solution array can't be allocated */
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        ddummy = *( (double *) *buffer);
-        *buffer += sizeof(double);
+    else {
+      /* The solution array can't be allocated */
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          ddummy = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
   }
@@ -2538,7 +2542,11 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
               ier = 0 );
 
   ier0 = 1;
-  PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
+  if( ngrp )
+    PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
+                    ier0 = 0;ier = 0 );
+  else
+    PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
                   ier0 = 0;ier = 0 );
 
   if ( ier0 )
@@ -2800,7 +2808,6 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  * Deallocate the \a part array.
  *
  */
-static inline
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   MPI_Comm       comm;
   int            myrank,nprocs;
@@ -2984,11 +2991,11 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
-  if ( !ngrp ) {
-    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
-            __func__,__LINE__);
-    return 0;
-  }
+//  if ( !ngrp ) {
+//    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
+//            __func__,__LINE__);
+//    return 0;
+//  }
 
   /** Get the new partition of groups (1 group = 1 metis node) */
   part = NULL;

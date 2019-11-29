@@ -505,10 +505,13 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 /* Mesh distrib */
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
+int PMMG_partBcast_mesh( PMMG_pParMesh parmesh );
 int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
-int PMMG_split_grps( PMMG_pParMesh,int,int,int );
+int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
+int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
 /* Load Balancing */
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part);
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
@@ -594,8 +597,8 @@ int  PMMG_updateTag(PMMG_pParMesh parmesh);
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
-int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,char );
+int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
+int PMMG_prilen( PMMG_pParMesh parmesh,char,int );
 int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
 
 /* Variadic_pmmg.c */

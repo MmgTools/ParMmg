@@ -332,7 +332,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,1) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -342,7 +342,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-    PMMG_prilen(parmesh,0);
+    PMMG_prilen(parmesh,0,1);
   }
 
   /** Mesh unscaling */
@@ -422,6 +422,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+#warning: Luca: check this function
     MMG3D_prilen(mesh,met,0);
   }
 
@@ -443,7 +444,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     }
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA) ) {
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -455,26 +456,12 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 }
 
-int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim ) {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
-  int           ier;
-  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
-  long int      tmpmem;
-  mytime        ctim[TIMEMAX];
+  int           ier,iresult;
   int8_t        tim;
   char          stim[32];
-
- if ( parmesh->info.imprim > PMMG_VERB_NO ) {
-    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
-    fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
-    fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
-    fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
-  }
-
-  tminit(ctim,TIMEMAX);
-  chrono(ON,&(ctim[0]));
 
   /** Check input data */
   tim = 1;
@@ -495,40 +482,34 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n  -- PHASE 1 : ANALYSIS AND MESH DISTRIBUTION\n");
   }
 
-  /** Send mesh to other procs */
-  tim = 6;
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(ON,&(ctim[tim]));
-    fprintf(stdout,"\n  -- BCAST" );
-  }
-  ier = PMMG_bcast_mesh( parmesh );
-  if ( ier!=1 ) return PMMG_LOWFAILURE;
-
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS  ) {
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"\n  -- BCAST COMPLETED    %s\n",stim );
-  }
-
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  tim = 7;
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(ON,&(ctim[tim]));
-    fprintf(stdout,"\n  -- ANALYSIS" );
-  }
-  ier = PMMG_preprocessMesh( parmesh );
-  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
+  if( parmesh->myrank == parmesh->info.root ) {
+    tim = 7;
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      chrono(ON,&(ctim[tim]));
+      fprintf(stdout,"\n  -- ANALYSIS" );
+    }
+    ier = PMMG_preprocessMesh( parmesh );
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
+    }
+ 
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+      ier = PMMG_LOWFAILURE;
+    }
+
+    /* Memory repartition */
+    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+
+  } else {
+    ier = PMMG_SUCCESS;
   }
 
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-    ier = PMMG_LOWFAILURE;
-  }
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
@@ -549,11 +530,53 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     fprintf(stdout,"\n  -- PARTITIONING COMPLETED    %s\n",stim );
   }
 
+  /** Function setters (must be assigned before quality computation) */
+  if( parmesh->myrank != parmesh->info.root ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(mesh,met);
+  }
+
   chrono(OFF,&(ctim[2]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     printim(ctim[2].gdif,stim);
     fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
+
+  iresult = PMMG_SUCCESS;
+  return iresult;
+}
+
+int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+  PMMG_pGrp     grp;
+  MMG5_pMesh    mesh;
+  MMG5_pSol     met;
+  int           ier;
+  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
+  long int      tmpmem;
+  mytime        ctim[TIMEMAX];
+  int8_t        tim;
+  char          stim[32];
+
+ if ( parmesh->info.imprim > PMMG_VERB_NO ) {
+    fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+    fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
+    fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
+    fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
+  }
+
+  tminit(ctim,TIMEMAX);
+  chrono(ON,&(ctim[0]));
+
+  /* Distribute the mesh */
+  ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
+  if( ier != PMMG_SUCCESS ) return ier;
+
+  grp    = &parmesh->listgrp[0];
+  mesh   = grp->mesh;
+  met    = grp->met;
 
   /** Remeshing */
   tim = 3;
@@ -794,34 +817,64 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   MMG5_pSol  met;
   int ier,iresult;
 
+  /** Check input data */
   ier = PMMG_check_inputData( parmesh );
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !iresult ) return PMMG_LOWFAILURE;
 
-  /** Send mesh to other procs */
-  ier = PMMG_bcast_mesh( parmesh );
-  if ( ier!=1 ) return PMMG_LOWFAILURE;
-
   /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
    * analysis and display length and quality histos. */
-  ier = PMMG_preprocessMesh( parmesh );
+  if( parmesh->myrank == parmesh->info.root ) {
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      fprintf(stdout,"\n  -- ANALYSIS" );
+    }
+    ier = PMMG_preprocessMesh( parmesh );
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      fprintf(stdout,"\n  -- ANALYSIS COMPLETED\n");
+    }
 
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-  if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-    ier = PMMG_LOWFAILURE;
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+      ier = PMMG_LOWFAILURE;
+    }
+
+    /* Memory repartition */
+    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+
+  } else {
+    ier = PMMG_SUCCESS;
   }
+
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
   }
 
   /** Send mesh partionning to other procs */
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    fprintf(stdout,"\n  -- PARTITIONING" );
+  }
   if ( !PMMG_distribute_mesh( parmesh ) ) {
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+    fprintf(stdout,"\n  -- PARTITIONING COMPLETED\n");
+  }
 
-  return PMMG_SUCCESS;
+  /** Function setters (must be assigned before quality computation) */
+  if( parmesh->myrank != parmesh->info.root ) {
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(mesh,met);
+  }
+
+  /* Memory repartition */
+  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) return 3;
+
+  iresult = PMMG_SUCCESS;
+  return iresult;
 }
 
 /**
@@ -838,11 +891,12 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
 int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_node_loc,int **ifc_node_glob,
                          int next_node_comm,int *nitem_node_comm) {
+  PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ,*iproc2comm;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i,idx;
 
   mesh = parmesh->listgrp[0].mesh;
@@ -850,16 +904,26 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
+  /* Array for sorting communicators */
+  PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
   /* Use points flag to mark interface points:
    * - interface points are initialised as PMMG_UNSET;
    * - once a point is given a global ID, it is flagged with it so that other
    *   interfaces can see it.
    */
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    /* Store comm index for the corresponding proc */
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc2comm[ext_node_comm->color_out] = icomm;
+    /* Initialize points flag */
     for( i=0; i < nitem_node_comm[icomm]; i++ ) {
       ppt = &mesh->point[ifc_node_loc[icomm][i]];
       ppt->flag = PMMG_UNSET;
     }
+  }
 
   /* Count nb of new pair nodes hosted on proc */
   npairs_loc = 0;
@@ -883,7 +947,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   }
 
   /* Compute global pair nodes enumeration (injective, non-surjective map) */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    icomm = iproc2comm[iproc];
+
+    /* Skip empty comm */
+    if( icomm == PMMG_UNSET ) continue;
     
     /* Assign global index */
     src = fmin(parmesh->myrank,color_out[icomm]);
@@ -903,9 +971,15 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
 
 
   /* Each proc buils global IDs if color_in < color_out, then sends IDs to
-   * color_out;
-   *  */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+   * color_out.
+   * Communicators need to be sorted, or a value could be sent before having
+   * received the good value from an owner processor.
+   */
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    icomm = iproc2comm[iproc];
+
+    /* Skip empty comm */
+    if( icomm == PMMG_UNSET ) continue;
     src = fmin(parmesh->myrank,color_out[icomm]);
     dst = fmax(parmesh->myrank,color_out[icomm]);
     tag = parmesh->nprocs*src+dst;
@@ -938,6 +1012,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
   PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
   PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
 
 
   /* Check global IDs */
@@ -956,8 +1031,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      for( i=0; i < nitem_node_comm[icomm]; i++ )
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        ppt = &mesh->point[ifc_node_loc[icomm][i]];
+        assert( ifc_node_glob[icomm][i] == ppt->flag );
         assert( ifc_node_glob[icomm][i] == itorecv[icomm][i] );
+      }
     }
   }
 
