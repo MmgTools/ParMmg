@@ -83,7 +83,7 @@ To see the ParMmg default option:
 ```
 
 ### Algorithm
-The algorithm used in ParMmg has been developped by the Coria team and is detailed [here](https://onlinelibrary.wiley.com/doi/abs/10.1002/fld.4204).
+The parallel algorithm used in ParMmg has been developed by the Coria team and is described [here](https://onlinelibrary.wiley.com/doi/abs/10.1002/fld.4204). Its current implementation and differences are detailed [here](https://hal.inria.fr/hal-02386837).
 
 ### About the team
 ParMmg's current developers and maintainers are [Luca Cirrottola](mailto:luca.cirrottola@inria.fr) and [Algiane Froehly](mailto:algiane.froehly@inria.fr).
