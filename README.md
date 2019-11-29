@@ -102,6 +102,7 @@ Copyright © Bx INP/Inria/UBordeaux, 2018- .
 
 ## Reference
 
+[Parallel unstructured mesh adaptation using iterative remeshing and repartitioning - _L. Cirrottola, A. Froehly_ - November 29, 2019 - _Inria research report 9307_](https://hal.inria.fr/hal-02386837)
 [Three-dimensional adaptive domain remeshing, implicit domain meshing, and applications to free and moving boundary problems - _C. Dapogny, C. Dobrzynski and P. Frey_ - April 1, 2014 - _JCP_](http://www.sciencedirect.com/science/article/pii/S0021999114000266)
 
 
