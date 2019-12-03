@@ -1337,7 +1337,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
 
       for ( i=0; i<nitem; ++i ) {
         idx            = ext_node_comm->int_comm_index[i];
-        intvalues[idx] = itorecv[i];
+        if( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, intvalues[idx], itorecv[i] ) ) {
+          intvalues[idx] = itorecv[i];
+        }
       }
     }
 
@@ -1347,10 +1349,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
       ip  = node2int_node_comm_index1[i];
       ppt = &mesh->point[ip];
       assert( MG_VOK(ppt) );
-      if( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, ppt->tmp, intvalues[idx] ) ) {
-        ppt->tmp = intvalues[idx];
-        ppt->flag = *base_front;
-      }
+      ppt->tmp = intvalues[idx];
+      ppt->flag = *base_front;
     }
 
     /* Mark tetra in the ball of interface points */
