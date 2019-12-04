@@ -823,11 +823,6 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
       for (j=0; j<4; j++)
         if ( pt1->v[j] == nump ) { j1 = j; break; }
       assert(j1<4);
-      /** Flag not-owned tetra but don't put it in the list */
-      if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, color, pt1->mark ) ) {
-        pt1->flag = base;
-        continue;
-      }
       /** Mark owned tetra and its vertices */
       if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, pt1->mark, color ) ) {
         if( PMMG_get_proc( parmesh, pt1->mark ) == parmesh->myrank ) {
