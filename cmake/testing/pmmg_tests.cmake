@@ -12,8 +12,11 @@ IF( BUILD_TESTING )
     IF ( NOT EXISTS ${CI_DIR_INPUTS} )
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
-        COMMAND cd ${CI_DIR_INPUTS} && ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        )
+      EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
+        WORKING_DIRECTORY ${CI_DIR_INPUTS}
         )
     ENDIF()
 
