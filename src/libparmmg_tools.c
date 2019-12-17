@@ -80,7 +80,7 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
 //    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
 //    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",abs(PMMG_RATIO_MMG_METIS) );
     fprintf( stdout,"# of layers for interface displacement (-nlayers) : %d\n",PMMG_MVIFCS_NLAYERS);
-    fprintf( stdout,"allowed imbalance between current and desired groups size (-groups-ratio) : %d\n",PMMG_GRPS_RATIO);
+    fprintf( stdout,"allowed imbalance between current and desired groups size (-groups-ratio) : %f\n",PMMG_GRPS_RATIO);
 
 #ifdef USE_SCOTCH
     fprintf(stdout,"SCOTCH renumbering                  : enabled\n");
