@@ -7,6 +7,7 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
+    # Clone git repo at config time
     set( CI_DIR_INPUTS "${CMAKE_BINARY_DIR}/testparmmg" CACHE PATH "path to test meshes repository" )
 
     IF ( NOT EXISTS ${CI_DIR_INPUTS} )
