@@ -1131,10 +1131,20 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     /** Call metis for partionning */
     PMMG_CALLOC ( parmesh,part,mesh->ne,idx_t,"allocate metis buffer", ier=5 );
 
-    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
-      ier = 5;
+    /* Call metis, or recover a custom partitioning if provided (only to debug
+     * the interface displacement, adaptation will be blocked) */
+    if( !PMMG_PREDEF_PART ) {
+      if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
+        ier = 5;
+      }
+      if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
+    } else {
+      int k;
+      for( k = 1; k <= mesh->ne; k++ ) {
+        part[k-1] = mesh->tetra[k].ref;
+        mesh->tetra[k].tag |= MG_REQ;
+      }
     }
-    if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
 
     /* Split grp 0 into (nprocs) groups */
     ier = PMMG_split_grps( parmesh,0,parmesh->nprocs,part,1 );

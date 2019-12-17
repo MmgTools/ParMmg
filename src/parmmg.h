@@ -175,6 +175,12 @@ extern "C" {
  */
 #define PMMG_GRPSPL_MMG_TARGET 2
 
+/**
+ *
+ * Use custom partitioning saved in the reference field (1=yes, 0=no)
+ *
+ */
+#define PMMG_PREDEF_PART 0
 
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;

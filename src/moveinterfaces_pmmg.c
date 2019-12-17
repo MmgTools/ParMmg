@@ -823,11 +823,6 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
       for (j=0; j<4; j++)
         if ( pt1->v[j] == nump ) { j1 = j; break; }
       assert(j1<4);
-      /** Flag not-owned tetra but don't put it in the list */
-      if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, color, pt1->mark ) ) {
-        pt1->flag = base;
-        continue;
-      }
       /** Mark owned tetra and its vertices */
       if ( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, pt1->mark, color ) ) {
         if( PMMG_get_proc( parmesh, pt1->mark ) == parmesh->myrank ) {
@@ -1337,7 +1332,9 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
 
       for ( i=0; i<nitem; ++i ) {
         idx            = ext_node_comm->int_comm_index[i];
-        intvalues[idx] = itorecv[i];
+        if( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, intvalues[idx], itorecv[i] ) ) {
+          intvalues[idx] = itorecv[i];
+        }
       }
     }
 
@@ -1347,10 +1344,8 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
       ip  = node2int_node_comm_index1[i];
       ppt = &mesh->point[ip];
       assert( MG_VOK(ppt) );
-      if( PMMG_get_ifcDirection( parmesh, displsgrp, mapgrp, ppt->tmp, intvalues[idx] ) ) {
-        ppt->tmp = intvalues[idx];
-        ppt->flag = *base_front;
-      }
+      ppt->tmp = intvalues[idx];
+      ppt->flag = *base_front;
     }
 
     /* Mark tetra in the ball of interface points */
