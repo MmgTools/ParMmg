@@ -600,4 +600,5 @@ CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
   (non library tests)" OFF  "BUILD_TESTING" OFF )
 
+
 INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
