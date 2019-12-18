@@ -139,132 +139,6 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
-/**
- * \param parmesh pointer to parmesh structure.
- * \return 0 if fail, 1 if success.
- *
- * Check if faces on a parallel communicator connect elements with different
- * references, and tag them as a "true" boundary (thus PARBDYBDY).
- */
-int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
-  PMMG_pGrp      grp;
-  PMMG_pExt_comm ext_face_comm;
-  PMMG_pInt_comm int_face_comm;
-  MMG5_pMesh     mesh;
-  MMG5_pTetra    pt;
-  MMG5_pxTetra   pxt;
-  MPI_Comm       comm;
-  MPI_Status     status;
-  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
-  int            *seenFace,*intvalues,*itosend,*itorecv;
-  int            ngrp,myrank,color,nitem,k,igrp,i,idx,ie,ifac;
-
-  comm   = parmesh->comm;
-  grp    = parmesh->listgrp;
-  myrank = parmesh->myrank;
-  ngrp   = parmesh->ngrp;
-
-  /* intvalues will be used to store tetra ref */
-  int_face_comm = parmesh->int_face_comm;
-  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "intvalues",return 0);
-  intvalues = parmesh->int_face_comm->intvalues;
-
-  /* seenFace will be used to recognize already visited faces */
-  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
-
-  /** Fill the internal communicator with the first ref found */
-  for( igrp = 0; igrp < ngrp; igrp++ ) {
-    grp                       = &parmesh->listgrp[igrp];
-    mesh                      = grp->mesh;
-    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
-    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
-
-    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
-      ie   =  face2int_face_comm_index1[k]/12;
-      ifac = (face2int_face_comm_index1[k]%12)/3;
-      idx  =  face2int_face_comm_index2[k];
-      pt = &mesh->tetra[ie];
-      assert( MG_EOK(pt) && pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-
-      /* Tag face as "true" boundary if its second ref is different */
-      if( !seenFace[idx] )
-        intvalues[idx] = pt->ref;
-      else if( intvalues[idx] != pt->ref )
-        pxt->ftag[ifac] |= MG_PARBDYBDY;
-
-      /* Mark face each time that it's seen */
-      seenFace[idx]++;
-    }
-  }
-
-  /** Send and receive external communicators filled with the tetra ref */
-  for ( k=0; k<parmesh->next_face_comm; ++k ) {
-    ext_face_comm = &parmesh->ext_face_comm[k];
-    nitem         = ext_face_comm->nitem;
-    color         = ext_face_comm->color_out;
-
-    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                return 0);
-    itosend = ext_face_comm->itosend;
-
-    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
-    itorecv = ext_face_comm->itorecv;
-
-    for ( i=0; i<nitem; ++i ) {
-      idx            = ext_face_comm->int_comm_index[i];
-      itosend[i]     = intvalues[idx];
-    }
-
-    MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
-                   comm,&status),return 0 );
-
-    /* Store the info in intvalues */
-    for ( i=0; i<nitem; ++i ) {
-      idx            = ext_face_comm->int_comm_index[i];
-      intvalues[idx] = itorecv[i];
-    }
-  }
-
-  /* Check the internal communicator */
-  for( igrp = 0; igrp < ngrp; igrp++ ) {
-    grp                       = &parmesh->listgrp[igrp];
-    mesh                      = grp->mesh;
-    face2int_face_comm_index1 = grp->face2int_face_comm_index1;
-    face2int_face_comm_index2 = grp->face2int_face_comm_index2;
-
-    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
-      ie   =  face2int_face_comm_index1[k]/12;
-      ifac = (face2int_face_comm_index1[k]%12)/3;
-      idx  =  face2int_face_comm_index2[k];
-      pt = &mesh->tetra[ie];
-      assert( MG_EOK(pt) && pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-
-      /* Faces on the external communicator have been visited only once */
-      if( seenFace[idx] != 1 ) continue;
-
-      /* Tag face as "true" boundary if its ref is different */
-      if( intvalues[idx] != pt->ref )
-        pxt->ftag[ifac] |= MG_PARBDYBDY;
-    }
-  }
-
-  /* Deallocate and return */
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
-  PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
-  for ( k=0; k<parmesh->next_face_comm; ++k ) {
-    ext_face_comm = &parmesh->ext_face_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
-  }
-
-  return 1;
-}
 
 /**
  * \param parmesh pointer to parmesh structure
@@ -313,7 +187,7 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF;
+    PMMG_tag_par_face(pxt,ifac);
   }
 }
 
@@ -375,7 +249,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF;
+    PMMG_tag_par_face(pxt,ifac);
   }
 }
 

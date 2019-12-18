@@ -592,11 +592,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         /* Parallel face (if already boundary, make it recognizable as a true
          * boundary) */
         if ( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        PMMG_tag_par_face(pxt,ifac);
 
         /* Parallel edges */
         for ( j=0; j<3; ++j )
-          pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_edge(pxt,MMG5_iarf[ifac][j]);
       }
 
       for ( j=0; j<3; ++j ) {
@@ -625,7 +625,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
               ++(*shared_pt)[rankVois1];
 
               /* Mark parallel vertex */
-              ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+              PMMG_tag_par_node(ppt);
 
 // TO REMOVE WHEN MMG WILL BE READY
               if ( !ppt->xp ) {

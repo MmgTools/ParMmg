@@ -975,16 +975,16 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
         pxt = &mesh->xtetra[tetraCur->xt];
         pxt->ref[fac] = 0;
         /* If already boundary, make it recognizable as a "true" boundary */
-        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY; 
-        pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY;
+        PMMG_tag_par_face(pxt,fac);
 
         if( !PMMG_splitGrps_updateFaceCommNew( parmesh,grp,mesh,meshOld,pt,fac,adjidx,vidx,posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,pos ) ) return 0;
 
         for ( j=0; j<3; ++j ) {
           /* Update the face and face vertices tags */
-          pxt->tag[MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_edge(pxt,MMG5_iarf[fac][j]);
           ppt = &mesh->point[tetraCur->v[MMG5_idir[fac][j]]];
-          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_node(ppt);
 
           /** Add an xPoint if needed */
 // TO REMOVE WHEN MMG WILL BE READY

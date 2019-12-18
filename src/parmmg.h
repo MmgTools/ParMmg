@@ -546,7 +546,6 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
-int PMMG_parbdySet( PMMG_pParMesh parmesh );
 
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh);
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh);
@@ -556,6 +555,16 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
+
+/* Tags */
+void PMMG_tag_par_node(MMG5_pPoint ppt);
+void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_node(MMG5_pPoint ppt);
+void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+int  PMMG_updateTag(PMMG_pParMesh parmesh);
+int  PMMG_parbdySet( PMMG_pParMesh parmesh );
 
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
@@ -597,7 +606,6 @@ void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
-int  PMMG_updateTag(PMMG_pParMesh parmesh);
 
 /* Tools */
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
