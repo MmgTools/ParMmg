@@ -465,10 +465,10 @@ int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int *permNodGlob ) {
             ppt->flag = mesh->base;
           }
         }
+
+        PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
       }
     }
-
-    PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
   }
 
   return 1;
