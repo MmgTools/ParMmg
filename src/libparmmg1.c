@@ -673,7 +673,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics_grp( parmesh, permNodGlob );
+    ier = PMMG_interpMetrics( parmesh, permNodGlob );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
