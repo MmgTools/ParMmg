@@ -452,7 +452,8 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
   mesh = grp->mesh;
   oldGrp = &parmesh->old_listgrp[igrp];
   oldMesh = oldGrp->mesh;
-  q = qgrps[igrp];
+
+  if( parmesh->info.PROctree_mode ) q = qgrps[igrp];
 
   if( mesh->info.inputMet != 1 ) {
 
