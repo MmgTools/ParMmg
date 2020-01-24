@@ -1,24 +1,9 @@
-# Number of communicators
+ParallelTriangles
 3
-
-# Color
-0
-# Number of items
-1
-# Local and global enumeration
-5 24
-
-# Color
-1
-# Number of items
-2
-# Local and global enumeration
-6 25
-7 26
-
-# Color
-2
-# Number of items
-1
-# Local and global enumeration
-8 28
+0 1
+1 2
+2 1
+5 24 0
+6 25 1
+7 26 1
+8 28 2

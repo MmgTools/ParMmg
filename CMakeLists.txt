@@ -97,6 +97,20 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
+# Only allow building of static OR shared libraries
+SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+FUNCTION (INVERT_BOOL OUTVAR INVAR)
+  IF(${INVAR})
+    SET(${OUTVAR} OFF PARENT_SCOPE)
+  ELSE()
+    SET(${OUTVAR} ON PARENT_SCOPE)
+  ENDIF()
+ENDFUNCTION()
+
+OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
+OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
+INVERT_BOOL("LIBPARMMG_STATIC" ${LIBPARMMG_SHARED})
+
 ############################################################################
 #####
 #####         MPI
@@ -109,11 +123,25 @@ FIND_PACKAGE( MPI COMPONENTS C CXX OPTIONAL_COMPONENTS Fortran )
 SET( CMAKE_C_COMPILE_FLAGS "${CMAKE_C_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
 SET( CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
 
+SET( CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+SET( CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+
 INCLUDE_DIRECTORIES( ${MPI_INCLUDE_PATH} )
 
+# openmpi is bugged (deadlocks) : warn the user
+EXECUTE_PROCESS ( COMMAND grep "OMPI_MAJOR_VERSION"  "${MPI_C_INCLUDE_PATH}/mpi.h"
+  RESULT_VARIABLE CMD_ERROR
+  OUTPUT_VARIABLE CMD_OUTPUT )
+
+IF ( ${CMD_ERROR} MATCHES 0 )
+  MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
+ENDIF()
+
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
+SET( CMAKE_CXX_FLAGS "-DUSE_MPI ${CMAKE_CXX_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
 SET( LIBRARIES ${MPI_C_LIBRARIES} ${LIBRARIES} )
+SET( LIBRARIES ${MPI_CXX_LIBRARIES} ${LIBRARIES} )
 
 EXECUTE_PROCESS ( COMMAND  ${MPIEXEC} --help mapping
   RESULT_VARIABLE CMD_ERROR
@@ -128,10 +156,78 @@ ENDIF()
 
 ############################################################################
 #####
+#####         Scotch
+#####
+############################################################################
+# Find SCOTCH library?
+SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+FIND_PACKAGE(Scotch)
+
+IF ( NOT SCOTCH_FOUND )
+  MESSAGE ( WARNING "Scotch library not found:"
+    "Using scotch reduce the execution time of mmg3d "
+    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
+    "If you have already installed Scotch and want to use it, "
+    "please set the CMake variable or environment variable SCOTCH_DIR "
+    "to your scotch directory.")
+ENDIF ( )
+
+############################################################################
+#####
+#####         VTK (to parse (p)vtp/(p)vtu files )
+#####
+############################################################################
+FIND_PACKAGE(VTK)
+
+###############################################################################
+#####
+#####         Add dependent options
+#####
+###############################################################################
+
+# add Scotch library?
+CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
+  "SCOTCH_FOUND" OFF)
+
+IF( USE_SCOTCH )
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
+ MESSAGE(STATUS
+    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
+  SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
+ENDIF()
+
+# add the VTK library ?
+CMAKE_DEPENDENT_OPTION ( USE_VTK "Use VTK I/O" ON
+  "VTK_FOUND" OFF)
+
+IF ( USE_VTK )
+  ENABLE_LANGUAGE ( CXX )
+  ADD_DEFINITIONS(-DUSE_VTK)
+  MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
+  INCLUDE ( ${VTK_USE_FILE} )
+  SET( LIBRARIES  ${LIBRARIES} "-lstdc++" ${VTK_LIBRARIES} )
+ENDIF ( )
+
+############################################################################
+#####
 #####        MMG (for mesh data structure)
 #####
 ############################################################################
 INCLUDE ( ExternalProject )
+
+# forward scotch configuration
+SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
+  -DSCOTCH_scotch.h_DIRS=${SCOTCH_scotch.h_DIRS}
+  -DSCOTCH_scotch_LIBRARY=${SCOTCH_scotch_LIBRARY}
+  -DSCOTCH_scotcherrexit_LIBRARY=${SCOTCH_scotcherrexit_LIBRARY} )
+
+# forward VTK config
+SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
+
+# forward compiler (for c++ compatibility)
+SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} )
 
 OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
@@ -141,18 +237,29 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 6aacafb9
-    INSTALL_COMMAND  echo "DISABLED"
-    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF -DUSE_SCOTCH=OFF  -DBUILD=MMG3D )
+    GIT_TAG 9bd9ac675c7fef52df46e2cabdd4e9119adad425
+    INSTALL_COMMAND  echo "Mmg installation DISABLED"
+    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
+    ${SCOTCH_CFG} ${VTK_CFG}
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
   EXTERNALPROJECT_GET_PROPERTY ( Mmg SOURCE_DIR )
   SET ( MMG_SOURCE_DIR ${SOURCE_DIR} )
 
+  EXTERNALPROJECT_ADD_STEP ( Mmg reconfigure
+    COMMAND ${CMAKE_COMMAND} -E remove ${MMG_BINARY_DIR}/CMakeCache.txt
+    DEPENDEES update
+    DEPENDERS configure )
+
   INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
 
-  SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d.a)
+  IF( LIBPARMMG_STATIC )
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
+  ELSE()
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
   SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
@@ -163,8 +270,7 @@ IF ( DOWNLOAD_MMG )
   INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
 
 ELSE ( )
-  MESSAGE ( "Manual installation of Mmg:")
-  MESSAGE ( " please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
@@ -184,6 +290,7 @@ ELSE ( )
 
     MESSAGE(STATUS
       "Compilation with Mmg: ${MMG_LIBRARIES}")
+
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
     # Additionnal directories to access the Mmg sources
@@ -336,6 +443,7 @@ FILE(
   GLOB
   pmmg_library_files
   ${PMMG_SOURCE_DIR}/*.c
+  ${PMMG_SOURCE_DIR}/*.cpp
   )
 LIST(REMOVE_ITEM pmmg_library_files
   ${PMMG_SOURCE_DIR}/parmmg.c
@@ -431,6 +539,31 @@ IF ( DOWNLOAD_METIS )
   Add_Dependencies(parmmg Metis)
 ENDIF ( )
 
+############################################################################
+#####
+#####         Print git hash to source file
+#####
+############################################################################
+
+IF (NOT WIN32)
+
+  ADD_CUSTOM_TARGET(GenerateGitHash
+    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
+    COMMENT "Getting git commit hash"
+  )
+  ADD_DEPENDENCIES(parmmg GenerateGitHash)
+  IF( LIBPARMMG_STATIC )
+    ADD_DEPENDENCIES(libparmmg_a GenerateGitHash)
+  ENDIF ()
+  IF( LIBPARMMG_SHARED )
+    ADD_DEPENDENCIES(libparmmg_so GenerateGitHash)
+  ENDIF ()
+
+  INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})
+
+ENDIF ()
+
 ###############################################################################
 #####
 #####         Create API Documentation
@@ -443,7 +576,7 @@ IF(DOXYGEN_FOUND)
   CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile @ONLY)
 
-  ADD_CUSTOM_TARGET(fmg_doc
+  ADD_CUSTOM_TARGET(parmmg_doc
     COMMAND ${DOXYGEN_EXECUTABLE}
     ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
     # COMMAND ${CMAKE_COMMAND} -E chdir
@@ -456,7 +589,7 @@ IF(DOXYGEN_FOUND)
     )
 
   ADD_CUSTOM_TARGET(doc
-    DEPENDS fmg_doc
+    DEPENDS parmmg_doc
     COMMENT "Generating PARMMG API documentation with Doxygen.
      Open the doc/doxygen/html/index.html file to see it" VERBATIM
     )
@@ -466,5 +599,6 @@ OPTION ( BUILD_TESTING "Enable / Disable tests" OFF )
 CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
   (non library tests)" OFF  "BUILD_TESTING" OFF )
+
 
 INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )

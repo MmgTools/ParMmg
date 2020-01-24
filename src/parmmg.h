@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file parmmg.h
  * \brief internal functions headers for parmmg
@@ -140,10 +163,10 @@ extern "C" {
 
 /**
  *
- * Split groups for metis (split_grps)
+ * Split groups for redistribution (split_grps)
  *
  */
-#define PMMG_GRPSPL_METIS_TARGET 1
+#define PMMG_GRPSPL_DISTR_TARGET 1
 
 /**
  *
@@ -152,6 +175,12 @@ extern "C" {
  */
 #define PMMG_GRPSPL_MMG_TARGET 2
 
+/**
+ *
+ * Use custom partitioning saved in the reference field (1=yes, 0=no)
+ *
+ */
+#define PMMG_PREDEF_PART 0
 
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
@@ -163,11 +192,16 @@ static const int PMMG_REMESHER_NGRPS_MAX = 100;
 static const int PMMG_RATIO_MMG_METIS = -100;
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_METIS_NGRPS_MAX = 1000;
+static const int PMMG_REDISTR_NGRPS_MAX = 1000;
 
 /**< Subgroups minimum size to try to avoid empty partitions */
-static const int PMMG_METIS_NELEM_MIN = 6;
+static const int PMMG_REDISTR_NELEM_MIN = 6;
 
+/**< Allowed imbalance ratio between current and demanded groups size */
+static const double PMMG_GRPS_RATIO = 2.0;
+
+/**< Number of elements layers for interface displacement */
+static const int PMMG_MVIFCS_NLAYERS = 2;
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -366,6 +400,10 @@ static const int PMMG_METIS_NELEM_MIN = 6;
     oldMemMax   = parmesh->memCur;                                      \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
     }                                                                   \
     parmesh->memMax += myavailable;                                       \
@@ -387,6 +425,10 @@ static const int PMMG_METIS_NELEM_MIN = 6;
                                                                         \
     for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
       parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
+      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
+        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
+        return 0;                                                       \
+      }                                                                 \
       myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
     }                                                                   \
     myavailable /= parmesh->ngrp;                                       \
@@ -469,10 +511,13 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 /* Mesh distrib */
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
+int PMMG_partBcast_mesh( PMMG_pParMesh parmesh );
 int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
-int PMMG_split_grps( PMMG_pParMesh,int,int );
+int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
+int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
 /* Load Balancing */
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part);
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
@@ -483,14 +528,14 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
-int PMMG_interpMetrics( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps );
+int PMMG_interpMetrics( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int* );
+int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob);
 void PMMG_storeScalingParam( PMMG_pParMesh parmesh,int igrp );
 
 /* Octrees */
 int PMMG_initPROctree(MMG5_pMesh mesh,MMG3D_pPROctree* q, int nv);
 void PMMG_freePROctrees(PMMG_pParMesh parmesh,MMG3D_pPROctree *q);
 int PMMG_getPROctree_leaves( MMG3D_pPROctree q,int64_t coord,int **leaves );
-
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
 void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);
@@ -516,13 +561,35 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
 
+/* Tags */
+void PMMG_tag_par_node(MMG5_pPoint ppt);
+void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_node(MMG5_pPoint ppt);
+void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+int  PMMG_updateTag(PMMG_pParMesh parmesh);
+int  PMMG_parbdySet( PMMG_pParMesh parmesh );
+
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
 int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh );
 int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp,PMMG_pGrp grpJ );
 int PMMG_mergeGrpJinI_interfaceTetra( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp );
 int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp,PMMG_pGrp );
-int PMMG_merge_grps ( PMMG_pParMesh parmesh );
+int PMMG_merge_grps ( PMMG_pParMesh parmesh,int );
+
+/* Move interfaces */
+int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps,int target );
+int PMMG_part_getProcs( PMMG_pParMesh parmesh,int *part );
+int PMMG_fix_contiguity( PMMG_pParMesh parmesh,int *counter );
+int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part );
+int PMMG_fix_contiguity_split( PMMG_pParMesh parmesh,idx_t ngrp,idx_t *part );
+int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *vtxdist,int *map,int *base_front );
+int PMMG_mark_interfacePoints( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int* vtxdist,int* priorityMap );
+int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **vtxdist,int **map );
+int PMMG_get_ifcDirection( PMMG_pParMesh parmesh,int *vtxdist,int *map,int color0,int color1 );
 
 /* Packing */
 int PMMG_update_node2intPackedTetra( PMMG_pGrp grp );
@@ -544,14 +611,13 @@ void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
-int  PMMG_updateTag(PMMG_pParMesh parmesh);
 
 /* Tools */
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
-int PMMG_qualhisto( PMMG_pParMesh parmesh,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,char );
+int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
+int PMMG_prilen( PMMG_pParMesh parmesh,char,int );
 int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
 
 /* Variadic_pmmg.c */

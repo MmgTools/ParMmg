@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmg_tools.c
  * \brief C API functions definitions for PARMMG library.
@@ -52,13 +75,17 @@ int PMMG_defaultValues( PMMG_pParMesh parmesh )
             parmesh->memGloMax/MMG5_MILLION);
     fprintf(stdout,"\n** Parameters\n");
     fprintf( stdout,"# of remeshing iterations (-niter)        : %d\n",parmesh->niter);
-    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
-    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
-    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",
-             abs(PMMG_RATIO_MMG_METIS) );
+    fprintf( stdout,"repartitioning mode                       : PMMG_REDISTRIBUTION_ifc_displacement\n");
+//    fprintf( stdout,"loadbalancing_mode (not yet customizable) : PMMG_LOADBALANCING_metis\n");
+//    fprintf( stdout,"target mesh size for Mmg (-mesh-size) : %d\n",abs(PMMG_REMESHER_TARGET_MESH_SIZE));
+//    fprintf( stdout,"ratio: # meshes / # metis super nodes (-metis-ratio) : %d\n",abs(PMMG_RATIO_MMG_METIS) );
+    fprintf( stdout,"# of layers for interface displacement (-nlayers) : %d\n",PMMG_MVIFCS_NLAYERS);
+    fprintf( stdout,"allowed imbalance between current and desired groups size (-groups-ratio) : %f\n",PMMG_GRPS_RATIO);
 
 #ifdef USE_SCOTCH
-    fprintf(stdout,"SCOTCH renumbering disabled (not yet customizable)\n");
+    fprintf(stdout,"SCOTCH renumbering                  : enabled\n");
+#else
+    fprintf(stdout,"SCOTCH renumbering                  : disabled\n");
 #endif
 
     if ( parmesh->listgrp[0].mesh ) {
@@ -81,10 +108,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n** Generic options :\n");
     fprintf(stdout,"-h         Print this message\n");
     fprintf(stdout,"-v [n]     Tune ParMmg level of verbosity, [-10..10]\n");
-    // fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
+    fprintf(stdout,"-mmg-v [n] Tune Mmg level of verbosity, [-10..10]\n");
     fprintf(stdout,"-m [n]     Set maximal memory size to n Mbytes\n");
     fprintf(stdout,"-d         Turn on debug mode for ParMmg\n");
-    // fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
+    fprintf(stdout,"-mmg-d     Turn on debug mode for Mmg\n");
     fprintf(stdout,"-val       Print the default parameters values\n");
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
@@ -98,6 +125,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
     fprintf(stdout,"-mesh-size    val  target mesh size for the remesher\n");
     fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
+    fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
+    fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -118,7 +147,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-octree val  Specify the max number of points per octree cell \n");
 #endif
 #ifdef USE_SCOTCH
-    //fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
+    fprintf(stdout,"-rn [n]      Turn on or off the renumbering using SCOTCH [1/0] \n");
 #endif
     fprintf(stdout,"\n");
 
@@ -178,6 +207,29 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'g':
+        if ( !strcmp(argv[i],"-groups-ratio") ) {
+
+          if ( ++i < argc ) {
+            if ( isdigit(argv[i][0]) ) {
+
+              if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_groupsRatio,atof(argv[i])) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+            else {
+              i--;
+            }
+          }
+          else {
+            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+             ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        break;
+
       case 'm':
         if ( !strcmp(argv[i],"-mmg-v") ) {
 
@@ -291,7 +343,19 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
-        } else {
+        } else if ( ( 0 == strncmp( argv[i], "-nlayers", 5 ) ) && ( ( i + 1 ) < argc ) ) {
+          ++i;
+          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
+            parmesh->info.ifc_layers = atoi( argv[i] );
+          } else {
+            parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+            fprintf( stderr,
+                     "\nWrong number of layers for interface displacement (%s).\n",argv[i]);
+
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
@@ -307,10 +371,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 #ifdef USE_SCOTCH
       case 'r':
         if ( !strcmp(argv[i],"-rn") ) {
-          fprintf( stderr,
-                   "\nScoth renumbering not yet available in ParMmg\n");
-          ret_val = 0;
-          goto fail_proc;
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 #endif
@@ -352,7 +415,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   // parmmg finished parsing arguments, the rest will be handled by mmg3d
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
-                          parmesh->listgrp[0].met ) ) {
+                          parmesh->listgrp[0].met,
+                          NULL ) ) {
     ret_val = 0;
     goto fail_proc;
   }

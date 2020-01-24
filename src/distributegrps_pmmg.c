@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file distributegrps_pmmg.c
  * \brief Group distribution on the processors
@@ -913,9 +936,11 @@ low_fail:
 end:
 
   /** Step 3: Update the parmesh */
-  PMMG_DEL_MEM(parmesh,parmesh->listgrp,PMMG_Grp,"listgrp");
-  parmesh->listgrp = grps;
-  parmesh->ngrp    = ngrp;
+  if( parmesh->ngrp ) {
+    PMMG_DEL_MEM(parmesh,parmesh->listgrp,PMMG_Grp,"listgrp");
+    parmesh->listgrp = grps;
+    parmesh->ngrp    = ngrp;
+  }
 
   /* Pack the communicators */
   if ( !PMMG_pack_nodeCommunicators(parmesh) ) ier = -1;
@@ -1806,20 +1831,22 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   }
 
   /** Pack metric */
-  if ( ier_sol ) {
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        met->m[size*k + i] = *( (double *) *buffer);
-        *buffer += sizeof(double);
+  if( np ) {/* only if the metrics size is non null, i.e. not default metrics */
+    if ( ier_sol ) {
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          met->m[size*k + i] = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
-  }
-  else {
-    /* The solution array can't be allocated */
-    for ( k=1; k<=mesh->np; ++k ) {
-      for ( i=0; i<size; ++i ) {
-        ddummy = *( (double *) *buffer);
-        *buffer += sizeof(double);
+    else {
+      /* The solution array can't be allocated */
+      for ( k=1; k<=mesh->np; ++k ) {
+        for ( i=0; i<size; ++i ) {
+          ddummy = *( (double *) *buffer);
+          *buffer += sizeof(double);
+        }
       }
     }
   }
@@ -2515,7 +2542,11 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
               ier = 0 );
 
   ier0 = 1;
-  PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
+  if( ngrp )
+    PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
+                    ier0 = 0;ier = 0 );
+  else
+    PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
                   ier0 = 0;ier = 0 );
 
   if ( ier0 )
@@ -2777,7 +2808,6 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  * Deallocate the \a part array.
  *
  */
-static inline
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   MPI_Comm       comm;
   int            myrank,nprocs;
@@ -2961,30 +2991,37 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
-  if ( !ngrp ) {
-    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
-            __func__,__LINE__);
-    return 0;
-  }
+//  if ( !ngrp ) {
+//    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
+//            __func__,__LINE__);
+//    return 0;
+//  }
 
   /** Get the new partition of groups (1 group = 1 metis node) */
   part = NULL;
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  switch ( parmesh->info.loadbalancing_mode ) {
+  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
 
+    ier = PMMG_part_getProcs( parmesh, part );
+
+  } else {
+
+    switch ( parmesh->info.loadbalancing_mode ) {
+ 
 #ifdef USE_PARMETIS
-  case PMMG_LOADBALANCING_parmetis:
-    ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
-    break;
+    case PMMG_LOADBALANCING_parmetis:
+      ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
+      break;
 #endif
 
-  case PMMG_LOADBALANCING_metis:
-  default:
+    case PMMG_LOADBALANCING_metis:
+    default:
 
-    ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
-    break;
+      ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
+      break;
+    }
   }
 
   if ( !ier )

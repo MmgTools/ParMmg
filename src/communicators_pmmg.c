@@ -1,9 +1,33 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file communicators_pmmg.c
  * \brief Functions related to the communicators construction
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (Inria Soft)
  * \author Nikos Pattakos (Inria)
+ * \author Luca Cirrottola (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
  */
@@ -115,6 +139,7 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+
 /**
  * \param parmesh pointer to parmesh structure
  *
@@ -162,7 +187,7 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+    PMMG_tag_par_face(pxt,ifac);
   }
 }
 
@@ -224,7 +249,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     pt  = &mesh->tetra[ie];
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
-    pxt->ftag[ifac] |= MG_PARBDY + MG_REQ + MG_NOSURF;
+    PMMG_tag_par_face(pxt,ifac);
   }
 }
 

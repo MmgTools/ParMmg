@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file libparmmg1.c
  * \brief Wrapper for the parallel remeshing library.
@@ -37,6 +60,32 @@ int PMMG_update_node2intPackedVertices( PMMG_pGrp grp ) {
 
     node2int_node_comm_index1[k] = ppt->tmp;
   }
+  return 1;
+}
+
+/**
+ * \param grp pointer toward the current group
+ * \param permNodGlob pointer toward the array storing the node permutation
+ *
+ * \return 1 if success
+ *
+ * Update the nodal communicators of the group \a grp after point renumbering
+ * (with scotch).
+ *
+ */
+static inline
+int PMMG_update_node2intRnbg(PMMG_pGrp grp, int *permNodGlob) {
+  int *node2int_node_comm_index1;
+  int k;
+
+  if ( !grp->mesh->info.renum ) return 1;
+
+  node2int_node_comm_index1 = grp->node2int_node_comm_index1;
+
+  for (k=0; k<grp->nitem_int_node_comm; ++k) {
+    node2int_node_comm_index1[k] = permNodGlob[node2int_node_comm_index1[k]];
+  }
+
   return 1;
 }
 
@@ -283,6 +332,8 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
  * \param igrp index of the group that we want to treat
  * \param facesData list the node vertices of the interface faces
  * present in the list of interface triangles of the group.
+ * \param permNodGlob arrayt storing the nodal permutation if stoch renumbering
+ * is enabled
  *
  * \return 1 if success, 0 if fail.
  *
@@ -294,7 +345,7 @@ int PMMG_store_faceVerticesInIntComm( PMMG_pParMesh parmesh, int igrp,
  */
 static inline
 int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
-                                         int *facesData ) {
+                                         int *facesData, int *permNodGlob ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
@@ -346,6 +397,14 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     ib = facesData[3*k+1];
     ic = facesData[3*k+2];
 
+#ifdef USE_SCOTCH
+    if ( permNodGlob && mesh->info.renum ) {
+      ia = permNodGlob[ia];
+      ib = permNodGlob[ib];
+      ic = permNodGlob[ic];
+    }
+#endif
+
     hashVal = MMG5_hashGetFace(&hash,ia,ib,ic);
     assert( hashVal );
 
@@ -373,6 +432,15 @@ facesData:
   return ier;
 }
 
+static inline void PMMG_scotch_message( int8_t *warnScotch ) {
+
+  fprintf(stdout, "\n  ## Warning: %s: Unable to renumber mesh entites.\n"
+          "Renumbering disabled.\n",__func__);
+  *warnScotch = 1;
+
+  return;
+}
+
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
@@ -392,9 +460,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MMG5_pSol  met;
   MMG3D_pPROctree *q;
   size_t     oldMemMax,available;
-  int        it,ier,ier_end,ieresult,i,k, *facesData;
   mytime     ctim[TIMEMAX];
-  int8_t     tim;
+  int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
+  int8_t     tim,warnScotch;
   char       stim[32];
 
 
@@ -408,7 +476,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_split_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0 );
+  ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
+                         PMMG_REDISTRIBUTION_graph_balancing );
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -444,8 +513,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
   /** Mesh adaptation */
+  warnScotch = 0;
   for ( it = 0; it < parmesh->niter; ++it ) {
-
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
       if ( it > 0 ) {
@@ -475,6 +544,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.fem;
 
@@ -495,8 +565,30 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       else {
         /* We can remesh */
 
+        permNodGlob = NULL;
+
+#ifdef USE_SCOTCH
+        /* Allocation of the array that will store the node permutation */
+        PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+                    PMMG_scotch_message(&warnScotch) );
+        if ( permNodGlob ) {
+          for ( k=1; k<=mesh->np; ++k ) {
+            permNodGlob[k] = k;
+          }
+        }
+
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
+
+        /* renumerotation if available */
+        if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+        {
+          PMMG_scotch_message(&warnScotch);
+        }
+#else
+        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
+                                               available,oldMemMax);
+#endif
 
         /* Mark reinitialisation in order to be able to remesh all the mesh */
         mesh->mark = 0;
@@ -508,7 +600,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         /** Call the remesher */
         /* Here we need to scale the mesh */
-        if ( !MMG5_scaleMesh(mesh,met) ) { goto strong_failed; }
+        if ( !MMG5_scaleMesh(mesh,met,NULL) ) { goto strong_failed; }
 
         if ( !mesh->adja ) {
           if ( !MMG3D_hashTetra(mesh,0) ) {
@@ -522,9 +614,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           if( !PMMG_initPROctree( mesh, &q[i], 1000 ) ) goto strong_failed;
 
 #ifdef PATTERN
-        ier = MMG5_mmg3d1_pattern( mesh, met );
+        ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
 #else
-        ier = MMG5_mmg3d1_delone( mesh, met );
+        ier = MMG5_mmg3d1_delone( mesh, met, permNodGlob );
 #endif
 
         if ( !ier ) {
@@ -541,22 +633,36 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
 
         /** Update interface tetra indices in the face communicator */
-        if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData) ) {
+        if ( ! PMMG_update_face2intInterfaceTetra(parmesh,i,facesData,permNodGlob) ) {
           fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
           goto strong_failed;
         }
 
+
+#ifdef USE_SCOTCH
+        /** Update nodal communicators if node renumbering is enabled */
+        if ( mesh->info.renum &&
+             !PMMG_update_node2intRnbg(&parmesh->listgrp[i],permNodGlob) ) {
+          fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+          goto strong_failed;
+        }
+#endif
+
         PMMG_storeScalingParam( parmesh, i );
-        if ( !MMG5_unscaleMesh(mesh,met) ) { goto strong_failed; }
+        if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
 
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
 
+        if ( !PMMG_copyMetrics_point( &parmesh->listgrp[i],&parmesh->old_listgrp[i],
+                                      permNodGlob) ) {
+          goto strong_failed;
+        }
+
         if ( !ier ) { break; }
       }
-#warning Luca: Check modifications in Mmg
       /* Reset the mesh->gap field in case Mmg have modified it */
-      mesh->gap = 0.2;
+      mesh->gap = MMG5_GAP;
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -576,7 +682,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics( parmesh, q );
+    ier = PMMG_interpMetrics( parmesh, q, permNodGlob );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -631,7 +737,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     printf("\n");
   }
 
-  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA );
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
@@ -663,7 +769,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_merge_grps(parmesh);
+  ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
@@ -681,7 +787,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
-    PMMG_prilen(parmesh,0);
+    PMMG_prilen(parmesh,0,0);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);
@@ -709,7 +815,7 @@ failed_handling:
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(ON,&(ctim[5]));
   }
-  if ( !PMMG_merge_grps(parmesh) ) {
+  if ( !PMMG_merge_grps(parmesh,0) ) {
     fprintf(stderr,"\n  ## Groups merging problem. Exit program.\n");
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }

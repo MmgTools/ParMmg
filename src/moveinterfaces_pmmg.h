@@ -21,37 +21,26 @@
 ** =============================================================================
 */
 
-#ifndef MPITYPES_PMMG_H
-#define MPITYPES_PMMG_H
 /**
- * \file mpitypes.h
- * \brief Mpi types management header file.
- * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
- * \author Algiane Froehly (Inria/UBordeaux)
+ * \file moveinterfaces_pmmg.h
+ * \brief moveinterfaces_pmmg.c header file
+ * \author Luca Cirrottola (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
- *
  */
-#include <mpi_pmmg.h>
-#include "libmmgtypes.h"
+#ifndef MOVEINTERFACES_PMMG_H
+#define MOVEINTERFACES_PMMG_H
 
-int PMMG_create_MPI_lightPoint(MPI_Datatype *mpi_light_point);
+#include "parmmg.h"
 
-int PMMG_create_MPI_Point(MPI_Datatype *mpi_point);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-int PMMG_create_MPI_xPoint(MPI_Datatype *mpi_xPoint);
+void PMMG_set_color_tetra( PMMG_pParMesh parmesh,int igrp );
 
-int PMMG_create_MPI_lightTetra(MPI_Datatype *mpi_light_tetra);
-
-int PMMG_create_MPI_Tetra(MPI_Datatype *mpi_tetra);
-
-int PMMG_create_MPI_Edge(MPI_Datatype *mpi_edge);
-
-int PMMG_create_MPI_Tria(MPI_Datatype *mpi_tria);
-
-int PMMG_create_MPI_xTetra(MPI_Datatype *mpi_xtetra);
-
-int PMMG_Free_MPI_meshDatatype( MPI_Datatype*,MPI_Datatype*,
-                                MPI_Datatype*,MPI_Datatype*);
+#ifdef __cplusplus
+}
+#endif
 
 #endif

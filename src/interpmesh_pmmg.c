@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file interpmesh_pmmg.c
  * \brief Interpolate data from a background mesh to the current mesh.
@@ -234,12 +257,12 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
 
         /*¨Skip already analized tetras */
         if( ptr->flag == mesh->base ) continue;
-  
+
         /** Exit the loop if you find the element */
         if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
                                      barycoord ) ) break;
-  
-  
+
+
         /** Save element index (with negative sign) if it is the closest one */
         if( fabs(barycoord[0].val)*vol < closestDist ) {
           closestDist = fabs(barycoord[0].val)*vol;
@@ -268,7 +291,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
 
         /*¨Skip already analized tetras */
         if( ptr->flag == mesh->base ) continue;
-  
+
         /** Exit the loop if you find the element */
         if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
                                      barycoord ) ) break;
@@ -297,7 +320,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG3D_pPROctree q, int useOctree,
     }
 
   }
-  
+
   return idxTet;
 }
 
@@ -339,7 +362,80 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
   return 1;
 }
 
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp ) {
+/**
+ * \param grp pointer to the current group structure.
+ * \param oldGrp pointer to the bqckground group structure.
+ * \param permNodGlob permutation array for nodes.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Copy the metric of a freezed interface point.
+ *
+ */
+int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
+  MMG5_pMesh     mesh,oldMesh;
+  MMG5_pSol      met,oldMet;
+  MMG5_pPoint    ppt;
+  int            isize,nsize,ip;
+
+  mesh    = grp->mesh;
+  if ( !mesh->info.inputMet || mesh->info.hsiz > 0.0 ) return 1;
+
+  met     = grp->met;
+  oldMesh = oldGrp->mesh;
+  oldMet  = oldGrp->met;
+  nsize   = met->size;
+
+#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
+
+  /** Freezed points: Copy the  metrics  */
+  if ( (!oldGrp->mesh->info.renum) || !permNodGlob ) {
+    /* No permutation array: simple copy */
+    for( ip = 1; ip <= oldMesh->np; ++ip ) {
+      ppt = &oldMesh->point[ip];
+      if( !MG_VOK(ppt) ) continue;
+
+      ppt->flag = mesh->base;
+      if( ppt->tag & MG_REQ ) {
+        for( isize = 0; isize<nsize; isize++ ) {
+          met->m[nsize*ip+isize] = oldMet->m[nsize*ip+isize];
+        }
+      }
+    }
+  }
+  else {
+    /* Due to the scotch renumbering we must copy from the old mesh to the
+     * new one */
+    for( ip = 1; ip <= oldMesh->np; ++ip ) {
+      ppt = &oldMesh->point[ip];
+      if( !MG_VOK(ppt) ) continue;
+
+      ppt->flag = mesh->base;
+      if( ppt->tag & MG_REQ ) {
+        for( isize = 0; isize<nsize; isize++ ) {
+          met->m[nsize*permNodGlob[ip]+isize] = oldMet->m[nsize*ip+isize];
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
+
+/**
+ * \param parmesh pointer to the parmesh structure.
+ * \param permNodGlob permutation array of nodes.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Interpolate metrics for all groups from background to current meshes.
+ *  Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
+ *  - if the metrics is constant, recompute it;
+ *  - else, interpolate the non-constant metrics.
+ *
+ */
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igrp,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG3D_pPROctree q;
@@ -416,41 +512,47 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
           /* Skip already interpolated points */
           if( ppt->flag == mesh->base ) continue;
 
-          /** Locate point in the old mesh */
-          istart = PMMG_locatePoint( oldMesh, q, parmesh->info.PROctree_mode,
-                                     ppt, istart,
-                                     faceAreas, barycoord );
-          if( !istart ) {
-            fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
-                    " point %d not found, coords %e %e %e\n",__func__,
-                    parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
-                    mesh->point[ip].c[1],mesh->point[ip].c[2]);
-            return 0;
-          } else if( istart < 0 ) {
-            if ( !mmgWarn ) {
-              mmgWarn = 1;
-              if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
-                        " found, coords %e %e %e\n",__func__,parmesh->myrank,
-                        igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                        mesh->point[ip].c[2]);
-              }
-            }
-            istart = -istart;
-          }
+          if( ppt->tag & MG_REQ ) {
+            continue; // treated by copyMetric_points
+          } else {
 
-          /** Interpolate point metrics */
-          ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
-                                         ip,barycoord);
+            /** Locate point in the old mesh */
+            istart = PMMG_locatePoint( oldMesh, q, parmesh->info.PROctree_mode,
+                                     ppt, istart,
+                                       faceAreas, barycoord );
+            if( !istart ) {
+              fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
+                      " point %d not found, coords %e %e %e\n",__func__,
+                      parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
+                      mesh->point[ip].c[1],mesh->point[ip].c[2]);
+              return 0;
+            } else if( istart < 0 ) {
+              if ( !mmgWarn ) {
+                mmgWarn = 1;
+                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+                  fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
+                          " found, coords %e %e %e\n",__func__,parmesh->myrank,
+                          igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                          mesh->point[ip].c[2]);
+                }
+              }
+              istart = -istart;
+            }
+
+            /** Interpolate point metrics */
+            ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
+                                           ip,barycoord);
+          }
 
           /* Flag point as interpolated */
           ppt->flag = mesh->base;
         }
       }
+
+      PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
     }
   }
 
-  PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
   return 1;
 }
 
@@ -465,13 +567,12 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,MMG3D_pPROctree *qgrps,int igr
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics( PMMG_pParMesh parmesh, MMG3D_pPROctree *q ) {
+int PMMG_interpMetrics( PMMG_pParMesh parmesh,MMG3D_pPROctree *q,int *permNodGlob ) {
   int         igrp,ier;
 
   /** Loop on current groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
-    if( !PMMG_interpMetrics_grp( parmesh, q, igrp ) )
-      return 0;
+    if( !PMMG_interpMetrics_grp( parmesh, q, igrp, permNodGlob ) ) return 0;
 
   return 1;
 }

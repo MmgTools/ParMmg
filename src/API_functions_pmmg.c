@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file API_functions_pmmg.c
  * \brief C API functions definitions for PARMMG library.
@@ -123,6 +146,9 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug      = PMMG_NUL;
   parmesh->niter       = PMMG_NITER;
   parmesh->info.fem    = MMG5_FEM;
+  parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
+  parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+  parmesh->info.grps_ratio = PMMG_GRPS_RATIO;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
   parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
   parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
@@ -140,6 +166,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->comm   = comm;
 
   MPI_Initialized(&flag);
+  parmesh->size_shm = 1;
   if ( flag ) {
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
@@ -299,6 +326,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;
     break;
+  case PMMG_IPARAM_ifcLayers :
+    parmesh->info.ifc_layers = val;
+    break;
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
     break;
@@ -378,7 +408,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
+//      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
+      fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented!\n");
     }
     break;
   case PMMG_IPARAM_numberOfLocalParam :
@@ -470,6 +501,9 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
         return 0;
       }
     }
+    break;
+  case PMMG_DPARAM_groupsRatio :
+    parmesh->info.grps_ratio = val;
     break;
   default :
     fprintf(stderr,"  ## Error: unknown type of parameter\n");
@@ -1183,10 +1217,16 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
   /** 1) Check number of communicators */
-  if( parmesh->next_face_comm != ncomm ) return 0;
+  if( parmesh->next_face_comm != ncomm ) {
+    fprintf(stderr,"## Wrong number of face communicators in function %s\n",__func__);
+    return 0;
+  }
 
   /** 2) Create hash table for proc pairs */
-  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm, 8*ncomm) ) return 0;
+  if( !MMG5_hashNew(mesh, &hashPair, 6*ncomm, 8*ncomm) ) {
+    fprintf(stderr,"## Impossible to create hash table for process pairs in function %s\n",__func__);
+    return 0;
+  }
   for( icomm = 0; icomm < ncomm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     /* Store IDs as IDs+1, so that 0 value can be used for error handling */
@@ -1221,8 +1261,14 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   }
 
   /** 4) Create boundary and hash table */
-  if( MMG3D_bdryBuild(mesh) == -1) return 0;
-  if ( ! MMG5_hashNew(mesh,&hash,0.51*count,1.51*count) ) return 0;
+  if( MMG3D_bdryBuild(mesh) == -1) {
+    fprintf(stderr,"## Impossible to build boundary in function %s\n",__func__);
+    return 0;
+  }
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*count,1.51*count) ) {
+    fprintf(stderr,"## Impossible to build hash table for boundary faces in function %s\n",__func__);
+    return 0;
+  }
 
   /* Hash triangles in the internal communicator */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
@@ -1236,7 +1282,7 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     /* Store ID+1 to use 0 value for error handling */
     if( !MMG5_hashFace(mesh,&hash,ia,ib,ic,idx+1) ) {
       fprintf(stderr,"## Impossible to hash face (%d,%d,%d) on proc %d. ##\n",ia,ib,ic,parmesh->myrank);
-       MMG5_DEL_MEM(mesh,hash.item);
+      MMG5_DEL_MEM(mesh,hash.item);
       return 0;
     }
   }

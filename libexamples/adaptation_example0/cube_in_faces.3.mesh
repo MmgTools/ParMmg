@@ -33,4 +33,15 @@ Triangles
 4 2 6 4
 
 
+ParallelTriangles
+3
+0 1
+1 2
+2 1
+5 24 0
+6 25 1
+7 26 1
+8 28 2
+
+
 End

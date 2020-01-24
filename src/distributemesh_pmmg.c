@@ -1,3 +1,26 @@
+/* =============================================================================
+**  This file is part of the parmmg software package for parallel tetrahedral
+**  mesh modification.
+**  Copyright (c) Bx INP/Inria/UBordeaux, 2017-
+**
+**  parmmg is free software: you can redistribute it and/or modify it
+**  under the terms of the GNU Lesser General Public License as published
+**  by the Free Software Foundation, either version 3 of the License, or
+**  (at your option) any later version.
+**
+**  parmmg is distributed in the hope that it will be useful, but WITHOUT
+**  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+**  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
+**  License for more details.
+**
+**  You should have received a copy of the GNU Lesser General Public
+**  License and of the GNU General Public License along with parmmg (in
+**  files COPYING.LESSER and COPYING). If not, see
+**  <http://www.gnu.org/licenses/>. Please read their terms carefully and
+**  use this copy of the parmmg distribution only if you accept them.
+** =============================================================================
+*/
+
 /**
  * \file distributemesh.c
  * \brief Distribute the mesh on the processors.
@@ -365,7 +388,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
 static inline
 int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
   MMG5_pTetra pt,ptnew;
-  int         ne,nbl,k;
+  int         ne,nbl,k,iadr;
 
   ne  = 0;
   nbl = 1;
@@ -388,7 +411,16 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
     }
     ++nbl;
   }
-  mesh->ne = ne;
+  mesh->ne = mesh->nei = ne;
+
+  /* Treat empty tetra (prepare to link mesh) */
+  for( k=mesh->ne+1; k<= mesh->nemax; k++ ) {
+    pt = &mesh->tetra[k];
+    memset(pt,0,sizeof(MMG5_Tetra));
+    iadr = 4*(k-1) + 1;
+    if ( mesh->adja )
+      memset(&mesh->adja[iadr],0,4*sizeof(int));
+  }
 
   return 1;
 }
@@ -408,7 +440,8 @@ int PMMG_packTetraOnProc(MMG5_pMesh mesh, int rank) {
  */
 static inline
 int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
-                     int *pointPerm,int *xPointPerm,int *xTetraPerm) {
+                     int *pointPerm,int *xPointPerm,int *xTetraPerm,
+                     int np,int nxp,int nxt) {
   int k;
 
   /** Compact xtetra on the proc: in place permutations */
@@ -425,6 +458,21 @@ int PMMG_permuteMesh(MMG5_pMesh mesh,MMG5_pSol met,
   for ( k=1; k<=mesh->xp; ++k )
     while ( xPointPerm[k] != k && xPointPerm[k] )
       PMMG_swapxPoint(mesh->xpoint,xPointPerm,k,xPointPerm[k]);
+
+  mesh->np = mesh->npi = np;
+  met->np  = met->npi  = np;
+  mesh->xp = nxp;
+  mesh->xt = nxt;
+
+  /* Treat empty points (prepare to link mesh) */
+  for( k=mesh->np+1;k<=mesh->npmax;k++ ) {
+    /* Set tangent field of point to 0 */
+    mesh->point[k].n[0] = 0;
+    mesh->point[k].n[1] = 0;
+    mesh->point[k].n[2] = 0;
+  }
+  mesh->point[mesh->npmax-1].tmp = 0;
+  mesh->point[mesh->npmax].tmp   = 0;
 
   return 1;
 }
@@ -544,11 +592,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         /* Parallel face (if already boundary, make it recognizable as a true
          * boundary) */
         if ( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        PMMG_tag_par_face(pxt,ifac);
 
         /* Parallel edges */
         for ( j=0; j<3; ++j )
-          pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_edge(pxt,MMG5_iarf[ifac][j]);
       }
 
       for ( j=0; j<3; ++j ) {
@@ -577,7 +625,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
               ++(*shared_pt)[rankVois1];
 
               /* Mark parallel vertex */
-              ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+              PMMG_tag_par_node(ppt);
 
 // TO REMOVE WHEN MMG WILL BE READY
               if ( !ppt->xp ) {
@@ -643,6 +691,28 @@ fail_alloc3:
 fail_alloc2:
   PMMG_DEL_MEM(parmesh,*shared_pt,int,"deallocate shared_pt");
   return ret_val;
+}
+
+static inline
+int PMMG_create_empty_communicators( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp       grp;
+
+  grp    = &parmesh->listgrp[0];
+
+  /** Internal communicators allocation */
+  parmesh->next_node_comm = 0;
+  parmesh->next_face_comm = 0;
+  grp->nitem_int_node_comm = 0;
+  grp->nitem_int_face_comm = 0;
+
+  PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,
+              "allocating int_node_comm",return 0);
+  PMMG_CALLOC(parmesh,parmesh->int_face_comm,1,PMMG_Int_comm,
+              "allocating int_face_comm",return 0);
+  parmesh->int_node_comm->nitem = 0;
+  parmesh->int_face_comm->nitem = 0;
+
+  return 1;
 }
 
 /**
@@ -894,13 +964,8 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
   if ( !PMMG_packTetraOnProc(mesh,rank) ) return 0;
 
   /** Mesh permutations */
-  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm) )
+  if ( !PMMG_permuteMesh(mesh,met,pointPerm,xPointPerm,xTetraPerm,np,nxp,nxt) )
     return 0;
-
-  mesh->np = np;
-  met->np  = np;
-  mesh->xp = nxp;
-  mesh->xt = nxt;
 
   if ( !PMMG_link_mesh( mesh ) ) return 0;
 
@@ -926,7 +991,7 @@ int PMMG_create_localMesh(MMG5_pMesh mesh,MMG5_pSol met,int rank,int np,int nxp,
  *
  * Delete parts of the mesh not on the processor.
  */
-int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
+int PMMG_partBcast_mesh( PMMG_pParMesh parmesh )
 {
   PMMG_pGrp      grp = NULL;
   MMG5_pMesh     mesh = NULL;
@@ -958,6 +1023,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
       ier = 5;
     }
+    if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
   }
 
   /** Send the partition data to the other procs */
@@ -1026,5 +1092,112 @@ unalloc:
   }
 #endif
 
+  return ieresult==1;
+}
+
+/**
+ * \param parmesh pointer toward a PMMG parmesh structure.
+ * \param part pointer toward the metis array containing the partitions.
+ *
+ * \return 0 (on all procs) if fail, 1 otherwise
+ *
+ * Delete parts of the mesh not on the processor.
+ */
+int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  idx_t      *part;
+  int        igrp,ier,ieresult;
+  size_t     available,oldMemMax;
+
+  ier = 1;
+
+  /* Create empty communicators on all procs */
+  if( !PMMG_create_empty_communicators( parmesh ) ) return 0;
+
+  /* There is nothing to distribute on just 1 proc */
+  if( parmesh->nprocs == 1 ) return 1;
+
+
+  /**
+   * 1) Proc 0 partitions the mesh.
+   */
+  if( parmesh->myrank == parmesh->info.root ) {
+
+    grp    = &parmesh->listgrp[0];
+    mesh   = grp->mesh;
+
+    /** Call metis for partionning */
+    PMMG_CALLOC ( parmesh,part,mesh->ne,idx_t,"allocate metis buffer", ier=5 );
+
+    /* Call metis, or recover a custom partitioning if provided (only to debug
+     * the interface displacement, adaptation will be blocked) */
+    if( !PMMG_PREDEF_PART ) {
+      if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
+        ier = 5;
+      }
+      if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
+    } else {
+      int k;
+      for( k = 1; k <= mesh->ne; k++ ) {
+        part[k-1] = mesh->tetra[k].ref;
+        mesh->tetra[k].tag |= MG_REQ;
+      }
+    }
+
+    /* Split grp 0 into (nprocs) groups */
+    ier = PMMG_split_grps( parmesh,0,parmesh->nprocs,part,1 );
+
+    /** Check grps contiguity */
+    ier = PMMG_checkAndReset_grps_contiguity( parmesh );
+
+    PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");
+  }
+  /* At this point all communicators have been created and all tags are OK */
+
+
+  /**
+   * 2) Distribute the groups over the processors.
+   */
+  if( parmesh->myrank != parmesh->info.root ) parmesh->ngrp = 0;
+
+  /* Create the groups partition array */
+  PMMG_CALLOC ( parmesh,part,parmesh->nprocs+1,idx_t,"allocate metis buffer", ier=5 );
+  for( igrp = 0; igrp <= parmesh->nprocs; igrp++ )
+    part[igrp] = igrp;
+
+  /* Transfer the groups in parallel */
+  ier = PMMG_transfer_all_grps(parmesh,part);
+  if ( ier <= 0 ) {
+    fprintf(stderr,"\n  ## Group distribution problem.\n");
+  }
+
+  assert( parmesh->ngrp = 1);
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+ 
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+  if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
+            __func__);
+    return 0;
+  }
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
+
+  /* At this point all communicators have been created and all tags are OK */
+
+
+  /* Check the communicators */
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
+  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+
+  /* The part array is deallocated when groups to be sent are merged (do not
+   * do it here) */
+
+  ieresult = 1;
   return ieresult==1;
 }
