@@ -237,7 +237,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 1a49d20a7e172005c720de866a9cbccaeafb382c
+    GIT_TAG 3de92cd0dd5be73a56eecbce70aee627e9d18c2f
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
     ${SCOTCH_CFG} ${VTK_CFG}
