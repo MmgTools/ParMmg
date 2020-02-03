@@ -259,8 +259,9 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 }
 
 /**
- * \param grp pointer to the current group structure
- * \param oldGrp pointer to the bqckground group structure
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
  * \param pt pointer to the target background tetrahedron
  * \param ip index of the current point
  * \param phi barycentric coordinates of the point to be interpolated
@@ -290,8 +291,10 @@ int PMMG_interpMetrics_point( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
 }
 
 /**
- * \param grp pointer to the current group structure.
- * \param oldGrp pointer to the bqckground group structure.
+ * \param mesh pointer to the current mesh.
+ * \param oldMesh pointer to the background mesh.
+ * \param met pointer to the current metrics.
+ * \param oldMet pointer to the background metrics.
  * \param permNodGlob permutation array for nodes.
  *
  * \return 0 if fail, 1 if success
@@ -346,7 +349,11 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
 
 /**
- * \param parmesh pointer to the parmesh structure.
+ * \param mesh pointer to the current mesh structure.
+ * \param oldMesh pointer to the background mesh structure.
+ * \param met pointer to the current metrics structure.
+ * \param oldMet pointer to the background metrics structure.
+ * \param faceAreas pointer to the array of oriented face areas.
  * \param permNodGlob permutation array of nodes.
  *
  * \return 0 if fail, 1 if success
@@ -355,6 +362,9 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  *  Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
  *  - if the metrics is constant, recompute it;
  *  - else, interpolate the non-constant metrics.
+ *
+ *  Oriented face areas are pre-computed in this function before proceeding
+ *  with the localization.
  *
  */
 int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
@@ -462,7 +472,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 }
 
 /**
- * \param parmesh pointer to the parmesh structure
+ * \param parmesh pointer to the parmesh structure.
+ * \param permNodGlob permutation array of nodes.
  *
  * \return 0 if fail, 1 if success
  *
