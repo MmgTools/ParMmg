@@ -646,8 +646,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                                                available,oldMemMax);
 
         if ( !PMMG_copyMetrics_point( parmesh->listgrp[i].mesh,
-                                      parmesh->listgrp[i].met,
                                       parmesh->old_listgrp[i].mesh,
+                                      parmesh->listgrp[i].met,
                                       parmesh->old_listgrp[i].met,
                                       permNodGlob) ) {
           goto strong_failed;
