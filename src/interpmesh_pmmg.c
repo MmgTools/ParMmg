@@ -430,6 +430,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
           if( ppt->flag == mesh->base ) continue;
 
           if( ppt->tag & MG_REQ ) {
+            /* Flag point as interpolated */
+            ppt->flag = mesh->base;
             continue; // treated by copyMetric_points
           } else {
 
@@ -459,10 +461,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             ier = PMMG_interpMetrics_point(mesh,met,oldMet,
                                            &oldMesh->tetra[istart],
                                            ip,barycoord);
-          }
 
-          /* Flag point as interpolated */
-          ppt->flag = mesh->base;
+            /* Flag point as interpolated */
+            ppt->flag = mesh->base;
+          }
         }
       }
     }
