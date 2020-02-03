@@ -272,10 +272,8 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
  */
 int PMMG_interpMetrics_point( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                               MMG5_pTetra pt,int ip,PMMG_baryCoord *phi ) {
-  MMG5_pPoint    ppt;
-  int            iloc,i,isize,nsize,ier;
+  int iloc,i,isize,nsize,ier;
 
-  ppt    = &mesh->point[ip];
   nsize  = met->size;
 
   /** Linear interpolation of the metrics */
@@ -359,13 +357,13 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,
-                            MMG5_pMesh mesh,MMG5_pMesh oldMesh,
-                            MMG5_pSol met,MMG5_pSol oldMet,int *permNodGlob ) {
+int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
+                             MMG5_pSol met,MMG5_pSol oldMet,
+                             double *faceAreas,int *permNodGlob ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
-  double      *faceAreas,*normal;
+  double      *normal;
   int         ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
@@ -384,14 +382,7 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,
 
     } else {
 
-      /** Pre-compute oriented face areas */   
-      ier = 1;
-      PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
-      if( !ier ) {
-        PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
-        return 0;
-      }
-  
+      /** Pre-compute oriented face areas */
       for( ie = 1; ie <= oldMesh->ne; ie++ ) {
         pt = &oldMesh->tetra[ie];
         /* Store tetra volume in the qual field */
@@ -464,8 +455,6 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,
           ppt->flag = mesh->base;
         }
       }
-
-      PMMG_DEL_MEM( parmesh,faceAreas,double,"faceAreas");
     }
   }
 
@@ -487,9 +476,11 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pSol   met,oldMet;
+  double      *faceAreas;
   int         igrp,ier;
 
   /** Loop on current groups */
+  ier = 1;
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
 
     grp  = &parmesh->listgrp[igrp];
@@ -500,10 +491,26 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     oldMesh = oldGrp->mesh;
     oldMet  = oldGrp->met;
 
-    if( !PMMG_interpMetrics_grp( parmesh, mesh, oldMesh, met, oldMet, permNodGlob ) )
-      return 0;
+    /** Pre-allocate oriented face areas */
+    if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
+      ier = 1;
+      PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
+      if( !ier ) {
+        PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+        return 0;
+      }
+    }
+
+    if( !PMMG_interpMetrics_mesh( mesh, oldMesh, met, oldMet,
+                                  faceAreas, permNodGlob ) )
+      ier = 0;
+
+    /** Deallocate oriented face areas */
+    if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
+      PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+    }
 
   }
 
-  return 1;
+  return ier;
 }
