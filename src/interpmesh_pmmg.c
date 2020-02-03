@@ -270,16 +270,11 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
  *  Linearly interpolate point metrics on a target background tetrahedron..
  *
  */
-int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
-                              int ip,PMMG_baryCoord *phi ) {
-  MMG5_pMesh     mesh;
-  MMG5_pSol      met,oldMet;
+int PMMG_interpMetrics_point( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                              MMG5_pTetra pt,int ip,PMMG_baryCoord *phi ) {
   MMG5_pPoint    ppt;
   int            iloc,i,isize,nsize,ier;
 
-  met    = grp->met;
-  oldMet = oldGrp->met;
-  mesh   = grp->mesh;
   ppt    = &mesh->point[ip];
   nsize  = met->size;
 
@@ -306,24 +301,19 @@ int PMMG_interpMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp,MMG5_pTetra pt,
  * Copy the metric of a freezed interface point.
  *
  */
-int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
-  MMG5_pMesh     mesh,oldMesh;
-  MMG5_pSol      met,oldMet;
+int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
+                            MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob) {
   MMG5_pPoint    ppt;
   int            isize,nsize,ip;
 
-  mesh    = grp->mesh;
   if ( !mesh->info.inputMet || mesh->info.hsiz > 0.0 ) return 1;
 
-  met     = grp->met;
-  oldMesh = oldGrp->mesh;
-  oldMet  = oldGrp->met;
   nsize   = met->size;
 
 #warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
 
   /** Freezed points: Copy the  metrics  */
-  if ( (!oldGrp->mesh->info.renum) || !permNodGlob ) {
+  if ( (!oldMesh->info.renum) || !permNodGlob ) {
     /* No permutation array: simple copy */
     for( ip = 1; ip <= oldMesh->np; ++ip ) {
       ppt = &oldMesh->point[ip];
@@ -369,9 +359,9 @@ int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob) {
  *  - else, interpolate the non-constant metrics.
  *
  */
-int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
-  PMMG_pGrp   grp,oldGrp;
-  MMG5_pMesh  mesh,oldMesh;
+int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,
+                            MMG5_pMesh mesh,MMG5_pMesh oldMesh,
+                            MMG5_pSol met,MMG5_pSol oldMet,int *permNodGlob ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
@@ -379,12 +369,6 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   int         ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
-
-
-  grp = &parmesh->listgrp[igrp];
-  mesh = grp->mesh;
-  oldGrp = &parmesh->old_listgrp[igrp];
-  oldMesh = oldGrp->mesh;
 
   if( mesh->info.inputMet != 1 ) {
 
@@ -396,7 +380,7 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
     if( mesh->info.hsiz > 0.0 ) {
 
       /* Compute constant metrics */
-      if ( !MMG3D_Set_constantSize(mesh,grp->met) ) return 0;
+      if ( !MMG3D_Set_constantSize(mesh,met) ) return 0;
 
     } else {
 
@@ -452,18 +436,18 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
             istart = PMMG_locatePoint( oldMesh, ppt, istart,
                                        faceAreas, barycoord );
             if( !istart ) {
-              fprintf(stderr,"\n  ## Error: %s: proc %d (grp %d),"
+              fprintf(stderr,"\n  ## Error: %s:"
                       " point %d not found, coords %e %e %e\n",__func__,
-                      parmesh->myrank,igrp,ip, mesh->point[ip].c[0],
+                      ip, mesh->point[ip].c[0],
                       mesh->point[ip].c[1],mesh->point[ip].c[2]);
               return 0;
             } else if( istart < 0 ) {
               if ( !mmgWarn ) {
                 mmgWarn = 1;
                 if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                  fprintf(stderr,"\n  ## Warning: %s: proc %d (grp %d), point %d not"
-                          " found, coords %e %e %e\n",__func__,parmesh->myrank,
-                          igrp,ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                  fprintf(stderr,"\n  ## Warning: %s: point %d not"
+                          " found, coords %e %e %e\n",__func__,
+                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
                           mesh->point[ip].c[2]);
                 }
               }
@@ -471,7 +455,8 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
             }
 
             /** Interpolate point metrics */
-            ier = PMMG_interpMetrics_point(grp,oldGrp,&oldMesh->tetra[istart],
+            ier = PMMG_interpMetrics_point(mesh,met,oldMet,
+                                           &oldMesh->tetra[istart],
                                            ip,barycoord);
           }
 
@@ -499,11 +484,26 @@ int PMMG_interpMetrics_grp( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
  *
  */
 int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
+  PMMG_pGrp   grp,oldGrp;
+  MMG5_pMesh  mesh,oldMesh;
+  MMG5_pSol   met,oldMet;
   int         igrp,ier;
 
   /** Loop on current groups */
-  for( igrp = 0; igrp < parmesh->ngrp; igrp++ )
-    if( !PMMG_interpMetrics_grp( parmesh, igrp, permNodGlob ) ) return 0;
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+
+    grp  = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+    met  = grp->met;
+
+    oldGrp  = &parmesh->old_listgrp[igrp];
+    oldMesh = oldGrp->mesh;
+    oldMet  = oldGrp->met;
+
+    if( !PMMG_interpMetrics_grp( parmesh, mesh, oldMesh, met, oldMet, permNodGlob ) )
+      return 0;
+
+  }
 
   return 1;
 }

@@ -645,7 +645,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
 
-        if ( !PMMG_copyMetrics_point( &parmesh->listgrp[i],&parmesh->old_listgrp[i],
+        if ( !PMMG_copyMetrics_point( parmesh->listgrp[i].mesh,
+                                      parmesh->listgrp[i].met,
+                                      parmesh->old_listgrp[i].mesh,
+                                      parmesh->old_listgrp[i].met,
                                       permNodGlob) ) {
           goto strong_failed;
         }
