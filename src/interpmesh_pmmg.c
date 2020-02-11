@@ -77,6 +77,49 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the mesh structure
+ * \param ptr pointer to the current tria
+ * \param coord pointer to the point coordinates
+ * \param faceAreas oriented face areas of the current tetrahedron
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Compute the barycentric coordinates of a given point in a given triangle.
+ *
+ */
+int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
+                              double *coord, double *triaNormals,
+                              PMMG_baryCoord *barycoord ) {
+  double *c1,*c2,*normal,vol;
+  int    ia;
+
+  /* Retrieve tria area */
+  vol = ptr->qual;
+
+  /* Retrieve tria unit normal */
+  normal = &triaNormals[3*k];
+ 
+  /* Retrieve face areas and compute barycentric coordinates */
+  for( ia = 0; ia < 3; ia++ ) {
+    c1 = mesh->point[ptr->v[MMG5_inxt3[ia]]].c;
+    c2 = mesh->point[ptr->v[MMG5_inxt3[ia+1]]].c;
+
+    barycoord[ia].val = MMG2D_quickarea( coord, c1, c2 )/vol;
+    barycoord[ia].idx = ia;
+  }
+
+  /* Store normal distance in the third coordinate */
+  barycoord[3].val = (coord[0]-c1[0])*normal[0] +
+                     (coord[1]-c1[1])*normal[1] +
+                     (coord[2]-c1[2])*normal[2];
+  barycoord[3].idx = 3;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the mesh structure
  * \param pt pointer to the current tetra
  * \param coord pointer to the point coordinates
  * \param faceAreas oriented face areas of the current tetrahedron
@@ -88,7 +131,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *  Compute the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
-int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
+int PMMG_compute_baryCoord3d( MMG5_pMesh mesh, MMG5_pTetra pt,
                     double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
   double *c0,*normal,vol;
   int    ifac;
@@ -156,7 +199,7 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh, MMG5_pTetra ptr, MMG5_pPoint ppt,
   ptr->flag = mesh->base;
 
   /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_compute_baryCoord(mesh, ptr, ppt->c, faceAreas, barycoord);
+  PMMG_compute_baryCoord3d(mesh, ptr, ppt->c, faceAreas, barycoord);
   qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
   /** Exit if inside the element */
