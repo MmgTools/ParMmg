@@ -545,8 +545,12 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pSol   met,oldMet;
+  MMG5_Hash   hash;
+  size_t      memAv,oldMemMax;
   double      *faceAreas;
   int         igrp,ier;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
   /** Loop on current groups */
   ier = 1;
@@ -559,6 +563,18 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     oldGrp  = &parmesh->old_listgrp[igrp];
     oldMesh = oldGrp->mesh;
     oldMet  = oldGrp->met;
+
+    if( !oldMesh->adjt ) {
+      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+      /* create surface adjacency */
+      memset ( &hash, 0x0, sizeof(MMG5_Hash));
+      if ( !MMG3D_hashTria(mesh,&hash) ) {
+        MMG5_DEL_MEM(mesh,hash.item);
+        fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
+        return 0;
+      }
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+    }
 
     /** Pre-allocate oriented face areas */
     if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
@@ -577,6 +593,14 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     /** Deallocate oriented face areas */
     if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+    }
+
+    if( oldMesh->adjt ) {
+      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+      MMG5_DEL_MEM(mesh,mesh->adjt);
+      if( hash.item )
+        MMG5_DEL_MEM(mesh,hash.item);
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
     }
 
   }
