@@ -452,3 +452,18 @@ int PMMG_parsop ( PMMG_pParMesh parmesh )
 
   return ier;
 }
+
+void PMMG_setfunc( PMMG_pParMesh parmesh ) {
+  MMG5_pSol met = parmesh->listgrp[0].met;
+
+  if( met && met->size == 6 ) {
+
+    PMMG_interp4bar = PMMG_interp4bar_ani;
+
+  } else {
+
+    PMMG_interp4bar = PMMG_interp4bar_iso;
+
+  }
+
+}

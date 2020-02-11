@@ -38,6 +38,8 @@
 #include "parmmg.h"
 #include "git_log_pmmg.h"
 
+/* Declared in the header, but defined at compile time */
+int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -327,6 +329,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   }
 
   MMG3D_setfunc(mesh,met);
+  PMMG_setfunc(parmesh);
 
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
@@ -410,6 +413,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   MMG3D_setfunc(mesh,met);
+  PMMG_setfunc(parmesh);
 
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
@@ -536,6 +540,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     met  = parmesh->listgrp[0].met;
     MMG3D_Set_commonFunc();
     MMG3D_setfunc(mesh,met);
+    PMMG_setfunc(parmesh);
   }
 
   chrono(OFF,&(ctim[2]));

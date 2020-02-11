@@ -35,6 +35,22 @@
 #include "locate_pmmg.h"
 
 /**
+ * \param coord pointer to a double array
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
+ *
+ *  Get barycentric coordinates.
+ *
+ */
+void PMMG_get_baryCoord( double *val, PMMG_baryCoord *phi ) {
+  int i;
+
+  for( i = 0; i < 4; i++ )
+    val[phi[i].idx] = phi[i].val;
+
+}
+
+/**
  * \param minNew lower bounds of the new box in each space direction
  * \param maxNew upper bounds of the new box in each space direction
  * \param minOld lower bounds of the old box in each space direction
@@ -268,24 +284,63 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
  *
  * \return 0 if fail, 1 if success
  *
- *  Linearly interpolate point metrics on a target background tetrahedron..
+ *  Linearly interpolate point metrics on a target background tetrahedron.
+ *  This function is analogous to the MMG5_interp4bar_iso() function.
+ */
+int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                                  MMG5_pTetra pt,int ip,double *phi ) {
+  int iloc,i,ier;
+
+  assert( met->size == 1 );
+
+  /** Linear interpolation of the squared size */
+  met->m[ip] = 0.0;
+  /* Barycentric coordinates could be permuted */
+  for( i=0; i<4; i++ ) {
+    met->m[ip] += phi[i]*oldMet->m[pt->v[i]];
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param pt pointer to the target background tetrahedron
+ * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point the metrics inverse on a target background
+ *  tetrahedron.
+ *  This function is analogous to the MMG5_interp4barintern() function.
  *
  */
-int PMMG_interpMetrics_point( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                              MMG5_pTetra pt,int ip,PMMG_baryCoord *phi ) {
-  int iloc,i,isize,nsize,ier;
+int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                                  MMG5_pTetra pt,int ip,double *phi ) {
+  double dm[4][6],mi[4][6],m[6];
+  int    iloc,i,isize,nsize,ier;
 
+  assert( met->size == 6 );
   nsize  = met->size;
 
-  /** Linear interpolation of the metrics */
-  for( isize = 0; isize<nsize; isize++ ) {
-    met->m[nsize*ip+isize] = 0.0;
-    /* Barycentric coordinates could be permuted */
-    for( i=0; i<4; i++ ) {
-      iloc = phi[i].idx;
-      met->m[nsize*ip+isize] += phi[i].val*oldMet->m[nsize*pt->v[iloc]+isize];
-    }
+  for( i=0; i<4; i++ ) {
+    for(isize = 0; isize < nsize; isize++ )
+      dm[i][isize] = oldMet->m[nsize*pt->v[i]+isize];
+    if( !MMG5_invmat(dm[i],mi[i]) ) return 0;
   }
+
+  /** Linear interpolation of the metrics */
+  for( isize = 0; isize < nsize; isize++ ) {
+    m[isize] = phi[0]*mi[0][isize] + phi[1]*mi[1][isize] +
+               phi[2]*mi[2][isize] + phi[3]*mi[3][isize];
+  }
+
+  if( !MMG5_invmat(m,mi[0]) ) return 0;
+  for( isize = 0; isize < nsize; isize++ )
+    met->m[nsize*ip+isize] = mi[0][isize];
 
   return 1;
 }
@@ -373,7 +428,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
-  double      *normal;
+  double      coord[4],*normal;
   int         ip,istart,ie,ifac,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
@@ -458,9 +513,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             }
 
             /** Interpolate point metrics */
-            ier = PMMG_interpMetrics_point(mesh,met,oldMet,
+            PMMG_get_baryCoord( coord, barycoord );
+            ier = PMMG_interp4bar(mesh,met,oldMet,
                                            &oldMesh->tetra[istart],
-                                           ip,barycoord);
+                                           ip,coord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
