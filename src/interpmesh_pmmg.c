@@ -77,7 +77,8 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the mesh structure
- * \param ptr pointer to the current tria
+ * \param ptr pointer to the current triangle
+ * \param k index of the triangle
  * \param coord pointer to the point coordinates
  * \param faceAreas oriented face areas of the current tetrahedron
  * \param barycoord pointer to the point barycentric coordinates in the current
@@ -176,6 +177,41 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the triangle to analyze
+ * \param k index of the triangle
+ * \param ppt pointer to the point to locate
+ * \param triaNormalsAreas unit normals of the current triangle
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in a background triangles, and provide its barycentric
+ *  coordinates.
+ *
+ */
+int PMMG_locatePointInTria( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
+                            MMG5_pPoint ppt, double *triaNormals,
+                            PMMG_baryCoord *barycoord ) {
+  double         eps;
+  int            found = 0;
+
+  eps = MMG5_EPS;
+
+  /** Mark tria */
+  ptr->flag = mesh->base;
+
+  /** Get barycentric coordinates and sort them in ascending order */
+  PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormals, barycoord);
+  qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  /** Exit if inside the element */
+  if( barycoord[0].val > -eps ) found = 1;
+
+  return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ptr pointer to the tetra to analyze
  * \param ppt pointer to the point to locate
  * \param faceAreas oriented face areas of the current tetrahedra
@@ -184,15 +220,14 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  * \return 1 if found; 0 if not found
  *
  *  Locate a point in a background tetrahedron, and provide its barycentric
- *  coordinates..
+ *  coordinates.
  *
  */
 int PMMG_locatePointInTetra( MMG5_pMesh mesh, MMG5_pTetra ptr, MMG5_pPoint ppt,
                              double *faceAreas, PMMG_baryCoord *barycoord ) {
-  double         vol,eps;
+  double         eps;
   int            found = 0;
 
-  vol = ptr->qual;
   eps = MMG5_EPS;
 
   /** Mark tetra */
