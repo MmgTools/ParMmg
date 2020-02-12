@@ -329,6 +329,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
                                    barycoord ) ) break;
 
       /** Save element index (with negative sign) if it is the closest one */
+      vol = ptr->qual;
       if( fabs(barycoord[0].val)*vol < closestDist ) {
         closestDist = fabs(barycoord[0].val)*vol;
         closestTet = -idxTet;
