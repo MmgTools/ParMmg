@@ -465,6 +465,102 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 }
 
 /**
+ * \param m pointer to the 2x2 symmetric matrix
+ * \param im pointer to the inverse matrix
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Invert 2x2 symmetric matrix.
+ */
+int PMMG_invmat22( double *m, double *im ) {
+  double det;
+
+  det = m[0]*m[2] - m[1]*m[1];
+  if ( fabs(det) < MMG5_EPS*MMG5_EPS ) {
+    fprintf(stderr,"\n  ## Error: %s: null metric det : %E \n",
+            __func__,det);
+    return 0;
+  }
+  det = 1.0 / det;
+
+  im[0] =  det*m[3];
+  im[1] = -det*m[1];
+  im[2] =  det*m[0];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point metrics on a target background triangle.
+ *  This function is analogous to the MMG5_interp4bar_iso() function.
+ */
+int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,double *phi ) {
+  int iloc,i,ier;
+
+  assert( met->size == 1 );
+
+  /** Linear interpolation of the squared size */
+  met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
+               phi[1]*oldMet->m[ptr->v[1]] + 
+               phi[2]*oldMet->m[ptr->v[2]];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point the metrics inverse on a target background
+ *  triangle.
+ *  This function is analogous to the MMG5_interp4barintern() function.
+ *
+ */
+int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,double *phi ) {
+  double dm[3][3],mi[3][3],m[3];
+  int    iloc,i,isize,nsize,ier;
+
+  assert( met->size == 3 );
+  nsize  = met->size;
+
+  for( i=0; i<3; i++ ) {
+    for(isize = 0; isize < nsize; isize++ )
+      dm[i][isize] = oldMet->m[nsize*ptr->v[i]+isize];
+    if( !PMMG_invmat22(dm[i],mi[i]) ) return 0;
+  }
+
+  /** Linear interpolation of the metrics */
+  for( isize = 0; isize < nsize; isize++ ) {
+    m[isize] = phi[0]*mi[0][isize]+
+               phi[1]*mi[1][isize]+
+               phi[2]*mi[2][isize];
+  }
+
+  if( !PMMG_invmat22(m,mi[0]) ) return 0;
+  for( isize = 0; isize < nsize; isize++ )
+    met->m[nsize*ip+isize] = mi[0][isize];
+
+  return 1;
+}
+
+/**
  * \param mesh pointer to the current mesh
  * \param met pointer to the current metrics
  * \param oldMet pointer to the background metrics
@@ -484,11 +580,10 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   assert( met->size == 1 );
 
   /** Linear interpolation of the squared size */
-  met->m[ip] = 0.0;
-  /* Barycentric coordinates could be permuted */
-  for( i=0; i<4; i++ ) {
-    met->m[ip] += phi[i]*oldMet->m[pt->v[i]];
-  }
+  met->m[ip] += phi[0]*oldMet->m[pt->v[0]]+
+                phi[1]*oldMet->m[pt->v[1]]+
+                phi[2]*oldMet->m[pt->v[2]]+
+                phi[3]*oldMet->m[pt->v[3]];
 
   return 1;
 }

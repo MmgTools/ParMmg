@@ -459,10 +459,12 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
   if( met && met->size == 6 ) {
 
     PMMG_interp4bar = PMMG_interp4bar_ani;
+    PMMG_interp3bar = PMMG_interp3bar_ani;
 
   } else {
 
     PMMG_interp4bar = PMMG_interp4bar_iso;
+    PMMG_interp3bar = PMMG_interp3bar_iso;
 
   }
 
