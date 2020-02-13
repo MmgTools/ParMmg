@@ -329,7 +329,14 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
+  MMG5_pTetra      pt,ptCur;
+  MMG5_pTetra      ptr,ptrCur;
+  MMG5_pPoint      ppt,pptCur;
+  MMG5_Hash        hash;
+  int              *adja,*oldAdja;
+  int              *adjt,*oldAdjt;
   size_t           oldMemMax,memAv;
+  int              ie,ip,it;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
@@ -370,6 +377,72 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
    * options */
   memcpy(&(mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
+  /* Loop on tetras */
+  for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
+    pt = &meshOld->tetra[ie];
+    ptCur = &mesh->tetra[ie];
+ 
+    if ( !MG_EOK(pt) ) continue;
+
+    /* Copy tetra */
+    memcpy( ptCur, pt, sizeof(MMG5_Tetra) );
+
+    /* Copy element's adjacency */
+    assert( meshOld->adja );
+    if( meshOld->adja ) {
+      adja    =    &mesh->adja[ 4*( ie-1 )+1 ];
+      oldAdja = &meshOld->adja[ 4*( ie-1 )+1 ];
+      memcpy( adja, oldAdja, 4*sizeof(int) );
+    }
+
+    /* Skip xtetra */
+    ptCur->xt = 0;
+
+  }
+
+  /* Loop on points */
+  for ( ip = 1; ip < meshOld->np+1; ++ip ) {
+    ppt = &meshOld->point[ip];
+    pptCur = &mesh->point[ip];
+
+    if ( !MG_VOK(ppt) ) {
+
+      /* Only copy the tag (to detect the not VOK point) */
+      pptCur->tag = ppt->tag;
+
+    } else {
+
+      /* Copy point */
+      memcpy( pptCur, ppt, sizeof(MMG5_Point) );
+
+      /* Copy metrics */
+      if ( mesh->info.inputMet == 1 )
+        memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+
+      /* Skip xpoint */
+      pptCur->xp = 0;
+
+    }
+  }
+
+  /* Loop on trias */
+  for ( it = 1; it < meshOld->nt+1; ++it ) {
+    ptr = &meshOld->tria[it];
+    ptrCur = &mesh->tria[it];
+
+    if ( !MG_EOK(ptr) ) continue;
+
+    /* Copy tria */
+    memcpy( ptrCur, ptr, sizeof(MMG5_Tria) );
+
+    /* Copy element's adjacency */
+    if( meshOld->adjt ) {
+      adjt    =    &mesh->adjt[ 3*( ie-1 )+1 ];
+      oldAdjt = &meshOld->adjt[ 3*( ie-1 )+1 ];
+      memcpy( adjt, oldAdjt, 3*sizeof(int) );
+    }
+
+  }
 
   /* Give the available memory to the parmesh */
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
@@ -1181,18 +1254,13 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
   for ( grpId = 0; grpId < parmesh->ngrp; ++grpId ) {
 
     /* New group initialisation */
+    /* New group initialisation and fill */
     if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
               " group (%d).\n",__func__,grpId);
       return 0;
     }
 
-    /* Fill group */
-    if ( !PMMG_oldGrps_fillGroup( parmesh, grpId ) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to fill new background"
-              "group (%d).\n",__func__,grpId);
-      return 0;
-    }
   }
 
   return 1;
