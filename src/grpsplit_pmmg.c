@@ -330,7 +330,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   MMG5_pTetra      pt,ptCur;
-  MMG5_pTetra      ptr,ptrCur;
+  MMG5_pTria       ptr,ptrCur;
   MMG5_pPoint      ppt,pptCur;
   MMG5_Hash        hash;
   int              *adja,*oldAdja;
