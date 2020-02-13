@@ -900,18 +900,6 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     oldMesh = oldGrp->mesh;
     oldMet  = oldGrp->met;
 
-    if( !oldMesh->adjt ) {
-      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
-      /* create surface adjacency */
-      memset ( &hash, 0x0, sizeof(MMG5_Hash));
-      if ( !MMG3D_hashTria(mesh,&hash) ) {
-        MMG5_DEL_MEM(mesh,hash.item);
-        fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
-        return 0;
-      }
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
-    }
-
     /** Pre-allocate oriented face areas and surface unit normals */
     if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       ier = 1;
@@ -935,14 +923,6 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
       PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
-    }
-
-    if( oldMesh->adjt ) {
-      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
-      MMG5_DEL_MEM(mesh,mesh->adjt);
-      if( hash.item )
-        MMG5_DEL_MEM(mesh,hash.item);
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
     }
 
   }
