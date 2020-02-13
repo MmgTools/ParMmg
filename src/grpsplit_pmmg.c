@@ -319,11 +319,12 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  *
  * \return 0 if fail, 1 if success
  *
- * Creation of a new group for the background mesh (without communication
- * structures (info.inputMet == 1 if a metrics is provided by the user).
+ * Creation of a mimimal size new group for the background mesh (without
+ * communication structures, info.inputMet == 1 if a metrics is provided by the
+ * user).
  *
  */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
+int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
   MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
   PMMG_pGrp        grp;
@@ -556,104 +557,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
 
   *memAv -= (parmesh->memMax - oldMemMax);
 
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure
- * \param igrp index of the group to fill
- *
- * Fill the background mesh with the current mesh on group igrp
- * (info.inputMet == 1 if a  metrics is provided by the user).
- *
- */
-int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
-
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
-  MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  MMG5_pTetra      pt,ptCur;
-  MMG5_pTria       ptr,ptrCur;
-  MMG5_pPoint      ppt,pptCur;
-  int              *adja,*oldAdja,*adjt,*oldAdjt;
-  int              ie,it,ip;
-
-  mesh = parmesh->old_listgrp[igrp].mesh;
-  met  = parmesh->old_listgrp[igrp].met;
-
-  assert( mesh->ne == meshOld->ne );
-  assert( mesh->nt == meshOld->nt );
-  assert( mesh->np == meshOld->np );
-
-  /* Loop on tetras */
-  for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
-    pt = &meshOld->tetra[ie];
-    ptCur = &mesh->tetra[ie];
- 
-    if ( !MG_EOK(pt) ) continue;
-
-    /* Copy tetra */
-    memcpy( ptCur, pt, sizeof(MMG5_Tetra) );
-
-    /* Copy element's adjacency */
-    assert( meshOld->adja );
-    if( meshOld->adja ) {
-      adja    =    &mesh->adja[ 4*( ie-1 )+1 ];
-      oldAdja = &meshOld->adja[ 4*( ie-1 )+1 ];
-      memcpy( adja, oldAdja, 4*sizeof(int) );
-    }
-
-    /* Skip xtetra */
-    ptCur->xt = 0;
-
-  }
-
-  /* Loop on trias */
-  for ( it = 1; it < meshOld->nt+1; ++it ) {
-    ptr = &meshOld->tria[it];
-    ptrCur = &mesh->tria[it];
-
-    if ( !MG_EOK(ptr) ) continue;
-
-    /* Copy tetra */
-    memcpy( ptrCur, ptr, sizeof(MMG5_Tria) );
-
-    /* Copy element's adjacency */
-    assert( meshOld->adjt );
-    if( meshOld->adjt ) {
-      adjt    =    &mesh->adjt[ 3*( ie-1 )+1 ];
-      oldAdjt = &meshOld->adjt[ 3*( ie-1 )+1 ];
-      memcpy( adjt, oldAdjt, 3*sizeof(int) );
-    }
-
-  }
-
-  /* Loop on points */
-  for ( ip = 1; ip < meshOld->np+1; ++ip ) {
-    ppt = &meshOld->point[ip];
-    pptCur = &mesh->point[ip];
-
-    if ( !MG_VOK(ppt) ) {
-
-      /* Only copy the tag (to detect the not VOK point) */
-      pptCur->tag = ppt->tag;
-
-    } else {
-
-      /* Copy point */
-      memcpy( pptCur, ppt, sizeof(MMG5_Point) );
-
-      /* Copy metrics */
-      if ( mesh->info.inputMet == 1 )
-        memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
-
-      /* Skip xpoint */
-      pptCur->xp = 0;
-
-    }
-  }
-  
   return 1;
 }
 
@@ -1255,7 +1158,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
 
     /* New group initialisation */
     /* New group initialisation and fill */
-    if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
+    if ( !PMMG_create_oldGrp( parmesh, grpId ) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
               " group (%d).\n",__func__,grpId);
       return 0;
