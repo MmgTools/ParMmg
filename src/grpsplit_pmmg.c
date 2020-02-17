@@ -427,9 +427,9 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   }
 
   /* Loop on trias */
-  for ( it = 1; it < meshOld->nt+1; ++it ) {
-    ptr = &meshOld->tria[it];
-    ptrCur = &mesh->tria[it];
+  for ( k = 1; k < meshOld->nt+1; ++k ) {
+    ptr = &meshOld->tria[k];
+    ptrCur = &mesh->tria[k];
 
     if ( !MG_EOK(ptr) ) continue;
 
@@ -438,8 +438,8 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
 
     /* Copy element's adjacency */
     if( meshOld->adjt ) {
-      adjt    =    &mesh->adjt[ 3*( ie-1 )+1 ];
-      oldAdjt = &meshOld->adjt[ 3*( ie-1 )+1 ];
+      adjt    =    &mesh->adjt[ 3*( k-1 )+1 ];
+      oldAdjt = &meshOld->adjt[ 3*( k-1 )+1 ];
       memcpy( adjt, oldAdjt, 3*sizeof(int) );
     }
 
