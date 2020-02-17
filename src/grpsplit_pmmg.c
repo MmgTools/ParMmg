@@ -351,9 +351,37 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   mesh = grp->mesh;
   met  = grp->met;
 
-  /* Give all the available memory to the mesh */
   oldMemMax = parmesh->memCur;
   memAv     = parmesh->memMax-oldMemMax;
+
+
+  /** 1) Create the boundary */
+
+  /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshOld,memAv,oldMemMax);
+
+  /* Create boundary */
+  if ( !MMG5_chkBdryTria(meshOld) ) {
+    fprintf(stderr,"\n  ## Problem building boundary.\n");
+    return 0;
+  }
+
+  /* Create surface adjacency */
+  memset ( &hash, 0x0, sizeof(MMG5_Hash));
+  if ( !MMG3D_hashTria(meshOld,&hash) ) {
+    MMG5_DEL_MEM(meshOld,hash.item);
+    fprintf(stderr,"\n  ## Hashing problem.\n");
+    return 0;
+  }
+  MMG5_DEL_MEM(meshOld,hash.item);
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,meshOld,memAv,oldMemMax);
+
+
+  /** 2) Create old group */
+
+  /* Give all the available memory to the mesh */
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
   /* Copy the mesh filenames */
@@ -447,6 +475,19 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
 
   /* Give the available memory to the parmesh */
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+
+
+  /** 3) Destroy boundary in the new mesh */
+
+  /* Give the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshOld,memAv,oldMemMax);
+
+  MMG5_DEL_MEM(meshOld,meshOld->tria);
+  meshOld->nt = 0;
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,meshOld,memAv,oldMemMax);
+
 
   return 1;
 }
