@@ -337,7 +337,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   int              *adja,*oldAdja;
   int              *adjt,*oldAdjt;
   size_t           oldMemMax,memAv;
-  int              ie,ip,it;
+  int              ie,ip,k;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
