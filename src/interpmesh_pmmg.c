@@ -90,17 +90,14 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *
  */
 int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
-                              double *coord, double *triaNormals,
+                              double *coord, double *normal,
                               PMMG_baryCoord *barycoord ) {
-  double *c1,*c2,*normal,vol;
+  double *c1,*c2,vol;
   int    ia;
 
   /* Retrieve tria area */
   vol = ptr->qual;
 
-  /* Retrieve tria unit normal */
-  normal = &triaNormals[3*k];
- 
   /* Retrieve face areas and compute barycentric coordinates */
   for( ia = 0; ia < 3; ia++ ) {
     c1 = mesh->point[ptr->v[MMG5_inxt3[ia]]].c;
