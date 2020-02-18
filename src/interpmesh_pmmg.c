@@ -716,7 +716,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
   double      coord[4],*normal;
-  int         ip,istart,istartTria,ie,ifac,ia,ib,ic,iloc;
+  int         ip,istart,istartTria,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
@@ -749,8 +749,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         }
       }
       /** Pre-compute surface unit normals */
-      for( ie = 1; ie <= oldMesh->nt; ie++ ) {
-        ptr = &oldMesh->tria[ie];
+      for( k = 1; k <= oldMesh->nt; k++ ) {
+        ptr = &oldMesh->tria[k];
         ia = ptr->v[0];
         ib = ptr->v[1];
         ic = ptr->v[2];
@@ -760,7 +760,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                      oldMesh->point[ic].c );
 
         /* Store triangle unit normal */
-        normal = &triaNormals[3*ie];
+        normal = &triaNormals[3*k];
         ier = MMG5_nortri( oldMesh,ptr,normal );
       }
 
