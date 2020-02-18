@@ -809,7 +809,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                           mesh->point[ip].c[2]);
                 }
               }
-              istart = -istart;
+              istartTria = -istartTria;
             }
 
             /** Interpolate point metrics */
