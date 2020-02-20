@@ -139,8 +139,8 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
 
   /* Retrieve face areas and compute barycentric coordinates */
   for( ia = 0; ia < 3; ia++ ) {
-    c1 = mesh->point[ptr->v[MMG5_inxt3[ia]]].c;
-    c2 = mesh->point[ptr->v[MMG5_inxt3[ia+1]]].c;
+    c1 = mesh->point[ptr->v[MMG5_inxt2[ia]]].c;
+    c2 = mesh->point[ptr->v[MMG5_inxt2[ia+1]]].c;
 
     barycoord[ia].val = PMMG_quickarea( proj, c1, c2, normal )/vol;
     barycoord[ia].idx = ia;
