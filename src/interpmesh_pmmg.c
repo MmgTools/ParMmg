@@ -35,6 +35,35 @@
 #include "locate_pmmg.h"
 
 /**
+ * \param a coordinates of the first point of face.
+ * \param b coordinates of the second point of face.
+ * \param c coordinates of the third point of face.
+ * \param n pointer to store the computed normal.
+ * \return 1
+ *
+ * Compute triangle area given three points on the surface.
+ *
+ */
+double PMMG_quickarea(double *a,double *b,double *c,double *n) {
+  double        area[3],abx,aby,abz,acx,acy,acz;
+
+  /* area */
+  abx = b[0] - a[0];
+  aby = b[1] - a[1];
+  abz = b[2] - a[2];
+
+  acx = c[0] - a[0];
+  acy = c[1] - a[1];
+  acz = c[2] - a[2];
+
+  area[0] = aby*acz - abz*acy;
+  area[1] = abz*acx - abx*acz;
+  area[2] = abx*acy - aby*acx;
+
+  return area[0]*n[0]+area[1]*n[1]+area[2]*n[2];
+}
+
+/**
  * \param coord pointer to a double array
  * \param barycoord pointer to the point barycentric coordinates in the current
  * tetra
@@ -80,7 +109,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  * \param ptr pointer to the current triangle
  * \param k index of the triangle
  * \param coord pointer to the point coordinates
- * \param faceAreas oriented face areas of the current tetrahedron
+ * \param normal unit normal of the current triangle
  * \param barycoord pointer to the point barycentric coordinates in the current
  * tetra
  *
@@ -92,8 +121,18 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
                               double *coord, double *normal,
                               PMMG_baryCoord *barycoord ) {
-  double *c1,*c2,vol;
-  int    ia;
+  double dist,proj[3],*c1,*c2,vol;
+  int    ia,i;
+
+  /* Project point on the triangle plane */
+  c1 = mesh->point[ptr->v[0]].c;
+
+  dist = 0.0;
+  for( i = 0; i < 3; i++ )
+    dist += (coord[i]-c1[i])*normal[i];
+
+  for( i = 0; i < 3; i++ )
+    proj[i] = coord[i] - dist*normal[i];
 
   /* Retrieve tria area */
   vol = ptr->qual;
@@ -103,14 +142,12 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
     c1 = mesh->point[ptr->v[MMG5_inxt3[ia]]].c;
     c2 = mesh->point[ptr->v[MMG5_inxt3[ia+1]]].c;
 
-    barycoord[ia].val = MMG2D_quickarea( coord, c1, c2 )/vol;
+    barycoord[ia].val = PMMG_quickarea( proj, c1, c2, normal )/vol;
     barycoord[ia].idx = ia;
   }
 
   /* Store normal distance in the third coordinate */
-  barycoord[3].val = (coord[0]-c1[0])*normal[0] +
-                     (coord[1]-c1[1])*normal[1] +
-                     (coord[2]-c1[2])*normal[2];
+  barycoord[3].val = dist;
   barycoord[3].idx = 3;
 
   return 1;
@@ -712,7 +749,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
-  double      coord[4],*normal;
+  double      coord[4],*normal,dd;
   int         ip,istart,istartTria,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
@@ -751,16 +788,16 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         ia = ptr->v[0];
         ib = ptr->v[1];
         ic = ptr->v[2];
-        /* Store triangle volume in the qual field */
-        ptr->qual = MMG2D_quickarea( oldMesh->point[ia].c,
-                                     oldMesh->point[ib].c,
-                                     oldMesh->point[ic].c );
-
-        /* Store triangle unit normal */
         normal = &triaNormals[3*k];
-        ier = MMG5_nortri( oldMesh,ptr,normal );
+        /* Store triangle unit normal and volume */
+        ier = MMG5_nonUnitNorPts( oldMesh,ia,ib,ic,normal );
+        ptr->qual = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
+        if( ptr->qual < MMG5_EPSD2 ) return 0;
+        dd = 1.0/ptr->qual;
+        normal[0] *= dd;
+        normal[1] *= dd;
+        normal[2] *= dd;
       }
-
 
 
       /** Interpolate metrics */
