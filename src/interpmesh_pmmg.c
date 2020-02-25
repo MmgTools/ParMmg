@@ -614,10 +614,10 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   assert( met->size == 1 );
 
   /** Linear interpolation of the squared size */
-  met->m[ip] += phi[0]*oldMet->m[pt->v[0]]+
-                phi[1]*oldMet->m[pt->v[1]]+
-                phi[2]*oldMet->m[pt->v[2]]+
-                phi[3]*oldMet->m[pt->v[3]];
+  met->m[ip] = phi[0]*oldMet->m[pt->v[0]]+
+               phi[1]*oldMet->m[pt->v[1]]+
+               phi[2]*oldMet->m[pt->v[2]]+
+               phi[3]*oldMet->m[pt->v[3]];
 
   return 1;
 }
