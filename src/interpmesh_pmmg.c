@@ -211,6 +211,53 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param k index of the triangle to analyze
+ * \param ppt pointer to the point to locate
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a surface point in its closest background triangles, and find its
+ *  closest point.
+ *
+ */
+int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                   PMMG_baryCoord *barycoord ) {
+  MMG5_pTria ptr;
+  double *c,dist[3],norm,min;
+  int i,d,itarget;
+
+  ptr = &mesh->tria[k];
+
+  c = mesh->point[ptr->v[i]].c;
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d] - c[d];
+  norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+  min = norm;
+  itarget = 0;
+
+  for( i = 1; i < 3; i++ ) {
+    c = mesh->point[ptr->v[i]].c;
+    for( d = 0; d < 3; d++ )
+      dist[d] = ppt->c[d] - c[d];
+    norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+    if( norm < min ) {
+      min = norm;
+      itarget = i;
+    }
+  }
+
+  for( i = 0; i < 3; i++ ) {
+    barycoord[i].val = 0.0;
+    barycoord[i].idx = i;
+  }
+  barycoord[itarget].val = 1.0;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ptr pointer to the triangle to analyze
  * \param k index of the triangle
  * \param ppt pointer to the point to locate
@@ -225,9 +272,11 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  */
 int PMMG_locatePointInTria( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
                             MMG5_pPoint ppt, double *triaNormals,
-                            PMMG_baryCoord *barycoord ) {
-  double         eps;
-  int            found = 0;
+                            PMMG_baryCoord *barycoord, double *closestDist,
+                            int *closestTria ) {
+  MMG5_pPoint    ppt0,ppt1;
+  double         h,hmax,eps;
+  int            j,d,found = 0;
 
   eps = MMG5_EPS;
 
@@ -237,6 +286,24 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
   /** Get barycentric coordinates and sort them in ascending order */
   PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormals, barycoord);
   qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  hmax = 0.0;
+  for( j = 0; j < 3; j++ ) {
+    ppt0 = &mesh->point[ptr->v[j]];
+    ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
+    h = 0.0;
+    for( d = 0; d < 3; d++ )
+      h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
+    h = sqrt(h);
+    if( h > hmax ) hmax = h;
+  }
+  if( fabs(barycoord[3].val) > hmax ) return 0;
+
+  /** Save element index (with negative sign) if it is the closest one */
+  if( fabs(barycoord[3].val) < *closestDist ) {
+    *closestDist = fabs(barycoord[3].val);
+    *closestTria = -k;
+  }
 
   /** Exit if inside the element */
   if( barycoord[0].val > -eps ) found = 1;
@@ -305,6 +372,10 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 
   step = 0;
   ++mesh->base;
+
+  closestTria = 0;
+  closestDist = 1.0e10;
+
   while(step <= mesh->nt) {
     step++;
 
@@ -313,8 +384,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
     if ( !MG_EOK(ptr) ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt,
-                                &triaNormals[3*idxTria], barycoord ) ) break;
+    if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt, &triaNormals[3*idxTria],
+                                barycoord, &closestDist, &closestTria ) ) break;
 
     /** Compute new direction */
     adjt = &mesh->adjt[3*(idxTria-1)+1];
@@ -348,8 +419,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
       }
     }
 
-    closestTria = 0;
-    closestDist = 1.0e10;
     for( idxTria=1; idxTria<mesh->nt+1; idxTria++ ) {
 
       /** Get tetra */
@@ -361,14 +430,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 
       /** Exit the loop if you find the element */
       if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt,
-                                  &triaNormals[3*idxTria], barycoord ) ) break;
-
-      /** Save element index (with negative sign) if it is the closest one */
-      vol = ptr->qual;
-      if( fabs(barycoord[3].val) < closestDist ) {
-        closestDist = fabs(barycoord[3].val);
-        closestTria = -idxTria;
-      }
+                                  &triaNormals[3*idxTria], barycoord,
+                                  &closestDist, &closestTria ) ) break;
 
     }
 
@@ -847,6 +910,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                 }
               }
               istartTria = -istartTria;
+              PMMG_locatePointInClosestTria( oldMesh,istartTria,ppt,barycoord );
             }
 
             /** Interpolate point metrics */
