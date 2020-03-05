@@ -93,13 +93,17 @@ MACRO ( ADD_AND_INSTALL_LIBRARY
     target_name target_type sources output_name )
 
   ADD_LIBRARY ( ${target_name} ${target_type} ${sources} )
+  add_library( ParMmg::${target_name} ALIAS ${target_name} )
 
   IF ( CMAKE_VERSION VERSION_LESS 2.8.12 )
     INCLUDE_DIRECTORIES ( ${target_name} PRIVATE
       ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${CMAKE_BINARY_DIR}/include )
   ELSE ( )
-    TARGET_INCLUDE_DIRECTORIES ( ${target_name} PRIVATE
-      ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${CMAKE_BINARY_DIR}/include )
+    target_include_directories( ${target_name} PUBLIC
+      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>
+      $<BUILD_INTERFACE:${COMMON_SOURCE_DIR}>
+      $<BUILD_INTERFACE:${COMMON_BINARY_DIR}>
+      $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
   ENDIF ( )
 
   SET_TARGET_PROPERTIES ( ${target_name}
@@ -109,11 +113,13 @@ MACRO ( ADD_AND_INSTALL_LIBRARY
 
   TARGET_LINK_LIBRARIES ( ${target_name} ${LIBRARIES} )
 
-  INSTALL ( TARGETS ${target_name}
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib
-    COMPONENT lib)
-
+  install(TARGETS ${target_name} EXPORT ParMmgTargets
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    Component lib
+    )
 ENDMACRO ( )
 
 ###############################################################################
@@ -149,8 +155,11 @@ MACRO ( ADD_AND_INSTALL_EXECUTABLE
    INCLUDE_DIRECTORIES ( ${exec_name} PUBLIC
      ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/include )
  ELSE ( )
-   TARGET_INCLUDE_DIRECTORIES ( ${exec_name} PUBLIC
-     ${COMMON_BINARY_DIR} ${COMMON_SOURCE_DIR} ${PROJECT_BINARY_DIR}/include )
+   target_include_directories( ${exec_name} PUBLIC
+     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>
+     $<BUILD_INTERFACE:${COMMON_SOURCE_DIR}>
+     $<BUILD_INTERFACE:${COMMON_BINARY_DIR}>
+     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
  ENDIF ( )
 
   TARGET_LINK_LIBRARIES ( ${exec_name} ${LIBRARIES}  )

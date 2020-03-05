@@ -7,7 +7,18 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
-    set( CI_DIR_INPUTS  "../../testparmmg" CACHE PATH "path to test meshes repository" )
+    set( CI_DIR_INPUTS "${CMAKE_BINARY_DIR}/testparmmg" CACHE PATH "path to test meshes repository" )
+
+    IF ( NOT EXISTS ${CI_DIR_INPUTS} )
+      EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        )
+      EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
+        WORKING_DIRECTORY ${CI_DIR_INPUTS}
+        )
+    ENDIF()
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )
@@ -281,7 +292,7 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
 
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
 
     FOREACH( NP 1 2 6 )
       ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
@@ -296,7 +307,7 @@ IF( BUILD_TESTING )
     SET ( test_name  LnkdList_unitTest )
     SET ( main_path  ${CI_DIR_INPUTS}/LnkdList_unitTest/main.c )
 
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
     ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
 
     # Distributed API test
@@ -336,7 +347,7 @@ IF( BUILD_TESTING )
       LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
       LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
 
-      ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
 
       FOREACH( niter 0 3 )
         FOREACH( API_mode 0 1 )
@@ -378,13 +389,13 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
     LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
 
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} copy_pmmg_headers "${lib_name}" )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
 
     FOREACH( API_mode 0 1 )
       FOREACH( NP 4 )
         ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:${test_name}>
-          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} ${input_met} )
+          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} )
       ENDFOREACH()
     ENDFOREACH()
 
