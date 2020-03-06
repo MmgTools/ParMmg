@@ -211,6 +211,7 @@ int main(int argc,char *argv[]) {
   /** 3) Manually partition the global mesh */
   /** a) Create local meshes */
   int nv, nt, ne, ncomm, *color_node, *color_face, *ntifc, *npifc;
+  color_node = color_face = ntifc = npifc = NULL;
   switch( parmesh->nprocs ) {
     case 1:
       /* no partitioning */
