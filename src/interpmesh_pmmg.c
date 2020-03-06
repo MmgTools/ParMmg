@@ -229,7 +229,7 @@ int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
 
   ptr = &mesh->tria[k];
 
-  c = mesh->point[ptr->v[i]].c;
+  c = mesh->point[ptr->v[0]].c;
   for( d = 0; d < 3; d++ )
     dist[d] = ppt->c[d] - c[d];
   norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
