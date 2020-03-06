@@ -212,8 +212,15 @@ int main(int argc,char *argv[]) {
   /** a) Create local meshes */
   int nv, nt, ne, ncomm, *color_node, *color_face, *ntifc, *npifc;
   switch( parmesh->nprocs ) {
+    case 1:
+      /* no partitioning */
+      nv = 12;
+      nt = 20;
+      ne = 12;
+      ncomm = 0;
+      break;
     case 2:
-      /* partitioning into 4 procs */
+      /* partitioning into 2 procs */
       nv = 8;
       nt = 12;
       ne = 6;
@@ -311,6 +318,9 @@ int main(int argc,char *argv[]) {
   }
 
   switch( parmesh->nprocs ) {
+    case 1 :
+      /* empty communicators */
+      break;
     case 2 :
       ifc_tria_glob[0][0] = 21;
       ifc_tria_glob[0][1] = 22;
@@ -379,6 +389,27 @@ int main(int argc,char *argv[]) {
 
 
   switch( parmesh->nprocs ) {
+    case 1 :
+      {
+        /* the local mesh is the global mesh */
+        int vert_mask[12], tetra_mask[12], tria_mask[20];
+        int i;
+        for( i = 0; i < 12; i++ ) {
+          vert_mask[i] = i+1;
+          tetra_mask[i] = i+1;
+        }
+        for( i = 0; i < 20; i++ )
+          tria_mask[i] = i+1;
+        get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
+                       tria_mask, inv_tria_mask,
+                       vert_coor,vert_coor_all,vert_ref,vert_ref_all,
+                       tetra_vert,tetra_vert_all,tetra_ref,tetra_ref_all,
+                       tria_vert,tria_vert_all,tria_ref,tria_ref_all,
+                       met,met_all,ncomm,
+                       ntifc,ifc_tria_loc,ifc_tria_glob,
+                       npifc,ifc_nodes_loc,ifc_nodes_glob);
+        break;
+      }
     case 2 :
       /* partitioning into 2 procs */
       switch( parmesh->myrank ) {
