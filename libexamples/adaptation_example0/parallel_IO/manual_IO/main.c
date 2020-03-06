@@ -399,7 +399,7 @@ int main(int argc,char *argv[]) {
           tetra_mask[i] = i+1;
         }
         for( i = 0; i < 20; i++ )
-          tria_mask[i] = i+1;
+          tria_mask[i] = i+1;
         get_local_mesh(nv, ne, nt, vert_mask, inv_vert_mask, tetra_mask,
                        tria_mask, inv_tria_mask,
                        vert_coor,vert_coor_all,vert_ref,vert_ref_all,
