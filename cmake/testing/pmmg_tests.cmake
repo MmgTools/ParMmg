@@ -351,7 +351,7 @@ IF( BUILD_TESTING )
 
       FOREACH( niter 0 3 )
         FOREACH( API_mode 0 1 )
-          FOREACH( NP 2 4 )
+          FOREACH( NP 1 2 4 )
             ADD_TEST ( NAME ${test_name}_niter_${niter}-API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
               $<TARGET_FILE:${test_name}>
               ${input_mesh} ${output_mesh}_niter_${niter}-API_${API_mode}-${NP} ${niter} ${API_mode} ${input_met} )
