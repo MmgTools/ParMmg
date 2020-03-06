@@ -379,12 +379,14 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
    * local entity indices (for node comms, also itosend and itorecv arrays are
    * filled with local/global node IDs).
   */
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
-    fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
-    return PMMG_STRONGFAILURE;
-  } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
-    fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
-    return PMMG_STRONGFAILURE;
+  if( parmesh->nprocs >1 ) {
+    if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
+      fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
+      return PMMG_STRONGFAILURE;
+    } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
+      fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
+      return PMMG_STRONGFAILURE;
+    }
   }
 
   /** Function setters (must be assigned before quality computation) */
