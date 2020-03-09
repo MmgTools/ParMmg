@@ -5,6 +5,10 @@ INCLUDE(cmake/modules/macros.cmake)
 
 PROJECT (parmmg)
 
+# Must use GNUInstallDirs to install libraries into correct
+# locations on all platforms.
+include(GNUInstallDirs)
+
 ###############################################################################
 #####
 #####         Release version and date
@@ -24,19 +28,20 @@ SET (CMAKE_RELEASE_VERSION
 #####
 ###############################################################################
 
-SET(PMMG_BINARY_DIR      ${CMAKE_BINARY_DIR}/src/parmmg)
+SET(PMMG_BINARY_DIR      ${PROJECT_BINARY_DIR}/src/parmmg)
 SET(PMMG_SHRT_INCLUDE    parmmg )
-SET(PMMG_INCLUDE         ${CMAKE_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
+SET(PMMG_INCLUDE         ${PROJECT_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
 
 FILE(MAKE_DIRECTORY ${PMMG_BINARY_DIR})
+
 
 # To see flags and options of compilation
 #SET(CMAKE_VERBOSE_MAKEFILE TRUE)
 
 # Executable path
-SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
-SET(PMMG_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-LIST(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+SET(PMMG_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src)
+LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 
 # Find "exotic" compilers
@@ -278,6 +283,7 @@ ELSE ( )
   FIND_PACKAGE(Mmg)
 
   IF(NOT MMG_FOUND )
+
     MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
       "(see https://github.com/MmgTools/mmg and  download the branch develop)."
       "If you have already installed Mmg and want to use it, "
@@ -414,7 +420,7 @@ ENDIF ( )
 
 IF (NOT WIN32)
 
-  ADD_EXECUTABLE(genheader_pmmg ${CMAKE_SOURCE_DIR}/scripts/genheader.c)
+  ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
 
   GENERATE_FORTRAN_HEADER ( pmmgtypes
     ${PMMG_SOURCE_DIR} libparmmgtypes.h
@@ -480,11 +486,11 @@ IF ( LIBPARMMG_STATIC )
     "${pmmg_library_files}" ${PROJECT_NAME} )
 
   IF ( DOWNLOAD_MMG )
-    Add_Dependencies(libparmmg_a Mmg)
+    Add_Dependencies(lib${PROJECT_NAME}_a Mmg)
   ENDIF ( )
 
   IF ( DOWNLOAD_METIS )
-    Add_Dependencies(libparmmg_a Metis)
+    Add_Dependencies(lib${PROJECT_NAME}_a Metis)
   ENDIF ( )
 
 ENDIF()
@@ -496,11 +502,11 @@ IF ( LIBPARMMG_SHARED )
     "${pmmg_library_files}" ${PROJECT_NAME} )
 
   IF ( DOWNLOAD_MMG )
-    Add_Dependencies(libparmmg_so Mmg)
+    Add_Dependencies(lib${PROJECT_NAME}_so Mmg)
   ENDIF ( )
 
   IF ( DOWNLOAD_METIS )
-    Add_Dependencies(libparmmg_so Metis)
+    Add_Dependencies(lib${PROJECT_NAME}_so Metis)
   ENDIF ( )
 
 ENDIF()
@@ -514,7 +520,7 @@ SET( pmmg_headers
   )
 
 # Install header files in /usr/local or equivalent
-INSTALL(FILES ${pmmg_headers} DESTINATION include/parmmg COMPONENT headers )
+INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COMPONENT headers )
 
 COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 
@@ -522,6 +528,12 @@ COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 # (generated file don't exists yet or are outdated)
 FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
   PATTERN "libparmmg*f.h"  EXCLUDE)
+
+install(EXPORT ParMmgTargets
+  FILE ParMmgTargets.cmake
+  NAMESPACE ParMmg::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
+  )
 
 ###############################################################################
 #####
@@ -548,16 +560,16 @@ ENDIF ( )
 IF (NOT WIN32)
 
   ADD_CUSTOM_TARGET(GenerateGitHash
-    COMMAND ./git_log_pmmg.sh ${CMAKE_SOURCE_DIR} ${PMMG_BINARY_DIR}
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/
+    COMMAND ./git_log_pmmg.sh ${PROJECT_SOURCE_DIR} ${PMMG_BINARY_DIR}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/scripts/
     COMMENT "Getting git commit hash"
   )
-  ADD_DEPENDENCIES(parmmg GenerateGitHash)
+  ADD_DEPENDENCIES(${PROJECT_NAME} GenerateGitHash)
   IF( LIBPARMMG_STATIC )
-    ADD_DEPENDENCIES(libparmmg_a GenerateGitHash)
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_a GenerateGitHash)
   ENDIF ()
   IF( LIBPARMMG_SHARED )
-    ADD_DEPENDENCIES(libparmmg_so GenerateGitHash)
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_so GenerateGitHash)
   ENDIF ()
 
   INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})
@@ -588,11 +600,16 @@ IF(DOXYGEN_FOUND)
     Open the doc/doxygen/html/index.html file to see it." VERBATIM
     )
 
-  ADD_CUSTOM_TARGET(doc
-    DEPENDS parmmg_doc
-    COMMENT "Generating PARMMG API documentation with Doxygen.
+
+  if ( NOT TARGET doc )
+    ADD_CUSTOM_TARGET(doc
+      DEPENDS parmmg_doc
+      COMMENT "Generating PARMMG API documentation with Doxygen.
      Open the doc/doxygen/html/index.html file to see it" VERBATIM
-    )
+      )
+  else()
+    add_dependencies(doc parmmg_doc)
+  endif()
 ENDIF ( DOXYGEN_FOUND )
 
 OPTION ( BUILD_TESTING "Enable / Disable tests" OFF )
@@ -601,4 +618,4 @@ CMAKE_DEPENDENT_OPTION (
   (non library tests)" OFF  "BUILD_TESTING" OFF )
 
 
-INCLUDE( ${CMAKE_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
+INCLUDE( ${PROJECT_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
