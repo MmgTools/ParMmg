@@ -81,8 +81,8 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
       parmesh->memGloMax = MMG5_MEMMAX << 20;
     }
     else {
-      /* maximal memory = 50% of total physical memory */
-      parmesh->memGloMax = maxAvail * MMG5_MEMPERCENT;
+      /* maximal memory = total physical memory */
+      parmesh->memGloMax = maxAvail;
     }
   }
   else {

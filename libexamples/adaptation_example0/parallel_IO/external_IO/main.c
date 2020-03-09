@@ -149,7 +149,7 @@ int main(int argc,char *argv[]) {
   /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
 
-  if ( ierlib != PMMG_STRONGFAILURE ) {
+  if ( ierlib == PMMG_SUCCESS ) {
 
     /** ------------------------------ STEP  VI -------------------------- */
     /** recover parallel interfaces */
