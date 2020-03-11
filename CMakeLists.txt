@@ -418,7 +418,7 @@ ENDIF ( )
 #####
 ############################################################################
 
-IF (NOT WIN32)
+IF (NOT WIN32 OR MINGW)
 
   ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
 
@@ -557,7 +557,7 @@ ENDIF ( )
 #####
 ############################################################################
 
-IF (NOT WIN32)
+IF (NOT WIN32 OR MINGW)
 
   ADD_CUSTOM_TARGET(GenerateGitHash
     COMMAND ./git_log_pmmg.sh ${PROJECT_SOURCE_DIR} ${PMMG_BINARY_DIR}
