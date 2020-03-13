@@ -208,6 +208,29 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'f':
+        if ( !strcmp(argv[i],"-field") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputSolsName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_mmgargv;
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
+            ret_val = 0;
+            goto fail_mmgargv;
+          }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
+        break;
       case 'g':
         if ( !strcmp(argv[i],"-groups-ratio") ) {
 
@@ -228,6 +251,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
              ret_val = 0;
             goto fail_proc;
           }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 
@@ -309,7 +337,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             goto fail_proc;
           }
         }
-        else {
+        else if ( !strcmp(argv[i],"-m") ) {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
             if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) ) {
@@ -328,6 +356,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 
