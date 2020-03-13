@@ -437,7 +437,7 @@ int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  ls   = parmesh->listgrp[0].sol;
+  ls   = parmesh->listgrp[0].ls;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
@@ -502,7 +502,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
     sol = parmesh->listgrp[0].disp;
   }
   else if ( mesh->info.iso ) {
-    sol = parmesh->listgrp[0].sol;
+    sol = parmesh->listgrp[0].ls;
   }
   else {
     sol = parmesh->listgrp[0].met;
@@ -543,7 +543,7 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].sol;
+  sol  = parmesh->listgrp[0].field;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
@@ -629,7 +629,7 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].sol;
+  sol  = parmesh->listgrp[0].field;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );

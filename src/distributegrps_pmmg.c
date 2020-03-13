@@ -52,10 +52,11 @@ static inline
 PMMG_Grp PMMG_assign_grp(PMMG_pGrp group) {
   PMMG_Grp out;
 
-  out.mesh = group->mesh;
-  out.sol  = group->sol;
-  out.met  = group->met;
-  out.disp = group->disp;
+  out.mesh  = group->mesh;
+  out.field = group->field;
+  out.met   = group->met;
+  out.disp  = group->disp;
+  out.ls    = group->ls;
 
   out.nitem_int_node_comm = group->nitem_int_node_comm;
   out.nitem_int_edge_comm = group->nitem_int_edge_comm;
@@ -87,10 +88,11 @@ PMMG_Grp PMMG_move_grp(PMMG_pGrp group) {
 
   out = PMMG_assign_grp( group );
 
-  group->mesh = NULL;
-  group->sol  = NULL;
-  group->met  = NULL;
-  group->disp = NULL;
+  group->mesh  = NULL;
+  group->field = NULL;
+  group->met   = NULL;
+  group->disp  = NULL;
+  group->ls    = NULL;
 
   group->nitem_int_node_comm = 0;
   group->nitem_int_edge_comm = 0;

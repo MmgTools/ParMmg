@@ -66,7 +66,7 @@ int PMMG_Set_inputSolsName(PMMG_pParMesh parmesh, const char* solin) {
   ier = 1;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    sol  = parmesh->listgrp[k].sol;
+    sol  = parmesh->listgrp[k].field;
 
     for ( i=0; i<mesh->nsols; ++i ) {
       psl = sol + i;
@@ -110,7 +110,7 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   ier = 1;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    sol  = parmesh->listgrp[k].sol;
+    sol  = parmesh->listgrp[k].field;
     for ( i=0; i<mesh->nsols; ++i ) {
       psl = sol + i;
       ier  = MG_MIN( ier, MMG3D_Set_outputSolName(mesh,psl,solout) );
@@ -248,7 +248,7 @@ int PMMG_Set_solsAtVerticesSize(PMMG_pParMesh parmesh, int nsols,int nentities,
   ier = 1;
 
   mesh = parmesh->listgrp[0].mesh;
-  sol  = &parmesh->listgrp[0].sol;
+  sol  = &parmesh->listgrp[0].field;
 
   ier  = MMG3D_Set_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
 
@@ -623,12 +623,12 @@ int PMMG_Set_normalAtVertex(PMMG_pParMesh parmesh, int k, double n0, double n1,
 
 int PMMG_Set_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i, double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_ithSols_inSolsAtVertices(parmesh->listgrp[0].sol,i,s));
+  return(MMG3D_Set_ithSols_inSolsAtVertices(parmesh->listgrp[0].field,i,s));
 }
 
 int PMMG_Set_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double *s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_ithSol_inSolsAtVertices(parmesh->listgrp[0].sol,i, s, pos));
+  return(MMG3D_Set_ithSol_inSolsAtVertices(parmesh->listgrp[0].field,i, s, pos));
 }
 
 int PMMG_Set_scalarMet(PMMG_pParMesh parmesh, double m,int pos){
@@ -689,9 +689,9 @@ int PMMG_Get_solsAtVerticesSize(PMMG_pParMesh parmesh, int *nsols,int *nentities
   if ( nentities )
     *nentities = 0;
 
-  if ( parmesh->listgrp && parmesh->listgrp[0].mesh && parmesh->listgrp[0].sol ) {
+  if ( parmesh->listgrp && parmesh->listgrp[0].mesh && parmesh->listgrp[0].field ) {
     mesh = parmesh->listgrp[0].mesh;
-    sol  = &parmesh->listgrp[0].sol;
+    sol  = &parmesh->listgrp[0].field;
 
     ier  = MMG3D_Get_solsAtVerticesSize(mesh,sol,nsols,nentities,typSol);
   }
@@ -792,12 +792,12 @@ int PMMG_Get_normalAtVertex(PMMG_pParMesh parmesh, int k, double *n0, double *n1
 
 int PMMG_Get_ithSol_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double* s,int pos){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_ithSol_inSolsAtVertices(parmesh->listgrp[0].sol,i,s,pos));
+  return(MMG3D_Get_ithSol_inSolsAtVertices(parmesh->listgrp[0].field,i,s,pos));
 }
 
 int PMMG_Get_ithSols_inSolsAtVertices(PMMG_pParMesh parmesh,int i,double* s){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Get_ithSols_inSolsAtVertices(parmesh->listgrp[0].sol,i,s));
+  return(MMG3D_Get_ithSols_inSolsAtVertices(parmesh->listgrp[0].field,i,s));
 
 }
 

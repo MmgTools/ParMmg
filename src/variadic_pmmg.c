@@ -176,10 +176,11 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   PMMG_CALLOC(*parmesh,(*parmesh)->listgrp,1,PMMG_Grp,
               "allocating groups container", goto fail_grplst );
   grp = &(*parmesh)->listgrp[0];
-  grp->mesh = NULL;
-  grp->met  = NULL;
-  grp->sol  = NULL;
-  grp->disp = NULL;
+  grp->mesh  = NULL;
+  grp->met   = NULL;
+  grp->field = NULL;
+  grp->disp  = NULL;
+  grp->ls    = NULL;
 
   if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &grp->mesh,

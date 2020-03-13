@@ -276,7 +276,7 @@ check_mesh_loading:
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
 
-      if ( grp->sol && !PMMG_saveAllSols_centralized(parmesh,grp->sol->nameout) ) {
+      if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,grp->field->nameout) ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
 

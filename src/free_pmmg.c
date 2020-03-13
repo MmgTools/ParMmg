@@ -88,8 +88,8 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
   if (grp->mesh->nsols)
     MMG3D_Free_all( MMG5_ARG_start,
                     MMG5_ARG_ppMesh, &grp->mesh,
-                    MMG5_ARG_ppSols, &grp->sol,
-                    MMG5_ARG_ppMet, &grp->met,
+                    MMG5_ARG_ppSols, &grp->field,
+                    MMG5_ARG_ppMet,  &grp->met,
                     MMG5_ARG_end );
   else
     MMG3D_Free_all( MMG5_ARG_start,
@@ -111,7 +111,7 @@ void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm, PMMG_Int_comm, "int edge comm");
   PMMG_parmesh_int_comm_free( parmesh, parmesh->int_face_comm );
   PMMG_DEL_MEM(parmesh, parmesh->int_face_comm, PMMG_Int_comm, "int face comm");
- 
+
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_node_comm, parmesh->next_node_comm );
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm, "ext node comm");
   PMMG_parmesh_ext_comm_free( parmesh, parmesh->ext_edge_comm, parmesh->next_edge_comm );

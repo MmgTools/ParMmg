@@ -116,10 +116,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
 
-    fprintf(stdout,"\n**  File specifications\n");
-    fprintf(stdout,"-in  file  input triangulation\n");
-    fprintf(stdout,"-out file  output triangulation\n");
-    fprintf(stdout,"-sol file  load solution or metric file\n");
+    fprintf(stdout,"\n**   File specifications\n");
+    fprintf(stdout,"-in    file  input triangulation\n");
+    fprintf(stdout,"-out   file  output triangulation\n");
+    fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
+    fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -362,10 +363,18 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         break;
 
-      case 'd':  /* debug */
-        if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
-          ret_val = 0;
-          goto fail_proc;
+      case 'd':
+        if ( !strcmp(argv[i],"-d") ) {
+          /* debug */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 #ifdef USE_SCOTCH

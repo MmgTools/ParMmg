@@ -1617,11 +1617,11 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
     }
     else {
       MMG3D_Free_arrays(&grp->mesh,&grp->met,&grp->disp);
-      if ( grp->sol ) {
+      if ( grp->field ) {
         assert ( grp->mesh->nsols );
         for ( k=0; k<grp->mesh->nsols; ++k ) {
-          if ( grp->sol + k && grp->sol[k].m ) {
-            PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->sol[k].m,int,"sol array");
+          if ( grp->field + k && grp->field[k].m ) {
+            PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->field[k].m,int,"sol array");
           }
         }
       }
