@@ -506,6 +506,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 
 /* Internal library */
+void PMMG_setfunc( PMMG_pParMesh parmesh );
 int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
 /* Mesh distrib */
