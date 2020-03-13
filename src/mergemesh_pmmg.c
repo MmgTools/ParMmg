@@ -1625,6 +1625,9 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
           }
         }
       }
+      if ( grp->ls && grp->ls->m ) {
+        PMMG_DEL_MEM(parmesh->listgrp[0].mesh,grp->ls->m,int,"ls array");
+      }
     }
     PMMG_parmesh_Free_Comm(parmesh);
 
