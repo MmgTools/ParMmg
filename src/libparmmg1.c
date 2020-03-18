@@ -197,14 +197,16 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
-  MMG5_pSol   disp;
-  int         np,nc,igrp;
+  MMG5_pSol   disp,ls;
+  MMG5_pSol   field;
+  int         np,nc,igrp,k;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
+    ls                        = grp->ls;
 
     if ( !mesh ) continue;
 
@@ -226,6 +228,18 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /* compact displacement */
     if ( disp && disp->m )
       if ( !MMG3D_pack_sol(mesh,disp) ) return 0;
+
+    /* compact level-set */
+    if ( ls && ls->m )
+      if ( !MMG3D_pack_sol(mesh,ls) ) return 0;
+
+    /* compact solution field */
+    if ( grp->field ) {
+      for ( k=0; k<=mesh->nsols; ++k ) {
+        field = &grp->field[k];
+        if ( field->m && (!MMG3D_pack_sol(mesh,field)) ) return 0;
+      }
+    }
 
     /** Store in tmp the pack index of each point and count the corner*/
     if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
@@ -457,7 +471,7 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
 int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,field;
   size_t     oldMemMax,available;
   mytime     ctim[TIMEMAX];
   int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
@@ -528,7 +542,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",it+1,stim);fflush(stdout);
     }
 
-    /** Update old groups for metrics interpolation */
+    /** Update old groups for metrics and solution interpolation */
     PMMG_update_oldGrps( parmesh );
 
     tim = 4;
@@ -540,6 +554,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+      field        = parmesh->listgrp[i].field;
 
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.fem;
@@ -581,6 +596,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         {
           PMMG_scotch_message(&warnScotch);
         }
+
+
 #else
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
@@ -645,11 +662,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
 
-        if ( !PMMG_copyMetrics_point( parmesh->listgrp[i].mesh,
-                                      parmesh->old_listgrp[i].mesh,
-                                      parmesh->listgrp[i].met,
-                                      parmesh->old_listgrp[i].met,
-                                      permNodGlob) ) {
+        if ( !PMMG_copyMetricsAndFields_point( parmesh->listgrp[i].mesh,
+                                               parmesh->old_listgrp[i].mesh,
+                                               parmesh->listgrp[i].met,
+                                               parmesh->old_listgrp[i].met,
+                                               parmesh->listgrp[i].field,
+                                               parmesh->old_listgrp[i].field,
+                                               permNodGlob) ) {
           goto strong_failed;
         }
 
@@ -669,25 +688,25 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( !ieresult )
       goto failed_handling;
 
-    /** Interpolate metrics */
+    /** Interpolate metrics and solution fields */
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       tim = 2;
       chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics( parmesh, permNodGlob );
+    ier = PMMG_interpMetricsAndFields( parmesh, permNodGlob );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"       metric interpolation              %s\n",stim);
+      fprintf(stdout,"       metric and fields interpolation   %s\n",stim);
     }
 
     if ( !ieresult ) {
       if ( !parmesh->myrank )
-        fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
+        fprintf(stderr,"\n  ## Metrics or fields interpolation problem. Try to save the mesh and exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
 

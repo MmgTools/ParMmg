@@ -62,7 +62,6 @@ int main( int argc, char *argv[] )
 {
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
-  MMG5_pSol     sol;
   int           rank;
   int           ier,iresult,ierSave,fmtin;
   int8_t        tim;

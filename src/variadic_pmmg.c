@@ -66,6 +66,7 @@
  * Internal function for structure allocations (taking a va_list argument).
  *
  */
+
 int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   PMMG_pParMesh  *parmesh;
   MPI_Comm       comm;

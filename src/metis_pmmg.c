@@ -1230,7 +1230,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   if( nproc >= 8 ) {
     ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
                                NULL,NULL,options,&objval, part );
-  } 
+  }
   else
     ier = METIS_PartGraphRecursive( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
                                NULL,NULL,options,&objval, part );

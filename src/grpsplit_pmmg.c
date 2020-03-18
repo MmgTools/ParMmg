@@ -326,31 +326,35 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  *
  */
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrp].field;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
+  MMG5_pSol        met,field,psl;
   size_t           oldMemMax,memAv;
+  int              j;
 
   grp = &parmesh->old_listgrp[igrp];
-  grp->mesh = NULL;
-  grp->met  = NULL;
+  grp->mesh   = NULL;
+  grp->met    = NULL;
+  grp->field  = NULL;
 
   MMG3D_Init_mesh( MMG5_ARG_start,
                    MMG5_ARG_ppMesh, &grp->mesh,
                    MMG5_ARG_ppMet, &grp->met,
                    MMG5_ARG_end );
 
-  mesh = grp->mesh;
-  met  = grp->met;
+  mesh  = grp->mesh;
+  met   = grp->met;
+  field = grp->field;
 
   /* Give all the available memory to the mesh */
   oldMemMax = parmesh->memCur;
   memAv     = parmesh->memMax-oldMemMax;
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
 
-  /* Copy the mesh filenames */
+  /* Copy the mesh and metric filenames */
   if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
   if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein ) )  return 0;
   if ( !MMG5_Set_outputMeshName( mesh,meshOld->nameout ) )    return 0;
@@ -366,6 +370,26 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   if ( meshOld->info.inputMet == 1 )
     if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
+
+  /* Set fields size */
+  mesh->nsols = meshOld->nsols;
+  if ( meshOld->nsols ) {
+    MMG5_ADD_MEM(mesh,mesh->nsols*sizeof(MMG5_Sol),"solutions array",
+                 return 0);
+    MMG5_SAFE_CALLOC(field,mesh->nsols,MMG5_Sol,return 0);
+
+    for ( j=0; j<mesh->nsols; ++j ) {
+      psl = field + j;
+      psl->ver = 2;
+
+      if ( !MMG3D_Set_inputSolName(mesh,psl,fieldOld[j].nameout) ) {
+        return 0;
+      }
+
+      if ( !MMG3D_Set_solSize(mesh,psl,MMG5_Vertex,meshOld->np,fieldOld->type) )
+        return 0;
+    }
+  }
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
@@ -497,16 +521,18 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
  */
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
 
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrp].field;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
+  MMG5_pSol        met,field,psl;
   MMG5_pTetra      pt,ptCur;
   MMG5_pPoint      ppt,pptCur;
-  int              *adja,*oldAdja,ie,ip;
+  int              *adja,*oldAdja,ie,ip,j;
 
-  mesh = parmesh->old_listgrp[igrp].mesh;
-  met  = parmesh->old_listgrp[igrp].met;
+  mesh  = parmesh->old_listgrp[igrp].mesh;
+  met   = parmesh->old_listgrp[igrp].met;
+  field = parmesh->old_listgrp[igrp].field;
 
   assert( mesh->ne == meshOld->ne );
   assert( mesh->np == meshOld->np );
@@ -515,7 +541,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
   for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
     pt = &meshOld->tetra[ie];
     ptCur = &mesh->tetra[ie];
- 
+
     if ( !MG_EOK(pt) ) continue;
 
     /* Copy tetra */
@@ -553,12 +579,18 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
       if ( mesh->info.inputMet == 1 )
         memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
 
+      /* Copy fields */
+      for ( j=0; j<mesh->nsols; ++j ) {
+        psl = field + j;
+        memcpy( &psl->m[ ip*field->size ], &fieldOld[j].m[ip*field->size], psl->size*sizeof(double) );
+      }
+
       /* Skip xpoint */
       pptCur->xp = 0;
 
     }
   }
-  
+
   return 1;
 }
 
