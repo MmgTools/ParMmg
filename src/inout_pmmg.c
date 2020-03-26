@@ -358,7 +358,7 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
 
   /* Load parallel communicators */
   ier = PMMG_loadCommunicators( parmesh,filename );
- 
+
   if ( 1 != ier ) return 0;
 
   return 1;

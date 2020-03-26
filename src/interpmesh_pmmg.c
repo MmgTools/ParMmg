@@ -352,6 +352,7 @@ int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  * \param met pointer to the current metrics.
  * \param oldMet pointer to the background metrics.
  * \param permNodGlob permutation array for nodes.
+ * \param inputMet 1 if user provided metric.
  *
  * \return 0 if fail, 1 if success
  *
@@ -359,11 +360,12 @@ int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
-                            MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob) {
+                            MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob,
+                            unsigned char inputMet) {
   MMG5_pPoint    ppt;
   int            isize,nsize,ip;
 
-  if ( !mesh->info.inputMet || mesh->info.hsiz > 0.0 ) return 1;
+  if ( (!inputMet) || mesh->info.hsiz > 0.0 ) return 1;
 
   nsize   = met->size;
 
@@ -411,11 +413,12 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * \param oldMet pointer to the background metrics structure.
  * \param faceAreas pointer to the array of oriented face areas.
  * \param permNodGlob permutation array of nodes.
+ * \param inputMet 1 if user provided metric.
  *
  * \return 0 if fail, 1 if success
  *
  *  Interpolate metrics for all groups from background to current meshes.
- *  Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
+ *  Do nothing if no metrics is provided (inputMet == 0), otherwise:
  *  - if the metrics is constant, recompute it;
  *  - else, interpolate the non-constant metrics.
  *
@@ -425,7 +428,8 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  */
 int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              MMG5_pSol met,MMG5_pSol oldMet,
-                             double *faceAreas,int *permNodGlob ) {
+                             double *faceAreas,int *permNodGlob,
+                             unsigned char inputMet ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
@@ -434,7 +438,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   int         ier;
   static int  mmgWarn=0;
 
-  if( mesh->info.inputMet != 1 ) {
+  if( inputMet != 1 ) {
 
     /* Nothing to do */
     return 1;
@@ -562,7 +566,7 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     oldMet  = oldGrp->met;
 
     /** Pre-allocate oriented face areas */
-    if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
+    if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       ier = 1;
       PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
       if( !ier ) {
@@ -572,11 +576,11 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     }
 
     if( !PMMG_interpMetrics_mesh( mesh, oldMesh, met, oldMet,
-                                  faceAreas, permNodGlob ) )
+                                  faceAreas, permNodGlob,parmesh->info.inputMet ) )
       ier = 0;
 
     /** Deallocate oriented face areas */
-    if( ( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
+    if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
     }
 

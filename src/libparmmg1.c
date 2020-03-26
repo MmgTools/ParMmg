@@ -463,11 +463,28 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
+  unsigned char inputMet;
 
 
   tminit(ctim,TIMEMAX);
 
   ier_end = PMMG_SUCCESS;
+
+  /* Set inputMet flag */
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    met         = parmesh->listgrp[i].met;
+    if ( met && met->m ) {
+      parmesh->info.inputMet = 1;
+      break;
+    }
+  }
+
+  ier = 1;
+  inputMet = 0;
+  MPI_CHECK( MPI_Allreduce( &parmesh->info.inputMet,&inputMet,1,MPI_UNSIGNED_CHAR,MPI_MAX,
+                            parmesh->comm ),ier = 0 );
+
+  parmesh->info.inputMet = inputMet;
 
   /** Groups creation */
   if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
@@ -475,8 +492,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
-                         PMMG_REDISTRIBUTION_graph_balancing );
+  if ( ier ) {
+    ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
+                               PMMG_REDISTRIBUTION_graph_balancing );
+  }
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -615,7 +634,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
         }
 
-        if ( it < parmesh->niter-1 && !mesh->info.inputMet ) {
+        if ( it < parmesh->niter-1 && (!inputMet) ) {
           /* Delete the metrec computed by Mmg except at last iter */
           PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
@@ -654,7 +673,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                                       parmesh->old_listgrp[i].mesh,
                                       parmesh->listgrp[i].met,
                                       parmesh->old_listgrp[i].met,
-                                      permNodGlob) ) {
+                                      permNodGlob,parmesh->info.inputMet) ) {
           goto strong_failed;
         }
 
