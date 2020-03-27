@@ -701,6 +701,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
+    if( (it == parmesh->niter-1) && !parmesh->info.nobalancing ) {
+      parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+    }
     ier = PMMG_loadBalancing(parmesh);
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
