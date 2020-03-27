@@ -369,6 +369,7 @@ typedef struct {
 
   /* global variables */
   int            ddebug; //! Debug level
+  int            iter;   //! Current adaptation iteration
   int            niter;  //! Number of adaptation iterations
 
   /* parameters of the run */
