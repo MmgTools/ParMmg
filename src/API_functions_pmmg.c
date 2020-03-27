@@ -140,20 +140,21 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   memset(&parmesh->info,0, sizeof(PMMG_Info));
 
-  parmesh->info.mem    = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
-  parmesh->info.root   = PMMG_NUL;
+  parmesh->info.mem                = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
+  parmesh->info.root               = PMMG_NUL;
 
-  parmesh->ddebug      = PMMG_NUL;
-  parmesh->niter       = PMMG_NITER;
-  parmesh->info.fem    = MMG5_FEM;
-  parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
-  parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
-  parmesh->info.grps_ratio = PMMG_GRPS_RATIO;
+  parmesh->ddebug                  = PMMG_NUL;
+  parmesh->niter                   = PMMG_NITER;
+  parmesh->info.fem                = MMG5_FEM;
+  parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
+  parmesh->info.ifc_layers         = PMMG_MVIFCS_NLAYERS;
+  parmesh->info.grps_ratio         = PMMG_GRPS_RATIO;
+  parmesh->info.nobalancing        = MMG5_OFF;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
-  parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
-  parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
-  parmesh->info.metis_ratio =  PMMG_RATIO_MMG_METIS;
-  parmesh->info.API_mode    =  PMMG_APIDISTRIB_faces;
+  parmesh->info.contiguous_mode    = PMMG_CONTIG_DEF;
+  parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
+  parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
+  parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -321,6 +322,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
   case PMMG_IPARAM_meshSize :
     parmesh->info.target_mesh_size = val;
+    break;
+  case PMMG_IPARAM_nobalancing :
+    parmesh->info.nobalancing = val;
     break;
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;

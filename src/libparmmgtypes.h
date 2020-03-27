@@ -320,6 +320,7 @@ typedef struct {
   int repartitioning; /*!< way to perform mesh repartitioning */
   int ifc_layers;  /*!< nb of layers for interface displacement */
   double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
+  int nobalancing; /*!< switch off final load balancing */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
