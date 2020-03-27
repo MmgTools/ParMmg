@@ -473,7 +473,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   memAv = parmesh->memMax-oldMemMax;
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
  
-  ier = MMG3D_hashTetra( mesh, 1 );
+  ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   MMG3D_saveMesh( mesh, name );
   if ( met->m ) {
