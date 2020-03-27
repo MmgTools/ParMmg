@@ -94,6 +94,7 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
     if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
     if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
+    if ( ppt->tag & MG_NOM )    ppt->tag &= ~MG_NOM;
   }
 }
 
