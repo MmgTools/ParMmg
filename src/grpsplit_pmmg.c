@@ -1487,6 +1487,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   if ( !meshOld ) goto end;
 
+  /* Count how many groups to split into */
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     /* Set to a value higher than 1 just to continue until the true
@@ -1578,7 +1579,10 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
 
-
+  /* Get interfaces layers or call metis. Use interface displacement if:
+   * - This is the required method, and
+   * - you are before group distribution or there are not too many groups.
+   */
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
@@ -1602,7 +1606,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     }
     
     /* If this is the first split of the input mesh, and interface displacement
-     * will beb performed, check that the groups are contiguous. */
+     * will be performed, check that the groups are contiguous. */
     if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
       if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
