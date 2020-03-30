@@ -702,9 +702,24 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     if( (parmesh->iter == parmesh->niter-1) && !parmesh->info.nobalancing ) {
+      /** Load balancing of the output mesh */
+
+      /* Store user repartitioning mode */
+      int repartitioning_mode;
+      repartitioning_mode = parmesh->info.repartitioning;
+
+      /* Load balance using mesh groups graph */
       parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+      ier = PMMG_loadBalancing(parmesh);
+
+      /* Repristinate user repartitioning mode */
+      parmesh->info.repartitioning = repartitioning_mode;
+
+    } else {
+      /** Standard parallel mesh repartitioning */
+      ier = PMMG_loadBalancing(parmesh);
     }
-    ier = PMMG_loadBalancing(parmesh);
+
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
