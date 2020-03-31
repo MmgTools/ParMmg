@@ -73,6 +73,7 @@ enum PMMG_Param {
   PMMG_IPARAM_anisosize,         /*!< [1/0], Turn on/off anisotropic metric creation when no metric is provided */
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
   PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
+  PMMG_IPARAM_nobalancing,       /*!< [1/0], Deactivate load balancing of the output mesh */
   PMMG_IPARAM_metisRatio,        /*!< [n], wanted ratio # mesh / # metis super nodes (advanced use) */
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
