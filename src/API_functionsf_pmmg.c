@@ -962,3 +962,15 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
 
   return;
 }
+
+/**
+ * See \ref PMMG_setfunc function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SETFUNC,pmmg_setfunc,
+             (PMMG_pParMesh *parmesh),
+             (parmesh)) {
+
+  PMMG_setfunc(*parmesh);
+
+  return;
+}

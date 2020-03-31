@@ -327,6 +327,7 @@ typedef struct {
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
   int fmtout; /*!< store the output format asked */
+  unsigned char inputMet; /* 1 if User prescribe a metric or a size law */
 } PMMG_Info;
 
 

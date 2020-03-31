@@ -367,7 +367,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 
   /* Set metrics size */
-  if ( meshOld->info.inputMet == 1 )
+  if ( parmesh->info.inputMet == 1 )
     if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
 
@@ -576,7 +576,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
       memcpy( pptCur, ppt, sizeof(MMG5_Point) );
 
       /* Copy metrics */
-      if ( mesh->info.inputMet == 1 )
+      if ( parmesh->info.inputMet == 1 )
         memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
 
       /* Copy fields */

@@ -190,16 +190,22 @@ double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac ) 
   double       len,res,alpha=28.0;
   int          i,ia;
 
-  res = 0.0;
-  for( i=0; i<3; i++ ) {
-    ia = MMG5_iarf[ifac][i];
-    len = MMG5_lenedg(mesh,met,ia,pt);
-    if( len <= 1.0 )
-      res += len-1.0;
-    else
-      res += 1.0/len-1.0;
+  if ( met && met->m ) {
+    res = 0.0;
+    for( i=0; i<3; i++ ) {
+      ia = MMG5_iarf[ifac][i];
+      len = MMG5_lenedg(mesh,met,ia,pt);
+      if( len <= 1.0 )
+        res += len-1.0;
+      else
+        res += 1.0/len-1.0;
+    }
+    res = MG_MIN(1.0/exp(alpha*res/3.0),PMMG_WGTVAL_HUGEINT);
   }
-  res = MG_MIN(1.0/exp(alpha*res/3.0),PMMG_WGTVAL_HUGEINT);
+  else {
+    res = PMMG_WGTVAL_HUGEINT;
+  }
+
   return res;
 }
 

@@ -2299,6 +2299,21 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_tria_loc,int **ifc_tria_glob,
                          int next_face_comm,int *nitem_face_comm);
 
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * Set function pointers.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SETFUNC(parmesh)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)     :: parmesh\n
+ * >   END SUBROUTINE\n
+ *
+ */
+void PMMG_setfunc( PMMG_pParMesh parmesh );
+
+
 #if defined(c_plusplus) || defined(__cplusplus)
 }
 #endif

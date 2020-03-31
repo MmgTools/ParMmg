@@ -89,7 +89,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *
  */
 int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
-                    double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
+                            double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
   double *c0,*normal,vol;
   int    ifac;
 
@@ -290,7 +290,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
  *  function.
  */
 int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                                  MMG5_pTetra pt,int ip,double *phi ) {
+                         MMG5_pTetra pt,int ip,double *phi ) {
   int iloc,i,j,ier,iadr;
 
   assert( met->size == 1 );
@@ -328,7 +328,7 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                                  MMG5_pTetra pt,int ip,double *phi ) {
+                         MMG5_pTetra pt,int ip,double *phi ) {
   double dm[4][6],mi[4][6],m[6];
   int    iloc,i,isize,nsize,ier;
 
@@ -344,7 +344,7 @@ int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   /** Linear interpolation of the metrics */
   for( isize = 0; isize < nsize; isize++ ) {
     m[isize] = phi[0]*mi[0][isize] + phi[1]*mi[1][isize] +
-               phi[2]*mi[2][isize] + phi[3]*mi[3][isize];
+      phi[2]*mi[2][isize] + phi[3]*mi[3][isize];
   }
 
   if( !MMG5_invmat(m,mi[0]) ) return 0;
@@ -360,6 +360,7 @@ int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  * \param met pointer to the current metrics.
  * \param oldMet pointer to the background metrics.
  * \param permNodGlob permutation array for nodes.
+ * \param inputMet 1 if user provided metric.
  *
  * \return 0 if fail, 1 if success
  *
@@ -375,7 +376,6 @@ int PMMG_copySol_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   nsize   = sol->size;
 
 #warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
-
   /** Freezed points: Copy the data stored in solution structure  */
   if ( (!oldMesh->info.renum) || !permNodGlob ) {
     /* No permutation array: simple copy */
@@ -428,13 +428,15 @@ int PMMG_copySol_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * Copy the metric of a freezed interface point.
  *
  */
+static
 int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
-                            MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob) {
+                            MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob,
+                            unsigned char inputMet ) {
   MMG5_pPoint    ppt;
   int            isize,nsize,ip;
   int            ier;
 
-  if ( !mesh->info.inputMet || mesh->info.hsiz > 0.0 ) return 1;
+  if ( !inputMet || mesh->info.hsiz > 0.0 ) return 1;
 
   ier =  PMMG_copySol_point( mesh, oldMesh,met,oldMet,permNodGlob);
 
@@ -453,6 +455,7 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * Copy the metric of a freezed interface point.
  *
  */
+static
 int PMMG_copyFields_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                            MMG5_pSol field,MMG5_pSol oldField,int* permNodGlob) {
   MMG5_pPoint    ppt;
@@ -481,6 +484,7 @@ int PMMG_copyFields_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * \param field pointer to the current fields.
  * \param oldField pointer to the background fields.
  * \param permNodGlob permutation array for nodes.
+ * \param inputMet 1 if user provided metric.
  *
  * \return 0 if fail, 1 if success
  *
@@ -490,10 +494,10 @@ int PMMG_copyFields_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh ,MMG5_pMesh oldMesh,
                                      MMG5_pSol  met  ,MMG5_pSol  oldMet,
                                      MMG5_pSol  field,MMG5_pSol  oldField,
-                                     int* permNodGlob) {
+                                     int* permNodGlob,unsigned char inputMet) {
   int ier;
 
-  ier = PMMG_copyMetrics_point(mesh,oldMesh,met,oldMet,permNodGlob);
+  ier = PMMG_copyMetrics_point(mesh,oldMesh,met,oldMet,permNodGlob,inputMet);
   if ( !ier ) {
     return 0;
   }
@@ -510,15 +514,16 @@ int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh ,MMG5_pMesh oldMesh,
  * \param oldMet pointer to the background metrics structure.
  * \param faceAreas pointer to the array of oriented face areas.
  * \param permNodGlob permutation array of nodes.
+ * \param inputMet 1 if user provided metric.
  *
  * \return 0 if fail, 1 if success
  *
  * Interpolate metrics and solution fields for all groups from background
  * to current meshes.
  * For the metric:
- *   Do nothing if no metrics is provided (info.inputMet == 0), otherwise:
- *    - if the metrics is constant, recompute it;
- *    - else, interpolate the non-constant metrics.
+ *  Do nothing if no metrics is provided (inputMet == 0), otherwise:
+ *  - if the metrics is constant, recompute it;
+ *  - else, interpolate the non-constant metrics.
  *
  * For the solution fields: Do nothing if no solution field is provided
  *   (mesh->nsols == 0), interpolate the non-constant field otherwise.
@@ -531,7 +536,8 @@ static
 int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                       MMG5_pSol met,MMG5_pSol oldMet,
                                       MMG5_pSol field,MMG5_pSol oldField,
-                                      double *faceAreas,int *permNodGlob ) {
+                                      double *faceAreas,int *permNodGlob,
+                                      unsigned char inputMet ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
   MMG5_pSol   psl,oldPsl;
@@ -544,7 +550,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   nsols = mesh->nsols;
 
   ismet = 1;
-  if ( mesh->info.inputMet != 1 ) {
+  if ( inputMet != 1 ) {
     ismet = 0;
   }
   else  if( mesh->info.hsiz > 0.0 ) {
@@ -676,19 +682,19 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   ier = 1;
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
 
-    grp   = &parmesh->listgrp[igrp];
-    mesh  = grp->mesh;
-    met   = grp->met;
+    grp  = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+    met  = grp->met;
     field = grp->field;
 
-    oldGrp   = &parmesh->old_listgrp[igrp];
-    oldMesh  = oldGrp->mesh;
-    oldMet   = oldGrp->met;
+    oldGrp  = &parmesh->old_listgrp[igrp];
+    oldMesh = oldGrp->mesh;
+    oldMet  = oldGrp->met;
     oldField = oldGrp->field;
 
     /** Pre-allocate oriented face areas */
     allocated = 0;
-    if ( mesh->nsols || (( mesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) ) {
+    if ( mesh->nsols || (( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) ) {
       ier = 1;
       PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
       if( !ier ) {
@@ -699,14 +705,14 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     }
 
     if( !PMMG_interpMetricsAndFields_mesh( mesh, oldMesh, met, oldMet, field, oldField,
-                                           faceAreas, permNodGlob ) )
+                                           faceAreas, permNodGlob, parmesh->info.inputMet ) ) {
       ier = 0;
-
-    /** Deallocate oriented face areas */
-    if( allocated ) {
-      PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
     }
 
+    /** Deallocate oriented face areas */
+    if ( allocated ) {
+      PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+    }
   }
 
   return ier;
