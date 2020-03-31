@@ -634,7 +634,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
         }
 
-        if ( it < parmesh->niter-1 && (!inputMet) ) {
+        if ( parmesh->iter < parmesh->niter-1 && (!inputMet) ) {
           /* Delete the metrec computed by Mmg except at last iter */
           PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
