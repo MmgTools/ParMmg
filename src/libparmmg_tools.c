@@ -36,7 +36,7 @@
 #define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {  \
     PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg, \
                 on_failure);                                            \
-    strncpy( toV[ toC ], fromV[ fromC ], strlen( fromV[ fromC ] ) + 1 ); \
+    strncpy( toV[ toC ], fromV[ fromC ], strlen( toV[ toC ] ) + 1 );    \
     toV[ toC ][strlen( fromV[ fromC ] )] = '\0';                        \
     ++toC;                                                              \
   }while(0)
