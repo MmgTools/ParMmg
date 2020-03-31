@@ -801,7 +801,13 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,ishift,wgt;
 
-  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weight choice for parmetis */
+  if( (parmesh->iter == parmesh->niter-1) && !parmesh->info.nobalancing ) {
+    /* Switch off weights for output load balancing */
+    *wgtflag = PMMG_WGTFLAG_NONE;
+  } else {
+    /* Default weight choice for parmetis */
+    *wgtflag = PMMG_WGTFLAG_DEF;
+  }
   *numflag = 0; /* C-style numbering */
   *ncon    = 1; /* number of weight per metis node */
 
