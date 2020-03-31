@@ -693,6 +693,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   mytime           ctim[TIMEMAX];
   int8_t           tim;
   char             stim[32];
+  unsigned char    ismet;
 
 
   if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
