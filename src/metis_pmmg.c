@@ -744,11 +744,11 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
             wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
           } else {
             /* Default weight on other faces */
-            wgt = 0;
+            wgt = 1;
           }
         } else {
           /* Default weight if no xtetra found */
-          wgt = 0;
+          wgt = 1;
         }
 
         (*adjwgt)[count] = MG_MAX(wgt,1);
