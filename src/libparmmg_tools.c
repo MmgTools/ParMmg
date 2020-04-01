@@ -354,7 +354,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
-        }else {
+        } else if ( 0 == strncmp( argv[i], "-nobalance", 9 ) ) {
+          parmesh->info.nobalancing = MMG5_ON;
+        } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );

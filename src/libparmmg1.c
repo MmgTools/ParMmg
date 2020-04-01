@@ -460,7 +460,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   MMG5_pSol  met;
   size_t     oldMemMax,available;
   mytime     ctim[TIMEMAX];
-  int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
+  int        ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
   unsigned char inputMet;
@@ -532,10 +532,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Mesh adaptation */
   warnScotch = 0;
-  for ( it = 0; it < parmesh->niter; ++it ) {
+  for ( parmesh->iter = 0; parmesh->iter < parmesh->niter; parmesh->iter++ ) {
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
-      if ( it > 0 ) {
+      if ( parmesh->iter > 0 ) {
         chrono(OFF,&(ctim[tim]));
       }
       if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -544,7 +544,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       printim(ctim[tim].gdif,stim);
       chrono(ON,&(ctim[tim]));
-      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",it+1,stim);fflush(stdout);
+      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
 
     /** Update old groups for metrics interpolation */
@@ -634,7 +634,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
         }
 
-        if ( it < parmesh->niter-1 && (!inputMet) ) {
+        if ( parmesh->iter < parmesh->niter-1 && (!inputMet) ) {
           /* Delete the metrec computed by Mmg except at last iter */
           PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
@@ -725,7 +725,25 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_loadBalancing(parmesh);
+    if( (parmesh->iter == parmesh->niter-1) && !parmesh->info.nobalancing ) {
+      /** Load balancing of the output mesh */
+
+      /* Store user repartitioning mode */
+      int repartitioning_mode;
+      repartitioning_mode = parmesh->info.repartitioning;
+
+      /* Load balance using mesh groups graph */
+      parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+      ier = PMMG_loadBalancing(parmesh);
+
+      /* Repristinate user repartitioning mode */
+      parmesh->info.repartitioning = repartitioning_mode;
+
+    } else {
+      /** Standard parallel mesh repartitioning */
+      ier = PMMG_loadBalancing(parmesh);
+    }
+
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
