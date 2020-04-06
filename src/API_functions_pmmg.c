@@ -908,6 +908,12 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
   pext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
   nitem = pext_node_comm->nitem_to_share;
 
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 nodes in communicator on proc %d. Please check your interface.\n",__func__,parmesh->myrank);
+    return 0;
+  }
+
   /* Reorder according to global enumeration, so that the indexing matches on
    * the two sides of each pair of procs */
   ier = 1;
@@ -937,6 +943,12 @@ int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index
   /* Get the face communicator */
   pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
   nitem = pext_face_comm->nitem;
+
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 faces in communicator on proc %d. Please check your interface.\n",__func__,parmesh->myrank);
+    return 0;
+  }
 
   /* Reorder according to global enumeration, so that faces indexing
    * matches on the two sides of each pair of procs */
