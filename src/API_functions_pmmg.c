@@ -863,7 +863,26 @@ int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm) {
 
 int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
   PMMG_pExt_comm pext_comm;
-  
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_node_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_node_comm);
+    return 0;
+  }
+
+  /* Return if communicator color doesn't exist or is myrank */
+  if( (color_out < 0) || (color_out > parmesh->nprocs-1) || (color_out == parmesh->myrank) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator color should be a proc ID in the range [0,nprocs-1] and different from my rank, %d passed while %d MPI procs are seen. Please check your interface.\n",__func__,parmesh->myrank,color_out,parmesh->nprocs);
+    return 0;
+  }
+
+  /* Return if communicator size non-positive */
+  if( nitem <= 0 ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator size should be strictly positive, %d passed. Please check your interface.\n",__func__,parmesh->myrank,nitem);
+    return 0;
+  }
+
+
   /* Get the node communicator */
   pext_comm = &parmesh->ext_node_comm[ext_comm_index];
 
@@ -884,7 +903,26 @@ int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
 
 int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
   PMMG_pExt_comm pext_comm;
-  
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_face_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_face_comm);
+    return 0;
+  }
+
+  /* Return if communicator color doesn't exist or is myrank */
+  if( (color_out < 0) || (color_out > parmesh->nprocs-1) || (color_out == parmesh->myrank) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator color should be a proc ID in the range [0,nprocs-1] and different from my rank, %d passed while %d MPI procs are seen. Please check your interface.\n",__func__,parmesh->myrank,color_out,parmesh->nprocs);
+    return 0;
+  }
+
+  /* Return if communicator size non-positive */
+  if( nitem <= 0 ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator size should be strictly positive, %d passed. Please check your interface.\n",__func__,parmesh->myrank,nitem);
+    return 0;
+  }
+
+
   /* Get the face communicator */
   pext_comm = &parmesh->ext_face_comm[ext_comm_index];
 
@@ -903,10 +941,22 @@ int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
 int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
   PMMG_pExt_comm pext_node_comm;
   int            *oldId,nitem,i,ier;
- 
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_node_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_node_comm);
+    return 0;
+  }
+
   /* Get the node communicator */
   pext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
   nitem = pext_node_comm->nitem_to_share;
+
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 nodes in communicator %d on proc %d. Please check your interface.\n",__func__,ext_comm_index,parmesh->myrank);
+    return 0;
+  }
 
   /* Reorder according to global enumeration, so that the indexing matches on
    * the two sides of each pair of procs */
@@ -933,10 +983,22 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
 int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
   PMMG_pExt_comm pext_face_comm;
   int            *oldId,nitem,i,ier;
- 
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_face_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_face_comm);
+    return 0;
+  }
+
   /* Get the face communicator */
   pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
   nitem = pext_face_comm->nitem;
+
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 faces in communicator %d on proc %d. Please check your interface.\n",__func__,ext_comm_index,parmesh->myrank);
+    return 0;
+  }
 
   /* Reorder according to global enumeration, so that faces indexing
    * matches on the two sides of each pair of procs */
