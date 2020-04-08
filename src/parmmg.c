@@ -148,7 +148,8 @@ int main( int argc, char *argv[] )
   fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
 
   ptr                  = MMG5_Get_filenameExt(grp->mesh->nameout);
-  parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
+  if( !(parmesh->info.fmtout == PMMG_UNSET) )
+    parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
 
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
@@ -258,6 +259,11 @@ check_mesh_loading:
     grp = &parmesh->listgrp[0];
 
     switch ( parmesh->info.fmtout ) {
+    case ( PMMG_UNSET ):
+      /* No output */
+      printf("     ... SKIPPING!\n");
+
+      break;
     case ( MMG5_FMT_VtkPvtu ):
       PMMG_savePvtuMesh(parmesh,grp->mesh->nameout);
       break;
