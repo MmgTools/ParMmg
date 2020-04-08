@@ -261,8 +261,9 @@ check_mesh_loading:
     switch ( parmesh->info.fmtout ) {
     case ( PMMG_UNSET ):
       /* No output */
-      printf("     ... SKIPPING!\n");
-
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        printf("     ... SKIPPING!\n");
+      }
       break;
     case ( MMG5_FMT_VtkPvtu ):
       PMMG_savePvtuMesh(parmesh,grp->mesh->nameout);
