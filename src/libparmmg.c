@@ -607,6 +607,9 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
 #warning remove the lib_centralized and lib_distributed library to have modular centralized input + annalysis or parallel input + analysis , libparmmg1 call, then centralized or distributed output
   switch ( parmesh->info.fmtout ) {
+  case ( PMMG_UNSET ):
+    /* No output */
+    break;
   case ( MMG5_FMT_VtkPvtu ):
     // Distributed Output
 #warning boundaries arent rebuilded

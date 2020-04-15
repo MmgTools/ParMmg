@@ -116,9 +116,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     //        " values\n");
 
     fprintf(stdout,"\n**  File specifications\n");
-    fprintf(stdout,"-in  file  input triangulation\n");
-    fprintf(stdout,"-out file  output triangulation\n");
-    fprintf(stdout,"-sol file  load solution or metric file\n");
+    fprintf(stdout,"-in    file  input triangulation\n");
+    fprintf(stdout,"-out   file  output triangulation\n");
+    fprintf(stdout,"-sol   file  load solution or metric file\n");
+    fprintf(stdout,"-noout       do not write output triangulation\n");
+
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -126,6 +128,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
     fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
     fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
+    fprintf(stdout,"-nobalance         switch off load balancing of the output mesh\n");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -356,6 +359,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         } else if ( 0 == strncmp( argv[i], "-nobalance", 9 ) ) {
           parmesh->info.nobalancing = MMG5_ON;
+        } else if ( 0 == strncmp( argv[i], "-noout", 5 ) ) {
+          parmesh->info.fmtout = PMMG_UNSET;
         } else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
