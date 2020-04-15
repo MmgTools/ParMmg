@@ -418,23 +418,19 @@ ENDIF ( )
 #####
 ############################################################################
 
-IF (NOT WIN32 OR MINGW)
+ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
 
-  ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
+GENERATE_FORTRAN_HEADER ( pmmgtypes
+  ${PMMG_SOURCE_DIR} libparmmgtypes.h
+  ${PMMG_SHRT_INCLUDE}
+  ${PMMG_BINARY_DIR} libparmmgtypesf.h
+  )
 
-  GENERATE_FORTRAN_HEADER ( pmmgtypes
-    ${PMMG_SOURCE_DIR} libparmmgtypes.h
-    ${PMMG_SHRT_INCLUDE}
-    ${PMMG_BINARY_DIR} libparmmgtypesf.h
-    )
-
-  GENERATE_FORTRAN_HEADER ( pmmg
-    ${PMMG_SOURCE_DIR} libparmmg.h
-    ${PMMG_SHRT_INCLUDE}
-    ${PMMG_BINARY_DIR} libparmmgf.h
-    )
-
-ENDIF ()
+GENERATE_FORTRAN_HEADER ( pmmg
+  ${PMMG_SOURCE_DIR} libparmmg.h
+  ${PMMG_SHRT_INCLUDE}
+  ${PMMG_BINARY_DIR} libparmmgf.h
+  )
 
 ###############################################################################
 #####
