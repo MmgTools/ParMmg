@@ -902,81 +902,102 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
 int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
                          int **ifc_node_loc,int **ifc_node_glob,
                          int next_node_comm,int *nitem_node_comm) {
+  PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
+  int            *intvalues,*itosend,*itorecv;
+  int            label,*nlabels,*displ,mydispl,color,nitem;
   int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ,*iproc2comm;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i,idx;
 
+  assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
-  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
-  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
+  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
 
   /* Array for sorting communicators */
   PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
   for( iproc=0; iproc<parmesh->nprocs; iproc++ )
     iproc2comm[iproc] = PMMG_UNSET;
 
-  /* Use points flag to mark interface points:
-   * - interface points are initialised as PMMG_UNSET;
-   * - once a point is given a global ID, it is flagged with it so that other
-   *   interfaces can see it.
-   */
+  /* Number and count */
+  label = 0;
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    /* Store comm index for the corresponding proc */
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    iproc2comm[ext_node_comm->color_out] = icomm;
-    /* Initialize points flag */
-    for( i=0; i < nitem_node_comm[icomm]; i++ ) {
-      ppt = &mesh->point[ifc_node_loc[icomm][i]];
-      ppt->flag = PMMG_UNSET;
+    color = ext_node_comm->color_out;
+    nitem =  ext_node_comm->nitem;
+    /* Count points only on owned communicators */
+    if( color < parmesh->myrank ) continue;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* Count point only if not already seen */
+      if( intvalues[idx] ) continue;
+      intvalues[idx] = ++label;
     }
   }
 
-  /* Count nb of new pair nodes hosted on proc */
-  npairs_loc = 0;
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
-    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_node_comm[icomm];//1;
-
   /* Get nb of pair nodes and compute pair offset */
-  MPI_Allgather( &npairs_loc,1,MPI_INT,
-                 npairs,1,MPI_INT,parmesh->comm );
+  MPI_Allgather( &label,1,MPI_INT,
+                 nlabels,1,MPI_INT,parmesh->comm );
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
-    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
+    displ[iproc+1] = displ[iproc]+nlabels[iproc];
+  mydispl = displ[parmesh->myrank];
 
- 
-  PMMG_CALLOC(parmesh,glob_pair_displ,next_node_comm+1,int,"glob_pair_displ",return 0); 
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
-    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+  /* Add offset to the numbering */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    if( color_out[icomm] > parmesh->myrank )
-      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_node_comm[icomm];//+1;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem =  ext_node_comm->nitem;
+    /* Count points only on owned communicators */
+    if( color < parmesh->myrank ) continue;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* Count point only if not already seen */
+      if( intvalues[idx] > mydispl ) continue;
+      intvalues[idx] += mydispl;
+    }
   }
 
   /* Compute global pair nodes enumeration (injective, non-surjective map) */
-  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
-    icomm = iproc2comm[iproc];
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
 
-    /* Skip empty comm */
-    if( icomm == PMMG_UNSET ) continue;
-    
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
     /* Assign global index */
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
+    src = fmin(parmesh->myrank,color);
+    dst = fmax(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
-      sendbuffer = glob_pair_displ[icomm];
-      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
     }
     if ( parmesh->myrank == dst ) {
-      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      glob_pair_displ[icomm] = recvbuffer;
+      /* Store recv buffer in the internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        intvalues[idx] = itorecv[i];
+      }
     }
   }
 
@@ -986,73 +1007,56 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
    * Communicators need to be sorted, or a value could be sent before having
    * received the good value from an owner processor.
    */
-  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
-    icomm = iproc2comm[iproc];
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
 
-    /* Skip empty comm */
-    if( icomm == PMMG_UNSET ) continue;
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
-    tag = parmesh->nprocs*src+dst;
-    /* Recv IDs from previous proc */
-    if ( parmesh->myrank == dst ) {
-      MPI_CHECK( MPI_Recv(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
-      /* Update flag so that you can use it to build your own IDs */
-      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
-        ppt = &mesh->point[ifc_node_loc[icomm][i]];
-        ppt->flag = ifc_node_glob[icomm][i];
-      }
-    }
-    /* Build your own IDs and send them to next proc */
-    if( parmesh->myrank == src ) {
-      idx = 1; /* index starts from 1 */
-      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
-        ppt = &mesh->point[ifc_node_loc[icomm][i]];
-        if( ppt->flag == PMMG_UNSET ) {
-          ppt->flag = glob_pair_displ[icomm]+idx++;
-        }
-        ifc_node_glob[icomm][i] = ppt->flag;
-      }
-      MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      ifc_node_glob[icomm][i] = intvalues[idx];
     }
   }
 
   /* Free arrays */
-  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
-  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
-  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
+  PMMG_DEL_MEM(parmesh,displ,int,"displ");
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
 
 
   /* Check global IDs */
-  int **itorecv;
-  PMMG_CALLOC(parmesh,itorecv,next_node_comm,int*,"itorecv pointer",return 0); 
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
-    PMMG_CALLOC(parmesh,itorecv[icomm],nitem_node_comm[icomm],int,"itorecv",return 0); 
-    
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    itorecv = ext_node_comm->itorecv;
+
+    src = fmin(parmesh->myrank,color);
+    dst = fmax(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
-      MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem_node_comm[icomm],MPI_INT,dst,tag,
+      MPI_CHECK( MPI_Isend(ifc_node_glob[icomm],nitem,MPI_INT,dst,tag,
                             parmesh->comm,&request),return 0 );
     }
     if ( parmesh->myrank == dst ) {
-      MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_node_comm[icomm],MPI_INT,src,tag,
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
       for( i=0; i < nitem_node_comm[icomm]; i++ ) {
-        ppt = &mesh->point[ifc_node_loc[icomm][i]];
-        assert( ifc_node_glob[icomm][i] == ppt->flag );
-        assert( ifc_node_glob[icomm][i] == itorecv[icomm][i] );
+        idx = ext_node_comm->int_comm_index[i];
+        assert( ifc_node_glob[icomm][i] == intvalues[idx] );
+        assert( ifc_node_glob[icomm][i] == itorecv[i] );
       }
     }
   }
 
-  for( icomm = 0; icomm < next_node_comm; icomm++ )
-    PMMG_DEL_MEM(parmesh,itorecv[icomm],int,"itorecv"); 
-  PMMG_DEL_MEM(parmesh,itorecv,int*,"itorecv pointer"); 
+  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   
   return 1;
 }
