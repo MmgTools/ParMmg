@@ -908,7 +908,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
-  int            *intvalues,*itosend,*itorecv;
+  int            *intvalues,*itosend,*itorecv,*iproc2comm;
   int            color,nitem;
   int            label,*nlabels,*displ,mydispl;
   int            icomm,i,idx,iproc,src,dst,tag;
@@ -925,19 +925,43 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
   PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
 
-  /* Number and count */
-  label = 0;
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = ext_node_comm->color_out;
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+  }
+
+  /* Number and count */
+  label = 0;
+  for( color = 0; color < parmesh->nprocs; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
     nitem =  ext_node_comm->nitem;
+
     /* Count points only on owned communicators */
-    if( color < parmesh->myrank ) continue;
-    for( i = 0; i < nitem; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      /* Count point only if not already seen */
-      if( intvalues[idx] ) continue;
-      intvalues[idx] = ++label;
+    if( color < parmesh->myrank ) {
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        /* Just mark not owned points */
+        intvalues[idx] = PMMG_UNSET;
+      }
+    } else {
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        /* Count point only if not already marked */
+        if( intvalues[idx] ) continue;
+        intvalues[idx] = ++label;
+      }
     }
   }
 
@@ -950,10 +974,15 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   mydispl = displ[parmesh->myrank];
 
   /* Add offset to the owned labels */
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+  for( color = 0; color < parmesh->nprocs; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = ext_node_comm->color_out;
     nitem =  ext_node_comm->nitem;
+
     /* Count points only on owned communicators */
     if( color < parmesh->myrank ) continue;
     for( i = 0; i < nitem; i++ ) {
@@ -1014,6 +1043,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
 
 
   /* Check global IDs */
+  int *mylabels;
+  PMMG_CALLOC(parmesh,mylabels,label+1,int,"mylabels",return 0);
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -1037,11 +1068,26 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
         assert( ifc_node_glob[icomm][i] == itorecv[i] );
       }
     }
+
+    /* Mark seen labels */
+    if( parmesh->myrank < color ) {
+      for( i=0; i < nitem_node_comm[icomm]; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        if( intvalues[idx] <= mydispl ) continue;
+        mylabels[intvalues[idx]-mydispl]++;
+      }
+    }
   }
+  /* Check for holes in the seen labels */
+  for( i = 1; i <= label; i++ )
+    assert(mylabels[i]);
+
+  PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
   PMMG_DEL_MEM(parmesh,displ,int,"displ");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
 
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
