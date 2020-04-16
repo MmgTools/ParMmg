@@ -909,24 +909,21 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   MPI_Request    request;
   MPI_Status     status;
   int            *intvalues,*itosend,*itorecv;
-  int            label,*nlabels,*displ,mydispl,color,nitem;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ,*iproc2comm;
-  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i,idx;
+  int            color,nitem;
+  int            label,*nlabels,*displ,mydispl;
+  int            icomm,i,idx,iproc,src,dst,tag;
 
+  /* Do this only if there is one group */
   assert( parmesh->ngrp == 1 );
-  mesh = parmesh->listgrp[0].mesh;
 
+  /* Allocate internal communicator */
   int_node_comm = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   intvalues = int_node_comm->intvalues;
 
+  /* Allocate label counts and offsets */
   PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
   PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
-
-  /* Array for sorting communicators */
-  PMMG_CALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
-  for( iproc=0; iproc<parmesh->nprocs; iproc++ )
-    iproc2comm[iproc] = PMMG_UNSET;
 
   /* Number and count */
   label = 0;
@@ -1021,7 +1018,6 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
   PMMG_DEL_MEM(parmesh,displ,int,"displ");
-  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
 
 
   /* Check global IDs */
