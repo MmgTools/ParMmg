@@ -941,7 +941,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
-  /* Get nb of pair nodes and compute pair offset */
+  /* Get nb of labels on each proc and compute offsets */
   MPI_Allgather( &label,1,MPI_INT,
                  nlabels,1,MPI_INT,parmesh->comm );
 
@@ -949,7 +949,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     displ[iproc+1] = displ[iproc]+nlabels[iproc];
   mydispl = displ[parmesh->myrank];
 
-  /* Add offset to the numbering */
+  /* Add offset to the owned labels */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -964,7 +964,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
-  /* Compute global pair nodes enumeration (injective, non-surjective map) */
+  /* Communicate owned labels to the ghost copy */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -975,11 +975,12 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
-    /* Assign global index */
     src = fmin(parmesh->myrank,color);
     dst = fmax(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
+
     if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
         itosend[i] = intvalues[idx];
@@ -999,11 +1000,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   }
 
 
-  /* Each proc buils global IDs if color_in < color_out, then sends IDs to
-   * color_out.
-   * Communicators need to be sorted, or a value could be sent before having
-   * received the good value from an owner processor.
-   */
+  /* Store results in the output array */
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -1014,10 +1011,6 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
       ifc_node_glob[icomm][i] = intvalues[idx];
     }
   }
-
-  /* Free arrays */
-  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
-  PMMG_DEL_MEM(parmesh,displ,int,"displ");
 
 
   /* Check global IDs */
@@ -1045,6 +1038,10 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
       }
     }
   }
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
+  PMMG_DEL_MEM(parmesh,displ,int,"displ");
 
   for( icomm = 0; icomm < next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
