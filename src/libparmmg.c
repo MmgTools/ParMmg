@@ -1023,7 +1023,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
       /* Store recv buffer in the internal communicator */
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
-        intvalues[idx] = itorecv[i];
+        if( itorecv[i] != PMMG_UNSET ) intvalues[idx] = itorecv[i];
       }
     }
   }
