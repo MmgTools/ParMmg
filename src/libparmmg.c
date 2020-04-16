@@ -952,7 +952,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     if( color < parmesh->myrank ) {
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
-        /* Just mark not owned points */
+        /* Unset not owned points */
         intvalues[idx] = PMMG_UNSET;
       }
     } else {
@@ -987,8 +987,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     if( color < parmesh->myrank ) continue;
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      /* Count point only if not already seen */
-      if( intvalues[idx] > mydispl ) continue;
+      /* Count point only if owned and not already seen */
+      if((intvalues[idx] == PMMG_UNSET) || (intvalues[idx] > mydispl)) continue;
       intvalues[idx] += mydispl;
     }
   }
