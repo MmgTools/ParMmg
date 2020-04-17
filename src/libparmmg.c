@@ -980,7 +980,10 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
 
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
+      if( intvalues[idx] < 0 )
+        owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
+      else
+        owner[icomm][i] = parmesh->myrank;
     }
   }
 
