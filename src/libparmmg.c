@@ -1154,6 +1154,8 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     color = ext_face_comm->color_out;
     nitem = ext_face_comm->nitem;
     if( color > parmesh->myrank ) npairs_loc += nitem;//1;
+    for( i = 0; i < nitem; i++ )
+      owner[icomm][i] = MG_MIN(color,parmesh->myrank);
   }
 
   /* Get nb of pair faces and compute pair offset */
