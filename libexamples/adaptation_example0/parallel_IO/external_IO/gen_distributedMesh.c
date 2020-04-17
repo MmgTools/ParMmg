@@ -281,7 +281,7 @@ int main(int argc,char *argv[]) {
    * all interface triangles currently present in the global mesh, and assign
    * a owner partition to each of them.
    */
-  if( !PMMG_color_intfcTria(parmesh,face_owner,idx_face_glob) ) {
+  if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
@@ -290,7 +290,7 @@ int main(int argc,char *argv[]) {
    * interface nodes currently present in the global mesh, and assign
    * a owner partition to each of them.
    */
-  if( !PMMG_color_intfcNode(parmesh,node_owner,idx_node_glob) ) {
+  if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }

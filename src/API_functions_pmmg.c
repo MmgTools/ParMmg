@@ -1575,7 +1575,7 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
  * Create global IDs (starting from 1) for nodes on parallel interfaces.
  *
  */
-int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
@@ -1836,7 +1836,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
  * Create global IDs (starting from 1) for triangles on parallel interfaces.
  *
  */
-int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
   PMMG_pExt_comm ext_face_comm;
   MPI_Request    request;
   MPI_Status     status;
