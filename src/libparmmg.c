@@ -1042,10 +1042,16 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
   }
 
 
+#ifndef NDEBUG
   /* Check global IDs */
   int *mylabels;
   PMMG_CALLOC(parmesh,mylabels,label+1,int,"mylabels",return 0);
-  for( icomm = 0; icomm < next_node_comm; icomm++ ) {
+
+  /* Purposely in reverse order to overwrite internal communicator */
+  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
     nitem = ext_node_comm->nitem;
@@ -1083,6 +1089,7 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
     assert(mylabels[i]);
 
   PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
+#endif
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
