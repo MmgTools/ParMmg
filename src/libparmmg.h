@@ -2249,29 +2249,20 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
- * \param ifc_node_loc local IDs of interface nodes
- * \param ifc_node_glob global IDs of interface nodes
- * \param next_node_comm number of node interfaces
- * \param nitem_node_comm number of nodes on each interface
+ * \param owner IDs of the process owning each interface node
+ * \param idx_glob global IDs of interface nodes
  *
  * Create global IDs for nodes on parallel interfaces.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_COLOR_INTFCNODE(parmesh,color_out,&\n
- * >                                   ifc_node_loc,ifc_node_glob,&\n
- * >                                   next_node_comm,nitem_node_comm,retval)\n
+ * >   SUBROUTINE PMMG_COLOR_INTFCNODE(parmesh,owner,idx_glob,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_node_loc\n
- * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_node_glob\n
- * >     INTEGER, INTENT(IN)                  :: next_node_comm\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_node_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_node_loc,int **ifc_node_glob,
-                         int next_node_comm,int *nitem_node_comm);
+int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob);
 
 /**
  * \param parmesh pointer toward parmesh structure

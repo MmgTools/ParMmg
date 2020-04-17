@@ -189,7 +189,7 @@ int main(int argc,char *argv[]) {
 
   int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
   int *color_node, *color_face;
-  int **idx_node_loc,**idx_node_glob;
+  int **idx_node_loc,**idx_node_glob,**node_owner;
   int **idx_face_loc,**idx_face_glob;
   int **faceNodes;
   int icomm;
@@ -209,9 +209,11 @@ int main(int argc,char *argv[]) {
   /* Get IDs of nodes on each interface */
   idx_node_loc  = (int **) malloc(n_node_comm*sizeof(int *));
   idx_node_glob = (int **) malloc(n_node_comm*sizeof(int *));
+  node_owner    = (int **) malloc(n_node_comm*sizeof(int *));
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {
     idx_node_loc[icomm]  = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     idx_node_glob[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
+    node_owner[icomm]    = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc);
 
@@ -268,8 +270,7 @@ int main(int argc,char *argv[]) {
    * all boundary and interface nodes currently present in the global mesh
    * (we don't care about contiguity of global IDs, but only about uniqueness).
    */
-  if( !PMMG_color_intfcNode(parmesh,color_node,idx_node_loc,idx_node_glob,
-                            n_node_comm,nitem_node_comm) ) {
+  if( !PMMG_color_intfcNode(parmesh,node_owner,idx_node_glob) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
@@ -602,9 +603,11 @@ int main(int argc,char *argv[]) {
     for( icomm = 0; icomm < n_node_comm; icomm++ ) {
       free(idx_node_loc[icomm]);
       free(idx_node_glob[icomm]);
+      free(node_owner[icomm]);
     }
     free(idx_node_loc);
     free(idx_node_glob);
+    free(node_owner);
     for( icomm = 0; icomm < n_face_comm; icomm++ ) {
       free(idx_face_loc[icomm]);
       free(idx_face_glob[icomm]);
