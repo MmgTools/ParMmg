@@ -1023,8 +1023,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
-    src = fmin(parmesh->myrank,color);
-    dst = fmax(parmesh->myrank,color);
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
 
     if( parmesh->myrank == src ) {
@@ -1077,8 +1077,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
 
     itorecv = ext_node_comm->itorecv;
 
-    src = fmin(parmesh->myrank,color);
-    dst = fmax(parmesh->myrank,color);
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
@@ -1186,8 +1186,8 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     nitem = ext_face_comm->nitem;
     
     /* Assign global index */
-    src = fmin(parmesh->myrank,color);
-    dst = fmax(parmesh->myrank,color);
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       sendbuffer = glob_pair_displ[icomm];
@@ -1224,8 +1224,8 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     nitem = ext_face_comm->nitem;
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",return 0); 
     
-    src = fmin(parmesh->myrank,color);
-    dst = fmax(parmesh->myrank,color);
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
