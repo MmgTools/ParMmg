@@ -277,18 +277,18 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  /* Color interface triangles with a custom global enumeration that encompasses
-   * all boundary and interface triangles currently present in the global mesh
-   * (we don't care about contiguity of global IDs, but only about uniqueness).
+  /* Color interface triangles with a unique global enumeration that encompasses
+   * all interface triangles currently present in the global mesh, and assign
+   * a owner partition to each of them.
    */
   if( !PMMG_color_intfcTria(parmesh,face_owner,idx_face_glob) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
-  /* Color interface nodes with a custom global enumeration that encompasses
-   * all boundary and interface nodes currently present in the global mesh
-   * (we don't care about contiguity of global IDs, but only about uniqueness).
+  /* Color interface nodes with a unique global enumeration that encompasses
+   * interface nodes currently present in the global mesh, and assign
+   * a owner partition to each of them.
    */
   if( !PMMG_color_intfcNode(parmesh,node_owner,idx_node_glob) ) {
     MPI_Finalize();

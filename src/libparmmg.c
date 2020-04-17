@@ -890,11 +890,8 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
 
 /**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
- * \param ifc_node_loc local IDs of interface nodes
- * \param ifc_node_glob global IDs of interface nodes
- * \param next_node_comm number of node interfaces
- * \param nitem_node_comm number of nodes on each interface
+ * \param owner IDs of the processes owning each interface node
+ * \param idx_glob global IDs of interface nodes
  *
  * Create global IDs for nodes on parallel interfaces.
  *
@@ -935,7 +932,14 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     iproc2comm[iproc] = icomm;
   }
 
-  /* Number and count */
+
+  /**
+   * 1) Number and count. Analyse each communicator by external color order,
+   *     fill internal communicator with (PMMG_UNSET-color) if the node is not
+   *     owned by myrank, or count the node if it is owned by myrank.
+   *     (With this ordering, any not-owned node has been necessarily visited
+   *     by its owner color and cannot be counted)
+   */
   label = 0;
   for( color = 0; color < parmesh->myrank; color++ ) {
     icomm = iproc2comm[color];
@@ -972,7 +976,12 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     }
   }
 
-  /* Store owners in the output array */
+
+  /**
+   * 2)  Store owners in the output array. Not-owned nodes store a
+   *      (PMMG_UNSET-color) label in the internal communicator, while nodes
+   *      owned by myrank store a non-negative label.
+   */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -986,6 +995,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
         owner[icomm][i] = parmesh->myrank;
     }
   }
+
+
+  /**
+   * 3) Compute a consecutive global numbering by retrieving parallel offsets
+   */
 
   /* Get nb of labels on each proc and compute offsets */
   MPI_Allgather( &label,1,MPI_INT,
@@ -1005,17 +1019,21 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     nitem =  ext_node_comm->nitem;
 
-    /* Count points only on owned communicators */
+    /* Update numbering only on owned points */
     if( color < parmesh->myrank ) continue;
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      /* Count point only if owned and not already seen */
+      /* Add offset to the  point numbering only if owned (non-negative
+       * numbering) and not already seen (label greater than my offset) */
       if((intvalues[idx] <= PMMG_UNSET) || (intvalues[idx] > mydispl)) continue;
       intvalues[idx] += mydispl;
     }
   }
 
-  /* Communicate owned labels to the ghost copy */
+
+  /**
+   * 4) Communicate global numbering to the ghost copies.
+   */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -1051,7 +1069,9 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
   }
 
 
-  /* Store results in the output array */
+  /**
+   * 5) Store numbering results in the output array.
+   */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
@@ -1131,11 +1151,8 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
 
 /**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
- * \param ifc_tria_loc local IDs of interface triangles
- * \param ifc_tria_glob global IDs of interface triangles
- * \param next_face_comm number of triangle interfaces
- * \param nitem_face_comm number of triangles on each interface
+ * \param owner IDs of processes owning each interface triangle
+ * \param dx_glob global IDs of interface triangles
  *
  * Create global IDs for triangles on parallel interfaces.
  *
@@ -1147,10 +1164,16 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
   int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
 
+  /* Do this only if there is one group */
+  assert( parmesh->ngrp == 1 );
+
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
   PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
 
-  /* Count nb of new pair faces hosted on proc */
+
+  /**
+   * 1) Compute face owners and count nb of new pair faces hosted on myrank.
+   */
   npairs_loc = 0;
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
@@ -1160,6 +1183,12 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
     for( i = 0; i < nitem; i++ )
       owner[icomm][i] = MG_MIN(color,parmesh->myrank);
   }
+
+
+  /**
+   * 2) Compute global face numbering. Communicate parallel offsets on each
+   *    communicator, than each process update the numbering independently.
+   */
 
   /* Get nb of pair faces and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
@@ -1182,7 +1211,7 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
       glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem;//+1;
   }
 
-  /* Compute global pair faces enumeration (injective, non-surjective map) */
+  /* Compute global pair faces enumeration */
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     color = ext_face_comm->color_out;
