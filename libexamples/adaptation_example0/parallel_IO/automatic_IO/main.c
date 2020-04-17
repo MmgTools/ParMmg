@@ -40,7 +40,7 @@ int main(int argc,char *argv[]) {
   MMG5_pPoint     ppt;
   MMG5_pTria      ptt;
   MMG5_pTetra     pt;
-  int             ip,ie,ier,ierlib,rank,i,k;
+  int             ip,ie,ier,ierlib,rank,nprocs,i,k;
   int             opt,API_mode,niter;
   char            *filename,*metname,*solname,*fileout,*metout,*tmp;
   FILE            *inm;
@@ -50,6 +50,8 @@ int main(int argc,char *argv[]) {
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  MPI_Comm_size( MPI_COMM_WORLD, &nprocs );
+
 
   if ( !rank ) fprintf(stdout,"  -- TEST PARMMGLIB \n");
 
@@ -188,8 +190,8 @@ int main(int argc,char *argv[]) {
   /** 1) Recover parallel interfaces */
 
   int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face,**face_owner;
-  int **idx_node_loc,**idx_node_glob,**node_owner;
+  int *color_node, *color_face,**face_owner,nunique_face,ntot_face;
+  int **idx_node_loc,**idx_node_glob,**node_owner,nunique_node,ntot_node;
   int **idx_face_loc,**idx_face_glob;
   int **faceNodes;
   int icomm;
@@ -262,7 +264,7 @@ int main(int argc,char *argv[]) {
    * all interface triangles currently present in the global mesh, and assign a
    * owner partition to each of them.
    */
-  if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob) ) {
+  if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob,&nunique_face,&ntot_face) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
@@ -271,20 +273,23 @@ int main(int argc,char *argv[]) {
    * all interface nodes currently present in the global mesh, and assign a
    * owner partition to each of them.
    */
-  if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob) ) {
+  if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob,&nunique_node,&ntot_node) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
 /*
+  printf("Rank %d, my nunique_face %d, ntot %d\n",rank,nunique_face,ntot_face);
+  printf("Rank %d, my nunique_node %d, ntot %d\n",rank,nunique_node,ntot_node);
+
   for( icomm = 0; icomm < n_face_comm; icomm++ )
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d tria loc %d glob %d owner %d\n",parmesh->myrank,icomm,color_face[icomm],idx_face_loc[icomm][i],idx_face_glob[icomm][i],face_owner[icomm][i]);
+      printf("IN rank %d comm %d color %d tria loc %d glob %d owner %d\n",rank,icomm,color_face[icomm],idx_face_loc[icomm][i],idx_face_glob[icomm][i],face_owner[icomm][i]);
 
 
   for( icomm = 0; icomm < n_node_comm; icomm++ )
     for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d node loc %d glob %d owner %d\n",parmesh->myrank,icomm,color_node[icomm],idx_node_loc[icomm][i],idx_node_glob[icomm][i],node_owner[icomm][i]);
+      printf("IN rank %d comm %d color %d node loc %d glob %d owner %d\n",rank,icomm,color_node[icomm],idx_node_loc[icomm][i],idx_node_glob[icomm][i],node_owner[icomm][i]);
 */
 
 

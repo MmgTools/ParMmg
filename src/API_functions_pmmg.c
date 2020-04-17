@@ -1571,11 +1571,13 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
  * \param parmesh pointer toward parmesh structure
  * \param owner IDs of the processes owning each interface node
  * \param idx_glob global IDs of interface nodes
+ * \param nunique nb of non-redundant interface nodes on current rank
+ * \param ntot totat nb of non-redundant interface nodes
  *
  * Create global IDs (starting from 1) for nodes on parallel interfaces.
  *
  */
-int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique, int *ntot) {
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MMG5_pMesh     mesh;
@@ -1584,7 +1586,7 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   MPI_Status     status;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   int            color,nitem;
-  int            label,*nlabels,*displ,mydispl;
+  int            label,*nlabels,*displ,mydispl,unique;
   int            icomm,i,idx,iproc,src,dst,tag;
 
   /* Do this only if there is one group */
@@ -1620,6 +1622,7 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
    *     by its owner color and cannot be counted)
    */
   label = 0;
+  unique = 0;
   for( color = 0; color < parmesh->myrank; color++ ) {
     icomm = iproc2comm[color];
 
@@ -1635,6 +1638,7 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       /* Only the first visitor owns the ghost node */
       if( intvalues[idx] ) continue;
       intvalues[idx] = PMMG_UNSET-color;
+      ++unique;
     }
   }
   for( color = parmesh->myrank+1; color < parmesh->nprocs; color++ ) {
@@ -1652,6 +1656,7 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       /* Count point only if not already marked */
       if( intvalues[idx] ) continue;
       intvalues[idx] = ++label;
+      ++unique;
     }
   }
 
@@ -1687,6 +1692,11 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ[iproc+1] = displ[iproc]+nlabels[iproc];
   mydispl = displ[parmesh->myrank];
+
+  /* Get nb of non-redundant entities on each proci and total (for output) */
+  if( nunique ) *nunique = unique;
+  if( ntot )    *ntot = displ[parmesh->nprocs];
+
 
   /* Add offset to the owned labels */
   for( color = 0; color < parmesh->nprocs; color++ ) {
@@ -1831,15 +1841,18 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 /**
  * \param parmesh pointer toward parmesh structure
  * \param owner IDs of processes owning each interface triangle
- * \param dx_glob global IDs of interface triangles
+ * \param idx_glob global IDs of interface triangles
+ * \param nunique nb of non-redundant interface triangles on current rank
+ * \param ntot totat nb of non-redundant interface triangles
  *
  * Create global IDs (starting from 1) for triangles on parallel interfaces.
  *
  */
-int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot) {
   PMMG_pExt_comm ext_face_comm;
   MPI_Request    request;
   MPI_Status     status;
+  int            unique;
   int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
 
@@ -1854,10 +1867,12 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
    * 1) Compute face owners and count nb of new pair faces hosted on myrank.
    */
   npairs_loc = 0;
+  unique = 0;
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     color = ext_face_comm->color_out;
     nitem = ext_face_comm->nitem;
+    unique += nitem;
     if( color > parmesh->myrank ) npairs_loc += nitem;//1;
     for( i = 0; i < nitem; i++ )
       owner[icomm][i] = MG_MIN(color,parmesh->myrank);
@@ -1876,10 +1891,14 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
 
-
   PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",return 0);
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ )
     glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+
+  /* Store nb of non-redundant faces on each proc and in total for output */
+  if( nunique ) *nunique = unique;
+  if( ntot ) *ntot = displ_pair[parmesh->nprocs];
+
 
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
@@ -1955,7 +1974,6 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv");
   }
 #endif
-
 
   return 1;
 }

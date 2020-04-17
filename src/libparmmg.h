@@ -2251,38 +2251,46 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface node
  * \param idx_glob global IDs of interface nodes
+ * \param nunique nb of non-redundant interface nodes on current rank
+ * \param ntot totat nb of non-redundant interface nodes
  *
  * Create global IDs for nodes on parallel interfaces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
- * >                                               retval)\n
+ * >                                               nunique,ntot,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: nunique\n
+ * >     INTEGER, INTENT(OUT)                 :: ntot\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob);
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot);
 
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface triangle
  * \param idx_glob global IDs of interface triangles
+ * \param nunique nb of non-redundant interface triangles on current rank
+ * \param ntot totat nb of non-redundant interface triangles
  *
  * Create global IDs for triangles on parallel interfaces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
- * >                                               retval)\n
+ * >                                               nunique,ntot,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: nunique\n
+ * >     INTEGER, INTENT(OUT)                 :: ntot\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob);
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot);
 
 
 /**
