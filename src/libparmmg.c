@@ -1137,12 +1137,11 @@ int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
  * Create global IDs for triangles on parallel interfaces.
  *
  */
-int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_tria_loc,int **ifc_tria_glob,
-                         int next_face_comm,int *nitem_face_comm) {
+int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int **owner,int **idx_glob) {
+  PMMG_pExt_comm ext_face_comm;
   MPI_Request    request;
   MPI_Status     status;
-  int            npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
 
   PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
@@ -1150,8 +1149,12 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
 
   /* Count nb of new pair faces hosted on proc */
   npairs_loc = 0;
-  for( icomm = 0; icomm < next_face_comm; icomm++ )
-    if( color_out[icomm] > parmesh->myrank ) npairs_loc += nitem_face_comm[icomm];//1;
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+    if( color > parmesh->myrank ) npairs_loc += nitem;//1;
+  }
 
   /* Get nb of pair faces and compute pair offset */
   MPI_Allgather( &npairs_loc,1,MPI_INT,
@@ -1161,20 +1164,28 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
 
   
-  PMMG_CALLOC(parmesh,glob_pair_displ,next_face_comm+1,int,"glob_pair_displ",return 0); 
-  for( icomm = 0; icomm < next_face_comm; icomm++ )
+  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",return 0); 
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ )
     glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
-  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
-    if( color_out[icomm] > parmesh->myrank )
-      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem_face_comm[icomm];//+1;
+
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+
+    if( color > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem;//+1;
   }
 
   /* Compute global pair faces enumeration (injective, non-surjective map) */
-  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
     
     /* Assign global index */
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
+    src = fmin(parmesh->myrank,color);
+    dst = fmax(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       sendbuffer = glob_pair_displ[icomm];
@@ -1188,9 +1199,14 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
     }
   }
 
-  for( icomm = 0; icomm < next_face_comm; icomm++ )
-    for( i=0; i < nitem_face_comm[icomm]; i++ )
-      ifc_tria_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+ 
+    for( i = 0; i < nitem; i++ )
+      idx_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+  }
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
@@ -1198,30 +1214,35 @@ int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
   PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
 
 
+#ifndef NDEBUG
   /* Check global IDs */
-  int **itorecv;
-  PMMG_CALLOC(parmesh,itorecv,next_face_comm,int*,"itorecv pointer",return 0); 
-  for( icomm = 0; icomm < next_face_comm; icomm++ ) {
-    PMMG_CALLOC(parmesh,itorecv[icomm],nitem_face_comm[icomm],int,"itorecv",return 0); 
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",return 0); 
     
-    src = fmin(parmesh->myrank,color_out[icomm]);
-    dst = fmax(parmesh->myrank,color_out[icomm]);
+    src = fmin(parmesh->myrank,color);
+    dst = fmax(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
-      MPI_CHECK( MPI_Isend(ifc_tria_glob[icomm],nitem_face_comm[icomm],MPI_INT,dst,tag,
+      MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
                             parmesh->comm,&request),return 0 );
     }
     if ( parmesh->myrank == dst ) {
-      MPI_CHECK( MPI_Recv(itorecv[icomm],nitem_face_comm[icomm],MPI_INT,src,tag,
+      MPI_CHECK( MPI_Recv(ext_face_comm->itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      for( i=0; i < nitem_face_comm[icomm]; i++ )
-        assert( ifc_tria_glob[icomm][i] == itorecv[icomm][i] );
+      for( i = 0; i < nitem; i++ )
+        assert( idx_glob[icomm][i] == ext_face_comm->itorecv[i] );
     }
   }
 
-  for( icomm = 0; icomm < next_face_comm; icomm++ )
-    PMMG_DEL_MEM(parmesh,itorecv[icomm],int,"itorecv");
-  PMMG_DEL_MEM(parmesh,itorecv,int*,"itorecv pointer"); 
- 
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv");
+  } 
+#endif
+
+
   return 1;
 }

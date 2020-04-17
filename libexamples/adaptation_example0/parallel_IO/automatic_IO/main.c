@@ -188,7 +188,7 @@ int main(int argc,char *argv[]) {
   /** 1) Recover parallel interfaces */
 
   int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face;
+  int *color_node, *color_face,**face_owner;
   int **idx_node_loc,**idx_node_glob,**node_owner;
   int **idx_face_loc,**idx_face_glob;
   int **faceNodes;
@@ -231,9 +231,11 @@ int main(int argc,char *argv[]) {
   /* Get IDs of triangles on each interface */
   idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
   idx_face_glob = (int **) malloc(n_face_comm*sizeof(int *));
+  face_owner    = (int **) malloc(n_face_comm*sizeof(int *));
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     idx_face_loc[icomm]  = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+    face_owner[icomm]    = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
 
@@ -260,8 +262,7 @@ int main(int argc,char *argv[]) {
    * all boundary and interface triangles currently present in the global mesh
    * (we don't care about contiguity of global IDs, but only about uniqueness).
    */
-  if( !PMMG_color_intfcTria(parmesh,color_face,idx_face_loc,idx_face_glob,
-                            n_face_comm,nitem_face_comm) ) {
+  if( !PMMG_color_intfcTria(parmesh,face_owner,idx_face_glob) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
@@ -611,9 +612,11 @@ int main(int argc,char *argv[]) {
     for( icomm = 0; icomm < n_face_comm; icomm++ ) {
       free(idx_face_loc[icomm]);
       free(idx_face_glob[icomm]);
+      free(face_owner[icomm]);
     }
     free(idx_face_loc);
     free(idx_face_glob);
+    free(face_owner);
 
     free(nitem_node_comm_out);
     free(nitem_face_comm_out);
