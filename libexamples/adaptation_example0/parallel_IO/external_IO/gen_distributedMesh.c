@@ -321,7 +321,22 @@ int main(int argc,char *argv[]) {
       fprintf(fid,"%d %d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i],icomm);
   fclose(fid);
 
+  /* Free arrays */
+  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+    free(idx_node_loc[icomm]);
+    free(idx_node_glob[icomm]);
+    free(node_owner[icomm]);
+  }
+  free(idx_node_loc);
+  free(idx_node_glob);
+  free(node_owner);
 
+  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+    free(idx_face_loc[icomm]);
+    free(idx_face_glob[icomm]);
+  }
+  free(idx_face_loc);
+  free(idx_face_glob);
 
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
