@@ -2249,56 +2249,40 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
- * \param ifc_node_loc local IDs of interface nodes
- * \param ifc_node_glob global IDs of interface nodes
- * \param next_node_comm number of node interfaces
- * \param nitem_node_comm number of nodes on each interface
+ * \param owner IDs of the process owning each interface node
+ * \param idx_glob global IDs of interface nodes
  *
  * Create global IDs for nodes on parallel interfaces.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_COLOR_INTFCNODE(parmesh,color_out,&\n
- * >                                   ifc_node_loc,ifc_node_glob,&\n
- * >                                   next_node_comm,nitem_node_comm,retval)\n
+ * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
+ * >                                               retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_node_loc\n
- * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_node_glob\n
- * >     INTEGER, INTENT(IN)                  :: next_node_comm\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_node_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_node_loc,int **ifc_node_glob,
-                         int next_node_comm,int *nitem_node_comm);
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob);
 
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
- * \param ifc_tria_loc local IDs of interface triangles
- * \param ifc_tria_glob global IDs of interface triangles
- * \param next_face_comm number of triangle interfaces
- * \param nitem_face_comm number of triangles on each interface
+ * \param owner IDs of the process owning each interface triangle
+ * \param idx_glob global IDs of interface triangles
  *
  * Create global IDs for triangles on parallel interfaces.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_COLOR_INTFCFACE(parmesh,color_out,&\n
- * >                                   ifc_face_loc,ifc_face_glob,&\n
- * >                                   next_face_comm,nitem_face_comm,retval)\n
+ * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
+ * >                                               retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_face_loc\n
- * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_face_glob\n
- * >     INTEGER, INTENT(IN)                  :: next_face_comm\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_face_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_tria_loc,int **ifc_tria_glob,
-                         int next_face_comm,int *nitem_face_comm);
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob);
 
 
 /**
