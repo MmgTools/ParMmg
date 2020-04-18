@@ -344,6 +344,10 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *
   mesh = grp->mesh;
   met  = grp->met;
 
+  /* Mesh memory isn't defined yet */
+  mesh->memMax = 0;
+  mesh->memCur = 0;
+
   /* Give all the available memory to the mesh */
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
