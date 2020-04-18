@@ -325,13 +325,12 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  * structures (info.inputMet == 1 if a metrics is provided by the user).
  *
  */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *oldMemMax ) {
   MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
   MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  size_t           oldMemMax,memAv;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
@@ -346,9 +345,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   met  = grp->met;
 
   /* Give all the available memory to the mesh */
-  oldMemMax = parmesh->memCur;
-  memAv     = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   /* Copy the mesh filenames */
   if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
@@ -373,7 +370,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
 
 
   /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
 }
@@ -1145,7 +1142,7 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
  * Copy all groups from the current to the background list.
  *
  */
-int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax ) {
   int grpId;
 
   PMMG_listgrp_free(parmesh, &parmesh->old_listgrp, parmesh->nold_grp);
@@ -1159,7 +1156,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
   for ( grpId = 0; grpId < parmesh->ngrp; ++grpId ) {
 
     /* New group initialisation */
-    if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
+    if ( !PMMG_oldGrps_newGroup( parmesh, grpId, memAv, oldMemMax ) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
               " group (%d).\n",__func__,grpId);
       return 0;
