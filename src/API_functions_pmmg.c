@@ -484,6 +484,14 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
       }
     }
     break;
+  case PMMG_DPARAM_hgradreq :
+   for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hgradreq,val) ) {
+        return 0;
+      }
+    }
+    break;
   case PMMG_DPARAM_hausd :
     if ( val <=0 ) {
       fprintf(stderr,"\n  ## Error: %s: hausdorff number must be strictly"

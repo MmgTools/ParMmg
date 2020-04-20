@@ -85,6 +85,7 @@ enum PMMG_Param {
   PMMG_DPARAM_hsiz,              /*!< [val], Constant mesh size */
   PMMG_DPARAM_hausd,             /*!< [val], Control global Hausdorff distance (on all the boundary surfaces of the mesh) */
   PMMG_DPARAM_hgrad,             /*!< [val], Control gradation */
+  PMMG_DPARAM_hgradreq,          /*!< [val], Control gradation from required entities */
   PMMG_DPARAM_ls,                /*!< [val], Value of level-set */
   PMMG_PARAM_size,               /*!< [n], Number of parameters */
 };
