@@ -718,7 +718,7 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
       /* Third */
-      pos = 6*(k-1);
+      pos = 6*k;
       if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
