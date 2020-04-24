@@ -94,7 +94,10 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
     if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
     if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
+#warning Option -nosurf overrides part of the surface analysis
     if ( ppt->tag & MG_NOM )    ppt->tag &= ~MG_NOM;
+    if ( ppt->tag & MG_CRN )    ppt->tag &= ~MG_CRN;
+    if ( ppt->tag & MG_GEO )    ppt->tag &= ~MG_GEO;
   }
 }
 

@@ -320,12 +320,14 @@ typedef struct {
   int repartitioning; /*!< way to perform mesh repartitioning */
   int ifc_layers;  /*!< nb of layers for interface displacement */
   double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
+  int nobalancing; /*!< switch off final load balancing */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
   int fmtout; /*!< store the output format asked */
+  unsigned char inputMet; /* 1 if User prescribe a metric or a size law */
 } PMMG_Info;
 
 
@@ -368,6 +370,7 @@ typedef struct {
 
   /* global variables */
   int            ddebug; //! Debug level
+  int            iter;   //! Current adaptation iteration
   int            niter;  //! Number of adaptation iterations
 
   /* parameters of the run */

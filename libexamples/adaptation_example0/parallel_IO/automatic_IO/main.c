@@ -40,7 +40,7 @@ int main(int argc,char *argv[]) {
   MMG5_pPoint     ppt;
   MMG5_pTria      ptt;
   MMG5_pTetra     pt;
-  int             ip,ie,ier,ierlib,rank,i,k;
+  int             ip,ie,ier,ierlib,rank,nprocs,i,k;
   int             opt,API_mode,niter;
   char            *filename,*metname,*solname,*fileout,*metout,*tmp;
   FILE            *inm;
@@ -50,6 +50,8 @@ int main(int argc,char *argv[]) {
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  MPI_Comm_size( MPI_COMM_WORLD, &nprocs );
+
 
   if ( !rank ) fprintf(stdout,"  -- TEST PARMMGLIB \n");
 
@@ -188,8 +190,8 @@ int main(int argc,char *argv[]) {
   /** 1) Recover parallel interfaces */
 
   int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face;
-  int **idx_node_loc,**idx_node_glob;
+  int *color_node, *color_face,**face_owner,nunique_face,ntot_face;
+  int **idx_node_loc,**idx_node_glob,**node_owner,nunique_node,ntot_node;
   int **idx_face_loc,**idx_face_glob;
   int **faceNodes;
   int icomm;
@@ -209,9 +211,11 @@ int main(int argc,char *argv[]) {
   /* Get IDs of nodes on each interface */
   idx_node_loc  = (int **) malloc(n_node_comm*sizeof(int *));
   idx_node_glob = (int **) malloc(n_node_comm*sizeof(int *));
+  node_owner    = (int **) malloc(n_node_comm*sizeof(int *));
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {
     idx_node_loc[icomm]  = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
     idx_node_glob[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
+    node_owner[icomm]    = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc);
 
@@ -229,9 +233,11 @@ int main(int argc,char *argv[]) {
   /* Get IDs of triangles on each interface */
   idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
   idx_face_glob = (int **) malloc(n_face_comm*sizeof(int *));
+  face_owner    = (int **) malloc(n_face_comm*sizeof(int *));
   for( icomm = 0; icomm < n_face_comm; icomm++ ) {
     idx_face_loc[icomm]  = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
     idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+    face_owner[icomm]    = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
   }
   ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
 
@@ -254,35 +260,36 @@ int main(int argc,char *argv[]) {
     ier = PMMG_STRONGFAILURE;
   }
 
-  /* Color interface triangles with a custom global enumeration that encompasses
-   * all boundary and interface triangles currently present in the global mesh
-   * (we don't care about contiguity of global IDs, but only about uniqueness).
+  /* Color interface triangles with a unique global enumeration that encompasses
+   * all interface triangles currently present in the global mesh, and assign a
+   * owner partition to each of them.
    */
-  if( !PMMG_color_intfcTria(parmesh,color_face,idx_face_loc,idx_face_glob,
-                            n_face_comm,nitem_face_comm) ) {
+  if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob,&nunique_face,&ntot_face) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
-  /* Color interface nodes with a custom global enumeration that encompasses
-   * all boundary and interface nodes currently present in the global mesh
-   * (we don't care about contiguity of global IDs, but only about uniqueness).
+  /* Color interface nodes with a unique global enumeration that encompasses
+   * all interface nodes currently present in the global mesh, and assign a
+   * owner partition to each of them.
    */
-  if( !PMMG_color_intfcNode(parmesh,color_node,idx_node_loc,idx_node_glob,
-                            n_node_comm,nitem_node_comm) ) {
+  if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob,&nunique_node,&ntot_node) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   }
 
 /*
+  printf("Rank %d, my nunique_face %d, ntot %d\n",rank,nunique_face,ntot_face);
+  printf("Rank %d, my nunique_node %d, ntot %d\n",rank,nunique_node,ntot_node);
+
   for( icomm = 0; icomm < n_face_comm; icomm++ )
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d tria loc %d glob %d\n",parmesh->myrank,icomm,color_face[icomm],idx_face_loc[icomm][i],idx_face_glob[icomm][i]);
+      printf("IN rank %d comm %d color %d tria loc %d glob %d owner %d\n",rank,icomm,color_face[icomm],idx_face_loc[icomm][i],idx_face_glob[icomm][i],face_owner[icomm][i]);
 
 
   for( icomm = 0; icomm < n_node_comm; icomm++ )
     for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      printf("IN rank %d comm %d color %d node loc %d glob %d\n",parmesh->myrank,icomm,color_node[icomm],idx_node_loc[icomm][i],idx_node_glob[icomm][i]);
+      printf("IN rank %d comm %d color %d node loc %d glob %d owner %d\n",rank,icomm,color_node[icomm],idx_node_loc[icomm][i],idx_node_glob[icomm][i],node_owner[icomm][i]);
 */
 
 
@@ -602,15 +609,19 @@ int main(int argc,char *argv[]) {
     for( icomm = 0; icomm < n_node_comm; icomm++ ) {
       free(idx_node_loc[icomm]);
       free(idx_node_glob[icomm]);
+      free(node_owner[icomm]);
     }
     free(idx_node_loc);
     free(idx_node_glob);
+    free(node_owner);
     for( icomm = 0; icomm < n_face_comm; icomm++ ) {
       free(idx_face_loc[icomm]);
       free(idx_face_glob[icomm]);
+      free(face_owner[icomm]);
     }
     free(idx_face_loc);
     free(idx_face_glob);
+    free(face_owner);
 
     free(nitem_node_comm_out);
     free(nitem_face_comm_out);

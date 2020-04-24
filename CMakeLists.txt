@@ -167,7 +167,7 @@ ENDIF()
 # Find SCOTCH library?
 SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-FIND_PACKAGE(Scotch)
+FIND_PACKAGE(SCOTCH)
 
 IF ( NOT SCOTCH_FOUND )
   MESSAGE ( WARNING "Scotch library not found:"
@@ -230,9 +230,16 @@ SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
 # forward VTK config
 SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
 
-# forward compiler (for c++ compatibility)
+# forward compiler
 SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} )
+  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+  -DCMAKE_Fortran_COMPILER=${CMAKE_Fortran_COMPILER} )
+
+# forward flags
+SET ( FLAGS_CFG -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
+  -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+  -DCMAKE_Fortran_FLAGS=${CMAKE_Fortran_FLAGS}
+  -DCMAKE_EXE_LINKER_FLAGS=${CMAKE_EXE_LINKER_FLAGS} )
 
 OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
@@ -242,10 +249,10 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG c7bb8712b7f3c7be425b6bbcfc5174bf4d29c9f9
+    GIT_TAG c7124801dc466a3493c3b458562633d38b581863
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
-    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
-    ${SCOTCH_CFG} ${VTK_CFG}
+    CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
+    ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
@@ -418,23 +425,19 @@ ENDIF ( )
 #####
 ############################################################################
 
-IF (NOT WIN32)
+ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
 
-  ADD_EXECUTABLE(genheader_pmmg ${PROJECT_SOURCE_DIR}/scripts/genheader.c)
+GENERATE_FORTRAN_HEADER ( pmmgtypes
+  ${PMMG_SOURCE_DIR} libparmmgtypes.h
+  ${PMMG_SHRT_INCLUDE}
+  ${PMMG_BINARY_DIR} libparmmgtypesf.h
+  )
 
-  GENERATE_FORTRAN_HEADER ( pmmgtypes
-    ${PMMG_SOURCE_DIR} libparmmgtypes.h
-    ${PMMG_SHRT_INCLUDE}
-    ${PMMG_BINARY_DIR} libparmmgtypesf.h
-    )
-
-  GENERATE_FORTRAN_HEADER ( pmmg
-    ${PMMG_SOURCE_DIR} libparmmg.h
-    ${PMMG_SHRT_INCLUDE}
-    ${PMMG_BINARY_DIR} libparmmgf.h
-    )
-
-ENDIF ()
+GENERATE_FORTRAN_HEADER ( pmmg
+  ${PMMG_SOURCE_DIR} libparmmg.h
+  ${PMMG_SHRT_INCLUDE}
+  ${PMMG_BINARY_DIR} libparmmgf.h
+  )
 
 ###############################################################################
 #####
@@ -557,7 +560,7 @@ ENDIF ( )
 #####
 ############################################################################
 
-IF (NOT WIN32)
+IF (NOT WIN32 OR MINGW)
 
   ADD_CUSTOM_TARGET(GenerateGitHash
     COMMAND ./git_log_pmmg.sh ${PROJECT_SOURCE_DIR} ${PMMG_BINARY_DIR}

@@ -73,6 +73,7 @@ enum PMMG_Param {
   PMMG_IPARAM_anisosize,         /*!< [1/0], Turn on/off anisotropic metric creation when no metric is provided */
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
   PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
+  PMMG_IPARAM_nobalancing,       /*!< [1/0], Deactivate load balancing of the output mesh */
   PMMG_IPARAM_metisRatio,        /*!< [n], wanted ratio # mesh / # metis super nodes (advanced use) */
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
@@ -84,6 +85,7 @@ enum PMMG_Param {
   PMMG_DPARAM_hsiz,              /*!< [val], Constant mesh size */
   PMMG_DPARAM_hausd,             /*!< [val], Control global Hausdorff distance (on all the boundary surfaces of the mesh) */
   PMMG_DPARAM_hgrad,             /*!< [val], Control gradation */
+  PMMG_DPARAM_hgradreq,          /*!< [val], Control gradation from required entities */
   PMMG_DPARAM_ls,                /*!< [val], Value of level-set */
   PMMG_PARAM_size,               /*!< [n], Number of parameters */
 };
@@ -2248,56 +2250,63 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
- * \param ifc_node_loc local IDs of interface nodes
- * \param ifc_node_glob global IDs of interface nodes
- * \param next_node_comm number of node interfaces
- * \param nitem_node_comm number of nodes on each interface
+ * \param owner IDs of the process owning each interface node
+ * \param idx_glob global IDs of interface nodes
+ * \param nunique nb of non-redundant interface nodes on current rank
+ * \param ntot totat nb of non-redundant interface nodes
  *
  * Create global IDs for nodes on parallel interfaces.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_COLOR_INTFCNODE(parmesh,color_out,&\n
- * >                                   ifc_node_loc,ifc_node_glob,&\n
- * >                                   next_node_comm,nitem_node_comm,retval)\n
+ * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
+ * >                                               nunique,ntot,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_node_loc\n
- * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_node_glob\n
- * >     INTEGER, INTENT(IN)                  :: next_node_comm\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_node_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: nunique\n
+ * >     INTEGER, INTENT(OUT)                 :: ntot\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_color_intfcNode(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_node_loc,int **ifc_node_glob,
-                         int next_node_comm,int *nitem_node_comm);
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot);
 
 /**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
- * \param ifc_tria_loc local IDs of interface triangles
- * \param ifc_tria_glob global IDs of interface triangles
- * \param next_face_comm number of triangle interfaces
- * \param nitem_face_comm number of triangles on each interface
+ * \param owner IDs of the process owning each interface triangle
+ * \param idx_glob global IDs of interface triangles
+ * \param nunique nb of non-redundant interface triangles on current rank
+ * \param ntot totat nb of non-redundant interface triangles
  *
  * Create global IDs for triangles on parallel interfaces.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_COLOR_INTFCFACE(parmesh,color_out,&\n
- * >                                   ifc_face_loc,ifc_face_glob,&\n
- * >                                   next_face_comm,nitem_face_comm,retval)\n
+ * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_OWNERS(parmesh,owner,idx_glob,&\n
+ * >                                               nunique,ntot,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: color_out\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: ifc_face_loc\n
- * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: ifc_face_glob\n
- * >     INTEGER, INTENT(IN)                  :: next_face_comm\n
- * >     INTEGER, DIMENSION(*), INTENT(IN)    :: nitem_face_comm\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: nunique\n
+ * >     INTEGER, INTENT(OUT)                 :: ntot\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_color_intfcTria(PMMG_pParMesh parmesh,int *color_out,
-                         int **ifc_tria_loc,int **ifc_tria_glob,
-                         int next_face_comm,int *nitem_face_comm);
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot);
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * Set function pointers.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SETFUNC(parmesh)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)     :: parmesh\n
+ * >   END SUBROUTINE\n
+ *
+ */
+void PMMG_setfunc( PMMG_pParMesh parmesh );
+
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

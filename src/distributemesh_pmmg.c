@@ -193,7 +193,8 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          k,rank,root,ier,ieresult,isMet;
+  int          k,rank,root,ier,ieresult;
+  unsigned char isMet;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -202,6 +203,8 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   rank   = parmesh->myrank;
   root   = parmesh->info.root;
   isMet  = met->m ? 1 : 0;
+
+  assert ( parmesh->info.inputMet == isMet );
 
   /* Minimize the memory used by the mesh */
   ier = 1;
@@ -238,7 +241,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), ier=6);
-  MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_UNSIGNED_CHAR, root, parmesh->comm ), ier=6);
   /* Info */
   MPI_CHECK( MPI_Bcast( &mesh->info.dhd,       1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.hmin,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
@@ -271,7 +274,6 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &mesh->info.noswap,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.nomove,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.nosurf,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
-  MPI_CHECK( MPI_Bcast( &mesh->info.inputMet,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
 
   /* affectation of old refs in ls-mode */
   if ( mesh->info.nmat ) {
@@ -327,8 +329,9 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
     if ( mesh->na )
       PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges", ier=6);
 
-    if ( isMet )
+    if ( isMet ) {
       PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial metric", ier=6);
+    }
   }
 
   if ( ier<6 && !PMMG_create_MPI_lightPoint( &mpi_light_point ) ) { ier=6; }
@@ -1176,7 +1179,7 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   assert( parmesh->ngrp = 1);
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
- 
+
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
@@ -1197,7 +1200,6 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   /* The part array is deallocated when groups to be sent are merged (do not
    * do it here) */
-
-  ieresult = 1;
+  ieresult = ier;
   return ieresult==1;
 }
