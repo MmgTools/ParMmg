@@ -350,13 +350,11 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   mesh = grp->mesh;
   met  = grp->met;
 
-  /* Mesh memory isn't defined yet */
-  mesh->memMax = 0;
-  mesh->memCur = 0;
 
   /** 1) Create the boundary */
 
   /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,*memAv,*oldMemMax);
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshOld,*memAv,*oldMemMax);
 
   /* Create boundary */
