@@ -334,9 +334,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
  */
 int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh  mesh;
-  FILE*       inm;
-  int         bin,ier;
-  char        *data;
+  int         ier;
 
   if ( parmesh->ngrp != 1 ) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",

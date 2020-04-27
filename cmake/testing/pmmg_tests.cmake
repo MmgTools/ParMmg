@@ -61,6 +61,70 @@ IF( BUILD_TESTING )
       endforeach()
     endforeach()
 
+    # test interpolation (iso metric)
+    # on 8 processors
+    foreach( TYPE iso-interp )
+      foreach( NP 8 )
+        add_test( NAME ${TYPE}-coarse-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
+          -sol ${CI_DIR_INPUTS}/Interpolation/field3_iso-coarse.sol
+          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
+          )
+      endforeach()
+    endforeach()
+    # test interpolation (aniso metric)
+    # on 8 processors
+    foreach( TYPE ani-interp )
+      foreach( NP 8 )
+        add_test( NAME ${TYPE}-coarse-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
+          -sol ${CI_DIR_INPUTS}/Interpolation/field207_ani-coarse.sol
+          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
+          )
+      endforeach()
+    endforeach()
+    # test interpolation (fields)
+    # on 8 processors
+    foreach( TYPE fields )
+      foreach( NP 8 )
+        add_test( NAME ${TYPE}-coarse-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
+          -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
+          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
+          )
+      endforeach()
+    endforeach()
+    # test interpolation (iso metric + fields)
+    # on 8 processors
+    foreach( TYPE iso-and-fields-interp )
+      foreach( NP 8 )
+        add_test( NAME ${TYPE}-coarse-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
+          -sol ${CI_DIR_INPUTS}/Interpolation/field3_iso-coarse.sol
+          -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
+          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
+          )
+      endforeach()
+    endforeach()
+    # test interpolation (aniso metric + fields)
+    # on 8 processors
+    foreach( TYPE ani-and-fields-interp )
+      foreach( NP 8 )
+        add_test( NAME ${TYPE}-coarse-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
+          -sol ${CI_DIR_INPUTS}/Interpolation/field207_ani-coarse.sol
+          -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
+          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
+          )
+      endforeach()
+    endforeach()
+
+
     ###############################################################################
     #####
     #####        Tests options (on 1, 6 and 8 procs)

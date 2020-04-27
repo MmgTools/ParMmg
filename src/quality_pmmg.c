@@ -34,9 +34,8 @@ static int PMMG_count_nodes_par(PMMG_pParMesh parmesh,PMMG_pGrp grp){
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
-  PMMG_pExt_comm ext_node_comm;
   int            *intvalues,base;
-  int            k,i,ip,idx,np,iel;
+  int            i,ip,idx,np,iel;
 
   grp->mesh->base++;
   base = grp->mesh->base;
@@ -157,8 +156,6 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
 int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 {
   PMMG_pGrp    grp;
-  MMG5_pTetra  pt;
-  MMG5_pPoint  ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   int          *intvalues;

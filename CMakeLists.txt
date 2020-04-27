@@ -242,7 +242,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG f1700dfe17509acce111f0a1eed017d8761c16a7
+    GIT_TAG 7ec42f7791f0cbb0f7ac03616bb1110a349dd364
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -280,7 +280,7 @@ ELSE ( )
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  FIND_PACKAGE(Mmg)
+  FIND_PACKAGE(MMG)
 
   IF(NOT MMG_FOUND )
 
@@ -351,7 +351,7 @@ ELSE ( )
   # add metis library?
   SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 
-  FIND_PACKAGE(Metis)
+  FIND_PACKAGE(METIS)
 
   IF( METIS_FOUND)
     OPTION ( USE_METIS "Detected METIS Tool" ON)

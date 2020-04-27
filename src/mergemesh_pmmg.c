@@ -35,6 +35,216 @@
 #include "moveinterfaces_pmmg.h"
 
 /**
+ * \param solI pointer toward the destination solution structure
+ * \param solJ pointer toward the source solution structure
+ * \param ip index of destination point
+ * \param k pos in the group communicator (if provided) or idx (if not) of the src point
+ * \param ni_n_c_idx1 group communicator (facultative)
+ * \param warn 0 if no errors for now
+ * \param whoisssol name of the solution structure on which qe are working (met, ls..)
+ *
+ * Copy the value of the solution J at point k or n2i_n_c_idx1[k] into the point \a
+ * ip of the solution I.
+ *
+ */
+static inline
+void PMMG_grpJinI_copySol(MMG5_pSol solI,MMG5_pSol solJ,int ip,int k,
+                          int* n2i_n_c_idx1,int8_t *warn,char *whoissol) {
+  int size,ip2;
+
+  if ( solI->m ) {
+    size = solJ->size;
+    if ( !solJ->m ) {
+      if ( !(*warn) ) {
+        (*warn) = 1;
+        printf("  ## Error: unable to merge %s:"
+               " group I has a metric while group J don't.\n",whoissol);
+      }
+    }
+    else {
+      assert( ((size==1||size==6) && size==solJ->size) && "size issues" );
+      if ( n2i_n_c_idx1 ) {
+        ip2 = n2i_n_c_idx1[k];
+      }
+      else {
+        ip2 = k;
+      }
+      memcpy(&solI->m[size*ip],&solJ->m[size*ip2],size*sizeof(double));
+    }
+  }
+}
+
+/**
+ * \param mesh pointer toward a mesh structure
+ * \param met pointer toward a solution structure storing a metric
+ * \param ls pointer toward a solution structure storing a level-set
+ * \param disp pointer toward a solution structure storing a displacement
+ * \param field pointer toward an array of solutions fields
+ *
+ * \return 1 if the np and npmax field of all the structures are matching, 0 otherwise
+ *
+ * Check the consistency between the np and npmax of the different structures.
+ *
+ */
+static inline
+int PMMG_check_solsNp(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
+                      MMG5_pSol disp,MMG5_pSol field) {
+  int i;
+
+  if ( met && met->m ) {
+    if ( met->np    != mesh->np    ) {
+      return 0;
+    }
+    if ( met->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( ls && ls->m ) {
+    if ( ls->np    != mesh->np    ) {
+      return 0;
+    }
+    if ( ls->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( disp && disp->m ) {
+    if ( disp->np    != mesh->np    ) {
+      return 0;
+    }
+    if ( disp->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( field ) {
+    for ( i=0; i < mesh->nsols; ++i ) {
+      assert ( field[i].np    == mesh->np    );
+      assert ( field[i].npmax == mesh->npmax );
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward a mesh structure
+ * \param met pointer toward a solution structure storing a metric
+ * \param ls pointer toward a solution structure storing a level-set
+ * \param disp pointer toward a solution structure storing a displacement
+ * \param field pointer toward an array of solutions fields
+ * \param c coordinates of the new point to create (\a ip)
+ * \param tag tag of the new point to create (\a ip)
+ *
+ * \return 0 if fail, \a ip, the index of the new point if success.
+ *
+ * Realloc all the array linked to the point array (included) in order to be
+ * able to insert a new point. Perform the point creation if success.
+ *
+ */
+static inline
+int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
+                              MMG5_pSol disp,MMG5_pSol field,double *c,int16_t tag) {
+  MMG5_pSol psl;
+  int ip       = 0;
+  int oldnpmax = mesh->npmax;
+  int oldnp    = mesh->np;
+  int fail     = 0;
+  int i;
+
+  assert ( PMMG_check_solsNp(mesh,met,ls,disp,field) );
+
+  MMG3D_POINT_REALLOC(mesh,met,ip,mesh->gap,
+                     printf("  ## Error: unable to merge group points\n");
+                     MMG5_INCREASE_MEM_MESSAGE();
+                     met->np = mesh->np; met->npmax = mesh->npmax;
+                     ip = 0,
+                     c,tag);
+
+  if ( !ip ) {
+    assert ( PMMG_check_solsNp(mesh,met,ls,disp,field) );
+    return 0;
+  }
+
+  /* Reallocation of solution structures */
+  /* ls field */
+  if ( ls && ls->m ) {
+    PMMG_REALLOC(mesh,ls->m,ls->size*(mesh->npmax+1),ls->size*(ls->npmax+1),
+                 double,"larger level-set",fail = 1);
+    ls->npmax = mesh->npmax;
+    ls->np    = mesh->np;
+  }
+
+  /* displacement field */
+  if ( disp && disp->m && (!fail) ) {
+    PMMG_REALLOC(mesh,disp->m,disp->size*(mesh->npmax+1),disp->size*(disp->npmax+1),
+                 double,"larger displacement",fail = 2);
+    disp->npmax = mesh->npmax;
+    disp->np    = mesh->np;
+  }
+
+  if ( field && (!fail) ) {
+    for ( i=0; i < mesh->nsols; ++i ) {
+      psl = &field[i];
+      if ( psl->m ) {
+        PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),psl->size*(psl->npmax+1),
+                     double,"larger field",fail = 3+i);
+        psl->npmax = mesh->npmax;
+        psl->np    = mesh->np;
+      }
+    }
+  }
+
+  if ( !fail )  return ip;
+
+  for ( i=0; i < fail-3; ++i ) {
+    psl = &field[i];
+    PMMG_REALLOC(mesh,psl->m,psl->size*(oldnpmax+1),psl->size*(psl->npmax+1),
+                 double,"smaller field",);
+    psl->npmax = oldnpmax;
+    psl->np    = oldnp;
+  }
+
+  if ( disp && disp->m ) {
+    PMMG_REALLOC(mesh,disp->m,disp->size*(oldnpmax+1),disp->size*(disp->npmax+1),
+                 double,"smaller displacement",);
+    disp->npmax = oldnpmax;
+    disp->np    = oldnp;
+  }
+
+  if ( ls && ls->m ) {
+    PMMG_REALLOC(mesh,ls->m,ls->size*(oldnpmax+1),ls->size*(ls->npmax+1),
+                 double,"smaller level-set",);
+    ls->npmax = oldnpmax;
+    ls->np    = oldnp;
+  }
+
+  if ( met && met->m ) {
+    PMMG_REALLOC(mesh,met->m,met->size*(oldnpmax+1),met->size*(met->npmax+1),
+                 double,"smaller metric",);
+    met->npmax = oldnpmax;
+    met->np    = oldnp;
+  }
+
+  MMG3D_delPt(mesh,ip);
+
+  PMMG_REALLOC(mesh,mesh->point,oldnpmax+1,mesh->npmax+1,
+               MMG5_Point,"smaller point array",);
+  mesh->npmax = oldnpmax;
+  mesh->np    = oldnp;
+  mesh->npnil = 0;
+
+  assert ( PMMG_check_solsNp(mesh,met,ls,disp,field) );
+
+  printf("  ## Error: unable to merge group points\n");
+  MMG5_INCREASE_MEM_MESSAGE();
+
+  return 0;
+}
+
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param grpI pointer toward the group in which we want to merge.
  * \param grpJ pointer toward the group that we merge.
@@ -48,21 +258,27 @@
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
                                                PMMG_pGrp grpI,PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
-  MMG5_pSol      metI,metJ;
+  MMG5_pSol      metI,metJ,lsI,lsJ,dispI,dispJ;
+  MMG5_pSol      fieldI,fieldJ,pslI,pslJ;
   MMG5_pPoint    pptI,pptJ;
   MMG5_pxPoint   pxpI,pxpJ;
   int            *intvalues,nitem_int_node_comm;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            size,k,poi_id_glo,ip;
-  static int     pmmg_warn = 0;
+  int            k,poi_id_glo,ip,is;
+  static int8_t  warnMet=0,warnLs=0,warnDisp=0,warnField=0;
 
   intvalues = parmesh->int_node_comm->intvalues;
 
   meshI                     = grpI->mesh;
   metI                      = grpI->met;
-
+  lsI                       = grpI->ls;
+  dispI                     = grpI->disp;
+  fieldI                    = grpI->field;
   meshJ                     = grpJ->mesh;
   metJ                      = grpJ->met;
+  lsJ                       = grpJ->ls;
+  dispJ                     = grpJ->disp;
+  fieldJ                    = grpJ->field;
   nitem_int_node_comm       = grpJ->nitem_int_node_comm;
   node2int_node_comm_index1 = grpJ->node2int_node_comm_index1;
   node2int_node_comm_index2 = grpJ->node2int_node_comm_index2;
@@ -84,14 +300,16 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
     if ( !intvalues[ poi_id_glo ] ) {
       ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
       if ( !ip ) {
-        /* reallocation of point table */
-        MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                            printf("  ## Error: unable to merge group points\n");
-                            MMG5_INCREASE_MEM_MESSAGE();
-                            metI->np = meshI->np;
-                            return 0;,
-                            pptJ->c,pptJ->tag);
-
+#warning to test
+        /* reallocation of point table and associated solutions structures*/
+        ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag);
+        if ( !ip ) {
+          return 0;
+        }
+        metI   = grpI->met;
+        lsI    = grpI->ls;
+        dispI  = grpI->disp;
+        fieldI = grpI->field;
       }
       assert( (ip <= meshI->npmax) && "run out of points" );
 
@@ -107,18 +325,16 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
         assert( (pptI->xp > 0) && "negative xpoints" );
         memcpy(pxpI,pxpJ,sizeof(MMG5_xPoint));
       }
-      if ( metI->m ) {
-        size = metI->size;
-        if ( !metJ->m ) {
-          if ( !pmmg_warn ) {
-            pmmg_warn = 1;
-            printf("  ## Error: unable to merge metrics:"
-                   " group I has a metric while group J don't.\n");
-          }
-        }
-        else {
-          assert( ((size==1||size==6) && size==metJ->size) && "met size issues" );
-          memcpy(&metI->m[size*ip],&metJ->m[size*node2int_node_comm_index1[ k ]],size*sizeof(double));
+
+      PMMG_grpJinI_copySol(metI ,metJ ,ip,k,node2int_node_comm_index1,&warnMet ,"metric");
+      PMMG_grpJinI_copySol(lsI  ,lsJ  ,ip,k,node2int_node_comm_index1,&warnLs  ,"ls");
+      PMMG_grpJinI_copySol(dispI,dispJ,ip,k,node2int_node_comm_index1,&warnDisp,"displacement");
+
+      if ( fieldI ) {
+        for ( is=0; is<meshI->nsols; ++is ) {
+          pslI = &fieldI[is];
+          pslJ = &fieldJ[is];
+          PMMG_grpJinI_copySol(pslI,pslJ,ip,k,node2int_node_comm_index1,&warnField,"displacement");
         }
       }
     } else {
@@ -128,7 +344,22 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       intvalues[ poi_id_glo ] *= -1;
     }
   }
+
   metI->np = meshI->np;
+  if ( lsI && lsI->m) {
+    lsI->np = lsI->np;
+  }
+
+  if ( dispI && dispI->m) {
+    dispI->np = meshI->np;
+  }
+
+  if ( fieldI ) {
+    for ( is=0; is<meshI->nsols; ++is ) {
+      pslI = &fieldI[is];
+      pslI->np = meshI->np;
+    }
+  }
 
   return 1;
 }
@@ -182,7 +413,6 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
 
 /**
  * \param parmesh pointer toward a parmmg parmesh mesh structure.
- * \param metI pointer toward the group in which we wnat to merge.
  * \param grpJ pointer toward the group that we want to merge into grpI
  *
  * \return 0 if fail, 1 otherwise
@@ -193,18 +423,27 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
 int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pMesh     meshI,meshJ;
   MMG5_pSol      metI,metJ;
+  MMG5_pSol      lsI,lsJ;
+  MMG5_pSol      dispI,dispJ;
+  MMG5_pSol      fieldI,fieldJ,pslI,pslJ;
   MMG5_pPoint    pptI,pptJ;
   MMG5_pxPoint   pxpI,pxpJ;
-  int            ip,ier,k;
-  static int     pmmg_warn = 0;
+  int            ip,ier,k,is;
+  static int8_t  warnMet=0,warnLs=0,warnDisp=0,warnField=0;
 
-  meshI = grpI->mesh;
-  metI  = grpI->met;
+  meshI  = grpI->mesh;
+  metI   = grpI->met;
+  lsI    = grpI->ls;
+  dispI  = grpI->disp;
+  fieldI = grpI->field;
 
   /** Loop over points and add the ones that are not already in the merged
    * mesh (meshI) */
-  meshJ = grpJ->mesh;
-  metJ  = grpJ->met;
+  meshJ  = grpJ->mesh;
+  metJ   = grpJ->met;
+  lsJ    = grpJ->ls;
+  dispJ  = grpJ->disp;
+  fieldJ = grpJ->field;
 
   for ( k=1; k<=meshJ->np; k++ ) {
     pptJ = &meshJ->point[k];
@@ -213,13 +452,15 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
 
     ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
     if ( !ip ) {
-      /* reallocation of point table */
-      MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
-                          printf("  ## Error: unable to merge group points\n");
-                          MMG5_INCREASE_MEM_MESSAGE();
-                          metI->np = meshI->np;
-                          return 0;,
-                          pptJ->c,pptJ->tag);
+      /* reallocation of point table and associated solutions structures*/
+      ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag);
+      if ( !ip ) {
+        return 0;
+      }
+      metI   = grpI->met;
+      lsI    = grpI->ls;
+      dispI  = grpI->disp;
+      fieldI = grpI->field;
     }
     pptJ->tmp = ip;
 
@@ -231,20 +472,35 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
       pxpI = &meshI->xpoint[pptI->xp];
       memcpy(pxpI,pxpJ,sizeof(MMG5_xPoint));
     }
-    if ( metI->m ) {
-      if ( !metJ->m ) {
-        if ( !pmmg_warn ) {
-          pmmg_warn = 1;
-          printf("  ## Error: unable to merge metrics:"
-                 " group I has a metric while group J don't.\n");
-        }
-      }
-      else {
-        memcpy(&metI->m[metI->size*ip],&metJ->m[metJ->size*k],metJ->size*sizeof(double));
+    PMMG_grpJinI_copySol(metI ,metJ ,ip,k,NULL,&warnMet ,"metric");
+    PMMG_grpJinI_copySol(lsI  ,lsJ  ,ip,k,NULL,&warnLs  ,"ls");
+    PMMG_grpJinI_copySol(dispI,dispJ,ip,k,NULL,&warnDisp,"displacement");
+
+    if ( fieldI ) {
+      for ( is=0; is<meshI->nsols; ++is ) {
+        pslI = &fieldI[is];
+        pslJ = &fieldJ[is];
+        PMMG_grpJinI_copySol(pslI,pslJ,ip,k,NULL,&warnField,"displacement");
       }
     }
   }
+
   metI->np = meshI->np;
+  if ( lsI && lsI->m) {
+    lsI->np = lsI->np;
+  }
+
+  if ( dispI && dispI->m) {
+    dispI->np = meshI->np;
+  }
+
+  if ( fieldI ) {
+    for ( is=0; is<meshI->nsols; ++is ) {
+      pslI = &fieldI[is];
+      pslI->np = meshI->np;
+    }
+  }
+
   return 1;
 }
 
@@ -824,7 +1080,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          int **rcv_nitem_int_node_comm ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
-  MMG5_pSol      met;
+  MMG5_pSol      met,ls,disp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
@@ -842,6 +1098,11 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   mesh          = grp ? grp->mesh : NULL;
   met           = grp ? grp->met  : NULL;
   isMet         = (met && (met->m) )? met->size : 0;
+  ls            = grp ? grp->ls  : NULL;
+  //isLs          = (ls && (ls->m) )? ls->size : 0;
+  disp          = grp ? grp->ls  : NULL;
+  //isDisp        = (disp && (disp->m) )? disp->size : 0;
+
   comm          = parmesh->comm;
   int_node_comm = parmesh->int_node_comm;
   ier           = 1;
@@ -907,6 +1168,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   PMMG_CALLOC( parmesh, (*ext_comm_displs)        ,nprocs,int,"ext_comm_displs"      ,ier=3);
 
   /** Gather parmesh size infos on proc 0 */
+  assert ( mesh );
+
   np = mesh ? mesh->np : 0;
   xp = mesh ? mesh->xp : 0;
   ne = mesh ? mesh->ne : 0;
@@ -922,12 +1185,20 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                         (*rcv_nitem_int_node_comm),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
                         (*rcv_next_node_comm),1,MPI_INT,root,comm),ier = 3);
+#ifndef NDEBUG
+  assert ( mesh );
+  /* Normally, each proc has at least one mesh */
   MPI_CHECK( MPI_Allreduce(&isMet,rcv_isMet,1,MPI_INT,MPI_MAX,comm),ier = 3);
 
   if ( (!parmesh->myrank) && rcv_isMet ) {
     PMMG_CALLOC( parmesh, (*rcv_nmet)    ,nprocs,int,"rcv_nmet"     ,ier=3);
     PMMG_CALLOC( parmesh, (*met_displs)  ,nprocs,int,"met_displs"   ,ier=3);
   }
+#else
+
+
+#endif
+
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MAX,comm),ieresult=3);
   if ( ieresult>1 ) goto end;
@@ -1535,17 +1806,19 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   MMG5_pTetra    rcv_tetra;
   MMG5_pxTetra   rcv_xtetra;
   PMMG_pInt_comm int_node_comm;
-  double         *rcv_met;
+  double         *rcv_met,*rcv_disp,*rcv_ls,*rcv_fields;
   size_t         available;
   int            *rcv_np,np_tot,*rcv_ne,ne_tot,*rcv_xp,xp_tot,*rcv_xt,xt_tot;
-  int            *rcv_nmet,nmet_tot;
+  int            *rcv_nmet,nmet_tot,*rcv_nls,nls_tot,*rcv_ndisp,ndisp_tot;
+  int            *rcv_nfield,nfield_tot;
   int            *point_displs,*xpoint_displs,*tetra_displs,*xtetra_displs;
-  int            *met_displs,*intval_displs,*ext_comm_displs;
-  int            *int_comm_index_displs;
+  int            *met_displs,*ls_displs,*disp_displs,*field_displs;
+  int            *int_comm_index_displs,*intval_displs,*ext_comm_displs;
   int            *rcv_intvalues,nitem_inc_tot;
   int            *rcv_int_comm_index,nitem_icidx_tot,ext_comm_displs_tot;
   int            *rcv_node2int_node_comm_index1,*rcv_node2int_node_comm_index2;
-  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm,rcv_isMet;
+  int            *rcv_nitem_int_node_comm,*rcv_next_node_comm;
+  int            rcv_isMet,rcv_isLs,rcv_isDisp,rcv_nsols;
   int            *rcv_color_in_tab,*rcv_color_out_tab,*rcv_nitem_ext_tab;
   int            k,idx,ier,ieresult;
 

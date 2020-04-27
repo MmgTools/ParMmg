@@ -274,7 +274,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   size_t      mem;
-  int         k,npmax,xpmax,nemax,xtmax;
+  int         k;
 
   switch ( iparam ) {
   case PMMG_IPARAM_verbose :

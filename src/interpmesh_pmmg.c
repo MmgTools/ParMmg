@@ -182,7 +182,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
                       double *faceAreas, PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
   int            *adja,iel,i,idxTet,step,closestTet;
-  double         vol,eps,closestDist;
+  double         vol,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
   if(!init)
@@ -291,7 +291,7 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
  */
 int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                          MMG5_pTetra pt,int ip,double *phi ) {
-  int iloc,i,j,ier,iadr;
+  int i,j,iadr;
 
   assert( met->size == 1 );
 
@@ -330,7 +330,7 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
 int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                          MMG5_pTetra pt,int ip,double *phi ) {
   double dm[4][6],mi[4][6],m[6];
-  int    iloc,i,isize,nsize,ier;
+  int    i,isize,nsize;
 
   assert( met->size == 6 );
   nsize  = met->size;
@@ -432,8 +432,6 @@ static
 int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                             MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob,
                             unsigned char inputMet ) {
-  MMG5_pPoint    ppt;
-  int            isize,nsize,ip;
   int            ier;
 
   if ( !inputMet || mesh->info.hsiz > 0.0 ) return 1;
@@ -458,9 +456,8 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 static
 int PMMG_copyFields_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                            MMG5_pSol field,MMG5_pSol oldField,int* permNodGlob) {
-  MMG5_pPoint    ppt;
   MMG5_pSol      psl,oldPsl;
-  int            isize,nsize,ip,j,ier;
+  int            j,ier;
 
   if ( !mesh->nsols ) return 1;
 

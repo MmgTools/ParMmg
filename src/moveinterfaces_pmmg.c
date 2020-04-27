@@ -327,7 +327,7 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
   int              *main_list,main_head,main_len,main_base,main_otetra;
   int              *next_list,next_head,next_len,next_base,next_otetra;
   int              *tmp_list;
-  int              start,k;
+  int              start;
 
   /* Only works on a merged group */
   assert( parmesh->ngrp == 1 );
@@ -948,9 +948,8 @@ int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
  */
 int PMMG_mark_sideFront( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int base_front,
                          int *displsgrp,int *mapgrp,int *list ) {
-  MMG5_pTetra pt;
   MMG5_pPoint ppt;
-  int         ip,ie,iloc;
+  int         ip;
 
   /* Search and mark points on the front side */
   for( ip = 1; ip <= mesh->np; ip++ ) {
@@ -1193,11 +1192,6 @@ int PMMG_init_ifcDirection( PMMG_pParMesh parmesh,int **displsgrp,int **mapgrp )
  *
  */
 int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **displsgrp,int **mapgrp ) {
-  PMMG_pGrp      grp;
-  PMMG_pExt_comm ext_node_comm;
-  PMMG_pInt_comm int_node_comm;
-  MMG5_pMesh     mesh;
-  MMG5_pPoint    ppt;
   MPI_Comm       comm;
   int            *ngrps;
   int            myrank,nproc;
@@ -1239,8 +1233,6 @@ fail:
 int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,int *base_front ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
-  MMG5_pTetra  pt,pt1;
-  MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
@@ -1251,7 +1243,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
   int          *negrp,*nemin;
   int          ilayer;
   int          nprocs,ngrp;
-  int          igrp,k,i,idx,ip,ie,ifac,je,ne,nitem,color,color_out;
+  int          igrp,k,i,idx,ip,nitem,color;
   int          list[MMG3D_LMAX+2];
   int          ier=1,ier_glob;
 
