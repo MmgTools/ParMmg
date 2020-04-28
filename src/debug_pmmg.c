@@ -472,10 +472,19 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   oldMemMax = parmesh->memCur;
   memAv = parmesh->memMax-oldMemMax;
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
- 
+
+  /* Rebuild boundary */
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
+
+  /* Save mesh */
   MMG3D_saveMesh( mesh, name );
+
+  /* Destroy boundary */
+  MMG5_DEL_MEM(mesh,mesh->tria);
+  mesh->nt = 0;
+
+  /* Save metrics */
   if ( met->m ) {
     sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
     MMG3D_saveSol( mesh, met, name );
@@ -513,7 +522,10 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
  
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
+  /* Destroy boundary */
+  MMG5_DEL_MEM(mesh,mesh->tria);
   mesh->nt = 0;
+
   MMG3D_saveMesh( mesh, name );
  
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
@@ -552,7 +564,10 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
  
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
+  /* Destroy boundary */
+  MMG5_DEL_MEM(mesh,mesh->tria);
   mesh->nt = 0;
+
   MMG3D_saveMesh( mesh, name );
  
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
