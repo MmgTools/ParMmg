@@ -461,6 +461,13 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
+  /* Don't remesh the surface */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+
   /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
 
