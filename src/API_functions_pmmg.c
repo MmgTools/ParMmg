@@ -158,12 +158,6 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
   parmesh->info.fmtout             = MMG5_FMT_Unknown;
 
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
- #warning Option -nosurf imposed by default.
-    mesh->info.nosurf = 1;
-  }
-
   /* Init MPI data */
   parmesh->comm   = comm;
 
@@ -413,8 +407,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if( !val ) fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented! Switching it off by default.\n");
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
     }
     break;
   case PMMG_IPARAM_numberOfLocalParam :
