@@ -358,7 +358,6 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshOld,*memAv,*oldMemMax);
 
   /* Create boundary */
-  meshOld->nt = 0;
   if ( !MMG5_chkBdryTria(meshOld) ) {
     fprintf(stderr,"\n  ## Problem building boundary.\n");
     return 0;
