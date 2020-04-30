@@ -471,10 +471,10 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
 int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met,field;
+  MMG5_pSol  met,field,psl;
   size_t     oldMemMax,available;
   mytime     ctim[TIMEMAX];
-  int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
+  int        it,ier,ier_end,ieresult,i,k,is,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
   unsigned char inputMet;
@@ -647,6 +647,18 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
+        }
+
+        /* Realloc the solution fields at the same size than other structures */
+        if ( mesh->nsols ) {
+          for ( is=0; is<mesh->nsols; ++is ) {
+            psl    = field + is;
+            assert ( psl && psl->m );
+            PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),
+                         psl->size*(psl->npmax+1),double,
+                         "field array",goto strong_failed);
+            psl->npmax = mesh->npmax;
+          }
         }
 
         if ( it < parmesh->niter-1 && (!inputMet) ) {

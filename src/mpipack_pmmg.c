@@ -464,7 +464,7 @@ void PMMG_mpipack_meshSizes ( PMMG_pGrp grp,char **buffer ) {
 
   /** Metric info and sizes */
   *( (int *) tmp) = ( (met && met->m) ? 1 : 0 );  tmp += sizeof(int);
-  if ( met ) {
+  if ( met && met->m ) {
     assert ( mesh->npmax == met->npmax );
     assert ( mesh->np    == met->np    );
 
@@ -474,7 +474,7 @@ void PMMG_mpipack_meshSizes ( PMMG_pGrp grp,char **buffer ) {
 
   /** Ls info and sizes */
   *( (int *) tmp) = ( (ls && ls->m) ? 1 : 0 );  tmp += sizeof(int);
-  if ( ls ) {
+  if ( ls && ls->m ) {
     assert ( mesh->npmax == ls->npmax );
     assert ( mesh->np    == ls->np    );
 
@@ -484,7 +484,7 @@ void PMMG_mpipack_meshSizes ( PMMG_pGrp grp,char **buffer ) {
 
   /** Disp info and sizes */
   *( (int *) tmp) = ( (disp && disp->m) ? 1 : 0 );  tmp += sizeof(int);
-  if ( disp ) {
+  if ( disp && disp->m ) {
     assert ( mesh->npmax == disp->npmax );
     assert ( mesh->np    == disp->np    );
 
@@ -550,17 +550,21 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
       printf("  ## Error: input metnames too long.");
       return 0;
     }
-    *( (int *) tmp) = metin_s; tmp += sizeof(int);
-    *( (int *) tmp) = metout_s; tmp += sizeof(int);
-
-    strncpy( ( (char *) tmp), met->namein,metin_s);
-    tmp += metin_s * sizeof(char);
-    strncpy( ( (char *) tmp), met->nameout, metout_s);
-    tmp += metout_s * sizeof(char);
   }
   else {
     metin_s  = 0;
     metout_s = 0;
+  }
+
+  *( (int *) tmp) = metin_s; tmp += sizeof(int);
+  *( (int *) tmp) = metout_s; tmp += sizeof(int);
+
+  if ( metin_s ) {
+    assert ( metout_s );
+    strncpy( ( (char *) tmp), met->namein,metin_s);
+    tmp += metin_s * sizeof(char);
+    strncpy( ( (char *) tmp), met->nameout, metout_s);
+    tmp += metout_s * sizeof(char);
   }
 
   if ( ls && ls->namein && ls->nameout ) {
@@ -570,17 +574,21 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
       printf("  ## Error: input level-set names too long.");
       return 0;
     }
-    *( (int *) tmp) = lsin_s; tmp += sizeof(int);
-    *( (int *) tmp) = lsout_s; tmp += sizeof(int);
-
-    strncpy( ( (char *) tmp), ls->namein,lsin_s);
-    tmp += lsin_s * sizeof(char);
-    strncpy( ( (char *) tmp), ls->nameout, lsout_s);
-    tmp += lsout_s * sizeof(char);
   }
   else {
     lsin_s  = 0;
     lsout_s = 0;
+  }
+
+  *( (int *) tmp) = lsin_s; tmp += sizeof(int);
+  *( (int *) tmp) = lsout_s; tmp += sizeof(int);
+
+  if ( lsin_s ) {
+    assert ( lsout_s );
+    strncpy( ( (char *) tmp), ls->namein,lsin_s);
+    tmp += lsin_s * sizeof(char);
+    strncpy( ( (char *) tmp), ls->nameout, lsout_s);
+    tmp += lsout_s * sizeof(char);
   }
 
   if ( disp && disp->namein && disp->nameout ) {
@@ -590,18 +598,23 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
       printf("  ## Error: input displacement names too long.");
       return 0;
     }
-    *( (int *) tmp) = dispin_s; tmp += sizeof(int);
-    *( (int *) tmp) = dispout_s; tmp += sizeof(int);
-
-    strncpy( ( (char *) tmp), disp->namein,dispin_s);
-    tmp += dispin_s * sizeof(char);
-    strncpy( ( (char *) tmp), disp->nameout, dispout_s);
-    tmp += dispout_s * sizeof(char);
   }
   else {
     dispin_s  = 0;
     dispout_s = 0;
   }
+
+  *( (int *) tmp) = dispin_s; tmp += sizeof(int);
+  *( (int *) tmp) = dispout_s; tmp += sizeof(int);
+
+  if ( dispin_s ) {
+    assert ( dispout_s );
+    strncpy( ( (char *) tmp), disp->namein,dispin_s);
+    tmp += dispin_s * sizeof(char);
+    strncpy( ( (char *) tmp), disp->nameout, dispout_s);
+    tmp += dispout_s * sizeof(char);
+  }
+
 
   for ( is=0; is<mesh->nsols; ++is ) {
     psl = &grp->field[is];
@@ -612,17 +625,21 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
         printf("  ## Error: input displacement names too long.");
         return 0;
       }
-      *( (int *) tmp) = pslin_s; tmp += sizeof(int);
-      *( (int *) tmp) = pslout_s; tmp += sizeof(int);
-
-      strncpy( ( (char *) tmp), psl->namein,pslin_s);
-      tmp += pslin_s * sizeof(char);
-      strncpy( ( (char *) tmp), psl->nameout, pslout_s);
-      tmp += pslout_s * sizeof(char);
     }
     else {
       pslin_s  = 0;
       pslout_s = 0;
+    }
+
+    *( (int *) tmp) = pslin_s; tmp += sizeof(int);
+    *( (int *) tmp) = pslout_s; tmp += sizeof(int);
+
+    if ( pslin_s ) {
+      assert ( pslout_s );
+      strncpy( ( (char *) tmp), psl->namein,pslin_s);
+      tmp += pslin_s * sizeof(char);
+      strncpy( ( (char *) tmp), psl->nameout, pslout_s);
+      tmp += pslout_s * sizeof(char);
     }
   }
 

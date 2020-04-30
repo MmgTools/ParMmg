@@ -298,6 +298,8 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   /** Linear interpolation of the squared size */
   iadr = met->size *ip;
 
+  assert (mesh->npmax==met->npmax );
+
   for ( j=0; j<met->size; ++j ) {
     met->m [ iadr + j ] = 0.0;
   }

@@ -502,7 +502,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
       printim(ctim[tim].gdif,stim);
       fprintf(stdout,"\n  -- ANALYSIS COMPLETED    %s\n",stim );
     }
- 
+
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
     if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {

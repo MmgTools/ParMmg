@@ -417,14 +417,14 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   }
 
   /* Set ls size */
-  if ( lsOld->m ) {
+  if ( lsOld && lsOld->m ) {
     assert ( lsOld->np );
     if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,lsOld->np,lsOld->type) )
       return 0;
   }
 
   /* Set disp size */
-  if ( dispOld->m ) {
+  if ( dispOld && dispOld->m ) {
     assert ( dispOld->np );
     if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,dispOld->np,dispOld->type) )
       return 0;
@@ -432,7 +432,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
 
   /* Set fields size */
   if ( meshOld->nsols ) {
-
+    assert ( field );
     for ( is=0; is<meshOld->nsols; ++is ) {
       psl    = field + is;
       pslOld = fieldOld + is;
@@ -510,7 +510,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   }
 
   if ( dispOld ) {
-    assert ( meshOld->nsols );
     PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
     disp = grp->disp;
   }
@@ -562,7 +561,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
 
   int allocSize = 1;
 
-  if ( grpOld->met->m ) {
+  if ( grpOld->met && grpOld->met->m ) {
     if ( grpOld->met->size == 1 ) {
       grp->met->type = MMG5_Scalar;
     }
@@ -577,13 +576,13 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   }
 
   /* Set ls size */
-  if ( lsOld->m ) {
+  if ( lsOld && lsOld->m ) {
     assert ( lsOld->np );
     if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,allocSize,lsOld->type) )
       return 0;
   }
   /* Set disp size */
-  if ( dispOld->m ) {
+  if ( dispOld && dispOld->m ) {
     assert ( dispOld->np );
     if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,allocSize,dispOld->type) )
       return 0;
@@ -722,14 +721,14 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
       }
 
       /* Copy ls */
-      if ( ls->m ) {
-        assert ( lsOld->m );
+      if ( ls && ls->m ) {
+        assert ( lsOld && lsOld->m );
         memcpy( &ls->m[ ip*ls->size ], &lsOld->m[ip*ls->size], ls->size*sizeof(double) );
       }
 
       /* Copy disp */
-      if ( disp->m ) {
-        assert ( dispOld->m );
+      if ( disp && disp->m ) {
+        assert ( dispOld && dispOld->m );
         memcpy( &disp->m[ ip*disp->size ], &dispOld->m[ip*dispOld->size], disp->size*sizeof(double) );
       }
 
@@ -1090,26 +1089,34 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
 
           /* Reallocation of metric, ls, displacement and sol fields */
           /* Met */
-          if ( met->m ) {
-            PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
-                         met->size*(met->npmax+1),double,
-                         "metric array",return 0);
+          if ( met ) {
+            if ( met->m ) {
+              PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
+                           met->size*(met->npmax+1),double,
+                           "metric array",return 0);
+            }
+            met->npmax = mesh->npmax;
           }
-          met->npmax = mesh->npmax;
+
           /* level-set */
-          if ( ls->m ) {
-            PMMG_REALLOC(mesh,ls->m,ls->size*(mesh->npmax+1),
-                         ls->size*(ls->npmax+1),double,
-                         "ls array",return 0);
+          if ( ls ) {
+            if ( ls->m ) {
+              PMMG_REALLOC(mesh,ls->m,ls->size*(mesh->npmax+1),
+                           ls->size*(ls->npmax+1),double,
+                           "ls array",return 0);
+            }
+            ls->npmax = mesh->npmax;
           }
-          ls->npmax = mesh->npmax;
           /* Displacment */
-          if ( disp->m ) {
-            PMMG_REALLOC(mesh,disp->m,disp->size*(mesh->npmax+1),
-                         disp->size*(met->npmax+1),double,
-                         "displacement array",return 0);
+          if ( disp ) {
+            if ( disp->m ) {
+              PMMG_REALLOC(mesh,disp->m,disp->size*(mesh->npmax+1),
+                           disp->size*(met->npmax+1),double,
+                           "displacement array",return 0);
+            }
+            disp->npmax = mesh->npmax;
           }
-          disp->npmax = mesh->npmax;
+
           /* Sol fields */
           if ( mesh->nsols ) {
             for ( is=0; is<mesh->nsols; ++is ) {
@@ -1118,6 +1125,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
               PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),
                            psl->size*(psl->npmax+1),double,
                            "field array",return 0);
+              psl->npmax = mesh->npmax;
             }
           }
 

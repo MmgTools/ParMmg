@@ -277,7 +277,7 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
   meshin_s  = *( (int *) *buffer); *buffer += sizeof(int);
   meshout_s = *( (int *) *buffer); *buffer += sizeof(int);
   if ( meshin_s > MMG5_FILENAME_LEN_MAX || meshout_s > MMG5_FILENAME_LEN_MAX ) {
-    printf("  ## Error: input filenames too long. Exit");
+    printf("  ## Error: input or output mesh name too long. Exit");
     return 0;
   }
   else {
@@ -291,7 +291,7 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
   metout_s = *( (int *) *buffer); *buffer += sizeof(int);
 
   if ( metin_s > MMG5_FILENAME_LEN_MAX || metout_s > MMG5_FILENAME_LEN_MAX ) {
-    printf("  ## Error: input filenames too long. Exit");
+    printf("  ## Error: input or output metric name too long. Exit");
     return 0;
   }
   else if ( metin_s || metout_s ) {
@@ -312,7 +312,7 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
   lsout_s = *( (int *) *buffer); *buffer += sizeof(int);
 
   if ( lsin_s > MMG5_FILENAME_LEN_MAX || lsout_s > MMG5_FILENAME_LEN_MAX ) {
-    printf("  ## Error: input filenames too long. Exit");
+    printf("  ## Error: input or output levelset name too long. Exit");
     return 0;
   }
   else if ( lsin_s || lsout_s ) {
@@ -333,7 +333,7 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
   dispout_s = *( (int *) *buffer); *buffer += sizeof(int);
 
   if ( dispin_s > MMG5_FILENAME_LEN_MAX || dispout_s > MMG5_FILENAME_LEN_MAX ) {
-    printf("  ## Error: input filenames too long. Exit");
+    printf("  ## Error: input or output displacement name too long. Exit");
     return 0;
   }
   else if ( dispin_s || dispout_s ) {
@@ -355,7 +355,7 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
     pslout_s = *( (int *) *buffer); *buffer += sizeof(int);
 
     if ( pslin_s > MMG5_FILENAME_LEN_MAX || pslout_s > MMG5_FILENAME_LEN_MAX ) {
-      printf("  ## Error: input filenames too long. Exit");
+      printf("  ## Error: input or output field name too long. Exit");
       return 0;
     }
     else if ( pslin_s || pslout_s ) {

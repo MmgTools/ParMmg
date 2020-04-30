@@ -52,9 +52,9 @@ void PMMG_grpJinI_copySol(MMG5_pSol solI,MMG5_pSol solJ,int ip,int k,
                           int* n2i_n_c_idx1,int8_t *warn,char *whoissol) {
   int size,ip2;
 
-  if ( solI->m ) {
+  if ( solI && solI->m ) {
     size = solJ->size;
-    if ( !solJ->m ) {
+    if ( (!solJ) || (!solJ->m) ) {
       if ( !(*warn) ) {
         (*warn) = 1;
         printf("  ## Error: unable to merge %s:"
@@ -62,7 +62,7 @@ void PMMG_grpJinI_copySol(MMG5_pSol solI,MMG5_pSol solJ,int ip,int k,
       }
     }
     else {
-      assert( ((size==1||size==6) && size==solJ->size) && "size issues" );
+      assert( (size==solJ->size) && "size issues" );
       if ( n2i_n_c_idx1 ) {
         ip2 = n2i_n_c_idx1[k];
       }
@@ -134,6 +134,50 @@ int PMMG_check_solsNp(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
  * \param ls pointer toward a solution structure storing a level-set
  * \param disp pointer toward a solution structure storing a displacement
  * \param field pointer toward an array of solutions fields
+ *
+ * \return 1 if the npmax field of all the structures are matching, 0 otherwise
+ *
+ * Check the consistency between the npmax values of the different structures.
+ *
+ */
+static inline
+int PMMG_check_solsNpmax(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
+                      MMG5_pSol disp,MMG5_pSol field) {
+  int i;
+
+  if ( met && met->m ) {
+    if ( met->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( ls && ls->m ) {
+    if ( ls->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( disp && disp->m ) {
+    if ( disp->npmax != mesh->npmax ) {
+      return 0;
+    }
+  }
+
+  if ( field ) {
+    for ( i=0; i < mesh->nsols; ++i ) {
+      assert ( field[i].npmax == mesh->npmax );
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward a mesh structure
+ * \param met pointer toward a solution structure storing a metric
+ * \param ls pointer toward a solution structure storing a level-set
+ * \param disp pointer toward a solution structure storing a displacement
+ * \param field pointer toward an array of solutions fields
  * \param c coordinates of the new point to create (\a ip)
  * \param tag tag of the new point to create (\a ip)
  *
@@ -153,7 +197,7 @@ int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
   int fail     = 0;
   int i;
 
-  assert ( PMMG_check_solsNp(mesh,met,ls,disp,field) );
+  assert ( PMMG_check_solsNpmax(mesh,met,ls,disp,field) );
 
   MMG3D_POINT_REALLOC(mesh,met,ip,mesh->gap,
                      printf("  ## Error: unable to merge group points\n");
@@ -163,7 +207,7 @@ int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
                      c,tag);
 
   if ( !ip ) {
-    assert ( PMMG_check_solsNp(mesh,met,ls,disp,field) );
+    assert ( PMMG_check_solsNpmax(mesh,met,ls,disp,field) );
     return 0;
   }
 
@@ -282,6 +326,10 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
   nitem_int_node_comm       = grpJ->nitem_int_node_comm;
   node2int_node_comm_index1 = grpJ->node2int_node_comm_index1;
   node2int_node_comm_index2 = grpJ->node2int_node_comm_index2;
+
+
+  assert ( PMMG_check_solsNpmax(meshI,metI,lsI,dispI,fieldI) );
+  assert ( PMMG_check_solsNpmax(meshJ,metJ,lsJ,dispJ,fieldJ) );
 
   for ( k=0; k<nitem_int_node_comm; ++k ) {
     poi_id_glo = node2int_node_comm_index2[k];
@@ -997,6 +1045,12 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 
   /** Step 6: Update tag on points, tetra */
   if ( !PMMG_updateTag(parmesh) ) goto fail_comms;
+
+  assert ( PMMG_check_solsNp ( parmesh->listgrp[0].mesh,
+                               parmesh->listgrp[0].met,
+                               parmesh->listgrp[0].ls,
+                               parmesh->listgrp[0].disp,
+                               parmesh->listgrp[0].field) );
 
   return 1;
 
