@@ -82,8 +82,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
 
     /* Point pptJ is not found in the merged mesh. Add it */
     if ( !intvalues[ poi_id_glo ] ) {
-#warning Luca: no pointmap
-      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,0);
+      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
       if ( !ip ) {
         /* reallocation of point table */
         MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
@@ -91,7 +90,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
                             MMG5_INCREASE_MEM_MESSAGE();
                             metI->np = meshI->np;
                             return 0;,
-                            pptJ->c,pptJ->tag,0);
+                            pptJ->c,pptJ->tag,pptJ->src);
 
       }
       assert( (ip <= meshI->npmax) && "run out of points" );
@@ -212,8 +211,7 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     if ( !MG_VOK(pptJ) ) continue;
     if ( pptJ->tmp )     continue;
 
-#warning Luca: no pointmap
-    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,0);
+    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
     if ( !ip ) {
       /* reallocation of point table */
       MMG3D_POINT_REALLOC(meshI,metI,ip,meshI->gap,
@@ -221,7 +219,7 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
                           MMG5_INCREASE_MEM_MESSAGE();
                           metI->np = meshI->np;
                           return 0;,
-                          pptJ->c,pptJ->tag,0);
+                          pptJ->c,pptJ->tag,pptJ->src);
     }
     pptJ->tmp = ip;
 
