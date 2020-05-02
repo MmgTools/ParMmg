@@ -1090,6 +1090,8 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
     idx += sizeof(int); // mesh->point[k].xp;
     /* Ref */
     idx += sizeof(int); // mesh->point[k].ref;
+    /* Src */
+    idx += sizeof(int); // mesh->point[k].src;
     /* Tag */
     idx += sizeof(int16_t); // mesh->point[k].tag;
   }
@@ -1337,6 +1339,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
     *( (int *) tmp) = mesh->point[k].xp; tmp += sizeof(int);
     /* Ref */
     *( (int *) tmp) = mesh->point[k].ref; tmp += sizeof(int);
+    /* Src */
+    *( (int *) tmp) = mesh->point[k].src; tmp += sizeof(int);
     /* Tag */
     *( (int16_t *) tmp) = mesh->point[k].tag; tmp += sizeof(int16_t);
   }
@@ -1692,6 +1696,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
       mesh->point[k].xp = *( (int *) *buffer); *buffer += sizeof(int);
       /* Ref */
       mesh->point[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
+      /* Src */
+      mesh->point[k].src = *( (int *) *buffer); *buffer += sizeof(int);
       /* Tag */
       mesh->point[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
     }
