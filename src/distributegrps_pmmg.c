@@ -1151,7 +1151,9 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
     idx += sizeof(int16_t); // mesh->xtetra[k].tag[3];
     idx += sizeof(int16_t); // mesh->xtetra[k].tag[4];
     idx += sizeof(int16_t); // mesh->xtetra[k].tag[5];
-  }
+    /* Orientation of the triangles */
+    idx += sizeof(char); // mesh->xtetra[k].ori;
+ }
 
   /** Pack metric */
   if ( met->m ) {
@@ -1396,6 +1398,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[3]; tmp += sizeof(int16_t);
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[4]; tmp += sizeof(int16_t);
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[5]; tmp += sizeof(int16_t);
+    /* Orientation of the triangles */
+    *( (char *) tmp) = mesh->xtetra[k].ori; tmp += sizeof(char);
   }
 
   /** Pack metric */
@@ -1749,6 +1753,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
       mesh->xtetra[k].tag[3] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       mesh->xtetra[k].tag[4] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       mesh->xtetra[k].tag[5] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      /* Orientation of the triangles */
+      mesh->xtetra[k].ori = *( (char *) *buffer); *buffer += sizeof(char);
     }
   }
   else {

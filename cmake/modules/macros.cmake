@@ -65,7 +65,7 @@ MACRO ( COPY_FORTRAN_HEADER_AND_CREATE_TARGET
   COPY_FORTRAN_HEADER (
     ${binary_dir} libparmmgtypesf.h
     ${include_dir} libparmmgtypesf.h
-    pmmg_fortran_header copy_libpmmgtypesf )
+    pmmgtypes_fortran_header copy_libpmmgtypesf )
 
   COPY_FORTRAN_HEADER (
     ${binary_dir}

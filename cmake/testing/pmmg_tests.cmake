@@ -55,7 +55,7 @@ IF( BUILD_TESTING )
           ${CI_DIR}/Torus/torusholes.mesh
           -sol ${CI_DIR}/Torus/torusholes.sol
           -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
-          -mesh-size ${mesh_size} ${myargs} )
+          -mesh-size ${mesh_size} ${myargs} -nosurf )
       endforeach()
     endforeach()
 

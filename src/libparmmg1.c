@@ -548,7 +548,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /** Update old groups for metrics interpolation */
-    PMMG_update_oldGrps( parmesh );
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+    PMMG_update_oldGrps( parmesh,&available, &oldMemMax );
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {

@@ -504,6 +504,7 @@ int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /* Internal library */
 int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
@@ -525,14 +526,17 @@ double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac );
 void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 
 /* Mesh interpolation */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
+int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *oldMemMax );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
-int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
+int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax );
 int PMMG_interpMetrics( PMMG_pParMesh parmesh,int* );
 int PMMG_copyMetrics_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, int* permNodGlob,unsigned char);
 int PMMG_interp4bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
 int PMMG_interp4bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
 int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
+int PMMG_interp3bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
+int PMMG_interp3bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
+int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
