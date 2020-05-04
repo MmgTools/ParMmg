@@ -1,25 +1,24 @@
 IF( BUILD_TESTING )
   include( CTest )
 
-  set( CI_DIR  ${CMAKE_BINARY_DIR}/Tests )
-  file( MAKE_DIRECTORY ${CI_DIR} )
-  set( CI_DIR_RESULTS  ${CI_DIR}/TEST_OUTPUTS )
+  set( CI_DIR  ${CMAKE_BINARY_DIR}/testparmmg CACHE PATH "path to test meshes repository" )
+  set( CI_DIR_RESULTS  ${CMAKE_BINARY_DIR}/TEST_OUTPUTS )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
+  get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
+
 
   IF ( NOT ONLY_LIBRARY_TESTS )
-    ## Clone git repo at config time
-    set( CI_DIR_INPUTS "${CMAKE_BINARY_DIR}/testparmmg" CACHE PATH "path to test meshes repository" )
 
-    IF ( NOT EXISTS ${CI_DIR_INPUTS} )
+    IF ( NOT EXISTS ${CI_DIR} )
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        WORKING_DIRECTORY ${PARENT_DIR}
+        )
+      EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
+        WORKING_DIRECTORY ${CI_DIR}
         )
     ENDIF()
-    EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} checkout 248eaa6667e97ab926a0fcb1ebc875857e4e3d7e
-      WORKING_DIRECTORY ${CI_DIR_INPUTS}
-      )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )
@@ -30,7 +29,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME ${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR_INPUTS}/Cube/${MESH}.mesh
+          ${CI_DIR}/Cube/${MESH}.mesh
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
@@ -41,8 +40,8 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME cube-unit-coarse-${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR_INPUTS}/Cube/cube-unit-coarse.mesh
-          -sol ${CI_DIR_INPUTS}/Cube/cube-unit-coarse-${MESH}.sol
+          ${CI_DIR}/Cube/cube-unit-coarse.mesh
+          -sol ${CI_DIR}/Cube/cube-unit-coarse-${MESH}.sol
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
       endforeach()
@@ -54,75 +53,12 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME ${TYPE}-torus-with-planar-shock-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR_INPUTS}/Torus/torusholes.mesh
-          -sol ${CI_DIR_INPUTS}/Torus/torusholes.sol
+          ${CI_DIR}/Torus/torusholes.mesh
+          -sol ${CI_DIR}/Torus/torusholes.sol
           -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
-          -mesh-size ${mesh_size} ${myargs} )
+          -mesh-size ${mesh_size} ${myargs} -nosurf )
       endforeach()
     endforeach()
-
-    # test interpolation (iso metric)
-    # on 8 processors
-    foreach( TYPE iso-interp )
-      foreach( NP 8 )
-        add_test( NAME ${TYPE}-coarse-${NP}
-          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
-          -sol ${CI_DIR_INPUTS}/Interpolation/field3_iso-coarse.sol
-          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
-          )
-      endforeach()
-    endforeach()
-    # test interpolation (aniso metric)
-    # on 8 processors
-    foreach( TYPE ani-interp )
-      foreach( NP 8 )
-        add_test( NAME ${TYPE}-coarse-${NP}
-          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
-          -sol ${CI_DIR_INPUTS}/Interpolation/field207_ani-coarse.sol
-          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
-          )
-      endforeach()
-    endforeach()
-    # test interpolation (fields)
-    # on 8 processors
- #   foreach( TYPE fields )
- #     foreach( NP 8 )
- #       add_test( NAME ${TYPE}-coarse-${NP}
- #         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
- #         ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
- #         -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
- #         -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
- #         )
- #     endforeach()
- #   endforeach()
- #   # test interpolation (iso metric + fields)
-    # on 8 processors
-#    foreach( TYPE iso-and-fields-interp )
-#      foreach( NP 8 )
-#        add_test( NAME ${TYPE}-coarse-${NP}
-#          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-#          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
-#          -sol ${CI_DIR_INPUTS}/Interpolation/field3_iso-coarse.sol
-#          -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
-#          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
-#          )
-#      endforeach()
-#    endforeach()
-#    # test interpolation (aniso metric + fields)
-    # on 8 processors
-    #    foreach( TYPE ani-and-fields-interp )
-    #      foreach( NP 8 )
-    #        add_test( NAME ${TYPE}-coarse-${NP}
-    #          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-    #          ${CI_DIR_INPUTS}/Interpolation/coarse.mesh
-    #          -sol ${CI_DIR_INPUTS}/Interpolation/field207_ani-coarse.sol
-    #          -fields ${CI_DIR_INPUTS}/Interpolation/sol-fields-coarse.sol
-    #          -out ${CI_DIR_RESULTS}/${TYPE}-coarse-${NP}-out.mesh
-    #          )
-    #      endforeach()
-    #    endforeach()
 
     ###############################################################################
     #####
@@ -134,7 +70,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 6 8 )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+        ${CI_DIR}/Sphere/sphere.mesh
         -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
         -mesh-size ${mesh_size} ${myargs} )
     endforeach()
@@ -145,7 +81,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
-          ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.mesh
           -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
       endforeach()
@@ -205,7 +141,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${test_option} ${test_val}
-          ${CI_DIR_INPUTS}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.mesh
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
           -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
@@ -369,7 +305,7 @@ IF( BUILD_TESTING )
   IF ( NOT ONLY_LIBRARY_TESTS )
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
-    SET ( main_path  ${CI_DIR_INPUTS}/LnkdList_unitTest/main.c )
+    SET ( main_path  ${CI_DIR}/LnkdList_unitTest/main.c )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
     ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
