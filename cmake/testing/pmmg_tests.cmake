@@ -2,16 +2,17 @@ IF( BUILD_TESTING )
   include( CTest )
 
   set( CI_DIR  ${CMAKE_BINARY_DIR}/testparmmg CACHE PATH "path to test meshes repository" )
-  file( MAKE_DIRECTORY ${CI_DIR} )
-  set( CI_DIR_RESULTS  ${CI_DIR}/TEST_OUTPUTS )
+  set( CI_DIR_RESULTS  ${CMAKE_BINARY_DIR}/TEST_OUTPUTS )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
+  get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
+
 
   IF ( NOT ONLY_LIBRARY_TESTS )
 
     IF ( NOT EXISTS ${CI_DIR} )
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        WORKING_DIRECTORY ${PARENT_DIR}
         )
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
