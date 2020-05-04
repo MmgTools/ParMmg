@@ -235,7 +235,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
 
     /* compact solution field */
     if ( grp->field ) {
-      for ( k=0; k<=mesh->nsols; ++k ) {
+      for ( k=0; k<mesh->nsols; ++k ) {
         field = &grp->field[k];
         if ( field->m && (!MMG3D_pack_sol(mesh,field)) ) return 0;
       }
