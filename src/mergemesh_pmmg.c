@@ -1239,7 +1239,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                         (*rcv_nitem_int_node_comm),1,MPI_INT,root,comm),ier = 3);
   MPI_CHECK( MPI_Gather(&parmesh->next_node_comm,1,MPI_INT,
                         (*rcv_next_node_comm),1,MPI_INT,root,comm),ier = 3);
-#ifndef NDEBUG
+
   assert ( mesh );
   /* Normally, each proc has at least one mesh */
   MPI_CHECK( MPI_Allreduce(&isMet,rcv_isMet,1,MPI_INT,MPI_MAX,comm),ier = 3);
@@ -1248,11 +1248,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
     PMMG_CALLOC( parmesh, (*rcv_nmet)    ,nprocs,int,"rcv_nmet"     ,ier=3);
     PMMG_CALLOC( parmesh, (*met_displs)  ,nprocs,int,"met_displs"   ,ier=3);
   }
-#else
-
-
-#endif
-
 
   MPI_CHECK( MPI_Allreduce(&ier,&ieresult,1,MPI_INT,MPI_MAX,comm),ieresult=3);
   if ( ieresult>1 ) goto end;
