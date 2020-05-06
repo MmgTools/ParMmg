@@ -66,7 +66,7 @@ int PMMG_invmat22( double *m, double *im ) {
  * \param oldMet pointer to the background metrics
  * \param ptr pointer to the target background triangle
  * \param ip index of the current point
- * \param phi barycentric coordinates of the point to be interpolated
+ * \param barycoord barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
  *
@@ -74,10 +74,13 @@ int PMMG_invmat22( double *m, double *im ) {
  *  This function is analogous to the MMG5_interp4bar_iso() function.
  */
 int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTria ptr,int ip,double *phi ) {
+                         MMG5_pTria ptr,int ip,PMMG_baryCoord *barycoord ) {
+  double phi[3];
   int iloc,i,ier;
 
   assert( met->size == 1 );
+
+  PMMG_get_baryCoord( phi, barycoord, 3 );
 
   /** Linear interpolation of the squared size */
   met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
@@ -93,7 +96,7 @@ int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  * \param oldMet pointer to the background metrics
  * \param ptr pointer to the target background triangle
  * \param ip index of the current point
- * \param phi barycentric coordinates of the point to be interpolated
+ * \param barycoord barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
  *
@@ -103,12 +106,14 @@ int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTria ptr,int ip,double *phi ) {
-  double dm[3][3],mi[3][3],m[3];
+                         MMG5_pTria ptr,int ip,PMMG_baryCoord *barycoord ) {
+  double phi[3],dm[3][3],mi[3][3],m[3];
   int    iloc,i,isize,nsize,ier;
 
   assert( met->size == 3 );
   nsize  = met->size;
+
+  PMMG_get_baryCoord( phi, barycoord, 3 );
 
   for( i=0; i<3; i++ ) {
     for(isize = 0; isize < nsize; isize++ )
@@ -136,7 +141,7 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  * \param oldMet pointer to the background metrics
  * \param pt pointer to the target background tetrahedron
  * \param ip index of the current point
- * \param phi barycentric coordinates of the point to be interpolated
+ * \param barycoord barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
  *
@@ -144,10 +149,13 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *  This function is analogous to the MMG5_interp4bar_iso() function.
  */
 int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                                  MMG5_pTetra pt,int ip,double *phi ) {
+                         MMG5_pTetra pt,int ip,PMMG_baryCoord *barycoord ) {
+  double phi[4];
   int iloc,i,ier;
 
   assert( met->size == 1 );
+
+  PMMG_get_baryCoord( phi, barycoord, 4 );
 
   /** Linear interpolation of the squared size */
   met->m[ip] = phi[0]*oldMet->m[pt->v[0]]+
@@ -164,7 +172,7 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  * \param oldMet pointer to the background metrics
  * \param pt pointer to the target background tetrahedron
  * \param ip index of the current point
- * \param phi barycentric coordinates of the point to be interpolated
+ * \param barycentric barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
  *
@@ -174,12 +182,14 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                                  MMG5_pTetra pt,int ip,double *phi ) {
-  double dm[4][6],mi[4][6],m[6];
+                         MMG5_pTetra pt,int ip,PMMG_baryCoord *barycoord ) {
+  double phi[4],dm[4][6],mi[4][6],m[6];
   int    iloc,i,isize,nsize,ier;
 
   assert( met->size == 6 );
   nsize  = met->size;
+
+  PMMG_get_baryCoord( phi, barycoord, 4 );
 
   for( i=0; i<4; i++ ) {
     for(isize = 0; isize < nsize; isize++ )
@@ -288,8 +298,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
-  double      coord[4],*normal,dd;
-  int         ip,istart,istartTria,ifound,ie,ifac,k,ia,ib,ic,iloc;
+  double      *normal,dd;
+  int         ip,istartTetra,istartTria,ifound,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
@@ -349,7 +359,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
       /* Loop on new tetrahedra, and localize their vertices in the old mesh */
       mesh->base++;
-      istart = istartTria = 1;
+      istartTetra = istartTria = 1;
       for( ie = 1; ie <= mesh->ne; ie++ ) {
         pt = &mesh->tetra[ie];
         if( !MG_EOK(pt) ) continue;
@@ -401,10 +411,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             }
 
             /** Interpolate point metrics */
-            PMMG_get_baryCoord( coord, barycoord );
-            ier = PMMG_interp3bar(mesh,met,oldMet,
-                                           &oldMesh->tria[ifound],
-                                           ip,coord);
+            ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifound],ip,
+                                  barycoord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
@@ -414,8 +422,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
           } else {
 
-            /** Locate point in the old mesh */
-            ifound = PMMG_locatePointVol( oldMesh, ppt, istart,
+            /** Locate point in the old volume mesh */
+            ifound = PMMG_locatePointVol( oldMesh, ppt, istartTetra,
                                           faceAreas, barycoord );
             if( !ifound ) {
               fprintf(stderr,"\n  ## Error: %s:"
@@ -446,17 +454,15 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
               }
             }
 
-            /** Interpolate point metrics */
-            PMMG_get_baryCoord( coord, barycoord );
-            ier = PMMG_interp4bar(mesh,met,oldMet,
-                                           &oldMesh->tetra[ifound],
-                                           ip,coord);
+            /** Interpolate volume point metrics */
+            ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifound],ip,
+                                  barycoord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
 
             /* Update next starting element */
-            istart = ifound;
+            istartTetra = ifound;
           }
         }
       }

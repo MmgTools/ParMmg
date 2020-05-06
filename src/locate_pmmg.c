@@ -89,14 +89,15 @@ double PMMG_quickarea(double *a,double *b,double *c,double *n) {
  * \param coord pointer to a double array
  * \param barycoord pointer to the point barycentric coordinates in the current
  * tetra
+ * \param ndim space dimension of the manifold
  *
  *  Get barycentric coordinates.
  *
  */
-void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi ) {
+void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim ) {
   int i;
 
-  for( i = 0; i < 4; i++ )
+  for( i = 0; i < ndim; i++ )
     val[phi[i].idx] = phi[i].val;
 
 }

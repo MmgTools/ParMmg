@@ -35,8 +35,6 @@
 
 #define LOCATE_PMMG_H
 
-#include "parmmg.h"
-
 /** \struct PMMG_baryCoord
  *
  * \brief Struct containing the index and value of a barycentric coordinate
@@ -48,7 +46,7 @@ typedef struct {
 } PMMG_baryCoord;
 
 double PMMG_quickarea(double *a,double *b,double *c,double *n);
-void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi );
+void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim );
 int PMMG_compare_baryCoord( const void *a,const void *b );
 int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
                               double *normal,PMMG_baryCoord *barycoord );
