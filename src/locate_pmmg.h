@@ -47,4 +47,12 @@ typedef struct {
   double val; /*!< coordinate value */
 } PMMG_baryCoord;
 
+double PMMG_quickarea(double *a,double *b,double *c,double *n);
+void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi );
+int PMMG_compare_baryCoord( const void *a,const void *b );
+int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
+                              double *normal,PMMG_baryCoord *barycoord );
+int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
+                              double *faceAreas, PMMG_baryCoord *barycoord );
+
 #endif
