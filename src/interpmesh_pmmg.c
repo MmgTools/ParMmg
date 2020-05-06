@@ -604,6 +604,16 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
               }
               istartTria = -istartTria;
               PMMG_locatePointInClosestTria( oldMesh,istartTria,ppt,barycoord );
+            } else if( istartTria > mesh->nt ) {
+              if ( !mmgWarn ) {
+                mmgWarn = 1;
+                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+                  fprintf(stderr,"\n  ## Warning: %s: exhaustive search for point %d"
+                          ", coords %e %e %e\n",__func__,
+                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                          mesh->point[ip].c[2]);
+                }
+              }
             }
 
             /** Interpolate point metrics */
