@@ -35,6 +35,35 @@
 #include "locate_pmmg.h"
 
 /**
+ * \param a coordinates of the first point of face.
+ * \param b coordinates of the second point of face.
+ * \param c coordinates of the third point of face.
+ * \param n pointer to store the computed normal.
+ * \return 1
+ *
+ * Compute triangle area given three points on the surface.
+ *
+ */
+double PMMG_quickarea(double *a,double *b,double *c,double *n) {
+  double        area[3],abx,aby,abz,acx,acy,acz;
+
+  /* area */
+  abx = b[0] - a[0];
+  aby = b[1] - a[1];
+  abz = b[2] - a[2];
+
+  acx = c[0] - a[0];
+  acy = c[1] - a[1];
+  acz = c[2] - a[2];
+
+  area[0] = aby*acz - abz*acy;
+  area[1] = abz*acx - abx*acz;
+  area[2] = abx*acy - aby*acx;
+
+  return area[0]*n[0]+area[1]*n[1]+area[2]*n[2];
+}
+
+/**
  * \param coord pointer to a double array
  * \param barycoord pointer to the point barycentric coordinates in the current
  * tetra
@@ -77,6 +106,55 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the mesh structure
+ * \param ptr pointer to the current triangle
+ * \param k index of the triangle
+ * \param coord pointer to the point coordinates
+ * \param normal unit normal of the current triangle
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Compute the barycentric coordinates of a given point in a given triangle.
+ *
+ */
+int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
+                              double *coord, double *normal,
+                              PMMG_baryCoord *barycoord ) {
+  double dist,proj[3],*c1,*c2,vol;
+  int    ia,i;
+
+  /* Project point on the triangle plane */
+  c1 = mesh->point[ptr->v[0]].c;
+
+  dist = 0.0;
+  for( i = 0; i < 3; i++ )
+    dist += (coord[i]-c1[i])*normal[i];
+
+  for( i = 0; i < 3; i++ )
+    proj[i] = coord[i] - dist*normal[i];
+
+  /* Retrieve tria area */
+  vol = ptr->qual;
+
+  /* Retrieve face areas and compute barycentric coordinates */
+  for( ia = 0; ia < 3; ia++ ) {
+    c1 = mesh->point[ptr->v[MMG5_inxt2[ia]]].c;
+    c2 = mesh->point[ptr->v[MMG5_inxt2[ia+1]]].c;
+
+    barycoord[ia].val = PMMG_quickarea( proj, c1, c2, normal )/vol;
+    barycoord[ia].idx = ia;
+  }
+
+  /* Store normal distance in the third coordinate */
+  barycoord[3].val = dist;
+  barycoord[3].idx = 3;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the mesh structure
  * \param pt pointer to the current tetra
  * \param coord pointer to the point coordinates
  * \param faceAreas oriented face areas of the current tetrahedron
@@ -88,8 +166,8 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *  Compute the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
-int PMMG_compute_baryCoord( MMG5_pMesh mesh, MMG5_pTetra pt,
-                            double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
+int PMMG_compute_baryCoord3d( MMG5_pMesh mesh, MMG5_pTetra pt,
+                              double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
   double *c0,*normal,vol;
   int    ifac;
 
@@ -133,6 +211,108 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param k index of the triangle to analyze
+ * \param ppt pointer to the point to locate
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a surface point in its closest background triangles, and find its
+ *  closest point.
+ *
+ */
+int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                   PMMG_baryCoord *barycoord ) {
+  MMG5_pTria ptr;
+  double *c,dist[3],norm,min;
+  int i,d,itarget;
+
+  ptr = &mesh->tria[k];
+
+  c = mesh->point[ptr->v[0]].c;
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d] - c[d];
+  norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+  min = norm;
+  itarget = 0;
+
+  for( i = 1; i < 3; i++ ) {
+    c = mesh->point[ptr->v[i]].c;
+    for( d = 0; d < 3; d++ )
+      dist[d] = ppt->c[d] - c[d];
+    norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+    if( norm < min ) {
+      min = norm;
+      itarget = i;
+    }
+  }
+
+  for( i = 0; i < 3; i++ ) {
+    barycoord[i].val = 0.0;
+    barycoord[i].idx = i;
+  }
+  barycoord[itarget].val = 1.0;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the triangle to analyze
+ * \param k index of the triangle
+ * \param ppt pointer to the point to locate
+ * \param triaNormalsAreas unit normals of the current triangle
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in a background triangles, and provide its barycentric
+ *  coordinates.
+ *
+ */
+int PMMG_locatePointInTria( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
+                            MMG5_pPoint ppt, double *triaNormals,
+                            PMMG_baryCoord *barycoord, double *closestDist,
+                            int *closestTria ) {
+  MMG5_pPoint    ppt0,ppt1;
+  double         h,hmax,eps;
+  int            j,d,found = 0;
+
+  eps = MMG5_EPS;
+
+  /** Mark tria */
+  ptr->flag = mesh->base;
+
+  /** Get barycentric coordinates and sort them in ascending order */
+  PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormals, barycoord);
+  qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  hmax = 0.0;
+  for( j = 0; j < 3; j++ ) {
+    ppt0 = &mesh->point[ptr->v[j]];
+    ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
+    h = 0.0;
+    for( d = 0; d < 3; d++ )
+      h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
+    h = sqrt(h);
+    if( h > hmax ) hmax = h;
+  }
+  if( fabs(barycoord[3].val) > hmax ) return 0;
+
+  /** Save element index (with negative sign) if it is the closest one */
+  if( fabs(barycoord[3].val) < *closestDist ) {
+    *closestDist = fabs(barycoord[3].val);
+    *closestTria = -k;
+  }
+
+  /** Exit if inside the element */
+  if( barycoord[0].val > -eps ) found = 1;
+
+  return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ptr pointer to the tetra to analyze
  * \param ppt pointer to the point to locate
  * \param faceAreas oriented face areas of the current tetrahedra
@@ -141,28 +321,134 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  * \return 1 if found; 0 if not found
  *
  *  Locate a point in a background tetrahedron, and provide its barycentric
- *  coordinates..
+ *  coordinates.
  *
  */
 int PMMG_locatePointInTetra( MMG5_pMesh mesh, MMG5_pTetra ptr, MMG5_pPoint ppt,
                              double *faceAreas, PMMG_baryCoord *barycoord ) {
-  double         vol,eps;
+  double         eps;
   int            found = 0;
 
-  vol = ptr->qual;
   eps = MMG5_EPS;
 
   /** Mark tetra */
   ptr->flag = mesh->base;
 
   /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_compute_baryCoord(mesh, ptr, ppt->c, faceAreas, barycoord);
+  PMMG_compute_baryCoord3d(mesh, ptr, ppt->c, faceAreas, barycoord);
   qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
   /** Exit if inside the element */
   if( barycoord[0].val > -eps ) found = 1;
 
   return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param init index of the starting element
+ * \param triaNormals unit normals of the all triangles in the mesh
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return ie if positive, index of the target element; if negative, index of
+ * the closest element; 0 if not found
+ *
+ *  Locate a point in a background mesh surface by traveling the triangles
+ *  adjacency.
+ *
+ */
+int PMMG_locatePointBdy( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
+                         double *triaNormals, PMMG_baryCoord *barycoord ) {
+  MMG5_pTria     ptr,ptr1;
+  int            *adjt,iel,i,idxTria,step,closestTria;
+  double         vol,eps,closestDist;
+  static int     mmgWarn0=0,mmgWarn1=0;
+
+  if(!init)
+    idxTria = 1;
+  else
+    idxTria = init;
+
+  step = 0;
+  ++mesh->base;
+
+  closestTria = 0;
+  closestDist = 1.0e10;
+
+  while(step <= mesh->nt) {
+    step++;
+
+    /** Get tria */
+    ptr = &mesh->tria[idxTria];
+    if ( !MG_EOK(ptr) ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt, &triaNormals[3*idxTria],
+                                barycoord, &closestDist, &closestTria ) ) break;
+
+    /** Compute new direction */
+    adjt = &mesh->adjt[3*(idxTria-1)+1];
+    for( i=0; i<3; i++ ) {
+      iel = adjt[barycoord[i].idx]/3;
+
+      /* Skip if on boundary */
+      if (!iel) continue;
+
+      /* Skip if already marked */
+      ptr1 = &mesh->tria[iel];
+      if(ptr1->flag == mesh->base) continue;
+
+      /* Get next otherwise */
+      idxTria = iel;
+      break;
+    }
+
+    /** Stuck: Start exhaustive research */
+    if (i == 3) step = mesh->nt+1;
+
+  }
+
+  /** Boundary hit or cyclic path: Perform exhaustive research */
+  if( step == (mesh->nt+1) ) {
+    if ( !mmgWarn0 ) {
+      mmgWarn0 = 1;
+      if ( mesh->info.imprim > PMMG_VERB_DETQUAL ) {
+        fprintf(stderr,"\n  ## Warning %s: Cannot locate point,"
+                " performing exhaustive research.\n",__func__);
+      }
+    }
+
+    for( idxTria=1; idxTria<mesh->nt+1; idxTria++ ) {
+
+      /** Get tetra */
+      ptr = &mesh->tria[idxTria];
+      if ( !MG_EOK(ptr) ) continue;
+
+      /*¨Skip already analized tetras */
+      if( ptr->flag == mesh->base ) continue;
+
+      /** Exit the loop if you find the element */
+      if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt,
+                                  &triaNormals[3*idxTria], barycoord,
+                                  &closestDist, &closestTria ) ) break;
+
+    }
+
+    /** Element not found: Return the closest one with negative sign (if found) */
+    if ( idxTria == mesh->nt+1 ) {
+      if ( !mmgWarn1 ) {
+        mmgWarn1 = 1;
+        if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external area %e.",
+                  __func__,closestDist);
+        }
+      }
+      return closestTria;
+    }
+
+  }
+  return idxTria;
 }
 
 /**
@@ -273,6 +559,102 @@ int PMMG_locatePoint( MMG5_pMesh mesh, MMG5_pPoint ppt, int init,
 
   }
   return idxTet;
+}
+
+/**
+ * \param m pointer to the 2x2 symmetric matrix
+ * \param im pointer to the inverse matrix
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Invert 2x2 symmetric matrix.
+ */
+int PMMG_invmat22( double *m, double *im ) {
+  double det;
+
+  det = m[0]*m[2] - m[1]*m[1];
+  if ( fabs(det) < MMG5_EPS*MMG5_EPS ) {
+    fprintf(stderr,"\n  ## Error: %s: null metric det : %E \n",
+            __func__,det);
+    return 0;
+  }
+  det = 1.0 / det;
+
+  im[0] =  det*m[3];
+  im[1] = -det*m[1];
+  im[2] =  det*m[0];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point metrics on a target background triangle.
+ *  This function is analogous to the MMG5_interp4bar_iso() function.
+ */
+int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,double *phi ) {
+  int iloc,i,ier;
+
+  assert( met->size == 1 );
+
+  /** Linear interpolation of the squared size */
+  met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
+    phi[1]*oldMet->m[ptr->v[1]] + 
+    phi[2]*oldMet->m[ptr->v[2]];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
+ * \param phi barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point the metrics inverse on a target background
+ *  triangle.
+ *  This function is analogous to the MMG5_interp4barintern() function.
+ *
+ */
+int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,double *phi ) {
+  double dm[3][3],mi[3][3],m[3];
+  int    iloc,i,isize,nsize,ier;
+
+  assert( met->size == 3 );
+  nsize  = met->size;
+
+  for( i=0; i<3; i++ ) {
+    for(isize = 0; isize < nsize; isize++ )
+      dm[i][isize] = oldMet->m[nsize*ptr->v[i]+isize];
+    if( !PMMG_invmat22(dm[i],mi[i]) ) return 0;
+  }
+
+  /** Linear interpolation of the metrics */
+  for( isize = 0; isize < nsize; isize++ ) {
+    m[isize] = phi[0]*mi[0][isize]+
+      phi[1]*mi[1][isize]+
+      phi[2]*mi[2][isize];
+  }
+
+  if( !PMMG_invmat22(m,mi[0]) ) return 0;
+  for( isize = 0; isize < nsize; isize++ )
+    met->m[nsize*ip+isize] = mi[0][isize];
+
+  return 1;
 }
 
 /**
@@ -535,21 +917,22 @@ static
 int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                       MMG5_pSol met,MMG5_pSol oldMet,
                                       MMG5_pSol field,MMG5_pSol oldField,
-                                      double *faceAreas,int *permNodGlob,
-                                      unsigned char inputMet ) {
+                                      double *faceAreas,double *triaNormals,
+                                      int *permNodGlob,unsigned char inputMet ) {
   MMG5_pTetra pt;
+  MMG5_pTria  ptr;
   MMG5_pPoint ppt;
   MMG5_pSol   psl,oldPsl;
   PMMG_baryCoord barycoord[4];
-  double      coord[4],*normal;
-  int         ip,istart,ie,ifac,ia,ib,ic,iloc,nsols;
+  double      coord[4],*normal,dd;
+  int         ip,istart,istartTria,ie,ifac,k,ia,ib,ic,iloc,nsols;
   int         ismet,ier,j;
   static int  mmgWarn=0;
 
   nsols = mesh->nsols;
 
   ismet = 1;
-  if ( inputMet != 1 ) {
+  if( inputMet != 1 ) {
     ismet = 0;
   }
   else  if( mesh->info.hsiz > 0.0 ) {
@@ -581,6 +964,22 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
     }
   }
 
+  /** Pre-compute surface unit normals */
+  for( k = 1; k <= oldMesh->nt; k++ ) {
+    ptr = &oldMesh->tria[k];
+    ia = ptr->v[0];
+    ib = ptr->v[1];
+    ic = ptr->v[2];
+    normal = &triaNormals[3*k];
+    /* Store triangle unit normal and volume */
+    ier = MMG5_nonUnitNorPts( oldMesh,ia,ib,ic,normal );
+    ptr->qual = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
+    if( ptr->qual < MMG5_EPSD2 ) return 0;
+    dd = 1.0/ptr->qual;
+    normal[0] *= dd;
+    normal[1] *= dd;
+    normal[2] *= dd;
+  }
 
   /** Interpolate metrics and solution fields */
   oldMesh->base = 0;
@@ -591,7 +990,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   }
 
   mesh->base++;
-  istart = 1;
+  istart = istartTria = 1;
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
@@ -607,6 +1006,41 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         /* Flag point as interpolated */
         ppt->flag = mesh->base;
         continue; // treated by copyMetricAndField_points
+      } else if ( ppt->tag & MG_BDY ) {
+
+        /** Locate point in the old mesh */
+        istartTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
+                                          triaNormals, barycoord );
+        if( !istartTria ) {
+          fprintf(stderr,"\n  ## Error: %s:"
+                  " point %d not found, coords %e %e %e\n",__func__,
+                  ip, mesh->point[ip].c[0],
+                  mesh->point[ip].c[1],mesh->point[ip].c[2]);
+          return 0;
+        } else if( istartTria < 0 ) {
+          if ( !mmgWarn ) {
+            mmgWarn = 1;
+            if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+              fprintf(stderr,"\n  ## Warning: %s: point %d not"
+                      " found, coords %e %e %e\n",__func__,
+                      ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                      mesh->point[ip].c[2]);
+            }
+          }
+          istartTria = -istartTria;
+          PMMG_locatePointInClosestTria( oldMesh,istartTria,ppt,barycoord );
+        }
+
+        /** Interpolate point metrics */
+        PMMG_get_baryCoord( coord, barycoord );
+#warning treat other sol structures
+        ier = PMMG_interp3bar(mesh,met,oldMet,
+                              &oldMesh->tria[istartTria],
+                              ip,coord);
+
+        /* Flag point as interpolated */
+        ppt->flag = mesh->base;
+
       } else {
 
         /** Locate point in the old mesh */
@@ -638,6 +1072,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                 &oldMesh->tetra[istart],
                                 ip,coord);
         }
+#warning do we need to interpolate ls and disp fields
         if ( mesh->nsols ) {
           for ( j=0; j<mesh->nsols; ++j ) {
             psl    = field + j;
@@ -673,9 +1108,13 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_pGrp   grp,oldGrp;
   MMG5_pMesh  mesh,oldMesh;
   MMG5_pSol   met,oldMet,field,oldField;
-  double      *faceAreas;
+  MMG5_Hash   hash;
+  size_t      memAv,oldMemMax;
+  double      *faceAreas,*triaNormals;
   int         igrp,ier;
   int8_t      allocated;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
   /** Loop on current groups */
   ier = 1;
@@ -691,7 +1130,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     oldMet  = oldGrp->met;
     oldField = oldGrp->field;
 
-    /** Pre-allocate oriented face areas */
+    /** Pre-allocate oriented face areas and surface unit normals */
     allocated = 0;
     if ( mesh->nsols || (( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) ) {
       ier = 1;
@@ -700,17 +1139,24 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
         PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
         return 0;
       }
+      PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",ier=0 );
+      if( !ier ) {
+        PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
+        return 0;
+      }
       allocated = 1;
     }
 
     if( !PMMG_interpMetricsAndFields_mesh( mesh, oldMesh, met, oldMet, field, oldField,
-                                           faceAreas, permNodGlob, parmesh->info.inputMet ) ) {
+                                           faceAreas,triaNormals,permNodGlob,
+                                           parmesh->info.inputMet ) ) {
       ier = 0;
     }
 
     /** Deallocate oriented face areas */
     if ( allocated ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
+      PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
     }
   }
 

@@ -115,11 +115,12 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     //fprintf(stdout,"-default  Save a local parameters file for default parameters"
     //        " values\n");
 
-    fprintf(stdout,"\n**   File specifications\n");
-    fprintf(stdout,"-in    file  input triangulation\n");
-    fprintf(stdout,"-out   file  output triangulation\n");
+    fprintf(stdout,"\n**  File specifications\n");
+    fprintf(stdout,"-in  file  input triangulation\n");
+    fprintf(stdout,"-out file  output triangulation\n");
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
+    fprintf(stdout,"-noout       do not write output triangulation\n");
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -127,6 +128,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-metis-ratio  val  number of metis super nodes per mesh\n");
     fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
     fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
+    fprintf(stdout,"-nobalance         switch off load balancing of the output mesh\n");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -135,6 +137,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-hsiz   val  constant mesh size\n");
     // fprintf(stdout,"-hausd  val  control Hausdorff distance\n");
     fprintf(stdout,"-hgrad  val  control gradation\n");
+    fprintf(stdout,"-hgradreq     val  control gradation from required entities\n");
     // fprintf(stdout,"-ls     val  create mesh of isovalue val (0 if no argument provided)\n");
     fprintf(stdout,"-A           enable anisotropy (without metric file).\n");
     // fprintf(stdout,"-opnbdy      preserve input triangles at the interface of"
@@ -388,6 +391,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
+        } else if ( 0 == strncmp( argv[i], "-nobalance", 9 ) ) {
+          parmesh->info.nobalancing = MMG5_ON;
+        } else if ( 0 == strncmp( argv[i], "-noout", 5 ) ) {
+          parmesh->info.fmtout = PMMG_UNSET;
         }else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
@@ -398,9 +405,9 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       case 'd':
         if ( !strcmp(argv[i],"-d") ) {
           /* debug */
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
-            ret_val = 0;
-            goto fail_proc;
+        if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+          ret_val = 0;
+          goto fail_proc;
           }
         }
         else {
@@ -500,10 +507,12 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
   if( met && met->size == 6 ) {
 
     PMMG_interp4bar = PMMG_interp4bar_ani;
+    PMMG_interp3bar = PMMG_interp3bar_ani;
 
   } else {
 
     PMMG_interp4bar = PMMG_interp4bar_iso;
+    PMMG_interp3bar = PMMG_interp3bar_iso;
 
   }
 

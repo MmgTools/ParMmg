@@ -629,6 +629,8 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->xtetra[k].tag[3] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       mesh->xtetra[k].tag[4] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       mesh->xtetra[k].tag[5] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+      /* Orientation of the triangles */
+      mesh->xtetra[k].ori = *( (char *) *buffer); *buffer += sizeof(char);
     }
   }
   else {
@@ -697,6 +699,8 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     *buffer += xt*sizeof(int16_t);
     *buffer += xt*sizeof(int16_t);
     *buffer += xt*sizeof(int16_t);
+    /* Triangle orientation */
+    *buffer += xt*sizeof(char);
   }
 
   /** Unpack metric */

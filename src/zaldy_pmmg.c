@@ -494,7 +494,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       assert ( field );
       for ( is=0; is<mesh->nsols; ++is ) {
         psl = &field[is];
-        psl->np    = psl->npmax;
+        psl->np    = mesh->np;
         psl->npmax = mesh->npmax;
       }
     }

@@ -301,6 +301,8 @@ int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
   idx += mesh->xt*sizeof(int16_t); // mesh->xtetra[k].tag[3];
   idx += mesh->xt*sizeof(int16_t); // mesh->xtetra[k].tag[4];
   idx += mesh->xt*sizeof(int16_t); // mesh->xtetra[k].tag[5];
+  /* Orientation of the triangles */
+  idx += mesh->xt*sizeof(char); // mesh->xtetra[k].ori;
 
   /** Pack metric */
   if ( met && met->m ) {
@@ -820,6 +822,8 @@ void PMMG_mpipack_meshArrays ( PMMG_pGrp grp,char **buffer ) {
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[3]; tmp += sizeof(int16_t);
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[4]; tmp += sizeof(int16_t);
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[5]; tmp += sizeof(int16_t);
+    /* Orientation of the triangles */
+    *( (char *) tmp) = mesh->xtetra[k].ori; tmp += sizeof(char);
   }
 
   /** Pack metric */

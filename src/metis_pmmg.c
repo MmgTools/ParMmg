@@ -714,13 +714,16 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     *memAv -= (parmesh->memMax - memMaxOld);
     return ier;
   }
-  PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
-  if( !ier ) {
-    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
-    PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
-    parmesh->memMax = parmesh->memCur;
-    *memAv -= (parmesh->memMax - memMaxOld);
-    return ier;
+  /* Don't compute weights if output load balancing is required at last iter */
+  if( (parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing ) {
+    PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
+    if( !ier ) {
+      PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+      PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
+      parmesh->memMax = parmesh->memCur;
+      *memAv -= (parmesh->memMax - memMaxOld);
+      return ier;
+    }
   }
 
   count = 0;
@@ -733,22 +736,25 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
       if ( !jel ) continue;
 
       /* Assign graph edge weights */
-      if ( pt->xt ) {
-        pxt = &mesh->xtetra[pt->xt];
-        if( pxt->ftag[j] & MG_OLDPARBDY ) {
-          /* Put high weight on old parallel faces */
-          wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
+      if( *adjwgt ) {
+        if ( pt->xt ) {
+          pxt = &mesh->xtetra[pt->xt];
+          if( pxt->ftag[j] & MG_OLDPARBDY ) {
+            /* Put high weight on old parallel faces */
+            wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
+          } else {
+            /* Default weight on other faces */
+            wgt = 1;
+          }
         } else {
-          /* Default weight on other faces */
-          wgt = 0;
+          /* Default weight if no xtetra found */
+          wgt = 1;
         }
-      } else {
-        /* Default weight if no xtetra found */
-        wgt = 0;
+
+        (*adjwgt)[count] = MG_MAX(wgt,1);
       }
 
-      (*adjncy)[count]   = jel-1;
-      (*adjwgt)[count++] = MG_MAX(wgt,1);
+      (*adjncy)[count++]   = jel-1;
     }
     assert( count == ( (*xadj)[k] ) );
   }
@@ -801,7 +807,13 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   int            found,color;
   int            ngrp,myrank,nitem,k,igrp,igrp_adj,i,idx,ie,ifac,ishift,wgt;
 
-  *wgtflag = PMMG_WGTFLAG_DEF; /* Default weight choice for parmetis */
+  if( (parmesh->iter == parmesh->niter-1) && !parmesh->info.nobalancing ) {
+    /* Switch off weights for output load balancing */
+    *wgtflag = PMMG_WGTFLAG_NONE;
+  } else {
+    /* Default weight choice for parmetis */
+    *wgtflag = PMMG_WGTFLAG_DEF;
+  }
   *numflag = 0; /* C-style numbering */
   *ncon    = 1; /* number of weight per metis node */
 
