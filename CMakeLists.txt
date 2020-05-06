@@ -222,7 +222,7 @@ ENDIF ( )
 INCLUDE ( ExternalProject )
 
 # Allow not to use pointmap
-OPTION ( NO_POINTMAP "Do not Use map for point tracking" OFF )
+OPTION ( NO_POINTMAP "Do not use map for point tracking" OFF )
 
 # add pointmap flag
 SET(CMAKE_C_FLAGS       "-DUSE_POINTMAP ${CMAKE_C_FLAGS}")
