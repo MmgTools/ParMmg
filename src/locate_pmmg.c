@@ -93,7 +93,7 @@ double PMMG_quickarea(double *a,double *b,double *c,double *n) {
  *  Get barycentric coordinates.
  *
  */
-void PMMG_get_baryCoord( double *val, PMMG_baryCoord *phi ) {
+void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi ) {
   int i;
 
   for( i = 0; i < 4; i++ )
@@ -137,9 +137,8 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
  *  Compute the barycentric coordinates of a given point in a given triangle.
  *
  */
-int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
-                              double *coord, double *normal,
-                              PMMG_baryCoord *barycoord ) {
+int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
+                              double *normal,PMMG_baryCoord *barycoord ) {
   double dist,proj[3],*c1,*c2,vol;
   int    ia,i;
 
@@ -185,8 +184,8 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh, MMG5_pTria ptr, int k,
  *  Compute the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
-int PMMG_compute_baryCoord3d( MMG5_pMesh mesh, MMG5_pTetra pt,
-                    double *coord, double *faceAreas, PMMG_baryCoord *barycoord ) {
+int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
+                              double *faceAreas,PMMG_baryCoord *barycoord ) {
   double *c0,*normal,vol;
   int    ifac;
 
@@ -204,4 +203,138 @@ int PMMG_compute_baryCoord3d( MMG5_pMesh mesh, MMG5_pTetra pt,
   }
 
   return 1;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param k index of the triangle to analyze
+ * \param ppt pointer to the point to locate
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a surface point in its closest background triangles, and find its
+ *  closest point.
+ *
+ */
+int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                   PMMG_baryCoord *barycoord ) {
+  MMG5_pTria ptr;
+  double *c,dist[3],norm,min;
+  int i,d,itarget;
+
+  ptr = &mesh->tria[k];
+
+  c = mesh->point[ptr->v[0]].c;
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d] - c[d];
+  norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+  min = norm;
+  itarget = 0;
+
+  for( i = 1; i < 3; i++ ) {
+    c = mesh->point[ptr->v[i]].c;
+    for( d = 0; d < 3; d++ )
+      dist[d] = ppt->c[d] - c[d];
+    norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+    if( norm < min ) {
+      min = norm;
+      itarget = i;
+    }
+  }
+
+  for( i = 0; i < 3; i++ ) {
+    barycoord[i].val = 0.0;
+    barycoord[i].idx = i;
+  }
+  barycoord[itarget].val = 1.0;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the triangle to analyze
+ * \param k index of the triangle
+ * \param ppt pointer to the point to locate
+ * \param triaNormal unit normal of the current triangle
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in a background triangles, and provide its barycentric
+ *  coordinates.
+ *
+ */
+int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
+                            double *triaNormal,PMMG_baryCoord *barycoord,
+                            double *closestDist,int *closestTria ) {
+  MMG5_pPoint    ppt0,ppt1;
+  double         h,hmax,eps;
+  int            j,d,found = 0;
+
+  eps = MMG5_EPS;
+
+  /** Mark tria */
+  ptr->flag = mesh->base;
+
+  /** Get barycentric coordinates and sort them in ascending order */
+  PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormal, barycoord);
+  qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  hmax = 0.0;
+  for( j = 0; j < 3; j++ ) {
+    ppt0 = &mesh->point[ptr->v[j]];
+    ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
+    h = 0.0;
+    for( d = 0; d < 3; d++ )
+      h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
+    h = sqrt(h);
+    if( h > hmax ) hmax = h;
+  }
+  if( fabs(barycoord[3].val) > hmax ) return 0;
+
+  /** Save element index (with negative sign) if it is the closest one */
+  if( fabs(barycoord[3].val) < *closestDist ) {
+    *closestDist = fabs(barycoord[3].val);
+    *closestTria = -k;
+  }
+
+  /** Exit if inside the element */
+  if( barycoord[0].val > -eps ) found = 1;
+
+  return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param pt pointer to the tetra to analyze
+ * \param ppt pointer to the point to locate
+ * \param faceAreas oriented face areas of the current tetrahedra
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in a background tetrahedron, and provide its barycentric
+ *  coordinates.
+ *
+ */
+int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
+                             double *faceAreas,PMMG_baryCoord *barycoord ) {
+  double         eps;
+  int            found = 0;
+
+  eps = MMG5_EPS;
+
+  /** Mark tetra */
+  pt->flag = mesh->base;
+
+  /** Get barycentric coordinates and sort them in ascending order */
+  PMMG_compute_baryCoord3d(mesh, pt, ppt->c, faceAreas, barycoord);
+  qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+
+  /** Exit if inside the element */
+  if( barycoord[0].val > -eps ) found = 1;
+
+  return found;
 }

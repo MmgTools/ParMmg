@@ -54,5 +54,12 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord
                               double *normal,PMMG_baryCoord *barycoord );
 int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
                               double *faceAreas, PMMG_baryCoord *barycoord );
-
+int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                   PMMG_baryCoord *barycoord );
+int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
+                            double *triaNormal,PMMG_baryCoord *barycoord,
+                            double *closestDist,int *closestTria );
+int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
+                             double *faceAreas,PMMG_baryCoord *barycoord );
+ 
 #endif
