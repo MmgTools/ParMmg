@@ -361,26 +361,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #ifdef NO_POINTMAP
       ifoundTetra = ifoundTria = 1;
 #else
-      for( ip = 1; ip <= oldMesh->np; ip++ )
-        oldMesh->point[ip].s = 0;
-      for( k = 1; k <= oldMesh->nt; k++ ) {
-        ptr = &oldMesh->tria[k];
-        for( iloc = 0; iloc < 3; iloc++ ) {
-          ip = ptr->v[iloc];
-          ppt = &oldMesh->point[ip];
-          if( ppt->s ) continue;
-          ppt->s = k;
-        }
-      }
-      for( ie = 1; ie <= oldMesh->ne; ie++ ) {
-        pt = &oldMesh->tetra[ie];
-        for( iloc = 0; iloc < 4; iloc++ ) {
-          ip = pt->v[iloc];
-          ppt = &oldMesh->point[ip];
-          if( ppt->s ) continue;
-          ppt->s = ie;
-        }
-      }
+      PMMG_locate_setStart( oldMesh );
 #endif
       /* Loop on new tetrahedra, and localize their vertices in the old mesh */
       mesh->base++;

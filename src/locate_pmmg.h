@@ -63,5 +63,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_baryCoord *barycoord );
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord );
+void PMMG_locate_setStart( MMG5_pMesh mesh );
 
 #endif

@@ -559,3 +559,43 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   }
   return idxTet;
 }
+
+/**
+ * \param mesh pointer to the background mesh structure
+ *
+ *  For each point in the background mesh, store the index of a neighbouring
+ *  triangle or tetrahedron.
+ *
+ */
+void PMMG_locate_setStart( MMG5_pMesh mesh ) {
+  MMG5_pPoint ppt;
+  MMG5_pTria  ptr;
+  MMG5_pTetra pt;
+  int         ie,iloc,ip;
+
+  /* Reset index */
+  for( ip = 1; ip <= mesh->np; ip++ )
+    mesh->point[ip].s = 0;
+
+  /* Store triangle index */
+  for( ie = 1; ie <= mesh->nt; ie++ ) {
+    ptr = &mesh->tria[ie];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      ip = ptr->v[iloc];
+      ppt = &mesh->point[ip];
+      if( ppt->s ) continue;
+      ppt->s = ie;
+    }
+  }
+
+  /* Store tetra index */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    for( iloc = 0; iloc < 4; iloc++ ) {
+      ip = pt->v[iloc];
+      ppt = &mesh->point[ip];
+      if( ppt->s ) continue;
+      ppt->s = ie;
+    }
+  }
+}
