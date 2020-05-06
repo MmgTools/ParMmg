@@ -289,7 +289,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pPoint ppt;
   PMMG_baryCoord barycoord[4];
   double      coord[4],*normal,dd;
-  int         ip,istart,istartTria,ie,ifac,k,ia,ib,ic,iloc;
+  int         ip,istart,istartTria,ifound,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
 
@@ -347,6 +347,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         pt->flag = oldMesh->base;
       }
 
+      /* Loop on new tetrahedra, and localize their vertices in the old mesh */
       mesh->base++;
       istart = istartTria = 1;
       for( ie = 1; ie <= mesh->ne; ie++ ) {
@@ -367,15 +368,15 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
           } else if ( ppt->tag & MG_BDY ) {
 
             /** Locate point in the old mesh */
-            istartTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
-                                              triaNormals, barycoord );
-            if( !istartTria ) {
+            ifound = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
+                                          triaNormals, barycoord );
+            if( !ifound ) {
               fprintf(stderr,"\n  ## Error: %s:"
                       " point %d not found, coords %e %e %e\n",__func__,
                       ip, mesh->point[ip].c[0],
                       mesh->point[ip].c[1],mesh->point[ip].c[2]);
               return 0;
-            } else if( istartTria < 0 ) {
+            } else if( ifound < 0 ) {
               if ( !mmgWarn ) {
                 mmgWarn = 1;
                 if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -385,9 +386,9 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                           mesh->point[ip].c[2]);
                 }
               }
-              istartTria = -istartTria;
-              PMMG_locatePointInClosestTria( oldMesh,istartTria,ppt,barycoord );
-            } else if( istartTria > mesh->nt ) {
+              ifound = -ifound;
+              PMMG_locatePointInClosestTria( oldMesh,ifound,ppt,barycoord );
+            } else if( ifound > mesh->nt ) {
               if ( !mmgWarn ) {
                 mmgWarn = 1;
                 if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -402,24 +403,27 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             /** Interpolate point metrics */
             PMMG_get_baryCoord( coord, barycoord );
             ier = PMMG_interp3bar(mesh,met,oldMet,
-                                           &oldMesh->tria[istartTria],
+                                           &oldMesh->tria[ifound],
                                            ip,coord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
 
+            /* Update next starting element */
+            istartTria = ifound;
+
           } else {
 
             /** Locate point in the old mesh */
-            istart = PMMG_locatePoint( oldMesh, ppt, istart,
-                                       faceAreas, barycoord );
-            if( !istart ) {
+            ifound = PMMG_locatePointVol( oldMesh, ppt, istart,
+                                          faceAreas, barycoord );
+            if( !ifound ) {
               fprintf(stderr,"\n  ## Error: %s:"
                       " point %d not found, coords %e %e %e\n",__func__,
                       ip, mesh->point[ip].c[0],
                       mesh->point[ip].c[1],mesh->point[ip].c[2]);
               return 0;
-            } else if( istart < 0 ) {
+            } else if( ifound < 0 ) {
               if ( !mmgWarn ) {
                 mmgWarn = 1;
                 if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -429,17 +433,30 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                           mesh->point[ip].c[2]);
                 }
               }
-              istart = -istart;
+              ifound = -ifound;
+            } else if( ifound > mesh->ne ) {
+              if ( !mmgWarn ) {
+                mmgWarn = 1;
+                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+                  fprintf(stderr,"\n  ## Warning: %s: exhaustive search for point %d"
+                          ", coords %e %e %e\n",__func__,
+                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
+                          mesh->point[ip].c[2]);
+                }
+              }
             }
 
             /** Interpolate point metrics */
             PMMG_get_baryCoord( coord, barycoord );
             ier = PMMG_interp4bar(mesh,met,oldMet,
-                                           &oldMesh->tetra[istart],
+                                           &oldMesh->tetra[ifound],
                                            ip,coord);
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
+
+            /* Update next starting element */
+            istart = ifound;
           }
         }
       }
@@ -499,10 +516,8 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
       }
     }
 
-    if( !PMMG_interpMetrics_mesh( mesh, oldMesh, met, oldMet,
-                                  faceAreas, triaNormals,
-                                  permNodGlob, parmesh->info.inputMet ) )
-      ier = 0;
+    if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
+                                  permNodGlob,parmesh->info.inputMet ) ) ier = 0;
 
     /** Deallocate oriented face areas and surface unit normals */
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {

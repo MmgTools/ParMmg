@@ -462,8 +462,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePoint( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                      double *faceAreas,PMMG_baryCoord *barycoord ) {
+int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
+                         double *faceAreas,PMMG_baryCoord *barycoord ) {
   MMG5_pTetra    ptr,pt1;
   int            *adja,iel,i,idxTet,step,closestTet;
   double         vol,eps,closestDist;
