@@ -349,6 +349,8 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  * \param init index of the starting element
  * \param triaNormals unit normals of the all triangles in the mesh
  * \param barycoord barycentric coordinates of the point to be located
+ * \param ip current mesh point
+ * \param igrp current mesh group
  *
  * \return ie if positive, index of the target element; if negative, index of
  * the closest element; 0 if not found
@@ -358,7 +360,8 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_baryCoord *barycoord ) {
+                         double *triaNormals,PMMG_baryCoord *barycoord,
+                         int ip,int igrp ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,iel,i,idxTria,step,closestTria;
   double         vol,eps,closestDist;
@@ -456,6 +459,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  * \param init index of the starting element
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
  * \param barycoord barycentric coordinates of the point to be located
+ * \param ip current mesh point
+ * \param igrp current mesh group
  *
  * \return ie if positive, index of the target element; if negative, index of
  * the closest element; 0 if not found
@@ -464,7 +469,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  *
  */
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *faceAreas,PMMG_baryCoord *barycoord ) {
+                         double *faceAreas,PMMG_baryCoord *barycoord,
+                         int ip,int igrp ) {
   MMG5_pTetra    ptr,pt1;
   int            *adja,iel,i,idxTet,step,closestTet;
   double         vol,eps,closestDist;

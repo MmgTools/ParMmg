@@ -60,9 +60,11 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
                              double *faceAreas,PMMG_baryCoord *barycoord );
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_baryCoord *barycoord );
+                         double *triaNormals,PMMG_baryCoord *barycoord,
+                         int ip,int igrp );
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *faceAreas,PMMG_baryCoord *barycoord );
+                         double *faceAreas,PMMG_baryCoord *barycoord,
+                         int ip,int igrp );
 void PMMG_locate_setStart( MMG5_pMesh mesh );
 
 #endif

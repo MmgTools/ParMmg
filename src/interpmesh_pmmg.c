@@ -278,6 +278,7 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * \param faceAreas pointer to the array of oriented face areas.
  * \param permNodGlob permutation array of nodes.
  * \param inputMet 1 if user provided metric.
+ * \param igrp current mesh group.
  *
  * \return 0 if fail, 1 if success
  *
@@ -293,7 +294,7 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              MMG5_pSol met,MMG5_pSol oldMet,
                              double *faceAreas,double *triaNormals,
-                             int *permNodGlob,unsigned char inputMet ) {
+                             int *permNodGlob,unsigned char inputMet,int igrp ) {
   MMG5_pTetra pt;
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
@@ -389,7 +390,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
             /** Locate point in the old mesh */
             ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
-                                              triaNormals, barycoord );
+                                              triaNormals, barycoord,
+                                              ip, igrp );
             if( !ifoundTria ) {
               fprintf(stderr,"\n  ## Error: %s:"
                       " point %d not found, coords %e %e %e\n",__func__,
@@ -436,7 +438,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
             /** Locate point in the old volume mesh */
             ifoundTetra = PMMG_locatePointVol( oldMesh, ppt, istartTetra,
-                                               faceAreas, barycoord );
+                                               faceAreas, barycoord,
+                                               ip, igrp );
             if( !ifoundTetra ) {
               fprintf(stderr,"\n  ## Error: %s:"
                       " point %d not found, coords %e %e %e\n",__func__,
@@ -533,7 +536,8 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     }
 
     if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
-                                  permNodGlob,parmesh->info.inputMet ) ) ier = 0;
+                                  permNodGlob,parmesh->info.inputMet,
+                                  igrp ) ) ier = 0;
 
     /** Deallocate oriented face areas and surface unit normals */
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
