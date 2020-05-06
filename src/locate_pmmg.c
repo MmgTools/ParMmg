@@ -123,6 +123,13 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
   return 0;
 }
 
+int PMMG_allPositive_baryCoord( PMMG_baryCoord *phi ) {
+  if( phi[0].val > -MMG5_EPS )
+    return 1;
+  else
+    return 0;
+}
+
 /**
  * \param mesh pointer to the mesh structure
  * \param ptr pointer to the current triangle
@@ -270,10 +277,8 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
                             double *triaNormal,PMMG_baryCoord *barycoord,
                             double *closestDist,int *closestTria ) {
   MMG5_pPoint    ppt0,ppt1;
-  double         h,hmax,eps;
+  double         h,hmax;
   int            j,d,found = 0;
-
-  eps = MMG5_EPS;
 
   /** Mark tria */
   ptr->flag = mesh->base;
@@ -282,6 +287,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormal, barycoord);
   qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
+  /* Rough check on the distance from the surface */
   hmax = 0.0;
   for( j = 0; j < 3; j++ ) {
     ppt0 = &mesh->point[ptr->v[j]];
@@ -301,7 +307,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   }
 
   /** Exit if inside the element */
-  if( barycoord[0].val > -eps ) found = 1;
+  if( PMMG_allPositive_baryCoord( barycoord ) ) found = 1;
 
   return found;
 }
@@ -321,10 +327,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
  */
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
                              double *faceAreas,PMMG_baryCoord *barycoord ) {
-  double         eps;
-  int            found = 0;
-
-  eps = MMG5_EPS;
+  int found = 0;
 
   /** Mark tetra */
   pt->flag = mesh->base;
@@ -334,7 +337,7 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
   qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
   /** Exit if inside the element */
-  if( barycoord[0].val > -eps ) found = 1;
+  if( PMMG_allPositive_baryCoord( barycoord ) ) found = 1;
 
   return found;
 }
