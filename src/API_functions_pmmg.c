@@ -140,20 +140,23 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   memset(&parmesh->info,0, sizeof(PMMG_Info));
 
-  parmesh->info.mem    = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
-  parmesh->info.root   = PMMG_NUL;
+  parmesh->info.mem                = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
+  parmesh->info.root               = PMMG_NUL;
 
-  parmesh->ddebug      = PMMG_NUL;
-  parmesh->niter       = PMMG_NITER;
-  parmesh->info.fem    = MMG5_FEM;
-  parmesh->info.repartitioning = PMMG_REDISTRIBUTION_mode;
-  parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
-  parmesh->info.grps_ratio = PMMG_GRPS_RATIO;
+  parmesh->ddebug                  = PMMG_NUL;
+  parmesh->iter                    = PMMG_NUL;
+  parmesh->niter                   = PMMG_NITER;
+  parmesh->info.fem                = MMG5_FEM;
+  parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
+  parmesh->info.ifc_layers         = PMMG_MVIFCS_NLAYERS;
+  parmesh->info.grps_ratio         = PMMG_GRPS_RATIO;
+  parmesh->info.nobalancing        = MMG5_OFF;
   parmesh->info.loadbalancing_mode = PMMG_LOADBALANCING_metis;
-  parmesh->info.contiguous_mode = PMMG_CONTIG_DEF;
-  parmesh->info.target_mesh_size =  PMMG_REMESHER_TARGET_MESH_SIZE;
-  parmesh->info.metis_ratio =  PMMG_RATIO_MMG_METIS;
-  parmesh->info.API_mode    =  PMMG_APIDISTRIB_faces;
+  parmesh->info.contiguous_mode    = PMMG_CONTIG_DEF;
+  parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
+  parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
+  parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
+  parmesh->info.fmtout             = MMG5_FMT_Unknown;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -322,6 +325,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_meshSize :
     parmesh->info.target_mesh_size = val;
     break;
+  case PMMG_IPARAM_nobalancing :
+    parmesh->info.nobalancing = val;
+    break;
   case PMMG_IPARAM_metisRatio :
     parmesh->info.metis_ratio = val;
     break;
@@ -407,8 +413,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-//      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
-      fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented!\n");
+      if( !val ) fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented! Switching it off by default.\n");
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
     }
     break;
   case PMMG_IPARAM_numberOfLocalParam :
@@ -474,6 +480,14 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
    for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hgrad,val) ) {
+        return 0;
+      }
+    }
+    break;
+  case PMMG_DPARAM_hgradreq :
+   for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hgradreq,val) ) {
         return 0;
       }
     }
@@ -858,7 +872,26 @@ int PMMG_Set_numberOfFaceCommunicators(PMMG_pParMesh parmesh, int next_comm) {
 
 int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
   PMMG_pExt_comm pext_comm;
-  
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_node_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_node_comm);
+    return 0;
+  }
+
+  /* Return if communicator color doesn't exist or is myrank */
+  if( (color_out < 0) || (color_out > parmesh->nprocs-1) || (color_out == parmesh->myrank) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator color should be a proc ID in the range [0,nprocs-1] and different from my rank, %d passed while %d MPI procs are seen. Please check your interface.\n",__func__,parmesh->myrank,color_out,parmesh->nprocs);
+    return 0;
+  }
+
+  /* Return if communicator size non-positive */
+  if( nitem <= 0 ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator size should be strictly positive, %d passed. Please check your interface.\n",__func__,parmesh->myrank,nitem);
+    return 0;
+  }
+
+
   /* Get the node communicator */
   pext_comm = &parmesh->ext_node_comm[ext_comm_index];
 
@@ -879,7 +912,26 @@ int PMMG_Set_ithNodeCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
 
 int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int color_out, int nitem) {
   PMMG_pExt_comm pext_comm;
-  
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_face_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_face_comm);
+    return 0;
+  }
+
+  /* Return if communicator color doesn't exist or is myrank */
+  if( (color_out < 0) || (color_out > parmesh->nprocs-1) || (color_out == parmesh->myrank) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator color should be a proc ID in the range [0,nprocs-1] and different from my rank, %d passed while %d MPI procs are seen. Please check your interface.\n",__func__,parmesh->myrank,color_out,parmesh->nprocs);
+    return 0;
+  }
+
+  /* Return if communicator size non-positive */
+  if( nitem <= 0 ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator size should be strictly positive, %d passed. Please check your interface.\n",__func__,parmesh->myrank,nitem);
+    return 0;
+  }
+
+
   /* Get the face communicator */
   pext_comm = &parmesh->ext_face_comm[ext_comm_index];
 
@@ -898,10 +950,22 @@ int PMMG_Set_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, 
 int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
   PMMG_pExt_comm pext_node_comm;
   int            *oldId,nitem,i,ier;
- 
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_node_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_node_comm);
+    return 0;
+  }
+
   /* Get the node communicator */
   pext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
   nitem = pext_node_comm->nitem_to_share;
+
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 nodes in communicator %d on proc %d. Please check your interface.\n",__func__,ext_comm_index,parmesh->myrank);
+    return 0;
+  }
 
   /* Reorder according to global enumeration, so that the indexing matches on
    * the two sides of each pair of procs */
@@ -928,10 +992,22 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
 int PMMG_Set_ithFaceCommunicator_faces(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index, int* global_index, int isNotOrdered) {
   PMMG_pExt_comm pext_face_comm;
   int            *oldId,nitem,i,ier;
- 
+
+  /* Return if communicator index doesn't exist */
+  if( (ext_comm_index < 0 ) || (ext_comm_index > parmesh->next_face_comm-1) ) {
+    fprintf(stderr,"\n ## Error: function %s on proc %d: Communicator index should be in the range [0,ncomm-1], %d passed when %d communicators were asked. Please check your interface.\n",__func__,parmesh->myrank,ext_comm_index,parmesh->next_face_comm);
+    return 0;
+  }
+
   /* Get the face communicator */
   pext_face_comm = &parmesh->ext_face_comm[ext_comm_index];
   nitem = pext_face_comm->nitem;
+
+  /* Return if communicator is empty */
+  if( !nitem ) {
+    fprintf(stderr,"\n ## Error: function %s: 0 faces in communicator %d on proc %d. Please check your interface.\n",__func__,ext_comm_index,parmesh->myrank);
+    return 0;
+  }
 
   /* Reorder according to global enumeration, so that faces indexing
    * matches on the two sides of each pair of procs */
@@ -1496,6 +1572,417 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
   MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hashPair.item);
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param owner IDs of the processes owning each interface node
+ * \param idx_glob global IDs of interface nodes
+ * \param nunique nb of non-redundant interface nodes on current rank
+ * \param ntot totat nb of non-redundant interface nodes
+ *
+ * Create global IDs (starting from 1) for nodes on parallel interfaces.
+ *
+ */
+int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique, int *ntot) {
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            *intvalues,*itosend,*itorecv,*iproc2comm;
+  int            color,nitem;
+  int            label,*nlabels,*displ,mydispl,unique;
+  int            icomm,i,idx,iproc,src,dst,tag;
+
+  /* Do this only if there is one group */
+  assert( parmesh->ngrp == 1 );
+
+  /* Allocate internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+  /* Allocate label counts and offsets */
+  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
+  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
+
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+  }
+
+
+  /**
+   * 1) Number and count. Analyse each communicator by external color order,
+   *     fill internal communicator with (PMMG_UNSET-color) if the node is not
+   *     owned by myrank, or count the node if it is owned by myrank.
+   *     (With this ordering, any not-owned node has been necessarily visited
+   *     by its owner color and cannot be counted)
+   */
+  label = 0;
+  unique = 0;
+  for( color = 0; color < parmesh->myrank; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem =  ext_node_comm->nitem;
+
+    /* Mark not-owned nodes */
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* Only the first visitor owns the ghost node */
+      if( intvalues[idx] ) continue;
+      intvalues[idx] = PMMG_UNSET-color;
+      ++unique;
+    }
+  }
+  for( color = parmesh->myrank+1; color < parmesh->nprocs; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem =  ext_node_comm->nitem;
+
+   /* Count points only on owned communicators */
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* Count point only if not already marked */
+      if( intvalues[idx] ) continue;
+      intvalues[idx] = ++label;
+      ++unique;
+    }
+  }
+
+
+  /**
+   * 2)  Store owners in the output array. Not-owned nodes store a
+   *      (PMMG_UNSET-color) label in the internal communicator, while nodes
+   *      owned by myrank store a non-negative label.
+   */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      if( intvalues[idx] < 0 )
+        owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
+      else
+        owner[icomm][i] = parmesh->myrank;
+    }
+  }
+
+
+  /**
+   * 3) Compute a consecutive global numbering by retrieving parallel offsets
+   */
+
+  /* Get nb of labels on each proc and compute offsets */
+  MPI_Allgather( &label,1,MPI_INT,
+                 nlabels,1,MPI_INT,parmesh->comm );
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    displ[iproc+1] = displ[iproc]+nlabels[iproc];
+  mydispl = displ[parmesh->myrank];
+
+  /* Get nb of non-redundant entities on each proci and total (for output) */
+  if( nunique ) *nunique = unique;
+  if( ntot )    *ntot = displ[parmesh->nprocs];
+
+
+  /* Add offset to the owned labels */
+  for( color = 0; color < parmesh->nprocs; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem =  ext_node_comm->nitem;
+
+    /* Update numbering only on owned points */
+    if( color < parmesh->myrank ) continue;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* Add offset to the  point numbering only if owned (non-negative
+       * numbering) and not already seen (label greater than my offset) */
+      if((intvalues[idx] <= PMMG_UNSET) || (intvalues[idx] > mydispl)) continue;
+      intvalues[idx] += mydispl;
+    }
+  }
+
+
+  /**
+   * 4) Communicate global numbering to the ghost copies.
+   */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      /* Store recv buffer in the internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        if( itorecv[i] > PMMG_UNSET ) intvalues[idx] = itorecv[i];
+      }
+    }
+  }
+
+
+  /**
+   * 5) Store numbering results in the output array.
+   */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      idx_glob[icomm][i] = intvalues[idx];
+    }
+  }
+
+
+#ifndef NDEBUG
+  /* Check global IDs */
+  int *mylabels;
+  PMMG_CALLOC(parmesh,mylabels,label+1,int,"mylabels",return 0);
+
+  /* Purposely in reverse order to overwrite internal communicator */
+  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      for( i=0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        assert( idx_glob[icomm][i] == intvalues[idx] );
+        assert( idx_glob[icomm][i] == itorecv[i] );
+      }
+    }
+
+    /* Mark seen labels */
+    if( parmesh->myrank < color ) {
+      for( i=0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        if( intvalues[idx] <= mydispl ) continue;
+        mylabels[intvalues[idx]-mydispl]++;
+      }
+    }
+  }
+  /* Check for holes in the seen labels */
+  for( i = 1; i <= label; i++ )
+    assert(mylabels[i]);
+
+  PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
+#endif
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
+  PMMG_DEL_MEM(parmesh,displ,int,"displ");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param owner IDs of processes owning each interface triangle
+ * \param idx_glob global IDs of interface triangles
+ * \param nunique nb of non-redundant interface triangles on current rank
+ * \param ntot totat nb of non-redundant interface triangles
+ *
+ * Create global IDs (starting from 1) for triangles on parallel interfaces.
+ *
+ */
+int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot) {
+  PMMG_pExt_comm ext_face_comm;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            unique;
+  int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
+  int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
+
+  /* Do this only if there is one group */
+  assert( parmesh->ngrp == 1 );
+
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+
+
+  /**
+   * 1) Compute face owners and count nb of new pair faces hosted on myrank.
+   */
+  npairs_loc = 0;
+  unique = 0;
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+    unique += nitem;
+    if( color > parmesh->myrank ) npairs_loc += nitem;//1;
+    for( i = 0; i < nitem; i++ )
+      owner[icomm][i] = MG_MIN(color,parmesh->myrank);
+  }
+
+
+  /**
+   * 2) Compute global face numbering. Communicate parallel offsets on each
+   *    communicator, than each process update the numbering independently.
+   */
+
+  /* Get nb of pair faces and compute pair offset */
+  MPI_Allgather( &npairs_loc,1,MPI_INT,
+                 npairs,1,MPI_INT,parmesh->comm );
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
+
+  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",return 0);
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ )
+    glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
+
+  /* Store nb of non-redundant faces on each proc and in total for output */
+  if( nunique ) *nunique = unique;
+  if( ntot ) *ntot = displ_pair[parmesh->nprocs];
+
+
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+
+    if( color > parmesh->myrank )
+      glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem;//+1;
+  }
+
+  /* Compute global pair faces enumeration */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+
+    /* Assign global index */
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      sendbuffer = glob_pair_displ[icomm];
+      MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      glob_pair_displ[icomm] = recvbuffer;
+    }
+  }
+
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+
+    for( i = 0; i < nitem; i++ )
+      idx_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
+  }
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
+  PMMG_DEL_MEM(parmesh,displ_pair,int,"displ_pair");
+  PMMG_DEL_MEM(parmesh,glob_pair_displ,int,"glob_pair_displ");
+
+
+#ifndef NDEBUG
+  /* Check global IDs */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",return 0);
+
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+    if( parmesh->myrank == src ) {
+      MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
+                            parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(ext_face_comm->itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      for( i = 0; i < nitem; i++ )
+        assert( idx_glob[icomm][i] == ext_face_comm->itorecv[i] );
+    }
+  }
+
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv");
+  }
+#endif
+
   return 1;
 }
 
