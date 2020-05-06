@@ -341,3 +341,220 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
 
   return found;
 }
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param init index of the starting element
+ * \param triaNormals unit normals of the all triangles in the mesh
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return ie if positive, index of the target element; if negative, index of
+ * the closest element; 0 if not found
+ *
+ *  Locate a point in a background mesh surface by traveling the triangles
+ *  adjacency.
+ *
+ */
+int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
+                         double *triaNormals,PMMG_baryCoord *barycoord ) {
+  MMG5_pTria     ptr,ptr1;
+  int            *adjt,iel,i,idxTria,step,closestTria;
+  double         vol,eps,closestDist;
+  static int     mmgWarn0=0,mmgWarn1=0;
+
+  if(!init)
+    idxTria = 1;
+  else
+    idxTria = init;
+
+  step = 0;
+  ++mesh->base;
+
+  closestTria = 0;
+  closestDist = 1.0e10;
+
+  while(step <= mesh->nt) {
+    step++;
+
+    /** Get tria */
+    ptr = &mesh->tria[idxTria];
+    if ( !MG_EOK(ptr) ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt, &triaNormals[3*idxTria],
+                                barycoord, &closestDist, &closestTria ) ) break;
+
+    /** Compute new direction */
+    adjt = &mesh->adjt[3*(idxTria-1)+1];
+    for( i=0; i<3; i++ ) {
+      iel = adjt[barycoord[i].idx]/3;
+
+      /* Skip if on boundary */
+      if (!iel) continue;
+
+      /* Skip if already marked */
+      ptr1 = &mesh->tria[iel];
+      if(ptr1->flag == mesh->base) continue;
+
+      /* Get next otherwise */
+      idxTria = iel;
+      break;
+    }
+
+    /** Stuck: Start exhaustive research */
+    if (i == 3) step = mesh->nt+1;
+
+  }
+
+  /** Boundary hit or cyclic path: Perform exhaustive research */
+  if( step == (mesh->nt+1) ) {
+    if ( !mmgWarn0 ) {
+      mmgWarn0 = 1;
+      if ( mesh->info.imprim > PMMG_VERB_DETQUAL ) {
+        fprintf(stderr,"\n  ## Warning %s: Cannot locate point,"
+                " performing exhaustive research.\n",__func__);
+      }
+    }
+
+    for( idxTria=1; idxTria<mesh->nt+1; idxTria++ ) {
+
+      /** Get tetra */
+      ptr = &mesh->tria[idxTria];
+      if ( !MG_EOK(ptr) ) continue;
+
+      /*¨Skip already analized tetras */
+      if( ptr->flag == mesh->base ) continue;
+
+      /** Exit the loop if you find the element */
+      if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt,
+                                  &triaNormals[3*idxTria], barycoord,
+                                  &closestDist, &closestTria ) ) break;
+
+    }
+
+    /** Element not found: Return the closest one with negative sign (if found) */
+    if ( idxTria == mesh->nt+1 ) {
+      if ( !mmgWarn1 ) {
+        mmgWarn1 = 1;
+        if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external area %e.",
+                  __func__,closestDist);
+        }
+      }
+      return closestTria;
+    }
+
+  }
+  return idxTria;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param init index of the starting element
+ * \param faceAreas oriented face areas of the all tetrahedra in the mesh
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return ie if positive, index of the target element; if negative, index of
+ * the closest element; 0 if not found
+ *
+ *  Locate a point in a background mesh by traveling the elements adjacency.
+ *
+ */
+int PMMG_locatePoint( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
+                      double *faceAreas,PMMG_baryCoord *barycoord ) {
+  MMG5_pTetra    ptr,pt1;
+  int            *adja,iel,i,idxTet,step,closestTet;
+  double         vol,eps,closestDist;
+  static int     mmgWarn0=0,mmgWarn1=0;
+
+  if(!init)
+    idxTet = 1;
+  else
+    idxTet = init;
+
+  step = 0;
+  ++mesh->base;
+  while(step <= mesh->ne) {
+    step++;
+
+    /** Get tetra */
+    ptr = &mesh->tetra[idxTet];
+    if ( !MG_EOK(ptr) ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                 barycoord ) ) break;
+
+    /** Compute new direction */
+    adja = &mesh->adja[4*(idxTet-1)+1];
+    for( i=0; i<4; i++ ) {
+      iel = adja[barycoord[i].idx]/4;
+
+      /* Skip if on boundary */
+      if (!iel) continue;
+
+      /* Skip if already marked */
+      pt1 = &mesh->tetra[iel];
+      if(pt1->flag == mesh->base) continue;
+
+      /* Get next otherwise */
+      idxTet = iel;
+      break;
+    }
+
+    /** Stuck: Start exhaustive research */
+    if (i == 4) step = mesh->ne+1;
+
+  }
+
+  /** Boundary hit or cyclic path: Perform exhaustive research */
+  if( step == (mesh->ne+1) ) {
+    if ( !mmgWarn0 ) {
+      mmgWarn0 = 1;
+      if ( mesh->info.imprim > PMMG_VERB_DETQUAL ) {
+        fprintf(stderr,"\n  ## Warning %s: Cannot locate point,"
+                " performing exhaustive research.\n",__func__);
+      }
+    }
+
+    closestTet = 0;
+    closestDist = 1.0e10;
+    for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
+
+      /** Get tetra */
+      ptr = &mesh->tetra[idxTet];
+      if ( !MG_EOK(ptr) ) continue;
+
+      /*¨Skip already analized tetras */
+      if( ptr->flag == mesh->base ) continue;
+
+      /** Exit the loop if you find the element */
+      if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+                                   barycoord ) ) break;
+
+      /** Save element index (with negative sign) if it is the closest one */
+      vol = ptr->qual;
+      if( fabs(barycoord[0].val)*vol < closestDist ) {
+        closestDist = fabs(barycoord[0].val)*vol;
+        closestTet = -idxTet;
+      }
+
+    }
+
+    /** Element not found: Return the closest one with negative sign (if found) */
+    if ( idxTet == mesh->ne+1 ) {
+      if ( !mmgWarn1 ) {
+        mmgWarn1 = 1;
+        if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stderr,"\n  ## Warning %s: Point not located, smallest external volume %e.",
+                  __func__,closestDist);
+        }
+      }
+      return closestTet;
+    }
+
+  }
+  return idxTet;
+}
