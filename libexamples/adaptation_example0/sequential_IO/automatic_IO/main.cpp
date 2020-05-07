@@ -121,6 +121,12 @@ int main(int argc,char *argv[]) {
   }
 
   /** ------------------------------ STEP  II -------------------------- */
+  /* Set verbosity */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
 
