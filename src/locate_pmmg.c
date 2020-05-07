@@ -363,7 +363,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_baryCoord *barycoord,
                          int ip,int igrp ) {
   MMG5_pTria     ptr,ptr1;
-  int            *adjt,iel,i,idxTria,step,closestTria;
+  int            *adjt,iel,i,idxTria,step,closestTria,stuck;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
@@ -374,13 +374,14 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   assert( idxTria <= mesh->nt );
 
+  stuck = 0;
   step = 0;
   ++mesh->base;
 
   closestTria = 0;
   closestDist = 1.0e10;
 
-  while(step <= mesh->nt) {
+  while( (step <= mesh->nt) && (!stuck) ) {
     step++;
 
     /** Get tria */
@@ -409,12 +410,16 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
     /** Stuck: Start exhaustive research */
-    if (i == 3) step = mesh->nt+1;
+    if (i == 3) stuck = 1;
 
   }
 
+  /* Store number of steps in the path for postprocessing */
+  if( stuck ) step *= -1;
+  ppt->s = step;
+
   /** Boundary hit or cyclic path: Perform exhaustive research */
-  if( step == (mesh->nt+1) ) {
+  if( stuck ) {
     if ( !mmgWarn0 ) {
       mmgWarn0 = 1;
       if ( mesh->info.imprim > PMMG_VERB_DETQUAL ) {
@@ -424,6 +429,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
     for( idxTria=1; idxTria<mesh->nt+1; idxTria++ ) {
+      /* Increase step counter */
+      ppt->s--;
 
       /** Get tetra */
       ptr = &mesh->tria[idxTria];
@@ -474,7 +481,7 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord,
                          int ip,int igrp ) {
   MMG5_pTetra    pt,pt1;
-  int            *adja,iel,i,idxTet,step,closestTet;
+  int            *adja,iel,i,idxTet,step,closestTet,stuck;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
@@ -485,9 +492,10 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   assert( idxTet <= mesh->ne );
 
+  stuck = 0;
   step = 0;
   ++mesh->base;
-  while(step <= mesh->ne) {
+  while( (step <= mesh->ne) && (!stuck) ) {
     step++;
 
     /** Get tetra */
@@ -516,12 +524,16 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
     /** Stuck: Start exhaustive research */
-    if (i == 4) step = mesh->ne+1;
+    if (i == 4) stuck = 1;
 
   }
 
+  /* Store number of steps in the path for postprocessing */
+  if( stuck ) step *= -1;
+  ppt->s = step;
+
   /** Boundary hit or cyclic path: Perform exhaustive research */
-  if( step == (mesh->ne+1) ) {
+  if( stuck ) {
     if ( !mmgWarn0 ) {
       mmgWarn0 = 1;
       if ( mesh->info.imprim > PMMG_VERB_DETQUAL ) {
@@ -533,6 +545,8 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     closestTet = 0;
     closestDist = 1.0e10;
     for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
+      /* Increase step counter */
+      ppt->s--;
 
       /** Get tetra */
       pt = &mesh->tetra[idxTet];
