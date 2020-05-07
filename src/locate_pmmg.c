@@ -593,6 +593,7 @@ void PMMG_locate_setStart( MMG5_pMesh mesh ) {
     for( iloc = 0; iloc < 3; iloc++ ) {
       ip = ptr->v[iloc];
       ppt = &mesh->point[ip];
+      assert( ppt->tag & MG_BDY );
       if( ppt->s ) continue;
       ppt->s = ie;
     }
