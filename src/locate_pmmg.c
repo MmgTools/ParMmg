@@ -372,6 +372,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   else
     idxTria = init;
 
+  assert( idxTria <= mesh->nt );
+
   step = 0;
   ++mesh->base;
 
@@ -471,7 +473,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord,
                          int ip,int igrp ) {
-  MMG5_pTetra    ptr,pt1;
+  MMG5_pTetra    pt,pt1;
   int            *adja,iel,i,idxTet,step,closestTet;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
@@ -481,17 +483,19 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   else
     idxTet = init;
 
+  assert( idxTet <= mesh->ne );
+
   step = 0;
   ++mesh->base;
   while(step <= mesh->ne) {
     step++;
 
     /** Get tetra */
-    ptr = &mesh->tetra[idxTet];
-    if ( !MG_EOK(ptr) ) continue;
+    pt = &mesh->tetra[idxTet];
+    if ( !MG_EOK(pt) ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+    if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*idxTet],
                                  barycoord ) ) break;
 
     /** Compute new direction */
@@ -531,18 +535,18 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
 
       /** Get tetra */
-      ptr = &mesh->tetra[idxTet];
-      if ( !MG_EOK(ptr) ) continue;
+      pt = &mesh->tetra[idxTet];
+      if ( !MG_EOK(pt) ) continue;
 
       /*¨Skip already analized tetras */
-      if( ptr->flag == mesh->base ) continue;
+      if( pt->flag == mesh->base ) continue;
 
       /** Exit the loop if you find the element */
-      if( PMMG_locatePointInTetra( mesh, ptr, ppt,&faceAreas[12*idxTet],
+      if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*idxTet],
                                    barycoord ) ) break;
 
       /** Save element index (with negative sign) if it is the closest one */
-      vol = ptr->qual;
+      vol = pt->qual;
       if( fabs(barycoord[0].val)*vol < closestDist ) {
         closestDist = fabs(barycoord[0].val)*vol;
         closestTet = -idxTet;
