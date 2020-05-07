@@ -362,7 +362,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #ifdef NO_POINTMAP
       ifoundTetra = ifoundTria = 1;
 #else
-      PMMG_locate_setStart( oldMesh );
+      PMMG_locate_setStart( mesh,oldMesh );
 #endif
       /* Loop on new tetrahedra, and localize their vertices in the old mesh */
       mesh->base++;
@@ -386,7 +386,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #ifdef NO_POINTMAP
             istartTria = ifoundTria;
 #else
-            istartTria = oldMesh->point[ppt->src].s;
+            istartTria = ppt->s;
 #endif
             /** Locate point in the old mesh */
             ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
@@ -434,7 +434,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #ifdef NO_POINTMAP
             istartTetra = ifoundTetra;
 #else
-            istartTetra = oldMesh->point[ppt->src].s;
+            istartTetra = ppt->s;
 #endif
             /** Locate point in the old volume mesh */
             ifoundTetra = PMMG_locatePointVol( oldMesh, ppt, istartTetra,

@@ -571,42 +571,63 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 }
 
 /**
- * \param mesh pointer to the background mesh structure
+ * \param mesh pointer to the current mesh structure
+ * \param meshOld pointer to the background mesh structure
  *
  *  For each point in the background mesh, store the index of a neighbouring
  *  triangle or tetrahedron.
  *
  */
-void PMMG_locate_setStart( MMG5_pMesh mesh ) {
+void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
   MMG5_pPoint ppt;
   MMG5_pTria  ptr;
   MMG5_pTetra pt;
   int         ie,iloc,ip;
 
-  /* Reset index */
+  /* Reset indices */
+  for( ip = 1; ip <= meshOld->np; ip++ )
+    meshOld->point[ip].s = 0;
   for( ip = 1; ip <= mesh->np; ip++ )
     mesh->point[ip].s = 0;
 
+
 //  /* Store triangle index */
-//  for( ie = 1; ie <= mesh->nt; ie++ ) {
-//    ptr = &mesh->tria[ie];
+//  for( ie = 1; ie <= meshOld->nt; ie++ ) {
+//    ptr = &meshOld->tria[ie];
 //    for( iloc = 0; iloc < 3; iloc++ ) {
 //      ip = ptr->v[iloc];
-//      ppt = &mesh->point[ip];
+//      ppt = &meshOld->point[ip];
 //      assert( ppt->tag & MG_BDY );
 //      if( ppt->s ) continue;
-//      ppt->s = ie;
+//      ppt->s = -ie;
 //    }
 //  }
+//
+//  /* Fetch triangle index */
+//  for( ip = 1; ip <= mesh->np; ip++ ) {
+//    ppt = &mesh->point[ip];
+//    if( !(ppt->tag & MG_BDY) ) continue;
+//    ppt->s = -meshOld->point[ppt->src].s;
+//  }
+
 
   /* Store tetra index */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
+  for( ie = 1; ie <= meshOld->ne; ie++ ) {
+    pt = &meshOld->tetra[ie];
     for( iloc = 0; iloc < 4; iloc++ ) {
       ip = pt->v[iloc];
-      ppt = &mesh->point[ip];
-      if( ppt->s ) continue;
+      ppt = &meshOld->point[ip];
+      if( ppt->s > 0 ) continue;
       ppt->s = ie;
     }
   }
+
+  /* Fetch tetra index */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( ppt->tag & MG_BDY ) continue;
+    ppt->s = meshOld->point[ppt->src].s;
+  }
+
+
 }
