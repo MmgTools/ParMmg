@@ -643,5 +643,35 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
     ppt->s = meshOld->point[ppt->src].s;
   }
 
+}
 
+void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,int igrp ) {
+  MMG5_pPoint ppt;
+  int         stepmin,stepmax;
+  double      stepav;
+  int         nexhaust;
+  int         ip,np;
+
+  stepmin  = meshOld->ne;
+  stepmax  = 0;
+  stepav   = 0;
+  nexhaust = 0;
+  np = 0;
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( !MG_VOK(ppt) ) continue;
+    if( ppt->tag & MG_BDY ) continue;
+    if( ppt->s < 0 ) {
+      nexhaust++;
+      ppt->s *= -1;
+    }
+    np++;
+    assert( ppt->s );
+    if( ppt->s < stepmin ) stepmin = ppt->s;
+    if( ppt->s > stepmax ) stepmax = ppt->s;
+    stepav += ppt->s;
+  }
+  stepav *= 1.0/np;
+
+  printf("grp %d min step %d max step %d av %f nexhaust %d\n",igrp,stepmin,stepmax,stepav,nexhaust);
 }
