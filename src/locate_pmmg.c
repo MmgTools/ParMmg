@@ -587,17 +587,17 @@ void PMMG_locate_setStart( MMG5_pMesh mesh ) {
   for( ip = 1; ip <= mesh->np; ip++ )
     mesh->point[ip].s = 0;
 
-  /* Store triangle index */
-  for( ie = 1; ie <= mesh->nt; ie++ ) {
-    ptr = &mesh->tria[ie];
-    for( iloc = 0; iloc < 3; iloc++ ) {
-      ip = ptr->v[iloc];
-      ppt = &mesh->point[ip];
-      assert( ppt->tag & MG_BDY );
-      if( ppt->s ) continue;
-      ppt->s = ie;
-    }
-  }
+//  /* Store triangle index */
+//  for( ie = 1; ie <= mesh->nt; ie++ ) {
+//    ptr = &mesh->tria[ie];
+//    for( iloc = 0; iloc < 3; iloc++ ) {
+//      ip = ptr->v[iloc];
+//      ppt = &mesh->point[ip];
+//      assert( ppt->tag & MG_BDY );
+//      if( ppt->s ) continue;
+//      ppt->s = ie;
+//    }
+//  }
 
   /* Store tetra index */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
