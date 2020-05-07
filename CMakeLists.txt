@@ -223,6 +223,11 @@ INCLUDE ( ExternalProject )
 
 # Allow not to use pointmap
 OPTION ( NO_POINTMAP "Do not use map for point tracking" OFF )
+IF( NO_POINTMAP )
+  SET(CMAKE_C_FLAGS       "-DNO_POINTMAP ${CMAKE_C_FLAGS}")
+  SET(CMAKE_CXX_FLAGS     "-DNO_POINTMAP ${CMAKE_CXX_FLAGS}")
+  SET(CMAKE_Fortran_FLAGS "-DNO_POINTMAP ${CMAKE_Fortran_FLAGS}")
+ENDIF ()
 
 # add pointmap flag
 SET(CMAKE_C_FLAGS       "-DUSE_POINTMAP ${CMAKE_C_FLAGS}")
