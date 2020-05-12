@@ -45,6 +45,19 @@ typedef struct {
   double val; /*!< coordinate value */
 } PMMG_baryCoord;
 
+/** \struct PMMG_locateStats
+ *
+ * \brief Struct containing the statistics of localization searches
+ *
+ */
+typedef struct {
+  int    nexhaust; /*!< number of exhaustive searches */
+  int    stepmax;  /*!< maximum number of steps on the search paths */
+  int    stepmin;  /*!< minimum number of steps on the search paths */
+  double stepav;   /*!< average number of steps on the search paths */
+} PMMG_locateStats;
+
+
 double PMMG_quickarea(double *a,double *b,double *c,double *n);
 void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim );
 int PMMG_compare_baryCoord( const void *a,const void *b );
@@ -66,6 +79,7 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord,
                          int ip,int igrp );
 void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld );
-void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,int igrp );
+void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateStats *locStats );
+void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank );
 
 #endif

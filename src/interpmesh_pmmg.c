@@ -279,6 +279,7 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * \param permNodGlob permutation array of nodes.
  * \param inputMet 1 if user provided metric.
  * \param igrp current mesh group.
+ * \param locStats pointer to the localization statistics structure.
  *
  * \return 0 if fail, 1 if success
  *
@@ -294,7 +295,8 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              MMG5_pSol met,MMG5_pSol oldMet,
                              double *faceAreas,double *triaNormals,
-                             int *permNodGlob,unsigned char inputMet,int igrp ) {
+                             int *permNodGlob,unsigned char inputMet,
+                             int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
@@ -480,7 +482,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         }
       }
 #ifndef NDEBUG
-      PMMG_locate_postprocessing( mesh,oldMesh,igrp );
+      PMMG_locate_postprocessing( mesh,oldMesh,locStats );
 #endif
     }
   }
@@ -501,15 +503,18 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  *
  */
 int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
-  PMMG_pGrp   grp,oldGrp;
-  MMG5_pMesh  mesh,oldMesh;
-  MMG5_pSol   met,oldMet;
-  MMG5_Hash   hash;
-  size_t      memAv,oldMemMax;
-  double      *faceAreas,*triaNormals;
-  int         igrp,ier;
+  PMMG_pGrp        grp,oldGrp;
+  MMG5_pMesh       mesh,oldMesh;
+  MMG5_pSol        met,oldMet;
+  MMG5_Hash        hash;
+  PMMG_locateStats *locStats;
+  size_t           memAv,oldMemMax;
+  double           *faceAreas,*triaNormals;
+  int              igrp,ier;
 
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+
+  PMMG_MALLOC( parmesh,locStats,parmesh->ngrp,PMMG_locateStats,"locStats",return 0 );
 
   /** Loop on current groups */
   ier = 1;
@@ -540,7 +545,7 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
     if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
                                   permNodGlob,parmesh->info.inputMet,
-                                  igrp ) ) ier = 0;
+                                  igrp,&locStats[igrp] ) ) ier = 0;
 
     /** Deallocate oriented face areas and surface unit normals */
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
@@ -550,5 +555,9 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
   }
 
+#ifndef NDEBUG
+  PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
+#endif
+  PMMG_DEL_MEM(parmesh,locStats,PMMG_locateStats,"locStats");
   return ier;
 }

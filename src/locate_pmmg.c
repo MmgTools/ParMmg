@@ -639,39 +639,65 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
   /* Fetch tetra index */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
+    if( !MG_VOK(ppt) ) continue;
     if( ppt->tag & MG_BDY ) continue;
     ppt->s = meshOld->point[ppt->src].s;
+    assert(ppt->s);
   }
 
 }
 
-void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,int igrp ) {
+/**
+ * \param mesh pointer to the current mesh structure
+ * \param meshOld pointer to the background mesh structure
+ * \param locStats localization statistics structure
+ *
+ *  Compute localization statistics.
+ *
+ */
+void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateStats *locStats ) {
   MMG5_pPoint ppt;
-  int         stepmin,stepmax;
-  double      stepav;
-  int         nexhaust;
   int         ip,np;
 
-  stepmin  = meshOld->ne;
-  stepmax  = 0;
-  stepav   = 0;
-  nexhaust = 0;
+  locStats->stepmin  = meshOld->ne;
+  locStats->stepmax  = 0;
+  locStats->stepav   = 0;
+  locStats->nexhaust = 0;
   np = 0;
+
+  /* Get the number of steps from the ppt->s field */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if( !MG_VOK(ppt) ) continue;
     if( ppt->tag & MG_BDY ) continue;
+    /* Exhaustive searches are identified by a negative number of steps
+     * (counting both the number of steps before and after the exhaustive
+     * search) */
     if( ppt->s < 0 ) {
-      nexhaust++;
+      locStats->nexhaust++;
       ppt->s *= -1;
     }
     np++;
     assert( ppt->s );
-    if( ppt->s < stepmin ) stepmin = ppt->s;
-    if( ppt->s > stepmax ) stepmax = ppt->s;
-    stepav += ppt->s;
+    if( ppt->s < locStats->stepmin ) locStats->stepmin = ppt->s;
+    if( ppt->s > locStats->stepmax ) locStats->stepmax = ppt->s;
+    locStats->stepav += ppt->s;
   }
-  stepav *= 1.0/np;
+  locStats->stepav *= 1.0/np;
 
-  printf("grp %d min step %d max step %d av %f nexhaust %d\n",igrp,stepmin,stepmax,stepav,nexhaust);
+}
+
+/**
+ * \param locStats localization statistics structure
+ * \param ngrp number of meshes
+ * \param myrank process rank
+ *
+ *  Print localization statistics.
+ *
+ */
+void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank ) {
+  int igrp;
+
+  for( igrp = 0; igrp < ngrp; igrp++ )
+    printf("         Localization report (rank %d grp %d): nexhaust %d max step %d, min step %d, av %f\n",myrank,igrp,locStats[igrp].nexhaust,locStats[igrp].stepmax,locStats[igrp].stepmin,locStats[igrp].stepav);
 }
