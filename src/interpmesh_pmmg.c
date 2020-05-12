@@ -296,7 +296,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              MMG5_pSol met,MMG5_pSol oldMet,
                              double *faceAreas,double *triaNormals,
                              int *permNodGlob,unsigned char inputMet,
-                             int igrp,PMMG_locateStats *locStats ) {
+                             int myrank,int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
@@ -392,37 +392,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
             /** Locate point in the old mesh */
             ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
-                                              triaNormals, barycoord,
-                                              ip, igrp );
-            if( !ifoundTria ) {
-              fprintf(stderr,"\n  ## Error: %s:"
-                      " point %d not found, coords %e %e %e\n",__func__,
-                      ip, mesh->point[ip].c[0],
-                      mesh->point[ip].c[1],mesh->point[ip].c[2]);
-              return 0;
-            } else if( ifoundTria < 0 ) {
-              if ( !mmgWarn ) {
-                mmgWarn = 1;
-                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                  fprintf(stderr,"\n  ## Warning: %s: point %d not"
-                          " found, coords %e %e %e\n",__func__,
-                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                          mesh->point[ip].c[2]);
-                }
-              }
-              ifoundTria = -ifoundTria;
-              PMMG_locatePointInClosestTria( oldMesh,ifoundTria,ppt,barycoord );
-            } else if( ifoundTria > mesh->nt ) {
-              if ( !mmgWarn ) {
-                mmgWarn = 1;
-                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                  fprintf(stderr,"\n  ## Warning: %s: exhaustive search for point %d"
-                          ", coords %e %e %e\n",__func__,
-                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                          mesh->point[ip].c[2]);
-                }
-              }
-            }
+                                              triaNormals, barycoord, ip );
+
+            ifoundTria = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,
+                                                      myrank,igrp );
 
             /** Interpolate point metrics */
             ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
@@ -440,36 +413,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
             /** Locate point in the old volume mesh */
             ifoundTetra = PMMG_locatePointVol( oldMesh, ppt, istartTetra,
-                                               faceAreas, barycoord,
-                                               ip, igrp );
-            if( !ifoundTetra ) {
-              fprintf(stderr,"\n  ## Error: %s:"
-                      " point %d not found, coords %e %e %e\n",__func__,
-                      ip, mesh->point[ip].c[0],
-                      mesh->point[ip].c[1],mesh->point[ip].c[2]);
-              return 0;
-            } else if( ifoundTetra < 0 ) {
-              if ( !mmgWarn ) {
-                mmgWarn = 1;
-                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                  fprintf(stderr,"\n  ## Warning: %s: point %d not"
-                          " found, coords %e %e %e\n",__func__,
-                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                          mesh->point[ip].c[2]);
-                }
-              }
-              ifoundTetra = -ifoundTetra;
-            } else if( ifoundTetra > mesh->ne ) {
-              if ( !mmgWarn ) {
-                mmgWarn = 1;
-                if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
-                  fprintf(stderr,"\n  ## Warning: %s: exhaustive search for point %d"
-                          ", coords %e %e %e\n",__func__,
-                          ip, mesh->point[ip].c[0],mesh->point[ip].c[1],
-                          mesh->point[ip].c[2]);
-                }
-              }
-            }
+                                               faceAreas, barycoord, ip );
+
+            ifoundTetra = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTetra,
+                                                       myrank,igrp );
 
             /** Interpolate volume point metrics */
             ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifoundTetra],ip,
@@ -545,7 +492,7 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
     if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
                                   permNodGlob,parmesh->info.inputMet,
-                                  igrp,&locStats[igrp] ) ) ier = 0;
+                                  parmesh->myrank,igrp,&locStats[igrp] ) ) ier = 0;
 
     /** Deallocate oriented face areas and surface unit normals */
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {

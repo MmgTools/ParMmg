@@ -225,8 +225,8 @@ int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
  *  closest point.
  *
  */
-int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
-                                   PMMG_baryCoord *barycoord ) {
+int PMMG_baryCoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                 PMMG_baryCoord *barycoord ) {
   MMG5_pTria ptr;
   double *c,dist[3],norm,min;
   int i,d,itarget;
@@ -267,6 +267,8 @@ int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
  * \param ppt pointer to the point to locate
  * \param triaNormal unit normal of the current triangle
  * \param barycoord barycentric coordinates of the point to be located
+ * \param closestDist distance from the closest triangle
+ * \param closestTria index of the closest triangle (with negative sign)
  *
  * \return 1 if found; 0 if not found
  *
@@ -350,7 +352,6 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  * \param triaNormals unit normals of the all triangles in the mesh
  * \param barycoord barycentric coordinates of the point to be located
  * \param ip current mesh point
- * \param igrp current mesh group
  *
  * \return ie if positive, index of the target element; if negative, index of
  * the closest element; 0 if not found
@@ -361,7 +362,7 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_baryCoord *barycoord,
-                         int ip,int igrp ) {
+                         int ip ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,iel,i,idxTria,step,closestTria,stuck;
   double         vol,eps,closestDist;
@@ -455,6 +456,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                   __func__,closestDist);
         }
       }
+      /* Recompute barycentric coordinates to the closest point */
+      PMMG_baryCoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
       return closestTria;
     }
 
@@ -469,7 +472,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
  * \param barycoord barycentric coordinates of the point to be located
  * \param ip current mesh point
- * \param igrp current mesh group
  *
  * \return ie if positive, index of the target element; if negative, index of
  * the closest element; 0 if not found
@@ -479,7 +481,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  */
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord,
-                         int ip,int igrp ) {
+                         int ip ) {
   MMG5_pTetra    pt,pt1;
   int            *adja,iel,i,idxTet,step,closestTet,stuck;
   double         vol,eps,closestDist;
@@ -582,6 +584,39 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   }
   return idxTet;
+}
+
+/**
+ * \param mesh pointer to the current mesh structure
+ * \param ip point index
+ * \param kfound index of the found element
+ * \param myrank process rank
+ * \param igrp mesh group index
+ *
+ * \return kfound for a valid element, 0 otherwise
+ *
+ * Analise the found element and display warnings for exhaustive searches.
+ *
+ */
+int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,int myrank,int igrp ) {
+  MMG5_pPoint ppt;
+
+  ppt = &mesh->point[ip];
+
+  if( !kfound ) {
+    fprintf(stderr,"\n  ## Error: %s (rank %d, grp %d): point %d not found, tag %d,"
+            " coords %e %e %e\n",__func__,myrank,igrp,
+            ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+  } else if( kfound < 0 ) {
+    if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): closest element for"
+              " point %d, coords %e %e %e\n",__func__,myrank,igrp,
+              ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+    }
+    return -kfound;
+  }
+
+  return kfound;
 }
 
 /**

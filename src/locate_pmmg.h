@@ -65,8 +65,6 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord
                               double *normal,PMMG_baryCoord *barycoord );
 int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
                               double *faceAreas, PMMG_baryCoord *barycoord );
-int PMMG_locatePointInClosestTria( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
-                                   PMMG_baryCoord *barycoord );
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_baryCoord *barycoord,
                             double *closestDist,int *closestTria );
@@ -74,10 +72,11 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
                              double *faceAreas,PMMG_baryCoord *barycoord );
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_baryCoord *barycoord,
-                         int ip,int igrp );
+                         int ip );
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *faceAreas,PMMG_baryCoord *barycoord,
-                         int ip,int igrp );
+                         int ip );
+int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,int myrank,int igrp );
 void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld );
 void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateStats *locStats );
 void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank );
