@@ -281,6 +281,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
                             double *closestDist,int *closestTria ) {
   MMG5_pPoint    ppt0,ppt1;
   double         h,hmax;
+  double         proj,dist[3];
   int            j,d,found = 0;
 
   /** Mark tria */
@@ -290,7 +291,8 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormal, barycoord);
   qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
 
-  /* Rough check on the distance from the surface */
+  /* Rough check on the distance from the surface
+   * (avoid being on the opposite pole) */
   hmax = 0.0;
   for( j = 0; j < 3; j++ ) {
     ppt0 = &mesh->point[ptr->v[j]];
@@ -303,9 +305,28 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   }
   if( fabs(barycoord[3].val) > hmax ) return 0;
 
+  /* Distance from the first vertex */
+  ppt0 = &mesh->point[ptr->v[0]];
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d]-ppt0->c[d];
+
+  /* Project */
+  proj = 0;
+  for( d = 0; d < 3; d++ )
+    proj += dist[d]*triaNormal[d];
+
+  /* Orthogonalize */
+  for( d = 0; d < 3; d++ )
+    dist[d] -= proj*triaNormal[d];
+
+  h = 0.0;
+  for( d = 0; d < 3; d++ )
+    h += dist[d]*dist[d];
+  h = sqrt(h);
+
   /** Save element index (with negative sign) if it is the closest one */
-  if( fabs(barycoord[3].val) < *closestDist ) {
-    *closestDist = fabs(barycoord[3].val);
+  if( h < *closestDist ) {
+    *closestDist = h;
     *closestTria = -k;
   }
 
