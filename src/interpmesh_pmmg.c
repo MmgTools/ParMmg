@@ -479,12 +479,11 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
           }
         }
       }
+#ifndef NDEBUG
+      PMMG_locate_postprocessing( mesh,oldMesh,igrp );
+#endif
     }
   }
-
-#ifndef NDEBUG
-  PMMG_locate_postprocessing( mesh,oldMesh,igrp );
-#endif
 
   return 1;
 }
