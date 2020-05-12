@@ -348,6 +348,47 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
 /**
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
+ * \param triaNormals non-normalized triangle normals of all mesh triangles
+ * \param closestTria index of the closest triangle
+ *
+ * \return k index of the target element; if higher than the number of
+ *           triangles, the point has not been found.
+ *
+ *  Exhaustive point search on the background triangles.
+ *
+ */
+int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
+                                  double *triaNormals,PMMG_baryCoord *barycoord,
+                                  int *closestTria ) {
+  MMG5_pTria     ptr;
+  int            k;
+  double         closestDist;
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+
+    /* Increase step counter */
+    ppt->s--;
+
+    /** Get tetra */
+    ptr = &mesh->tria[k];
+    if ( !MG_EOK(ptr) ) continue;
+
+    /*¨Skip already analized tetras */
+    if( ptr->flag == mesh->base ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTria( mesh, ptr, k, ppt,
+                                &triaNormals[3*k], barycoord,
+                                &closestDist, closestTria ) ) break;
+
+  }
+
+  return k;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
  * \param init index of the starting element
  * \param triaNormals unit normals of the all triangles in the mesh
  * \param barycoord barycentric coordinates of the point to be located
@@ -429,23 +470,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
     }
 
-    for( idxTria=1; idxTria<mesh->nt+1; idxTria++ ) {
-      /* Increase step counter */
-      ppt->s--;
-
-      /** Get tetra */
-      ptr = &mesh->tria[idxTria];
-      if ( !MG_EOK(ptr) ) continue;
-
-      /*¨Skip already analized tetras */
-      if( ptr->flag == mesh->base ) continue;
-
-      /** Exit the loop if you find the element */
-      if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt,
-                                  &triaNormals[3*idxTria], barycoord,
-                                  &closestDist, &closestTria ) ) break;
-
-    }
+    idxTria = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
+                                            closestTria );
 
     /** Element not found: Return the closest one with negative sign (if found) */
     if ( idxTria == mesh->nt+1 ) {
@@ -463,6 +489,54 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   }
   return idxTria;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param faceAreas oriented face areas of the all tetrahedra in the mesh
+ * \param closestTet index of the closest tetrahedron
+ *
+ * \return ie index of the target element; if higher than the number of
+ *            tetrahedra, the point has not been found.
+ *
+ *  Exhaustive point search on the background tetrahedra.
+ *
+ */
+int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
+                                   double *faceAreas,PMMG_baryCoord *barycoord,
+                                   int *closestTet ) {
+  MMG5_pTetra    pt;
+  int            ie;
+  double         vol,closestDist;
+
+  closestTet = 0;
+  closestDist = 1.0e10;
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+
+    /* Increase step counter */
+    ppt->s--;
+
+    /** Get tetra */
+    pt = &mesh->tetra[ie];
+    if ( !MG_EOK(pt) ) continue;
+
+    /*¨Skip already analized tetras */
+    if( pt->flag == mesh->base ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*ie],
+                                 barycoord ) ) break;
+
+    /** Save element index (with negative sign) if it is the closest one */
+    vol = pt->qual;
+    if( fabs(barycoord[0].val)*vol < closestDist ) {
+      closestDist = fabs(barycoord[0].val)*vol;
+      *closestTet = -ie;
+    }
+  }
+
+  return ie;
 }
 
 /**
@@ -508,7 +582,8 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*idxTet],
                                  barycoord ) ) break;
 
-    /** Compute new direction */
+    /** Compute new direction (barycentric coordinates are sorted in increasing
+     *  order) */
     adja = &mesh->adja[4*(idxTet-1)+1];
     for( i=0; i<4; i++ ) {
       iel = adja[barycoord[i].idx]/4;
@@ -544,31 +619,8 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
     }
 
-    closestTet = 0;
-    closestDist = 1.0e10;
-    for( idxTet=1; idxTet<mesh->ne+1; idxTet++ ) {
-      /* Increase step counter */
-      ppt->s--;
-
-      /** Get tetra */
-      pt = &mesh->tetra[idxTet];
-      if ( !MG_EOK(pt) ) continue;
-
-      /*¨Skip already analized tetras */
-      if( pt->flag == mesh->base ) continue;
-
-      /** Exit the loop if you find the element */
-      if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*idxTet],
-                                   barycoord ) ) break;
-
-      /** Save element index (with negative sign) if it is the closest one */
-      vol = pt->qual;
-      if( fabs(barycoord[0].val)*vol < closestDist ) {
-        closestDist = fabs(barycoord[0].val)*vol;
-        closestTet = -idxTet;
-      }
-
-    }
+    idxTet = PMMG_locatePoint_exhaustTetra( mesh,ppt,faceAreas,barycoord,
+                                            &closestTet );
 
     /** Element not found: Return the closest one with negative sign (if found) */
     if ( idxTet == mesh->ne+1 ) {
@@ -598,7 +650,8 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  * Analise the found element and display warnings for exhaustive searches.
  *
  */
-int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,int myrank,int igrp ) {
+int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,
+                                 int myrank,int igrp ) {
   MMG5_pPoint ppt;
 
   ppt = &mesh->point[ip];
