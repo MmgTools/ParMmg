@@ -359,10 +359,9 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  */
 int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
                                   double *triaNormals,PMMG_baryCoord *barycoord,
-                                  int *closestTria ) {
+                                  double *closestDist,int *closestTria ) {
   MMG5_pTria     ptr;
   int            k;
-  double         closestDist;
 
   for( k = 1; k <= mesh->nt; k++ ) {
 
@@ -379,7 +378,7 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt,
                                 &triaNormals[3*k], barycoord,
-                                &closestDist, closestTria ) ) break;
+                                closestDist, closestTria ) ) break;
 
   }
 
@@ -471,7 +470,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
     idxTria = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
-                                            closestTria );
+                                            &closestDist,&closestTria );
 
     /** Element not found: Return the closest one with negative sign (if found) */
     if ( idxTria == mesh->nt+1 ) {
