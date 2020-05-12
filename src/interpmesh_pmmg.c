@@ -269,6 +269,70 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   return 1;
 }
 
+/**
+ * \param mesh pointer to the current mesh structure.
+ * \param triaNormals pointer to the array of non-normalized triangle normals.
+ *
+ * \return 1.
+ *
+ *  Precompute non-normalized triangle normals.
+ *
+ */
+int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals ) {
+  MMG5_pTria  ptr;
+  double      *normal,dd;
+  int         k,ia,ib,ic;
+  int         ier;
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    ia = ptr->v[0];
+    ib = ptr->v[1];
+    ic = ptr->v[2];
+    normal = &triaNormals[3*k];
+    /* Store triangle unit normal and volume */
+    ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
+    ptr->qual = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
+    dd = 1.0/ptr->qual;
+    normal[0] *= dd;
+    normal[1] *= dd;
+    normal[2] *= dd;
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh structure.
+ * \param faceAreas pointer to the array of oriented face areas.
+ *
+ * \return 1.
+ *
+ *  Precompute oriented face areas on tetrahedra.
+ *
+ */
+int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas ) {
+  MMG5_pTetra pt;
+  double      *normal;
+  int         ie,ifac,ia,ib,ic;
+  int         ier;
+
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    /* Store tetra volume in the qual field */
+    pt->qual = MMG5_orvol( mesh->point, pt->v );
+    /* Store oriented face normals */
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      normal = &faceAreas[12*ie+3*ifac];
+      ia = pt->v[MMG5_idir[ifac][0]];
+      ib = pt->v[MMG5_idir[ifac][1]];
+      ic = pt->v[MMG5_idir[ifac][2]];
+      ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
+    }
+  }
+
+  return 1;
+}
 
 /**
  * \param mesh pointer to the current mesh structure.
@@ -276,8 +340,10 @@ int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
  * \param met pointer to the current metrics structure.
  * \param oldMet pointer to the background metrics structure.
  * \param faceAreas pointer to the array of oriented face areas.
+ * \param triaNormals pointer to the array of non-normalized triangle normals.
  * \param permNodGlob permutation array of nodes.
  * \param inputMet 1 if user provided metric.
+ * \param myrank process rank.
  * \param igrp current mesh group.
  * \param locStats pointer to the localization statistics structure.
  *
@@ -322,36 +388,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
     } else {
 
       /** Pre-compute oriented face areas */
-      for( ie = 1; ie <= oldMesh->ne; ie++ ) {
-        pt = &oldMesh->tetra[ie];
-        /* Store tetra volume in the qual field */
-        pt->qual = MMG5_orvol( oldMesh->point, pt->v );
-        /* Store oriented face normals */
-        for( ifac = 0; ifac < 4; ifac++ ) {
-          normal = &faceAreas[12*ie+3*ifac];
-          ia = pt->v[MMG5_idir[ifac][0]];
-          ib = pt->v[MMG5_idir[ifac][1]];
-          ic = pt->v[MMG5_idir[ifac][2]];
-          ier = MMG5_nonUnitNorPts( oldMesh,ia,ib,ic,normal );
-        }
-      }
-      /** Pre-compute surface unit normals */
-      for( k = 1; k <= oldMesh->nt; k++ ) {
-        ptr = &oldMesh->tria[k];
-        ia = ptr->v[0];
-        ib = ptr->v[1];
-        ic = ptr->v[2];
-        normal = &triaNormals[3*k];
-        /* Store triangle unit normal and volume */
-        ier = MMG5_nonUnitNorPts( oldMesh,ia,ib,ic,normal );
-        ptr->qual = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
-        if( ptr->qual < MMG5_EPSD2 ) return 0;
-        dd = 1.0/ptr->qual;
-        normal[0] *= dd;
-        normal[1] *= dd;
-        normal[2] *= dd;
-      }
+      ier = PMMG_precompute_faceAreas( oldMesh,faceAreas );
 
+      /** Pre-compute surface unit normals */
+      ier = PMMG_precompute_triaNormals( oldMesh,triaNormals );
 
       /** Interpolate metrics */
       oldMesh->base = 0;
@@ -477,17 +517,8 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
     /** Pre-allocate oriented face areas and surface unit normals */
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
-      ier = 1;
-      PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",ier=0 );
-      if( !ier ) {
-        PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
-        return 0;
-      }
-      PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",ier=0 );
-      if( !ier ) {
-        PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
-        return 0;
-      }
+      PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",return 0 );
+      PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",return 0 );
     }
 
     if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
