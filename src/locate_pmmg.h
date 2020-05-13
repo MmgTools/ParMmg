@@ -35,7 +35,7 @@
 
 #define LOCATE_PMMG_H
 
-/** \struct PMMG_baryCoord
+/** \struct PMMG_barycoord
  *
  * \brief Struct containing the index and value of a barycentric coordinate
  *
@@ -43,7 +43,7 @@
 typedef struct {
   int    idx; /*!< direction */
   double val; /*!< coordinate value */
-} PMMG_baryCoord;
+} PMMG_barycoord;
 
 /** \struct PMMG_locateStats
  *
@@ -59,22 +59,22 @@ typedef struct {
 
 
 double PMMG_quickarea(double *a,double *b,double *c,double *n);
-void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim );
-int PMMG_compare_baryCoord( const void *a,const void *b );
-int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
-                              double *normal,PMMG_baryCoord *barycoord );
-int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
-                              double *faceAreas, PMMG_baryCoord *barycoord );
+void PMMG_barycoord_get( double *val,PMMG_barycoord *phi,int ndim );
+int  PMMG_barycoord_compare( const void *a,const void *b );
+int  PMMG_barycoord2d_compute( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
+                               double *normal,PMMG_barycoord *barycoord );
+int  PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
+                               double *faceAreas, PMMG_barycoord *barycoord );
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
-                            double *triaNormal,PMMG_baryCoord *barycoord,
+                            double *triaNormal,PMMG_barycoord *barycoord,
                             double *closestDist,int *closestTria );
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
-                             double *faceAreas,PMMG_baryCoord *barycoord );
+                             double *faceAreas,PMMG_barycoord *barycoord );
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_baryCoord *barycoord,
+                         double *triaNormals,PMMG_barycoord *barycoord,
                          int ip );
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *faceAreas,PMMG_baryCoord *barycoord,
+                         double *faceAreas,PMMG_barycoord *barycoord,
                          int ip );
 int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,int myrank,int igrp );
 void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld );

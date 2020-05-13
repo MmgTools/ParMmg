@@ -74,13 +74,13 @@ int PMMG_invmat22( double *m, double *im ) {
  *  This function is analogous to the MMG5_interp4bar_iso() function.
  */
 int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTria ptr,int ip,PMMG_baryCoord *barycoord ) {
+                         MMG5_pTria ptr,int ip,PMMG_barycoord *barycoord ) {
   double phi[3];
   int iloc,i,ier;
 
   assert( met->size == 1 );
 
-  PMMG_get_baryCoord( phi, barycoord, 3 );
+  PMMG_barycoord_get( phi, barycoord, 3 );
 
   /** Linear interpolation of the squared size */
   met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
@@ -106,14 +106,14 @@ int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTria ptr,int ip,PMMG_baryCoord *barycoord ) {
+                         MMG5_pTria ptr,int ip,PMMG_barycoord *barycoord ) {
   double phi[3],dm[3][3],mi[3][3],m[3];
   int    iloc,i,isize,nsize,ier;
 
   assert( met->size == 3 );
   nsize  = met->size;
 
-  PMMG_get_baryCoord( phi, barycoord, 3 );
+  PMMG_barycoord_get( phi, barycoord, 3 );
 
   for( i=0; i<3; i++ ) {
     for(isize = 0; isize < nsize; isize++ )
@@ -149,13 +149,13 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *  This function is analogous to the MMG5_interp4bar_iso() function.
  */
 int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTetra pt,int ip,PMMG_baryCoord *barycoord ) {
+                         MMG5_pTetra pt,int ip,PMMG_barycoord *barycoord ) {
   double phi[4];
   int iloc,i,ier;
 
   assert( met->size == 1 );
 
-  PMMG_get_baryCoord( phi, barycoord, 4 );
+  PMMG_barycoord_get( phi, barycoord, 4 );
 
   /** Linear interpolation of the squared size */
   met->m[ip] = phi[0]*oldMet->m[pt->v[0]]+
@@ -182,14 +182,14 @@ int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
  *
  */
 int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
-                         MMG5_pTetra pt,int ip,PMMG_baryCoord *barycoord ) {
+                         MMG5_pTetra pt,int ip,PMMG_barycoord *barycoord ) {
   double phi[4],dm[4][6],mi[4][6],m[6];
   int    iloc,i,isize,nsize,ier;
 
   assert( met->size == 6 );
   nsize  = met->size;
 
-  PMMG_get_baryCoord( phi, barycoord, 4 );
+  PMMG_barycoord_get( phi, barycoord, 4 );
 
   for( i=0; i<4; i++ ) {
     for(isize = 0; isize < nsize; isize++ )
@@ -366,7 +366,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   MMG5_pTetra pt;
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
-  PMMG_baryCoord barycoord[4];
+  PMMG_barycoord barycoord[4];
   double      *normal,dd;
   int         istartTetra,istartTria,ifoundTetra,ifoundTria;
   int         ip,ie,ifac,k,ia,ib,ic,iloc;

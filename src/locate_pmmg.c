@@ -94,7 +94,7 @@ double PMMG_quickarea(double *a,double *b,double *c,double *n) {
  *  Get barycentric coordinates.
  *
  */
-void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim ) {
+void PMMG_barycoord_get( double *val,PMMG_barycoord *phi,int ndim ) {
   int i;
 
   for( i = 0; i < ndim; i++ )
@@ -111,12 +111,12 @@ void PMMG_get_baryCoord( double *val,PMMG_baryCoord *phi,int ndim ) {
  *  Compare the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
-int PMMG_compare_baryCoord( const void *a,const void *b ) {
-  PMMG_baryCoord *coord_a;
-  PMMG_baryCoord *coord_b;
+int PMMG_barycoord_compare( const void *a,const void *b ) {
+  PMMG_barycoord *coord_a;
+  PMMG_barycoord *coord_b;
 
-  coord_a = (PMMG_baryCoord *)a;
-  coord_b = (PMMG_baryCoord *)b;
+  coord_a = (PMMG_barycoord *)a;
+  coord_b = (PMMG_barycoord *)b;
 
   if( coord_a->val > coord_b-> val ) return 1;
   if( coord_a->val < coord_b-> val ) return -1;
@@ -124,7 +124,7 @@ int PMMG_compare_baryCoord( const void *a,const void *b ) {
   return 0;
 }
 
-int PMMG_allPositive_baryCoord( PMMG_baryCoord *phi ) {
+int PMMG_barycoord_isInside( PMMG_barycoord *phi ) {
   if( phi[0].val > -MMG5_EPS )
     return 1;
   else
@@ -145,8 +145,8 @@ int PMMG_allPositive_baryCoord( PMMG_baryCoord *phi ) {
  *  Compute the barycentric coordinates of a given point in a given triangle.
  *
  */
-int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
-                              double *normal,PMMG_baryCoord *barycoord ) {
+int PMMG_barycoord2d_compute( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
+                              double *normal,PMMG_barycoord *barycoord ) {
   double dist,proj[3],*c1,*c2,vol;
   int    ia,i;
 
@@ -192,8 +192,8 @@ int PMMG_compute_baryCoord2d( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord
  *  Compute the barycentric coordinates of a given point in a given tetrahedron.
  *
  */
-int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
-                              double *faceAreas,PMMG_baryCoord *barycoord ) {
+int PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
+                              double *faceAreas,PMMG_barycoord *barycoord ) {
   double *c0,*normal,vol;
   int    ifac;
 
@@ -225,8 +225,8 @@ int PMMG_compute_baryCoord3d( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
  *  closest point.
  *
  */
-int PMMG_baryCoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
-                                 PMMG_baryCoord *barycoord ) {
+int PMMG_barycoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                 PMMG_barycoord *barycoord ) {
   MMG5_pTria ptr;
   double *c,dist[3],norm,min;
   int i,d,itarget;
@@ -277,7 +277,7 @@ int PMMG_baryCoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
-                            double *triaNormal,PMMG_baryCoord *barycoord,
+                            double *triaNormal,PMMG_barycoord *barycoord,
                             double *closestDist,int *closestTria ) {
   MMG5_pPoint    ppt0,ppt1;
   double         h,hmax;
@@ -288,8 +288,8 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   ptr->flag = mesh->base;
 
   /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_compute_baryCoord2d(mesh, ptr, k, ppt->c, triaNormal, barycoord);
-  qsort(barycoord,3,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+  PMMG_barycoord2d_compute(mesh, ptr, k, ppt->c, triaNormal, barycoord);
+  qsort(barycoord,3,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
 
   /* Rough check on the distance from the surface
    * (avoid being on the opposite pole) */
@@ -331,7 +331,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   }
 
   /** Exit if inside the element */
-  if( PMMG_allPositive_baryCoord( barycoord ) ) found = 1;
+  if( PMMG_barycoord_isInside( barycoord ) ) found = 1;
 
   return found;
 }
@@ -350,18 +350,18 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
  *
  */
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
-                             double *faceAreas,PMMG_baryCoord *barycoord ) {
+                             double *faceAreas,PMMG_barycoord *barycoord ) {
   int found = 0;
 
   /** Mark tetra */
   pt->flag = mesh->base;
 
   /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_compute_baryCoord3d(mesh, pt, ppt->c, faceAreas, barycoord);
-  qsort(barycoord,4,sizeof(PMMG_baryCoord),PMMG_compare_baryCoord);
+  PMMG_barycoord3d_compute(mesh, pt, ppt->c, faceAreas, barycoord);
+  qsort(barycoord,4,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
 
   /** Exit if inside the element */
-  if( PMMG_allPositive_baryCoord( barycoord ) ) found = 1;
+  if( PMMG_barycoord_isInside( barycoord ) ) found = 1;
 
   return found;
 }
@@ -379,7 +379,7 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
-                                  double *triaNormals,PMMG_baryCoord *barycoord,
+                                  double *triaNormals,PMMG_barycoord *barycoord,
                                   double *closestDist,int *closestTria ) {
   MMG5_pTria     ptr;
   int            k;
@@ -422,7 +422,7 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_baryCoord *barycoord,
+                         double *triaNormals,PMMG_barycoord *barycoord,
                          int ip ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,iel,i,idxTria,step,closestTria,stuck;
@@ -503,7 +503,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
         }
       }
       /* Recompute barycentric coordinates to the closest point */
-      PMMG_baryCoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
+      PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
       return closestTria;
     }
 
@@ -524,7 +524,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  *
  */
 int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
-                                   double *faceAreas,PMMG_baryCoord *barycoord,
+                                   double *faceAreas,PMMG_barycoord *barycoord,
                                    int *closestTet ) {
   MMG5_pTetra    pt;
   int            ie;
@@ -574,7 +574,7 @@ int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *faceAreas,PMMG_baryCoord *barycoord,
+                         double *faceAreas,PMMG_barycoord *barycoord,
                          int ip ) {
   MMG5_pTetra    pt,pt1;
   int            *adja,iel,i,idxTet,step,closestTet,stuck;
