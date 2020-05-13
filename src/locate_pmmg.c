@@ -530,7 +530,7 @@ int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
   int            ie;
   double         vol,closestDist;
 
-  closestTet = 0;
+  *closestTet = 0;
   closestDist = 1.0e10;
   for( ie = 1; ie <= mesh->ne; ie++ ) {
 
