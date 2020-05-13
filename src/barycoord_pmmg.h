@@ -51,5 +51,11 @@ int  PMMG_barycoord2d_compute( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coor
                                double *normal,PMMG_barycoord *barycoord );
 int  PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
                                double *faceAreas, PMMG_barycoord *barycoord );
+int  PMMG_barycoord2d_evaluate( MMG5_pMesh mesh,MMG5_pTria ptr,int k,
+                                double *coord,double *triaNormal,
+                                PMMG_barycoord *barycoord );
+int  PMMG_barycoord3d_evaluate( MMG5_pMesh mesh,MMG5_pTetra pt,
+                                double *coord,double *faceAreas,
+                                PMMG_barycoord *barycoord );
 
 #endif

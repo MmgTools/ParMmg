@@ -78,14 +78,14 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   MMG5_pPoint    ppt0,ppt1;
   double         h,hmax;
   double         proj,dist[3];
-  int            j,d,found = 0;
+  int            j,d,found;
 
-  /** Mark tria */
+  /* Mark tria */
   ptr->flag = mesh->base;
 
-  /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_barycoord2d_compute(mesh, ptr, k, ppt->c, triaNormal, barycoord);
-  qsort(barycoord,3,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
+  /* Evaluate point in tetra through barycentric coordinates */
+  found = PMMG_barycoord2d_evaluate( mesh,ptr,k,ppt->c,triaNormal,barycoord );
+
 
   /* Rough check on the distance from the surface
    * (avoid being on the opposite pole) */
@@ -120,14 +120,11 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
     h += dist[d]*dist[d];
   h = sqrt(h);
 
-  /** Save element index (with negative sign) if it is the closest one */
+  /* Save element index (with negative sign) if it is the closest one */
   if( h < *closestDist ) {
     *closestDist = h;
     *closestTria = -k;
   }
-
-  /** Exit if inside the element */
-  if( PMMG_barycoord_isInside( barycoord ) ) found = 1;
 
   return found;
 }
@@ -147,19 +144,12 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
  */
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
                              double *faceAreas,PMMG_barycoord *barycoord ) {
-  int found = 0;
 
-  /** Mark tetra */
+  /* Mark tetra */
   pt->flag = mesh->base;
 
-  /** Get barycentric coordinates and sort them in ascending order */
-  PMMG_barycoord3d_compute(mesh, pt, ppt->c, faceAreas, barycoord);
-  qsort(barycoord,4,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
-
-  /** Exit if inside the element */
-  if( PMMG_barycoord_isInside( barycoord ) ) found = 1;
-
-  return found;
+  /* Evaluate point in tetra through barycentric coordinates */
+  return PMMG_barycoord3d_evaluate( mesh,pt,ppt->c,faceAreas,barycoord );
 }
 
 /**

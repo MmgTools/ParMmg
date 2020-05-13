@@ -189,6 +189,59 @@ int PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
 }
 
 /**
+ * \param mesh pointer to the mesh structure
+ * \param ptr pointer to the current triangle
+ * \param k index of the triangle
+ * \param coord pointer to the point coordinates
+ * \param normal unit normal of the current triangle
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
+ *
+ * \return 0 if the point is outside the element, 1 if inside.
+ *
+ *  Compute the barycentric coordinates of a given point in a given triangle,
+ *  sort them and evaluate if the point is inside.
+ *
+ */
+int PMMG_barycoord2d_evaluate( MMG5_pMesh mesh,MMG5_pTria ptr,int k,
+                               double *coord,double *triaNormal,
+                               PMMG_barycoord *barycoord ) {
+
+  /* Get barycentric coordinates and sort them in ascending order */
+  PMMG_barycoord2d_compute(mesh, ptr, k, coord, triaNormal, barycoord);
+  qsort(barycoord,3,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
+
+  /* Return inside/outside status */
+  return PMMG_barycoord_isInside( barycoord );
+}
+
+/**
+ * \param mesh pointer to the mesh structure
+ * \param pt pointer to the current tetra
+ * \param coord pointer to the point coordinates
+ * \param faceAreas oriented face areas of the current tetrahedron
+ * \param barycoord pointer to the point barycentric coordinates in the current
+ * tetra
+ *
+ * \return 0 if the point is outside the element, 1 if inside.
+ *
+ *  Compute the barycentric coordinates of a given point in a given tetrahedron,
+ *  sort them and evaluate if the point is inside.
+ *
+ */
+int PMMG_barycoord3d_evaluate( MMG5_pMesh mesh,MMG5_pTetra pt,
+                               double *coord,double *faceAreas,
+                               PMMG_barycoord *barycoord ) {
+
+  /* Get barycentric coordinates and sort them in ascending order */
+  PMMG_barycoord3d_compute(mesh, pt, coord, faceAreas, barycoord);
+  qsort(barycoord,4,sizeof(PMMG_barycoord),PMMG_barycoord_compare);
+
+  /* Return inside/outside status */
+  return PMMG_barycoord_isInside( barycoord );
+}
+
+/**
  * \param mesh pointer to the background mesh structure
  * \param k index of the triangle to analyze
  * \param ppt pointer to the point to locate
