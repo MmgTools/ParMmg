@@ -35,15 +35,7 @@
 
 #define LOCATE_PMMG_H
 
-/** \struct PMMG_barycoord
- *
- * \brief Struct containing the index and value of a barycentric coordinate
- *
- */
-typedef struct {
-  int    idx; /*!< direction */
-  double val; /*!< coordinate value */
-} PMMG_barycoord;
+#include "barycoord_pmmg.h"
 
 /** \struct PMMG_locateStats
  *
@@ -58,13 +50,6 @@ typedef struct {
 } PMMG_locateStats;
 
 
-double PMMG_quickarea(double *a,double *b,double *c,double *n);
-void PMMG_barycoord_get( double *val,PMMG_barycoord *phi,int ndim );
-int  PMMG_barycoord_compare( const void *a,const void *b );
-int  PMMG_barycoord2d_compute( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
-                               double *normal,PMMG_barycoord *barycoord );
-int  PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
-                               double *faceAreas, PMMG_barycoord *barycoord );
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_barycoord *barycoord,
                             double *closestDist,int *closestTria );
