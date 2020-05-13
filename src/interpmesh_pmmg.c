@@ -534,7 +534,8 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
   }
 
 #ifndef NDEBUG
-  PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
+  if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) )
+    PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
 #endif
   PMMG_DEL_MEM(parmesh,locStats,PMMG_locateStats,"locStats");
   return ier;
