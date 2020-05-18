@@ -109,6 +109,61 @@ int PMMG_barycoord_isInside( PMMG_barycoord *phi ) {
 /**
  * \param mesh pointer to the mesh structure
  * \param ptr pointer to the current triangle
+ * \param coord coordinates of the point to project
+ * \param proj tangentially projected point coordinates
+ * \param dist orthogonal distance of the point
+ * \param normal unit normal of the current triangle
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Compute tangent and normal projection on triangle..
+ *
+ */
+int PMMG_barycoord2d_project( MMG5_pMesh mesh,MMG5_pTria ptr,double *coord,
+                                 double *proj,double dist,double *normal ) {
+  double *c0;
+  int    d;
+
+  /* Project point on the triangle plane */
+  c0 = mesh->point[ptr->v[0]].c;
+
+  dist = 0.0;
+  for( d = 0; d < 3; d++ )
+    dist += (coord[d]-c0[d])*normal[d];
+
+  for( d = 0; d < 3; d++ )
+    proj[d] = coord[d] - dist*normal[d];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the mesh structure
+ * \param ptr pointer to the current triangle
+ * \param k index of the triangle
+ * \param ia edge index
+ * \param normal unit normal of the current triangle
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Compute the barycentric coordinates of a given point in a given triangle
+ *  only with respect to a given edge.
+ *
+ */
+double PMMG_barycoord2d_compute1( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int ia,
+                                  double *proj,double *normal ) {
+  double *c1,*c2;
+
+  /* Retrieve face areas and compute barycentric coordinate */
+  c1 = mesh->point[ptr->v[MMG5_inxt2[ia]]].c;
+  c2 = mesh->point[ptr->v[MMG5_inxt2[ia+1]]].c;
+
+  return PMMG_quickarea( proj, c1, c2, normal )/ptr->qual;
+}
+
+/**
+ * \param mesh pointer to the mesh structure
+ * \param ptr pointer to the current triangle
  * \param k index of the triangle
  * \param coord pointer to the point coordinates
  * \param normal unit normal of the current triangle
