@@ -109,6 +109,52 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the background triangle
+ * \param k index of the background triangle
+ * \param ia index of the background edge
+ * \param ppt pointer to the point to locate
+ * \param normal0 unit normal of the background triangle
+ * \param normal1 unit normal of the adjacent triangle through edge ia
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in the shadow wedge of a background edge.
+ *
+ */
+int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int ia,MMG5_pPoint ppt,double *normal0,double *normal1) {
+  MMG5_pTria  ptr1;
+  MMG5_pPoint ppt0,ppt1;
+  double      dist,proj[3],a[3],p[3],norm2,alpha;
+  int         d;
+
+  /* Check origin triangle */
+  PMMG_barycoord2d_project( mesh,ptr,ppt->c,proj,dist,normal0 );
+  if( PMMG_barycoord2d_compute1( mesh,ptr,k,ia,proj,normal0 ) > 0 ) return 0;
+
+  /* Check adjacent triangle */
+  ptr1 = &mesh->tria[mesh->adjt[3*(k-1)+1+ia]/3];
+  PMMG_barycoord2d_project( mesh,ptr,ppt->c,proj,dist,normal0 );
+  if( PMMG_barycoord2d_compute1( mesh,ptr,k,ia,proj,normal0 ) > 0 ) return 0;
+
+  /* Check nodal sides */
+  ppt0 = &mesh->point[ptr->v[MMG5_inxt2[ia]]];
+  ppt1 = &mesh->point[ptr->v[MMG5_inxt2[ia+1]]];
+  /* Target point vector */
+  for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
+  /* Edge vector */
+  for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
+  norm2 = 0.0;
+  for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
+  /* Scalar product of the target vector with the edge vector */
+  alpha = 0.0;
+  for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
+  if( (alpha < 0.0) || (alpha > norm2) ) return 0;
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ptr pointer to the triangle to analyze
  * \param k index of the triangle
  * \param ppt pointer to the point to locate
