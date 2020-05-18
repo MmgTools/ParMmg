@@ -58,6 +58,57 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the background mesh structure
+ * \param k index of the background point
+ * \param ppt pointer to the point to locate
+ * \param displEdges offsets for the node-edges graph
+ * \param nodeEdges node-edges graph adjacency
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in the shadow cone of a background point.
+ *
+ */
+int PMMG_locatePointInCone( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                            int *displEdges,int *nodeEdges ) {
+  MMG5_pPoint    ppt0,ppt1;
+  MMG5_pEdge     pa;
+  int            ia,na;
+  double         p[3],a[3],alpha;
+  int            l,jp,d,found;
+
+  ppt0 = &mesh->point[k];
+  na = displEdges[k]-displEdges[k-1];
+
+  /* Mark point */
+  ppt0->flag = mesh->base;
+
+  /* Target point vector */
+  for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
+
+  /* Initialize as if the target is found in the cone */
+  found = 1;
+  for( l = 0; l <= na; l++ ) {
+    ia = nodeEdges[displEdges[k-1]+l];
+    pa = &mesh->edge[ia];
+    if     ( pa->a == k ) jp = pa->b;
+    else if( pa->b == k ) jp = pa->a;
+    ppt1 = &mesh->point[jp];
+    /* Edge vector */
+    for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
+    /* Scalar product of the target vector with the edge vector */
+    alpha = 0.0;
+    for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
+    if( alpha > 0.0 ) {
+      found = 0;
+      break;
+    }
+  }
+
+  return found;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
  * \param ptr pointer to the triangle to analyze
  * \param k index of the triangle
  * \param ppt pointer to the point to locate
@@ -111,7 +162,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   for( d = 0; d < 3; d++ )
     proj += dist[d]*triaNormal[d];
 
-  /* Orthogonalize */
+  /* Orthogonalize to get distance in the plane */
   for( d = 0; d < 3; d++ )
     dist[d] -= proj*triaNormal[d];
 
