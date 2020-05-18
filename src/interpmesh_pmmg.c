@@ -336,6 +336,50 @@ int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas ) {
 
 /**
  * \param mesh pointer to the current mesh structure.
+ * \param displ pointer to node offsets in the node-edges graph
+ * \param count pointer to a counter for node edges
+ * \param nodeEdges node-edges graph
+ *
+ * \return 1.
+ *
+ *  Precompute node-edges graph adjacency.
+ *
+ */
+int PMMG_precompute_nodeEdges( MMG5_pMesh mesh,int *displ,int *count,
+                               int *nodeEdges ) {
+  MMG5_pEdge pa;
+  int        ia,ip;
+
+  for( ia = 1; ia <= mesh->na; ia++) {
+    pa = &mesh->edge[ia];
+    displ[pa->a]++;
+    displ[pa->b]++;
+  }
+
+  for( ip = 2; ip <= mesh->np; ip++ ) {
+    displ[ip] += displ[ip-1];
+  }
+
+  for( ia = 1; ia <= mesh->na; ia++) {
+    pa = &mesh->edge[ia];
+
+    ip = pa->a;
+    nodeEdges[displ[ip-1]+count[ip]] = ia;
+    count[ip]++;
+
+    ip = pa->b;
+    nodeEdges[displ[ip-1]+count[ip]] = ia;
+    count[ip]++;
+  }
+
+  for( ip = 1; ip <= mesh->np; ip++ )
+    assert(count[ip] == displ[ip]-displ[ip-1]);
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh structure.
  * \param oldMesh pointer to the background mesh structure.
  * \param met pointer to the current metrics structure.
  * \param oldMet pointer to the background metrics structure.
@@ -361,6 +405,7 @@ int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas ) {
 int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              MMG5_pSol met,MMG5_pSol oldMet,
                              double *faceAreas,double *triaNormals,
+                             int *displEdges,int *countEdges,int *nodeEdges,
                              int *permNodGlob,unsigned char inputMet,
                              int myrank,int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
@@ -392,6 +437,10 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
       /** Pre-compute surface unit normals */
       ier = PMMG_precompute_triaNormals( oldMesh,triaNormals );
+
+      /** Precompute node edges connectivity */
+      ier = PMMG_precompute_nodeEdges( oldMesh, displEdges, countEdges,
+                                       nodeEdges );
 
       /** Interpolate metrics */
       oldMesh->base = 0;
@@ -497,6 +546,7 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_locateStats *locStats;
   size_t           memAv,oldMemMax;
   double           *faceAreas,*triaNormals;
+  int              *displEdges,*countEdges,*nodeEdges;
   int              igrp,ier;
 
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
@@ -519,9 +569,13 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",return 0 );
       PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",return 0 );
+      PMMG_CALLOC( parmesh,displEdges,oldMesh->np+1,int,"displEedges",return 0);
+      PMMG_CALLOC( parmesh,countEdges,oldMesh->np+1,int,"countEedges",return 0);
+      PMMG_CALLOC( parmesh,nodeEdges,2*(oldMesh->na+1),int,"nodeEdges",return 0);
     }
 
     if( !PMMG_interpMetrics_mesh( mesh,oldMesh,met,oldMet,faceAreas,triaNormals,
+                                  displEdges,countEdges,nodeEdges,
                                   permNodGlob,parmesh->info.inputMet,
                                   parmesh->myrank,igrp,&locStats[igrp] ) ) ier = 0;
 
@@ -529,6 +583,9 @@ int PMMG_interpMetrics( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
       PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
+      PMMG_DEL_MEM(parmesh,displEdges,double,"displEdges");
+      PMMG_DEL_MEM(parmesh,countEdges,double,"countEdges");
+      PMMG_DEL_MEM(parmesh,nodeEdges,double,"nodeEdges");
     }
 
   }
