@@ -49,6 +49,10 @@ void PMMG_barycoord_get( double *val,PMMG_barycoord *phi,int ndim );
 int  PMMG_barycoord_compare( const void *a,const void *b );
 int  PMMG_barycoord2d_compute( MMG5_pMesh mesh,MMG5_pTria ptr,int k,double *coord,
                                double *normal,PMMG_barycoord *barycoord );
+double PMMG_barycoord2d_compute1( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int ia,
+                                  double *proj,double *normal );
+int PMMG_barycoord2d_project( MMG5_pMesh mesh,MMG5_pTria ptr,double *coord,
+                                 double *proj,double dist,double *normal );
 int  PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
                                double *faceAreas, PMMG_barycoord *barycoord );
 int  PMMG_barycoord2d_evaluate( MMG5_pMesh mesh,MMG5_pTria ptr,int k,
