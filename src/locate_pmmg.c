@@ -315,17 +315,18 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_barycoord *barycoord,
                          int ip ) {
   MMG5_pTria     ptr,ptr1;
-  int            *adjt,iel,i,idxTria,step,closestTria,stuck;
+  int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
   if(!init)
-    idxTria = 1;
+    k = 1;
   else
-    idxTria = init;
+    k = init;
 
-  assert( idxTria <= mesh->nt );
+  assert( k <= mesh->nt );
 
+  kprev = 0;
   stuck = 0;
   step = 0;
   ++mesh->base;
@@ -337,29 +338,36 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     step++;
 
     /** Get tria */
-    ptr = &mesh->tria[idxTria];
+    ptr = &mesh->tria[k];
     if ( !MG_EOK(ptr) ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTria( mesh, ptr, idxTria, ppt, &triaNormals[3*idxTria],
+    if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
                                 barycoord, &closestDist, &closestTria ) ) break;
 
+    if( kprev ) {
+      i = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,&triaNormals[3*kprev],&triaNormals[3*k] );
+      if( i == 4 ) break;
+    }
+
     /** Compute new direction */
-    adjt = &mesh->adjt[3*(idxTria-1)+1];
+    adjt = &mesh->adjt[3*(k-1)+1];
+    kprev = k;
     for( i=0; i<3; i++ ) {
-      iel = adjt[barycoord[i].idx]/3;
+      k1 = adjt[barycoord[i].idx]/3;
 
       /* Skip if on boundary */
-      if (!iel) continue;
+      if( !k1 ) continue;
 
       /* Skip if already marked */
-      ptr1 = &mesh->tria[iel];
+      ptr1 = &mesh->tria[k1];
       if(ptr1->flag == mesh->base) continue;
 
       /* Get next otherwise */
-      idxTria = iel;
+      k = k1;
       break;
     }
+    iprev = barycoord[i].idx;
 
     /** Stuck: Start exhaustive research */
     if (i == 3) stuck = 1;
@@ -380,11 +388,10 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
     }
 
-    idxTria = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
-                                            &closestDist,&closestTria );
-
+    k = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
+                                      &closestDist,&closestTria );
     /** Element not found: Return the closest one with negative sign (if found) */
-    if ( idxTria == mesh->nt+1 ) {
+    if ( k == mesh->nt+1 ) {
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
         if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -398,7 +405,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
   }
-  return idxTria;
+  return k;
 }
 
 /**
