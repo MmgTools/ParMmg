@@ -58,7 +58,8 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the background mesh structure
- * \param k index of the background point
+ * \param ip index of the background point
+ * \param iprev index of the vertex attached to the previous analysed edge
  * \param ppt pointer to the point to locate
  * \param displEdges offsets for the node-edges graph
  * \param nodeEdges node-edges graph adjacency
@@ -68,7 +69,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
  *  Locate a point in the shadow cone of a background point.
  *
  */
-int PMMG_locatePointInCone( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+int PMMG_locatePointInCone( MMG5_pMesh mesh,int ip,int iprev,MMG5_pPoint ppt,
                             int *displEdges,int *nodeEdges ) {
   MMG5_pPoint    ppt0,ppt1;
   MMG5_pEdge     pa;
@@ -76,8 +77,8 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
   double         p[3],a[3],alpha;
   int            l,jp,d,found;
 
-  ppt0 = &mesh->point[k];
-  na = displEdges[k]-displEdges[k-1];
+  ppt0 = &mesh->point[ip];
+  na = displEdges[ip]-displEdges[ip-1];
 
   /* Mark point */
   ppt0->flag = mesh->base;
@@ -88,10 +89,12 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
   /* Initialize as if the target is found in the cone */
   found = 1;
   for( l = 0; l <= na; l++ ) {
-    ia = nodeEdges[displEdges[k-1]+l];
+    ia = nodeEdges[displEdges[ip-1]+l];
     pa = &mesh->edge[ia];
-    if     ( pa->a == k ) jp = pa->b;
-    else if( pa->b == k ) jp = pa->a;
+    if     ( pa->a == ip ) jp = pa->b;
+    else if( pa->b == ip ) jp = pa->a;
+    /* Skip already analysed edge */
+    if( jp == iprev ) continue;
     ppt1 = &mesh->point[jp];
     /* Edge vector */
     for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
@@ -146,10 +149,13 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
   /* Scalar product of the target vector with the edge vector */
   alpha = 0.0;
   for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
-  if( alpha < 0.0 )
+  if( alpha < 0.0 ) {
+    ppt1->flag = mesh->base;
     return i0;
-  else if( alpha > norm2 )
+  } else if( alpha > norm2 ) {
+    ppt0->flag = mesh->base;
     return i1;
+  }
 
   return 4;
 }
