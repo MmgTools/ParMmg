@@ -124,8 +124,8 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
  * \param normal0 unit normal of the background triangle
  * \param normal1 unit normal of the adjacent triangle through edge ia
  *
- * \return 4 if found; the local index of the node to check in triangle k
- * otherwise.
+ * \return -1 if the point is too distant; 4 if found; the local index of the
+ * node to check in triangle k otherwise.
  *
  *  Locate a point in the shadow wedge of a background edge. The adjacent
  *  triangles have already been tested.
@@ -162,7 +162,7 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
   /* Rough check on maximum distance */
   dist2 = 0.0;
   for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
-  if( dist2 > norm2 ) return 0;
+  if( dist2 >= norm2 ) return -1;
 
   /* Check scalar product */
   if( alpha < 0.0 ) {
@@ -364,9 +364,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     if( kprev ) {
       i = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,&triaNormals[3*kprev],&triaNormals[3*k] );
       if( i == 4 ) break;
-      if( PMMG_locatePointInCone( mesh,kprev,MMG5_iprv2[iprev],ppt,list ) ) break;
-      if( PMMG_locatePointInCone( mesh,kprev,MMG5_inxt2[iprev],ppt,list ) ) break;
-   }
+      else if( i > -1 )
+        if( PMMG_locatePointInCone( mesh,kprev,i,ppt,list ) ) break;
+    }
 
     /** Compute new direction */
     adjt = &mesh->adjt[3*(k-1)+1];
