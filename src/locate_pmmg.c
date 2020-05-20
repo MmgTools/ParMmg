@@ -58,27 +58,23 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 
 /**
  * \param mesh pointer to the background mesh structure
- * \param ip index of the background point
- * \param iprev index of the vertex attached to the previous analysed edge
+ * \param iel index of the background triangle
+ * \param iloc local index of the cone point in the background triangle
  * \param ppt pointer to the point to locate
- * \param displEdges offsets for the node-edges graph
- * \param nodeEdges node-edges graph adjacency
+ * \param list empty list of point neighbours
  *
  * \return 1 if found; 0 if not found
  *
  *  Locate a point in the shadow cone of a background point.
  *
  */
-int PMMG_locatePointInCone( MMG5_pMesh mesh,int ip,int iprev,MMG5_pPoint ppt,
-                            int *displEdges,int *nodeEdges ) {
+int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
+                            int *list ) {
   MMG5_pPoint    ppt0,ppt1;
-  MMG5_pEdge     pa;
-  int            ia,na;
   double         p[3],a[3],alpha;
-  int            l,jp,d,found;
+  int            ilist,lon,jp,d,found;
 
-  ppt0 = &mesh->point[ip];
-  na = displEdges[ip]-displEdges[ip-1];
+  ppt0 = &mesh->point[mesh->tria[iel].v[iloc]];
 
   /* Mark point */
   ppt0->flag = mesh->base;
@@ -86,15 +82,15 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int ip,int iprev,MMG5_pPoint ppt,
   /* Target point vector */
   for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
 
+  /* Get neighbour nodes */
+  lon = MMG5_boulep(mesh,iel,iloc,mesh->adjt,list);
+
   /* Initialize as if the target is found in the cone */
   found = 1;
-  for( l = 0; l <= na; l++ ) {
-    ia = nodeEdges[displEdges[ip-1]+l];
-    pa = &mesh->edge[ia];
-    if     ( pa->a == ip ) jp = pa->b;
-    else if( pa->b == ip ) jp = pa->a;
-    /* Skip already analysed edge */
-    if( jp == iprev ) continue;
+
+  /* Scan the list of neighbours */
+  for( ilist = 1; ilist < lon; ilist++ ){
+    jp = list[ilist];
     ppt1 = &mesh->point[jp];
     /* Edge vector */
     for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
@@ -312,10 +308,10 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_barycoord *barycoord,
-                         int ip ) {
+                         double *triaNormals,PMMG_barycoord *barycoord,int ip ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
+  int            list[MMG5_LMAX];
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
@@ -348,7 +344,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     if( kprev ) {
       i = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,&triaNormals[3*kprev],&triaNormals[3*k] );
       if( i == 4 ) break;
-    }
+      if( PMMG_locatePointInCone( mesh,kprev,MMG5_iprv2[iprev],ppt,list ) ) break;
+      if( PMMG_locatePointInCone( mesh,kprev,MMG5_inxt2[iprev],ppt,list ) ) break;
+   }
 
     /** Compute new direction */
     adjt = &mesh->adjt[3*(k-1)+1];
