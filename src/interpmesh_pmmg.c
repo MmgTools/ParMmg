@@ -66,6 +66,78 @@ int PMMG_invmat22( double *m, double *im ) {
  * \param oldMet pointer to the background metrics
  * \param ptr pointer to the target background triangle
  * \param ip index of the current point
+ * \param l local index of the edge on the background triangle
+ * \param barycoord barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point metrics on a target background edge.
+ */
+int PMMG_interp2bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord ) {
+  double alpha;
+
+  assert( met->size == 1 );
+
+  alpha = barycoord[l].val;
+
+  /** Linear interpolation of the squared size */
+  met->m[ip] =      alpha *oldMet->m[ptr->v[MMG5_inxt2[l]]] +
+               (1.0-alpha)*oldMet->m[ptr->v[MMG5_iprv2[l]]];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
+ * \param l local index of the edge on the background triangle
+ * \param barycoord barycentric coordinates of the point to be interpolated
+ *
+ * \return 0 if fail, 1 if success
+ *
+ *  Linearly interpolate point the metrics inverse on a target background
+ *  edge.
+ *
+ */
+int PMMG_interp2bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
+                         MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord ) {
+  double alpha,dm[3][3],mi[3][3],m[3];
+  int    iloc,i,isize,nsize,ier;
+
+  assert( met->size == 3 );
+  nsize  = met->size;
+
+  alpha = barycoord[l].val;
+
+  for( i=0; i<2; i++ ) {
+    for(isize = 0; isize < nsize; isize++ )
+      dm[i][isize] = oldMet->m[nsize*ptr->v[i]+isize];
+    if( !PMMG_invmat22(dm[i],mi[i]) ) return 0;
+  }
+
+  /** Linear interpolation of the metrics */
+  for( isize = 0; isize < nsize; isize++ ) {
+    m[isize] =      alpha *mi[0][isize]+
+               (1.0-alpha)*mi[1][isize];
+  }
+
+  if( !PMMG_invmat22(m,mi[0]) ) return 0;
+  for( isize = 0; isize < nsize; isize++ )
+    met->m[nsize*ip+isize] = mi[0][isize];
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh
+ * \param met pointer to the current metrics
+ * \param oldMet pointer to the background metrics
+ * \param ptr pointer to the target background triangle
+ * \param ip index of the current point
  * \param barycoord barycentric coordinates of the point to be interpolated
  *
  * \return 0 if fail, 1 if success
