@@ -121,8 +121,6 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
  * \param k index of the background triangle
  * \param l local index of the edge
  * \param ppt pointer to the point to locate
- * \param normal0 unit normal of the background triangle
- * \param normal1 unit normal of the adjacent triangle through edge ia
  *
  * \return -1 if the point is too distant; 4 if found; the local index of the
  * node to check in triangle k otherwise.
@@ -131,7 +129,7 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
  *  triangles have already been tested.
  *
  */
-int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,double *normal0,double *normal1) {
+int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt ) {
   MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
   double      a[3],p[3],norm2,dist2,alpha;
@@ -328,10 +326,11 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_barycoord *barycoord,int ip ) {
+                         double *triaNormals,PMMG_barycoord *barycoord,int ip,
+                         int *foundWedge,int *foundCone ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
-  int            list[MMG5_LMAX];
+  int            list[MMG5_LMAX],iloc;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
@@ -350,6 +349,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   closestTria = 0;
   closestDist = 1.0e10;
 
+  *foundWedge = -1;
+  *foundCone  = -1;
+
   while( (step <= mesh->nt) && (!stuck) ) {
     step++;
 
@@ -359,13 +361,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
-                                barycoord, &closestDist, &closestTria ) ) break;
-
-    if( kprev ) {
-      i = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,&triaNormals[3*kprev],&triaNormals[3*k] );
-      if( i == 4 ) break;
-      else if( i > -1 )
-        if( PMMG_locatePointInCone( mesh,kprev,i,ppt,list ) ) break;
+                                barycoord, &closestDist, &closestTria ) ) {
+      break;
     }
 
     /** Compute new direction */
@@ -376,6 +373,21 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
       /* Skip if on boundary */
       if( !k1 ) continue;
+
+      if( (k1 == kprev) && !i && barycoord[i+1].val > -MMG5_EPS  ) {
+        /* You should check it only if the tria check tells you to ONLY go back! */
+        iloc = PMMG_locatePointInWedge( mesh,ptr,k,barycoord[i].idx,ppt );
+        if( iloc == 4 ) {
+          *foundWedge = barycoord[i].idx;
+          break;
+        } else if( iloc > -1 ) {
+          if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
+            /* Return triangle index and local node index */
+            *foundCone = iloc;
+            break;
+          }
+        }
+      }
 
       /* Skip if already marked */
       ptr1 = &mesh->tria[k1];

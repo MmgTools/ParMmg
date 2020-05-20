@@ -369,6 +369,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   PMMG_barycoord barycoord[4];
   double      *normal,dd;
   int         istartTetra,istartTria,ifoundTetra,ifoundTria;
+  int         foundWedge,foundCone;
   int         ip,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
@@ -432,7 +433,8 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
             /** Locate point in the old mesh */
             ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
-                                              triaNormals, barycoord, ip );
+                                              triaNormals, barycoord, ip,
+                                              &foundWedge, &foundCone );
 
             ifoundTria = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,
                                                       myrank,igrp );
