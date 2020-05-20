@@ -71,7 +71,7 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
                             int *list ) {
   MMG5_pPoint    ppt0,ppt1;
-  double         p[3],a[3],alpha;
+  double         p[3],a[3],dist2,norm2,alpha;
   int            ilist,lon,jp,d,found;
 
   ppt0 = &mesh->point[mesh->tria[iel].v[iloc]];
@@ -81,6 +81,8 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
 
   /* Target point vector */
   for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
+  dist2 = 0.0;
+  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
 
   /* Get neighbour nodes */
   lon = MMG5_boulep(mesh,iel,iloc,mesh->adjt,list);
@@ -89,11 +91,18 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
   found = 1;
 
   /* Scan the list of neighbours */
-  for( ilist = 1; ilist < lon; ilist++ ){
+  for( ilist = 1; ilist <= lon; ilist++ ){
     jp = list[ilist];
     ppt1 = &mesh->point[jp];
     /* Edge vector */
     for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
+    norm2 = 0.0;
+    for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
+    /* Rough check on maximum distance */
+    if( dist2 >= norm2 ) {
+      found = 0;
+      break;
+    }
     /* Scalar product of the target vector with the edge vector */
     alpha = 0.0;
     for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
@@ -125,7 +134,7 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
 int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,double *normal0,double *normal1) {
   MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
-  double      dist,proj[3],a[3],p[3],norm2,alpha;
+  double      a[3],p[3],norm2,dist2,alpha;
   int         i0,i1,d;
 
   /* Check nodal sides */
@@ -136,15 +145,26 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
 
   /* Target point vector */
   for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
+  dist2 = 0.0;
+  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
 
   /* Edge vector and norm */
   for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
   norm2 = 0.0;
   for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
 
-  /* Scalar product of the target vector with the edge vector */
+  /* Scalar product of the target vector with the edge vector and orthogonal
+   * projection */
   alpha = 0.0;
   for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
+  for( d = 0; d < 3; d++ ) p[d] -= (alpha/norm2)*a[d];
+
+  /* Rough check on maximum distance */
+  dist2 = 0.0;
+  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
+  if( dist2 > norm2 ) return 0;
+
+  /* Check scalar product */
   if( alpha < 0.0 ) {
     ppt1->flag = mesh->base;
     return i0;
