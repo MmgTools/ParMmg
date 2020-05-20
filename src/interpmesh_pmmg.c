@@ -212,6 +212,32 @@ int PMMG_interp4bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
 
 /**
  * \param mesh pointer to the current mesh.
+ * \param met pointer to the current metrics.
+ * \param oldMesh pointer to the background mesh.
+ * \param oldMet pointer to the background metrics.
+ * \param idest index of the target point.
+ * \param isrc index of the source point.
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Copy the metric of a point.
+ *
+ */
+int PMMG_copyMetrics( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pMesh oldMesh,
+                      MMG5_pSol oldMet,int idest,int isrc ) {
+  int isize,nsize;
+
+  nsize = met->size;
+
+  for( isize = 0; isize<nsize; isize++ ) {
+    met->m[nsize*idest+isize] = oldMet->m[nsize*isrc+isize];
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh.
  * \param oldMesh pointer to the background mesh.
  * \param met pointer to the current metrics.
  * \param oldMet pointer to the background metrics.
@@ -440,8 +466,13 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                                       myrank,igrp );
 
             /** Interpolate point metrics */
+            if( foundCone+1 ) {
+              ier = PMMG_copyMetrics( mesh,met,oldMesh,oldMet,ip,
+                                      oldMesh->tria[ifoundTria].v[foundCone] );
+            } else {
             ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
                                   barycoord);
+            }
 
             /* Flag point as interpolated */
             ppt->flag = mesh->base;
