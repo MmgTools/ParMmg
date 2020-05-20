@@ -129,7 +129,7 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
  *  triangles have already been tested.
  *
  */
-int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt ) {
+int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,PMMG_barycoord *barycoord ) {
   MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
   double      a[3],p[3],norm2,dist2,alpha;
@@ -137,7 +137,7 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
 
   /* Check nodal sides */
   i0 = MMG5_inxt2[l];
-  i1 = MMG5_inxt2[l+1];
+  i1 = MMG5_iprv2[l];
   ppt0 = &mesh->point[ptr->v[i0]];
   ppt1 = &mesh->point[ptr->v[i1]];
 
@@ -170,6 +170,10 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
     ppt0->flag = mesh->base;
     return i1;
   }
+
+  /* Store inner product in the barycentric coordinate of the edge (forget
+   * reordering) */
+  barycoord->val = alpha/norm2;
 
   return 4;
 }
@@ -376,7 +380,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
       if( (k1 == kprev) && !i && barycoord[i+1].val > -MMG5_EPS  ) {
         /* You should check it only if the tria check tells you to ONLY go back! */
-        iloc = PMMG_locatePointInWedge( mesh,ptr,k,barycoord[i].idx,ppt );
+        iloc = PMMG_locatePointInWedge( mesh,ptr,k,barycoord[i].idx,ppt,barycoord );
         if( iloc == 4 ) {
           *foundWedge = barycoord[i].idx;
           break;
