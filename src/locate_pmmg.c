@@ -378,24 +378,22 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       /* Skip if on boundary */
       if( !k1 ) continue;
 
-      if( (k1 == kprev) && !i && barycoord[i+1].val > -MMG5_EPS  ) {
-        /* You should check it only if the tria check tells you to ONLY go back! */
-        iloc = PMMG_locatePointInWedge( mesh,ptr,k,barycoord[i].idx,ppt,barycoord );
+      /* Test shadow regions if the tria has already been visited */
+      ptr1 = &mesh->tria[k1];
+      if(ptr1->flag == mesh->base) {
+        iloc = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,barycoord );
         if( iloc == 4 ) {
-          *foundWedge = barycoord[i].idx;
-          break;
+          *foundWedge = iprev;
+          ppt->s = step;
+          return k;
         } else if( iloc > -1 ) {
           if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
-            /* Return triangle index and local node index */
             *foundCone = iloc;
-            break;
+            ppt->s = step;
+            return k;
           }
         }
       }
-
-      /* Skip if already marked */
-      ptr1 = &mesh->tria[k1];
-      if(ptr1->flag == mesh->base) continue;
 
       /* Get next otherwise */
       k = k1;
