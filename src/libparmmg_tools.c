@@ -467,11 +467,13 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
 
     PMMG_interp4bar = PMMG_interp4bar_ani;
     PMMG_interp3bar = PMMG_interp3bar_ani;
+    PMMG_interp2bar = PMMG_interp2bar_ani;
 
   } else {
 
     PMMG_interp4bar = PMMG_interp4bar_iso;
     PMMG_interp3bar = PMMG_interp3bar_iso;
+    PMMG_interp2bar = PMMG_interp2bar_iso;
 
   }
 

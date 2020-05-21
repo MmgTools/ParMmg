@@ -535,9 +535,12 @@ int PMMG_interp4bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTet
 int PMMG_interp4bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord*);
 int PMMG_interp3bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord*);
 int PMMG_interp3bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord*);
+int PMMG_interp2bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord );
+int PMMG_interp2bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord );
 
 extern int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord*);
 extern int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord*);
+extern int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);

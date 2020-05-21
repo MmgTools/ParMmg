@@ -462,7 +462,6 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                              int *permNodGlob,unsigned char inputMet,
                              int myrank,int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
-  MMG5_pTria  ptr;
   MMG5_pPoint ppt;
   PMMG_barycoord barycoord[4];
   double      *normal,dd;
@@ -541,6 +540,9 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             if( foundCone+1 ) {
               ier = PMMG_copyMetrics( mesh,met,oldMesh,oldMet,ip,
                                       oldMesh->tria[ifoundTria].v[foundCone] );
+            } else if( foundWedge+1 ) {
+              ier = PMMG_interp2bar( mesh,met,oldMet,&oldMesh->tria[ifoundTria],
+                                     ip,foundWedge,barycoord );
             } else {
             ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
                                   barycoord);
