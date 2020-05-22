@@ -127,6 +127,19 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash      hash;
 
+  /* For both API modes, build communicators indices */
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /* Set face communicators indexing */
+      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      /* Set node communicators indexing */
+      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
+      break;
+  }
+
+
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )
     fprintf(stdout,"\n  ** SURFACE ANALYSIS\n");
@@ -253,16 +266,12 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
-      /* Set face communicators indexing */
-      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
        * to edges and nodes */
       PMMG_tria2elmFace_coords( parmesh );
       break;
     case PMMG_APIDISTRIB_nodes :
-      /* Set node communicators indexing */
-      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
       /* Build face comms from node ones and set xtetra tags */
       PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
       PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
