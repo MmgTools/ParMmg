@@ -250,35 +250,9 @@ int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
-  /* For both API modes, build communicators indices and set xtetra as PARBDY */
-  switch( parmesh->info.API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      /* Convert tria index into iel face index (it needs a valid cc field in
-       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-       * to edges and nodes */
-      PMMG_tria2elmFace_coords( parmesh );
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      /* Build face comms from node ones and set xtetra tags */
-      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
-      PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
-      parmesh->next_face_comm = 0;
-      PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
-      if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
-      break;
-  }
-
-  /* Tag parallel faces on material interfaces as boundary */
-  if( !PMMG_parbdySet( parmesh ) ) {
-    fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
-    return 0;
-  }
-
   /* release memory */
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
-  MMG5_DEL_MEM(mesh,mesh->tria);
-  mesh->nt = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
 
@@ -436,6 +410,33 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
+
+  /* For both API modes, build communicators indices and set xtetra as PARBDY */
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /* Convert tria index into iel face index (it needs a valid cc field in
+       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+       * to edges and nodes */
+      PMMG_tria2elmFace_coords( parmesh );
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      /* Build face comms from node ones and set xtetra tags */
+      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
+      PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
+      parmesh->next_face_comm = 0;
+      PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
+      if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
+      break;
+  }
+
+  /* Tag parallel faces on material interfaces as boundary */
+  if( !PMMG_parbdySet( parmesh ) ) {
+    fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
+    return 0;
+  }
+
+  MMG5_DEL_MEM(mesh,mesh->tria);
+  mesh->nt = 0;
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
 #warning: Luca: check this function
