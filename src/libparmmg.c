@@ -120,11 +120,10 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  *
- * \remark Modeled after the MMG3D_analys function, with additional node/face
- *         communicators indices construction. Also build face comms from node
- *         ones (before tags are passed to edges and nodes).
+ * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
+ * tria structure in order to be able to build communicators.
  */
-int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash      hash;
 
   /**--- stage 1: data structures for surface */
@@ -407,7 +406,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /** Mesh analysis, face/node communicators indices construction (depending
    * from the API mode), build face comms from node ones */
-  if ( !PMMG_analys_buildComm(parmesh,mesh) ) {
+  if ( !PMMG_analys(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
