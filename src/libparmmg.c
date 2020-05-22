@@ -127,19 +127,6 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 int PMMG_analys_buildComm(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash      hash;
 
-  /* For both API modes, build communicators indices */
-  switch( parmesh->info.API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      /* Set face communicators indexing */
-      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      /* Set node communicators indexing */
-      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
-      break;
-  }
-
-
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )
     fprintf(stdout,"\n  ** SURFACE ANALYSIS\n");
@@ -430,6 +417,18 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
+  }
+
+  /* For both API modes, build communicators indices */
+  switch( parmesh->info.API_mode ) {
+    case PMMG_APIDISTRIB_faces :
+      /* Set face communicators indexing */
+      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      break;
+    case PMMG_APIDISTRIB_nodes :
+      /* Set node communicators indexing */
+      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
+      break;
   }
 
   /** Mesh analysis, face/node communicators indices construction (depending
