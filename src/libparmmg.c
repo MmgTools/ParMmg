@@ -264,6 +264,15 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /** Mesh analysis, face/node communicators indices construction (depending
    * from the API mode), build face comms from node ones */
+  if ( !PMMG_analys_tria(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+    /* Convert tria index into iel face index (it needs a valid cc field in
+     * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+     * to edges and nodes */
+    PMMG_tria2elmFace_coords( parmesh );
+  }
   if ( !PMMG_analys(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -281,10 +290,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
-      /* Convert tria index into iel face index (it needs a valid cc field in
-       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-       * to edges and nodes */
-      PMMG_tria2elmFace_coords( parmesh );
       /* Build node communicators from face ones (here because the (mesh needs
        * to be unscaled) */
       PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);

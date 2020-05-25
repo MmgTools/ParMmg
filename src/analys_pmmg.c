@@ -37,12 +37,11 @@
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
+ * \return 0 if fail, 1 if success.
  *
- * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
- * tria structure in order to be able to build communicators.
+ * Check all boundary triangles.
  */
-int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  MMG5_Hash      hash;
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )
@@ -72,6 +71,25 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   MMG5_freeXTets(mesh);
   MMG5_freeXPrisms(mesh);
+
+  /* set bdry entities to tetra */
+  if ( !MMG5_bdrySet(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    return 0;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the mesh structure
+ *
+ * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
+ * tria structure in order to be able to build communicators.
+ */
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  MMG5_Hash      hash;
 
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
@@ -124,14 +142,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_norver(mesh) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    return 0;
-  }
-
-  /* set bdry entities to tetra */
-  if ( !MMG5_bdrySet(mesh) ) {
-    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
-    MMG5_DEL_MEM(mesh,hash.item);
-    MMG5_DEL_MEM(mesh,mesh->xpoint);
     return 0;
   }
 
