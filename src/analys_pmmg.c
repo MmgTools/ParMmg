@@ -72,7 +72,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_freeXTets(mesh);
   MMG5_freeXPrisms(mesh);
 
-  /* set bdry entities to tetra */
+  /* set bdry entities to tetra: create xtetra and set references */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;
@@ -121,7 +121,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* check for ridges */
+  /* check for ridges: check dihedral angle using adjacent triangle normals */
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -138,7 +138,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
-  /* define (and regularize) normals */
+  /* define (and regularize) normals: create xpoints */
   if ( !MMG5_norver(mesh) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
