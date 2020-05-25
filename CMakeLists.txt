@@ -358,7 +358,7 @@ ELSE ( )
   # add metis library?
   SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 
-  FIND_PACKAGE(Metis)
+  FIND_PACKAGE(METIS)
 
   IF( METIS_FOUND)
     OPTION ( USE_METIS "Detected METIS Tool" ON)
