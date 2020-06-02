@@ -52,7 +52,7 @@ typedef struct {
 
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_barycoord *barycoord,
-                            double *closestDist,int *closestTria );
+                            double *h,double *closestDist,int *closestTria );
 int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
                              double *faceAreas,PMMG_barycoord *barycoord );
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,

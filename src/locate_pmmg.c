@@ -185,6 +185,7 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
  * \param ppt pointer to the point to locate
  * \param triaNormal unit normal of the current triangle
  * \param barycoord barycentric coordinates of the point to be located
+ * \param h distance from the triangle
  * \param closestDist distance from the closest triangle
  * \param closestTria index of the closest triangle (with negative sign)
  *
@@ -196,9 +197,9 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
  */
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_barycoord *barycoord,
-                            double *closestDist,int *closestTria ) {
+                            double *h,double *closestDist,int *closestTria ) {
   MMG5_pPoint    ppt0,ppt1;
-  double         h,hmax;
+  double         hmax;
   double         proj,dist[3];
   int            j,d,found;
 
@@ -215,11 +216,11 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   for( j = 0; j < 3; j++ ) {
     ppt0 = &mesh->point[ptr->v[j]];
     ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
-    h = 0.0;
+    *h = 0.0;
     for( d = 0; d < 3; d++ )
-      h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
-    h = sqrt(h);
-    if( h > hmax ) hmax = h;
+      *h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
+    *h = sqrt(*h);
+    if( *h > hmax ) hmax = *h;
   }
   if( fabs(barycoord[3].val) > hmax ) return 0;
 
@@ -237,14 +238,14 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   for( d = 0; d < 3; d++ )
     dist[d] -= proj*triaNormal[d];
 
-  h = 0.0;
+  *h = 0.0;
   for( d = 0; d < 3; d++ )
-    h += dist[d]*dist[d];
-  h = sqrt(h);
+    *h += dist[d]*dist[d];
+  *h = sqrt(*h);
 
   /* Save element index (with negative sign) if it is the closest one */
-  if( h < *closestDist ) {
-    *closestDist = h;
+  if( *h < *closestDist ) {
+    *closestDist = *h;
     *closestTria = -k;
   }
 
@@ -291,6 +292,7 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
                                   double *closestDist,int *closestTria ) {
   MMG5_pTria     ptr;
   int            k;
+  double         h;
 
   for( k = 1; k <= mesh->nt; k++ ) {
 
@@ -307,11 +309,66 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt,
                                 &triaNormals[3*k], barycoord,
-                                closestDist, closestTria ) ) break;
+                                &h, closestDist, closestTria ) ) break;
 
   }
 
   return k;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ppt pointer to the point to locate
+ * \param kfound pointer to the index of the starting element
+ * \param triaNormals unit normals of the all triangles in the mesh
+ * \param baryfound barycentric coordinates of the point in the found triangle
+ *
+ * \return 1 if the triangle has been updated, 0 otherwise.
+ *
+ *  Once the point is located in a candidate triangle, check whether its
+ *  neighbours also see him (convex configurations) and update triangle index
+ *  and barycentric coordinates if this is the case.
+ *
+ */
+int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
+                                  double *triaNormals,double *h,
+                                  PMMG_barycoord *baryfound ) {
+  MMG5_pTria ptr;
+  PMMG_barycoord barycoord[4];
+  int    *adjt,l,i,k,kmin,closestTria,updated;
+  double closestDist,hmin;
+
+#warning Luca: check distance computation
+  adjt = &mesh->adjt[3*(*kfound-1)+1];
+  hmin = *h;
+
+  updated = 0;
+  for( l = 0; l < 3; l++ ) {
+    k = adjt[l]/3;
+    if( ! k ) continue;
+
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(ptr) ) continue;
+    /* Visited triangles don't see the point or have already been listed here */
+    if( ptr->flag == mesh->base ) continue;
+
+    /** Exit the loop if you find the element */
+    if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
+                                barycoord, h, &closestDist, &closestTria ) ) {
+      if( *h < hmin ) {
+        updated = 1;
+        hmin = *h;
+        *kfound = k;
+        for( i = 0; i < 4; i++ ) {
+          baryfound[i].val = barycoord[i].val;
+          baryfound[i].idx = barycoord[i].idx;
+        }
+      }
+    }
+
+  }
+
+  return updated;
 }
 
 /**
@@ -335,7 +392,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
   int            list[MMG5_LMAX],iloc;
-  double         vol,eps,closestDist;
+  double         vol,eps,h,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
 
   if(!init)
@@ -365,7 +422,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
-                                barycoord, &closestDist, &closestTria ) ) {
+                                barycoord, &h, &closestDist, &closestTria ) ) {
       break;
     }
 
@@ -405,6 +462,10 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     if (i == 3) stuck = 1;
 
   }
+
+  /* If a candidate triangle has been found, check convex configurations */
+  if( !stuck )
+    PMMG_locatePoint_foundConvex( mesh,ppt,&k,triaNormals,&h,barycoord );
 
   /* Store number of steps in the path for postprocessing */
   if( stuck ) step *= -1;
