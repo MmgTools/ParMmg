@@ -35,7 +35,6 @@
 
 #include "libparmmgtypes.h"
 #include "metis.h"
-#include "locate_pmmg.h"
 
 #if defined(c_plusplus) || defined(__cplusplus)
 extern "C" {

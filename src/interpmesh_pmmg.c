@@ -32,7 +32,7 @@
  * \copyright GNU Lesser General Public License.
  */
 #include "parmmg.h"
-#include "locate_pmmg.h"
+#include "interpmesh_pmmg.h"
 
 /**
  * \param m pointer to the 2x2 symmetric matrix
