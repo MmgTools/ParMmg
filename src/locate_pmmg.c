@@ -160,7 +160,7 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
   /* Rough check on maximum distance */
   dist2 = 0.0;
   for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
-  if( dist2 >= norm2 ) return -1;
+  if( dist2 >= norm2 ) return PMMG_UNSET;
 
   /* Check scalar product */
   if( alpha < 0.0 ) {
@@ -383,7 +383,7 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                          double *triaNormals,PMMG_barycoord *barycoord,int ip,
-                         int *foundWedge,int *foundCone ) {
+                         int *ifoundEdge,int *ifoundVertex ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
   int            list[MMG5_LMAX],iloc;
@@ -405,8 +405,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   closestTria = 0;
   closestDist = 1.0e10;
 
-  *foundWedge = -1;
-  *foundCone  = -1;
+  *ifoundEdge   = PMMG_UNSET;
+  *ifoundVertex = PMMG_UNSET;
 
   while( (step <= mesh->nt) && (!stuck) ) {
     step++;
@@ -419,7 +419,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
                                 barycoord, &h, &closestDist, &closestTria ) ) {
-      PMMG_barycoord_isBorder( barycoord, foundWedge, foundCone );
+      PMMG_barycoord_isBorder( barycoord, ifoundEdge, ifoundVertex );
       break;
     }
 
@@ -436,16 +436,15 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       ptr1 = &mesh->tria[k1];
       if(ptr1->flag == mesh->base) {
         iloc = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,barycoord );
+        if( iloc == PMMG_UNSET ) continue;
         if( iloc == 4 ) {
-          *foundWedge = iprev;
+          *ifoundEdge = iprev;
           ppt->s = step;
           return k;
-        } else if( iloc > -1 ) {
-          if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
-            *foundCone = iloc;
-            ppt->s = step;
-            return k;
-          }
+        } else if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
+          *ifoundVertex = iloc;
+          ppt->s = step;
+          return k;
         }
         continue;
       }
@@ -470,7 +469,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   if( step > mesh->nt ) {
     /* Recompute barycentric coordinates to the closest point */
     PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
-    printf("All-Closest dist %f\n",closestDist);
     return closestTria;
   }
 

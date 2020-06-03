@@ -106,12 +106,12 @@ int PMMG_barycoord_isInside( PMMG_barycoord *phi ) {
     return 0;
 }
 
-int PMMG_barycoord_isBorder( PMMG_barycoord *phi,int *foundEdge,int *foundVertex ) {
+int PMMG_barycoord_isBorder( PMMG_barycoord *phi,int *ifoundEdge,int *ifoundVertex ) {
   if( phi[0].val < MMG5_EPS )
     if( phi[1].val < MMG5_EPS )
-      *foundVertex = phi[2].idx;
+      *ifoundVertex = phi[2].idx;
     else
-      *foundEdge = phi[0].idx;
+      *ifoundEdge = phi[0].idx;
 
   return 1;
 }

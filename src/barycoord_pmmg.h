@@ -55,7 +55,7 @@ int PMMG_barycoord2d_project( MMG5_pMesh mesh,MMG5_pTria ptr,double *coord,
                                  double *proj,double dist,double *normal );
 int PMMG_barycoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
                                  PMMG_barycoord *barycoord );
-int PMMG_barycoord_isBorder( PMMG_barycoord *phi,int *foundEdge,int *foundVertex );
+int PMMG_barycoord_isBorder( PMMG_barycoord *phi,int *ifoundEdge,int *ifoundVertex );
 int  PMMG_barycoord3d_compute( MMG5_pMesh mesh,MMG5_pTetra pt,double *coord,
                                double *faceAreas, PMMG_barycoord *barycoord );
 int  PMMG_barycoord2d_evaluate( MMG5_pMesh mesh,MMG5_pTria ptr,int k,

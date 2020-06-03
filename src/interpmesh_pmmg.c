@@ -466,7 +466,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
   PMMG_barycoord barycoord[4];
   double      *normal,dd;
   int         istartTetra,istartTria,ifoundTetra,ifoundTria;
-  int         foundWedge,foundCone;
+  int         ifoundEdge,ifoundVertex;
   int         ip,ie,ifac,k,ia,ib,ic,iloc;
   int         ier;
   static int  mmgWarn=0;
@@ -531,18 +531,18 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             /** Locate point in the old mesh */
             ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
                                               triaNormals, barycoord, ip,
-                                              &foundWedge, &foundCone );
+                                              &ifoundEdge, &ifoundVertex );
 
             ifoundTria = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,
                                                       myrank,igrp );
 
             /** Interpolate point metrics */
-            if( foundCone+1 ) {
+            if( ifoundVertex != PMMG_UNSET ) {
               ier = PMMG_copyMetrics( mesh,met,oldMesh,oldMet,ip,
-                                      oldMesh->tria[ifoundTria].v[foundCone] );
-            } else if( foundWedge+1 ) {
+                                      oldMesh->tria[ifoundTria].v[ifoundVertex] );
+            } else if( ifoundEdge != PMMG_UNSET ) {
               ier = PMMG_interp2bar( mesh,met,oldMet,&oldMesh->tria[ifoundTria],
-                                     ip,foundWedge,barycoord );
+                                     ip,ifoundEdge,barycoord );
             } else {
             ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
                                   barycoord);
