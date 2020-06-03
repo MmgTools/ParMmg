@@ -419,6 +419,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
                                 barycoord, &h, &closestDist, &closestTria ) ) {
+      if( barycoord[0].val < MMG5_EPS )
+        if( barycoord[1].val < MMG5_EPS ) *foundCone = barycoord[2].idx;
+        else *foundWedge = barycoord[0].idx;
       break;
     }
 
