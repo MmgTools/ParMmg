@@ -199,8 +199,8 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
                             double *triaNormal,PMMG_barycoord *barycoord,
                             double *h,double *closestDist,int *closestTria ) {
   MMG5_pPoint    ppt0,ppt1;
-  double         hmax;
-  double         proj,dist[3];
+  double         hmax,a;
+  double         norm,dist[3];
   int            j,d,found;
 
   /* Mark tria */
@@ -210,44 +210,39 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   found = PMMG_barycoord2d_evaluate( mesh,ptr,k,ppt->c,triaNormal,barycoord );
 
 
-  /* Rough check on the distance from the surface
-   * (avoid being on the opposite pole) */
+  /* Distance from center of mass */
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d];
+  for( j = 0; j < 3; j++ ) {
+    ppt0 = &mesh->point[ptr->v[j]];
+    for( d = 0; d < 3; d++ )
+      dist[d] -= ppt0->c[d]/3.0;
+  }
+  norm = 0;
+  for( d = 0; d < 3; d++ )
+    norm += dist[d]*dist[d];
+  norm = sqrt(norm);
+
+  /* Save element index (with negative sign) if it is the closest one */
+  if( norm < *closestDist ) {
+    *closestDist = norm;
+    *closestTria = -k;
+  }
+  assert(*closestTria);
+
+  /* Rough check on the distance from the surface against the maximum edge
+   * length (avoid being on the opposite pole) */
   hmax = 0.0;
   for( j = 0; j < 3; j++ ) {
     ppt0 = &mesh->point[ptr->v[j]];
     ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
-    *h = 0.0;
+    a = 0.0;
     for( d = 0; d < 3; d++ )
-      *h += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
-    *h = sqrt(*h);
-    if( *h > hmax ) hmax = *h;
+      a += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
+    a = sqrt(a);
+    if( a > hmax ) hmax = a;
   }
-  if( fabs(barycoord[3].val) > hmax ) return 0;
-
-  /* Distance from the first vertex */
-  ppt0 = &mesh->point[ptr->v[0]];
-  for( d = 0; d < 3; d++ )
-    dist[d] = ppt->c[d]-ppt0->c[d];
-
-  /* Project */
-  proj = 0;
-  for( d = 0; d < 3; d++ )
-    proj += dist[d]*triaNormal[d];
-
-  /* Orthogonalize to get distance in the plane */
-  for( d = 0; d < 3; d++ )
-    dist[d] -= proj*triaNormal[d];
-
-  *h = 0.0;
-  for( d = 0; d < 3; d++ )
-    *h += dist[d]*dist[d];
-  *h = sqrt(*h);
-
-  /* Save element index (with negative sign) if it is the closest one */
-  if( *h < *closestDist ) {
-    *closestDist = *h;
-    *closestTria = -k;
-  }
+  if( norm > hmax ) return 0;
 
   return found;
 }
@@ -331,12 +326,12 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
  *
  */
 int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
-                                  double *triaNormals,double *h,
-                                  PMMG_barycoord *baryfound ) {
+                                  double *triaNormals,PMMG_barycoord *baryfound,
+                                  double *h,double *closestDist,int *closestTria ) {
   MMG5_pTria ptr;
   PMMG_barycoord barycoord[4];
-  int    *adjt,l,i,k,kmin,closestTria,updated;
-  double closestDist,hmin;
+  int    *adjt,l,i,k,kmin,updated;
+  double hmin;
 
 #warning Luca: check distance computation
   adjt = &mesh->adjt[3*(*kfound-1)+1];
@@ -354,7 +349,7 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
 
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTria( mesh, ptr, k, ppt, &triaNormals[3*k],
-                                barycoord, h, &closestDist, &closestTria ) ) {
+                                barycoord, h, closestDist, closestTria ) ) {
       if( *h < hmin ) {
         updated = 1;
         hmin = *h;
@@ -416,6 +411,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   while( (step <= mesh->nt) && (!stuck) ) {
     step++;
 
+    assert(kprev != k ) ;
     /** Get tria */
     ptr = &mesh->tria[k];
     if ( !MG_EOK(ptr) ) continue;
@@ -450,6 +446,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
             return k;
           }
         }
+        continue;
       }
 
       /* Get next otherwise */
@@ -463,13 +460,25 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   }
 
+  /* Store number of steps in the path for postprocessing */
+  if( stuck )
+    ppt->s = -step;
+  else
+    ppt->s = step;
+
+  if( step > mesh->nt ) {
+    /* Recompute barycentric coordinates to the closest point */
+    PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
+    printf("All-Closest dist %f\n",closestDist);
+    return closestTria;
+  }
+
+
   /* If a candidate triangle has been found, check convex configurations */
   if( !stuck )
-    PMMG_locatePoint_foundConvex( mesh,ppt,&k,triaNormals,&h,barycoord );
+    PMMG_locatePoint_foundConvex( mesh,ppt,&k,triaNormals,barycoord,
+                                  &h,&closestDist,&closestTria);
 
-  /* Store number of steps in the path for postprocessing */
-  if( stuck ) step *= -1;
-  ppt->s = step;
 
   /** Boundary hit or cyclic path: Perform exhaustive research */
   if( stuck ) {
@@ -498,6 +507,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     }
 
   }
+
   return k;
 }
 
@@ -616,8 +626,11 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
   }
 
   /* Store number of steps in the path for postprocessing */
-  if( stuck ) step *= -1;
-  ppt->s = step;
+  if( stuck )
+    ppt->s = -step;
+  else
+    ppt->s = step;
+#warning Luca: add the (rare) possibility that step == mesh->nt
 
   /** Boundary hit or cyclic path: Perform exhaustive research */
   if( stuck ) {
