@@ -15,7 +15,7 @@ IF( BUILD_TESTING )
         WORKING_DIRECTORY ${PARENT_DIR}
         )
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} checkout 1813fea53999673e510064169d8e14226f6b7cbd
+        COMMAND ${GIT_EXECUTABLE} checkout 12d88987aaaf5a9e20edac463ac11afc07fcc40e
         WORKING_DIRECTORY ${CI_DIR}
         )
     ENDIF()
@@ -161,7 +161,7 @@ IF( BUILD_TESTING )
     libparmmg_centralized_auto_cpp_example0
     libparmmg_centralized_manual_example0_io_0
     libparmmg_centralized_manual_example0_io_1
-    #libparmmg_distributed_manual_example0
+    libparmmg_centralized_localization_wave
     )
 
   SET ( PMMG_LIB_TESTS_MAIN_PATH
@@ -169,7 +169,7 @@ IF( BUILD_TESTING )
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/localization/main.c
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMESH
@@ -177,7 +177,7 @@ IF( BUILD_TESTING )
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
     ""
     ""
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+    ${CI_DIR}/WaveSurface/wave.mesh
     )
 
   SET ( PMMG_LIB_TESTS_INPUTMET
@@ -185,7 +185,7 @@ IF( BUILD_TESTING )
     ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
     ""
     ""
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+    ""
     )
 
   SET ( PMMG_LIB_TESTS_INPUTSOL
@@ -193,7 +193,7 @@ IF( BUILD_TESTING )
     ""
     ""
     ""
-    #""
+    ""
     )
 
   SET ( PMMG_LIB_TESTS_OUTPUTMESH
@@ -201,7 +201,7 @@ IF( BUILD_TESTING )
     ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
     ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
-    #${CI_DIR_RESULTS}/io-seq-par-cube.o
+    ${CI_DIR_RESULTS}/io-seq-loc-wave.o
     )
 
   SET ( PMMG_LIB_TESTS_OPTIONS
@@ -209,7 +209,7 @@ IF( BUILD_TESTING )
     "-met"
     "0"
     "1"
-    #"-met"
+    ""
     )
 
   IF ( LIBPARMMG_STATIC )
