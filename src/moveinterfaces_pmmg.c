@@ -168,6 +168,54 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  * \param mesh pointer toward the mesh structure.
  * \param start index of the tetra to start the search.
  * \param list pointer to a preallocated list of tetra to be filled.
+ * \return 0 if fail, 1 if success.
+ *
+ * Fill a list of contiguous tetrahedra starting from a given one.
+ * Warning: tetra with a nonzero flag field are skipped.
+ */
+int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,
+                          int *list ) {
+  MMG5_pTetra      pt,pt1;
+  int              *adja,ilist,cur,k,k1,l;
+  int              base,color;
+
+  /* New flag */
+  base = ++mesh->base;
+
+  /* Store initial tetra */
+  cur = 0;
+  list[cur] = start;
+  ilist = 1;
+
+  /* Flag initial tetra */
+  mesh->tetra[start].flag = base;
+
+  /** Explore list and fill it by adjacency */
+  while( cur < ilist ) {
+    k = list[cur];
+    pt = &mesh->tetra[k];
+    /* Loop on adjacents */
+    for( l = 0; l < 4; l++ ) {
+      k1 = mesh->adja[4*(k-1)+1+l];
+      if( !k1 ) continue;
+      k1 /= 4;
+      pt1 = &mesh->tetra[k1];
+      /* Skip already visited tetra (by this or another list ) */
+      if( !pt1->flag ) {
+        list[ilist++] = k1;
+        pt1->flag = base;
+      }
+    }
+    cur++;
+  }
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param start index of the tetra to start the search.
+ * \param list pointer to a preallocated list of tetra to be filled.
  * \param list_head pointer the index of the first tetra in the list.
  * \param list_len pointer to the length of the list.
  * \param list_base pointer to the base value used to mark tetras in the list.
@@ -175,7 +223,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  * \return 0 if fail, 1 if success.
  *
  * Fill a list of contiguous tetrahedra having the same color as the starting
- * tetra.
+ * tetra. Warning: tetra with a nonzero flag field are skipped.
  */
 int PMMG_list_contiguousColor( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                            int start,int *list,int *list_head,int *list_len,
