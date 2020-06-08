@@ -564,6 +564,10 @@ int PMMG_fix_contiguity_centralized( PMMG_pParMesh parmesh,idx_t *part ) {
  *
  * Check that subgroups created by interface displacement are reachable from
  * the target groups.
+ * Reachability is meant by tetra faces, so it is checked through adjacency
+ * walk.
+ * For each tetra, the group color is stored in the mark field; the flag field
+ * is used to flag reached tetras.
  *
  */
 int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
@@ -588,6 +592,10 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   face2int_face_comm_index1 = grp->face2int_face_comm_index1;
   face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
+
+  /**
+   *  1) Exchange group colors through the face communicator.
+   */
 
   /* Reset internal communicator */
   int_face_comm = parmesh->int_face_comm;
@@ -641,7 +649,9 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
-  /* Ignore values if coming from a proc different than color_out */
+  /* Discard values if coming from a proc different than color_out
+   * (basically, if they come from neighbours of a neighbour).
+   */
   for( k = 0; k < parmesh->next_face_comm; k++ ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     rank_out = ext_face_comm->color_out;
@@ -652,7 +662,12 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     }
   }
 
-  /* Reach as many tetra as possible from the interface through walk search */
+
+  /**
+   *   2) Flag all tetras of the same color that are reachable by adjacency
+   *      from interface tetras.
+   */
+
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
     idx = face2int_face_comm_index2[i];
     ie  = face2int_face_comm_index1[i]/12;
@@ -678,7 +693,12 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   assert( count == *counter );
 #endif
 
-  /* Merge the unreachable subgroups */
+
+  /**
+   *  3) Merge the unreachable subgroups, tetra lists that have not been
+   *     reached by an interface tetra.
+   */
+
   ie = 1;
   while( ie <= mesh->ne ) {
     pt = &mesh->tetra[ie];
