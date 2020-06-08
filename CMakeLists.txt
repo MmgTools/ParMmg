@@ -167,6 +167,12 @@ ENDIF()
 # Find SCOTCH library?
 SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+
+# add Scotch library?
+OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON )
+
+IF ( USE_SCOTCH )
+
 FIND_PACKAGE(SCOTCH)
 
 IF ( NOT SCOTCH_FOUND )
@@ -178,12 +184,23 @@ IF ( NOT SCOTCH_FOUND )
     "to your scotch directory.")
 ENDIF ( )
 
+ENDIF ( )
+
+
 ############################################################################
 #####
 #####         VTK (to parse (p)vtp/(p)vtu files )
 #####
 ############################################################################
-FIND_PACKAGE(VTK)
+OPTION ( USE_VTK "Use VTK I/O" ON )
+
+IF ( USE_VTK )
+  FIND_PACKAGE(VTK QUIET)
+
+  IF ( NOT VTK_FOUND )
+    MESSAGE ( WARNING "VTK library not found: vtk I/O will not be available.")
+  ENDIF ( )
+ENDIF ( )
 
 ###############################################################################
 #####
@@ -191,22 +208,15 @@ FIND_PACKAGE(VTK)
 #####
 ###############################################################################
 
-# add Scotch library?
-CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
-  "SCOTCH_FOUND" OFF)
-
-IF( USE_SCOTCH )
+IF( SCOTCH_FOUND )
   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
  MESSAGE(STATUS
     "Compilation with scotch: ${SCOTCH_LIBRARIES}")
   SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
 ENDIF()
 
-# add the VTK library ?
-CMAKE_DEPENDENT_OPTION ( USE_VTK "Use VTK I/O" ON
-  "VTK_FOUND" OFF)
 
-IF ( USE_VTK )
+IF ( VTK_FOUND )
   ENABLE_LANGUAGE ( CXX )
   ADD_DEFINITIONS(-DUSE_VTK)
   MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
@@ -287,7 +297,7 @@ ELSE ( )
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  FIND_PACKAGE(MMG)
+  FIND_PACKAGE(Mmg)
 
   IF(NOT MMG_FOUND )
 
