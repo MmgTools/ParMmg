@@ -166,10 +166,16 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
- * \param color color of the group to scan.
+ * \param start index of the tetra to start the search.
+ * \param list pointer to a preallocated list of tetra to be filled.
+ * \param list_head pointer the index of the first tetra in the list.
+ * \param list_len pointer to the length of the list.
+ * \param list_base pointer to the base value used to mark tetras in the list.
+ * \param list_otetra index of the first neighbour tetra with a different color.
  * \return 0 if fail, 1 if success.
  *
- * Fill a list of contiguous tetrahedra having the same color.
+ * Fill a list of contiguous tetrahedra having the same color as the starting
+ * tetra.
  */
 int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                            int start,int *list,int *list_head,int *list_len,
