@@ -177,7 +177,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  * Fill a list of contiguous tetrahedra having the same color as the starting
  * tetra.
  */
-int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+int PMMG_list_contiguousColor( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
                            int start,int *list,int *list_head,int *list_len,
                            int *list_base,int *list_otetra ) {
   MMG5_pTetra      pt,pt1;
@@ -276,7 +276,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
 
   /** 1) Find the first subgroup */
   start = 1;
-  if( !PMMG_list_contiguous( parmesh, mesh, start, list, &next_head,
+  if( !PMMG_list_contiguousColor( parmesh, mesh, start, list, &next_head,
         &next_len, &next_base, &next_otetra ) ) return 0;
   counter += next_len;
 
@@ -291,7 +291,7 @@ int PMMG_check_contiguity( PMMG_pParMesh parmesh,int igrp ) {
   /** 2) Look for new subgroups until all the mesh is scanned */
   while( start <= mesh->ne ) {
 
-    if( !PMMG_list_contiguous( parmesh, mesh, start, list, &next_head,
+    if( !PMMG_list_contiguousColor( parmesh, mesh, start, list, &next_head,
           &next_len, &next_base, &next_otetra ) ) return 0;
     counter += next_len;
 
@@ -350,7 +350,7 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
   }
 
   if( start <= mesh->ne ) {
-    if( !PMMG_list_contiguous( parmesh, mesh, start, main_list, &main_head,
+    if( !PMMG_list_contiguousColor( parmesh, mesh, start, main_list, &main_head,
           &main_len, &main_base, &main_otetra ) ) return 0;
     *counter += main_len;
   }
@@ -366,7 +366,7 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
   /** 2) Look for new subgroups until all the mesh is scanned */
   while( start <= mesh->ne ) {
 
-    if( !PMMG_list_contiguous( parmesh, mesh, start, next_list, &next_head,
+    if( !PMMG_list_contiguousColor( parmesh, mesh, start, next_list, &next_head,
           &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
 
@@ -686,7 +686,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     /* Skip already seen tetra */
     if( pt->flag ) continue;
     /* Flag the reachable adjacents */
-    if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
+    if( !PMMG_list_contiguousColor( parmesh, mesh, ie, list, &next_head,
           &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
     assert( *counter <= mesh->ne );
@@ -715,7 +715,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
   while( ie <= mesh->ne ) {
     color = pt->mark;
 
-    if( !PMMG_list_contiguous( parmesh, mesh, ie, list, &next_head,
+    if( !PMMG_list_contiguousColor( parmesh, mesh, ie, list, &next_head,
           &next_len, &next_base, &next_otetra ) ) return 0;
     *counter += next_len;
 
