@@ -823,12 +823,11 @@ int PMMG_correct_partitions( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_face_comm;
   MPI_Comm       comm;
   MPI_Status     status;
-  int          ilist;
+  int          istart,ilist,main_len,next_len,main_head,next_head,main_base;
   int          isContig_l,isContig_g;
   int          *face2int_face_comm_index1,*face2int_face_comm_index2;
   int          *intvalues,*itosend,*itorecv,rank_out;
   int          *list;
-  int          next_head,next_len,next_base,next_otetra;
   int          nitem,color;
   int          ie,i,idx,k;
 
@@ -841,17 +840,73 @@ int PMMG_correct_partitions( PMMG_pParMesh parmesh ) {
 
   PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
 
-  /* Reset tetra flag */
-  for( k = 1; k <= mesh->ne; k++ )
-    mesh->tetra[k].flag = 0;
+  /* Reset tetra flag and mark */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    pt->flag = 0;
+    pt->mark = PMMG_UNSET;
+  }
+
+  /* Store color out in the internal communicator */
+  for ( k = 0; k < parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = color;
+    }
+  }
+
+  /* Get color out from the internal communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    idx = face2int_face_comm_index2[i];
+    ie  = face2int_face_comm_index1[i]/12;
+    pt = &mesh->tetra[ie];
+    /* Skip tetra in the main subgroup */
+    if( pt->flag == main_base ) continue;
+    pt->mark = intvalues[idx];
+  }
+
 
   /** 1) Find the first subgroup */
-  ilist = PMMG_list_contiguous( parmesh, mesh, 1, list );
+  istart = 1;
+  main_len = PMMG_list_contiguous( parmesh, mesh, istart, list );
+  main_base = mesh->base;
 
-  isContig_l = ilist != mesh->ne ? 0 : 1;
+  isContig_l = main_len != mesh->ne ? 0 : 1;
   MPI_Allreduce( &isContig_l, &isContig_g, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if( isContig_g ) return 1;
 
+  /** Find the next list head */
+  istart++;
+  while( istart <= mesh->ne ) {
+    pt = &mesh->tetra[istart];
+    if( !pt->flag ) break;
+    istart++;
+  }
+
+  /** 2) Look for the biggest subgroup until all the mesh is scanned */
+  while( istart <= mesh->ne ) {
+
+    next_len = PMMG_list_contiguous( parmesh, mesh, istart, list );
+
+    /* Compare the next subgroup with the main one */
+    if( next_len > main_len ) {
+      /* Swap */
+      main_len  = next_len;
+      main_base = mesh->base;
+    }
+
+    /* Find the next list head */
+    istart++;
+    while( istart <= mesh->ne ) {
+      pt = &mesh->tetra[istart];
+      if( !pt->flag ) break;
+      istart++;
+    }
+  }
 
   PMMG_DEL_MEM(parmesh,list,int,"tetra list");
 
