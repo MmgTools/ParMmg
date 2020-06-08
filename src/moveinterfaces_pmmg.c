@@ -168,7 +168,7 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
  * \param mesh pointer toward the mesh structure.
  * \param start index of the tetra to start the search.
  * \param list pointer to a preallocated list of tetra to be filled.
- * \return 0 if fail, 1 if success.
+ * \return 0 if fail, the number of tetra in the list if success.
  *
  * Fill a list of contiguous tetrahedra starting from a given one.
  * Warning: tetra with a nonzero flag field are skipped.
@@ -208,7 +208,7 @@ int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,
     }
     cur++;
   }
-  return 1;
+  return ilist;
 }
 
 /**
