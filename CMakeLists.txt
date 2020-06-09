@@ -297,7 +297,7 @@ ELSE ( )
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  FIND_PACKAGE(Mmg)
+  FIND_PACKAGE(MMG)
 
   IF(NOT MMG_FOUND )
 
