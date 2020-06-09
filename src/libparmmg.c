@@ -627,6 +627,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
     iresult = PMMG_merge_parmesh( parmesh );
     if ( !iresult ) {
+      // Add saving at parallel format
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
 

@@ -54,7 +54,7 @@
  * \param dispsize size of the displacement
  * \param nsols number of solution fields
  * \param ier_field 1 if the sol fields  are allocated, 0 otherwise
- * \param fieldsize size of the solution fields (array allocated inside this function)
+ * \param fieldsize size of the solution fields.
  *
  * \warning the mesh prisms are not treated.
  *
@@ -72,11 +72,11 @@ void PMMG_mpiunpack_meshSizes ( PMMG_pGrp grp,char **buffer,
                                 int *npls,int *ier_ls,int *lssize,
                                 int *npdisp,int *ier_disp,int *dispsize,
                                 int *nsols,int* ier_field,
-                                int **fieldsize ) {
+                                int *fieldsize ) {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp;
-  int        is,ier_grp,ier_field0;
-  int        *type;
+  int        is,ier_grp;
+  int        type[MMG5_NSOLS_MAX];
   int        ismet,isls,isdisp;
 
   /** Mesh size */
@@ -204,39 +204,26 @@ void PMMG_mpiunpack_meshSizes ( PMMG_pGrp grp,char **buffer,
     }
   }
 
-  ier_field0 = *ier_field = 1;
-  *fieldsize = type = NULL;
+  *ier_field = 1;
   if ( *nsols ) {
-    MMG5_SAFE_MALLOC (       type,*nsols,int,ier_field0 = *ier_field = 0 );
-    MMG5_SAFE_MALLOC ( *fieldsize,*nsols,int,ier_field0 = *ier_field = 0 );
-
     if ( ier_grp && (!grp->field) ) {
       PMMG_CALLOC(grp->mesh,grp->field,*nsols,MMG5_Sol,"field",ier_grp=(*ier)=0);
     }
 
-    if ( ier_field0 ) {
-      for ( is=0; is<*nsols; ++is ) {
-        /** Store fields size */
-        (*fieldsize)[is] = *( (int *) *buffer); *buffer += sizeof(int);
+    for ( is=0; is<*nsols; ++is ) {
+      /** Store fields size */
+      fieldsize[is] = *( (int *) *buffer); *buffer += sizeof(int);
 
-        /** Store fields types */
-        type[is] = *( (int *) *buffer); *buffer += sizeof(int);
-      }
-    }
-    else {
-      /** Skip field type and sizes */
-      *buffer += 2*(*nsols)*sizeof(int);
+      /** Store fields types */
+      type[is] = *( (int *) *buffer); *buffer += sizeof(int);
     }
 
-    if ( ier_grp && *ier_field ) {
+    if ( ier_grp ) {
       /** Set the fields sizes */
       *ier_field = MMG3D_Set_solsAtVerticesSize( mesh,&grp->field,*nsols,*np,type);
     }
     else {
       *ier = *ier_field = 0;
-    }
-    if ( type ) {
-      MMG5_SAFE_FREE(type);
     }
   }
 }
@@ -533,7 +520,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
                                  int npls,int ier_ls,int lssize,
                                  int npdisp,int ier_disp,int dispsize,
                                  int nsols,int ier_field,
-                                 int **fieldsize ) {
+                                 int *fieldsize ) {
   const MMG5_pMesh mesh  = grp->mesh;
   const MMG5_pSol  met   = grp->met;
   const MMG5_pSol  ls    = grp->ls;
@@ -572,7 +559,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->point[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
     }
 
-    /** Pack mesh boundary points */
+    /** Unpack mesh boundary points */
     for ( k=1; k<=mesh->xp; ++k ) {
       /* First normal */
       mesh->xpoint[k].n1[0] = *( (double *) *buffer); *buffer += sizeof(double);
@@ -584,7 +571,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->xpoint[k].n2[2] = *( (double *) *buffer); *buffer += sizeof(double);
     }
 
-    /** Pack mesh elements */
+    /** Unpack mesh elements */
     for ( k=1; k<=mesh->ne; ++k ) {
       /* Tetra vertices */
       mesh->tetra[k].v[0] = *( (int *) *buffer); *buffer += sizeof(int);
@@ -603,7 +590,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->tetra[k].qual = *( (double *) *buffer); *buffer += sizeof(double);
     }
 
-    /** Pack mesh boundary tetra */
+    /** Unpack mesh boundary tetra */
     for ( k=1; k<=mesh->xt; ++k ) {
       /* Faces references  */
       mesh->xtetra[k].ref[0] = *( (int *) *buffer); *buffer += sizeof(int);
@@ -651,7 +638,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     /* Tag */
     *buffer += np*sizeof(int16_t);
 
-    /** Pack mesh boundary points */
+    /** Unpack mesh boundary points */
     /* First normal */
     *buffer += xp*sizeof(double);
     *buffer += xp*sizeof(double);
@@ -661,7 +648,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     *buffer += xp*sizeof(double);
     *buffer += xp*sizeof(double);
 
-    /** Pack mesh elements */
+    /** Unpack mesh elements */
     /* Tetra vertices */
     *buffer += ne*sizeof(int);
     *buffer += ne*sizeof(int);
@@ -674,7 +661,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     /* Tag */
     *buffer += ne*sizeof(int16_t);
 
-    /** Pack mesh boundary tetra */
+    /** Unpack mesh boundary tetra */
     /* Faces references  */
     *buffer += xt*sizeof(int);
     *buffer += xt*sizeof(int);
@@ -751,7 +738,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     }
   }
 
-  if ( nsols && *fieldsize ) {
+  if ( nsols ) {
     if ( ier_field ) {
       for ( is=0; is<nsols; ++is ) {
         psl = &grp->field[is];
@@ -765,10 +752,9 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     }
     else {
       for ( is=0; is<nsols; ++is ) {
-        *buffer += np*(*fieldsize)[is]*sizeof(double);
+        *buffer += np*fieldsize[is]*sizeof(double);
       }
     }
-    MMG5_SAFE_FREE(*fieldsize);
   }
 
 }
@@ -779,7 +765,6 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
  * \param buffer pointer toward the buffer in which we pack the group
  * \param memAv pointer toward the available memory whose value is updated.
  * \param ier pointer toward the error value (setted to 0 if we fail)
- * \param ptrok 1 if the buffer pointer is at the good position (ie fieldsize has been allocated)
  *
  * Unpack the internal communicators of the group and move the buffer pointer at
  * the end of the readed area. Set the parmesh memory to the minimal amount needed.
@@ -788,75 +773,182 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
 static
 void PMMG_mpiunpack_grpintcomm ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                                  char **buffer,size_t *memAv,
-                                 int *ier,int ptrok ) {
+                                 int *ier ) {
 
   int   k,ier_comm;
 
   /* Give all the available mem to the communicators */
   parmesh->memMax = *memAv;
 
-  if ( !ptrok ) {
-    /* We were not able to read the field sizes so we can't know the span to
-     * be skipped and we can't continue to read the mesh */
-    ier_comm = 0;
+  /** Unpack communicators */
+  ier_comm = 1;
+
+  /** Communicator sizes */
+  grp->nitem_int_node_comm = *( (int *) *buffer); *buffer += sizeof(int);
+  grp->nitem_int_face_comm = *( (int *) *buffer); *buffer += sizeof(int);
+
+  /* Node communicator */
+  PMMG_MALLOC(parmesh,grp->node2int_node_comm_index1,grp->nitem_int_node_comm,
+              int,"node2int_node_comm_index1",*ier = ier_comm = 0);
+  PMMG_MALLOC(parmesh,grp->node2int_node_comm_index2,grp->nitem_int_node_comm,
+              int,"node2int_node_comm_index1",*ier = ier_comm = 0);
+
+  if ( ier_comm ) {
+    for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+      grp->node2int_node_comm_index1[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+    for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
+      grp->node2int_node_comm_index2[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
   }
   else {
-    /** Pack communicators */
-    ier_comm = 1;
+    /* The communicators arrays can't be allocated */
+    *buffer += 2*grp->nitem_int_node_comm*sizeof(int);
+  }
 
-    /** Communicator sizes */
-    grp->nitem_int_node_comm = *( (int *) *buffer); *buffer += sizeof(int);
-    grp->nitem_int_face_comm = *( (int *) *buffer); *buffer += sizeof(int);
+  ier_comm=1;
+  /* Face communicator */
+  PMMG_MALLOC(parmesh,grp->face2int_face_comm_index1,grp->nitem_int_face_comm,
+              int,"face2int_face_comm_index1",*ier = ier_comm = 0);
+  PMMG_MALLOC(parmesh,grp->face2int_face_comm_index2,grp->nitem_int_face_comm,
+              int,"face2int_face_comm_index1",*ier = ier_comm = 0);
 
-    /* Node communicator */
-    PMMG_MALLOC(parmesh,grp->node2int_node_comm_index1,grp->nitem_int_node_comm,
-                int,"node2int_node_comm_index1",*ier = ier_comm = 0);
-    PMMG_MALLOC(parmesh,grp->node2int_node_comm_index2,grp->nitem_int_node_comm,
-                int,"node2int_node_comm_index1",*ier = ier_comm = 0);
+  /* Use the minimal memory needed for the parmesh  */
+  parmesh->memMax = parmesh->memCur;
+  *memAv         -= parmesh->memMax;
 
-    if ( ier_comm ) {
-      for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
-        grp->node2int_node_comm_index1[k] = *( (int *) *buffer);
-        *buffer += sizeof(int);
+  if ( ier_comm ) {
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      grp->face2int_face_comm_index1[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+    for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+      grp->face2int_face_comm_index2[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+  else {
+    /* The communicators arrays can't be allocated */
+    *buffer += 2*grp->nitem_int_face_comm*sizeof(int);
+  }
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param int_node_comm pointer toward an internal communicator.
+ * \param buffer pointer toward the buffer in which we pack the group
+ * \param memAv pointer toward the available memory whose value is updated.
+ * \param ier pointer toward the error value (setted to 0 if we fail)
+ *
+ * Unpack the nodal intvalues array
+ *
+ */
+static
+void PMMG_mpiunpack_nodeintvalues ( PMMG_pParMesh parmesh,
+                                    PMMG_pInt_comm int_node_comm,
+                                    char **buffer,size_t *memAv,
+                                    int *ier ) {
+  int            k,ier_comm;
+
+  /* Give all the available mem to the communicators */
+  parmesh->memMax = *memAv;
+
+  /** Unpack intvalues array */
+  ier_comm = 1;
+
+  /** Size of intvalue array */
+  int_node_comm->nitem = *( (int *) *buffer); *buffer += sizeof(int);
+
+  /* Allocation of intvalues */
+  PMMG_MALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,
+              int,"int_node_comm->intvalues",*ier = ier_comm = 0);
+
+  if ( ier_comm ) {
+    for ( k=0; k<int_node_comm->nitem; ++k ) {
+      int_node_comm->intvalues[k] = *( (int *) *buffer);
+      *buffer += sizeof(int);
+    }
+  }
+  else {
+    /* The intvalue array can't be allocated */
+    *buffer += int_node_comm->nitem*sizeof(int);
+  }
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param next_node_comm pointer toward the number of external communicators.
+ * \param ext_node_comm pointer toward an array of external communicators.
+ * \param buffer pointer toward the buffer in which we pack the group
+ * \param memAv pointer toward the available memory whose value is updated.
+ * \param ier pointer toward the error value (setted to 0 if we fail)
+ *
+ * Unpack the nodal external communicators.
+ *
+ */
+static
+void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
+                                  int *next_node_comm,
+                                  PMMG_pExt_comm *ext_node_comm,
+                                  char **buffer,size_t *memAv,
+                                  int *ier ) {
+
+  int k,i,ier_comm,nitem_unread;
+
+  /* Give all the available mem to the communicators */
+  parmesh->memMax = *memAv;
+
+  /** Unpack communicators */
+  ier_comm = 1;
+
+  /** Communicator sizes */
+  *next_node_comm = *( (int *) *buffer); *buffer += sizeof(int);
+
+  /* External communicators */
+  PMMG_MALLOC(parmesh,*ext_node_comm,*next_node_comm,
+              PMMG_Ext_comm,"ext_node_comm",*ier = ier_comm = 0);
+
+  if ( ier_comm ) {
+    for ( k=0; k<*next_node_comm; ++k ) {
+      (*ext_node_comm)[k].color_in  = *( (int *) *buffer); *buffer += sizeof(int);
+      (*ext_node_comm)[k].color_out = *( (int *) *buffer); *buffer += sizeof(int);
+      (*ext_node_comm)[k].nitem     = *( (int *) *buffer); *buffer += sizeof(int);
+
+      if ( ier_comm ) {
+        PMMG_MALLOC(parmesh,(*ext_node_comm)[k].int_comm_index,
+                    (*ext_node_comm)[k].nitem,
+                    int,"ext_node_comm->int_comm_index",*ier = ier_comm = 0);
       }
-      for ( k=0; k<grp->nitem_int_node_comm; ++k ) {
-        grp->node2int_node_comm_index2[k] = *( (int *) *buffer);
-        *buffer += sizeof(int);
+      if ( ier_comm ) {
+        for ( i=0; i<(*ext_node_comm)[k].nitem; ++i ) {
+          (*ext_node_comm)[k].int_comm_index[i] = *( (int *) *buffer);
+          *buffer += sizeof(int);
+        }
+      }
+      else {
+        /* Skip unreadable items */
+        *buffer += (*ext_node_comm)[k].nitem*sizeof(int);
       }
     }
-    else {
-      /* The communicators arrays can't be allocated */
-      *buffer += 2*grp->nitem_int_node_comm*sizeof(int);
-    }
+  }
+  else {
+    for ( k=0 ; k<*next_node_comm; ++k ) {
+      /* Travel the remaining communicator to skip unreadable items */
+      *buffer += 2*sizeof(int); //colors
 
-    ier_comm=1;
-    /* Face communicator */
-    PMMG_MALLOC(parmesh,grp->face2int_face_comm_index1,grp->nitem_int_face_comm,
-                int,"face2int_face_comm_index1",*ier = ier_comm = 0);
-    PMMG_MALLOC(parmesh,grp->face2int_face_comm_index2,grp->nitem_int_face_comm,
-                int,"face2int_face_comm_index1",*ier = ier_comm = 0);
-
-    /* Use the minimal memory needed */
-    parmesh->memMax = parmesh->memCur;
-    *memAv         -= parmesh->memMax;
-
-    if ( ier_comm ) {
-      for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
-        grp->face2int_face_comm_index1[k] = *( (int *) *buffer);
-        *buffer += sizeof(int);
-      }
-      for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
-        grp->face2int_face_comm_index2[k] = *( (int *) *buffer);
-        *buffer += sizeof(int);
-      }
-    }
-    else {
-      /* The communicators arrays can't be allocated */
-      *buffer += 2*grp->nitem_int_face_comm*sizeof(int);
+      nitem_unread = *( (int *) *buffer); *buffer += sizeof(int);
+      *buffer += nitem_unread*sizeof(int); // ext_node_comm->int_comm_index
     }
   }
 
+  /* Use the minimal memory needed */
+  parmesh->memMax = parmesh->memCur;
+  *memAv         -= parmesh->memMax;
+
 }
+
 
 /**
  * \param parmesh pointer toward a parmesh structure.
@@ -881,8 +973,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
                          size_t *memAv) {
   int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
-  int        metsize,lssize,dispsize,*fieldsize;
-  int        nsols,used,ptrok;
+  int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
+  int        nsols,used;
 
   ier = 1;
 
@@ -895,9 +987,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
   PMMG_mpiunpack_meshSizes ( grp,buffer,memAv,&ier,&np,&ne,&xp,&xt,
                              &ier_mesh,&npmet,&ier_met,&metsize,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
-                             &nsols,&ier_field,&fieldsize );
-
-  ptrok =  nsols ? (fieldsize!=NULL) : 1;
+                             &nsols,&ier_field,fieldsize );
 
   if ( !PMMG_mpiunpack_filenames ( grp,buffer,&ier,ier_mesh,ier_ls,ier_disp,
                                    nsols,ier_field ) ) {
@@ -908,10 +998,10 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
-                             ier_disp,dispsize,nsols,ier_field,&fieldsize );
+                             ier_disp,dispsize,nsols,ier_field,fieldsize );
 
 
-  PMMG_mpiunpack_grpintcomm ( parmesh,grp,buffer,memAv,&ier,ptrok);
+  PMMG_mpiunpack_grpintcomm ( parmesh,grp,buffer,memAv,&ier);
 
   return ier;
 }
@@ -919,6 +1009,9 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
 /**
  * \param parmesh pointer toward a parmesh structure.
  * \param grp pointer toward a PMMG_Grp structure.
+ * \param int_node_comm pointer toward an internal communicator.
+ * \param next_node_comm pointer toward the number of external communicators.
+ * \param ext_node_comm pointer toward an array of external communicators.
  * \param buffer pointer toward the buffer in which we unpack the group
  * \param memAv pointer toward the available memory whose value is updated.
  *
@@ -926,7 +1019,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
  *
  * \warning the mesh prisms are not treated.
  *
- * Upack a group from a double buffer and shift the pointer toward the buffer to
+ * Upack a  from a double buffer and shift the pointer toward the buffer to
  * point to the next group stored in the buffer.
  *
  * \remark  To get the correct value of a variable
@@ -935,12 +1028,16 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
  * dereferencing the adress of the buffer.
  *
  */
-int PMMG_mpiunpack_grp4finalmerge ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
-                                    size_t *memAv) {
+int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
+                             PMMG_pInt_comm int_node_comm,
+                             int *next_node_comm,
+                             PMMG_pExt_comm *ext_node_comm,
+                             char **buffer,
+                             size_t *memAv) {
   int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
-  int        metsize,lssize,dispsize,*fieldsize;
-  int        nsols,used,ptrok;
+  int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
+  int        nsols,used;
 
   ier = 1;
 
@@ -953,23 +1050,24 @@ int PMMG_mpiunpack_grp4finalmerge ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **b
   PMMG_mpiunpack_meshSizes ( grp,buffer,memAv,&ier,&np,&ne,&xp,&xt,
                              &ier_mesh,&npmet,&ier_met,&metsize,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
-                             &nsols,&ier_field,&fieldsize );
+                             &nsols,&ier_field,fieldsize );
 
-  ptrok =  nsols ? (fieldsize!=NULL) : 1;
-
-#ifndef NDEBUG
   if ( !PMMG_mpiunpack_filenames ( grp,buffer,&ier,ier_mesh,ier_ls,ier_disp,
                                    nsols,ier_field ) ) {
     return 0;
   }
-#endif
+
+  PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
-                             ier_disp,dispsize,nsols,ier_field,&fieldsize );
+                             ier_disp,dispsize,nsols,ier_field,fieldsize );
 
 
-  PMMG_mpiunpack_grpintcomm ( parmesh,grp,buffer,memAv,&ier,ptrok);
+  PMMG_mpiunpack_nodeintvalues ( parmesh,int_node_comm,buffer,memAv,&ier);
+
+  PMMG_mpiunpack_extnodecomm ( parmesh,next_node_comm,ext_node_comm,buffer,
+                               memAv,&ier);
 
   return ier;
 }

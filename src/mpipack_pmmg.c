@@ -356,6 +356,57 @@ int PMMG_mpisizeof_grpintcomm ( PMMG_pGrp grp ) {
   return idx;
 }
 
+/**
+ * \param parmesh pointer toward a PMMG parmesh
+ *
+ * \return the computed size
+ *
+ * Compute the size of compressed intvalue array of the nodal internal
+ * communicator.
+ *
+ */
+static
+int PMMG_mpisizeof_nodeintvalues ( PMMG_pParMesh parmesh ) {
+  int              idx = 0;
+
+  /** Pack intvalues array of nodal communicator */
+  /* Array size */
+  idx += sizeof(int);
+
+  /* Intvalues array */
+  idx += parmesh->int_node_comm->nitem*sizeof(int);
+
+  return idx;
+}
+
+/**
+ * \param parmesh pointer toward a PMMG parmesh
+ *
+ * \return the computed size
+ *
+ * Compute the size of compressed nodal external communicator.
+ *
+ */
+static
+int PMMG_mpisizeof_extnodecomm ( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_node_comm;
+  int            k,idx = 0;
+
+  /** Pack nodal external communicators */
+  /* Number of external communicators */
+  idx += sizeof(int);
+
+  /* List of external communicators */
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    idx += 3*sizeof(int); // Colors + nitem
+    idx += parmesh->ext_node_comm[k].nitem * sizeof(int);
+  }
+
+  return idx;
+}
+
 
 /**
  * \param grp pointer toward a PMMG_Grp structure.
@@ -403,33 +454,44 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
  *
  * \warning the mesh prisms are not treated.
  *
- * Compute the size of the compressed group.
+ * Compute the size of the compressed parmesh (groups must have been merged
+ * before entering this function).
  *
  */
-int PMMG_mpisizeof_grp4finalmerge ( PMMG_pGrp grp ) {
-  int idx;
+int PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp grp;
+  int       idx;
+
+  assert ( parmesh->ngrp < 2 ); // Check that groups are merged
 
   /** Used or unused group */
   idx = sizeof(int);
 
-  if ( !grp->mesh ) {
+  if ( (!parmesh->ngrp) || (!parmesh->listgrp[0].mesh) ) {
     /* unused group */
     return idx;
   }
 
+  grp = &parmesh->listgrp[0];
+
   /** Size of mesh / metric / fields... arrays (np, met->siz...) */
   idx += PMMG_mpisizeof_meshSizes ( grp );
 
-#ifndef NDEBUG
   /** Size of compressed names */
   idx += PMMG_mpisizeof_filenames ( grp );
-#endif
+
+  /** Size of Info */
+  idx += PMMG_mpisizeof_infos ( &parmesh->listgrp[0].mesh->info );
 
   /** Size of compressed points / tetra / metric / fields... */
   idx += PMMG_mpisizeof_meshArrays ( grp );
 
 
+  /** Size of intvalues array */
+  idx += PMMG_mpisizeof_nodeintvalues ( parmesh );
+
   /** Size of external communicators */
+  idx += PMMG_mpisizeof_extnodecomm ( parmesh );
 
   return idx;
 }
@@ -906,6 +968,71 @@ void PMMG_mpipack_grpintcomm ( PMMG_pGrp grp,char **buffer ) {
 }
 
 /**
+ * \param parmesh pointer toward a PMMG_pParMesh structure.
+ * \param buffer pointer toward the buffer in which we pack the group
+ *
+ * Pack the nodal intvalues array.
+ *
+ */
+static
+void PMMG_mpipack_nodeintvalues ( PMMG_pParMesh parmesh,char **buffer ) {
+  PMMG_pInt_comm int_node_comm = parmesh->int_node_comm;
+  int            k;
+  char           *tmp;
+
+  tmp = *buffer;
+
+  /** Pack intvalues array of nodal communicator */
+  /* Array size */
+  *( (int *) tmp) = int_node_comm->nitem; tmp += sizeof(int);
+
+  /* Intvalues array */
+  for ( k=0; k<int_node_comm->nitem; ++k ) {
+    *( (int *) tmp) = int_node_comm->intvalues[k]; tmp += sizeof(int);
+  }
+
+  *buffer = tmp;
+}
+
+/**
+ * \param parmesh pointer toward a PMMG_pParMesh structure.
+ * \param buffer pointer toward the buffer in which we pack the group
+ *
+ * Pack the nodal external communicators
+ *
+ */
+static
+void PMMG_mpipack_extnodecomm ( PMMG_pParMesh parmesh,char **buffer ) {
+  PMMG_pExt_comm ext_node_comm;
+  int   k,i;
+  char  *tmp;
+
+  tmp = *buffer;
+
+  /** Pack nodal external communicators */
+  /* Number of external communicators */
+  *( (int *) tmp) = parmesh->next_node_comm; tmp += sizeof(int);
+
+  /* List of external communicators */
+  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    /* Color in */
+    *( (int *) tmp) = ext_node_comm->color_in; tmp += sizeof(int);
+    /* Color out */
+    *( (int *) tmp) = ext_node_comm->color_out; tmp += sizeof(int);
+    /* nitem */
+    *( (int *) tmp) = ext_node_comm->nitem; tmp += sizeof(int);
+    /* int_comm_index */
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      *( (int *) tmp) = ext_node_comm->int_comm_index[i]; tmp += sizeof(int);
+    }
+  }
+
+  *buffer = tmp;
+}
+
+/**
  * \param grp pointer toward a PMMG_Grp structure.
  * \param buffer pointer toward the buffer in which we pack the group
  *
@@ -958,7 +1085,7 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
 }
 
 /**
- * \param grp pointer toward a PMMG_Grp structure.
+ * \param parmesh pointer toward a PMMG_ParMesh structure.
  * \param buffer pointer toward the buffer in which we pack the group
  *
  * \return 1 if success, 0 if fail
@@ -970,19 +1097,24 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
  * buffer of type "x". Then we can store the variable value by dereferencing the
  * adress of the buffer.
  *
- * Pack a group into a buffer (to allow mpi communication) and shift the buffer
- * pointer at the end of the written area.
+ * Pack a parmesh into a buffer (to allow mpi communication) and shift the
+ * buffer pointer at the end of the written area. The parmesh groups must have
+ * been merged before entering this function.
  *
  */
-int PMMG_mpipack_grp4finalmerge ( PMMG_pGrp grp,char **buffer ) {
-  int   ier;
-  char  *tmp;
+int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh ,char **buffer ) {
+  PMMG_pGrp grp;
+  int       ier;
+  char      *tmp;
 
   ier = 1;
 
+  /* Check that the groups are merged */
+  assert ( parmesh->ngrp < 2 );
+
   tmp = *buffer;
 
-  if ( !grp->mesh ) {
+  if ( (!parmesh->ngrp) || (!parmesh->listgrp[0].mesh) ) {
     /* unused group */
     *( (int *) tmp ) = 0; tmp += sizeof(int);
 
@@ -990,19 +1122,25 @@ int PMMG_mpipack_grp4finalmerge ( PMMG_pGrp grp,char **buffer ) {
   }
 
   /* used group */
+  grp = &parmesh->listgrp[0];
+
   *( (int *) tmp) = 1; tmp += sizeof(int);
 
   *buffer = tmp;
 
   PMMG_mpipack_meshSizes(grp,buffer);
 
-#ifndef NDEBUG
   if ( !PMMG_mpipack_filenames(grp,buffer) ) {
     ier = 0;
   }
-#endif
+
+  PMMG_mpipack_infos(&(grp->mesh->info),buffer);
 
   PMMG_mpipack_meshArrays(grp,buffer);
+
+  PMMG_mpipack_nodeintvalues(parmesh,buffer);
+
+  PMMG_mpipack_extnodecomm(parmesh,buffer);
 
   return ier;
 }
