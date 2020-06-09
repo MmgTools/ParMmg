@@ -279,7 +279,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
           dist_norm += dist[j]*dist[j];
         }
 
-        if ( dist_norm > MMG5_EPSD ) {
+        if ( dist_norm > PMMG_EPSCOOR ) {
           fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                  "       2 different points (dist %e) in the same position (%d)"
                  " of the internal communicator:\n"
@@ -312,7 +312,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
         dist[j] = coor_list[ commIdx2 ].c[j]-coor_list[ commIdx1 ].c[j];
         dist_norm += dist[j]*dist[j];
       }
-      if ( dist_norm < MMG5_EPSD ) {
+      if ( dist_norm < PMMG_EPSCOOR ) {
         int grp1_id   = coor_list[ commIdx1 ].grp;
         int grp2_id   = coor_list[ commIdx2 ].grp;
         int pos1_idx  = coor_list[ commIdx1 ].idx;
@@ -486,7 +486,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
             dist_norm += dist[j]*dist[j];
           }
 
-          if ( dist_norm > MMG5_EPSD ) {
+          if ( dist_norm > PMMG_EPSCOOR ) {
             fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                     "       2 different points (dist %e) in the same position (%d)"
                     " of the internal communicator:\n"
