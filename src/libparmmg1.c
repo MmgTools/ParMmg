@@ -818,6 +818,55 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
+#ifdef USE_SCOTCH
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+
+  /* Allocation of the array that will store the node permutation */
+  PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+              PMMG_scotch_message(&warnScotch) );
+  if ( permNodGlob ) {
+    for ( k=1; k<=mesh->np; ++k ) {
+      permNodGlob[k] = k;
+    }
+  }
+
+  if( !PMMG_store_faceVerticesInIntComm(parmesh,0,&facesData) ){
+    fprintf(stderr,"\n  ## Interface faces storage problem."
+            " Exit program.\n");
+    goto strong_failed;
+  }
+ 
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,
+                                         available,oldMemMax);
+
+  /* renumerotation if available */
+  if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+  {
+    PMMG_scotch_message(&warnScotch);
+  }
+
+  /** Update interface tetra indices in the face communicator */
+  if ( ! PMMG_update_face2intInterfaceTetra(parmesh,0,facesData,permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    goto strong_failed;
+  }
+  /** Update nodal communicators if node renumbering is enabled */
+  if ( mesh->info.renum &&
+    !PMMG_update_node2intRnbg(&parmesh->listgrp[0],permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    goto strong_failed;
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,
+                                         available,oldMemMax);
+
+  PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+#endif
+
+
   /* Give memory to Mmg for the edge length computation */
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
