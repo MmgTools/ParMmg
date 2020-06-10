@@ -839,6 +839,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     printf("\n");
   }
 
+#ifdef USE_SCOTCH
+  for( i = 0; i < parmesh->ngrp; i++ ) {
+    if( !PMMG_scotchCall( parmesh,i,permNodGlob ) ) {
+      goto strong_failed;
+    }
+  }
+#endif
+
   ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
