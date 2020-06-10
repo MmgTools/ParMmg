@@ -1581,7 +1581,10 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
+  MPI_Request    request;
+  MPI_Status     status;
   int            *intvalues,*iproc2comm;
+  int            *itosend,*itorecv,src,dst,tag;
   int            nitem,color;
   int            nowned,*offsets;
   int            iproc,icomm,i,idx,ip,counter;
@@ -1659,6 +1662,67 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   }
   assert( counter == nowned );
 
+
+  /** Step 2: Communicate global numbering */
+
+  /* Store numbering in the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    intvalues[idx] = idx_glob[ip];
+  }
+
+  /* Send-recv */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MIN(parmesh->myrank,color);
+    dst = MG_MAX(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      /* Store recv buffer in the internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        intvalues[idx] = itorecv[i];
+      }
+    }
+  }
+
+  /* Retrieve numbering from the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    if( mesh->point[ip].flag > parmesh->myrank ){
+      idx_glob[ip] = intvalues[idx];
+    }
+  }
+
+
+  /* Free arrays */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
   PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
   PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
