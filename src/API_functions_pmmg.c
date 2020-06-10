@@ -1650,12 +1650,12 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     offsets[i] += offsets[i-1];
 
 
-  /** Step 1: pack */
+  /** Step 1: Pack */
   counter = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if( ppt->flag != parmesh->myrank ) continue;
-    idx_glob[ip] = ++counter;
+    idx_glob[ip] = ++counter+offsets[parmesh->myrank];
   }
   assert( counter == nowned );
 
