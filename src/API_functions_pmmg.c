@@ -1576,16 +1576,19 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
 }
 
 int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
+  PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   int            *intvalues,*iproc2comm;
   int            nitem,color;
   int            nowned,*offsets;
-  int            iproc,icomm,i,idx;
+  int            iproc,icomm,i,idx,ip,counter;
 
   /* Groups should be merged */
   assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
   mesh = parmesh->listgrp[0].mesh;
 
   /* Allocate internal communicator */
@@ -1621,6 +1624,18 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     }
   }
 
+  /* Store owner in the point flag */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = parmesh->myrank;
+  }
+
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    mesh->point[ip].flag = intvalues[idx];
+  }
+
   /* Count owned nodes */
   nowned = mesh->np;
   for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
@@ -1633,6 +1648,16 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
                  &offsets[1],1,MPI_INT,parmesh->comm );
   for( i = 1; i <= parmesh->nprocs; i++ )
     offsets[i] += offsets[i-1];
+
+
+  /** Step 1: pack */
+  counter = 0;
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( ppt->flag != parmesh->myrank ) continue;
+    idx_glob[ip] = ++counter;
+  }
+  assert( counter == nowned );
 
   PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
   PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
