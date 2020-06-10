@@ -442,6 +442,73 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
 }
 
 /**
+ * \param parmesh pointer to the parmesh structure.
+ * \param igrp index of the current group
+ * \param permNodGlob pointer toward the array storing the node permutation
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Scoth renumbering and update of face and node communicators.
+ *
+ */
+int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met;
+  int        *facesData;
+  int        k;
+  size_t     available,oldMemMax;
+  int8_t     warnScotch;
+
+  mesh = parmesh->listgrp[igrp].mesh;
+  met  = parmesh->listgrp[igrp].met;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+
+  /* Allocation of the array that will store the node permutation */
+  PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+              PMMG_scotch_message(&warnScotch) );
+  if ( permNodGlob ) {
+    for ( k=1; k<=mesh->np; ++k ) {
+      permNodGlob[k] = k;
+    }
+  }
+
+  if( !PMMG_store_faceVerticesInIntComm(parmesh,igrp,&facesData) ){
+    fprintf(stderr,"\n  ## Interface faces storage problem."
+            " Exit program.\n");
+    return 0;
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,
+                                         available,oldMemMax);
+
+  /* renumerotation if available */
+  if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+  {
+    PMMG_scotch_message(&warnScotch);
+  }
+
+  /** Update interface tetra indices in the face communicator */
+  if ( ! PMMG_update_face2intInterfaceTetra(parmesh,igrp,facesData,permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    return 0;
+  }
+  /** Update nodal communicators if node renumbering is enabled */
+  if ( mesh->info.renum &&
+    !PMMG_update_node2intRnbg(&parmesh->listgrp[igrp],permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    return 0;
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,
+                                         available,oldMemMax);
+
+  PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
  *
@@ -819,51 +886,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 
 #ifdef USE_SCOTCH
-  mesh = parmesh->listgrp[0].mesh;
-  met  = parmesh->listgrp[0].met;
-
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
-
-  /* Allocation of the array that will store the node permutation */
-  PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
-              PMMG_scotch_message(&warnScotch) );
-  if ( permNodGlob ) {
-    for ( k=1; k<=mesh->np; ++k ) {
-      permNodGlob[k] = k;
-    }
-  }
-
-  if( !PMMG_store_faceVerticesInIntComm(parmesh,0,&facesData) ){
-    fprintf(stderr,"\n  ## Interface faces storage problem."
-            " Exit program.\n");
+  if( !PMMG_scotchCall( parmesh,0,permNodGlob ) ) {
     goto strong_failed;
   }
- 
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,
-                                         available,oldMemMax);
-
-  /* renumerotation if available */
-  if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
-  {
-    PMMG_scotch_message(&warnScotch);
-  }
-
-  /** Update interface tetra indices in the face communicator */
-  if ( ! PMMG_update_face2intInterfaceTetra(parmesh,0,facesData,permNodGlob) ) {
-    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-    goto strong_failed;
-  }
-  /** Update nodal communicators if node renumbering is enabled */
-  if ( mesh->info.renum &&
-    !PMMG_update_node2intRnbg(&parmesh->listgrp[0],permNodGlob) ) {
-    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
-    goto strong_failed;
-  }
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,
-                                         available,oldMemMax);
-
-  PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
 #endif
 
 
