@@ -682,6 +682,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
       /* Reset the mesh->gap field in case Mmg have modified it */
       mesh->gap = MMG5_GAP;
+
+#ifdef USE_SCOTCH
+      PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+#endif
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
