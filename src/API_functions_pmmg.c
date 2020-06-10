@@ -1575,6 +1575,57 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   return 1;
 }
 
+int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
+  MMG5_pMesh     mesh;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  int            *intvalues;
+  int            nitem,color;
+  int            nowned,*offsets;
+  int            icomm,i,idx;
+
+  /* Groups should be merged */
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  /* Allocate internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+
+  /** Step 1: Count nowned nodes */
+
+  /* Mark not-owned nodes */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    if( color < parmesh->myrank ) continue;
+    /* Mark not-owned nodes */
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = PMMG_UNSET;
+    }
+  }
+
+  /* Count owned nodes */
+  nowned = mesh->np;
+  for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
+    if( intvalues[idx] == PMMG_UNSET ) nowned--;
+  }
+
+  /* Compute offsets on each proc */
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",return 0);
+  MPI_Allgather( &nowned,1,MPI_INT,
+                 &offsets[1],1,MPI_INT,parmesh->comm );
+  for( i = 1; i <= parmesh->nprocs; i++ )
+    offsets[i] += offsets[i-1];
+
+  PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward parmesh structure
  * \param owner IDs of the processes owning each interface node
