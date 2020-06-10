@@ -1579,10 +1579,10 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   MMG5_pMesh     mesh;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  int            *intvalues;
+  int            *intvalues,*iproc2comm;
   int            nitem,color;
   int            nowned,*offsets;
-  int            icomm,i,idx;
+  int            iproc,icomm,i,idx;
 
   /* Groups should be merged */
   assert( parmesh->ngrp == 1 );
@@ -1590,28 +1590,41 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
 
   /* Allocate internal communicator */
   int_node_comm = parmesh->int_node_comm;
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  PMMG_MALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   intvalues = int_node_comm->intvalues;
 
 
-  /** Step 1: Count nowned nodes */
+  /** Step 0: Count nowned nodes */
 
-  /* Mark not-owned nodes */
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = ext_node_comm->color_out;
-    if( color < parmesh->myrank ) continue;
-    /* Mark not-owned nodes */
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+  }
+
+  /* Mark nodes with the owner color */
+  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = MG_MAX(parmesh->myrank,ext_node_comm->color_out);
+    /* Mark nodes */
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
-      intvalues[idx] = PMMG_UNSET;
+      intvalues[idx] = color;
     }
   }
 
   /* Count owned nodes */
   nowned = mesh->np;
   for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
-    if( intvalues[idx] == PMMG_UNSET ) nowned--;
+    if( intvalues[idx] != parmesh->myrank ) nowned--;
   }
 
   /* Compute offsets on each proc */
@@ -1622,6 +1635,7 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     offsets[i] += offsets[i-1];
 
   PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
+  PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
