@@ -1653,6 +1653,11 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   for( i = 1; i <= parmesh->nprocs; i++ )
     offsets[i] += offsets[i-1];
 
+#ifndef NDEBUG
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    idx_glob[ip] = PMMG_UNSET;
+  }
+#endif
 
   /** Step 1: Pack */
   counter = 0;
@@ -1684,8 +1689,8 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
-    src = MG_MIN(parmesh->myrank,color);
-    dst = MG_MAX(parmesh->myrank,color);
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
 
     if( parmesh->myrank == src ) {
@@ -1700,11 +1705,19 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
-      /* Store recv buffer in the internal communicator */
-      for( i = 0; i < nitem; i++ ) {
-        idx = ext_node_comm->int_comm_index[i];
-        intvalues[idx] = itorecv[i];
-      }
+    }
+  }
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
     }
   }
 
@@ -1716,6 +1729,12 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
       idx_glob[ip] = intvalues[idx];
     }
   }
+
+#ifndef NDEBUG
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    assert( (idx_glob[ip] > 0) && (idx_glob[ip] <= offsets[parmesh->nprocs]) );
+  }
+#endif
 
 
   /* Free arrays */
