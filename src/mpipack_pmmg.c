@@ -477,9 +477,6 @@ int PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh ) {
   /** Size of mesh / metric / fields... arrays (np, met->siz...) */
   idx += PMMG_mpisizeof_meshSizes ( grp );
 
-  /** Size of compressed names */
-  idx += PMMG_mpisizeof_filenames ( grp );
-
   /** Size of Info */
   idx += PMMG_mpisizeof_infos ( &parmesh->listgrp[0].mesh->info );
 
@@ -1129,10 +1126,6 @@ int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh ,char **buffer ) {
   *buffer = tmp;
 
   PMMG_mpipack_meshSizes(grp,buffer);
-
-  if ( !PMMG_mpipack_filenames(grp,buffer) ) {
-    ier = 0;
-  }
 
   PMMG_mpipack_infos(&(grp->mesh->info),buffer);
 

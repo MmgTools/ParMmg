@@ -500,6 +500,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
   } while(0)
 
 /* Input */
+int PMMG_Set_name(PMMG_pParMesh,char **,const char* name,const char* defname);
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );

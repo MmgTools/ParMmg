@@ -757,6 +757,16 @@ FORTRAN_NAME(PMMG_GET_TENSORMETS,pmmg_get_tensormets,
 }
 
 /**
+ * See \ref PMMG_Free_names function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_FREE_NAMES,pmmg_free_names,
+             (PMMG_pParMesh *parmesh, int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_Free_names(*parmesh);
+  return;
+}
+
+/**
  * See \ref PMMG_Free_all function in \ref mmg3d/libmmg3d.h file.
  */
 FORTRAN_VARIADIC(PMMG_FREE_ALL,pmmg_free_all,

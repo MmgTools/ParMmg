@@ -1052,11 +1052,6 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
 
-  if ( !PMMG_mpiunpack_filenames ( grp,buffer,&ier,ier_mesh,ier_ls,ier_disp,
-                                   nsols,ier_field ) ) {
-    return 0;
-  }
-
   PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,

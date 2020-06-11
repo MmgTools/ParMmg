@@ -349,6 +349,13 @@ typedef struct {
   size_t    memMax; /*!< Maximum memory parmesh is allowed to allocate */
   size_t    memCur; /*!< Currently allocated memory */
 
+  /* file names */
+  char     *meshin,*meshout;
+  char     *metin,*metout;
+  char     *lsin,*lsout;
+  char     *dispin,*dispout;
+  char     *fieldin,*fieldout;
+
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */

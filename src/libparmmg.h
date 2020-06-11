@@ -386,6 +386,21 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
 int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Free names stored in the parmesh
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_FREE_NAMES(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Free_names(PMMG_pParMesh parmesh);
+
+/**
  * \param starter dummy argument used to initialize the variadic argument list.
  * \param ... variadic arguments to list the structure that must be deallocated.
  * For now, you must provide the PMMG_ARG_ppParMesh keyword and your parmesh

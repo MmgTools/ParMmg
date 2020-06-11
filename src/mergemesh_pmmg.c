@@ -1146,6 +1146,8 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer to send",ier=0 );
 
 #ifndef NDEBUG
+  /* Remark: in release mode, a non allocated buffer used in gatherv creates a
+     segfault over all procs */
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if ( !ier_glob ) {
     return ier_glob;
@@ -1524,26 +1526,37 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   memcpy ( &mesh->info,&grp_1->mesh->info,sizeof(MMG5_Info) );
 
   /** Recover mesh name */
-  MMG3D_Set_inputMeshName (mesh, grp_1->mesh->namein);
-  MMG3D_Set_outputMeshName(mesh, grp_1->mesh->nameout);
+  assert ( parmesh->meshin );
+  assert ( parmesh->meshout );
+
+  MMG3D_Set_inputMeshName (mesh, parmesh->meshin);
+  MMG3D_Set_outputMeshName(mesh, parmesh->meshout);
 
   if ( met ) {
-    MMG3D_Set_inputSolName (mesh,met, grp_1->met->namein);
-    MMG3D_Set_outputSolName(mesh,met, grp_1->met->nameout);
+    assert ( parmesh->metin );
+    assert ( parmesh->metout );
+    MMG3D_Set_inputSolName (mesh,met, parmesh->metin);
+    MMG3D_Set_outputSolName(mesh,met, parmesh->metout);
   }
   if ( ls ) {
-    MMG3D_Set_inputSolName (mesh,ls, grp_1->ls->namein);
-    MMG3D_Set_outputSolName(mesh,ls, grp_1->ls->nameout);
+    assert ( parmesh->lsin );
+    assert ( parmesh->lsout );
+    MMG3D_Set_inputSolName (mesh,ls, parmesh->lsin);
+    MMG3D_Set_outputSolName(mesh,ls, parmesh->lsout);
   }
   if ( disp ) {
-    MMG3D_Set_inputSolName (mesh,disp, grp_1->disp->namein);
-    MMG3D_Set_outputSolName(mesh,disp, grp_1->disp->nameout);
+    assert ( parmesh->dispin );
+    assert ( parmesh->dispout );
+    MMG3D_Set_inputSolName (mesh,disp, parmesh->dispin);
+    MMG3D_Set_outputSolName(mesh,disp, parmesh->dispout);
   }
   if ( mesh->nsols ) {
+    assert ( parmesh->fieldin );
+    assert ( parmesh->fieldout );
     for ( is=0; is < mesh->nsols; ++is ) {
       psl = &parmesh->listgrp[0].field[is];
-      MMG3D_Set_inputSolName (mesh, psl,grp_1->field[is].namein);
-      MMG3D_Set_outputSolName(mesh, psl,grp_1->field[is].nameout);
+      MMG3D_Set_inputSolName (mesh, psl,parmesh->fieldin);
+      MMG3D_Set_outputSolName(mesh, psl,parmesh->fieldout);
     }
   }
 
@@ -1637,8 +1650,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /* Free useless receivers */
   PMMG_DEL_MEM(parmesh,rcv_grps,PMMG_Grp,"rcv_grps");
   PMMG_DEL_MEM(parmesh,rcv_int_node_comm,PMMG_Int_comm,"rcv_int_node_comm");
-  PMMG_DEL_MEM(parmesh,
-rcv_next_node_comm,int,"rcv_next_node_comm");
+  PMMG_DEL_MEM(parmesh,rcv_next_node_comm,int,"rcv_next_node_comm");
   PMMG_DEL_MEM(parmesh,rcv_ext_node_comm,PMMG_Ext_comm,"rcv_ext_node_comm");
 
   if ( !ieresult ) {
