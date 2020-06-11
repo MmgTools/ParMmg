@@ -310,6 +310,12 @@ IF( BUILD_TESTING )
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
     ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
 
+    SET ( test_name  API_set_XName )
+    SET ( main_path  ${CI_DIR}/API/PMMG_set_XName/main.c )
+
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+
     # Distributed API test
     SET ( PMMG_DISTR_LIB_TESTS
       libparmmg_distributed_manual_example0
