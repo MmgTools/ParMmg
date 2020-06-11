@@ -1614,8 +1614,8 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     iproc2comm[iproc] = icomm;
   }
 
-  /* Mark nodes with the owner color */
-  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
+  /* Mark nodes with the owner color (overwritten by higher-rank procs) */
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
     icomm = iproc2comm[iproc];
     if( icomm == PMMG_UNSET ) continue;
     ext_node_comm = &parmesh->ext_node_comm[icomm];
@@ -1633,6 +1633,7 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     ppt->flag = parmesh->myrank;
   }
 
+  /* Overwrite flag for communicator nodes */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
     ip   = grp->node2int_node_comm_index1[i];
     idx  = grp->node2int_node_comm_index2[i];
