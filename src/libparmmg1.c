@@ -482,6 +482,13 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,
                                          available,oldMemMax);
 
+  if ( !mesh->adja ) {
+    if ( !MMG3D_hashTetra(mesh,0) ) {
+      fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+      return 0;
+    }
+  }
+
   /* renumerotation if available */
   if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
   {
