@@ -1621,7 +1621,7 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = MG_MAX(parmesh->myrank,ext_node_comm->color_out);
     /* Mark nodes */
-    for( i = 0; i < nitem; i++ ) {
+    for( i = 0; i < ext_node_comm->nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
       intvalues[idx] = color;
     }
