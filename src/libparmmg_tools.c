@@ -210,6 +210,26 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'h':
+        if ( !strcmp(argv[i],"-hmin") && ++i < argc ) {
+          if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_hmin,atof(argv[i])) ) {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-hmax") && ++i < argc ) {
+          if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_hmax,atof(argv[i])) ) {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else {
+          fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
+          ret_val = 0;
+          goto fail_proc;
+        }
+        break;
+
       case 'g':
         if ( !strcmp(argv[i],"-groups-ratio") ) {
 
@@ -427,6 +447,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     ret_val = 0;
     goto fail_proc;
   }
+
+  /* Get important infos stored in the mesh into the parmesh */
   parmesh->info.fem = parmesh->listgrp[0].mesh->info.fem;
 
 fail_proc:

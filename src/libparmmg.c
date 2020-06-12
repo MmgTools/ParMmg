@@ -314,6 +314,14 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
+  /* Don't reset the hmin value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmin ) {
+    mesh->info.sethmin = 1;
+  }
+  /* Don't reset the hmax value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmax ) {
+    mesh->info.sethmax = 1;
+  }
 
   /** specific meshing */
   if ( mesh->info.optim && !met->np ) {
@@ -399,6 +407,14 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   /** Mesh scaling and quality histogram */
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
+  }
+  /* Don't reset the hmin value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmin ) {
+    mesh->info.sethmin = 1;
+  }
+  /* Don't reset the hmax value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmax ) {
+    mesh->info.sethmax = 1;
   }
 
   /** specific meshing */

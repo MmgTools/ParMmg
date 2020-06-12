@@ -856,5 +856,14 @@ failed_handling:
     fprintf(stdout,"       group merging                     %s\n",stim);
   }
 
+  /* Reset hmin/hmax values of the mesh if needed */
+  if ( !parmesh->info.sethmin ) {
+    if ( parmesh->listgrp[0].mesh ) parmesh->listgrp[0].mesh->info.sethmin = 0;
+  }
+  if ( !parmesh->info.sethmax ) {
+    if ( parmesh->listgrp[0].mesh ) parmesh->listgrp[0].mesh->info.sethmax = 0;
+  }
+
+
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
 }
