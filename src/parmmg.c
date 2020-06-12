@@ -143,17 +143,17 @@ int main( int argc, char *argv[] )
   iresult = 1;
   ier     = 1;
 
-  ptr   = MMG5_Get_filenameExt(grp->mesh->namein);
+  ptr   = MMG5_Get_filenameExt(parmesh->meshin);
   fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
 
-  ptr                  = MMG5_Get_filenameExt(grp->mesh->nameout);
+  ptr                  = MMG5_Get_filenameExt(parmesh->meshout);
   if( !(parmesh->info.fmtout == PMMG_UNSET) )
     parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
 
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
 
-    if ( 1 != PMMG_loadMesh_centralized(parmesh,grp->mesh->namein) ) {
+    if ( 1 != PMMG_loadMesh_centralized(parmesh,parmesh->meshin) ) {
       ier = 0;
       goto check_mesh_loading;
     }
@@ -196,8 +196,8 @@ int main( int argc, char *argv[] )
       }
     }
     /* In iso mode: read metric if any */
-    if ( grp->mesh->info.iso && grp->met->namein ) {
-      if ( -1 == PMMG_loadMet_centralized( parmesh, grp->met->namein ) ) {
+    if ( grp->mesh->info.iso && parmesh->metin ) {
+      if ( -1 == PMMG_loadMet_centralized( parmesh, parmesh->metin ) ) {
         if ( rank == parmesh->info.root ) {
           fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
         }
@@ -259,7 +259,7 @@ check_mesh_loading:
 
   grp = &parmesh->listgrp[0];
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",grp->mesh->nameout);
+    fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
   }
 
   if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
@@ -273,7 +273,7 @@ check_mesh_loading:
       }
       break;
     case ( MMG5_FMT_VtkPvtu ):
-      PMMG_savePvtuMesh(parmesh,grp->mesh->nameout);
+      PMMG_savePvtuMesh(parmesh,parmesh->meshout);
       break;
     case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
     case ( MMG5_FMT_VtkVtu ):
@@ -282,15 +282,15 @@ check_mesh_loading:
       PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       break;
     default:
-      ierSave = PMMG_saveMesh_centralized(parmesh,grp->mesh->nameout);
+      ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);
       if ( !ierSave ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
-      if ( !PMMG_saveMet_centralized(parmesh,grp->mesh->nameout) ) {
+      if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
 
-      if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,grp->field->nameout) ) {
+      if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout) ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
 
