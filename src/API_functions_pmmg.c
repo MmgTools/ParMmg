@@ -303,7 +303,7 @@ int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
 int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
-  int        k,i,ier;
+  int        k,i,ier,pathlen,baselen;
   char      *basename,*path,*nopath;
 
   /* If \a solout is not provided we want to use the basename of the input field
@@ -329,11 +329,18 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
     nopath = MMG5_Get_basename(parmesh->fieldin);
     basename = MMG5_Remove_ext ( nopath,".sol" );
 
-    PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(path)+strlen(basename)+2,char,"fieldout",return 0);
-    strncpy(parmesh->fieldout,path,strlen(path));
-    parmesh->fieldout[strlen(path)] = MMG5_PATHSEP;
-    strncpy(parmesh->fieldout+strlen(path)+1,basename,strlen(basename));
-    parmesh->fieldout[strlen(path)+strlen(basename)+1] = '\0';
+    pathlen = baselen = 0;
+    if ( path ) pathlen = strlen(path)+1;
+    if ( basename ) baselen = strlen(basename);
+    PMMG_MALLOC(parmesh,parmesh->fieldout,pathlen+baselen+1,char,"fieldout",return 0);
+    if ( pathlen ) {
+      strncpy(parmesh->fieldout,path,pathlen-1);
+      parmesh->fieldout[pathlen-1] = MMG5_PATHSEP;
+    }
+    if ( baselen ) {
+      strncpy(parmesh->fieldout+pathlen,basename,baselen);
+      parmesh->fieldout[pathlen+baselen] = '\0';
+    }
 
     if ( parmesh->fieldout ) {
       /* Add .o.sol extension */

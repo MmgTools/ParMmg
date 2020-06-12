@@ -219,12 +219,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
               ret_val = 0;
               goto fail_mmgargv;
             }
-            if ( ! PMMG_Set_outputSolsName(parmesh,NULL) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_mmgargv;
-            }
           }
           else {
             RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
@@ -253,10 +247,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         }
         else {
-          fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-          ret_val = 0;
-          goto fail_proc;
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
+
         break;
       case 'g':
         if ( !strcmp(argv[i],"-groups-ratio") ) {
