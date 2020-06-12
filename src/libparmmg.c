@@ -408,6 +408,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
+#warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
   /* Don't reset the hmin value computed when unscaling the mesh */
   if ( !parmesh->info.sethmin ) {
     mesh->info.sethmin = 1;
