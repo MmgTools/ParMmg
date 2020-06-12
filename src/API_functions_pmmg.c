@@ -372,7 +372,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
-  parmesh->info.fmtout             = MMG5_FMT_Unknown;
+  parmesh->info.sethmin            = PMMG_NUL;
+  parmesh->info.sethmax            = PMMG_NUL;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -596,6 +597,16 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_lag,val) ) return 0;
     }
     break;
+
+  case PMMG_IPARAM_nofem :
+    parmesh->info.fem    = (val==1)? 0 : 1;
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      met  = parmesh->listgrp[k].met;
+      if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nofem,val) ) return 0;
+    }
+    break;
+
   case PMMG_IPARAM_optim :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
@@ -669,6 +680,7 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
     }
     break;
   case PMMG_DPARAM_hmin :
+    parmesh->info.sethmin  = 1;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hmin,val) ) {
@@ -677,6 +689,7 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
     }
     break;
   case PMMG_DPARAM_hmax :
+    parmesh->info.sethmax  = 1;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_dparameter(mesh,NULL,MMG3D_DPARAM_hmax,val) ) {
