@@ -304,19 +304,47 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol,psl;
   int        k,i,ier;
+  char      *basename,*path,*nopath;
 
-  /* If \a solout is not provided we want to use the input field name */
+  /* If \a solout is not provided we want to use the basename of the input field
+   * name and the path of the output mesh name */
   if ( (!solout) || (!*solout) ) {
-    /* Remove .mesh extension from input field name */
-    assert ( parmesh->fieldin && *parmesh->fieldin );
-    parmesh->fieldout = MMG5_Remove_ext ( parmesh->fieldin,".sol" );
-    assert ( parmesh->fieldout );
+
+    if ( (!parmesh->meshout) || (!*parmesh->meshout) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an output mesh"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    /* Get input field base name and remove .mesh extension */
+    if ( (!parmesh->fieldin) || (!*parmesh->fieldin) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an input field"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    path   = MMG5_Get_path(parmesh->meshout);
+    nopath = MMG5_Get_basename(parmesh->fieldin);
+    basename = MMG5_Remove_ext ( nopath,".sol" );
+
+    PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(path)+strlen(basename)+2,char,"fieldout",return 0);
+    strncpy(parmesh->fieldout,path,strlen(path));
+    parmesh->fieldout[strlen(path)] = MMG5_PATHSEP;
+    strncpy(parmesh->fieldout+strlen(path)+1,basename,strlen(basename));
+    parmesh->fieldout[strlen(path)+strlen(basename)+1] = '\0';
+
     if ( parmesh->fieldout ) {
       /* Add .o.sol extension */
       MMG5_SAFE_REALLOC(parmesh->fieldout,strlen(parmesh->fieldout)+1,
                         strlen(parmesh->fieldout)+7,char,"fieldout",return 0);
       strncat ( parmesh->fieldout,".o.sol",7 );
     }
+
+    MMG5_SAFE_FREE ( path );
+    free ( nopath ); nopath = NULL;
+    MMG5_SAFE_FREE ( basename );
   }
   else {
     PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(solout)+1,char,"fieldout",return 0);

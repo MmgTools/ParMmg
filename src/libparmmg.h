@@ -276,9 +276,9 @@ int  PMMG_Set_inputDispName(PMMG_pParMesh parmesh,const char* dispin);
  * \param solout name of the output solution file.
  * \return 0 if failed, 1 otherwise.
  *
- *  Set the name of output solution file. If not called, an automatic
- * output name is computed from the input solutions name:
- * <inputfield>.sol -> <inputfield.o.sol>
+ *  Set the name of output solution file. If not called, an automatic output
+ * name is computed from the path of the output mesh and the input solutions
+ * name: <inputfield>.sol -> <outputmeshpath>/<inputfield>.o.sol
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(parmesh,solout,strlen,retval)\n
