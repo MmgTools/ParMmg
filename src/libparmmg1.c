@@ -500,6 +500,18 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   parmesh->info.inputMet = inputMet;
 
+  /* I/O check: if an input field name is provided but the output one is not,
+   compute automatically an output solution field name. */
+  if ( parmesh->fieldin &&  *parmesh->fieldin ) {
+    ier = PMMG_Set_outputSolsName(parmesh,NULL);
+    if ( !ier ) {
+      fprintf(stdout,"  ## Warning: %s: rank %d: an input field name is"
+              " provided without an output one.\n"
+              "            : the saving process may fail.\n",
+              __func__,parmesh->myrank);
+    }
+  }
+
   /** Groups creation */
   if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
     tim = 0;

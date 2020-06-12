@@ -219,6 +219,12 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
               ret_val = 0;
               goto fail_mmgargv;
             }
+            if ( ! PMMG_Set_outputSolsName(parmesh,NULL) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_mmgargv;
+            }
           }
           else {
             RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,

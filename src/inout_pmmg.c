@@ -528,7 +528,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
-  MMG5_pSol  sol;
+  MMG5_pSol  *sol;
   int        ier;
 
   if ( parmesh->myrank!=parmesh->info.root ) {
@@ -541,13 +541,13 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].field;
+  sol  = &parmesh->listgrp[0].field;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_loadAllSols(mesh,&sol,filename);
+  ier = MMG3D_loadAllSols(mesh,sol,filename);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;

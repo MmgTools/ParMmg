@@ -1548,7 +1548,6 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   }
   if ( mesh->nsols ) {
     assert ( parmesh->fieldin );
-    assert ( parmesh->fieldout );
     for ( is=0; is < mesh->nsols; ++is ) {
       psl = &parmesh->listgrp[0].field[is];
       MMG3D_Set_inputSolName (mesh, psl,parmesh->fieldin);
