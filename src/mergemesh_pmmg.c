@@ -1540,15 +1540,11 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   }
   if ( ls ) {
     assert ( parmesh->lsin );
-    assert ( parmesh->lsout );
     MMG3D_Set_inputSolName (mesh,ls, parmesh->lsin);
-    MMG3D_Set_outputSolName(mesh,ls, parmesh->lsout);
   }
   if ( disp ) {
     assert ( parmesh->dispin );
-    assert ( parmesh->dispout );
     MMG3D_Set_inputSolName (mesh,disp, parmesh->dispin);
-    MMG3D_Set_outputSolName(mesh,disp, parmesh->dispout);
   }
   if ( mesh->nsols ) {
     assert ( parmesh->fieldin );

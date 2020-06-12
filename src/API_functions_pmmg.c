@@ -54,7 +54,8 @@ int PMMG_Init_parMesh(const int starter,...) {
  * \return 1 if success, 0 if fail
  *
  * Set the file name \a name into the \a buffer string. If \a name is empty, use
- * \a defname as default file name.
+ * \a defname as default file name. If \a defname is empty too, the buffer
+ * remains non allocated.
  *
  * \warning for internal use only.
  */
@@ -69,11 +70,13 @@ int PMMG_Set_name(PMMG_pParMesh parmesh,char **buffer,
     PMMG_MALLOC(parmesh,*buffer,strlen(name)+1,char,"name",return 0);
     strcpy(*buffer,name);
   }
-  else {
-    assert ( defname );
+  else if ( defname ) {
     PMMG_MALLOC(parmesh,*buffer,strlen(defname)+1,char,"defname",return 0);
     strcpy(*buffer,defname);
   }
+  /* Remark: for solution fields: a non allocated buffer allows to detect that
+   * user don't provide input fields */
+
   return 1;
 }
 
@@ -87,10 +90,22 @@ int PMMG_Set_name(PMMG_pParMesh parmesh,char **buffer,
  *
  * \return 1 if success, 0 if fail
  *
- * Set the solution name \a name into the \a buffer string.
- * If \a name is empty try to set a default name (depending on \a in):
- * First, try get the mesh name to set a default filename.
- * Second, if the mesh name is empty too, use \a defroot to set it.
+ * Set the solution name \a name into the \a buffer string. If \a name is empty
+ * try to set a default name (depending on \a in):
+ *  -# try get the mesh name (input one if in==1, output one otherwise)
+ * to set a default filename.
+ *  -# Second, if the mesh name is empty too, use \a defroot to set it.
+ *
+ * \remark If \a name is empty and if the input mesh is called <input>.mesh and
+ * the output mesh <output>.mesh, we want:
+ *  - an input metric, ls or displacement named <input>.sol;
+ *  - an output metric named <ouput>.sol;
+ *  - no ouput ls (no possibility to save it);
+ *  - no ouput displacement (no possibility to save it);
+ *  - no default input name for fields (it is mandatory to provide its name);
+ *  - use the input field name <field>.sol to name the output field <field>.o.sol;
+ * The current function allows to set default input name for met, ls, disp and
+ * default ouput name for met.
  *
  * \warning for internal use only.
  */
@@ -114,7 +129,7 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
     defname = MMG5_Remove_ext ( input,".mesh" );
 
     if ( defname ) {
-      /* Add .sol extension */
+      /* Add .sol extension to the mesh name */
       /* Remark: multiple solution structures (metric, ls...) may have the same
        * default name but in practice it doesn't happens as it is mandatory that
        * at least a part of the filename must be provided (otherwise the
@@ -123,6 +138,7 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
       strncat ( defname,".sol",5 );
     }
     else {
+      /* Use the provided defroot name */
       assert ( defroot && *defroot );
       if ( in ) {
         len = strlen(defroot)+5; // defroot+".sol"
@@ -165,7 +181,9 @@ int PMMG_Set_inputSolsName(PMMG_pParMesh parmesh, const char* solin) {
   MMG5_pSol  sol,psl;
   int        k,i,ier;
 
-  ier = PMMG_Set_solName ( parmesh,&parmesh->fieldin,solin,"field",1 );
+  /* No default name for solution fields as providing a file name is mandatory
+   * to know that we have solutions. */
+  ier = PMMG_Set_name ( parmesh,&parmesh->fieldin,solin,NULL);
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -189,7 +207,64 @@ int PMMG_Set_inputMetName(PMMG_pParMesh parmesh, const char* metin) {
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     met  = parmesh->listgrp[k].met;
+
+    /* Check that the metric structure is allocated */
+    if ( !met ) {
+      fprintf(stderr, "\n  ## Error: %s: metric structure must be initialized.\n" ,__func__);
+      fprintf(stderr, "              Please add the PMMG_ARG_pMet argument to"
+              " your call to the PMMG_Init_parMesh function.\n");
+      return 0;
+    }
+
     ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,met,parmesh->metin) );
+  }
+  return ier;
+}
+
+int PMMG_Set_inputLsName(PMMG_pParMesh parmesh, const char* lsin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  ls;
+  int        k,ier;
+
+  ier = PMMG_Set_solName ( parmesh,&parmesh->lsin,lsin,"ls",1 );
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ls   = parmesh->listgrp[k].ls;
+
+    /* Check that the ls structure is allocated */
+    if ( !ls ) {
+      fprintf(stderr, "\n  ## Error: %s: level-set structure must be initialized.\n" ,__func__);
+      fprintf(stderr, "              Please add the PMMG_ARG_pLs argument to"
+              " your call to the PMMG_Init_parMesh function.\n");
+      return 0;
+    }
+
+    ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,ls,parmesh->lsin) );
+  }
+  return ier;
+}
+
+int PMMG_Set_inputDispName(PMMG_pParMesh parmesh, const char* dispin) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  disp;
+  int        k,ier;
+
+  ier = PMMG_Set_solName ( parmesh,&parmesh->dispin,dispin,"disp",1 );
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    disp = parmesh->listgrp[k].disp;
+
+    /* Check that the displacement structure is allocated */
+    if ( !disp ) {
+      fprintf(stderr, "\n  ## Error: %s: displacement structure must be initialized.\n" ,__func__);
+      fprintf(stderr, "              Please add the PMMG_ARG_pDisp argument to"
+              " your call to the PMMG_Init_parMesh function.\n");
+      return 0;
+    }
+
+    ier  = MG_MIN( ier, MMG3D_Set_inputSolName(mesh,disp,parmesh->dispin) );
   }
   return ier;
 }
@@ -230,7 +305,23 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   MMG5_pSol  sol,psl;
   int        k,i,ier;
 
-  ier = PMMG_Set_solName ( parmesh,&parmesh->fieldout,solout,"field",0 );
+  /* If \a solout is not provided we want to use the input field name */
+  if ( (!solout) || (!*solout) ) {
+    /* Remove .mesh extension from input field name */
+    assert ( parmesh->fieldin && *parmesh->fieldin );
+    parmesh->fieldout = MMG5_Remove_ext ( parmesh->fieldin,".sol" );
+    assert ( parmesh->fieldout );
+    if ( parmesh->fieldout ) {
+      /* Add .o.sol extension */
+      MMG5_SAFE_REALLOC(parmesh->fieldout,strlen(parmesh->fieldout)+1,
+                        strlen(parmesh->fieldout)+7,char,"fieldout",return 0);
+      strncat ( parmesh->fieldout,".o.sol",7 );
+    }
+  }
+  else {
+    PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(solout)+1,char,"fieldout",return 0);
+    strcpy(parmesh->fieldout,solout);
+  }
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -2117,9 +2208,7 @@ int PMMG_Free_names(PMMG_pParMesh parmesh)
   PMMG_DEL_MEM ( parmesh, parmesh->metin,char,"metin" );
   PMMG_DEL_MEM ( parmesh, parmesh->metout,char,"metout" );
   PMMG_DEL_MEM ( parmesh, parmesh->lsin,char,"lsin" );
-  PMMG_DEL_MEM ( parmesh, parmesh->lsout,char,"lsout" );
   PMMG_DEL_MEM ( parmesh, parmesh->dispin,char,"dispin" );
-  PMMG_DEL_MEM ( parmesh, parmesh->dispout,char,"dispout" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldin,char,"fieldin" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldout,char,"fieldout" );
   return 1;

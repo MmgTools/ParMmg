@@ -105,6 +105,41 @@ FORTRAN_NAME(PMMG_SET_INPUTMETNAME, pmmg_set_inputmetname,
 }
 
 /**
+ * See \ref PMMG_Set_inputDispName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTDISPNAME, pmmg_set_inputdispname,
+             (PMMG_pParMesh *parmesh,char* dispin, int* strlen, int* retval),
+             (parmesh,dispin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,dispin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputDispName(*parmesh,tmp);
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+/**
+ * See \ref PMMG_Set_inputLsName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTLSNAME, pmmg_set_inputlsname,
+             (PMMG_pParMesh *parmesh,char* lsin, int* strlen, int* retval),
+             (parmesh,lsin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,lsin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputLsName(*parmesh,tmp);
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_Set_outputMeshName function in libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,

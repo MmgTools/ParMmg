@@ -73,13 +73,16 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
-  size_t         memAv;
-  int            typArg,dim,nsol,comm_f;
-  int            parmeshCount,meshCount,metCount,dimCount,solCount,commCount;
+  size_t memAv;
+  int    typArg,dim,nsol,comm_f;
+  int    parmeshCount,meshCount,metCount,dimCount,solCount,commCount;
+  int    lsCount,dispCount;
 
   parmeshCount = 0;
   meshCount    = 0;
   metCount     = 0;
+  lsCount      = 0;
+  dispCount    = 0;
   solCount     = 0;
   dimCount     = 0;
   commCount    = 0;
@@ -100,6 +103,12 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
       break;
     case(PMMG_ARG_pMet):
       ++metCount;
+      break;
+    case(PMMG_ARG_pLs):
+      ++lsCount;
+      break;
+    case(PMMG_ARG_pDisp):
+      ++dispCount;
       break;
     case(PMMG_ARG_dim):
       ++dimCount;
@@ -136,6 +145,14 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   if ( metCount>1 ) {
     fprintf(stdout,"\n  ## Warning: PMMG_Init_parmesh:\n"
             " Only 1 metric structure is allowed.\n");
+  }
+  if ( lsCount>1 ) {
+    fprintf(stdout,"\n  ## Warning: PMMG_Init_parmesh:\n"
+            " Only 1 level-set structure is allowed.\n");
+  }
+  if ( dispCount>1 ) {
+    fprintf(stdout,"\n  ## Warning: PMMG_Init_parmesh:\n"
+            " Only 1 displacement structure is allowed.\n");
   }
   if ( commCount>1 ) {
     fprintf(stdout,"\n  ## Warning: PMMG_Init_parmesh:\n"
@@ -183,11 +200,39 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   grp->disp  = NULL;
   grp->ls    = NULL;
 
-  if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
-                             MMG5_ARG_ppMesh, &grp->mesh,
-                             MMG5_ARG_ppMet, &grp->met,
-                             MMG5_ARG_end ) )
-    goto fail_mesh;
+  if ( (!dispCount) && (!lsCount) ) {
+    if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
+                               MMG5_ARG_ppMesh, &grp->mesh,
+                               MMG5_ARG_ppMet, &grp->met,
+                               MMG5_ARG_end ) )
+      goto fail_mesh;
+  }
+  else if ( lsCount && !dispCount ) {
+    if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
+                               MMG5_ARG_ppMesh, &grp->mesh,
+                               MMG5_ARG_ppMet,  &grp->met,
+                               MMG5_ARG_ppLs,   &grp->ls,
+                               MMG5_ARG_end ) )
+      goto fail_mesh;
+  }
+  else if ( dispCount && !lsCount ) {
+    if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
+                               MMG5_ARG_ppMesh, &grp->mesh,
+                               MMG5_ARG_ppMet,  &grp->met,
+                               MMG5_ARG_ppDisp, &grp->disp,
+                               MMG5_ARG_end ) )
+      goto fail_mesh;
+  }
+  else {
+    if ( 1 != MMG3D_Init_mesh( MMG5_ARG_start,
+                               MMG5_ARG_ppMesh, &grp->mesh,
+                               MMG5_ARG_ppMet,  &grp->met,
+                               MMG5_ARG_ppLs,   &grp->ls,
+                               MMG5_ARG_ppDisp, &grp->disp,
+                               MMG5_ARG_end ) )
+      goto fail_mesh;
+  }
+
 
   PMMG_Init_parameters(*parmesh,comm);
 

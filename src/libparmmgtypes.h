@@ -352,8 +352,8 @@ typedef struct {
   /* file names */
   char     *meshin,*meshout;
   char     *metin,*metout;
-  char     *lsin,*lsout;
-  char     *dispin,*dispout;
+  char     *lsin;
+  char     *dispin;
   char     *fieldin,*fieldout;
 
   /* grp */

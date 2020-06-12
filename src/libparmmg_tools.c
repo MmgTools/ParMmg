@@ -493,19 +493,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     PMMG_Set_name(parmesh,&parmesh->lsin,
                   parmesh->listgrp[0].ls->namein,"mesh.sol");
   }
-  if ( (!parmesh->lsout) && parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->nameout ) {
-    PMMG_Set_name(parmesh,&parmesh->lsout,
-                  parmesh->listgrp[0].ls->nameout,"mesh.o.sol");
-  }
   if ( (!parmesh->dispin) && parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->namein ) {
     PMMG_Set_name(parmesh,&parmesh->dispin,
                   parmesh->listgrp[0].disp->namein,"mesh.sol");
   }
-  if ( (!parmesh->dispout) && parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->nameout  ) {
-    PMMG_Set_name(parmesh,&parmesh->dispout,
-                  parmesh->listgrp[0].disp->nameout,"mesh.o.sol");
-  }
-
 
 fail_proc:
   PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );

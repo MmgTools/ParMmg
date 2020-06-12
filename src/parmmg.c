@@ -205,6 +205,14 @@ int main( int argc, char *argv[] )
         goto check_mesh_loading;
       }
     }
+
+    /* Read solutions field if provided */
+    if ( parmesh->fieldin && *parmesh->fieldin &&
+         !PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin) ) {
+      PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+    }
+
+
     break;
 
   default:
