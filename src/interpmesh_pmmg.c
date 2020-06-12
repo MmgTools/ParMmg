@@ -1045,13 +1045,13 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             oldPsl = oldField + j;
             if ( oldPsl->size == 6 ) {
               /* Tensor field */
-              ier = PMMG_interp3bar_ani(mesh,field,oldField,
+              ier = PMMG_interp3bar_ani(mesh,psl,oldPsl,
                                         &oldMesh->tria[istartTria],
                                         ip,coord);
             }
             else {
               /* Scalar or vector field */
-              ier = PMMG_interp3bar_iso(mesh,field,oldField,
+              ier = PMMG_interp3bar_iso(mesh,psl,oldPsl,
                                         &oldMesh->tria[istartTria],
                                         ip,coord);
             }
@@ -1100,7 +1100,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             oldPsl = oldField + j;
             if ( oldPsl->size == 6 ) {
               /* Tensor field */
-              ier = PMMG_interp4bar_ani(mesh,field,oldField,
+              ier = PMMG_interp4bar_ani(mesh,psl,oldPsl,
                                         &oldMesh->tetra[istart],
                                         ip,coord);
             }

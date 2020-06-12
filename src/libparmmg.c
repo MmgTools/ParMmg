@@ -595,6 +595,19 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   tminit(ctim,TIMEMAX);
   chrono(ON,&(ctim[0]));
 
+  /* I/O check: if an input field name is provided but the output one is not,
+   compute automatically an output solution field name. */
+  if ( parmesh->fieldin &&  *parmesh->fieldin ) {
+    ier = PMMG_Set_outputSolsName(parmesh,NULL);
+    if ( !ier ) {
+      fprintf(stdout,"  ## Warning: %s: rank %d: an input field name is"
+              " provided without an output one.\n"
+              "            : the saving process may fail.\n",
+              __func__,parmesh->myrank);
+    }
+  }
+
+
   /* Distribute the mesh */
   ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
   if( ier != PMMG_SUCCESS ) return ier;
@@ -731,6 +744,18 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   /** Check input data */
   tim = 1;
   chrono(ON,&(ctim[tim]));
+
+  /* I/O check: if an input field name is provided but the output one is not,
+   compute automatically an output solution field name. */
+  if ( parmesh->fieldin &&  *parmesh->fieldin ) {
+    ier = PMMG_Set_outputSolsName(parmesh,NULL);
+    if ( !ier ) {
+      fprintf(stdout,"  ## Warning: %s: rank %d: an input field name is"
+              " provided without an output one.\n"
+              "            : the saving process may fail.\n",
+              __func__,parmesh->myrank);
+    }
+  }
 
   ier = PMMG_check_inputData( parmesh );
   MPI_CHECK( MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm ),
