@@ -490,6 +490,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   }
 
   /* renumerotation if available */
+  mesh->npi = mesh->np;
   if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
   {
     PMMG_scotch_message(&warnScotch);
@@ -671,6 +672,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                                                available,oldMemMax);
 
         /* renumerotation if available */
+        mesh->npi = mesh->np;
         if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
         {
           PMMG_scotch_message(&warnScotch);
