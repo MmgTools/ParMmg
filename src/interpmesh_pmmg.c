@@ -608,7 +608,7 @@ int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
 
   /** Linear interpolation of the squared size */
   met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
-    phi[1]*oldMet->m[ptr->v[1]] + 
+    phi[1]*oldMet->m[ptr->v[1]] +
     phi[2]*oldMet->m[ptr->v[2]];
 
   return 1;
@@ -1033,10 +1033,30 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
         /** Interpolate point metrics */
         PMMG_get_baryCoord( coord, barycoord );
-#warning treat other sol structures
+
         ier = PMMG_interp3bar(mesh,met,oldMet,
                               &oldMesh->tria[istartTria],
                               ip,coord);
+
+        /** Field interpolation */
+        if ( mesh->nsols ) {
+          for ( j=0; j<mesh->nsols; ++j ) {
+            psl    = field + j;
+            oldPsl = oldField + j;
+            if ( oldPsl->size == 6 ) {
+              /* Tensor field */
+              ier = PMMG_interp3bar_ani(mesh,field,oldField,
+                                        &oldMesh->tria[istartTria],
+                                        ip,coord);
+            }
+            else {
+              /* Scalar or vector field */
+              ier = PMMG_interp3bar_iso(mesh,field,oldField,
+                                        &oldMesh->tria[istartTria],
+                                        ip,coord);
+            }
+          }
+        }
 
         /* Flag point as interpolated */
         ppt->flag = mesh->base;
@@ -1072,14 +1092,24 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                 &oldMesh->tetra[istart],
                                 ip,coord);
         }
-#warning do we need to interpolate ls and disp fields
+
+        /** Field interpolation */
         if ( mesh->nsols ) {
           for ( j=0; j<mesh->nsols; ++j ) {
             psl    = field + j;
             oldPsl = oldField + j;
-            ier = PMMG_interp4bar_iso(mesh,field,oldField,
-                                      &oldMesh->tetra[istart],
-                                      ip,coord);
+            if ( oldPsl->size == 6 ) {
+              /* Tensor field */
+              ier = PMMG_interp4bar_ani(mesh,field,oldField,
+                                        &oldMesh->tetra[istart],
+                                        ip,coord);
+            }
+            else {
+              /* Scalar or vector field */
+              ier = PMMG_interp4bar_iso(mesh,field,oldField,
+                                        &oldMesh->tetra[istart],
+                                        ip,coord);
+            }
           }
         }
 
