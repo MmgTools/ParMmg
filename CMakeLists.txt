@@ -167,23 +167,40 @@ ENDIF()
 # Find SCOTCH library?
 SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
 LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-FIND_PACKAGE(SCOTCH)
 
-IF ( NOT SCOTCH_FOUND )
-  MESSAGE ( WARNING "Scotch library not found:"
-    "Using scotch reduce the execution time of mmg3d "
-    "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-    "If you have already installed Scotch and want to use it, "
-    "please set the CMake variable or environment variable SCOTCH_DIR "
-    "to your scotch directory.")
+# add Scotch library?
+OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON )
+
+IF ( USE_SCOTCH )
+
+  FIND_PACKAGE(SCOTCH)
+
+  IF ( NOT SCOTCH_FOUND )
+    MESSAGE ( WARNING "Scotch library not found:"
+      "Using scotch reduce the execution time of mmg3d "
+      "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
+      "If you have already installed Scotch and want to use it, "
+      "please set the CMake variable or environment variable SCOTCH_DIR "
+      "to your scotch directory.")
+  ENDIF ( )
+
 ENDIF ( )
+
 
 ############################################################################
 #####
 #####         VTK (to parse (p)vtp/(p)vtu files )
 #####
 ############################################################################
-FIND_PACKAGE(VTK)
+OPTION ( USE_VTK "Use VTK I/O" ON )
+
+IF ( USE_VTK )
+  FIND_PACKAGE(VTK QUIET)
+
+  IF ( NOT VTK_FOUND )
+    MESSAGE ( WARNING "VTK library not found: vtk I/O will not be available.")
+  ENDIF ( )
+ENDIF ( )
 
 ###############################################################################
 #####
@@ -191,22 +208,15 @@ FIND_PACKAGE(VTK)
 #####
 ###############################################################################
 
-# add Scotch library?
-CMAKE_DEPENDENT_OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON
-  "SCOTCH_FOUND" OFF)
-
-IF( USE_SCOTCH )
+IF( SCOTCH_FOUND )
   SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
- MESSAGE(STATUS
+  MESSAGE(STATUS
     "Compilation with scotch: ${SCOTCH_LIBRARIES}")
   SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
 ENDIF()
 
-# add the VTK library ?
-CMAKE_DEPENDENT_OPTION ( USE_VTK "Use VTK I/O" ON
-  "VTK_FOUND" OFF)
 
-IF ( USE_VTK )
+IF ( VTK_FOUND )
   ENABLE_LANGUAGE ( CXX )
   ADD_DEFINITIONS(-DUSE_VTK)
   MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
@@ -249,7 +259,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 1517dc08af273e68d482a7b8c0a3cb11ec02bcba
+    GIT_TAG ea591937403428311826c9264af8cbab76ac8b80
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -287,7 +297,7 @@ ELSE ( )
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  FIND_PACKAGE(Mmg)
+  FIND_PACKAGE(MMG)
 
   IF(NOT MMG_FOUND )
 
@@ -358,7 +368,7 @@ ELSE ( )
   # add metis library?
   SET(METIS_DIR "" CACHE PATH "Installation directory for metis")
 
-  FIND_PACKAGE(Metis)
+  FIND_PACKAGE(METIS)
 
   IF( METIS_FOUND)
     OPTION ( USE_METIS "Detected METIS Tool" ON)

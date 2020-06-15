@@ -147,7 +147,7 @@ MACRO ( ADD_AND_INSTALL_EXECUTABLE
 
   ENDIF ( )
 
-  IF ( WIN32 AND NOT MINGW AND USE_SCOTCH )
+  IF ( WIN32 AND NOT MINGW AND SCOTCH_FOUND )
     my_add_link_flags ( ${exec_name} "/SAFESEH:NO")
   ENDIF ( )
 
@@ -208,7 +208,7 @@ MACRO ( ADD_LIBRARY_TEST target_name main_path target_dependency lib_name )
     TARGET_INCLUDE_DIRECTORIES ( ${target_name} PUBLIC ${CMAKE_BINARY_DIR}/include )
   ENDIF ( )
 
-  IF ( WIN32 AND ((NOT MINGW) AND USE_SCOTCH) )
+  IF ( WIN32 AND ((NOT MINGW) AND SCOTCH_FOUND) )
     MY_ADD_LINK_FLAGS ( ${target_name} "/SAFESEH:NO" )
   ENDIF ( )
 
