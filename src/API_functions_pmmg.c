@@ -1607,12 +1607,14 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
 
   if ( mesh->npi == mesh->np ) {
     mesh->npi = 0;
-    fprintf(stderr,"\n  ## Warning: %s: reset the internal counter of points.\n",
-            __func__);
-    fprintf(stderr,"     You must pass here exactly one time (the first time ");
-    fprintf(stderr,"you call the PMMG_Get_vertexGloNum function).\n");
-    fprintf(stderr,"     If not, the number of call of this function");
-    fprintf(stderr," exceed the number of points: %d\n ",mesh->np);
+    if( mesh->info.ddebug ) {
+      fprintf(stderr,"\n  ## Warning: %s: reset the internal counter of points.\n",
+              __func__);
+      fprintf(stderr,"     You must pass here exactly one time (the first time ");
+      fprintf(stderr,"you call the PMMG_Get_vertexGloNum function).\n");
+      fprintf(stderr,"     If not, the number of call of this function");
+      fprintf(stderr," exceed the number of points: %d\n ",mesh->np);
+    }
   }
 
   mesh->npi++;
