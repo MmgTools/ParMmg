@@ -1588,6 +1588,16 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global node numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the node.
+ *
+ */
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
@@ -1595,15 +1605,42 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
-  assert( mesh->npi );
-  ppt = &mesh->point[mesh->npi];
+  if ( mesh->npi == mesh->np ) {
+    mesh->npi = 0;
+    fprintf(stderr,"\n  ## Warning: %s: reset the internal counter of points.\n",
+            __func__);
+    fprintf(stderr,"     You must pass here exactly one time (the first time ");
+    fprintf(stderr,"you call the PMMG_Get_vertexGloNum function).\n");
+    fprintf(stderr,"     If not, the number of call of this function");
+    fprintf(stderr," exceed the number of points: %d\n ",mesh->np);
+  }
 
+  mesh->npi++;
+
+  if ( mesh->npi > mesh->np ) {
+    fprintf(stderr,"\n  ## Error: %s: unable to get solution.\n",__func__);
+    fprintf(stderr,"     The number of call of PMMG_Get_vertexGloNum function");
+    fprintf(stderr," can not exceed the number of points: %d\n ",mesh->np);
+    return 0;
+  }
+
+  ppt = &mesh->point[mesh->npi];
   *idx_glob = ppt->tmp;
   *owner    = ppt->flag;
 
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ *
+ */
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
@@ -1614,9 +1651,8 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
 
   for( ip = 1; ip <= mesh->np; ip++ ){
     ppt = &mesh->point[ip];
-
-    idx_glob[ip] = ppt->tmp;
-    owner[ip]    = ppt->flag;
+    idx_glob[ip-1] = ppt->tmp;
+    owner[ip-1]    = ppt->flag;
   }
 
   return 1;
