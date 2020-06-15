@@ -1575,7 +1575,41 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   return 1;
 }
 
-int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
+int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh  mesh;
+  MMG5_pPoint ppt;
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  assert( mesh->npi );
+  ppt = &mesh->point[mesh->npi];
+
+  *idx_glob = ppt->tmp;
+  *owner    = ppt->flag;
+
+  return 1;
+}
+
+int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh  mesh;
+  MMG5_pPoint ppt;
+  int         ip;
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  for( ip = 1; ip <= mesh->np; ip++ ){
+    ppt = &mesh->point[ip];
+
+    idx_glob[ip] = ppt->tmp;
+    owner[ip]    = ppt->flag;
+  }
+
+  return 1;
+}
+
+int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
@@ -1655,7 +1689,7 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
 
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
-    idx_glob[ip] = PMMG_UNSET;
+    mesh->point[ip].tmp = PMMG_UNSET;
   }
 #endif
 
@@ -1664,7 +1698,8 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if( ppt->flag != parmesh->myrank ) continue;
-    idx_glob[ip] = ++counter+offsets[parmesh->myrank];
+    ppt->tmp = ++counter+offsets[parmesh->myrank];
+    assert(ppt->tmp);
   }
   assert( counter == nowned );
 
@@ -1675,7 +1710,8 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
     ip   = grp->node2int_node_comm_index1[i];
     idx  = grp->node2int_node_comm_index2[i];
-    intvalues[idx] = idx_glob[ip];
+    intvalues[idx] = mesh->point[ip].tmp;
+    assert(intvalues[idx]);
   }
 
   /* Send-recv */
@@ -1698,6 +1734,7 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
         itosend[i] = intvalues[idx];
+        assert(itosend[i]);
       }
       MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
                            parmesh->comm,&request),return 0 );
@@ -1723,19 +1760,20 @@ int PMMG_Get_Node_owners( PMMG_pParMesh parmesh,int *idx_glob ){
 
   /* Retrieve numbering from the internal communicator */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
-    ip   = grp->node2int_node_comm_index1[i];
-    idx  = grp->node2int_node_comm_index2[i];
-    if( mesh->point[ip].flag > parmesh->myrank ){
-      idx_glob[ip] = intvalues[idx];
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    if( ppt->flag > parmesh->myrank ){
+      ppt->tmp = intvalues[idx];
     }
   }
 
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
-    assert( (idx_glob[ip] > 0) && (idx_glob[ip] <= offsets[parmesh->nprocs]) );
+    ppt = &mesh->point[ip];
+    assert( (ppt->tmp > 0) && (ppt->tmp <= offsets[parmesh->nprocs]) );
   }
 #endif
-
 
   /* Free arrays */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
