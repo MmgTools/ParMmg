@@ -79,6 +79,7 @@ enum PMMG_Param {
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
+  PMMG_IPARAM_nodeGloNum,        /*!< [1,0], Compute nodes global numbering in output */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */

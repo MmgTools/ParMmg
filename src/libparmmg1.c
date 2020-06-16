@@ -1085,7 +1085,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     goto strong_failed;
   }
 #endif
-  ier = PMMG_Compute_verticesGloNum( parmesh );
+  if( parmesh->info.nodeGloNum )
+    ier = PMMG_Compute_verticesGloNum( parmesh );
 
   /* Give memory to Mmg for the edge length computation */
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);

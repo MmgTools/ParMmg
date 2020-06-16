@@ -156,6 +156,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
+  parmesh->info.nodeGloNum         = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
 
@@ -337,6 +338,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
+    break;
+  case PMMG_IPARAM_nodeGloNum :
+    parmesh->info.nodeGloNum = val;
     break;
   case PMMG_IPARAM_niter :
     parmesh->niter = val;
