@@ -1606,6 +1606,14 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
 
+  if( !parmesh->info.nodeGloNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
+
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
@@ -1624,7 +1632,7 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   mesh->npi++;
 
   if ( mesh->npi > mesh->np ) {
-    fprintf(stderr,"\n  ## Error: %s: unable to get solution.\n",__func__);
+    fprintf(stderr,"\n  ## Error: %s: unable to get numbering.\n",__func__);
     fprintf(stderr,"     The number of call of PMMG_Get_vertexGloNum function");
     fprintf(stderr," can not exceed the number of points: %d\n ",mesh->np);
     return 0;
@@ -1651,6 +1659,14 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
   int         ip;
+
+  if( !parmesh->info.nodeGloNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
