@@ -1004,7 +1004,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   PMMG_pGrp  const grpOld = &parmesh->listgrp[grpIdOld];
   MMG5_pMesh const meshOld= parmesh->listgrp[grpIdOld].mesh;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met,ls,disp,field,psl;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
   MMG5_pTetra      pt,tetraCur;
   MMG5_pxTetra     pxt;
   MMG5_pPoint      ppt;
@@ -1122,10 +1122,38 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
         }
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
+
+        /* metric */
         if ( met->m ) {
           memcpy( &met->m[ (*np) * met->size ],
                   &grpOld->met->m[pt->v[poi] * met->size],
                   met->size * sizeof( double ) );
+        }
+        /* level-set */
+        if ( ls ) {
+          if ( ls->m ) {
+            memcpy( &ls->m[ (*np) * ls->size ],
+                    &grpOld->ls->m[pt->v[poi] * ls->size],
+                    ls->size * sizeof( double ) );
+          }
+        }
+        /* disp */
+        if ( disp ) {
+          if ( disp->m ) {
+            memcpy( &disp->m[ (*np) * disp->size ],
+                    &grpOld->disp->m[pt->v[poi] * disp->size],
+                    disp->size * sizeof( double ) );
+          }
+        }
+        /* solution field */
+        if ( mesh->nsols ) {
+          for ( is=0; is<mesh->nsols; ++is ) {
+            psl    = field + is;
+            pslOld = grpOld->field + is;
+            memcpy( &psl->m[ (*np) * psl->size ],
+                    &pslOld->m[pt->v[poi] * psl->size],
+                    psl->size * sizeof( double ) );
+          }
         }
 
         /* Update tetra vertex index */
