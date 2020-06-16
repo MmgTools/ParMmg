@@ -484,7 +484,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   ier_end = PMMG_SUCCESS;
 
-  /* Set inputMet flag */
+  assert ( parmesh->ngrp >= 1 );
+  assert ( parmesh->listgrp[0].mesh );
+
+  /** Copy mmg info structure into the parmesh */
+  ier = PMMG_copy_mmgInfo ( &parmesh->listgrp[0].mesh->info,  &parmesh->mmg_info );
+
+  /** Set inputMet flag */
   for ( i=0; i<parmesh->ngrp; ++i ) {
     met         = parmesh->listgrp[i].met;
     if ( met && met->m ) {
@@ -493,12 +499,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
-  ier = 1;
+#ifndef NDEBUG
   inputMet = 0;
   MPI_CHECK( MPI_Allreduce( &parmesh->info.inputMet,&inputMet,1,MPI_UNSIGNED_CHAR,MPI_MAX,
                             parmesh->comm ),ier = 0 );
 
-  parmesh->info.inputMet = inputMet;
+  if ( inputMet != parmesh->info.inputMet ) {
+    printf ("  ## Warning: input metric not provided on rank %d while provided on others.\n",
+      parmesh->myrank);
+    parmesh->info.inputMet = inputMet;
+  }
+#endif
 
   /** Groups creation */
   if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {

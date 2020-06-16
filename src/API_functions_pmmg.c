@@ -389,7 +389,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   size_t     mem;
   int        k,flag;
 
-  memset(&parmesh->info,0, sizeof(PMMG_Info));
+  memset(&parmesh->mmg_info,0, sizeof(MMG5_Info));
+  memset(&parmesh->info    ,0, sizeof(PMMG_Info));
 
   parmesh->info.mem                = PMMG_UNSET; /* [n/-1]   ,Set memory size to n Mbytes/keep the default value */
   parmesh->info.root               = PMMG_NUL;

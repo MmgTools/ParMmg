@@ -364,6 +364,83 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
 }
 
 /**
+ * \param parmesh pointer toward a PMMG_pParMesh structure.
+ * \param grp pointer toward a PMMG_Grp structure.
+ * \param ier pointer toward the error variable: setted to 0 if this function fail.
+ * \param ier_mesh  1 if the mesh         is allocated, 0 otherwise
+ * \param ier_met   1 if the metric       is allocated, 0 otherwise
+ * \param ier_ls    1 if the level-set    is allocated, 0 otherwise
+ * \param ier_disp  1 if the displacement is allocated, 0 otherwise
+ * \param nsols number of solution fields
+ * \param ier_field 1 if the sol fields  are allocated, 0 otherwise
+ *
+ * \return 0 if the filename overflow the \a MMG5_FILENAME_LEN_MAX value, 1 otherwise.
+ *
+ * Unpack the filenames and shift the buffer pointer at the end of the readed
+ * area.
+ *
+ */
+static
+int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_mesh,
+                          int ier_ls,int ier_disp,int nsols,int ier_field ) {
+  const MMG5_pMesh mesh = grp->mesh;
+  const MMG5_pSol  met  = grp->met;
+  const MMG5_pSol  ls   = grp->ls;
+  const MMG5_pSol  disp = grp->disp;
+  const MMG5_pSol  field= grp->field;
+  int              is;
+
+  if ( !ier_mesh ) {
+    /* mesh and metrics are not allocated */
+    *ier=0;
+    return 1;
+  }
+
+  /* File names */
+  if ( !MMG5_Set_inputMeshName ( mesh, parmesh->meshin ) )  { *ier=0; }
+  if ( !MMG5_Set_outputMeshName( mesh, parmesh->meshout ) ) { *ier = 0; }
+
+  if ( parmesh->metin && *parmesh->metin ) {
+    if ( !MMG5_Set_inputSolName( mesh, met, parmesh->metin ) ) { *ier = 0; }
+  }
+  if ( parmesh->metout && *parmesh->metout ) {
+    if ( !MMG5_Set_outputSolName( mesh,met, parmesh->metout ) ) { *ier = 0; }
+  }
+
+  if ( ier_ls ) {
+    /* ls structure is allocated */
+    if ( parmesh->lsin && *parmesh->lsin ) {
+      if ( !MMG5_Set_inputSolName( mesh, ls, parmesh->lsin ) ) { *ier = 0; }
+    }
+  }
+
+  if ( ier_disp ) {
+    /* disp structure is allocated */
+    if ( parmesh->dispin && *parmesh->dispin ) {
+      if ( !MMG5_Set_inputSolName( mesh, disp, parmesh->dispin ) ) { *ier = 0; }
+    }
+  }
+
+  if ( ier_field ) {
+    /* field structure is allocated */
+    for ( is=0; is<nsols; ++is ) {
+      if ( parmesh->fieldin ) {
+        if ( !MMG5_Set_inputSolName( mesh, &field[is], parmesh->fieldin ) ) {
+          *ier = 0;
+        }
+      }
+      if ( parmesh->fieldout ) {
+        if ( !MMG5_Set_outputSolName( mesh, &field[is], parmesh->fieldout ) ) {
+          *ier = 0;
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
+/**
  * \param info pointer toward a MMG5 info structure
  * \param buffer pointer toward the buffer in which we pack the group
  * \param ier pointer toward the error variable: setted to 0 if this function fail.
@@ -971,7 +1048,7 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
  */
 int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
                          size_t *memAv) {
-  int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
+  int        ier,ier_mesh,ier_info,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
   int        nsols,used;
@@ -989,12 +1066,12 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
 
-  if ( !PMMG_mpiunpack_filenames ( grp,buffer,&ier,ier_mesh,ier_ls,ier_disp,
-                                   nsols,ier_field ) ) {
-    return 0;
-  }
+  PMMG_copy_filenames ( parmesh,grp,&ier,ier_mesh,ier_ls,ier_disp,nsols,ier_field );
 
-  PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
+  if ( ier_mesh ) {
+    ier_info = PMMG_copy_mmgInfo ( &parmesh->mmg_info,  &grp->mesh->info );
+    ier = MG_MIN ( ier, ier_info );
+  }
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
@@ -1034,7 +1111,7 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                              PMMG_pExt_comm *ext_node_comm,
                              char **buffer,
                              size_t *memAv) {
-  int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
+  int        ier,ier_mesh,ier_info,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
   int        nsols,used;
@@ -1052,7 +1129,10 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
 
-  PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
+  if ( ier_mesh ) {
+    ier_info = PMMG_copy_mmgInfo ( &parmesh->mmg_info, &grp->mesh->info );
+    ier = MG_MIN ( ier, ier_info );
+  }
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
