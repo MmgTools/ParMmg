@@ -602,14 +602,23 @@ int PMMG_invmat22( double *m, double *im ) {
  */
 int PMMG_interp3bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                          MMG5_pTria ptr,int ip,double *phi ) {
-  int iloc,i,ier;
+  int iadr,i,j;
 
-  assert( met->size == 1 );
+  iadr = met->size *ip;
+
+  assert (mesh->npmax==met->npmax );
 
   /** Linear interpolation of the squared size */
-  met->m[ip] = phi[0]*oldMet->m[ptr->v[0]] +
-    phi[1]*oldMet->m[ptr->v[1]] +
-    phi[2]*oldMet->m[ptr->v[2]];
+  for ( j=0; j<met->size; ++j ) {
+    met->m [ iadr + j ] = 0.0;
+  }
+
+  for( i=0; i<3; i++ ) {
+    for ( j=0; j<met->size; ++j ) {
+      /* Barycentric coordinates could be permuted */
+      met->m[iadr+j] += phi[i]*oldMet->m[ptr->v[i]*met->size+j];
+    }
+  }
 
   return 1;
 }
@@ -674,8 +683,6 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
 int PMMG_interp4bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                          MMG5_pTetra pt,int ip,double *phi ) {
   int i,j,iadr;
-
-  assert( met->size == 1 );
 
   /** Linear interpolation of the squared size */
   iadr = met->size *ip;
