@@ -46,6 +46,7 @@ int main(int argc,char *argv[]) {
   FILE            *inm;
   int             pos,nreq,nc,nr;
   int             nVertices,nTetrahedra,nTriangles,nEdges;
+  int             nodeGloNumber,nodeOwner;
 
 
   MPI_Init( &argc, &argv );
@@ -467,6 +468,13 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
+  /* Compute ouput nodes global numbering */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nodeGloNum, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+
 
   /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );
@@ -731,6 +739,33 @@ int main(int argc,char *argv[]) {
       exit(EXIT_FAILURE);
     }
 
+    /* Table for global node numbering */
+    int *nodeGloNum  = (int *) malloc((2*nVertices)*sizeof(int));
+    if ( !nodeGloNum ) {
+      perror("  ## Memory problem: global nodes numbering calloc");
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+
+    /** a) Nodes global numbering recovering */
+    if( !opt ) {
+      /* By array */
+      if( !PMMG_Get_verticesGloNum( parmesh,nodeGloNum,&nodeGloNum[nVertices]) ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      /* Vertex by vertex */
+      for( k = 1; k <= nVertices; k++ ) {
+        if( !PMMG_Get_vertexGloNum( parmesh, &nodeGloNumber, &nodeOwner ) ) {
+          MPI_Finalize();
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+
+
     /** b) Vertex recovering */
     nreq = nc = 0;
     fprintf(inm,"\nVertices\n%d\n",nVertices);
@@ -896,13 +931,14 @@ int main(int argc,char *argv[]) {
     fprintf(inm,"\nEnd\n");
     fclose(inm);
 
-    free(vert)    ; vert     = NULL;
-    free(tetra)   ; tetra    = NULL;
-    free(tria)    ; tria     = NULL;
-    free(edge)    ; edge     = NULL;
-    free(ref)     ; ref      = NULL;
-    free(required); required = NULL;
-    free(ridge)   ; ridge    = NULL;
+    free(vert)       ; vert     = NULL;
+    free(tetra)      ; tetra    = NULL;
+    free(tria)       ; tria     = NULL;
+    free(edge)       ; edge     = NULL;
+    free(ref)        ; ref      = NULL;
+    free(required)   ; required = NULL;
+    free(ridge)      ; ridge    = NULL;
+    free(nodeGloNum) ; nodeGloNum = NULL;
 
     /** 3) Get the metric with ParMmg getters */
     if ( !(inm = fopen(metout,"w")) ) {

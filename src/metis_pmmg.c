@@ -1155,6 +1155,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   }
   PMMG_DEL_MEM(parmesh,hash.item,PMMG_hgrp,"group hash table");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face communicator");
+  PMMG_DEL_MEM(parmesh,int_face_comm->doublevalues,double,"face communicator");
 
   return 1;
 

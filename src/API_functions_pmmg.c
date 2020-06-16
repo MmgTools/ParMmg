@@ -156,6 +156,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
+  parmesh->info.nodeGloNum         = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
 
@@ -337,6 +338,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
+    break;
+  case PMMG_IPARAM_nodeGloNum :
+    parmesh->info.nodeGloNum = val;
     break;
   case PMMG_IPARAM_niter :
     parmesh->niter = val;
@@ -1585,6 +1589,94 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
   MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hashPair.item);
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global node numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the node.
+ *
+ */
+int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh  mesh;
+  MMG5_pPoint ppt;
+
+  if( !parmesh->info.nodeGloNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  if ( mesh->npi == mesh->np ) {
+    mesh->npi = 0;
+    if( mesh->info.ddebug ) {
+      fprintf(stderr,"\n  ## Warning: %s: reset the internal counter of points.\n",
+              __func__);
+      fprintf(stderr,"     You must pass here exactly one time (the first time ");
+      fprintf(stderr,"you call the PMMG_Get_vertexGloNum function).\n");
+      fprintf(stderr,"     If not, the number of call of this function");
+      fprintf(stderr," exceed the number of points: %d\n ",mesh->np);
+    }
+  }
+
+  mesh->npi++;
+
+  if ( mesh->npi > mesh->np ) {
+    fprintf(stderr,"\n  ## Error: %s: unable to get numbering.\n",__func__);
+    fprintf(stderr,"     The number of call of PMMG_Get_vertexGloNum function");
+    fprintf(stderr," can not exceed the number of points: %d\n ",mesh->np);
+    return 0;
+  }
+
+  ppt = &mesh->point[mesh->npi];
+  *idx_glob = ppt->tmp;
+  *owner    = ppt->flag;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ *
+ */
+int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh  mesh;
+  MMG5_pPoint ppt;
+  int         ip;
+
+  if( !parmesh->info.nodeGloNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  for( ip = 1; ip <= mesh->np; ip++ ){
+    ppt = &mesh->point[ip];
+    idx_glob[ip-1] = ppt->tmp;
+    owner[ip-1]    = ppt->flag;
+  }
+
   return 1;
 }
 

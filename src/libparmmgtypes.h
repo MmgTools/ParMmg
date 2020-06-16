@@ -326,6 +326,7 @@ typedef struct {
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
+  int nodeGloNum; /*!< compute nodes global numbering in output */
   int fmtout; /*!< store the output format asked */
   char sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   char sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
