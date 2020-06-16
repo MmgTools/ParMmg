@@ -193,6 +193,8 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
   idx += sizeof(char); // noswap
   idx += sizeof(char); // nomove
   idx += sizeof(char); // nosurf
+  idx += sizeof(char); // sethmin
+  idx += sizeof(char); // sethmax
 
   /* affectation of old refs in ls-mode */
   if ( info->nmat ) {
@@ -755,6 +757,8 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
   *( (char *) tmp) = info->noswap;   tmp += sizeof(char);
   *( (char *) tmp) = info->nomove;   tmp += sizeof(char);
   *( (char *) tmp) = info->nosurf;   tmp += sizeof(char);
+  *( (char *) tmp) = info->sethmin;  tmp += sizeof(char);
+  *( (char *) tmp) = info->sethmax;  tmp += sizeof(char);
 
   /* affectation of old refs in ls-mode */
   if ( info->nmat ) {

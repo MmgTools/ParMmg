@@ -1113,7 +1113,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             }
             else {
               /* Scalar or vector field */
-              ier = PMMG_interp4bar_iso(mesh,field,oldField,
+              ier = PMMG_interp4bar_iso(mesh,psl,oldPsl,
                                         &oldMesh->tetra[istart],
                                         ip,coord);
             }

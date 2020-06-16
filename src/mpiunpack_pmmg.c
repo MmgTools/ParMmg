@@ -491,6 +491,8 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     info->noswap    = *( (char *) *buffer); *buffer += sizeof(char);
     info->nomove    = *( (char *) *buffer); *buffer += sizeof(char);
     info->nosurf    = *( (char *) *buffer); *buffer += sizeof(char);
+    info->sethmin   = *( (char *) *buffer); *buffer += sizeof(char);
+    info->sethmax   = *( (char *) *buffer); *buffer += sizeof(char);
 
     /* affectation of old refs in ls-mode */
     if ( info->nmat ) {

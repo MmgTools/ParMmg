@@ -496,6 +496,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
   }
 
+  ier = 1;
 #ifndef NDEBUG
   inputMet = 0;
   MPI_CHECK( MPI_Allreduce( &parmesh->info.inputMet,&inputMet,1,MPI_UNSIGNED_CHAR,MPI_MAX,
