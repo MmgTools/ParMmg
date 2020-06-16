@@ -224,10 +224,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         }
         else {
-          fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-          ret_val = 0;
-          goto fail_proc;
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
+
         break;
 
       case 'g':
@@ -331,7 +332,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             goto fail_proc;
           }
         }
-        else {
+        else if ( !strcmp(argv[i],"-m") ) {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
             if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) ) {
@@ -351,6 +352,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             goto fail_proc;
           }
         }
+        /* else : what happens with -met option... to treat */
         break;
 
       case 'n':  /* number of adaptation iterations */
