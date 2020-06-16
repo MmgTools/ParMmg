@@ -251,7 +251,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
         }
-
         break;
       case 'g':
         if ( !strcmp(argv[i],"-groups-ratio") ) {
@@ -380,6 +379,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         }
         else {
+          /* else : what happens with -met option... to treat */
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
@@ -424,7 +424,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
       case 'd':
         if ( !strcmp(argv[i],"-d") ) {
-          /* debug */
+        /* debug */
         if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
           ret_val = 0;
           goto fail_proc;

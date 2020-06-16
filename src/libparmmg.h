@@ -79,6 +79,7 @@ enum PMMG_Param {
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
+  PMMG_IPARAM_nodeGloNum,        /*!< [1,0], Compute nodes global numbering in output */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */
@@ -2303,6 +2304,46 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
                                        int* color_in, int** trianodes_in,
                                        int ncomm_out,int* nitem_out,
                                        int* color_out, int** trianodes_out);
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global node numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the node.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_VERTEXGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                    retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(OUT)                 :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_VERTICESGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                      retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 
 /**
  * \param parmesh pointer toward parmesh structure
