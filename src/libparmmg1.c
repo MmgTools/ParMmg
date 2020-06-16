@@ -487,9 +487,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   assert ( parmesh->ngrp >= 1 );
   assert ( parmesh->listgrp[0].mesh );
 
-  /** Copy mmg info structure into the parmesh */
-  ier = PMMG_copy_mmgInfo ( &parmesh->listgrp[0].mesh->info,  &parmesh->mmg_info );
-
   /** Set inputMet flag */
   for ( i=0; i<parmesh->ngrp; ++i ) {
     met         = parmesh->listgrp[i].met;

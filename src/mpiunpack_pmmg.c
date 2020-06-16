@@ -1048,7 +1048,7 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
  */
 int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
                          size_t *memAv) {
-  int        ier,ier_mesh,ier_info,ier_met,ier_ls,ier_disp,ier_field;
+  int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
   int        nsols,used;
@@ -1068,10 +1068,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
 
   PMMG_copy_filenames ( parmesh,grp,&ier,ier_mesh,ier_ls,ier_disp,nsols,ier_field );
 
-  if ( ier_mesh ) {
-    ier_info = PMMG_copy_mmgInfo ( &parmesh->mmg_info,  &grp->mesh->info );
-    ier = MG_MIN ( ier, ier_info );
-  }
+  PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
@@ -1111,7 +1108,7 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                              PMMG_pExt_comm *ext_node_comm,
                              char **buffer,
                              size_t *memAv) {
-  int        ier,ier_mesh,ier_info,ier_met,ier_ls,ier_disp,ier_field;
+  int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
   int        nsols,used;
@@ -1129,10 +1126,7 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
 
-  if ( ier_mesh ) {
-    ier_info = PMMG_copy_mmgInfo ( &parmesh->mmg_info, &grp->mesh->info );
-    ier = MG_MIN ( ier, ier_info );
-  }
+  PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
   PMMG_mpiunpack_meshArrays( grp,buffer,memAv,&ier,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,

@@ -433,6 +433,9 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   /** Size of mesh / metric / fields... arrays (np, met->siz...) */
   idx += PMMG_mpisizeof_meshSizes ( grp );
 
+  /** Size of Info */
+  idx += PMMG_mpisizeof_infos ( &mesh->info );
+
   /** Size of compressed points / tetra / metric / fields... */
   idx += PMMG_mpisizeof_meshArrays ( grp );
 
@@ -470,6 +473,9 @@ int PMMG_mpisizeof_parmesh ( PMMG_pParMesh parmesh ) {
 
   /** Size of mesh / metric / fields... arrays (np, met->siz...) */
   idx += PMMG_mpisizeof_meshSizes ( grp );
+
+  /** Size of Info */
+  idx += PMMG_mpisizeof_infos ( &parmesh->listgrp[0].mesh->info );
 
   /** Size of compressed points / tetra / metric / fields... */
   idx += PMMG_mpisizeof_meshArrays ( grp );
@@ -1058,6 +1064,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
 
   PMMG_mpipack_meshSizes(grp,buffer);
 
+  PMMG_mpipack_infos(&(grp->mesh->info),buffer);
+
   PMMG_mpipack_meshArrays(grp,buffer);
 
   PMMG_mpipack_grpintcomm(grp,buffer);
@@ -1110,6 +1118,8 @@ int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh ,char **buffer ) {
   *buffer = tmp;
 
   PMMG_mpipack_meshSizes(grp,buffer);
+
+  PMMG_mpipack_infos(&(grp->mesh->info),buffer);
 
   PMMG_mpipack_meshArrays(grp,buffer);
 

@@ -385,8 +385,7 @@ typedef struct {
 
   /* parameters of the run */
   PMMG_Info      info; /*!< \ref PMMG_Info structure */
-  MMG5_Info      mmg_info; /*!< \ref Copy of Mmg infos to avoid useless transfer */
-
+ 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 
