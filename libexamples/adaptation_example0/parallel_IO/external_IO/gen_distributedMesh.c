@@ -312,7 +312,7 @@ int main(int argc,char *argv[]) {
   fprintf(fid,"ParallelTriangles\n");
   for( icomm = 0; icomm < n_face_comm; icomm++ )
     for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      fprintf(fid,"%d %d %d\n",idx_face_loc[icomm][i],idx_face_glob[icomm][i],color_face[icomm]);
+      fprintf(fid,"%d %d %d\n",idx_face_loc[icomm][i],idx_face_glob[icomm][i],icomm);
   fclose(fid);
 
   sprintf(filemesh,"%s_out.%d.mesh_parNodes",filename,parmesh->myrank);
@@ -324,7 +324,7 @@ int main(int argc,char *argv[]) {
   fprintf(fid,"ParallelVertices\n");
   for( icomm = 0; icomm < n_node_comm; icomm++ )
     for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      fprintf(fid,"%d %d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i],color_node[icomm]);
+      fprintf(fid,"%d %d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i],icomm);
   fclose(fid);
 
   /* Free arrays */
