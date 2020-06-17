@@ -37,6 +37,70 @@
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param API_mode print face or node communicator.
+ * \param idx_loc double pointer to the local indices of entities in each communicator.
+ * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
+ * \param fid pointer to file stream.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Print parallel communicator in ASCII format.
+ *
+ */
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,FILE *fid ) {
+  PMMG_pExt_comm ext_comm;
+  int ncomm,color,nitem;
+  int icomm,i,iglob;
+
+  if( API_mode == PMMG_APIDISTRIB_faces ) {
+    ncomm = parmesh->next_face_comm;
+    fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_face_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      fprintf(fid,"%d %d\n",color,nitem);
+    }
+    fprintf(fid,"\nParallelTriangles\n");
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_face_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      if( idx_glob )
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+      else
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    }
+  } else if( API_mode == PMMG_APIDISTRIB_nodes ) {
+    ncomm = parmesh->next_node_comm;
+    fprintf(fid,"ParallelVertexCommunicators\n%d\n",ncomm);
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      fprintf(fid,"%d %d\n",color,nitem);
+    }
+    fprintf(fid,"\nParallelVertices\n");
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      if( idx_glob )
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+      else
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param inm pointer to the mesh file.
  * \param bin binary (1) or ascii (0) file.
  * \param iswp perform byte swapping (1) or not (0).
@@ -56,6 +120,8 @@
 int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
                            int pos,int ncomm,int *nitem_comm,int *color,
                            int **idx_loc,int **idx_glo ) {
+  char chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
+  int binch,bpos;
   int *inxt;
   int ntot,k,idxl,idxg,icomm,i;
 
@@ -89,6 +155,53 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
     PMMG_CALLOC(parmesh,idx_glo[icomm],nitem_comm[icomm],int,
                 "idx_glo",return 0);
   }
+
+  rewind(inm);
+  if (!bin) {
+    strcpy(chaine,"D");
+    while(fscanf(inm,"%127s",&chaine[0])!=EOF && strncmp(chaine,"End",strlen("End")) ) {
+      if ( chaine[0] == '#' ) {
+        fgets(strskip,MMG5_FILESTR_LGTH,inm);
+        continue;
+      }
+      if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+        if(!strncmp(chaine,"ParallelTriangles",strlen("ParallelTriangles"))) {
+          pos = ftell(inm);
+          break;
+        }
+      } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes ) {
+         if(!strncmp(chaine,"ParallelVertices",strlen("ParallelVertices"))) {
+          pos = ftell(inm);
+          break;
+        }
+      }
+    }
+  } else { //binary file
+    while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
+      if(iswp) binch=MMG5_swapbin(binch);
+      if(binch==54) break;
+      if(!ncomm && binch==72) { // ParallelTriangle
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        pos = ftell(inm);
+        break; // if parallel triangles are found, ignore parallel nodes
+      } else if(!ncomm && binch==73) { // ParallelVertices
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        pos = ftell(inm);
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+        continue;
+      } else {
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        rewind(inm);
+        fseek(inm,bpos,SEEK_SET);
+      }
+    }
+  }
+
+
   /* Read indices */
   if(!bin) {
     for( i = 0; i < ntot; i++ ) {
@@ -197,12 +310,12 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         continue;
       }
 
-      if(!strncmp(chaine,"ParallelTriangles",strlen("ParallelTriangles"))) {
+      if(!strncmp(chaine,"ParallelTriangleCommunicators",strlen("ParallelTriangleCommunicators"))) {
         MMG_FSCANF(inm,"%d",&ncomm);
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_faces;
         break;
-      } else if(!strncmp(chaine,"ParallelVertices",strlen("ParallelVertices"))) {
+      } else if(!strncmp(chaine,"ParallelVertexCommunicators",strlen("ParallelVertexCommunicators"))) {
         MMG_FSCANF(inm,"%d",&ncomm);
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_nodes;
@@ -220,7 +333,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
     while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
       if(iswp) binch=MMG5_swapbin(binch);
       if(binch==54) break;
-      if(!ncomm && binch==70) { // ParallelTriangles
+      if(!ncomm && binch==70) { // ParallelTriangleCommunicators
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
@@ -228,7 +341,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_faces;
         break; // if parallel triangles are found, ignore parallel nodes
-      } else if(!ncomm && binch==71) { // ParallelVertices
+      } else if(!ncomm && binch==71) { // ParallelVertexCommunicators
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
