@@ -1693,7 +1693,7 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
 int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique, int *ntot) {
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  MMG5_pMesh     mesh;
+  PMMG_pGrp      grp;
   MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
@@ -1704,6 +1704,7 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
   /* Do this only if there is one group */
   assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
 
   /* Allocate internal communicator */
   int_node_comm = parmesh->int_node_comm;
@@ -1812,24 +1813,9 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
 
   /* Add offset to the owned labels */
-  for( color = 0; color < parmesh->nprocs; color++ ) {
-    icomm = iproc2comm[color];
-
-    /* Skip non-existent communicators */
-    if( icomm == PMMG_UNSET ) continue;
-
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
-    nitem =  ext_node_comm->nitem;
-
-    /* Update numbering only on owned points */
-    if( color < parmesh->myrank ) continue;
-    for( i = 0; i < nitem; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      /* Add offset to the  point numbering only if owned (non-negative
-       * numbering) and not already seen (label greater than my offset) */
-      if((intvalues[idx] <= PMMG_UNSET) || (intvalues[idx] > mydispl)) continue;
-      intvalues[idx] += mydispl;
-    }
+  for( idx = 0; idx < grp->nitem_int_node_comm; idx++ ) {
+    if( intvalues[idx] <= PMMG_UNSET ) continue;
+    intvalues[idx] += mydispl;
   }
 
 
@@ -1865,6 +1851,8 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       /* Store recv buffer in the internal communicator */
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
+        /* Update the value only if receiving it from the owner, or if already
+         *  updated by the sender */
         if( itorecv[i] > PMMG_UNSET ) intvalues[idx] = itorecv[i];
       }
     }
