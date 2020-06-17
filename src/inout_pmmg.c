@@ -47,10 +47,16 @@
  * Print parallel communicator in ASCII format.
  *
  */
-int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,FILE *fid ) {
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char* filename ) {
   PMMG_pExt_comm ext_comm;
   int ncomm,color,nitem;
   int icomm,i,iglob;
+  FILE *fid;
+
+  if( filename )
+    fid = fopen(filename,"w");
+  else
+    fid = stdout;
 
   if( API_mode == PMMG_APIDISTRIB_faces ) {
     ncomm = parmesh->next_face_comm;
@@ -95,6 +101,8 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int
           fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
     }
   }
+
+  if( filename ) fclose(fid);
 
   return 1;
 }

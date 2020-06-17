@@ -302,16 +302,11 @@ int main(int argc,char *argv[]) {
   sprintf(filemesh,"%s_out.%d.mesh",filename,parmesh->myrank);
   MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
 
-  FILE *fid;
-  sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank); 
-  fid = fopen(filemesh,"w");
-  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_faces,idx_face_loc,idx_face_glob,fid);
-  fclose(fid);
+  sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank);
+  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_faces,idx_face_loc,idx_face_glob,filemesh);
 
   sprintf(filemesh,"%s_out.%d.mesh_parNodes",filename,parmesh->myrank);
-  fid = fopen(filemesh,"w");
-    PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_nodes,idx_node_loc,idx_node_glob,fid);
-  fclose(fid);
+  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_nodes,idx_node_loc,idx_node_glob,filemesh);
 
   /* Free arrays */
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {

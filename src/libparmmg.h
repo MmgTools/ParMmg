@@ -2349,6 +2349,20 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
  */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param API_mode print face or node communicator.
+ * \param idx_loc double pointer to the local indices of entities in each communicator.
+ * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
+ * \param fid pointer to file stream.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Print parallel communicator in ASCII format.
+ * \remark Mostly for debug purposes.
+ *
+ */
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char *filename );
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }
