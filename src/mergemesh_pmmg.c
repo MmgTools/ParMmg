@@ -349,7 +349,6 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
     if ( !intvalues[ poi_id_glo ] ) {
       ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
       if ( !ip ) {
-#warning to test
         /* reallocation of point table and associated solutions structures*/
         ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag);
         if ( !ip ) {
