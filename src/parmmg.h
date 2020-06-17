@@ -564,6 +564,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,FILE *fid );
 
 /* Tags */
 void PMMG_tag_par_node(MMG5_pPoint ppt);

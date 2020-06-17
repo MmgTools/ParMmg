@@ -90,10 +90,10 @@ PMMG_Grp PMMG_move_grp(PMMG_pGrp group) {
 
   out = PMMG_assign_grp( group );
 
-  group->mesh = NULL;
+  group->mesh  = NULL;
   group->field = NULL;
-  group->met  = NULL;
-  group->disp = NULL;
+  group->met   = NULL;
+  group->disp  = NULL;
   group->ls    = NULL;
 
   group->nitem_int_node_comm = 0;
