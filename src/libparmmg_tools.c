@@ -500,3 +500,76 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
   }
 
 }
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param API_mode print face or node communicator.
+ * \param idx_loc double pointer to the local indices of entities in each communicator.
+ * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
+ * \param filename file name (if null, print on stdout).
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Print parallel communicator in ASCII format.
+ * \remark Mostly for debug purposes.
+ *
+ */
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char* filename ) {
+  PMMG_pExt_comm ext_comm;
+  int ncomm,color,nitem;
+  int icomm,i,iglob;
+  FILE *fid;
+
+  if( filename )
+    fid = fopen(filename,"w");
+  else
+    fid = stdout;
+
+  if( API_mode == PMMG_APIDISTRIB_faces ) {
+    ncomm = parmesh->next_face_comm;
+    fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_face_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      fprintf(fid,"%d %d\n",color,nitem);
+    }
+    fprintf(fid,"\nParallelTriangles\n");
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_face_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      if( idx_glob )
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+      else
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    }
+  } else if( API_mode == PMMG_APIDISTRIB_nodes ) {
+    ncomm = parmesh->next_node_comm;
+    fprintf(fid,"ParallelVertexCommunicators\n%d\n",ncomm);
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      fprintf(fid,"%d %d\n",color,nitem);
+    }
+    fprintf(fid,"\nParallelVertices\n");
+    for( icomm = 0; icomm < ncomm; icomm++ ) {
+      ext_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_comm->color_out;
+      nitem = ext_comm->nitem;
+      if( idx_glob )
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+      else
+        for( i = 0; i < nitem; i++ )
+          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    }
+  }
+
+  if( filename ) fclose(fid);
+
+  return 1;
+}
