@@ -37,6 +37,9 @@
 
 #include "locate_pmmg.h"
 
+int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals );
+int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas );
+
 int PMMG_interp4bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord*);
 int PMMG_interp4bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord*);
 int PMMG_interp3bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord*);
