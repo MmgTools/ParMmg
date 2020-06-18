@@ -423,8 +423,7 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
     if( next_len > main_len ) {
       /* Merge main */
       if( main_otetra == PMMG_UNSET ) {
-        fprintf(stderr,"\n### Error: Cannot merge main subgroup on proc %d\n",parmesh->myrank);
-        return 0;
+        fprintf(stderr,"\n### Warning: Cannot merge main subgroup on proc %d\n",parmesh->myrank);
       } else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, main_list, main_len, main_otetra ) )
           return 0;
@@ -442,8 +441,7 @@ int PMMG_fix_subgrp_contiguity( PMMG_pParMesh parmesh,int color,int *list0,
     } else {
       /* Merge next */
       if( next_otetra == PMMG_UNSET ) {
-        fprintf(stderr,"\n### Error: Cannot merge next subgroup on proc %d\n",parmesh->myrank);
-        return 0;
+        fprintf(stderr,"\n### Warning: Cannot merge next subgroup on proc %d\n",parmesh->myrank);
       } else {
         if( !PMMG_merge_subgroup( parmesh, mesh, color, next_list, next_len, next_otetra ) )
           return 0;
@@ -768,8 +766,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
     *counter += next_len;
 
     if( next_otetra == PMMG_UNSET ) {
-      fprintf(stderr,"\n### Error: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
-      return 0;
+      fprintf(stderr,"\n### Warning: Cannot merge unreachable subgroup on proc %d\n",parmesh->myrank);
     } else {
       if ( parmesh->ddebug ) {
         printf("Merging unseen %d into %d \n",color,mesh->tetra[next_otetra].mark);

@@ -302,26 +302,11 @@ int main(int argc,char *argv[]) {
   sprintf(filemesh,"%s_out.%d.mesh",filename,parmesh->myrank);
   MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
 
-  FILE *fid;
-  sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank); 
-  fid = fopen(filemesh,"w");
-  fprintf(fid,"ParallelTriangles\n%d\n",n_face_comm);
-  for( icomm = 0; icomm < n_face_comm; icomm++ )
-    fprintf(fid,"%d %d\n",color_face[icomm],nitem_face_comm[icomm]);
-  for( icomm = 0; icomm < n_face_comm; icomm++ )
-    for( i = 0; i < nitem_face_comm[icomm]; i++ )
-      fprintf(fid,"%d %d %d\n",idx_face_loc[icomm][i],idx_face_glob[icomm][i],icomm);
-  fclose(fid);
+  sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank);
+  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_faces,idx_face_loc,idx_face_glob,filemesh);
 
   sprintf(filemesh,"%s_out.%d.mesh_parNodes",filename,parmesh->myrank);
-  fid = fopen(filemesh,"w");
-  fprintf(fid,"ParallelVertices\n%d\n",n_node_comm);
-  for( icomm = 0; icomm < n_node_comm; icomm++ )
-    fprintf(fid,"%d %d\n",color_node[icomm],nitem_node_comm[icomm]);
-  for( icomm = 0; icomm < n_node_comm; icomm++ )
-    for( i = 0; i < nitem_node_comm[icomm]; i++ )
-      fprintf(fid,"%d %d %d\n",idx_node_loc[icomm][i],idx_node_glob[icomm][i],icomm);
-  fclose(fid);
+  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_nodes,idx_node_loc,idx_node_glob,filemesh);
 
   /* Free arrays */
   for( icomm = 0; icomm < n_node_comm; icomm++ ) {

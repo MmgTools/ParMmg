@@ -65,6 +65,7 @@ enum PMMG_Param {
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
   PMMG_IPARAM_optim,             /*!< [1/0], Optimize mesh keeping its initial edge sizes */
   PMMG_IPARAM_optimLES,          /*!< [1/0], Strong mesh optimization for Les computations */
+  PMMG_IPARAM_nofem,            /*!< [1/0], Generate a non finite element mesh */
   PMMG_IPARAM_noinsert,          /*!< [1/0], Avoid/allow point insertion */
   PMMG_IPARAM_noswap,            /*!< [1/0], Avoid/allow edge or face flipping */
   PMMG_IPARAM_nomove,            /*!< [1/0], Avoid/allow point relocation */
@@ -78,6 +79,7 @@ enum PMMG_Param {
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
+  PMMG_IPARAM_nodeGloNum,        /*!< [1,0], Compute nodes global numbering in output */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */
@@ -2248,6 +2250,46 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
                                        int* color_out, int** trianodes_out);
 
 /**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global node numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the node.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_VERTEXGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                    retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(OUT)                 :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_VERTICESGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                      retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
  * \param parmesh pointer toward parmesh structure
  * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface node
@@ -2307,6 +2349,29 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
  */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param API_mode print face or node communicator.
+ * \param idx_loc double pointer to the local indices of entities in each communicator.
+ * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
+ * \param filename file name (if null, print on stdout).
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Print parallel communicator in ASCII format.
+ * \remark Mostly for debug purposes.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_PRINTCOMMUNICATOR(parmesh,API_mode,idx_loc,idx_glob,filename,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)      :: parmesh\n
+ * >     INTEGER, INTENT(IN)                 :: API_mode
+ * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_loc\n
+ * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_glob\n
+ * >     CHARACTER(LEN=*), INTENT(IN)        :: filename\n
+ * >     INTEGER, INTENT(OUT)                :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char *filename );
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }
