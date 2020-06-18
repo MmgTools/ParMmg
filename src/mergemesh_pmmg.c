@@ -1113,7 +1113,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,int,"rcv_pack_size",ier=0);
     PMMG_CALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
-    PMMG_MALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
+    PMMG_CALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
     PMMG_MALLOC( parmesh, (*rcv_int_node_comm) ,nprocs,PMMG_Int_comm,"rcv_int_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_next_node_comm),nprocs,int,"rcv_next_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_ext_node_comm) ,nprocs,PMMG_pExt_comm,"rcv_ext_comm" ,ier=0);
@@ -1232,6 +1232,7 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   int            *intvalues_1,*intvalues_2,nitem_1,nitem_2;
   int            nprocs,k,i,j,idx,color_in,color_out;
   int            np,ne,xt,ne_tot,xt_tot,ismet,isls,isdisp;
+  int            type[MMG5_NSOLS_MAX];
 
   nprocs = parmesh->nprocs;
 
@@ -1421,15 +1422,12 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
       }
 
       if ( mesh->nsols ) {
-        int type[MMG5_NSOLS_MAX];
-
-        PMMG_CALLOC(grp->mesh,grp->field,mesh->nsols,MMG5_Sol,"field",return 0);
+        assert ( !grp->field );
         for ( i=0; i<mesh->nsols; ++i ) {
           type[i] = rcv_grps[k].field[i].type;
         }
         MMG3D_Set_solsAtVerticesSize( mesh,&grp->field,mesh->nsols,mesh->np,type);
       }
-
       break;
     }
   }
@@ -1643,6 +1641,9 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   }
 
   /* Free useless receivers */
+  if ( rcv_grps ) {
+    PMMG_listgrp_free( parmesh, &rcv_grps, parmesh->nprocs );
+  }
   PMMG_DEL_MEM(parmesh,rcv_grps,PMMG_Grp,"rcv_grps");
   PMMG_DEL_MEM(parmesh,rcv_int_node_comm,PMMG_Int_comm,"rcv_int_node_comm");
   PMMG_DEL_MEM(parmesh,rcv_next_node_comm,int,"rcv_next_node_comm");

@@ -358,6 +358,7 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
     strcpy(parmesh->fieldout,solout);
   }
 
+  ier = 1;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
     sol  = parmesh->listgrp[k].field;

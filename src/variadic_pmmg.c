@@ -310,6 +310,8 @@ int PMMG_Free_all_var(va_list argptr)
     }
   }
 
+  PMMG_Free_names( *parmesh );
+
   PMMG_parmesh_Free_Comm( *parmesh );
 
   PMMG_parmesh_Free_Listgrp( *parmesh );

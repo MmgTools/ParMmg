@@ -281,9 +281,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
   }
 
-
-  MPI_Type_create_struct( PMMG_QUAL_MPISIZE, lens, disps, types, &mpi_iel_min_t );
-  MPI_Type_commit( &mpi_iel_min_t );
   min_iel.min = min;
   min_iel.iel = iel;
   min_iel.iel_grp = iel_grp;
@@ -298,10 +295,14 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
       his_result[i] = his[i];
     nrid_result = nrid;
   } else {
+    MPI_Type_create_struct( PMMG_QUAL_MPISIZE, lens, disps, types, &mpi_iel_min_t );
+    MPI_Type_commit( &mpi_iel_min_t );
+
     MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
     MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
     MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
     MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Type_free( &mpi_iel_min_t );
     MPI_Op_free( &iel_min_op );
   }
 
@@ -425,6 +426,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
     MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
 
   if ( !ieresult ) {
+    MPI_Type_free( &mpi_lenStats_t );
     MPI_Op_free( &mpi_lenStats_op );
     return 0;
   }
@@ -434,6 +436,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
   else
     MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
 
+  MPI_Type_free( &mpi_lenStats_t );
   MPI_Op_free( &mpi_lenStats_op );
 
   if ( parmesh->myrank == parmesh->info.root ) {

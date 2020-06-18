@@ -517,7 +517,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 
     if ( mesh->nsols ) {
       for ( is=0; is<mesh->nsols; ++is ) {
-        psl = &field[is];
+        psl = field + is;
         if ( psl && psl->m ) {
           PMMG_REALLOC(mesh,psl->m,psl->size*(psl->npmax+1),
                        psl->size*(npmax_old+1),double,"field_array",

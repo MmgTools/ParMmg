@@ -206,10 +206,6 @@ void PMMG_mpiunpack_meshSizes ( PMMG_pGrp grp,char **buffer,
 
   *ier_field = 1;
   if ( *nsols ) {
-    if ( ier_grp && (!grp->field) ) {
-      PMMG_CALLOC(grp->mesh,grp->field,*nsols,MMG5_Sol,"field",ier_grp=(*ier)=0);
-    }
-
     for ( is=0; is<*nsols; ++is ) {
       /** Store fields size */
       fieldsize[is] = *( (int *) *buffer); *buffer += sizeof(int);
