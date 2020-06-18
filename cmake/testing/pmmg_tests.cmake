@@ -14,11 +14,12 @@ IF( BUILD_TESTING )
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
         WORKING_DIRECTORY ${PARENT_DIR}
         )
-      EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} checkout 7ba6d79f47c287201acd320f1946be6efa23ede6
-        WORKING_DIRECTORY ${CI_DIR}
-        )
     ENDIF()
+
+    EXECUTE_PROCESS(
+      COMMAND ${GIT_EXECUTABLE} checkout 7ba6d79f47c287201acd320f1946be6efa23ede6
+      WORKING_DIRECTORY ${CI_DIR}
+      )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )
