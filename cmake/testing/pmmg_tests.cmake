@@ -303,6 +303,15 @@ IF( BUILD_TESTING )
   ENDFOREACH ( )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
+
+    # Localization test
+    SET ( test_name  WaveSurface_locate )
+    SET ( main_path  ${CI_DIR}/WaveSurface/locate.c )
+    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> ${input_mesh} )
+
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
     SET ( main_path  ${CI_DIR}/LnkdList_unitTest/main.c )
