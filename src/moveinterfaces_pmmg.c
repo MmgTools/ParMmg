@@ -813,53 +813,6 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- *
- */
-int PMMG_correct_partitions( PMMG_pParMesh parmesh ) {
-  PMMG_pGrp    grp;
-  MMG5_pMesh   mesh;
-  MMG5_pTetra  pt;
-  PMMG_pInt_comm int_face_comm;
-  PMMG_pExt_comm ext_face_comm;
-  MPI_Comm       comm;
-  MPI_Status     status;
-  int          ilist;
-  int          isContig_l,isContig_g;
-  int          *face2int_face_comm_index1,*face2int_face_comm_index2;
-  int          *intvalues,*itosend,*itorecv,rank_out;
-  int          *list;
-  int          next_head,next_len,next_base,next_otetra;
-  int          nitem,color;
-  int          ie,i,idx,k;
-
-  comm   = parmesh->comm;
-  assert( parmesh->ngrp == 1 );
-  grp  = &parmesh->listgrp[0];
-  mesh = grp->mesh;
-  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
-  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
-
-  PMMG_MALLOC(parmesh,list,mesh->ne,int,"tetra list",return 0);
-
-  /* Reset tetra flag */
-  for( k = 1; k <= mesh->ne; k++ )
-    mesh->tetra[k].flag = 0;
-
-  /** 1) Find the first subgroup */
-  ilist = PMMG_list_contiguous( parmesh, mesh, 1, list );
-
-  isContig_l = ilist != mesh->ne ? 0 : 1;
-  MPI_Allreduce( &isContig_l, &isContig_g, 1, MPI_INT, MPI_MIN, parmesh->comm);
-  if( isContig_g ) return 1;
-
-
-  PMMG_DEL_MEM(parmesh,list,int,"tetra list");
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  * \param displsgrp sparse representation of the number of groups.
  * \param mapgrp groups priority map.
