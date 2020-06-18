@@ -1564,7 +1564,7 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
 int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp,rcv_grps;
   PMMG_pInt_comm int_node_comm,rcv_int_node_comm;
-  PMMG_pExt_comm *rcv_ext_node_comm;
+  PMMG_pExt_comm *rcv_ext_node_comm,enc;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
   size_t         available;
@@ -1642,11 +1642,20 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /* Free useless receivers */
   if ( rcv_grps ) {
     PMMG_listgrp_free( parmesh, &rcv_grps, parmesh->nprocs );
+
+    for ( k=0; k<parmesh->nprocs; ++k ) {
+      PMMG_DEL_MEM(parmesh,rcv_int_node_comm[k].intvalues,int,"intvalues");
+      enc = rcv_ext_node_comm[k];
+      for ( idx=0; idx<rcv_next_node_comm[k]; ++idx ) {
+        PMMG_DEL_MEM(parmesh,enc[idx].int_comm_index,int,"int_comm_index");
+      }
+      PMMG_DEL_MEM(parmesh,enc,PMMG_Ext_comm,"ext_node_comm");
+    }
+
+    PMMG_DEL_MEM(parmesh,rcv_int_node_comm,PMMG_Int_comm,"rcv_int_node_comm");
+    PMMG_DEL_MEM(parmesh,rcv_next_node_comm,int,"rcv_next_node_comm");
+    PMMG_DEL_MEM(parmesh,rcv_ext_node_comm,PMMG_Ext_comm,"rcv_ext_node_comm");
   }
-  PMMG_DEL_MEM(parmesh,rcv_grps,PMMG_Grp,"rcv_grps");
-  PMMG_DEL_MEM(parmesh,rcv_int_node_comm,PMMG_Int_comm,"rcv_int_node_comm");
-  PMMG_DEL_MEM(parmesh,rcv_next_node_comm,int,"rcv_next_node_comm");
-  PMMG_DEL_MEM(parmesh,rcv_ext_node_comm,PMMG_Ext_comm,"rcv_ext_node_comm");
 
   if ( !ieresult ) {
     fprintf ( stderr, " ## Warning: unable to merge meshes on one proc.\n"

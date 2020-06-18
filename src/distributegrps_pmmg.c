@@ -1596,12 +1596,15 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
               ier = 0 );
 
   ier0 = 1;
-  if( ngrp )
+  if( ngrp ) {
     PMMG_RECALLOC ( parmesh,parmesh->listgrp,ngrp+grpscount,ngrp,PMMG_Grp,"listgrp",
                     ier0 = 0;ier = 0 );
-  else
+  }
+  else {
+    assert ( !parmesh->listgrp );
     PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
                   ier0 = 0;ier = 0 );
+  }
 
   if ( ier0 )
     parmesh->ngrp += grpscount;

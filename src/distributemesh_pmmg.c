@@ -1163,7 +1163,10 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   /**
    * 2) Distribute the groups over the processors.
    */
-  if( parmesh->myrank != parmesh->info.root ) parmesh->ngrp = 0;
+  if( parmesh->myrank != parmesh->info.root ) {
+    PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+    parmesh->ngrp = 0;
+  }
 
   /* Create the groups partition array */
   PMMG_CALLOC ( parmesh,part,parmesh->nprocs+1,idx_t,"allocate metis buffer", ier=5 );
