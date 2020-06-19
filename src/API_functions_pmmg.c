@@ -63,10 +63,10 @@ int PMMG_Set_name(PMMG_pParMesh parmesh,char **buffer,
                   const char* name, const char* defname) {
 
   if ( *buffer ) {
-    MMG5_DEL_MEM(parmesh,*buffer);
+    PMMG_DEL_MEM(parmesh,*buffer,char,"buffer unalloc");
   }
 
-  if ( strlen(name) ) {
+  if ( name && strlen(name) ) {
     PMMG_MALLOC(parmesh,*buffer,strlen(name)+1,char,"name",return 0);
     strcpy(*buffer,name);
   }
@@ -115,6 +115,10 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
   int  ier,len;
   char *defname,*input;
 
+  if ( *buffer ) {
+    PMMG_DEL_MEM(parmesh,*buffer,char,"buffer unalloc");
+  }
+
   /* Find default field name if solin isn't provided */
   defname = NULL;
   if ( in ) {
@@ -134,7 +138,7 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
        * default name but in practice it doesn't happens as it is mandatory that
        * at least a part of the filename must be provided (otherwise the
        * multiple input is not possible). */
-      MMG5_SAFE_REALLOC(defname,strlen(defname)+1,strlen(defname)+5,char,"",return 0);
+      PMMG_REALLOC(parmesh,defname,strlen(defname)+5,strlen(defname)+1,char,"",return 0);
       strncat ( defname,".sol",5 );
     }
     else {
@@ -145,7 +149,7 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
       } else {
         len = strlen(defroot)+7; // defroot+".o.sol"
       }
-      MMG5_SAFE_CALLOC(defname,len,char,return 0);
+      PMMG_CALLOC(parmesh,defname,len,char,"",return 0);
       strncat ( defname, defroot,strlen(defroot)+1 );
       if ( in ) {
         strncat( defname,".sol",5);
@@ -158,7 +162,7 @@ int PMMG_Set_solName(PMMG_pParMesh parmesh,char **buffer,
 
   ier = PMMG_Set_name(parmesh,buffer,name,defname);
 
-  MMG5_SAFE_FREE ( defname );
+  PMMG_DEL_MEM ( parmesh,defname,char,"" );
 
   return ier;
 }
@@ -274,6 +278,10 @@ int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   int        k,ier,len;
   char       *defname;
 
+  if ( parmesh->meshout ) {
+    PMMG_DEL_MEM(parmesh,parmesh->meshout,char,"fieldout unalloc");
+  }
+
   defname = NULL;
   /* Find default field name if meshout isn't provided */
   if ( (!meshout) || !(*meshout) ) {
@@ -281,17 +289,17 @@ int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   }
   if ( defname && *defname ) {
     /* Add .o.mesh extension */
-    MMG5_SAFE_REALLOC(defname,strlen(defname)+1,strlen(defname)+8,char,"",return 0);
+    PMMG_REALLOC(parmesh,defname,strlen(defname)+8,strlen(defname)+1,char,"",return 0);
     strncat ( defname,".o.mesh",8 );
   }
   else {
-    MMG5_SAFE_MALLOC(defname,strlen("mesh.o.mesh")+1,char,return 0);
+    PMMG_MALLOC(parmesh,defname,strlen("mesh.o.mesh")+1,char,"default mesh name",return 0);
     strncpy( defname,"mesh.o.mesh",strlen("mesh.o.mesh")+1);
   }
 
   ier = PMMG_Set_name(parmesh,&parmesh->meshout,meshout,defname);
 
-  MMG5_SAFE_FREE ( defname );
+  PMMG_DEL_MEM ( parmesh,defname,char,"" );
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -308,6 +316,10 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
 
   /* If \a solout is not provided we want to use the basename of the input field
    * name and the path of the output mesh name */
+  if ( parmesh->fieldout ) {
+    PMMG_DEL_MEM(parmesh,parmesh->fieldout,char,"fieldout unalloc");
+  }
+
   if ( (!solout) || (!*solout) ) {
 
     if ( (!parmesh->meshout) || (!*parmesh->meshout) ) {
@@ -344,14 +356,14 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
 
     if ( parmesh->fieldout ) {
       /* Add .o.sol extension */
-      MMG5_SAFE_REALLOC(parmesh->fieldout,strlen(parmesh->fieldout)+1,
-                        strlen(parmesh->fieldout)+7,char,"fieldout",return 0);
+      PMMG_REALLOC(parmesh,parmesh->fieldout,strlen(parmesh->fieldout)+7,
+                   strlen(parmesh->fieldout)+1,char,"fieldout",return 0);
       strncat ( parmesh->fieldout,".o.sol",7 );
     }
 
-    MMG5_SAFE_FREE ( path );
+    PMMG_DEL_MEM ( parmesh,path,char,"" );
     free ( nopath ); nopath = NULL;
-    MMG5_SAFE_FREE ( basename );
+    PMMG_DEL_MEM ( parmesh,basename,char,"" );
   }
   else {
     PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(solout)+1,char,"fieldout",return 0);
