@@ -741,6 +741,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   assert ( parmesh->listgrp[0].mesh );
 
   /** Set inputMet flag */
+  parmesh->info.inputMet = 0;
   for ( i=0; i<parmesh->ngrp; ++i ) {
     met         = parmesh->listgrp[i].met;
     if ( met && met->m ) {
@@ -925,7 +926,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           }
         }
 
-        if ( parmesh->iter < parmesh->niter-1 && (!inputMet) ) {
+        if ( parmesh->iter < parmesh->niter-1 && (!parmesh->info.inputMet) ) {
           /* Delete the metrec computed by Mmg except at last iter */
           PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
