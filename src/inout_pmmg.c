@@ -460,7 +460,6 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-
   ier = MMG3D_loadMesh(mesh,filename);
   if( ier < 1 ) return ier;
 

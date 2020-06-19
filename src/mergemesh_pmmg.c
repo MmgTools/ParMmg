@@ -1523,32 +1523,41 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   memcpy ( &mesh->info,&grp_1->mesh->info,sizeof(MMG5_Info) );
 
   /** Recover mesh name */
-  assert ( parmesh->meshin );
-  assert ( parmesh->meshout );
 
-  MMG3D_Set_inputMeshName (mesh, parmesh->meshin);
-  MMG3D_Set_outputMeshName(mesh, parmesh->meshout);
+  if ( parmesh->meshin ) {
+    MMG3D_Set_inputMeshName (mesh, parmesh->meshin);
+  }
+  if ( parmesh->meshout ) {
+    MMG3D_Set_outputMeshName(mesh, parmesh->meshout);
+  }
 
   if ( met ) {
-    assert ( parmesh->metin );
-    assert ( parmesh->metout );
-    MMG3D_Set_inputSolName (mesh,met, parmesh->metin);
-    MMG3D_Set_outputSolName(mesh,met, parmesh->metout);
+    if ( parmesh->metin ) {
+      MMG3D_Set_inputSolName (mesh,met, parmesh->metin);
+    }
+    if ( parmesh->metout ) {
+      MMG3D_Set_outputSolName(mesh,met, parmesh->metout);
+    }
   }
   if ( ls ) {
-    assert ( parmesh->lsin );
-    MMG3D_Set_inputSolName (mesh,ls, parmesh->lsin);
+    if ( parmesh->lsin ) {
+      MMG3D_Set_inputSolName (mesh,ls, parmesh->lsin);
+    }
   }
   if ( disp ) {
-    assert ( parmesh->dispin );
-    MMG3D_Set_inputSolName (mesh,disp, parmesh->dispin);
+    if ( parmesh->dispin ) {
+      MMG3D_Set_inputSolName (mesh,disp, parmesh->dispin);
+    }
   }
   if ( mesh->nsols ) {
-    assert ( parmesh->fieldin );
     for ( is=0; is < mesh->nsols; ++is ) {
       psl = &parmesh->listgrp[0].field[is];
-      MMG3D_Set_inputSolName (mesh, psl,parmesh->fieldin);
-      MMG3D_Set_outputSolName(mesh, psl,parmesh->fieldout);
+      if ( parmesh->fieldin ) {
+        MMG3D_Set_inputSolName (mesh, psl,parmesh->fieldin);
+      }
+      if ( parmesh->fieldout ) {
+        MMG3D_Set_outputSolName(mesh, psl,parmesh->fieldout);
+      }
     }
   }
 
