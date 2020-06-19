@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
 
     EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} checkout 7ba6d79f47c287201acd320f1946be6efa23ede6
+      COMMAND ${GIT_EXECUTABLE} checkout master
       WORKING_DIRECTORY ${CI_DIR}
       )
 
@@ -147,6 +147,37 @@ IF( BUILD_TESTING )
           -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
     ENDFOREACH ( )
+
+    ###############################################################################
+    #####
+    #####        Tests fields interpolation with or without metric
+    #####
+    ###############################################################################
+    add_test( NAME InterpolationFields-withMet-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.mesh
+      -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol field3_iso-coarse.sol )
+
+    add_test( NAME InterpolationFields-hsiz-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.mesh
+      -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -hsiz 0.2 )
+
+    add_test( NAME InterpolationFields-noMet-withFields-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.mesh
+      -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol )
+
+    add_test( NAME InterpolationFields-refinement-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Cube/cube-unit-coarse
+      -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
+      -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol )
 
   ENDIF()
 
