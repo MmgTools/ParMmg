@@ -267,9 +267,11 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
     printf("  ## Error: input or output mesh name too long. Exit");
     return 0;
   }
-  else {
+  if ( meshin_s ) {
     strncpy(chaine,( (char *) *buffer),meshin_s); *buffer += meshin_s * sizeof(char);
     if ( !MMG5_Set_inputMeshName( mesh, chaine ) ) { *ier=0; }
+  }
+  if ( meshout_s ) {
     strncpy(chaine,( (char *) *buffer),meshout_s); *buffer += meshout_s * sizeof(char);
     if ( !MMG5_Set_outputMeshName( mesh, chaine ) ) { *ier = 0; }
   }
@@ -281,14 +283,13 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
     printf("  ## Error: input or output metric name too long. Exit");
     return 0;
   }
-  else if ( metin_s || metout_s ) {
-    /* Either both names or none */
-    assert ( metin_s && metout_s );
-
+  if ( metin_s ) {
     strncpy(chaine,( (char *) *buffer),metin_s); *buffer += metin_s * sizeof(char);
     if ( ier_mesh ) {
       if ( !MMG5_Set_inputSolName( mesh, met, chaine ) ) { *ier = 0; }
     }
+  }
+  if ( metout_s ) {
     strncpy(chaine,( (char *) *buffer),metout_s); *buffer += metout_s * sizeof(char);
     if ( ier_mesh ) {
       if ( !MMG5_Set_outputSolName( mesh,met, chaine ) ) { *ier = 0; }
@@ -302,14 +303,13 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
     printf("  ## Error: input or output levelset name too long. Exit");
     return 0;
   }
-  else if ( lsin_s || lsout_s ) {
-    /* Either both names or none */
-    assert ( lsin_s && lsout_s );
-
+  if ( lsin_s ) {
     strncpy(chaine,( (char *) *buffer),lsin_s); *buffer += lsin_s * sizeof(char);
     if ( ier_ls ) {
       if ( !MMG5_Set_inputSolName( mesh, ls, chaine ) ) { *ier = 0; }
     }
+  }
+  if ( lsout_s ) {
     strncpy(chaine,( (char *) *buffer),lsout_s); *buffer += lsout_s * sizeof(char);
     if ( ier_ls ) {
       if ( !MMG5_Set_outputSolName( mesh,ls, chaine ) ) { *ier = 0; }
@@ -323,14 +323,13 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
     printf("  ## Error: input or output displacement name too long. Exit");
     return 0;
   }
-  else if ( dispin_s || dispout_s ) {
-    /* Either both names or none */
-    assert ( dispin_s && dispout_s );
-
+  if ( dispin_s ) {
     strncpy(chaine,( (char *) *buffer),dispin_s); *buffer += dispin_s * sizeof(char);
     if ( ier_disp ) {
       if ( !MMG5_Set_inputSolName( mesh, disp, chaine ) ) { *ier = 0; }
     }
+  }
+  if ( dispout_s ) {
     strncpy(chaine,( (char *) *buffer),dispout_s); *buffer += dispout_s * sizeof(char);
     if ( ier_disp ) {
       if ( !MMG5_Set_outputSolName( mesh,disp, chaine ) ) { *ier = 0; }
@@ -345,14 +344,13 @@ int PMMG_mpiunpack_filenames ( PMMG_pGrp grp,char **buffer,int *ier,int ier_mesh
       printf("  ## Error: input or output field name too long. Exit");
       return 0;
     }
-    else if ( pslin_s || pslout_s ) {
-      /* Either both names or none */
-      assert ( pslin_s && pslout_s );
-
+    if ( pslin_s ) {
       strncpy(chaine,( (char *) *buffer),pslin_s); *buffer += pslin_s * sizeof(char);
       if ( ier_field && field ) {
         if ( !MMG5_Set_inputSolName( mesh, &field[is], chaine ) ) { *ier = 0; }
       }
+    }
+    if ( pslout_s ) {
       strncpy(chaine,( (char *) *buffer),pslout_s); *buffer += pslout_s * sizeof(char);
       if ( ier_field && field ) {
         if ( !MMG5_Set_outputSolName( mesh,&field[is], chaine ) ) { *ier = 0; }
@@ -397,8 +395,12 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
   }
 
   /* File names */
-  if ( !MMG5_Set_inputMeshName ( mesh, parmesh->meshin ) )  { *ier=0; }
-  if ( !MMG5_Set_outputMeshName( mesh, parmesh->meshout ) ) { *ier = 0; }
+  if ( parmesh->meshin && *parmesh->meshin ) {
+    if ( !MMG5_Set_inputMeshName ( mesh, parmesh->meshin ) )  { *ier=0; }
+  }
+  if ( parmesh->meshout && *parmesh->meshout ) {
+    if ( !MMG5_Set_outputMeshName( mesh, parmesh->meshout ) ) { *ier = 0; }
+  }
 
   if ( parmesh->metin && *parmesh->metin ) {
     if ( !MMG5_Set_inputSolName( mesh, met, parmesh->metin ) ) { *ier = 0; }
