@@ -223,10 +223,10 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
     norm += dist[d]*dist[d];
   norm = sqrt(norm);
 
-  /* Save element index (with negative sign) if it is the closest one */
+  /* Save element index if it is the closest one */
   if( norm < *closestDist ) {
     *closestDist = norm;
-    *closestTria = -k;
+    *closestTria = k;
   }
   assert(*closestTria);
 
@@ -284,31 +284,37 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  */
 int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
                                   double *triaNormals,PMMG_barycoord *barycoord,
-                                  double *closestDist,int *closestTria ) {
+                                  int *iTria,int *closestTria,double *closestDist ) {
   MMG5_pTria     ptr;
-  int            k;
   double         h;
 
-  for( k = 1; k <= mesh->nt; k++ ) {
+  for( *iTria = 1; *iTria <= mesh->nt; (*iTria)++ ) {
 
     /* Increase step counter */
     ppt->s--;
 
     /** Get tetra */
-    ptr = &mesh->tria[k];
+    ptr = &mesh->tria[*iTria];
     if ( !MG_EOK(ptr) ) continue;
 
     /*¨Skip already analized tetras */
     if( ptr->flag == mesh->base ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTria( mesh, ptr, k, ppt,
-                                &triaNormals[3*k], barycoord,
+    if( PMMG_locatePointInTria( mesh, ptr, *iTria, ppt,
+                                &triaNormals[3*(*iTria)], barycoord,
                                 &h, closestDist, closestTria ) ) break;
 
   }
 
-  return k;
+  if( *iTria <= mesh->nt ) {
+    return 1;
+  } else {
+    *iTria = *closestTria;
+    /* Recompute barycentric coordinates to the closest point */
+    PMMG_barycoord2d_getClosest( mesh,*iTria,ppt,barycoord );
+    return 0;
+  }
 }
 
 /**
@@ -381,19 +387,20 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
  *  adjacency.
  *
  */
-int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
-                         double *triaNormals,PMMG_barycoord *barycoord,int ip,
-                         int *ifoundEdge,int *ifoundVertex ) {
+int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
+                         double *triaNormals,PMMG_barycoord *barycoord,
+                         int *iTria,int *ifoundEdge,int *ifoundVertex ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
   int            list[MMG5_LMAX],iloc;
   double         vol,eps,h,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
+  int            ier;
 
-  if(!init)
+  if(!(*iTria))
     k = 1;
   else
-    k = init;
+    k = *iTria;
 
   assert( k <= mesh->nt );
 
@@ -440,11 +447,13 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
         if( iloc == 4 ) {
           *ifoundEdge = iprev;
           ppt->s = step;
-          return k;
+          *iTria = k;
+          return 1;
         } else if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
           *ifoundVertex = iloc;
           ppt->s = step;
-          return k;
+          *iTria = k;
+          return 1;
         }
         continue;
       }
@@ -468,8 +477,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 
   if( step > mesh->nt ) {
     /* Recompute barycentric coordinates to the closest point */
-    PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
-    return closestTria;
+    *iTria = closestTria;
+    PMMG_barycoord2d_getClosest( mesh,*iTria,ppt,barycoord );
+    return 0;
   }
 
 
@@ -478,6 +488,8 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     PMMG_locatePoint_foundConvex( mesh,ppt,&k,triaNormals,barycoord,
                                   &h,&closestDist,&closestTria);
 
+  /* Return the index of the tria */
+  *iTria = k;
 
   /** Boundary hit or cyclic path: Perform exhaustive research */
   if( stuck ) {
@@ -489,10 +501,12 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
     }
 
-    k = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
-                                      &closestDist,&closestTria );
+    ier = PMMG_locatePoint_exhaustTria( mesh, ppt,triaNormals,barycoord,
+                                           iTria,&closestTria,&closestDist );
+    if( ier ) {
+      return -1;
+    } else {
     /** Element not found: Return the closest one with negative sign (if found) */
-    if ( k == mesh->nt+1 ) {
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
         if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -502,12 +516,12 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
       /* Recompute barycentric coordinates to the closest point */
       PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
-      return closestTria;
+      return 0;
     }
 
   }
 
-  return k;
+  return 1;
 }
 
 /**
@@ -672,26 +686,23 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
  * Analise the found element and display warnings for exhaustive searches.
  *
  */
-int PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int kfound,
+void PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int ier,
                                  int myrank,int igrp ) {
   MMG5_pPoint ppt;
 
   ppt = &mesh->point[ip];
 
-  if( !kfound ) {
-    fprintf(stderr,"\n  ## Error: %s (rank %d, grp %d): point %d not found, tag %d,"
-            " coords %e %e %e\n",__func__,myrank,igrp,
+  if( !ier ) {
+    fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): exhaustive search for"
+            " point %d, tag %d, coords %e %e %e\n",__func__,myrank,igrp,
             ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
-  } else if( kfound < 0 ) {
+  } else if( ier < 0 ) {
     if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): closest element for"
               " point %d, coords %e %e %e\n",__func__,myrank,igrp,
               ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
     }
-    return -kfound;
   }
-
-  return kfound;
 }
 
 /**

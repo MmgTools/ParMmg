@@ -523,18 +523,15 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             continue; // treated by copyMetric_points
           } else if ( ppt->tag & MG_BDY ) {
 
-#ifdef NO_POINTMAP
-            istartTria = ifoundTria;
-#else
-            istartTria = ppt->s;
+#ifndef NO_POINTMAP
+            ifoundTria = ppt->s;
 #endif
             /** Locate point in the old mesh */
-            ifoundTria = PMMG_locatePointBdy( oldMesh, ppt, istartTria,
-                                              triaNormals, barycoord, ip,
-                                              &ifoundEdge, &ifoundVertex );
+            ier = PMMG_locatePointBdy( oldMesh, ppt,
+                                       triaNormals, barycoord,
+                                       &ifoundTria,&ifoundEdge, &ifoundVertex );
 
-            ifoundTria = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,
-                                                      myrank,igrp );
+            PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,myrank,igrp );
 
             /** Interpolate point metrics */
             if( ifoundVertex != PMMG_UNSET ) {
@@ -562,8 +559,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
             ifoundTetra = PMMG_locatePointVol( oldMesh, ppt, istartTetra,
                                                faceAreas, barycoord, ip );
 
-            ifoundTetra = PMMG_locatePoint_errorCheck( mesh,ip,ifoundTetra,
-                                                       myrank,igrp );
+//            PMMG_locatePoint_errorCheck( mesh,ip,ifoundTetra,myrank,igrp );
 
             /** Interpolate volume point metrics */
             ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifoundTetra],ip,
