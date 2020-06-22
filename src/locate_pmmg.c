@@ -274,12 +274,14 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
  * \param triaNormals non-normalized triangle normals of all mesh triangles
- * \param closestTria index of the closest triangle
+ * \param iTria pointer to the index of the found triangle
+ * \param closestTria pointer to the index of the closest triangle
+ * \param closestDist pointer to the closest distance
  *
- * \return k index of the target element; if higher than the number of
- *           triangles, the point has not been found.
+ * \return 1 if found, 0 otherwise.
  *
- *  Exhaustive point search on the background triangles.
+ *  Exhaustive point search on the background triangles. If the point is not
+ *  found, the triangle pointers points to the closest triangle.
  *
  */
 int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
@@ -375,13 +377,14 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
 /**
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
- * \param init index of the starting element
  * \param triaNormals unit normals of the all triangles in the mesh
  * \param barycoord barycentric coordinates of the point to be located
- * \param ip current mesh point
+ * \param iTria pointer to the index of the triangle
+ * \param ifoundEdge pointer to the index of the local edge
+ * \param ifoundVertex pointer to the index of the local vertex
  *
- * \return ie if positive, index of the target element; if negative, index of
- * the closest element; 0 if not found
+ * \return 0 if not found (closest), 1 if found, -1 if found through exhaustive
+ * search.
  *
  *  Locate a point in a background mesh surface by traveling the triangles
  *  adjacency.
@@ -677,13 +680,12 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
 /**
  * \param mesh pointer to the current mesh structure
  * \param ip point index
- * \param kfound index of the found element
+ * \param ier error code
  * \param myrank process rank
  * \param igrp mesh group index
  *
- * \return kfound for a valid element, 0 otherwise
- *
- * Analise the found element and display warnings for exhaustive searches.
+ * Analise the found element and display warnings for exhaustive searches and
+ * points not found.
  *
  */
 void PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int ier,
