@@ -531,7 +531,7 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                        triaNormals, barycoord,
                                        &ifoundTria,&ifoundEdge, &ifoundVertex );
 
-            PMMG_locatePoint_errorCheck( mesh,ip,ifoundTria,myrank,igrp );
+            PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
             /** Interpolate point metrics */
             if( ifoundVertex != PMMG_UNSET ) {
