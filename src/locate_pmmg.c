@@ -517,8 +517,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
                   __func__,closestDist);
         }
       }
-      /* Recompute barycentric coordinates to the closest point */
-      PMMG_barycoord2d_getClosest( mesh,-closestTria,ppt,barycoord );
       return 0;
     }
 
