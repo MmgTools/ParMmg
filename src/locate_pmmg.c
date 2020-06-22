@@ -250,9 +250,12 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
 /**
  * \param mesh pointer to the background mesh structure
  * \param pt pointer to the tetra to analyze
+ * \param k index of the tetra
  * \param ppt pointer to the point to locate
- * \param faceAreas oriented face areas of the current tetrahedra
+ * \param faceAreas oriented face areas of the current tetrahedron
  * \param barycoord barycentric coordinates of the point to be located
+ * \param closestDist pointer to the distance from the closest tetrahedron
+ * \param closestTet pointer to the index of the closest tetrahedron
  *
  * \return 1 if found; 0 if not found
  *
@@ -260,14 +263,26 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
  *  coordinates.
  *
  */
-int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
-                             double *faceAreas,PMMG_barycoord *barycoord ) {
+int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,int k,MMG5_pPoint ppt,
+                             double *faceAreas,PMMG_barycoord *barycoord,
+                             double *closestDist,int *closestTet) {
+  double vol;
+  int    found;
 
   /* Mark tetra */
   pt->flag = mesh->base;
 
   /* Evaluate point in tetra through barycentric coordinates */
-  return PMMG_barycoord3d_evaluate( mesh,pt,ppt->c,faceAreas,barycoord );
+  found = PMMG_barycoord3d_evaluate( mesh,pt,ppt->c,faceAreas,barycoord );
+
+  /** Save element index if it is the closest one */
+  vol = pt->qual;
+  if( fabs(barycoord[0].val)*vol < *closestDist ) {
+    *closestDist = fabs(barycoord[0].val)*vol;
+    *closestTet = k;
+  }
+
+  return found;
 }
 
 /**
@@ -509,7 +524,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
     if( ier ) {
       return -1;
     } else {
-    /** Element not found: Return the closest one with negative sign (if found) */
+    /** Element not found: Return the closest one */
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
         if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -529,48 +544,47 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
- * \param closestTet index of the closest tetrahedron
+ * \param idxTet pointer to the index of the found tetrahedron
+ * \param closestTet pointer to the index of the closest tetrahedron
+ * \param closestDist pointer to the distance from the closest tetrahedron
  *
- * \return ie index of the target element; if higher than the number of
- *            tetrahedra, the point has not been found.
- *
+ * \return 1 if found, 0 otherwise.
  *  Exhaustive point search on the background tetrahedra.
  *
  */
 int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
                                    double *faceAreas,PMMG_barycoord *barycoord,
-                                   int *closestTet ) {
+                                   int *idxTet,int *closestTet,double *closestDist ) {
   MMG5_pTetra    pt;
-  int            ie;
-  double         vol,closestDist;
+  double         vol;
 
-  *closestTet = 0;
-  closestDist = 1.0e10;
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
+  for( *idxTet = 1; *idxTet <= mesh->ne; (*idxTet)++ ) {
 
     /* Increase step counter */
     ppt->s--;
 
     /** Get tetra */
-    pt = &mesh->tetra[ie];
+    pt = &mesh->tetra[*idxTet];
     if ( !MG_EOK(pt) ) continue;
 
     /*¨Skip already analized tetras */
     if( pt->flag == mesh->base ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*ie],
-                                 barycoord ) ) break;
+    if( PMMG_locatePointInTetra( mesh, pt, *idxTet, ppt,&faceAreas[12*(*idxTet)],
+                                 barycoord, closestDist, closestTet ) ) break;
 
-    /** Save element index (with negative sign) if it is the closest one */
-    vol = pt->qual;
-    if( fabs(barycoord[0].val)*vol < closestDist ) {
-      closestDist = fabs(barycoord[0].val)*vol;
-      *closestTet = -ie;
-    }
   }
 
-  return ie;
+  if( *idxTet <= mesh->ne ) {
+    return 1;
+  } else {
+    *idxTet = *closestTet;
+    /* Recompute barycentric coordinates to the closest point */
+    PMMG_barycoord3d_getClosest( mesh,*idxTet,ppt,barycoord );
+    return 0;
+  }
+  return 1;
 }
 
 /**
@@ -579,28 +593,30 @@ int PMMG_locatePoint_exhaustTetra( MMG5_pMesh mesh,MMG5_pPoint ppt,
  * \param init index of the starting element
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
  * \param barycoord barycentric coordinates of the point to be located
- * \param ip current mesh point
+ * \param idxTet pointer to the index of the found tetrahedron.
  *
- * \return ie if positive, index of the target element; if negative, index of
- * the closest element; 0 if not found
+ * \return 0 if not found (closest), 1 if found, -1 if found through exhaustive
+ * search.
  *
  *  Locate a point in a background mesh by traveling the elements adjacency.
  *
  */
-int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
+int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *faceAreas,PMMG_barycoord *barycoord,
-                         int ip ) {
+                         int *idxTet ) {
   MMG5_pTetra    pt,pt1;
-  int            *adja,iel,i,idxTet,step,closestTet,stuck;
+  int            *adja,iel,i,step,closestTet,stuck;
   double         vol,eps,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
+  int            ier;
 
-  if(!init)
-    idxTet = 1;
-  else
-    idxTet = init;
+  if(!(*idxTet))
+    *idxTet = 1;
 
-  assert( idxTet <= mesh->ne );
+  assert( *idxTet <= mesh->ne );
+
+  closestTet = 0;
+  closestDist = 1.0e10;
 
   stuck = 0;
   step = 0;
@@ -609,16 +625,16 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     step++;
 
     /** Get tetra */
-    pt = &mesh->tetra[idxTet];
+    pt = &mesh->tetra[*idxTet];
     if ( !MG_EOK(pt) ) continue;
 
     /** Exit the loop if you find the element */
-    if( PMMG_locatePointInTetra( mesh, pt, ppt,&faceAreas[12*idxTet],
-                                 barycoord ) ) break;
+    if( PMMG_locatePointInTetra( mesh, pt, *idxTet,ppt,&faceAreas[12*(*idxTet)],
+                                 barycoord,&closestTet,&closestDist ) ) break;
 
     /** Compute new direction (barycentric coordinates are sorted in increasing
      *  order) */
-    adja = &mesh->adja[4*(idxTet-1)+1];
+    adja = &mesh->adja[4*(*idxTet-1)+1];
     for( i=0; i<4; i++ ) {
       iel = adja[barycoord[i].idx]/4;
 
@@ -630,7 +646,7 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       if(pt1->flag == mesh->base) continue;
 
       /* Get next otherwise */
-      idxTet = iel;
+      *idxTet = iel;
       break;
     }
 
@@ -644,7 +660,14 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
     ppt->s = -step;
   else
     ppt->s = step;
-#warning Luca: add the (rare) possibility that step == mesh->nt
+
+  if( step > mesh->ne ) {
+    /* Recompute barycentric coordinates to the closest point */
+    *idxTet = closestTet;
+    PMMG_barycoord3d_getClosest( mesh,*idxTet,ppt,barycoord );
+    return 0;
+  }
+
 
   /** Boundary hit or cyclic path: Perform exhaustive research */
   if( stuck ) {
@@ -656,11 +679,13 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
       }
     }
 
-    idxTet = PMMG_locatePoint_exhaustTetra( mesh,ppt,faceAreas,barycoord,
-                                            &closestTet );
+    ier = PMMG_locatePoint_exhaustTetra( mesh,ppt,faceAreas,barycoord,
+                                         idxTet,&closestTet,&closestDist );
 
-    /** Element not found: Return the closest one with negative sign (if found) */
-    if ( idxTet == mesh->ne+1 ) {
+    if( ier ) {
+      return -1;
+    } else {
+      /** Element not found: Return the closest one */
       if ( !mmgWarn1 ) {
         mmgWarn1 = 1;
         if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -668,11 +693,11 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
                   __func__,closestDist);
         }
       }
-      return closestTet;
+      return 0;
     }
 
   }
-  return idxTet;
+  return 1;
 }
 
 /**

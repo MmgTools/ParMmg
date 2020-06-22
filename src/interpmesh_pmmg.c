@@ -550,16 +550,14 @@ int PMMG_interpMetrics_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
           } else {
 
-#ifdef NO_POINTMAP
-            istartTetra = ifoundTetra;
-#else
-            istartTetra = ppt->s;
+#ifndef NO_POINTMAP
+            ifoundTetra = ppt->s;
 #endif
             /** Locate point in the old volume mesh */
-            ifoundTetra = PMMG_locatePointVol( oldMesh, ppt, istartTetra,
-                                               faceAreas, barycoord, ip );
+            ier = PMMG_locatePointVol( oldMesh, ppt,
+                                       faceAreas, barycoord, &ifoundTetra );
 
-//            PMMG_locatePoint_errorCheck( mesh,ip,ifoundTetra,myrank,igrp );
+            PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
             /** Interpolate volume point metrics */
             ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifoundTetra],ip,

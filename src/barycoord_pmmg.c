@@ -352,3 +352,50 @@ int PMMG_barycoord2d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
 
   return 1;
 }
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param k index of the tetrahedron to analyze
+ * \param ppt pointer to the point to locate
+ * \param barycoord barycentric coordinates of the point to be located
+ *
+ * \return 1 if found; 0 if not found
+ *
+ *  Locate a point in its closest background tetrahedron, and find its
+ *  closest point.
+ *
+ */
+int PMMG_barycoord3d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                 PMMG_barycoord *barycoord ) {
+  MMG5_pTetra pt;
+  double *c,dist[3],norm,min;
+  int i,d,itarget;
+
+  pt = &mesh->tetra[k];
+
+  c = mesh->point[pt->v[0]].c;
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d] - c[d];
+  norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+  min = norm;
+  itarget = 0;
+
+  for( i = 1; i < 4; i++ ) {
+    c = mesh->point[pt->v[i]].c;
+    for( d = 0; d < 3; d++ )
+      dist[d] = ppt->c[d] - c[d];
+    norm = sqrt(dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]);
+    if( norm < min ) {
+      min = norm;
+      itarget = i;
+    }
+  }
+
+  for( i = 0; i < 4; i++ ) {
+    barycoord[i].val = 0.0;
+    barycoord[i].idx = i;
+  }
+  barycoord[itarget].val = 1.0;
+
+  return 1;
+}

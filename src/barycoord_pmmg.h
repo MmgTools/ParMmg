@@ -64,5 +64,6 @@ int  PMMG_barycoord2d_evaluate( MMG5_pMesh mesh,MMG5_pTria ptr,int k,
 int  PMMG_barycoord3d_evaluate( MMG5_pMesh mesh,MMG5_pTetra pt,
                                 double *coord,double *faceAreas,
                                 PMMG_barycoord *barycoord );
-
+int PMMG_barycoord3d_getClosest( MMG5_pMesh mesh,int k,MMG5_pPoint ppt,
+                                 PMMG_barycoord *barycoord );
 #endif

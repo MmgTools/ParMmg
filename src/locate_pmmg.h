@@ -53,14 +53,15 @@ typedef struct {
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_barycoord *barycoord,
                             double *h,double *closestDist,int *closestTria );
-int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,MMG5_pPoint ppt,
-                             double *faceAreas,PMMG_barycoord *barycoord );
+int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,int k,MMG5_pPoint ppt,
+                             double *faceAreas,PMMG_barycoord *barycoord,
+                             double *closestDist,int *closestTet);
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *triaNormals,PMMG_barycoord *barycoord,
                          int *iTria,int *foundWedge,int *foundCone );
-int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,int init,
+int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *faceAreas,PMMG_barycoord *barycoord,
-                         int ip );
+                         int *idxTet );
 void PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int ier,int myrank,int igrp );
 void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld );
 void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateStats *locStats );
