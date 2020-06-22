@@ -209,7 +209,8 @@ int main( int argc, char *argv[] )
     /* Read solutions field if provided */
     if ( parmesh->fieldin && *parmesh->fieldin &&
          !PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin) ) {
-      PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      ier = 0;
+      goto check_mesh_loading;
     }
 
 
@@ -224,8 +225,10 @@ int main( int argc, char *argv[] )
   }
 
 
-  if ( !PMMG_parsop(parmesh) )
-    PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
+  if ( !PMMG_parsop(parmesh) ) {
+    ier = 0;
+    goto check_mesh_loading;
+  }
 
   chrono(OFF,&PMMG_ctim[tim]);
   if ( parmesh->info.imprim > PMMG_VERB_NO ) {
