@@ -236,12 +236,12 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
   if ( mesh->edge )
     MMG5_DEL_MEM(mesh,mesh->edge);
 
-  mesh->np = np;
-  mesh->ne = ne;
-  mesh->nt = nt;
-  mesh->xp = xp;
-  mesh->xt = xt;
-
+  mesh->np  = np;
+  mesh->ne  = ne;
+  mesh->nt  = nt;
+  mesh->xp  = xp;
+  mesh->xt  = xt;
+ 
   mesh->npi = mesh->np;
   mesh->nei = mesh->ne;
   mesh->nti = mesh->nt;
@@ -326,22 +326,28 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  *
  */
 int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *oldMemMax ) {
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
+  MMG5_pSol  const dispOld  = parmesh->listgrp[igrp].disp;
+  MMG5_pSol  const lsOld    = parmesh->listgrp[igrp].ls;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrp].field;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
   MMG5_pTetra      pt,ptCur;
   MMG5_pTria       ptr,ptrCur;
   MMG5_pPoint      ppt,pptCur;
   MMG5_Hash        hash;
   int              *adja,*oldAdja;
   int              *adjt,*oldAdjt;
-  int              ie,ip,k;
+  int              ie,ip,is,k;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
   grp->met  = NULL;
+  grp->disp   = NULL;
+  grp->ls     = NULL;
+  grp->field  = NULL;
 
   MMG3D_Init_mesh( MMG5_ARG_start,
                    MMG5_ARG_ppMesh, &grp->mesh,
@@ -351,19 +357,60 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   mesh = grp->mesh;
   met  = grp->met;
 
+  if ( lsOld ) {
+    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    ls = grp->ls;
+  }
+  else {
+    ls = NULL;
+  }
+
+  if ( dispOld ) {
+    assert ( meshOld->nsols );
+    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    disp = grp->disp;
+  }
+  else {
+    disp = NULL;
+  }
+
+  if ( meshOld->nsols ) {
+    assert ( fieldOld );
+    mesh->nsols = meshOld->nsols;
+    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    field = grp->field;
+  }
+  else {
+    field = NULL;
+  }
+
   /* Reset memory to  parmesh */
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,*memAv,*oldMemMax);
- 
+
   /** 1) Create old group */
- 
+
   /* Give all the available memory to the mesh */
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
-  /* Copy the mesh filenames */
-  if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )     return 0;
-  if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein) )  return 0;
+  /* Copy the mesh and metric,ls,disp and fields filenames */
+  if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
+  if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein ) )  return 0;
+  if ( ls   && !MMG5_Set_inputSolName( mesh,ls,lsOld->namein     ) )  return 0;
+  if ( disp && !MMG5_Set_inputSolName( mesh,disp,dispOld->namein ) )  return 0;
+
   if ( !MMG5_Set_outputMeshName( mesh,meshOld->nameout ) )    return 0;
   if ( !MMG5_Set_outputSolName(  mesh,met,metOld->nameout ) ) return 0;
+  if ( ls   && !MMG5_Set_outputSolName( mesh,  ls,lsOld->nameout   ) ) return 0;
+  if ( disp && !MMG5_Set_outputSolName( mesh,disp,dispOld->nameout ) ) return 0;
+
+  if ( field ) {
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl    = field    + is;
+      pslOld = fieldOld + is;
+      if ( !MMG5_Set_inputSolName ( mesh,psl,pslOld->namein ) )  return 0;
+      if ( !MMG5_Set_outputSolName( mesh,psl,pslOld->nameout ) )  return 0;
+    }
+  }
 
   /* Set sizes and allocate new mesh */
   if ( !PMMG_grpSplit_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
@@ -371,10 +418,38 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
 
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"tetra adjacency table",return 0);
 
-  /* Set metrics size */
-  if ( parmesh->info.inputMet == 1 )
+  /* Set metric size */
+  if ( parmesh->info.inputMet == 1 ) {
     if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
+  }
+
+  /* Set ls size */
+  if ( lsOld && lsOld->m ) {
+    assert ( lsOld->np );
+    if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,lsOld->np,lsOld->type) )
+      return 0;
+  }
+
+  /* Set disp size */
+  if ( dispOld && dispOld->m ) {
+    assert ( dispOld->np );
+    if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,dispOld->np,dispOld->type) )
+      return 0;
+  }
+
+  /* Set fields size */
+  if ( meshOld->nsols ) {
+    assert ( field );
+    for ( is=0; is<meshOld->nsols; ++is ) {
+      psl    = field + is;
+      pslOld = fieldOld + is;
+      psl->ver = 2;
+
+      if ( !MMG3D_Set_solSize(mesh,psl,MMG5_Vertex,meshOld->np,pslOld->type) )
+        return 0;
+    }
+  }
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
@@ -384,7 +459,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
     pt = &meshOld->tetra[ie];
     ptCur = &mesh->tetra[ie];
- 
+
     if ( !MG_EOK(pt) ) continue;
 
     /* Copy tetra */
@@ -419,12 +494,32 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
       memcpy( pptCur, ppt, sizeof(MMG5_Point) );
 
       /* Copy metrics */
-      if ( parmesh->info.inputMet == 1 )
+      if ( parmesh->info.inputMet == 1 ) {
         memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+      }
+
+      /* Copy ls */
+      if ( ls && ls->m ) {
+        assert ( lsOld && lsOld->m );
+        memcpy( &ls->m[ ip*ls->size ], &lsOld->m[ip*ls->size], ls->size*sizeof(double) );
+      }
+
+      /* Copy disp */
+      if ( disp && disp->m ) {
+        assert ( dispOld && dispOld->m );
+        memcpy( &disp->m[ ip*disp->size ], &dispOld->m[ip*dispOld->size], disp->size*sizeof(double) );
+      }
+
+      /* Copy fields */
+      for ( is=0; is<mesh->nsols; ++is ) {
+        psl    = field + is;
+        pslOld = fieldOld + is;
+        assert ( psl && pslOld );
+        memcpy( &psl->m[ ip*psl->size ], &pslOld->m[ip*pslOld->size], psl->size*sizeof(double) );
+      }
 
       /* Skip xpoint */
       pptCur->xp = 0;
-
     }
   }
 
@@ -447,7 +542,6 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
 
   /* Give the available memory to the parmesh */
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
-
 
   return 1;
 }
@@ -474,26 +568,79 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
                          size_t *memAv,int ne,int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grpOld = &parmesh->listgrp[igrp];
   MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
+  MMG5_pSol  const dispOld  = parmesh->listgrp[igrp].disp;
+  MMG5_pSol  const lsOld    = parmesh->listgrp[igrp].ls;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrp].field;
+
   MMG5_pMesh       mesh;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
   size_t           oldMemMax;
+  int              is;
 
   grp->mesh = NULL;
   grp->met  = NULL;
+  grp->ls   = NULL;
   grp->disp = NULL;
+  grp->field= NULL;
 
-  MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grp->mesh,
-                   MMG5_ARG_ppMet, &grp->met, MMG5_ARG_end );
+
+  MMG3D_Init_mesh( MMG5_ARG_start,
+                   MMG5_ARG_ppMesh, &grp->mesh,
+                   MMG5_ARG_ppMet,  &grp->met,
+                   MMG5_ARG_end );
 
   mesh      = grp->mesh;
+  met   = grp->met;
+
+  if ( lsOld ) {
+    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    ls = grp->ls;
+  }
+  else {
+    ls = NULL;
+  }
+
+  if ( dispOld ) {
+    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    disp = grp->disp;
+  }
+  else {
+    disp = NULL;
+  }
+
+  if ( meshOld->nsols ) {
+    assert ( fieldOld );
+    mesh->nsols = meshOld->nsols;
+    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    field = grp->field;
+  }
+  else {
+    field = NULL;
+  }
 
   /* Give all the available memory to the mesh */
   mesh->memMax = *memAv;
 
   /* Copy the mesh filenames */
   if ( !MMG5_Set_inputMeshName( mesh,meshOld->namein) )                return 0;
-  if ( !MMG5_Set_inputSolName(  mesh,grp->met,grpOld->met->namein ) )  return 0;
+  if ( !MMG5_Set_inputSolName(  mesh, met, metOld->namein ) )  return 0;
+  if ( ls   && !MMG5_Set_inputSolName(  mesh,ls,lsOld->namein     ) )  return 0;
+  if ( disp && !MMG5_Set_inputSolName(  mesh,disp,dispOld->namein ) )  return 0;
+
   if ( !MMG5_Set_outputMeshName(mesh, meshOld->nameout ) )             return 0;
-  if ( !MMG5_Set_outputSolName( mesh,grp->met,grpOld->met->nameout ) ) return 0;
+  if ( !MMG5_Set_outputSolName( mesh, met, metOld->nameout ) ) return 0;
+  if ( ls   && !MMG5_Set_outputSolName( mesh,  ls,lsOld->nameout   ) ) return 0;
+  if ( disp && !MMG5_Set_outputSolName( mesh,disp,dispOld->nameout ) ) return 0;
+
+  if ( field ) {
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl    = field    + is;
+      pslOld = fieldOld + is;
+      if ( !MMG5_Set_inputSolName ( mesh,psl,pslOld->namein ) )  return 0;
+      if ( !MMG5_Set_outputSolName( mesh,psl,pslOld->nameout ) )  return 0;
+    }
+  }
 
   /* Uses the Euler-poincare formulae to estimate the number of entities (np =
    * ne/6, nt=ne/3 */
@@ -504,18 +651,48 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   grp->mesh->np = 0;
   grp->mesh->npi = 0;
 
-  if ( grpOld->met->m ) {
-    if ( grpOld->met->size == 1 )
+  int allocSize = 1;
+
+  if ( grpOld->met && grpOld->met->m ) {
+    if ( grpOld->met->size == 1 ) {
       grp->met->type = MMG5_Scalar;
-    else if ( grpOld->met->size == 6 )
+    }
+    else if ( grpOld->met->size == 6 ) {
       grp->met->type = MMG5_Tensor;
+    }
 
     /** If we have an initial metric, force the metric allocation (even if for
      * now, we don't know the number of point that will be stored in it) */
-    int allocMetric = 1;
-    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocMetric,grp->met->type) )
+    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocSize,grp->met->type) )
       return 0;
   }
+
+  /* Set ls size */
+  if ( lsOld && lsOld->m ) {
+    assert ( lsOld->np );
+    if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,allocSize,lsOld->type) )
+      return 0;
+  }
+  /* Set disp size */
+  if ( dispOld && dispOld->m ) {
+    assert ( dispOld->np );
+    if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,allocSize,dispOld->type) )
+      return 0;
+  }
+
+  /* Set fields size */
+  if ( meshOld->nsols ) {
+
+    for ( is=0; is<meshOld->nsols; ++is ) {
+      psl    = field + is;
+      pslOld = fieldOld + is;
+      psl->ver = 2;
+
+      if ( !MMG3D_Set_solSize(mesh,psl,MMG5_Vertex,allocSize,pslOld->type) )
+        return 0;
+    }
+  }
+
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
@@ -557,7 +734,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   }
 
   *memAv -= (parmesh->memMax - oldMemMax);
-
+  
   return 1;
 }
 
@@ -679,6 +856,7 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
     PMMG_pGrp grp, MMG5_pMesh mesh,MMG5_pMesh meshOld,MMG5_pTetra pt,int fac,int adjidx,int vidx,
     int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
     size_t *memAv,size_t *oldMemMax,int pos ) {
+
   MMG5_pTetra ptadj;
   int ip,iploc,iplocadj;
 
@@ -826,17 +1004,20 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   PMMG_pGrp  const grpOld = &parmesh->listgrp[grpIdOld];
   MMG5_pMesh const meshOld= parmesh->listgrp[grpIdOld].mesh;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  MMG5_pTetra      pt,ptadj,tetraCur;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
+  MMG5_pTetra      pt,tetraCur;
   MMG5_pxTetra     pxt;
   MMG5_pPoint      ppt;
   size_t           oldMemMax;
-  int              *adja,adjidx,vidx,fac,pos,ip,iploc,iplocadj;
-  int              ie,tetPerGrp,tet,poi,j,newsize;
+  int              *adja,adjidx,vidx,fac,pos;
+  int              ie,is,tetPerGrp,tet,poi,j,newsize;
   int              ier;
 
   mesh = grp->mesh;
   met  = grp->met;
+  ls    = grp->ls;
+  disp  = grp->disp;
+  field = grp->field;
 
   /** Give the available memory to the mesh */
   oldMemMax = mesh->memMax;
@@ -895,20 +1076,84 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           for (j=mesh->npnil; j<mesh->npmax-1; j++)
             mesh->point[j].tmp  = j+1;
 
+          /* Reallocation of metric, ls, displacement and sol fields */
+          /* Met */
+          if ( met ) {
           if ( met->m ) {
             PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
                          met->size*(met->npmax+1),double,
                          "metric array",return 0);
           }
           met->npmax = mesh->npmax;
+          }
+
+          /* level-set */
+          if ( ls ) {
+            if ( ls->m ) {
+              PMMG_REALLOC(mesh,ls->m,ls->size*(mesh->npmax+1),
+                           ls->size*(ls->npmax+1),double,
+                           "ls array",return 0);
+            }
+            ls->npmax = mesh->npmax;
+          }
+          /* Displacment */
+          if ( disp ) {
+            if ( disp->m ) {
+              PMMG_REALLOC(mesh,disp->m,disp->size*(mesh->npmax+1),
+                           disp->size*(met->npmax+1),double,
+                           "displacement array",return 0);
+            }
+            disp->npmax = mesh->npmax;
+          }
+
+          /* Sol fields */
+          if ( mesh->nsols ) {
+            for ( is=0; is<mesh->nsols; ++is ) {
+              psl    = field + is;
+              assert ( psl && psl->m );
+              PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),
+                           psl->size*(psl->npmax+1),double,
+                           "field array",return 0);
+              psl->npmax = mesh->npmax;
+            }
+          }
+
           assert ( *np<=mesh->npmax );
         }
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
+
+        /* metric */
         if ( met->m ) {
           memcpy( &met->m[ (*np) * met->size ],
                   &grpOld->met->m[pt->v[poi] * met->size],
                   met->size * sizeof( double ) );
+        }
+        /* level-set */
+        if ( ls ) {
+          if ( ls->m ) {
+            memcpy( &ls->m[ (*np) * ls->size ],
+                    &grpOld->ls->m[pt->v[poi] * ls->size],
+                    ls->size * sizeof( double ) );
+          }
+        }
+        /* disp */
+        if ( disp ) {
+          if ( disp->m ) {
+            memcpy( &disp->m[ (*np) * disp->size ],
+                    &grpOld->disp->m[pt->v[poi] * disp->size],
+                    disp->size * sizeof( double ) );
+          }
+        }
+        /* solution field */
+        if ( mesh->nsols ) {
+          for ( is=0; is<mesh->nsols; ++is ) {
+            psl    = field + is;
+            pslOld = grpOld->field + is;
+            memcpy( &psl->m[ (*np) * psl->size ],
+                    &pslOld->m[pt->v[poi] * psl->size],
+                    psl->size * sizeof( double ) );
+          }
         }
 
         /* Update tetra vertex index */
@@ -1060,8 +1305,7 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
 }
 
 /**
- * \param mesh pointer toward an MMG5 mesh structure
- * \param met pointer toward an MMG5 metric structure
+ * \param grp pointer toward the PMMG group
  * \param np number of points in the mesh
  *
  * \return 0 if fail, 1 if success
@@ -1074,8 +1318,14 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
  *
  */
 static inline
-int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
+int PMMG_splitGrps_cleanMesh( PMMG_pGrp grp,int np )
 {
+  MMG5_pMesh   mesh = grp->mesh;
+  MMG5_pSol    met  = grp->met;
+  MMG5_pSol    ls   = grp->ls;
+  MMG5_pSol    disp = grp->disp;
+  MMG5_pSol    field= grp->field;
+  MMG5_pSol    psl;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,i;
@@ -1083,7 +1333,7 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
   /* Mesh reallocation at the smallest possible size */
   PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
                MMG5_Point,"fitted point table",return 0);
-  mesh->npmax = np;
+  mesh->npmax = mesh->np = mesh->npi = np;
   mesh->npnil = 0;
   mesh->nenil = 0;
 
@@ -1096,22 +1346,38 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
   PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,
                MMG5_xTetra,"fitted xtetra table",return 0);
   mesh->xtmax = mesh->xt;
-  if ( met->m )
+
+  if ( met->m ) {
     PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
                  double,"fitted metric table",return 0);
-  met->npmax = mesh->npmax;
+  }
+  met->npmax = met->np = met->npi = np;
+
+  if ( ls && ls->m ) {
+    PMMG_REALLOC(mesh,ls->m,ls->size*(np+1),ls->size*(ls->npmax+1),
+                 double,"fitted ls table",return 0);
+    ls->npmax = ls->np = ls->npi = np;
+  }
+
+  if ( disp && disp->m ) {
+    PMMG_REALLOC(mesh,disp->m,disp->size*(np+1),disp->size*(disp->npmax+1),
+                 double,"fitted disp table",return 0);
+    disp->npmax = disp->np = disp->npi = np;
+  }
+
+  if ( mesh->nsols ) {
+    assert ( field );
+    for ( i=0; i<mesh->nsols; ++i ) {
+      psl = field + i;
+      assert ( psl->m );
+      PMMG_REALLOC(mesh,psl->m,psl->size*(np+1),psl->size*(psl->npmax+1),
+                   double,"fitted field table",return 0);
+      psl->npmax = psl->np = psl->npi = np;
+  }
+  }
 
   /* Set memMax to the smallest possible value */
   mesh->memMax = mesh->memCur;
-
-  // Update the empty points' values as per the convention used in MMG3D
-  mesh->np  = np;
-  mesh->npi = np;
-
-  if ( met->m ) {
-    met->np  = np;
-    met->npi = np;
-  }
 
   /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
    * shell of an edge, it is possible that one of the xtetra has set the edge
@@ -1276,7 +1542,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     }
 
     /* Mesh cleaning in the new group */
-    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp[grpId]) ) {
+    if ( !PMMG_splitGrps_cleanMesh(grpCur,poiPerGrp[grpId]) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
       ret_val = -1;
@@ -1434,7 +1700,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
-end:
 
   return ret_val;
 
@@ -1466,7 +1731,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   int meshOld_ne = 0;
   idx_t ngrp = 1;
   idx_t *part = NULL;
-  int grpId,grpIdOld, tet;
+  int grpIdOld;
   int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs],noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 

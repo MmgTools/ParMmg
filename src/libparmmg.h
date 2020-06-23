@@ -204,7 +204,8 @@ int  PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout);
  * \param solin name of the input solution file.
  * \return 1.
  *
- * Set the name of input solution file.
+ * Set the name of input solution file. The call to this function is mandatory
+ * to load a solution field.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_INPUTSOLSNAME(parmesh,solin,strlen,retval)\n
@@ -221,7 +222,8 @@ int  PMMG_Set_inputSolsName(PMMG_pParMesh parmesh,const char* solin);
  * \param metin name of the input metric file.
  * \return 1.
  *
- * Set the name of input metric file.
+ * Set the name of input metric file. The parmesh must have been initialized
+ * with a metric field (otherwise the metric structure is not allocated).
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_INPUTMETNAME(parmesh,metin,strlen,retval)\n
@@ -235,10 +237,49 @@ int  PMMG_Set_inputSolsName(PMMG_pParMesh parmesh,const char* solin);
 int  PMMG_Set_inputMetName(PMMG_pParMesh parmesh,const char* metin);
 /**
  * \param parmesh pointer toward a parmesh structure.
+ * \param lsin name of the input level-set file.
+ * \return 1.
+ *
+ * Set the name of input level-set file. The parmesh must have been initialized
+ * with a level-set field (otherwise the ls structure is not allocated).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_INPUTLSNAME(parmesh,lsin,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: lsin\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_inputLsName(PMMG_pParMesh parmesh,const char* lsin);
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param dispin name of the input displacement file.
+ * \return 1.
+ *
+ * Set the name of input displacement file. The parmesh must have been
+ * initialized with a displacement field (otherwise the displacement structure
+ * is not allocated).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_INPUTDISPNAME(parmesh,dispin,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: dispin\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_inputDispName(PMMG_pParMesh parmesh,const char* dispin);
+/**
+ * \param parmesh pointer toward a parmesh structure.
  * \param solout name of the output solution file.
  * \return 0 if failed, 1 otherwise.
  *
- *  Set the name of output solution file.
+ *  Set the name of output solution file. If not called, an automatic output
+ * name is computed from the path of the output mesh and the input solutions
+ * name: <inputfield>.sol -> <outputmeshpath>/<inputfield>.o.sol
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_OUTPUTSOLSNAME(parmesh,solout,strlen,retval)\n
@@ -386,6 +427,21 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  *
  */
 int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Free names stored in the parmesh
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_FREE_NAMES(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int PMMG_Free_names(PMMG_pParMesh parmesh);
 
 /**
  * \param starter dummy argument used to initialize the variadic argument list.

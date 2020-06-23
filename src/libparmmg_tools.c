@@ -118,9 +118,9 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"\n**  File specifications\n");
     fprintf(stdout,"-in    file  input triangulation\n");
     fprintf(stdout,"-out   file  output triangulation\n");
-    fprintf(stdout,"-sol   file  load solution or metric file\n");
+    fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
+    fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
     fprintf(stdout,"-noout       do not write output triangulation\n");
-
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -210,6 +210,29 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'f':
+        if ( !strcmp(argv[i],"-field") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputSolsName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_mmgargv;
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
+            ret_val = 0;
+            goto fail_mmgargv;
+          }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
+        break;
       case 'h':
         if ( !strcmp(argv[i],"-hmin") && ++i < argc ) {
           if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_hmin,atof(argv[i])) ) {
@@ -228,9 +251,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                       " adding to mmgArgv for mmg: ",
                       ret_val = 0; goto fail_proc );
         }
-
         break;
-
       case 'g':
         if ( !strcmp(argv[i],"-groups-ratio") ) {
 
@@ -251,6 +272,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
              ret_val = 0;
             goto fail_proc;
           }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 
@@ -352,7 +378,12 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             goto fail_proc;
           }
         }
-        /* else : what happens with -met option... to treat */
+        else {
+          /* else : what happens with -met option... to treat */
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
         break;
 
       case 'n':  /* number of adaptation iterations */
@@ -391,10 +422,18 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         break;
 
-      case 'd':  /* debug */
+      case 'd':
+        if ( !strcmp(argv[i],"-d") ) {
+        /* debug */
         if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
           ret_val = 0;
           goto fail_proc;
+          }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
         }
         break;
 #ifdef USE_SCOTCH
@@ -449,9 +488,35 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     ret_val = 0;
     goto fail_proc;
   }
-
-  /* Get important infos stored in the mesh into the parmesh */
   parmesh->info.fem = parmesh->listgrp[0].mesh->info.fem;
+
+  /* Store mesh names into the parmesh if needed */
+  if ( !parmesh->meshin ) {
+    assert ( parmesh->listgrp[0].mesh->namein );
+    PMMG_Set_name(parmesh,&parmesh->meshin,
+                  parmesh->listgrp[0].mesh->namein,"mesh.mesh");
+  }
+  if ( !parmesh->meshout ) {
+    assert ( parmesh->listgrp[0].mesh->nameout );
+    PMMG_Set_name(parmesh,&parmesh->meshout,
+                  parmesh->listgrp[0].mesh->nameout,"mesh.o.mesh");
+  }
+  if ( (!parmesh->metin) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->namein ) {
+    PMMG_Set_name(parmesh,&parmesh->metin,
+                  parmesh->listgrp[0].met->namein,"mesh.sol");
+  }
+  if ( (!parmesh->metout) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->nameout ) {
+    PMMG_Set_name(parmesh,&parmesh->metout,
+                  parmesh->listgrp[0].met->nameout,"mesh.o.sol");
+  }
+  if ( (!parmesh->lsin) && parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->namein ) {
+    PMMG_Set_name(parmesh,&parmesh->lsin,
+                  parmesh->listgrp[0].ls->namein,"mesh.sol");
+  }
+  if ( (!parmesh->dispin) && parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->namein ) {
+    PMMG_Set_name(parmesh,&parmesh->dispin,
+                  parmesh->listgrp[0].disp->namein,"mesh.sol");
+  }
 
 fail_proc:
   PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );

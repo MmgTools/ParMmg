@@ -383,9 +383,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
  */
 int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh  mesh;
-  FILE*       inm;
-  int         bin,ier;
-  char        *data;
+  int         ier;
 
   if ( parmesh->ngrp != 1 ) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
@@ -397,7 +395,6 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
-
 
   ier = MMG3D_loadMesh(mesh,filename);
   if( ier < 1 ) return ier;
@@ -486,7 +483,7 @@ int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  ls   = parmesh->listgrp[0].sol;
+  ls   = parmesh->listgrp[0].ls;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
@@ -551,7 +548,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
     sol = parmesh->listgrp[0].disp;
   }
   else if ( mesh->info.iso ) {
-    sol = parmesh->listgrp[0].sol;
+    sol = parmesh->listgrp[0].ls;
   }
   else {
     sol = parmesh->listgrp[0].met;
@@ -579,7 +576,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
-  MMG5_pSol  sol;
+  MMG5_pSol  *sol;
   int        ier;
 
   if ( parmesh->myrank!=parmesh->info.root ) {
@@ -592,13 +589,13 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].sol;
+  sol  = &parmesh->listgrp[0].field;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_loadAllSols(mesh,&sol,filename);
+  ier = MMG3D_loadAllSols(mesh,sol,filename);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -626,7 +623,12 @@ int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_saveMesh(mesh,filename);
+  if ( filename && *filename ) {
+    ier = MMG3D_saveMesh(mesh,filename);
+  }
+  else {
+    ier = MMG3D_saveMesh(mesh,parmesh->meshout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -655,7 +657,12 @@ int PMMG_saveMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier =  MMG3D_saveSol(mesh,met,filename);
+  if ( filename && *filename ) {
+    ier =  MMG3D_saveSol(mesh,met,filename);
+  }
+  else {
+    ier =  MMG3D_saveSol(mesh,met,parmesh->metout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -678,13 +685,18 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  sol  = parmesh->listgrp[0].sol;
+  sol  = parmesh->listgrp[0].field;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_saveAllSols(mesh,&sol,filename);
+  if ( filename && *filename ) {
+    ier = MMG3D_saveAllSols(mesh,&sol,filename);
+  }
+  else {
+    ier = MMG3D_saveAllSols(mesh,&sol,parmesh->fieldout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;

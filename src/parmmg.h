@@ -249,7 +249,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
                                                                         \
       if ( parmesh->listgrp[kgrp].mesh ) {                              \
         for ( ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
-          parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+          parmesh->listgrp[kgrp].field[ksol].npi  = parmesh->listgrp[kgrp].field[ksol].np; \
         }                                                               \
       }                                                                 \
     }                                                                   \
@@ -501,6 +501,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
   } while(0)
 
 /* Input */
+int PMMG_Set_name(PMMG_pParMesh,char **,const char* name,const char* defname);
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
@@ -512,6 +513,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 
 /* Internal library */
+void PMMG_setfunc( PMMG_pParMesh parmesh );
 int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
 /* Mesh distrib */
@@ -534,8 +536,8 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *oldMemMax );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax );
-int PMMG_interpMetrics( PMMG_pParMesh parmesh,int* );
-int PMMG_copyMetrics_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, int* permNodGlob,unsigned char);
+int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int* );
+int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, MMG5_pSol,MMG5_pSol, int* permNodGlob,unsigned char);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
@@ -604,7 +606,7 @@ void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_setMemMax_realloc( MMG5_pMesh,int,int,int,int);
-int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met);
+int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp );
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );

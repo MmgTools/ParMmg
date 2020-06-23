@@ -457,7 +457,7 @@ int PMMG_saveQual(MMG5_pMesh mesh, const char *filename) {
 int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,field;
   size_t     memAv,oldMemMax;
   char       name[ 2048 ];
   int        ier;
@@ -465,6 +465,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   grp  = &parmesh->listgrp[grpId];
   mesh = grp->mesh;
   met  = grp-> met;
+  field= grp->field;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
@@ -488,6 +489,13 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   if ( met->m ) {
     sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
     MMG3D_saveSol( mesh, met, name );
+  }
+
+  /* Save field */
+  if ( mesh->nsols ) {
+    assert ( field );
+    sprintf( name, "%s-fields-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+    MMG3D_saveAllSols( mesh, &field, name );
   }
 
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);

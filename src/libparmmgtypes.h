@@ -284,9 +284,10 @@ typedef PMMG_Ext_comm  * PMMG_pExt_comm;
  */
 typedef struct {
   MMG5_pMesh   mesh;  /*!< mesh definition : coordinates, tetra etc.. */
-  MMG5_pSol    sol;  /*!< physical solutions defined on each point of the mesh */
+  MMG5_pSol    field; /*!< physical solutions defined on each point of the mesh and interpolated from init to final mesh */
   MMG5_pSol    met;   /*!< metric */
   MMG5_pSol    disp;  /*!< displacement */
+  MMG5_pSol    ls;    /*!< level-set */
 
   /* communicators */
   int          nitem_int_node_comm;       /*!< Nb nodes of this grp in internal communicator*/
@@ -351,6 +352,13 @@ typedef struct {
   size_t    memMax; /*!< Maximum memory parmesh is allowed to allocate */
   size_t    memCur; /*!< Currently allocated memory */
 
+  /* file names */
+  char     *meshin,*meshout;
+  char     *metin,*metout;
+  char     *lsin;
+  char     *dispin;
+  char     *fieldin,*fieldout;
+
   /* grp */
   int       ngrp;       /*!< Number of grp */
   PMMG_pGrp listgrp;    /*!< List of grp */
@@ -378,7 +386,7 @@ typedef struct {
 
   /* parameters of the run */
   PMMG_Info      info; /*!< \ref PMMG_Info structure */
-
+ 
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 

@@ -70,7 +70,9 @@ int PMMG_find_intNodeCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
     grp  = &parmesh->listgrp[k];
     mesh = grp->mesh;
 
-    if ( !mesh ) continue;
+    if ( (!mesh) || (!grp->nitem_int_node_comm) ) {
+      continue;
+    }
 
     assert ( mesh->info.delta &&  "missing scaling infos");
 
@@ -155,8 +157,9 @@ int PMMG_find_intFaceCommBoundingBox(PMMG_pParMesh parmesh,double min[3],
     grp  = &parmesh->listgrp[k];
     mesh = grp->mesh;
 
-    if ( !mesh ) continue;
-
+    if ( (!mesh) || (!grp->nitem_int_face_comm) ) {
+      continue;
+    }
     assert ( mesh->info.delta &&  "missing scaling infos");
 
     dd = mesh->info.min[0]*mesh->info.min[0]
@@ -871,8 +874,9 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
     grp  = &parmesh->listgrp[k];
     mesh = parmesh->listgrp[k].mesh;
 
-    if ( !mesh ) continue;
-
+    if ( (!mesh) || (!grp->nitem_int_face_comm) ) {
+      continue;
+    }
     assert ( mesh->info.delta && "missing scaling infos");
 
     for ( i=0; i<grp->nitem_int_face_comm; ++i ) {
