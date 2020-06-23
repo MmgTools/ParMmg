@@ -630,7 +630,7 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
 
     /** Exit the loop if you find the element */
     if( PMMG_locatePointInTetra( mesh, pt, *idxTet,ppt,&faceAreas[12*(*idxTet)],
-                                 barycoord,&closestTet,&closestDist ) ) break;
+                                 barycoord,&closestDist,&closestTet ) ) break;
 
     /** Compute new direction (barycentric coordinates are sorted in increasing
      *  order) */
