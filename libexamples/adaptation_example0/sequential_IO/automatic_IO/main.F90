@@ -37,7 +37,7 @@ PROGRAM main
 
   IF ( (argc<2) .AND. rank == 0 ) THEN
      PRINT*, " Usage: ",TRIM(ADJUSTL(exec_name)),&
-          " filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile]"
+          " filein fileout [[-sol metfile]/[-met metfile]] [-field solfile]"
      CALL EXIT(1);
   ENDIF
 
@@ -55,7 +55,7 @@ PROGRAM main
            i = i + 1
            hasMet = 1
            CALL get_command_ARGUMENT(i, metname)
-        ELSEIF ( TRIM(tmp) ==  "-solphys" ) THEN
+        ELSEIF ( TRIM(tmp) ==  "-field" ) THEN
            i = i + 1
            hasSol = 1
            CALL get_command_ARGUMENT(i, solname)

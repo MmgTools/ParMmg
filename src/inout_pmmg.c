@@ -623,7 +623,12 @@ int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_saveMesh(mesh,filename);
+  if ( filename && *filename ) {
+    ier = MMG3D_saveMesh(mesh,filename);
+  }
+  else {
+    ier = MMG3D_saveMesh(mesh,parmesh->meshout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -652,7 +657,12 @@ int PMMG_saveMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier =  MMG3D_saveSol(mesh,met,filename);
+  if ( filename && *filename ) {
+    ier =  MMG3D_saveSol(mesh,met,filename);
+  }
+  else {
+    ier =  MMG3D_saveSol(mesh,met,parmesh->metout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -681,7 +691,12 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_saveAllSols(mesh,&sol,filename);
+  if ( filename && *filename ) {
+    ier = MMG3D_saveAllSols(mesh,&sol,filename);
+  }
+  else {
+    ier = MMG3D_saveAllSols(mesh,&sol,parmesh->fieldout);
+  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;

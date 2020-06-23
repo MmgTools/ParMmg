@@ -221,8 +221,8 @@ IF( BUILD_TESTING )
     )
 
   SET ( PMMG_LIB_TESTS_INPUTSOL
-    ""
-    ""
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
+    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
     ""
     ""
     #""
@@ -241,6 +241,14 @@ IF( BUILD_TESTING )
     "-met"
     "0"
     "1"
+    #"-met"
+    )
+
+  SET ( PMMG_LIB_TESTS_FIELDOPT
+    "-field"
+    "-field"
+    ""
+    ""
     #"-met"
     )
 
@@ -288,7 +296,7 @@ IF( BUILD_TESTING )
      )
 
     LIST ( APPEND PMMG_LIB_TESTS_INPUTSOL
-      ""
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
       #""
       #""
       #""
@@ -302,11 +310,18 @@ IF( BUILD_TESTING )
        )
 
      LIST ( APPEND PMMG_LIB_TESTS_OPTIONS
-      "-met"
-      #"0"
-      #"1"
-      #"-met"
-      )
+       "-met"
+       #"0"
+       #"1"
+       #"-met"
+       )
+
+     LIST ( APPEND PMMG_LIB_TESTS_FIELDOPT
+       "-field"
+       #"0"
+       #"1"
+       #"-met"
+       )
   ENDIF ( )
 
   LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
@@ -323,13 +338,14 @@ IF( BUILD_TESTING )
     LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
     LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
     LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
+    LIST ( GET PMMG_LIB_TESTS_FIELDOPT   ${test_idx} field )
 
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
 
     FOREACH( NP 1 2 6 )
       ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
         $<TARGET_FILE:${test_name}>
-        ${input_mesh} ${output_mesh} ${options} ${input_met} )
+        ${input_mesh} ${output_mesh} ${options} ${input_met} ${field} ${input_sol})
     ENDFOREACH()
 
   ENDFOREACH ( )

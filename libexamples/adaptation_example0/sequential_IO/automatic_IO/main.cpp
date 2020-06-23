@@ -35,7 +35,7 @@ int main(int argc,char *argv[]) {
   if ( !rank ) fprintf(stdout,"  -- TEST PARMMGLIB \n");
 
   if ( (argc<3) && !rank ) {
-    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile] \n",argv[0]);
+    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-field solfile] \n",argv[0]);
     return 1;
   }
 
@@ -52,7 +52,7 @@ int main(int argc,char *argv[]) {
       ++i;
     }
 
-    else if ( tmp.compare("-solphys")==0 ) {
+    else if ( tmp.compare("-field")==0 ) {
       solname = argv[i+1];
       ++i;
     }
@@ -114,6 +114,12 @@ int main(int argc,char *argv[]) {
   /** With PMMG_loadAllSols_centralized function */
 
   if ( !solname.empty() ) {
+    /* Compute automatically output solution name from the output mesh path
+       and the input field name */
+    PMMG_Set_outputMeshName(parmesh,fileout.c_str());
+    PMMG_Set_inputSolsName(parmesh,solname.c_str());
+    PMMG_Set_outputSolsName(parmesh,NULL);
+
     if ( PMMG_loadAllSols_centralized(parmesh,solname.c_str()) != 1 ) {
       MPI_Finalize();
       exit(EXIT_FAILURE);
@@ -146,7 +152,7 @@ int main(int argc,char *argv[]) {
     /** 3) Automatically save the solutions if needed */
     PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
     if ( nsols ) {
-      if ( PMMG_saveAllSols_centralized(parmesh,fileout.c_str()) != 1 ) {
+      if ( PMMG_saveAllSols_centralized(parmesh,NULL) != 1 ) {
         fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
         ier = PMMG_LOWFAILURE;
       }

@@ -158,7 +158,6 @@ int main(int argc,char *argv[]) {
       the PMMG_Set* functions */
 
   /** With PMMG_loadAllSols_centralized function */
-
   if ( solname ) {
     if ( PMMG_loadAllSols_centralized(parmesh,filename) != 1 ) {
       MPI_Finalize();
