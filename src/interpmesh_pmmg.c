@@ -657,17 +657,20 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
         /** Interpolate point metrics */
-        if( ifoundVertex != PMMG_UNSET ) {
-          ier = PMMG_copyMetrics( mesh,met,oldMesh,oldMet,ip,
-                                  oldMesh->tria[ifoundTria].v[ifoundVertex] );
-        } else if( ifoundEdge != PMMG_UNSET ) {
-          ier = PMMG_interp2bar( mesh,met,oldMet,&oldMesh->tria[ifoundTria],
-                                 ip,ifoundEdge,barycoord );
-        } else {
-          ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
-                                barycoord);
+        if( ismet ) {
+          if( ifoundVertex != PMMG_UNSET ) {
+            ier = PMMG_copyMetrics( mesh,met,oldMesh,oldMet,ip,
+                                    oldMesh->tria[ifoundTria].v[ifoundVertex] );
+          } else if( ifoundEdge != PMMG_UNSET ) {
+            ier = PMMG_interp2bar( mesh,met,oldMet,&oldMesh->tria[ifoundTria],
+                                   ip,ifoundEdge,barycoord );
+          } else {
+            ier = PMMG_interp3bar(mesh,met,oldMet,&oldMesh->tria[ifoundTria],ip,
+                                  barycoord);
+          }
         }
 
+#warning Luca: make this part consistent with metrics interpolation
         /** Field interpolation */
         if ( mesh->nsols ) {
           for ( j=0; j<mesh->nsols; ++j ) {
@@ -703,8 +706,10 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
         /** Interpolate volume point metrics */
-        ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifoundTetra],ip,
-                              barycoord);
+        if( ismet ) {
+          ier = PMMG_interp4bar(mesh,met,oldMet,&oldMesh->tetra[ifoundTetra],ip,
+                                barycoord);
+        }
 
         /** Field interpolation */
         if ( mesh->nsols ) {
