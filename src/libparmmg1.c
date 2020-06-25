@@ -504,7 +504,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   }
 
   /* renumerotation if available */
-  mesh->npi = mesh->np;
+  assert ( mesh->npi==mesh->np );
   if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
   {
     PMMG_scotch_message(&warnScotch);
@@ -875,7 +875,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                                                available,oldMemMax);
 
         /* renumerotation if available */
-        mesh->npi = mesh->np;
+        assert ( mesh->npi==mesh->np );
         if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
         {
           PMMG_scotch_message(&warnScotch);
@@ -909,6 +909,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #else
         ier = MMG5_mmg3d1_delone( mesh, met, permNodGlob );
 #endif
+        mesh->npi = mesh->np;
+        mesh->nei = mesh->ne;
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
@@ -1032,7 +1034,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       /* Load balance using mesh groups graph */
       parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
-    ier = PMMG_loadBalancing(parmesh);
+      ier = PMMG_loadBalancing(parmesh);
 
       /* Repristinate user repartitioning mode */
       parmesh->info.repartitioning = repartitioning_mode;
