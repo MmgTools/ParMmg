@@ -352,12 +352,34 @@ IF( BUILD_TESTING )
   IF ( NOT ONLY_LIBRARY_TESTS )
 
     # Localization test
-    SET ( test_name  WaveSurface_locate )
     SET ( main_path  ${CI_DIR}/WaveSurface/locate.c )
     SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
 
+    SET ( test_name  WaveSurface_locate_saddle )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_saddle.mesh )
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> ${input_mesh} )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.375 0.375 0.51 217 )
+
+    SET ( test_name  WaveSurface_locate_concave )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_concave.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.76 5934 )
+
+    SET ( test_name  WaveSurface_locate_convex )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_convex.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 3888 )
+
+    SET ( test_name  WaveSurface_locate_exhaustive )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_exhaustive.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 2494 )
+
+    SET ( test_name  WaveSurface_locate_inexistent )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_inexistent.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.25 3888 )
+    SET_PROPERTY( TEST ${test_name} PROPERTY WILL_FAIL ON )
 
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
