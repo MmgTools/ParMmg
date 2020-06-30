@@ -506,16 +506,18 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   /* renumerotation if available */
   assert ( mesh->npi==mesh->np );
 
-  /* Print message at parmmg verbosity */
-  imprim = mesh->info.imprim;
-  mesh->info.imprim = parmesh->info.imprim;
+  if ( permNodGlob ) {
 
-  if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
-  {
-    PMMG_scotch_message(&warnScotch);
+    /* Print message at parmmg verbosity */
+    imprim = mesh->info.imprim;
+    mesh->info.imprim = parmesh->info.imprim;
+
+    if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+    {
+      PMMG_scotch_message(&warnScotch);
+    }
+    mesh->info.imprim = imprim;
   }
-  mesh->info.imprim = imprim;
-
 
   /** Update interface tetra indices in the face communicator */
   if ( ! PMMG_update_face2intInterfaceTetra(parmesh,igrp,facesData,permNodGlob) ) {
@@ -879,6 +881,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           for ( k=1; k<=mesh->np; ++k ) {
             permNodGlob[k] = k;
           }
+          for ( k=1; k<=mesh->npi; ++k ) {
+            assert  ( permNodGlob[k] >0 );
+          }
+
         }
 
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
@@ -886,9 +892,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         /* renumerotation if available */
         assert ( mesh->npi==mesh->np );
-        if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
-        {
-          PMMG_scotch_message(&warnScotch);
+        if ( permNodGlob ) {
+          if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+          {
+            PMMG_scotch_message(&warnScotch);
+          }
         }
 #else
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
