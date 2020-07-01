@@ -467,14 +467,15 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
  */
 int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,field;
   int        *facesData;
   int        k,imprim;
   size_t     available,oldMemMax;
   int8_t     warnScotch;
 
-  mesh = parmesh->listgrp[igrp].mesh;
-  met  = parmesh->listgrp[igrp].met;
+  mesh  = parmesh->listgrp[igrp].mesh;
+  met   = parmesh->listgrp[igrp].met;
+  field = parmesh->listgrp[igrp].field;
 
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
@@ -512,7 +513,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
     imprim = mesh->info.imprim;
     mesh->info.imprim = parmesh->info.imprim;
 
-    if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+    if ( !MMG5_scotchCall(mesh,met,field,permNodGlob) )
     {
       PMMG_scotch_message(&warnScotch);
     }
@@ -890,10 +891,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
                                                available,oldMemMax);
 
-        /* renumerotation if available */
+        /* renumerotation if available: no need to renum the field here (they
+         * will be interpolated) */
         assert ( mesh->npi==mesh->np );
         if ( permNodGlob ) {
-          if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
+          if ( !MMG5_scotchCall(mesh,met,NULL,permNodGlob) )
           {
             PMMG_scotch_message(&warnScotch);
           }
