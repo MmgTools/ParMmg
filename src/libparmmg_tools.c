@@ -599,7 +599,7 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int
       nitem = ext_comm->nitem;
       fprintf(fid,"%d %d\n",color,nitem);
     }
-    fprintf(fid,"\nParallelTriangles\n");
+    fprintf(fid,"\nParallelCommunicatorTriangles\n");
     for( icomm = 0; icomm < ncomm; icomm++ ) {
       ext_comm = &parmesh->ext_face_comm[icomm];
       color = ext_comm->color_out;
@@ -620,7 +620,7 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int
       nitem = ext_comm->nitem;
       fprintf(fid,"%d %d\n",color,nitem);
     }
-    fprintf(fid,"\nParallelVertices\n");
+    fprintf(fid,"\nParallelCommunicatorVertices\n");
     for( icomm = 0; icomm < ncomm; icomm++ ) {
       ext_comm = &parmesh->ext_node_comm[icomm];
       color = ext_comm->color_out;

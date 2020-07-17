@@ -39,7 +39,7 @@ ParallelVertexCommunicators
 2 3
 3 4
 
-ParallelVertices
+ParallelCommunicatorVertices
 1 2 0
 2 6 0
 4 8 0
