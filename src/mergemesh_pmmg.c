@@ -1059,6 +1059,8 @@ fail_comms:
 
 fail_ncomm:
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node communicator");
+  parmesh->listgrp[0].mesh->npi = parmesh->listgrp[0].mesh->np;
+  parmesh->listgrp[0].mesh->nei = parmesh->listgrp[0].mesh->ne;
 
   return 0;
 }

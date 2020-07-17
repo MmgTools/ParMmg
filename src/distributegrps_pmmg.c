@@ -449,6 +449,9 @@ int PMMG_merge_grpJinI(PMMG_pParMesh parmesh,PMMG_pGrp grpI, PMMG_pGrp grpJ) {
   /** Step 4: Merge internal tetras of the grpJ mesh mesh into the meshI mesh */
   if ( !PMMG_mergeGrpJinI_internalTetra(grpI,grpJ) ) return 0;
 
+  grpI->mesh->npi = grpI->mesh->np;
+  grpI->mesh->nei = grpI->mesh->ne;
+
   return 1;
 }
 

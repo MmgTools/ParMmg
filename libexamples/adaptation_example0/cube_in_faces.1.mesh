@@ -39,7 +39,7 @@ ParallelTriangleCommunicators
 2 1
 3 2
 
-ParallelTriangles
+ParallelCommunicatorTriangles
 5 23 0
 8 27 1
 6 25 2
