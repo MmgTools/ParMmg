@@ -1732,7 +1732,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   idx_t ngrp = 1;
   idx_t *part = NULL;
   int grpIdOld;
-  int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs],noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
   if ( !parmesh->ngrp ) goto end;
@@ -1784,20 +1783,19 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   }
 
   /* Print split info */
-  MPI_CHECK( MPI_Gather(&ngrp,1,MPI_INT,
-                        ngrps_all,1,MPI_INT,0,parmesh->comm),
-             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-  MPI_CHECK( MPI_Gather(&meshOld->ne,1,MPI_INT,
-                        ne_all,1,MPI_INT,0,parmesh->comm),
-             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-  MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
-
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     int i;
+    int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
+
+    spltinfo[0] = ngrp;
+    spltinfo[1] = meshOld->ne;
+
+    MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
+               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+
     for( i=0; i<parmesh->nprocs; i++ ) {
       fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
-              i,ne_all[i],ngrps_all[i]);
+              i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
     }
   }
 
@@ -1846,6 +1844,11 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
         (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
+
+    int noldgrps_all[parmesh->nprocs];
+    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                             parmesh->comm), return 0 );
+
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
@@ -1853,7 +1856,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
       goto fail_part;
-    } 
+    }
   }
   else {
     if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
@@ -1863,7 +1866,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       ret_val = 0;
       goto fail_part;
     }
-    
+
     /* If this is the first split of the input mesh, and interface displacement
      * will be performed, check that the groups are contiguous. */
     if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
