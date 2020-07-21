@@ -543,6 +543,60 @@ int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas ) {
 }
 
 /**
+ * \param parmesh pointer to the parmesh structure.
+ * \param mesh pointer to the current mesh structure.
+ * \param nodeTrias double pointer to the node triangles graph.
+ *
+ * \return 1.
+ *
+ *  Precompute node triangles graph.
+ *
+ */
+int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeTrias ) {
+  MMG5_pTria  ptr;
+  MMG5_pPoint ppt;
+  int         ip,k,iloc;
+  int         nt;
+
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->tmp = 0;
+    ppt->flag = 0;
+  }
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      mesh->point[ptr->v[iloc]].tmp++;
+    }
+  }
+
+  /* Sum */
+  for( ip = 2; ip <= mesh->np; ip++ )
+    mesh->point[ip].tmp += mesh->point[ip-1].tmp;
+  nt = mesh->point[mesh->np].tmp;
+
+  /* Shift */
+  for( ip = mesh->np; ip > 1; ip-- )
+    mesh->point[ip].tmp = mesh->point[ip-1].tmp;
+  mesh->point[1].tmp = 0;
+
+  /* Allocate and fill */
+  PMMG_MALLOC( parmesh,*nodeTrias,nt,int,"nodeTrias",return 0 );
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      ip = ptr->v[iloc];
+      ppt = &mesh->point[ip];
+      (*nodeTrias)[ppt->tmp+ppt->flag++] = k;
+    }
+  }
+
+  return 1;
+}
+
+/**
  * \param mesh pointer to the current mesh structure.
  * \param oldMesh pointer to the background mesh structure.
  * \param met pointer to the current metrics structure.
@@ -764,6 +818,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   PMMG_locateStats *locStats;
   size_t           memAv,oldMemMax;
   double           *faceAreas,*triaNormals;
+  int              *nodeTrias;
   int              igrp,ier;
   int8_t           allocated;
 
@@ -790,6 +845,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if ( mesh->nsols || (( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) ) {
       PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",return 0 );
       PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",return 0 );
+      PMMG_precompute_nodeTrias( parmesh,mesh,&nodeTrias );
       allocated = 1;
     }
 
@@ -802,6 +858,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if( allocated ) {
       PMMG_DEL_MEM(parmesh,faceAreas,double,"faceAreas");
       PMMG_DEL_MEM(parmesh,triaNormals,double,"triaNormals");
+      PMMG_DEL_MEM(parmesh,nodeTrias,int,"nodeTrias");
     }
 
   }
