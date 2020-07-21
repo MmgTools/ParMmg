@@ -57,6 +57,125 @@ int PMMG_intersect_boundingBox( double *minNew, double *maxNew,
 }
 
 /**
+ * \param mesh pointer to the current mesh structure.
+ * \param triaNormals pointer to the array of non-normalized triangle normals.
+ *
+ * \return 1.
+ *
+ *  Precompute non-normalized triangle normals.
+ *
+ */
+int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals ) {
+  MMG5_pTria  ptr;
+  double      *normal,dd;
+  int         k,ia,ib,ic;
+  int         ier;
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    ia = ptr->v[0];
+    ib = ptr->v[1];
+    ic = ptr->v[2];
+    normal = &triaNormals[3*k];
+    /* Store triangle unit normal and volume */
+    ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
+    ptr->qual = sqrt(normal[0]*normal[0]+normal[1]*normal[1]+normal[2]*normal[2]);
+    dd = 1.0/ptr->qual;
+    normal[0] *= dd;
+    normal[1] *= dd;
+    normal[2] *= dd;
+  }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer to the current mesh structure.
+ * \param faceAreas pointer to the array of oriented face areas.
+ *
+ * \return 1.
+ *
+ *  Precompute oriented face areas on tetrahedra.
+ *
+ */
+int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas ) {
+  MMG5_pTetra pt;
+  double      *normal;
+  int         ie,ifac,ia,ib,ic;
+  int         ier;
+
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    /* Store tetra volume in the qual field */
+    pt->qual = MMG5_orvol( mesh->point, pt->v );
+    /* Store oriented face normals */
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      normal = &faceAreas[12*ie+3*ifac];
+      ia = pt->v[MMG5_idir[ifac][0]];
+      ib = pt->v[MMG5_idir[ifac][1]];
+      ic = pt->v[MMG5_idir[ifac][2]];
+      ier = MMG5_nonUnitNorPts( mesh,ia,ib,ic,normal );
+    }
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to the parmesh structure.
+ * \param mesh pointer to the current mesh structure.
+ * \param nodeTrias double pointer to the node triangles graph.
+ *
+ * \return 1.
+ *
+ *  Precompute node triangles graph on the surface.
+ *
+ */
+int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeTrias ) {
+  MMG5_pTria  ptr;
+  MMG5_pPoint ppt;
+  int         ip,k,iloc;
+  int         nt;
+
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->tmp = 0;
+    ppt->flag = 0;
+  }
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      mesh->point[ptr->v[iloc]].tmp++;
+    }
+  }
+
+  /* Sum */
+  for( ip = 2; ip <= mesh->np; ip++ )
+    mesh->point[ip].tmp += mesh->point[ip-1].tmp;
+  nt = mesh->point[mesh->np].tmp;
+
+  /* Shift */
+  for( ip = mesh->np; ip > 1; ip-- )
+    mesh->point[ip].tmp = mesh->point[ip-1].tmp;
+  mesh->point[1].tmp = 0;
+
+  /* Allocate and fill */
+  PMMG_MALLOC( parmesh,*nodeTrias,nt,int,"nodeTrias",return 0 );
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      ip = ptr->v[iloc];
+      ppt = &mesh->point[ip];
+      (*nodeTrias)[ppt->tmp+ppt->flag++] = k;
+    }
+  }
+
+  return 1;
+}
+
+/**
  * \param mesh pointer to the background mesh structure
  * \param iel index of the background triangle
  * \param iloc local index of the cone point in the background triangle

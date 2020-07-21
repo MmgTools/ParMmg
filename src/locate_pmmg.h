@@ -49,7 +49,9 @@ typedef struct {
   double stepav;   /*!< average number of steps on the search paths */
 } PMMG_locateStats;
 
-
+int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals );
+int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas );
+int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeTrias );
 int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
                             double *triaNormal,PMMG_barycoord *barycoord,
                             double *h,double *closestDist,int *closestTria );
