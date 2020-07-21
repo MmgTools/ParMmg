@@ -180,6 +180,7 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
   idx += sizeof(int); // renum
   idx += sizeof(int); // PROctree
   idx += sizeof(int); // nmat
+  idx += sizeof(int); // nsd
 
   idx += sizeof(char); // nreg
   idx += sizeof(char); // imprim
@@ -744,6 +745,7 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
   *( (int *) tmp) = info->PROctree;  tmp += sizeof(int);
   *( (int *) tmp) = info->npar;      tmp += sizeof(int);
   *( (int *) tmp) = info->nmat;      tmp += sizeof(int);
+  *( (int *) tmp) = info->nsd;       tmp += sizeof(int);
 
   *( (char *) tmp) = info->nreg;     tmp += sizeof(char);
   *( (char *) tmp) = info->imprim;   tmp += sizeof(char);
