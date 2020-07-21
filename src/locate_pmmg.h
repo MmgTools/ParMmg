@@ -59,7 +59,7 @@ int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,int k,MMG5_pPoint pp
                              double *faceAreas,PMMG_barycoord *barycoord,
                              double *closestDist,int *closestTet);
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
-                         double *triaNormals,PMMG_barycoord *barycoord,
+                         double *triaNormals,int *nodeTrias,PMMG_barycoord *barycoord,
                          int *iTria,int *foundWedge,int *foundCone );
 int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *faceAreas,PMMG_barycoord *barycoord,

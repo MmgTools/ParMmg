@@ -510,7 +510,7 @@ static
 int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                       MMG5_pSol met,MMG5_pSol oldMet,
                                       MMG5_pSol field,MMG5_pSol oldField,
-                                      double *faceAreas,double *triaNormals,
+                                      double *faceAreas,double *triaNormals,int *nodeTrias,
                                       int *permNodGlob,unsigned char inputMet,
                                       int myrank,int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
@@ -586,7 +586,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 #endif
         /** Locate point in the old mesh */
         ier = PMMG_locatePointBdy( oldMesh, ppt,
-                                   triaNormals, barycoord,
+                                   triaNormals, nodeTrias, barycoord,
                                    &ifoundTria,&ifoundEdge, &ifoundVertex );
 
         PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
@@ -731,7 +731,8 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     }
 
     if( !PMMG_interpMetricsAndFields_mesh( mesh,oldMesh,met,oldMet,
-                                           field,oldField,faceAreas,triaNormals,
+                                           field,oldField,
+                                           faceAreas,triaNormals,nodeTrias,
                                            permNodGlob,parmesh->info.inputMet,
                                            parmesh->myrank,igrp,&locStats[igrp] ) ) ier = 0;
 

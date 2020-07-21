@@ -187,11 +187,12 @@ int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeT
  *  Locate a point in the shadow cone of a background point.
  *
  */
-int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
-                            int *list ) {
+int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
+                            MMG5_pPoint ppt ) {
+  MMG5_pTria     ptr;
   MMG5_pPoint    ppt0,ppt1;
   double         p[3],a[3],dist2,norm2,alpha;
-  int            ilist,lon,jp,d,found;
+  int            *myTrias,nt,ip,jp,k,jloc,d;
 
   ppt0 = &mesh->point[mesh->tria[iel].v[iloc]];
 
@@ -203,35 +204,36 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int iel,int iloc,MMG5_pPoint ppt,
   dist2 = 0.0;
   for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
 
-  /* Get neighbour nodes */
-  lon = MMG5_boulep(mesh,iel,iloc,mesh->adjt,list);
-
-  /* Initialize as if the target is found in the cone */
-  found = 1;
-
-  /* Scan the list of neighbours */
-  for( ilist = 1; ilist <= lon; ilist++ ){
-    jp = list[ilist];
-    ppt1 = &mesh->point[jp];
-    /* Edge vector */
-    for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
-    norm2 = 0.0;
-    for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
-    /* Rough check on maximum distance */
-    if( dist2 >= norm2 ) {
-      found = 0;
-      break;
-    }
-    /* Scalar product of the target vector with the edge vector */
-    alpha = 0.0;
-    for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
-    if( alpha > 0.0 ) {
-      found = 0;
-      break;
+  /* Scan the neighbours */
+  ip = mesh->tria[iel].v[iloc];
+  nt = mesh->point[ip+1].tmp;
+  myTrias = &nodeTrias[mesh->point[ip].tmp];
+  for( k = 0; k < nt; k++ ){
+    ptr = &mesh->tria[myTrias[k]];
+    for( jloc = 0; jloc < 3; jloc++ ) {
+      jp = ptr->v[jloc];
+      ppt1 = &mesh->point[jp];
+      if( ppt1->flag == ip ) continue;
+      ppt1->flag = ip;
+      /* Edge vector */
+      for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
+      norm2 = 0.0;
+      for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
+      /* Rough check on maximum distance */
+      if( dist2 >= norm2 ) {
+        return 0;
+      }
+      /* Scalar product of the target vector with the edge vector */
+      alpha = 0.0;
+      for( d = 0; d < 3; d++ ) alpha += a[d]*p[d];
+      if( alpha > 0.0 ) {
+        return 0;
+      }
     }
   }
 
-  return found;
+  /* Found if all the neighbours have been scanned */
+  return 1;
 }
 
 /**
@@ -525,11 +527,11 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
  *
  */
 int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
-                         double *triaNormals,PMMG_barycoord *barycoord,
+                         double *triaNormals,int *nodeTrias,PMMG_barycoord *barycoord,
                          int *iTria,int *ifoundEdge,int *ifoundVertex ) {
   MMG5_pTria     ptr,ptr1;
   int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
-  int            list[MMG5_LMAX],iloc;
+  int            iloc;
   double         vol,eps,h,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
   int            ier;
@@ -586,11 +588,14 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
           ppt->s = step;
           *iTria = k;
           return 1;
-        } else if( PMMG_locatePointInCone( mesh,kprev,iloc,ppt,list ) ) {
-          *ifoundVertex = iloc;
-          ppt->s = step;
-          *iTria = k;
-          return 1;
+        } else {
+          ier = PMMG_locatePointInCone( mesh,nodeTrias,kprev,iloc,ppt );
+          if( ier ) {
+            *ifoundVertex = iloc;
+            ppt->s = step;
+            *iTria = k;
+            return 1;
+          }
         }
         continue;
       }
