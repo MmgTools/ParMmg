@@ -726,7 +726,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
     if ( mesh->nsols || (( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) ) {
       PMMG_MALLOC( parmesh,faceAreas,12*(oldMesh->ne+1),double,"faceAreas",return 0 );
       PMMG_MALLOC( parmesh,triaNormals,3*(oldMesh->nt+1),double,"triaNormals",return 0 );
-      PMMG_precompute_nodeTrias( parmesh,mesh,&nodeTrias );
+      PMMG_precompute_nodeTrias( parmesh,oldMesh,&nodeTrias );
       allocated = 1;
     }
 
