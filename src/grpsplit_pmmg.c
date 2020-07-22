@@ -1732,6 +1732,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   idx_t ngrp = 1;
   idx_t *part = NULL;
   int grpIdOld;
+  int noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
   if ( !parmesh->ngrp ) goto end;
@@ -1781,6 +1782,11 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       }
     }
   }
+
+  /* Share old number of groups with all procs: must be done here to ensure that
+   * each proc call the collective comm */
+  MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
+                           parmesh->comm), return 0 );
 
   /* Print split info */
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
@@ -1844,10 +1850,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
         (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
-
-    int noldgrps_all[parmesh->nprocs];
-    MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
 
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
