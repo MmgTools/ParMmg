@@ -63,7 +63,7 @@ int main( int argc, char *argv[] )
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
   int           rank;
-  int           ier,iresult,ierSave,fmtin;
+  int           ier,iermesh,iresult,ierSave,fmtin;
   int8_t        tim;
   char          stim[32],*ptr;
 
@@ -153,7 +153,12 @@ int main( int argc, char *argv[] )
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
 
-    if ( 1 != PMMG_loadMesh_centralized(parmesh,parmesh->meshin) ) {
+    iermesh = PMMG_loadMesh_centralized(parmesh,parmesh->meshin);
+    if ( 1 != iermesh && rank == parmesh->info.root ) {
+      if ( iermesh==0 ) {
+        fprintf(stderr,"  ** %s  NOT FOUND.\n",parmesh->meshin);
+        fprintf(stderr,"  ** UNABLE TO OPEN INPUT FILE.\n");
+      }
       ier = 0;
       goto check_mesh_loading;
     }
