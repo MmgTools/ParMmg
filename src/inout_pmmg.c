@@ -397,13 +397,7 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
   ier = MMG3D_loadMesh(mesh,filename);
-  if( ier < 1 ) {
-    if ( ier==0 ) {
-      fprintf(stderr,"  ** %s  NOT FOUND.\n",filename);
-      fprintf(stderr,"  ** UNABLE TO OPEN INPUT FILE.\n");
-    }
-    return ier;
-  }
+  if( ier < 1 ) return ier;
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -411,10 +405,7 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   /* Load parallel communicators */
   ier = PMMG_loadCommunicators( parmesh,filename );
 
-  if ( 1 != ier ) {
-    fprintf(stderr,"  ** UNABLE TO LOAD COMMUNICATORS.\n");
-    return 0;
-  }
+  if ( 1 != ier ) return 0;
 
   return 1;
 }
@@ -443,13 +434,7 @@ int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
 
-  if ( 1 != ier ) {
-    if ( ier==0 ) {
-      fprintf(stderr,"  ** %s  NOT FOUND.\n",filename);
-      fprintf(stderr,"  ** UNABLE TO OPEN INPUT FILE.\n");
-    }
-    return 0;
-  }
+  if ( 1 != ier ) return 0;
 
   return 1;
 }
@@ -479,9 +464,6 @@ int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
-  if ( ier < 1 ) {
-    fprintf(stdout,"  ## ERROR: UNABLE TO LOAD METRIC.\n");
-  }
 
   return ier;
 }
@@ -508,9 +490,6 @@ int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
   ier = MMG3D_loadSol(mesh,ls,filename);
-  if ( ier < 1 ) {
-    fprintf(stdout,"  ## ERROR: UNABLE TO LOAD LEVEL SET.\n");
-  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -540,9 +519,6 @@ int PMMG_loadDisp_centralized(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
   ier = MMG3D_loadSol(mesh,disp,filename);
-  if ( ier < 1 ) {
-    fprintf(stdout,"  ## ERROR: UNABLE TO LOAD DISPLACEMENT.\n");
-  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -591,9 +567,6 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
   ier = MMG3D_loadSol(mesh,sol,namein);
-  if ( ier < 1 ) {
-    fprintf(stdout,"  ## ERROR: UNABLE TO LOAD SOLUTION.\n");
-  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -623,9 +596,6 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
   ier = MMG3D_loadAllSols(mesh,sol,filename);
-  if ( ier < 1 ) {
-    fprintf(stdout,"  ## ERROR: UNABLE TO LOAD SOLUTION FIELDS.\n");
-  }
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
