@@ -1706,6 +1706,23 @@ fail_counters:
 }
 
 /**
+ * \param parmesh pointer toward the parmesh
+ * \param ier error value to return
+ * \return \a ier
+ *
+ * Check communicator consistency.
+ *
+ */
+static inline
+int PMMG_check_allComm(PMMG_pParMesh parmesh,int ier) {
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
+  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+  return ier;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
@@ -1735,7 +1752,10 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   int noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
-  if ( !parmesh->ngrp ) goto end;
+  if ( !parmesh->ngrp ) {
+    /* Check the communicators and return failure */
+    return PMMG_check_allComm(parmesh,ret_val);
+  }
 
   /* We are splitting group 0 */
   grpIdOld = 0;
@@ -1744,7 +1764,10 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
 
-  if ( !meshOld ) goto end;
+  if ( !meshOld ) {
+    /* Check the communicators and return failure */
+    return PMMG_check_allComm(parmesh,ret_val);
+  }
 
   /* Count how many groups to split into */
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
@@ -1789,16 +1812,16 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                            parmesh->comm), return 0 );
 
   /* Print split info */
-  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
-    int i;
-    int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
-
+  int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
+  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL ) {
     spltinfo[0] = ngrp;
     spltinfo[1] = meshOld->ne;
 
     MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
                PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-
+  }
+  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+    int i;
     for( i=0; i<parmesh->nprocs; i++ ) {
       fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
               i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
@@ -1807,12 +1830,12 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
-    if ( parmesh->ddebug )
+    if ( parmesh->ddebug ) {
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
-    goto end;
-
+    }
+    return PMMG_check_allComm(parmesh,ret_val);
   } else {
     if ( parmesh->ddebug )
       fprintf( stdout,
@@ -1882,7 +1905,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
 
-end:
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
