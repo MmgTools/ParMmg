@@ -934,7 +934,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
-    }
+        }
 
         /* Realloc the solution fields at the same size than other structures */
         if ( mesh->nsols ) {
@@ -1045,20 +1045,22 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    if( (parmesh->iter == parmesh->niter-1) && !parmesh->info.nobalancing ) {
-      /** Load balancing of the output mesh */
+    if ( parmesh->iter == parmesh->niter-1 ) {
 
-      /* Store user repartitioning mode */
-      int repartitioning_mode;
-      repartitioning_mode = parmesh->info.repartitioning;
+      if ( !parmesh->info.nobalancing ) {
+        /** Load balancing of the output mesh */
 
-      /* Load balance using mesh groups graph */
-      parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
-      ier = PMMG_loadBalancing(parmesh);
+        /* Store user repartitioning mode */
+        int repartitioning_mode;
+        repartitioning_mode = parmesh->info.repartitioning;
 
-      /* Repristinate user repartitioning mode */
-      parmesh->info.repartitioning = repartitioning_mode;
+        /* Load balance using mesh groups graph */
+        parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+        ier = PMMG_loadBalancing(parmesh);
 
+        /* Repristinate user repartitioning mode */
+        parmesh->info.repartitioning = repartitioning_mode;
+      }
     } else {
       /** Standard parallel mesh repartitioning */
       ier = PMMG_loadBalancing(parmesh);
