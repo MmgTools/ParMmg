@@ -75,15 +75,19 @@ int PMMG_invmat22( double *m, double *im ) {
  */
 int PMMG_interp2bar_iso( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                          MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord ) {
-  double alpha;
+  int i0,i1;
+  double phi[3];
 
   assert( met->size == 1 );
 
-  alpha = barycoord[l].val;
+  PMMG_barycoord_get( phi, barycoord, 3 );
+
+  i0 = MMG5_inxt2[l];
+  i1 = MMG5_iprv2[l];
 
   /** Linear interpolation of the squared size */
-  met->m[ip] =      alpha *oldMet->m[ptr->v[MMG5_inxt2[l]]] +
-               (1.0-alpha)*oldMet->m[ptr->v[MMG5_iprv2[l]]];
+  met->m[ip] = phi[i0]*oldMet->m[ptr->v[i0]] +
+               phi[i1]*oldMet->m[ptr->v[i1]];
 
   return 1;
 }
@@ -112,6 +116,7 @@ int PMMG_interp2bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   nsize  = met->size;
 
   alpha = barycoord[l].val;
+  assert( (alpha > 0.0) && (alpha < 1.0) );
 
   for( i=0; i<2; i++ ) {
     for(isize = 0; isize < nsize; isize++ )

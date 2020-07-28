@@ -294,7 +294,10 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
 
   /* Store inner product in the barycentric coordinate of the edge (forget
    * reordering) */
-  barycoord->val = alpha/norm2;
+  for( d = 0; d < 3; d++ ) barycoord[d].idx = d;
+  barycoord[l].val  = 0.0;
+  barycoord[i0].val = 1.0-alpha/norm2;
+  barycoord[i1].val = alpha/norm2;
 
   return 4;
 }
