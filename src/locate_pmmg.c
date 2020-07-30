@@ -191,7 +191,7 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
                             MMG5_pPoint ppt ) {
   MMG5_pTria     ptr;
   MMG5_pPoint    ppt0,ppt1;
-  double         p[3],a[3],dist2,norm2,alpha;
+  double         p[3],a[3],dist,alpha;
   int            *myTrias,nt,ip,jp,k,jloc,d;
 
   ppt0 = &mesh->point[mesh->tria[iel].v[iloc]];
@@ -201,8 +201,9 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
 
   /* Target point vector */
   for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
-  dist2 = 0.0;
-  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
+  dist = 0.0;
+  for( d = 0; d < 3; d++ ) dist += p[d]*p[d];
+  dist = sqrt(dist);
 
   /* Scan the neighbours */
   ip = mesh->tria[iel].v[iloc];
@@ -217,10 +218,8 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
       ppt1->flag = ip;
       /* Edge vector */
       for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
-      norm2 = 0.0;
-      for( d = 0; d < 3; d++ ) norm2 += a[d]*a[d];
       /* Rough check on maximum distance */
-      if( dist2 >= norm2 ) {
+      if( dist > mesh->info.hausd ) {
         return 0;
       }
       /* Scalar product of the target vector with the edge vector */
@@ -253,7 +252,7 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
 int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,PMMG_barycoord *barycoord ) {
   MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
-  double      a[3],p[3],norm2,dist2,alpha;
+  double      a[3],p[3],norm2,dist,alpha;
   int         i0,i1,d;
 
   /* Check nodal sides */
@@ -264,8 +263,6 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
 
   /* Target point vector */
   for( d = 0; d < 3; d++ ) p[d] = ppt->c[d]-ppt0->c[d];
-  dist2 = 0.0;
-  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
 
   /* Edge vector and norm */
   for( d = 0; d < 3; d++ ) a[d] = ppt1->c[d]-ppt0->c[d];
@@ -279,9 +276,10 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
   for( d = 0; d < 3; d++ ) p[d] -= (alpha/norm2)*a[d];
 
   /* Rough check on maximum distance */
-  dist2 = 0.0;
-  for( d = 0; d < 3; d++ ) dist2 += p[d]*p[d];
-  if( dist2 >= norm2 ) return PMMG_UNSET;
+  dist = 0.0;
+  for( d = 0; d < 3; d++ ) dist += p[d]*p[d];
+  dist = sqrt(dist);
+  if( dist > mesh->info.hausd ) return PMMG_UNSET;
 
   /* Check scalar product */
   if( alpha < 0.0 ) {
@@ -300,6 +298,38 @@ int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPo
   barycoord[i1].val = alpha/norm2;
 
   return 4;
+}
+
+/**
+ * \param mesh pointer to the background mesh structure
+ * \param ptr pointer to the triangle to analyze
+ * \param ppt pointer to the point to locate
+ * \param triaNormal unit normal of the current triangle
+ *
+ * \return 0 if too far, 1 otherwise.
+ *
+ *  Check point orthogonal distance from triangle.
+ *
+ */
+int PMMG_locateChkDistTria( MMG5_pMesh mesh,MMG5_pTria ptr,MMG5_pPoint ppt,
+                            double *triaNormal ) {
+  MMG5_pPoint ppt0;
+  double      norm,dist[3];
+  int         d;
+
+  /* Orthogonal distance */
+  ppt0 = &mesh->point[ptr->v[0]];
+  for( d = 0; d < 3; d++ )
+    dist[d] = ppt->c[d]-ppt0->c[d];
+
+  norm = 0.0;
+  for( d = 0; d < 3; d++ )
+    norm += dist[d]*triaNormal[d];
+  norm = fabs(norm);
+
+  if( norm > mesh->info.hausd ) return 0;
+
+  return 1;
 }
 
 /**
@@ -332,7 +362,7 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
 
   /* Evaluate point in tetra through barycentric coordinates */
   found = PMMG_barycoord2d_evaluate( mesh,ptr,k,ppt->c,triaNormal,barycoord );
-
+  if( !found) return 0;
 
   /* Distance from center of mass */
   for( d = 0; d < 3; d++ )
@@ -354,19 +384,8 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
   }
   assert(*closestTria);
 
-  /* Rough check on the distance from the surface against the maximum edge
-   * length (avoid being on the opposite pole) */
-  hmax = 0.0;
-  for( j = 0; j < 3; j++ ) {
-    ppt0 = &mesh->point[ptr->v[j]];
-    ppt1 = &mesh->point[ptr->v[MMG5_inxt2[j]]];
-    a = 0.0;
-    for( d = 0; d < 3; d++ )
-      a += (ppt0->c[d]-ppt1->c[d])*(ppt0->c[d]-ppt1->c[d]);
-    a = sqrt(a);
-    if( a > hmax ) hmax = a;
-  }
-  if( norm > hmax ) return 0;
+  /* Rough check on the distance from the surface */
+  if( !PMMG_locateChkDistTria( mesh,ptr,ppt,triaNormal ) ) return 0;
 
   return found;
 }
