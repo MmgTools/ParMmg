@@ -471,8 +471,13 @@ int PMMG_locatePoint_exhaustTria( MMG5_pMesh mesh,MMG5_pPoint ppt,
     return 1;
   } else {
     *iTria = *closestTria;
-    /* Recompute barycentric coordinates to the closest point */
-    PMMG_barycoord2d_getClosest( mesh,*iTria,ppt,barycoord );
+    /* Recompute barycentric coordinates */
+    if( !PMMG_locatePointInTria( mesh, ptr, *iTria, ppt,
+                                 &triaNormals[3*(*iTria)], barycoord,
+                                 &h, closestDist, closestTria ) ) {
+      /* Recompute barycentric coordinates to the closest point */
+      PMMG_barycoord2d_getClosest( mesh,*iTria,ppt,barycoord );
+    }
     return 0;
   }
 }
