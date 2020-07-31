@@ -259,6 +259,9 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
         return 0;
       }
     }
+#ifndef NDEBUG
+    assert(found);
+#endif
   }
 
   /* Found if all the neighbours have been scanned */
