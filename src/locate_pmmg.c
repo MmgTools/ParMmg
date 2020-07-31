@@ -135,40 +135,58 @@ int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeT
   MMG5_pTria  ptr;
   MMG5_pPoint ppt;
   int         ip,k,iloc;
-  int         nt;
+  int         np,offset;
 
+  /* Use flag to count triangles for each point, tmp to store the offset in the
+   * graph */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->tmp = 0;
     ppt->flag = 0;
   }
 
+  /* Count boundary points and triangles for each point */
+  np = 0;
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
     for( iloc = 0; iloc < 3; iloc++ ) {
-      mesh->point[ptr->v[iloc]].tmp++;
+      ppt = &mesh->point[ptr->v[iloc]];
+      /* Count point */
+      if( !ppt->flag ) np++;
+      /* Count triangle on node */
+      ppt->flag++;
     }
   }
 
-  /* Sum */
+  /* Allocate */
+  PMMG_MALLOC( parmesh,*nodeTrias,np+3*mesh->nt,int,"nodeTrias",return 0 );
+
   for( ip = 2; ip <= mesh->np; ip++ )
-    mesh->point[ip].tmp += mesh->point[ip-1].tmp;
-  nt = mesh->point[mesh->np].tmp;
+    mesh->point[ip].tmp = mesh->point[ip-1].flag ? mesh->point[ip-1].tmp+mesh->point[ip-1].flag+1 : mesh->point[ip-1].tmp;
 
-  /* Shift */
-  for( ip = mesh->np; ip > 1; ip-- )
-    mesh->point[ip].tmp = mesh->point[ip-1].tmp;
-  mesh->point[1].tmp = 0;
+#ifndef NDEBUG
+  int sum;
+  sum = 0;
+  for( ip = 1; ip <= mesh->np; ip++ ) sum += mesh->point[ip].flag;
+  assert( sum == 3*mesh->nt );
+  for( ip = 1; ip <= mesh->np; ip++ ) assert( mesh->point[ip].tmp < np+3*mesh->nt );
+#endif
 
-  /* Allocate and fill */
-  PMMG_MALLOC( parmesh,*nodeTrias,nt,int,"nodeTrias",return 0 );
+  /* Store nb. of triangles */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( !ppt->flag ) continue;
+    (*nodeTrias)[ppt->tmp] = ppt->flag;
+    ppt->flag = 0;
+  }
 
+  /* Store triangles */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
     for( iloc = 0; iloc < 3; iloc++ ) {
       ip = ptr->v[iloc];
       ppt = &mesh->point[ip];
-      (*nodeTrias)[ppt->tmp+ppt->flag++] = k;
+      (*nodeTrias)[ppt->tmp+1+ppt->flag++] = k;
     }
   }
 
@@ -207,10 +225,10 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
 
   /* Scan the neighbours */
   ip = mesh->tria[iel].v[iloc];
-  nt = mesh->point[ip+1].tmp;
   myTrias = &nodeTrias[mesh->point[ip].tmp];
+  nt = myTrias[0];
   for( k = 0; k < nt; k++ ){
-    ptr = &mesh->tria[myTrias[k]];
+    ptr = &mesh->tria[myTrias[k+1]];
     for( jloc = 0; jloc < 3; jloc++ ) {
       jp = ptr->v[jloc];
       ppt1 = &mesh->point[jp];
