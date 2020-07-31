@@ -15,7 +15,7 @@ IF( BUILD_TESTING )
         WORKING_DIRECTORY ${PARENT_DIR}
         )
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} checkout fa62844fcf4ac9490d425b8793d43b551b01946e
+        COMMAND ${GIT_EXECUTABLE} checkout 2182d86771506d99971226a4ae2a9eab137e127f
         WORKING_DIRECTORY ${CI_DIR}
         )
     ENDIF()
@@ -380,6 +380,20 @@ IF( BUILD_TESTING )
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
     ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.25 3888 )
     SET_PROPERTY( TEST ${test_name} PROPERTY WILL_FAIL ON )
+
+    # Surface interpolation tests
+    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+    SET ( input_met  ${CI_DIR}/WaveSurface/wave-met.sol )
+    SET ( test_name  WaveSurface_interp )
+
+    FOREACH( NP 1 4 )
+      add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 )
+    ENDFOREACH()
+
 
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
