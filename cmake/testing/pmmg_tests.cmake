@@ -394,6 +394,18 @@ IF( BUILD_TESTING )
           -niter 1 -nobalance -v 10 )
     ENDFOREACH()
 
+    SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+    SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
+    SET ( test_name  TennisSurf_interp )
+
+    FOREACH( NP 1 4 )
+      add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 )
+    ENDFOREACH()
+
 
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
