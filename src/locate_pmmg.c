@@ -395,7 +395,6 @@ int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt
 
   /* Evaluate point in tetra through barycentric coordinates */
   found = PMMG_barycoord2d_evaluate( mesh,ptr,k,ppt->c,triaNormal,barycoord );
-  if( !found) return 0;
 
   /* Distance from center of mass */
   for( d = 0; d < 3; d++ )
