@@ -227,10 +227,22 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
   ip = mesh->tria[iel].v[iloc];
   myTrias = &nodeTrias[mesh->point[ip].tmp];
   nt = myTrias[0];
+#ifndef NDEBUG
+  int found;
+#endif
   for( k = 0; k < nt; k++ ){
     ptr = &mesh->tria[myTrias[k+1]];
+#ifndef NDEBUG
+    found = 0;
+#endif
     for( jloc = 0; jloc < 3; jloc++ ) {
       jp = ptr->v[jloc];
+      if( jp == ip ) {
+#ifndef NDEBUG
+        found= 1;
+#endif
+        continue;
+      }
       ppt1 = &mesh->point[jp];
       if( ppt1->flag == ip ) continue;
       ppt1->flag = ip;
