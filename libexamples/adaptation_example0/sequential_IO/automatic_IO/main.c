@@ -154,6 +154,12 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
+  /* No surface adaptation */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
 

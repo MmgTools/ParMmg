@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
     ENDIF()
 
     set ( mesh_size 16384 )
-    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -157,26 +157,26 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol )
+      -sol field3_iso-coarse.sol ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -hsiz 0.2 )
+      -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
-      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol )
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol ${myargs} )
 
     add_test( NAME InterpolationFields-refinement-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
-      -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol )
+      -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
 
   ENDIF()
 
