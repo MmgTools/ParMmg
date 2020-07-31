@@ -363,7 +363,7 @@ IF( BUILD_TESTING )
     SET ( test_name  WaveSurface_locate_concave )
     SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_concave.mesh )
     ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.76 5934 )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.755 5934 )
 
     SET ( test_name  WaveSurface_locate_convex )
     SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_convex.mesh )
