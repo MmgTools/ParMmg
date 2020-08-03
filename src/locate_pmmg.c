@@ -169,7 +169,8 @@ int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeT
   sum = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) sum += mesh->point[ip].flag;
   assert( sum == 3*mesh->nt );
-  for( ip = 1; ip <= mesh->np; ip++ ) assert( mesh->point[ip].tmp < np+3*mesh->nt );
+  for( ip = 1; ip <= mesh->np; ip++ )
+    if( mesh->point[ip].flag ) assert( mesh->point[ip].tmp < np+3*mesh->nt );
 #endif
 
   /* Store nb. of triangles */
