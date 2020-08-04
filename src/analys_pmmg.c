@@ -23,7 +23,7 @@
 
 /**
  * \file analys_pmmg.c
- * \brief Wrapper for the parallel remeshing library.
+ * \brief Functions for parallel mesh analysis.
  * \author Luca Cirrottola (Inria)
  * \version 1
  * \copyright GNU Lesser General Public License.
@@ -33,6 +33,87 @@
  */
 
 #include "parmmg.h"
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the mesh structure
+ *
+ * Check for singularities.
+ * \remark Modeled after the MMG5_singul function.
+ */
+int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  MMG5_pTria     pt;
+  MMG5_pPoint    ppt,p1,p2;
+  double         ux,uy,uz,vx,vy,vz,dd;
+  int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],k,nc,xp,nr,ns,nre;
+  char           i;
+
+  nre = nc = 0;
+  for (k=1; k<=mesh->nt; k++) {
+    pt = &mesh->tria[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    for (i=0; i<3; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
+        continue;
+      else if ( MG_EDG(ppt->tag) ) {
+        /* Store the number of ridges passing through the point (xp) and the
+         * number of ref edges (nr) */
+#warning Luca: need to count in parallel and to merge the two half-ball lists
+        ns = MMG5_bouler(mesh,mesh->adjt,k,i,list,listref,&xp,&nr,MMG3D_LMAX);
+
+        if ( !ns )  continue;
+        if ( (xp+nr) > 2 ) {
+          ppt->tag |= MG_CRN + MG_REQ;
+          ppt->tag &= ~MG_NOSURF;
+          nre++;
+          nc++;
+        }
+        else if ( (xp == 1) && (nr == 1) ) {
+          ppt->tag |= MG_REQ;
+          ppt->tag &= ~MG_NOSURF;
+          nre++;
+        }
+        else if ( xp == 1 && !nr ){
+          ppt->tag |= MG_CRN + MG_REQ;
+          ppt->tag &= ~MG_NOSURF;
+          nre++;
+          nc++;
+        }
+        else if ( nr == 1 && !xp ){
+          ppt->tag |= MG_CRN + MG_REQ;
+          ppt->tag &= ~MG_NOSURF;
+          nre++;
+          nc++;
+        }
+        /* check ridge angle */
+        else {
+          p1 = &mesh->point[list[1]];
+          p2 = &mesh->point[list[2]];
+          ux = p1->c[0] - ppt->c[0];
+          uy = p1->c[1] - ppt->c[1];
+          uz = p1->c[2] - ppt->c[2];
+          vx = p2->c[0] - ppt->c[0];
+          vy = p2->c[1] - ppt->c[1];
+          vz = p2->c[2] - ppt->c[2];
+          dd = (ux*ux + uy*uy + uz*uz) * (vx*vx + vy*vy + vz*vz);
+          if ( fabs(dd) > MMG5_EPSD ) {
+            dd = (ux*vx + uy*vy + uz*vz) / sqrt(dd);
+            if ( dd > -mesh->info.dhd ) {
+              ppt->tag |= MG_CRN;
+              nc++;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if ( abs(mesh->info.imprim) > 3 && nre > 0 )
+    fprintf(stdout,"     %d corners, %d singular points detected\n",nc,nre);
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure
@@ -129,8 +210,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* identify singularities */
-  if ( !MMG5_singul(mesh) ) {
-    fprintf(stderr,"\n  ## MMG5_Singularity problem. Exit program.\n");
+  if ( !PMMG_singul(parmesh,mesh) ) {
+    fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
   }
