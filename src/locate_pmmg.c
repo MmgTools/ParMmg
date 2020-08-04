@@ -933,24 +933,24 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
     mesh->point[ip].s = 0;
 
 
-//  /* Store triangle index */
-//  for( ie = 1; ie <= meshOld->nt; ie++ ) {
-//    ptr = &meshOld->tria[ie];
-//    for( iloc = 0; iloc < 3; iloc++ ) {
-//      ip = ptr->v[iloc];
-//      ppt = &meshOld->point[ip];
-//      assert( ppt->tag & MG_BDY );
-//      if( ppt->s ) continue;
-//      ppt->s = -ie;
-//    }
-//  }
-//
-//  /* Fetch triangle index */
-//  for( ip = 1; ip <= mesh->np; ip++ ) {
-//    ppt = &mesh->point[ip];
-//    if( !(ppt->tag & MG_BDY) ) continue;
-//    ppt->s = -meshOld->point[ppt->src].s;
-//  }
+  /* Store triangle index */
+  for( ie = 1; ie <= meshOld->nt; ie++ ) {
+    ptr = &meshOld->tria[ie];
+    for( iloc = 0; iloc < 3; iloc++ ) {
+      ip = ptr->v[iloc];
+      ppt = &meshOld->point[ip];
+      assert( ppt->tag & MG_BDY );
+      if( ppt->s ) continue;
+      ppt->s = -ie;
+    }
+  }
+
+  /* Fetch triangle index */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( !(ppt->tag & MG_BDY) ) continue;
+    ppt->s = -meshOld->point[ppt->src].s;
+  }
 
 
   /* Store tetra index */
@@ -997,7 +997,7 @@ void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateS
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if( !MG_VOK(ppt) ) continue;
-    if( ppt->tag & MG_BDY ) continue;
+    if( ppt->tag & MG_REQ ) continue;
     /* Exhaustive searches are identified by a negative number of steps
      * (counting both the number of steps before and after the exhaustive
      * search) */
