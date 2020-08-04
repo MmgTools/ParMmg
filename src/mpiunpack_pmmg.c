@@ -476,6 +476,7 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     info->PROctree  = *( (int *) *buffer); *buffer += sizeof(int);
     info->npar      = *( (int *) *buffer); *buffer += sizeof(int);
     info->nmat      = *( (int *) *buffer); *buffer += sizeof(int);
+    info->nsd       = *( (int *) *buffer); *buffer += sizeof(int);
 
     info->nreg      = *( (char *) *buffer); *buffer += sizeof(char);
     info->imprim    = *( (char *) *buffer); *buffer += sizeof(char);
