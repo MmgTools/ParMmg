@@ -100,7 +100,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
     }
   }
 
-  PMMG_DEL_MEM(mesh,hash.geom,MMG5_hgeom,"Edge hash table");
+  MMG5_DEL_MEM(mesh,hash.geom);
 
   if ( mesh->edge )
     PMMG_DEL_MEM(mesh,mesh->edge,MMG5_Edge,"deallocating edges");
