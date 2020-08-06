@@ -290,7 +290,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  /** Mesh analysis */
+  /** Mesh analysis: check triangles, create xtetras */
   if ( !PMMG_analys_tria(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -323,14 +323,15 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  if ( !PMMG_analys(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   /* Tag parallel faces on material interfaces as boundary */
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     return 0;
+  }
+
+  /** Geometrical mesh analysis */
+  if ( !PMMG_analys(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
   }
 
 
