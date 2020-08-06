@@ -171,6 +171,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  */
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_Hash      hash;
+  MMG5_HGeom     hpar;
 
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
@@ -220,6 +221,9 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
+  /* Hash parallel edges */
+  if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
+
   /* define (and regularize) normals: create xpoints */
 #warning Luca: it uses boulen (twice) and boulec
   if ( !MMG5_norver(mesh) ) {
@@ -262,6 +266,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
   /* release memory */
+  MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
 
