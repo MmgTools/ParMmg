@@ -60,7 +60,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       else if ( MG_EDG(ppt->tag) ) {
         /* Store the number of ridges passing through the point (xp) and the
          * number of ref edges (nr) */
-#warning Luca: need to count in parallel and to merge the two half-ball lists
+#warning Luca: need to count in parallel and to merge the two half-ball lists, communicate {ng,nr,vx,vy,vz}
         ns = MMG5_bouler(mesh,mesh->adjt,k,i,list,listref,&xp,&nr,MMG3D_LMAX);
 
         if ( !ns )  continue;
@@ -203,6 +203,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
+#warning Luca: here a parallel edge communicator would be useful
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -220,6 +221,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
   /* define (and regularize) normals: create xpoints */
+#warning Luca: it uses boulen (twice) and boulec
   if ( !MMG5_norver(mesh) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -238,6 +240,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
+#warning Luca: check that parbdy are skipped
   MMG5_chkVertexConnectedDomains(mesh);
 
   /* build hash table for geometric edges */

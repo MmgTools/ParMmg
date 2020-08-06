@@ -267,6 +267,17 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
+#warning: Luca: check this function
+    MMG3D_prilen(mesh,met,0);
+  }
+
+  /** Mesh unscaling */
+  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+
   /* For both API modes, build communicators indices */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
@@ -279,8 +290,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  /** Mesh analysis, face/node communicators indices construction (depending
-   * from the API mode), build face comms from node ones */
+  /** Mesh analysis */
   if ( !PMMG_analys_tria(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -289,19 +299,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
      * each tria), and tag xtetra face as PARBDY before the tag is transmitted
      * to edges and nodes */
     PMMG_tria2elmFace_coords( parmesh );
-  }
-  if ( !PMMG_analys(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
-  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-#warning: Luca: check this function
-    MMG3D_prilen(mesh,met,0);
-  }
-
-  /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
-    return PMMG_STRONGFAILURE;
   }
 
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
@@ -324,6 +321,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
       if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
       break;
+  }
+
+  if ( !PMMG_analys(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /* Tag parallel faces on material interfaces as boundary */
