@@ -277,7 +277,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-
+  /** Mesh analysis: check triangles, create xtetras */
+  if ( !PMMG_analys_tria(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
   /* For both API modes, build communicators indices */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
@@ -290,10 +293,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  /** Mesh analysis: check triangles, create xtetras */
-  if ( !PMMG_analys_tria(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
+
   if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
     /* Convert tria index into iel face index (it needs a valid cc field in
      * each tria), and tag xtetra face as PARBDY before the tag is transmitted
