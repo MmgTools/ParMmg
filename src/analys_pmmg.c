@@ -236,20 +236,21 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       pt = &mesh->tetra[iel];
       assert( pt->xt );
       pxt = &mesh->xtetra[pt->xt];
-      /* If already boundary, make it recognizable as a "true" boundary */
-      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-      /* Tag face */
-      PMMG_tag_par_face(pxt,ifac);
+//      /* If already boundary, make it recognizable as a "true" boundary */
+//      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+//      /* Tag face */
+//      PMMG_tag_par_face(pxt,ifac);
       /* Tag face edges */
       for ( j=0; j<3; j++ ) {
         ia = MMG5_iarf[ifac][j];
-        PMMG_tag_par_edge(pxt,ia);
+        pxt->tag[j] |= MG_PARBDY;
+//        PMMG_tag_par_edge(pxt,ia);
       }
-      /* Tag face nodes */
-      for ( j=0 ; j<3 ; j++) {
-        ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
-        PMMG_tag_par_node(ppt);
-      }
+//      /* Tag face nodes */
+//      for ( j=0 ; j<3 ; j++) {
+//        ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
+//        PMMG_tag_par_node(ppt);
+//      }
     }
   }
 
