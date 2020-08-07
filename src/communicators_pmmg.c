@@ -152,6 +152,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   PMMG_pExt_comm ext_face_comm;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
+  MMG5_pEdge     pa;
   MMG5_hgeom     *ph;
   int            *nitems_ext_comm,nitem,color,k,i,idx,ie,ifac,j;
   int            edg;
@@ -230,7 +231,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       idx  =  ext_face_comm->int_comm_index[i];
       ie   =  int_face_comm->intvalues[idx]/12;
       ifac = (int_face_comm->intvalues[idx]%12)/3;
-      /* Hash face edges */
+      /* Get face edges */
       pt = &mesh->tetra[ie];
       assert( MG_EOK(pt) && pt->xt );
       pxt = &mesh->xtetra[pt->xt];
@@ -241,6 +242,14 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
         i1 = MMG5_iare[ia][0];
         i2 = MMG5_iare[ia][1];
         if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+        /* Overwrite edge base with current color */
+        pa = &mesh->edge[edg];
+        if( pa->base != color ) {
+          /* Add edge to the ext comm TODO and mark it.
+           * ext_face_comm are already ordered; use common face point to order
+           * the edge communicator. */
+          pa->base = color;
+        }
       }
     }
   }
