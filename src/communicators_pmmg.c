@@ -182,7 +182,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
     MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge,return 0);
 
     mesh->na = 0;
-    for (k=0; k<=mesh->htab.max; k++) {
+    for( k = 0; k <= hpar->max; k++ ) {
       ph = &hpar->geom[k];
       if ( !ph->a )  continue;
       /* Get edge */
