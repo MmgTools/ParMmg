@@ -139,6 +139,52 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   parmesh->int_node_comm->nitem = 0;
 }
 
+/**
+ * \param parmesh pointer to parmesh structure
+ * \param mesh pointer to the mesh structure
+ * \param hpar hash table of parallel edges
+ *
+ * Build edge communicator.
+ */
+int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ) {
+  MMG5_hgeom     *ph;
+  int            k;
+
+  /* Count edges (the hash table only contains parallel edges) */
+  assert( mesh->na == 0 );
+  for( k = 0; k <= hpar->max; k++ ) {
+    ph = &hpar->geom[k];
+    if( !(ph->a) ) continue;
+    mesh->na++;
+  }
+
+  /* Create edge array */
+  if ( mesh->na ) {
+    MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"edges",
+                 return 0;
+                 printf("  ## Warning: uncomplete mesh\n"));
+    MMG5_SAFE_CALLOC(mesh->edge,mesh->na+1,MMG5_Edge,return 0);
+
+    mesh->na = 0;
+    for (k=0; k<=mesh->htab.max; k++) {
+      ph = &hpar->geom[k];
+      if ( !ph->a )  continue;
+      /* Get edge */
+      mesh->na++;
+      mesh->edge[mesh->na].a    = ph->a;
+      mesh->edge[mesh->na].b    = ph->b;
+      /* Set links between hash table and array */
+      ph->ref = mesh->na;
+      mesh->edge[mesh->na].ref = k;
+    }
+  }
+
+  /* Free array */
+  MMG5_DEL_MEM(mesh,mesh->edge);
+  mesh->na = 0;
+
+  return 1;
+}
 
 /**
  * \param parmesh pointer to parmesh structure

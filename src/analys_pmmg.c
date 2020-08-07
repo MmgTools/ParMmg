@@ -224,6 +224,9 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* Hash parallel edges */
   if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
 
+  /* Build edge communicator */
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+
   /* define (and regularize) normals: create xpoints */
 #warning Luca: it uses boulen (twice) and boulec
   if ( !MMG5_norver(mesh) ) {
