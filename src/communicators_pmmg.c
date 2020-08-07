@@ -154,7 +154,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   MMG5_pxTetra   pxt;
   MMG5_hgeom     *ph;
   int            *nitems_ext_comm,nitem,color,k,i,idx,ie,ifac,j;
-  int            edg,key;
+  int            edg;
   int16_t        tag;
   int8_t         ia,i1,i2;
 
@@ -240,8 +240,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
         assert( pxt->tag[ia] & MG_PARBDY );
         i1 = MMG5_iare[ia][0];
         i2 = MMG5_iare[ia][1];
-        key = PMMG_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag );
-        if( !key ) return 0;
+        if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
       }
     }
   }

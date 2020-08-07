@@ -36,48 +36,6 @@
 #include "parmmg.h"
 
 /**
- * \param hash pointer toward a hash table.
- * \param a first edge vertex.
- * \param b second edge vertex.
- * \param ref pointer to the reference value.
- * \param tag pointer to the tag value
- * \return 0 if failure, the hash key otherwise.
- *
- * Get ref and tag to edge on geometry.
- * \remark Modeled after MMG5_hGet to additionally return the hash key.
- */
-int PMMG_hGet(MMG5_HGeom *hash,int a,int b,int *ref,int16_t *tag) {
-  MMG5_hgeom  *ph;
-  int     key,ia,ib;
-
-  *tag = 0;
-  *ref = 0;
-
-  assert ( hash->siz );
-
-  ia  = MG_MIN(a,b);
-  ib  = MG_MAX(a,b);
-  key = (MMG5_KA*ia + MMG5_KB*ib) % hash->siz;
-  ph  = &hash->geom[key];
-
-  if ( !ph->a )  return 0;
-  else if ( ph->a == ia && ph->b == ib ) {
-    *ref = ph->ref;
-    *tag = ph->tag;
-    return key;
-  }
-  while ( ph->nxt ) {
-    ph = &hash->geom[ph->nxt];
-    if ( ph->a == ia && ph->b == ib ) {
-      *ref = ph->ref;
-      *tag = ph->tag;
-      return key;
-    }
-  }
-  return 0;
-}
-
-/**
  * \param parmesh pointer toward a parmesh structure.
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
