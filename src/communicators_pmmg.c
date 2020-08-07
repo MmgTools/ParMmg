@@ -232,14 +232,15 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       ifac = (int_face_comm->intvalues[idx]%12)/3;
       /* Hash face edges */
       pt = &mesh->tetra[ie];
-      assert(pt->xt);
+      assert( MG_EOK(pt) && pt->xt );
       pxt = &mesh->xtetra[pt->xt];
+      assert( pxt->ftag[ifac] & MG_PARBDY );
       for( j = 0; j < 3; j++ ) {
         ia = MMG5_iarf[ifac][j];
         assert( pxt->tag[ia] & MG_PARBDY );
         i1 = MMG5_iare[ia][0];
         i2 = MMG5_iare[ia][1];
-        if ( !MMG5_hGet( &hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+        if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
       }
     }
   }
