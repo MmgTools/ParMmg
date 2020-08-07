@@ -243,7 +243,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       /* Tag face edges */
       for ( j=0; j<3; j++ ) {
         ia = MMG5_iarf[ifac][j];
-        pxt->tag[j] |= MG_PARBDY;
+        pxt->tag[ia] |= MG_PARBDY;
 //        PMMG_tag_par_edge(pxt,ia);
       }
 //      /* Tag face nodes */
