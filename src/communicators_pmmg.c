@@ -147,8 +147,24 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
  * Build edge communicator.
  */
 int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm,int_edge_comm;
+  PMMG_pExt_comm ext_face_comm;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
   MMG5_hgeom     *ph;
-  int            k;
+  int            *nitems_ext_comm,nitem,color,k,i,idx,ie,ifac,j;
+  int            edg;
+  int16_t        tag;
+  int8_t         ia,i1,i2;
+
+
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  int_face_comm = parmesh->int_face_comm;
+
+  PMMG_CALLOC(parmesh,parmesh->int_edge_comm,1,PMMG_Int_comm,"int_edge_comm",return 0);
+  int_edge_comm = parmesh->int_edge_comm;
 
   /* Count edges (the hash table only contains parallel edges) */
   assert( mesh->na == 0 );
@@ -176,10 +192,64 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       /* Set links between hash table and array */
       ph->ref = mesh->na;
       mesh->edge[mesh->na].ref = k;
+      /* Use base to keep track of the out rank */
+      mesh->edge[mesh->na].base = PMMG_UNSET;
     }
   }
 
-  /* Free array */
+  /* Allocate internal communicator */
+  int_edge_comm->nitem = mesh->na;
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,"int_edge_comm",return 0);
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"int_face_comm",return 0);
+
+  /* Set group indices to the edge array and the internal communicator */
+  grp->nitem_int_edge_comm = mesh->na;
+  PMMG_MALLOC(parmesh,grp->edge2int_edge_comm_index1,grp->nitem_int_edge_comm,int,"edge2int_edge_comm_index1",return 0);
+  PMMG_MALLOC(parmesh,grp->edge2int_edge_comm_index2,grp->nitem_int_edge_comm,int,"edge2int_edge_comm_index2",return 0);
+  for( k = 0; k < grp->nitem_int_edge_comm; k++ ) {
+    grp->edge2int_edge_comm_index1[k] = k+1;
+    grp->edge2int_edge_comm_index2[k] = k;
+  }
+
+  PMMG_CALLOC(parmesh,nitems_ext_comm,parmesh->nprocs,int,"nitems_ext_comm",return 0);
+
+  /* Expose face index to the external communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    k   = grp->face2int_face_comm_index1[i];
+    idx = grp->face2int_face_comm_index2[i];
+    int_face_comm->intvalues[idx] = k;
+  }
+
+  /* For each face communicator, get the edges */
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem = ext_face_comm->nitem;
+    color = ext_face_comm->color_out;
+    for( i = 0; i < nitem; i++ ) {
+      /* Get face  */
+      idx  =  ext_face_comm->int_comm_index[i];
+      ie   =  int_face_comm->intvalues[idx]/12;
+      ifac = (int_face_comm->intvalues[idx]%12)/3;
+      /* Hash face edges */
+      pt = &mesh->tetra[ie];
+      assert(pt->xt);
+      pxt = &mesh->xtetra[pt->xt];
+      for( j = 0; j < 3; j++ ) {
+        ia = MMG5_iarf[ifac][j];
+        assert( pxt->tag[ia] & MG_PARBDY );
+        i1 = MMG5_iare[ia][0];
+        i2 = MMG5_iare[ia][1];
+        if ( !MMG5_hGet( &hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+      }
+    }
+  }
+
+
+
+  /* Free */
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"int_edge_comm");
+  PMMG_DEL_MEM(parmesh,nitems_ext_comm,int,"nitem_int_face_comm");
   MMG5_DEL_MEM(mesh,mesh->edge);
   mesh->na = 0;
 
