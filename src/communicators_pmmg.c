@@ -227,17 +227,17 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
   int16_t    tag;
   int8_t     i1,i2;
 
-  /* Take the edge opposite to vertex iloc on face ifac */
+  /* Take the edge opposite to vertex iloc+j on face ifac */
   i1 = MMG5_idir[ifac][(iloc+j+1)%3];
   i2 = MMG5_idir[ifac][(iloc+j+2)%3];
   if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
   pa = &mesh->edge[edg];
-  /* Overwrite edge base with current color */
-  if( pa->base != parmesh->nprocs+color ) {
-    /* ext_face_comm are already ordered; use common face point to order
-     * the edge communicator. */
+  /* Fill item and overwrite edge base with current color */
+  if( pa->base != color ) {
+    /* the position of the edge in the internal communicator is simply its
+     * index-1 */
     ext_edge_comm->int_comm_index[(*item)++] = edg-1;
-    pa->base = parmesh->nprocs+color;
+    pa->base = color;
   }
   return 1;
 }
