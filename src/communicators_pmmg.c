@@ -209,6 +209,43 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
  * \param parmesh pointer to parmesh structure
  * \param mesh pointer to the mesh structure
  * \param hpar hash table of parallel edges
+ * \param ext_edge_comm pointer to the external edge communicator
+ * \param pt pointer to the tetra
+ * \param ifac face index
+ * \param iloc local face vertex
+ * \param j local edge to process
+ * \param color used to mark already processed edges
+ * \param pointer to the index of the next free position in the external comm
+ * \return 0 if fail, 1 if success.
+ *
+ * Fill an item of the external edge communicator from a parallel face edge.
+ */
+int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar,
+                                   PMMG_pExt_comm ext_edge_comm,MMG5_pTetra pt,int ifac,int iloc,int j,int color,int *item ) {
+  MMG5_pEdge pa;
+  int        edg;
+  int16_t    tag;
+  int8_t     i1,i2;
+
+  /* Take the edge opposite to vertex iloc on face ifac */
+  i1 = MMG5_idir[ifac][(iloc+j+1)%3];
+  i2 = MMG5_idir[ifac][(iloc+j+2)%3];
+  if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+  pa = &mesh->edge[edg];
+  /* Overwrite edge base with current color */
+  if( pa->base != parmesh->nprocs+color ) {
+    /* ext_face_comm are already ordered; use common face point to order
+     * the edge communicator. */
+    ext_edge_comm->int_comm_index[(*item)++] = edg-1;
+    pa->base = parmesh->nprocs+color;
+  }
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure
+ * \param mesh pointer to the mesh structure
+ * \param hpar hash table of parallel edges
  *
  * Build edge communicator.
  */
@@ -276,7 +313,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
         pa = &mesh->edge[edg];
         /* Overwrite edge base with current color */
         if( pa->base != color ) {
-          /* Add edge to the ext comm TODO and mark it.
+          /* Count edge and mark it.
            * ext_face_comm are already ordered; use common face point to order
            * the edge communicator. */
           nitems_ext_comm[color]++;
@@ -286,7 +323,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
     }
   }
 
-  /** First attempt  external communicator */
+  /** First attempt to build the external communicator from the face ones */
   PMMG_CALLOC(parmesh,parmesh->ext_edge_comm,parmesh->next_face_comm,PMMG_Ext_comm,"ext_edge_comm",return 0);
 
   /* For each face communicator, fill the edge communicator */
@@ -312,18 +349,15 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       assert( MG_EOK(pt) && pt->xt );
       pxt = &mesh->xtetra[pt->xt];
       assert( pxt->ftag[ifac] & MG_PARBDY );
-      for( j = 0; j < 3; j++ ) {
-        /* Take the edge opposite to vertex iloc on face ifac */
-        i1 = MMG5_idir[ifac][(iloc+j+1)%3];
-        i2 = MMG5_idir[ifac][(iloc+j+2)%3];
-        if ( !MMG5_hGet( hpar, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
-        pa = &mesh->edge[edg];
-        /* Overwrite edge base with current color */
-        if( pa->base != parmesh->nprocs+color ) {
-          /* ext_face_comm are already ordered; use common face point to order
-           * the edge communicator. */
-          ext_edge_comm->int_comm_index[item++] = edg-1;
-          pa->base = parmesh->nprocs+color;
+      /* ext_face_comm are already ordered; use common face point to travel the
+       * edges on the face in the same order. */
+      if( parmesh->myrank < color ) {
+        for( j = 0; j < 3; j++ ) {
+          if( !PMMG_fillExtEdgeComm_fromFace( parmesh,mesh,hpar,ext_edge_comm,pt,ifac,iloc,j,parmesh->nprocs+color,&item ) ) return 0;
+        }
+      } else {
+        for( j = 3; j > 0; j-- ) {
+          if( !PMMG_fillExtEdgeComm_fromFace( parmesh,mesh,hpar,ext_edge_comm,pt,ifac,iloc,j%3,parmesh->nprocs+color,&item ) ) return 0;
         }
       }
     }
