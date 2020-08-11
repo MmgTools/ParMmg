@@ -243,6 +243,360 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
 }
 
 /**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Complete the external communicators by travelling through the processors and
+ * faces to detect all the processors to which each edge belongs.
+ *
+ */
+int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm    ext_edge_comm,*comm_ptr;
+  PMMG_pInt_comm    int_edge_comm;
+  PMMG_cellLnkdList **proclists,list;
+  int               *intvalues,nitem,nproclists,ier,ier2,k,i,j,idx,pos,rank,color;
+  int               *itosend,*itorecv,*i2send_size,*i2recv_size,nitem2comm;
+  int               *nitem_ext_comm,next_comm,val1_i,val2_i,val1_j,val2_j;
+  int               alloc_size;
+  int8_t            glob_update,loc_update;
+  MPI_Request       *request;
+  MPI_Status        *status;
+
+  ier = 0;
+
+  rank          = parmesh->myrank;
+  int_edge_comm = parmesh->int_edge_comm;
+  nitem         = int_edge_comm->nitem;
+
+  proclists       = NULL;
+  comm_ptr        = NULL;
+  request         = NULL;
+  status          = NULL;
+  i2send_size     = NULL;
+  i2recv_size     = NULL;
+  nitem_ext_comm  = NULL;
+  list.item       = NULL;
+
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem,int,"edge communicator",
+    return 0);
+  intvalues     = int_edge_comm->intvalues;
+
+  /** Use intvalues to flag the already treated points of the communicator:
+   * initialization to 0.  */
+  for ( k=0; k<nitem; ++k ) intvalues[k] = 0;
+
+  PMMG_CALLOC(parmesh,proclists,nitem,PMMG_cellLnkdList*,"array of linked lists",
+              goto end);
+
+  /* Reallocation of the list of external comms at maximal size (nprocs) to
+   * avoid tricky treatment when filling it.*/
+  PMMG_REALLOC(parmesh,parmesh->ext_edge_comm,parmesh->nprocs,
+               parmesh->next_edge_comm,PMMG_Ext_comm,
+               "list of external communicators",goto end);
+  next_comm = parmesh->next_edge_comm;
+  parmesh->next_edge_comm = parmesh->nprocs;
+
+  for ( k=next_comm; k<parmesh->nprocs; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    ext_edge_comm->nitem          = 0;
+    ext_edge_comm->nitem_to_share = 0;
+    ext_edge_comm->int_comm_index = NULL;
+    ext_edge_comm->itosend        = NULL;
+    ext_edge_comm->itorecv        = NULL;
+    ext_edge_comm->rtosend        = NULL;
+    ext_edge_comm->rtorecv        = NULL;
+    ext_edge_comm->color_in       = rank;
+    ext_edge_comm->color_out      = PMMG_UNSET;
+  }
+
+  PMMG_CALLOC(parmesh,comm_ptr,parmesh->nprocs,PMMG_pExt_comm,
+              "array of pointers toward the external communicators",
+              goto end);
+
+  /** Step 1: initialization of the list of the procs to which an edge belongs
+   * by the value of the current mpi rank */
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    if ( !ext_edge_comm->nitem ) continue;
+
+    comm_ptr[ext_edge_comm->color_out] = ext_edge_comm;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx = ext_edge_comm->int_comm_index[i];
+
+      if ( intvalues[idx] ) continue;
+
+      PMMG_CALLOC(parmesh,proclists[idx],1,PMMG_cellLnkdList,"linked list pointer",
+                  goto end);
+      if ( !PMMG_cellLnkdListNew(parmesh,proclists[idx],idx,PMMG_LISTSIZE) ) goto end;
+
+      if ( !PMMG_add_cell2lnkdList( parmesh,proclists[idx],rank,idx ) )
+        goto end;
+
+      intvalues[idx] = 1;
+    }
+  }
+  /* Fill the missing pointer toward the empty external communicators */
+  for ( k=0; k<parmesh->nprocs; ++k ) {
+    if ( !comm_ptr[k] ) {
+
+      assert ( next_comm < parmesh->nprocs );
+
+      comm_ptr[k] = &parmesh->ext_edge_comm[next_comm++];
+      comm_ptr[k]->color_out = k;
+    }
+  }
+
+  /** Step 2: While at least the proc list of 1 edge is modified, send and
+   * recieve the proc list of all the edges to/from the other processors. At the
+   * end of this loop, each edge has the entire list of the proc to which it
+   * belongs */
+  alloc_size = parmesh->next_edge_comm;
+  PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
+  PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
+  PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
+  PMMG_CALLOC(parmesh,i2recv_size,alloc_size,int,"size of the i2recv array",goto end);
+
+  if ( !PMMG_cellLnkdListNew(parmesh,&list,0,PMMG_LISTSIZE) ) goto end;
+
+  do {
+    glob_update = loc_update = 0;
+
+    /** Send the list of procs to which belong each point of the communicator */
+    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+
+      request[k] = MPI_REQUEST_NULL;
+      ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+      /* Computation of the number of data to send to the other procs (we want
+       * to send the the size of the linked list and the val1 and val2 fields of
+       * each cell ) */
+      nitem2comm = 0;
+      if ( !ext_edge_comm->nitem ) continue;
+
+      for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+        idx         = ext_edge_comm->int_comm_index[i];
+        nitem2comm += proclists[idx]->nitem*2+1;
+      }
+
+      if ( i2send_size[k] < nitem2comm ) {
+        PMMG_REALLOC(parmesh,ext_edge_comm->itosend,nitem2comm,i2send_size[k],int,
+                     "itosend",goto end);
+        i2send_size[k] = nitem2comm;
+      }
+
+      /* Filling of the array to send */
+      pos     = 0;
+      itosend = ext_edge_comm->itosend;
+      color   = ext_edge_comm->color_out;
+      for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+        idx  = ext_edge_comm->int_comm_index[i];
+        pos += PMMG_packInArray_cellLnkdList(proclists[idx],&itosend[pos]);
+      }
+      assert ( pos==nitem2comm );
+
+      MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
+                           MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+                           &request[color]),goto end );
+    }
+
+    /** Recv the list of procs to which belong each point of the communicator */
+    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+      ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+      if ( !ext_edge_comm->nitem ) continue;
+
+      color         = ext_edge_comm->color_out;
+
+      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+                           &status[0] ),goto end);
+      MPI_CHECK( MPI_Get_count(&status[0],MPI_INT,&nitem2comm),goto end);
+
+      if ( i2recv_size[k] < nitem2comm ) {
+        PMMG_REALLOC(parmesh,ext_edge_comm->itorecv,nitem2comm,i2recv_size[k],
+                     int,"itorecv",goto end);
+        i2recv_size[k] = nitem2comm;
+      }
+
+      if ( nitem2comm ) {
+
+        itorecv       = ext_edge_comm->itorecv;
+        MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
+                            MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+                            &status[0]), goto end );
+
+        pos     = 0;
+        for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+          idx  = ext_edge_comm->int_comm_index[i];
+          assert ( idx>=0 );
+
+          PMMG_reset_cellLnkdList( parmesh,&list );
+          ier2 = PMMG_unpackArray_inCellLnkdList(parmesh,&list,&itorecv[pos]);
+
+          if ( ier2 < 0 ) goto end;
+          pos += ier2;
+
+          ier2 = PMMG_merge_cellLnkdList(parmesh,proclists[idx],&list);
+          if ( !ier2 ) goto end;
+
+          loc_update |= (ier2%2);
+        }
+      }
+    }
+
+    MPI_CHECK( MPI_Waitall(parmesh->next_edge_comm,request,status), goto end );
+    MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
+                             parmesh->comm),goto end);
+
+  } while ( glob_update );
+
+  /** Step 3: Cancel the old external communicator and build it again from the
+   * list of proc of each edge */
+  PMMG_CALLOC(parmesh,nitem_ext_comm,parmesh->nprocs,int,
+              "number of items in each external communicator",goto end);
+
+  /* Remove the empty proc lists */
+  nproclists = 0;
+  for ( i=0; i<nitem; ++i ) {
+    if ( intvalues[i] )
+      proclists[nproclists++] = proclists[i];
+  }
+
+  /* Sort the list of procs to which each edge belong to ensure that we will
+   * build the external communicators in the same order on both processors
+   * involved in an external comm */
+  qsort(proclists,nproclists,sizeof(PMMG_cellLnkdList*),PMMG_compare_cellLnkdList);
+
+  /* Remove the non unique paths */
+  if ( nproclists ) {
+    idx = 0;
+    for ( i=1; i<nproclists; ++i ) {
+      assert ( proclists[i]->nitem );
+      if ( PMMG_compare_cellLnkdList(&proclists[i],&proclists[idx]) ) {
+        ++idx;
+        if ( idx != i ) {
+          proclists[idx] = proclists[i];
+        }
+      }
+    }
+    nproclists = idx+1;
+  }
+
+  /* Double loop over the list of procs to which belong each point to add the
+   * couples to the suitable external communicators */
+  for ( k=0; k<nproclists; ++k ) {
+    for ( i=0; i<proclists[k]->nitem; ++i ) {
+      val1_i = proclists[k]->item[i].val1;
+      val2_i = proclists[k]->item[i].val2;
+
+      for ( j=i+1; j<proclists[k]->nitem; ++j ) {
+        val1_j = proclists[k]->item[j].val1;
+        val2_j = proclists[k]->item[j].val2;
+
+        assert ( val1_i != val1_j );
+
+        if ( val1_i == rank ) {
+          ext_edge_comm = comm_ptr[val1_j];
+          assert ( ext_edge_comm );
+          if ( nitem_ext_comm[val1_j] == ext_edge_comm->nitem || !ext_edge_comm->nitem ) {
+            /* Reallocation */
+            PMMG_REALLOC(parmesh,ext_edge_comm->int_comm_index,
+                         (int)((1.+PMMG_GAP)*ext_edge_comm->nitem)+1,
+                         ext_edge_comm->nitem,int,
+                         "external communicator",goto end);
+            ext_edge_comm->nitem = (int)((1.+PMMG_GAP)*ext_edge_comm->nitem)+1;
+            comm_ptr[val1_j] = ext_edge_comm;
+          }
+          ext_edge_comm->int_comm_index[nitem_ext_comm[val1_j]++] = val2_i;
+        }
+        else if ( val1_j == rank ) {
+          ext_edge_comm = comm_ptr[val1_i];
+          assert ( ext_edge_comm );
+          if ( nitem_ext_comm[val1_i] == ext_edge_comm->nitem || !ext_edge_comm->nitem ) {
+            /* Reallocation */
+            PMMG_REALLOC(parmesh,ext_edge_comm->int_comm_index,
+                          (int)((1.+PMMG_GAP)*ext_edge_comm->nitem)+1,
+                         ext_edge_comm->nitem,int,
+                         "external communicator",goto end);
+            ext_edge_comm->nitem = (int)((1.+PMMG_GAP)*ext_edge_comm->nitem)+1;
+            comm_ptr[val1_i] = ext_edge_comm;
+          }
+          ext_edge_comm->int_comm_index[nitem_ext_comm[val1_i]++] = val2_j;
+        }
+      }
+    }
+  }
+
+  /* Pack and reallocate the external communicators */
+  // The pack may be removed if we allow to have always nprocs external comms
+  next_comm = 0;
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    if ( !ext_edge_comm->nitem ) {
+      /* Empty communicator */
+      continue;
+    }
+    else {
+      assert ( ext_edge_comm->color_out>=0 && ext_edge_comm->color_out!=rank );
+
+      PMMG_REALLOC(parmesh,ext_edge_comm->int_comm_index,
+                   nitem_ext_comm[ext_edge_comm->color_out],
+                   ext_edge_comm->nitem,int,
+                   "external communicator",goto end);
+      ext_edge_comm->nitem = nitem_ext_comm[ext_edge_comm->color_out];
+
+      if ( next_comm != k )
+        parmesh->ext_edge_comm[next_comm] = *ext_edge_comm;
+    }
+    ++next_comm;
+  }
+  PMMG_REALLOC(parmesh,parmesh->ext_edge_comm,
+               next_comm,parmesh->next_edge_comm,PMMG_Ext_comm,
+               "list of external communicator",goto end);
+  parmesh->next_edge_comm = next_comm;
+
+  /* Success */
+  ier = 1;
+
+end:
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge communicator");
+
+  if ( proclists ) {
+    for ( k=0; k<nproclists; ++k ) {
+      PMMG_DEL_MEM(parmesh,proclists[k]->item,PMMG_lnkdCell,"linked list array");
+      PMMG_DEL_MEM(parmesh,proclists[k],PMMG_lnkdList,"linked list pointer");
+    }
+    PMMG_DEL_MEM(parmesh,proclists,PMMG_lnkdList*,"array of linked lists");
+  }
+  PMMG_DEL_MEM(parmesh,comm_ptr,PMMG_pExt_comm,
+              "array of pointers toward the external communicators");
+
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    // Change this and add to the external comm the possibility to not
+    // unalloc/realloc every time, thus, here, we will be able to reset the
+    // communicators without unallocated it
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"i2send");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"i2recv");
+  }
+
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi request array");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi status array");
+  PMMG_DEL_MEM(parmesh,i2send_size,int,"size of the i2send array");
+  PMMG_DEL_MEM(parmesh,i2recv_size,int,"size of the i2recv array");
+
+  PMMG_DEL_MEM(parmesh,nitem_ext_comm,int,
+               "number of items in each external communicator");
+
+  PMMG_DEL_MEM(parmesh,list.item,PMMG_lnkdCell,"linked list array");
+
+  return ier;
+}
+
+/**
  * \param parmesh pointer to parmesh structure
  * \param mesh pointer to the mesh structure
  * \param hpar hash table of parallel edges
@@ -363,6 +717,9 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
     }
     assert( item == ext_edge_comm->nitem );
   }
+
+  /** Complete the external edge communicator */
+  if( !PMMG_build_completeExtEdgeComm( parmesh ) ) return 0;
 
   /* Free */
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
