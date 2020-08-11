@@ -276,7 +276,6 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   int_edge_comm = parmesh->int_edge_comm;
 
   /* Allocate internal communicator */
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,"int_edge_comm",return 0);
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"int_face_comm",return 0);
 
 
@@ -324,7 +323,8 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   }
 
   /** First attempt to build the external communicator from the face ones */
-  PMMG_CALLOC(parmesh,parmesh->ext_edge_comm,parmesh->next_face_comm,PMMG_Ext_comm,"ext_edge_comm",return 0);
+  parmesh->next_edge_comm = parmesh->next_face_comm;
+  PMMG_CALLOC(parmesh,parmesh->ext_edge_comm,parmesh->next_edge_comm,PMMG_Ext_comm,"ext_edge_comm",return 0);
 
   /* For each face communicator, fill the edge communicator */
   for( k = 0; k < parmesh->next_face_comm; k++ ) {
@@ -366,7 +366,6 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
 
   /* Free */
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
-  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"int_edge_comm");
   PMMG_DEL_MEM(parmesh,nitems_ext_comm,int,"nitem_int_face_comm");
   MMG5_DEL_MEM(mesh,mesh->edge);
   mesh->na = 0;
