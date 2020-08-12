@@ -36,6 +36,7 @@
 #include <mpi.h>
 
 #define MPI_COMMUNICATORS_NODE_TAG      1000
+#define MPI_COMMUNICATORS_EDGE_TAG      1001
 #define MPI_CHKCOMM_NODE_TAG            2000
 #define MPI_CHKCOMM_FACE_TAG            3000
 #define MPI_DISTRIBUTEGRPS_MESHSIZE_TAG 4000
