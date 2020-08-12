@@ -721,6 +721,10 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   /** Complete the external edge communicator */
   if( !PMMG_build_completeExtEdgeComm( parmesh ) ) return 0;
 
+  /** Check the external edge communicator */
+  if( !PMMG_check_extEdgeComm( parmesh ) ) return 0;
+
+
   /* Free */
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
   PMMG_DEL_MEM(parmesh,nitems_ext_comm,int,"nitem_int_face_comm");

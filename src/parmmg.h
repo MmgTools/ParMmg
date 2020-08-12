@@ -565,6 +565,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
 
 /* Tags */
 void PMMG_tag_par_node(MMG5_pPoint ppt);
