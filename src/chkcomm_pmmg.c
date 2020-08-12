@@ -593,6 +593,220 @@ end:
   return ier;
 }
 
+/**
+ * \param parmesh pointer to current parmesh stucture
+ *
+ * \return 0 (on all procs) if fail, 1 otherwise
+ *
+ * Check the external edge communicators consitency by comparing their size and
+ * the coordinates of the listed points.
+ *
+ */
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
+{
+  PMMG_pExt_comm ext_edge_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pEdge     pa;
+  MMG5_pPoint    ppt0,ppt1;
+  MPI_Request    *request;
+  MPI_Status     *status;
+  double         *rtosend,*rtorecv,*doublevalues,x,y,z,bb_min[3],bb_max[3];
+  double         dd,delta,delta_all,bb_min_all[3];
+  int            *r2send_size,*r2recv_size,color,ngrp_all;
+  int            k,i,j,ia,idx,ireq,nitem,nitem_color_out,ier,ieresult;
+
+  r2send_size = NULL;
+  r2recv_size = NULL;
+  request     = NULL;
+  status      = NULL;
+
+  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
+ 
+  /** Step 1: Find the internal communicator bounding box */
+  if ( ngrp_all == 1 ) {
+    ier = 1;
+    delta_all     = 1.;
+    bb_min_all[0] = 0.;
+    bb_min_all[1] = 0.;
+    bb_min_all[2] = 0.;
+  }
+
+  /** Step 2: Fill int_edge_comm->doublevalues with the coordinates
+   * of the boundary points */
+  nitem = parmesh->int_edge_comm->nitem;
+  PMMG_CALLOC(parmesh,parmesh->int_edge_comm->doublevalues,6*nitem,double,
+              "edge communicator",ier = 0);
+
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  if ( !ieresult ) return 0;
+
+  doublevalues = parmesh->int_edge_comm->doublevalues;
+
+  dd = 1./delta_all;
+
+  grp  = &parmesh->listgrp[0];
+  mesh = parmesh->listgrp[0].mesh;
+
+  for ( i=0; i<grp->nitem_int_edge_comm; ++i ) {
+    ia  = grp->edge2int_edge_comm_index1[i];
+    idx = grp->edge2int_edge_comm_index2[i];
+
+    assert ( ia && ia<=mesh->na );
+
+    pa = &mesh->edge[ia];
+    ppt0 = &mesh->point[pa->a];
+    ppt1 = &mesh->point[pa->b];
+    x = ppt0->c[0] > ppt1->c[0];
+    y = ppt0->c[1] > ppt1->c[1];
+    z = ppt0->c[2] > ppt1->c[2];
+    if( (x> 0.0) || (x > -MMG5_EPSD && y > 0.0) || (x > -MMG5_EPSD && y > -MMG5_EPSD && z > 0.0) ) {
+      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
+      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
+    } else {
+      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt1->c[j] - bb_min_all[j]);
+      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt0->c[j] - bb_min_all[j]);
+    }
+  }
+
+  /** Step 3: Send the values that need to be communicate to the suitable
+   * processor */
+  PMMG_MALLOC(parmesh,request,2*parmesh->next_edge_comm,MPI_Request,
+              "mpi request array",ier=0);
+
+  PMMG_MALLOC(parmesh,status,2*parmesh->next_edge_comm,MPI_Status,
+              "mpi status array",ier=0);
+
+  PMMG_CALLOC(parmesh,r2send_size,parmesh->next_edge_comm,int,
+              "size of the r2send array",ier=0);
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  if ( !ieresult ) goto end;
+
+  ireq= 0;
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    if ( r2send_size[k] < 6*ext_edge_comm->nitem ) {
+      PMMG_REALLOC(parmesh,ext_edge_comm->rtosend,6*ext_edge_comm->nitem,
+                   r2send_size[k],double,"rtosend",ier=0);
+      r2send_size[k] = 6*ext_edge_comm->nitem;
+    }
+
+    /* Filling of the array to send */
+    rtosend = ext_edge_comm->rtosend;
+    color   = ext_edge_comm->color_out;
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx = ext_edge_comm->int_comm_index[i];
+      for ( j=0; j<6; ++j )
+        rtosend[6*i+j] = doublevalues[6*idx+j];
+    }
+
+    request[ireq]    = MPI_REQUEST_NULL;
+    MPI_CHECK( MPI_Isend(&ext_edge_comm->nitem,1,MPI_INT,color,
+                         MPI_CHKCOMM_EDGE_TAG,
+                         parmesh->comm,&request[ireq++]),ier=0 );
+
+    request[ireq]    = MPI_REQUEST_NULL;
+    MPI_CHECK( MPI_Isend(rtosend,6*ext_edge_comm->nitem,MPI_DOUBLE,color,
+                         MPI_CHKCOMM_EDGE_TAG+1,
+                         parmesh->comm,&request[ireq++]),ier=0 );
+   }
+
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  if ( !ieresult ) goto end;
+
+  /** Step 4: Recv the values from the senders and check:
+   *
+   * - that the communicators have the same size on both processors
+   *
+   * - that the coordinates of the points listed in the communicators are
+         similar at epsilon machine
+   */
+  PMMG_CALLOC(parmesh,r2recv_size,parmesh->next_edge_comm,int,
+              "size of the r2recv array",ier=0);
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    color         = ext_edge_comm->color_out;
+
+    MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
+                        MPI_CHKCOMM_EDGE_TAG,parmesh->comm,
+                        &status[0]), ier=0 );
+
+    /* Check the size of the communicators */
+    if ( nitem_color_out != ext_edge_comm->nitem ) {
+      fprintf(stderr,"  ## Error: %s: rank %d: the size of the external"
+              " communicator %d->%d (%d) doesn't match with the size of the same"
+              " external communicator on %d (%d)\n",__func__,parmesh->myrank,
+              parmesh->myrank,color,ext_edge_comm->nitem,color,nitem_color_out );
+      ier = 0;
+    }
+    if ( r2recv_size[k] < 6*nitem_color_out ) {
+      PMMG_REALLOC(parmesh,ext_edge_comm->rtorecv,6*nitem_color_out,
+                   r2recv_size[k],double,"rtorecv",ier=0);
+      r2recv_size[k] = 6*nitem_color_out;
+    }
+    rtorecv       = ext_edge_comm->rtorecv;
+    MPI_CHECK( MPI_Recv(rtorecv,6*nitem_color_out,MPI_DOUBLE,color,
+                        MPI_CHKCOMM_EDGE_TAG+1,parmesh->comm,
+                        &status[0]), ier=0 );
+    /* Check the values of the edge in the communicator */
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx = ext_edge_comm->int_comm_index[i];
+
+      for( j = 0; j < 2; j++ ) {
+        x   = doublevalues[6*idx+3*j  ] - rtorecv[6*i+3*j  ];
+        y   = doublevalues[6*idx+3*j+1] - rtorecv[6*i+3*j+1];
+        z   = doublevalues[6*idx+3*j+2] - rtorecv[6*i+3*j+2];
+
+        if ( x*x + y*y + z*z > MMG5_EPSD ) {
+          fprintf(stderr,"  ## Error: %s: rank %d:\n"
+                  "       2 different points (dist %e) in the same position (%d)"
+                  " of the external communicator %d %d (%d th item):\n"
+                  "       - point : %e %e %e\n"
+                  "       - point : %e %e %e\n",__func__,parmesh->myrank,
+                  x*x+y*y+z*z,idx,parmesh->myrank,color,i,
+                  doublevalues[6*idx+3*j],
+                  doublevalues[6*idx+3*j+1],
+                  doublevalues[6*idx+3*j+2],
+                  rtorecv[6*i+3*j],
+                  rtorecv[6*i+3*j+1],
+                  rtorecv[6*i+3*j+2]);
+          ier = 0;
+        }
+      }
+    }
+  }
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  if ( !ieresult ) goto end;
+
+  MPI_CHECK( MPI_Waitall(2*parmesh->next_edge_comm,request,status), ier=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+
+end:
+  for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    // Change this and add to the external comm the possibility to not
+    // unalloc/realloc every time, thus, here, we will be able to reset the
+    // communicators without unallocated it
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtosend,double,"r2send");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtorecv,double,"r2recv");
+  }
+
+  PMMG_DEL_MEM(parmesh,r2send_size,int,"size of the r2send array");
+
+  PMMG_DEL_MEM(parmesh,r2recv_size,int,"size of the r2send array");
+
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi status array");
+
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi request array");
+
+  PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->doublevalues,double,
+               "edge communicator");
+
+  return ieresult;
+}
 
 /**
  * \param parmesh pointer to current parmesh stucture
