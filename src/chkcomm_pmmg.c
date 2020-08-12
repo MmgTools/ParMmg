@@ -613,7 +613,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
   MPI_Status     *status;
   double         *rtosend,*rtorecv,*doublevalues,x,y,z,bb_min[3],bb_max[3];
   double         dd,delta,delta_all,bb_min_all[3];
-  int            *r2send_size,*r2recv_size,color,ngrp_all;
+  int            *r2send_size,*r2recv_size,color;
   int            k,i,j,ia,idx,ireq,nitem,nitem_color_out,ier,ieresult;
 
   r2send_size = NULL;
@@ -621,16 +621,13 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
   request     = NULL;
   status      = NULL;
 
-  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
- 
-  /** Step 1: Find the internal communicator bounding box */
-  if ( ngrp_all == 1 ) {
-    ier = 1;
-    delta_all     = 1.;
-    bb_min_all[0] = 0.;
-    bb_min_all[1] = 0.;
-    bb_min_all[2] = 0.;
-  }
+  /** Step 1: Find the internal communicator bounding box (only one group) */
+  assert( parmesh->ngrp == 1);
+  ier = 1;
+  delta_all     = 1.;
+  bb_min_all[0] = 0.;
+  bb_min_all[1] = 0.;
+  bb_min_all[2] = 0.;
 
   /** Step 2: Fill int_edge_comm->doublevalues with the coordinates
    * of the boundary points */
@@ -660,14 +657,22 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     x = ppt0->c[0] - ppt1->c[0];
     y = ppt0->c[1] - ppt1->c[1];
     z = ppt0->c[2] - ppt1->c[2];
+    /* z-order the edge vertices */
     if( (x> 0.0) || (x > -MMG5_EPSD && y > 0.0) || (x > -MMG5_EPSD && y > -MMG5_EPSD && z > 0.0) ) {
       for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
       for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
+    } else if( x > -MMG5_EPSD && y > -MMG5_EPSD && z > -MMG5_EPSD ) {
+      fprintf(stderr,"  ## Error: %s: rank %d: nearly coincident vertices for"
+              " edge %d, distance: (%e,%e,%e)",__func__,parmesh->myrank,ia,
+              x,y,z);
+      ier = 0;
     } else {
       for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt1->c[j] - bb_min_all[j]);
       for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt0->c[j] - bb_min_all[j]);
     }
   }
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  if ( !ieresult ) return 0;
 
   /** Step 3: Send the values that need to be communicate to the suitable
    * processor */
