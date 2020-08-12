@@ -657,9 +657,9 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     pa = &mesh->edge[ia];
     ppt0 = &mesh->point[pa->a];
     ppt1 = &mesh->point[pa->b];
-    x = ppt0->c[0] > ppt1->c[0];
-    y = ppt0->c[1] > ppt1->c[1];
-    z = ppt0->c[2] > ppt1->c[2];
+    x = ppt0->c[0] - ppt1->c[0];
+    y = ppt0->c[1] - ppt1->c[1];
+    z = ppt0->c[2] - ppt1->c[2];
     if( (x> 0.0) || (x > -MMG5_EPSD && y > 0.0) || (x > -MMG5_EPSD && y > -MMG5_EPSD && z > 0.0) ) {
       for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
       for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
