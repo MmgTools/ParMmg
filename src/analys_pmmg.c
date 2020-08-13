@@ -302,6 +302,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
   /* release memory */
+  PMMG_edge_comm_free( parmesh );
   MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
