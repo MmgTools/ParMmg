@@ -116,6 +116,33 @@ void PMMG_grp_comm_free( PMMG_pParMesh parmesh,int **idx1,int **idx2,
 /**
  * \param parmesh pointer toward a parmesh structure
  *
+ * Deallocate the edge communicators of the parmesh
+ *
+ */
+void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
+{
+  PMMG_pGrp grp;
+  int       k;
+
+  assert( parmesh->ngrp == 1 );
+
+  grp = &parmesh->listgrp[0];
+  PMMG_grp_comm_free( parmesh,
+                      &grp->edge2int_edge_comm_index1,
+                      &grp->edge2int_edge_comm_index2,
+                      &grp->nitem_int_edge_comm );
+
+  PMMG_parmesh_int_comm_free( parmesh,parmesh->int_edge_comm );
+  PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_edge_comm,parmesh->next_edge_comm);
+  PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm,PMMG_Ext_comm,"ext edge comm");
+
+  parmesh->next_edge_comm       = 0;
+  parmesh->int_edge_comm->nitem = 0;
+}
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
  * Deallocate the nodal communicatorsof the parmesh
  *
  */
