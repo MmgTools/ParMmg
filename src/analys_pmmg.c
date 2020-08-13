@@ -42,76 +42,75 @@
  * \remark Modeled after the MMG5_singul function.
  */
 int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
   MMG5_pTria     pt;
   MMG5_pPoint    ppt,p1,p2;
   double         ux,uy,uz,vx,vy,vz,dd;
   int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],k,nc,xp,nr,ns,nre;
-  char           i;
+  int            ip,idx;
+  int            *intvalues;
+  double         *doublevalues;
+  char           i,j;
 
-  nre = nc = 0;
-  for (k=1; k<=mesh->nt; k++) {
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  int_node_comm = parmesh->int_node_comm;
+
+  /* Allocate intvalues to accomodate xp and nr for each point, doublevalues to
+   * accomodate two edge vectors at most. */
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"intvalues",return 0);
+  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"doublevalues",return 0);
+  intvalues    = int_node_comm->intvalues;
+  doublevalues = int_node_comm->doublevalues;
+
+  /* Store source triangle for every boundary point */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( !MG_VOK(ppt) || !(ppt->tag & MG_PARBDY ) ) continue;
+    ppt->flag = 0;
+  }
+  for( k = 1; k <= mesh->nt; k++ ) {
     pt = &mesh->tria[k];
     if ( !MG_EOK(pt) )  continue;
-
-    for (i=0; i<3; i++) {
+    for( i = 0; i < 3; i++ ) {
       ppt = &mesh->point[pt->v[i]];
-      if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
-        continue;
-      else if ( MG_EDG(ppt->tag) ) {
-        /* Store the number of ridges passing through the point (xp) and the
-         * number of ref edges (nr) */
-#warning Luca: need to count in parallel and to merge the two half-ball lists, communicate {ng,nr,vx,vy,vz}
-        ns = MMG5_bouler(mesh,mesh->adjt,k,i,list,listref,&xp,&nr,MMG3D_LMAX);
+      if( ppt->flag ) continue;
+      ppt->s = 3*k+i;
+      ppt->flag = 0;
+    }
+  }
 
-        if ( !ns )  continue;
-        if ( (xp+nr) > 2 ) {
-          ppt->tag |= MG_CRN + MG_REQ;
-          ppt->tag &= ~MG_NOSURF;
-          nre++;
-          nc++;
-        }
-        else if ( (xp == 1) && (nr == 1) ) {
-          ppt->tag |= MG_REQ;
-          ppt->tag &= ~MG_NOSURF;
-          nre++;
-        }
-        else if ( xp == 1 && !nr ){
-          ppt->tag |= MG_CRN + MG_REQ;
-          ppt->tag &= ~MG_NOSURF;
-          nre++;
-          nc++;
-        }
-        else if ( nr == 1 && !xp ){
-          ppt->tag |= MG_CRN + MG_REQ;
-          ppt->tag &= ~MG_NOSURF;
-          nre++;
-          nc++;
-        }
-        /* check ridge angle */
-        else {
-          p1 = &mesh->point[list[1]];
-          p2 = &mesh->point[list[2]];
-          ux = p1->c[0] - ppt->c[0];
-          uy = p1->c[1] - ppt->c[1];
-          uz = p1->c[2] - ppt->c[2];
-          vx = p2->c[0] - ppt->c[0];
-          vy = p2->c[1] - ppt->c[1];
-          vz = p2->c[2] - ppt->c[2];
-          dd = (ux*ux + uy*uy + uz*uz) * (vx*vx + vy*vy + vz*vz);
-          if ( fabs(dd) > MMG5_EPSD ) {
-            dd = (ux*vx + uy*vy + uz*vz) / sqrt(dd);
-            if ( dd > -mesh->info.dhd ) {
-              ppt->tag |= MG_CRN;
-              nc++;
-            }
-          }
-        }
+  /* Local singularity analysis */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
+      continue;
+    else if ( MG_EDG(ppt->tag) ) {
+      /* Store the number of ridges passing through the point (xp) and the
+       * number of ref edges (nr) */
+#warning Luca: need to count in parallel and to merge the two half-ball lists, communicate {ng,nr,vx,vy,vz}
+#warning Luca: need to count edges on communicators only once
+      ns = MMG5_bouler(mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
+      /* Add nb of geo/ridges to intvalue */
+      intvalues[2*idx]   = xp;
+      intvalues[2*idx+1] = nr;
+      if ( (xp+nr) > 2 ) continue;
+      /* Add edge vectors to doublevalues */
+      for( j = 0; j < xp+nr; j++ ) {
+        p1 = &mesh->point[list[j]];
+        doublevalues[6*idx+j]   = p1->c[0]-ppt->c[0];
+        doublevalues[6*idx+j+1] = p1->c[1]-ppt->c[1];
+        doublevalues[6*idx+j+2] = p1->c[2]-ppt->c[2];
       }
     }
   }
 
-  if ( abs(mesh->info.imprim) > 3 && nre > 0 )
-    fprintf(stdout,"     %d corners, %d singular points detected\n",nc,nre);
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"doublevalues");
+
   return 1;
 }
 
@@ -203,6 +202,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
+  /* Hash parallel edges */
+  if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
+
+  /* Build edge communicator */
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+
   /* check for ridges: check dihedral angle using adjacent triangle normals */
 #warning Luca: here a parallel edge communicator would be useful
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
@@ -211,7 +216,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  /* identify singularities */
+  /* identify singularities on interior points */
+  if ( !MMG5_singul(mesh) ) {
+    fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* identify singularities on parallel points */
   if ( !PMMG_singul(parmesh,mesh) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -220,12 +232,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
-
-  /* Hash parallel edges */
-  if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
-
-  /* Build edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
 
   /* define (and regularize) normals: create xpoints */
 #warning Luca: it uses boulen (twice) and boulec
