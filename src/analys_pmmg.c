@@ -77,7 +77,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       ppt = &mesh->point[pt->v[i]];
       if( ppt->flag ) continue;
       ppt->s = 3*k+i;
-      ppt->flag = 0;
+      ppt->flag++;
     }
   }
 
