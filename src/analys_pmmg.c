@@ -221,39 +221,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
-#warning Luca: check why this is not done before
-  /* Pass MG_PARBDY tag from faces to edges */
-  {
-    assert( parmesh->ngrp == 1);
-    PMMG_pGrp    grp = &parmesh->listgrp[0];
-    MMG5_pTetra  pt;
-    MMG5_pxTetra pxt;
-    MMG5_pPoint  ppt;
-    int i,iel,ifac,j,ia;
-    for ( i=0; i<grp->nitem_int_face_comm; i++ ) {
-      iel  =   grp->face2int_face_comm_index1[i] / 12;
-      ifac = ( grp->face2int_face_comm_index1[i] % 12 ) / 3;
-      pt = &mesh->tetra[iel];
-      assert( pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-//      /* If already boundary, make it recognizable as a "true" boundary */
-//      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-//      /* Tag face */
-//      PMMG_tag_par_face(pxt,ifac);
-      /* Tag face edges */
-      for ( j=0; j<3; j++ ) {
-        ia = MMG5_iarf[ifac][j];
-        pxt->tag[ia] |= MG_PARBDY;
-//        PMMG_tag_par_edge(pxt,ia);
-      }
-//      /* Tag face nodes */
-//      for ( j=0 ; j<3 ; j++) {
-//        ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
-//        PMMG_tag_par_node(ppt);
-//      }
-    }
-  }
-
   /* Hash parallel edges */
   if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
 

@@ -36,42 +36,39 @@
 #include "parmmg.h"
 
 /**
- * \param parmesh pointer toward a parmesh structure.
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Hash the MG_PARBDY edges.
+ * Hash the edges. Use the assumption that all paralle edges are seen by a
+ * MG_PARBDY face on an xtetra.
  *
  */
 int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,na;
-  int8_t       i,i1,i2;
+  int          ifac,j,ia,i1,i2;
 
   /** Allocation of hash table to store parallel edges */
   na = (int)(mesh->np*0.2); // Euler-Poincare
 
-  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) )
-    return PMMG_FAILURE;
+  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
 
   /** Store parallel edges */
   for (k=1; k<=mesh->ne; ++k) {
-
     pt = &mesh->tetra[k];
-    if ( !pt->xt )
-      continue;
-
+    if ( !pt->xt ) continue;
     pxt = &mesh->xtetra[pt->xt];
-    for ( i=0; i<6; ++i ) {
-      if ( !(pxt->tag[i] & MG_PARBDY) )
-        continue;
-
-      i1 = MMG5_iare[i][0];
-      i2 = MMG5_iare[i][1];
-      MMG5_hEdge( mesh, pHash, pt->v[i1], pt->v[i2], pxt->edg[i], pxt->tag[i] );
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      if ( !(pxt->ftag[ifac] & MG_PARBDY) ) continue;
+      for ( j=0; j<3; j++ ) {
+        ia = MMG5_iarf[ifac][j];
+        i1 = MMG5_iare[ia][0];
+        i2 = MMG5_iare[ia][1];
+        MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],pxt->edg[ia],pxt->tag[ia] );
+      }
     }
   }
 
