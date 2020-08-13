@@ -35,6 +35,88 @@
 #include "parmmg.h"
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer toward the mesh structure.
+ * \param adjt pointer toward the table of triangle adjacency.
+ * \param start index of triangle where we start to work.
+ * \param ip index of vertex on which we work.
+ * \param list pointer toward the computed list of GEO vertices incident to \a ip.
+ * \param listref pointer toward the corresponding edge references
+ * \param ng pointer toward the number of ridges.
+ * \param nr pointer toward the number of reference edges.
+ * \param lmax maxmum size for the ball of the point \a ip.
+ * \return The number of edges incident to the vertex \a ip.
+ *
+ * Store edges and count the number of ridges and reference edges incident to
+ * the vertex \a ip.
+ * \remark Sams as MMG5_bouler(), but skip edges whose extremity is flagged with
+ * a rank lower than myrank.
+ *
+ */
+int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip,
+                 int *list,int *listref,int *ng,int *nr,int lmax) {
+  MMG5_pTria    pt;
+  int           *adja,k,ns;
+  char          i,i1,i2;
+
+  pt  = &mesh->tria[start];
+  if ( !MG_EOK(pt) )  return 0;
+
+  /* check other triangle vertices */
+  k  = start;
+  i  = ip;
+  *ng = *nr = ns = 0;
+  do {
+    i1 = MMG5_inxt2[i];
+    if ( MG_EDG(pt->tag[i1]) && (parmesh->myrank < mesh->point[pt->v[i2]].flag) ) {
+      i2 = MMG5_iprv2[i];
+      if ( pt->tag[i1] & MG_GEO )
+        *ng = *ng + 1;
+      else if ( pt->tag[i1] & MG_REF )
+        *nr = *nr + 1;
+      ns++;
+      list[ns] = pt->v[i2];
+      listref[ns] = pt->edg[i1];
+      if ( ns > lmax-2 )  return -ns;
+    }
+    adja = &adjt[3*(k-1)+1];
+    k  = adja[i1] / 3;
+    i  = adja[i1] % 3;
+    i  = MMG5_inxt2[i];
+    pt = &mesh->tria[k];
+  }
+  while ( k && k != start );
+
+  /* reverse loop */
+  if ( k != start ) {
+    k = start;
+    i = ip;
+    do {
+      pt = &mesh->tria[k];
+      i2 = MMG5_iprv2[i];
+      if ( MG_EDG(pt->tag[i2]) && (parmesh->myrank < mesh->point[pt->v[i1]].flag) ) {
+        i1 = MMG5_inxt2[i];
+        if ( pt->tag[i2] & MG_GEO )
+          *ng = *ng + 1;
+        else if ( pt->tag[i2] & MG_REF )
+          *nr = *nr + 1;
+        ns++;
+        list[ns] = pt->v[i1];
+        listref[ns] = pt->edg[i2];
+        if ( ns > lmax-2 )  return -ns;
+      }
+      adja = &adjt[3*(k-1)+1];
+      k = adja[i2] / 3;
+      i = adja[i2] % 3;
+      i = MMG5_iprv2[i];
+    }
+    while ( k && k != start );
+  }
+
+  return ns;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  *
@@ -44,12 +126,13 @@
 int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
   MMG5_pTria     pt;
   MMG5_pPoint    ppt,p1,p2;
   double         ux,uy,uz,vx,vy,vz,dd;
   int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],k,nc,xp,nr,ns,nre;
-  int            ip,idx;
-  int            *intvalues;
+  int            ip,idx,iproc;
+  int            *intvalues,*iproc2comm;
   double         *doublevalues;
   char           i,j;
 
@@ -81,6 +164,34 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     }
   }
 
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  for( k = 0; k < parmesh->next_node_comm; k++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = k;
+  }
+  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
+    k = iproc2comm[iproc];
+    if( k == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    for( i = 0; i < ext_node_comm->nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = iproc;
+    }
+  }
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    if( !MG_VOK(ppt) ) continue;
+    ppt->flag = intvalues[idx];
+  }
+
   /* Local singularity analysis */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
@@ -93,7 +204,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
        * number of ref edges (nr) */
 #warning Luca: need to count in parallel and to merge the two half-ball lists, communicate {ng,nr,vx,vy,vz}
 #warning Luca: need to count edges on communicators only once
-      ns = MMG5_bouler(mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
+      ns = PMMG_bouler(parmesh,mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
       /* Add nb of geo/ridges to intvalue */
       intvalues[2*idx]   = xp;
       intvalues[2*idx+1] = nr;
@@ -108,6 +219,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     }
   }
 
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"doublevalues");
 
