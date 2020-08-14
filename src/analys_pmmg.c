@@ -127,15 +127,19 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
+  MPI_Comm       comm;
+  MPI_Status     status;
   MMG5_pTria     pt;
   MMG5_pPoint    ppt,p1,p2;
   double         ux,uy,uz,vx,vy,vz,dd;
   int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],k,nc,xp,nr,ns,nre;
   int            ip,idx,iproc;
-  int            *intvalues,*iproc2comm;
-  double         *doublevalues;
+  int            nitem,color;
+  int            *intvalues,*itosend,*itorecv,*iproc2comm;
+  double         *doublevalues,*rtosend,*rtorecv;
   char           i,j;
 
+  comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   int_node_comm = parmesh->int_node_comm;
@@ -219,9 +223,87 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     }
   }
 
+  /* Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = 2*ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    itosend = ext_node_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itorecv = ext_node_comm->itorecv;
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      itosend[2*i]   = intvalues[2*idx];
+      itosend[2*i+1] = intvalues[2*idx+1];
+    }
+
+#warning Luca: change this tag
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
+                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
+                   comm,&status),return 0 );
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      intvalues[2*idx]   = itorecv[2*i];
+      intvalues[2*idx+1] = itorecv[2*i+1];
+    }
+
+  }
+
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = 6*ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,nitem,double,"rtosend array",
+                return 0);
+    rtosend = ext_node_comm->rtosend;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,nitem,double,"rtorecv array",
+                return 0);
+    rtorecv = ext_node_comm->rtorecv;
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      for( j = 0; j < 6; j++ ) {
+        rtosend[6*i+j] = doublevalues[6*idx+j];
+      }
+    }
+
+#warning Luca: change this tag
+    MPI_CHECK(
+      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
+                   rtorecv,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
+                   comm,&status),return 0 );
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx            = ext_node_comm->int_comm_index[i];
+      for( j = 0; j < 6; j++ ) {
+        doublevalues[6*idx+j] = rtorecv[6*i+j];
+      }
+    }
+
+  }
+
+
+
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"doublevalues");
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
+  }
 
   return 1;
 }
