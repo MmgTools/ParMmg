@@ -212,9 +212,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       /* Add edge vectors to doublevalues */
       for( j = 0; j < xp+nr; j++ ) {
         p1 = &mesh->point[list[j]];
-        doublevalues[6*idx+j]   = p1->c[0]-ppt->c[0];
-        doublevalues[6*idx+j+1] = p1->c[1]-ppt->c[1];
-        doublevalues[6*idx+j+2] = p1->c[2]-ppt->c[2];
+        doublevalues[6*idx+3*j]   = p1->c[0]-ppt->c[0];
+        doublevalues[6*idx+3*j+1] = p1->c[1]-ppt->c[1];
+        doublevalues[6*idx+3*j+2] = p1->c[2]-ppt->c[2];
       }
     }
   }
