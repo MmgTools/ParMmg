@@ -130,14 +130,13 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MPI_Comm       comm;
   MPI_Status     status;
   MMG5_pTria     pt;
-  MMG5_pPoint    ppt,p1,p2;
+  MMG5_pPoint    ppt,p1;
   double         ux,uy,uz,vx,vy,vz,dd;
-  int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],k,nc,xp,nr,ns,nre;
-  int            ip,idx,iproc;
+  int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],nc,xp,nr,ns0,ns1,nre;
+  int            ip,idx,iproc,k,i,j,d;
   int            nitem,color;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   double         *doublevalues,*rtosend,*rtorecv;
-  char           i,j;
 
   comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
@@ -179,6 +178,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     iproc = ext_node_comm->color_out;
     iproc2comm[iproc] = k;
   }
+
+  /* Flag parallel points with the lowest rank they see in order to analyse
+   * them only once. */
   for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
     k = iproc2comm[iproc];
     if( k == PMMG_UNSET ) continue;
@@ -188,6 +190,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       intvalues[idx] = iproc;
     }
   }
+
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
@@ -196,7 +199,8 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     ppt->flag = intvalues[idx];
   }
 
-  /* Local singularity analysis */
+
+  /** Local singularity analysis */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
@@ -204,26 +208,30 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
       continue;
     else if ( MG_EDG(ppt->tag) ) {
-      /* Store the number of ridges passing through the point (xp) and the
-       * number of ref edges (nr) */
-#warning Luca: need to count in parallel and to merge the two half-ball lists, communicate {ng,nr,vx,vy,vz}
-#warning Luca: need to count edges on communicators only once
-      ns = PMMG_bouler(parmesh,mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
-      /* Add nb of geo/ridges to intvalue */
+      /* Count the number of ridges passing through the point (xp) and the
+       * number of ref edges (nr).
+       * Edges on communicators only once as they are flagged with their
+       * lowest seen rank. */
+      ns0 = PMMG_bouler(parmesh,mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
+      assert( ns0 == xp+nr );
+
+      /* Add nb of ridges/refs to intvalues */
       intvalues[2*idx]   = xp;
       intvalues[2*idx+1] = nr;
-      if ( (xp+nr) > 2 ) continue;
+
+      /* Go to next point if too many singularities */
+      if ( ns0 > 2 ) continue;
+
       /* Add edge vectors to doublevalues */
-      for( j = 0; j < xp+nr; j++ ) {
+      for( j = 0; j < ns0; j++ ) {
         p1 = &mesh->point[list[j]];
-        doublevalues[6*idx+3*j]   = p1->c[0]-ppt->c[0];
-        doublevalues[6*idx+3*j+1] = p1->c[1]-ppt->c[1];
-        doublevalues[6*idx+3*j+2] = p1->c[2]-ppt->c[2];
+        for( d = 0; d < 3; d++ )
+          doublevalues[6*idx+3*j+d] = p1->c[d]-ppt->c[d];
       }
     }
   }
 
-  /* Exchange values on the interfaces among procs */
+  /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     nitem         = ext_node_comm->nitem;
@@ -242,25 +250,31 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     rtosend = ext_node_comm->rtosend;
     rtorecv = ext_node_comm->rtorecv;
 
+    /* Fill buffers */
     for ( i=0; i<nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
-      for( j = 0; j < 2; j++ ) itosend[2*i+j] = intvalues[2*idx+j];
-      for( j = 0; j < 6; j++ ) rtosend[6*i+j] = doublevalues[6*idx+j];
+      for( j = 0; j < 2; j++ ) {
+        itosend[2*i+j] = intvalues[2*idx+j];
+        /* Take every value, its meaning will be evaluated at recv */
+        for( d = 0; d < 3; d++ )
+          rtosend[6*i+3*j+d] = doublevalues[6*idx+3*j+d];
+      }
     }
 
-#warning Luca: change this tags
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
-                   itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    comm,&status),return 0 );
 
     MPI_CHECK(
-      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
-                   rtorecv,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
+      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
+                   rtorecv,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
                    comm,&status),return 0 );
   }
 
-  /* First pass: Sum nb. of singularities */
+  /** First pass: Sum nb. of singularities, Store received edge vectors in
+   *  doublevalues if there is room for them.
+   */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     itorecv = ext_node_comm->itorecv;
@@ -269,24 +283,30 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       idx  = ext_node_comm->int_comm_index[i];
 
       /* Current nb. of singularities == current nb. of stored edge vectors */
-      ns = intvalues[2*idx]+intvalues[2*idx+1];
+      ns0 = intvalues[2*idx]+intvalues[2*idx+1];
 
       /* Increment nb. of singularities */
       intvalues[2*idx]   += itorecv[2*i];
       intvalues[2*idx+1] += itorecv[2*i+1];
 
-      /* Store new edge vectors if not already full */
-      if( (ns < 2) && (intvalues[2*idx]+intvalues[2*idx+1] <= 2) ) {
-        for( j = 0; j < itorecv[2*i]+itorecv[2*i+1]; j++ ) {
-          doublevalues[6*idx+3*(ns+j)]   = rtorecv[6*i+3*j];
-          doublevalues[6*idx+3*(ns+j)+1] = rtorecv[6*i+3*j+1];
-          doublevalues[6*idx+3*(ns+j)+2] = rtorecv[6*i+3*j+2];
+      /* Go to next if too many singularities */
+      ns1 = intvalues[2*idx]+intvalues[2*idx+1];
+      if( ns1 > 2 ) continue;
+
+      if( ns0 < 2 ) { /* If there is room for another edge vector */
+        for( j = 0; j < ns1-ns0; j++ ) { /* Loop on newly received vectors */
+          for( d = 0; d < 3; d++ ) { /* Store them in doublevalues */
+            doublevalues[6*idx+3*(ns0+j)+d] = rtorecv[6*i+3*j+d];
+          }
         }
       }
     }
   }
 
-  /* Second pass: Analysis */
+  /** Second pass: Analysis.
+   *  Flag intvalues[2*idx]   as PMMG_UNSET if the point is required.
+   *  Flag intvalues[2*idx+1] as PMMG_UNSET if the point is corner.
+   */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     itosend = ext_node_comm->itosend;
@@ -344,7 +364,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     }
   }
 
-  /* Third pass: Tag points */
+  /** Third pass: Tag points */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
