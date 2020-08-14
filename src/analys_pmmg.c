@@ -226,72 +226,140 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem         = 2*ext_node_comm->nitem;
+    nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
                 return 0);
     itosend = ext_node_comm->itosend;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
     itorecv = ext_node_comm->itorecv;
+    rtosend = ext_node_comm->rtosend;
+    rtorecv = ext_node_comm->rtorecv;
 
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      itosend[2*i]   = intvalues[2*idx];
-      itosend[2*i+1] = intvalues[2*idx+1];
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+      for( j = 0; j < 2; j++ ) itosend[2*i+j] = intvalues[2*idx+j];
+      for( j = 0; j < 6; j++ ) rtosend[6*i+j] = doublevalues[6*idx+j];
     }
 
-#warning Luca: change this tag
+#warning Luca: change this tags
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
                    comm,&status),return 0 );
 
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      intvalues[2*idx]   = itorecv[2*i];
-      intvalues[2*idx+1] = itorecv[2*i+1];
-    }
-
-  }
-
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem         = 6*ext_node_comm->nitem;
-    color         = ext_node_comm->color_out;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,nitem,double,"rtosend array",
-                return 0);
-    rtosend = ext_node_comm->rtosend;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,nitem,double,"rtorecv array",
-                return 0);
-    rtorecv = ext_node_comm->rtorecv;
-
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      for( j = 0; j < 6; j++ ) {
-        rtosend[6*i+j] = doublevalues[6*idx+j];
-      }
-    }
-
-#warning Luca: change this tag
     MPI_CHECK(
       MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
                    rtorecv,nitem,MPI_DOUBLE,color,MPI_PARMESHGRPS2PARMETIS_TAG+2,
                    comm,&status),return 0 );
-
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx            = ext_node_comm->int_comm_index[i];
-      for( j = 0; j < 6; j++ ) {
-        doublevalues[6*idx+j] = rtorecv[6*i+j];
-      }
-    }
-
   }
 
+  /* First pass: Sum nb. of singularities */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    itorecv = ext_node_comm->itorecv;
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+
+      /* Current nb. of singularities == current nb. of stored edge vectors */
+      ns = intvalues[2*idx]+intvalues[2*idx+1];
+
+      /* Increment nb. of singularities */
+      intvalues[2*idx]   += itorecv[2*i];
+      intvalues[2*idx+1] += itorecv[2*i+1];
+
+      /* Store new edge vectors if not already full */
+      if( (ns < 2) && (intvalues[2*idx]+intvalues[2*idx+1] <= 2) ) {
+        for( j = 0; j < itorecv[2*i]+itorecv[2*i+1]; j++ ) {
+          doublevalues[6*idx+3*(ns+j)]   = rtorecv[6*i+3*j];
+          doublevalues[6*idx+3*(ns+j)+1] = rtorecv[6*i+3*j+1];
+          doublevalues[6*idx+3*(ns+j)+2] = rtorecv[6*i+3*j+2];
+        }
+      }
+    }
+  }
+
+  /* Second pass: Analysis */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+    rtosend = ext_node_comm->rtosend;
+    rtorecv = ext_node_comm->rtorecv;
+
+    for ( i=0; i<ext_node_comm->nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+
+      xp = intvalues[2*idx];
+      nr = intvalues[2*idx+1];
+      if ( (xp == PMMG_UNSET) || (nr == PMMG_UNSET) )  continue;
+
+      if ( !(xp+nr) )  continue;
+      if ( (xp+nr) > 2 ) {
+        intvalues[2*idx]   = PMMG_UNSET;
+        intvalues[2*idx+1] = PMMG_UNSET;
+        nre++;
+        nc++;
+      }
+      else if ( (xp == 1) && (nr == 1) ) {
+        intvalues[2*idx]   = PMMG_UNSET;
+        nre++;
+      }
+      else if ( xp == 1 && !nr ){
+        intvalues[2*idx]   = PMMG_UNSET;
+        intvalues[2*idx+1] = PMMG_UNSET;
+        nre++;
+        nc++;
+      }
+      else if ( nr == 1 && !xp ){
+        intvalues[2*idx]   = PMMG_UNSET;
+        intvalues[2*idx+1] = PMMG_UNSET;
+        nre++;
+        nc++;
+      }
+      /* check ridge angle */
+      else {
+        ux = doublevalues[6*idx];
+        uy = doublevalues[6*idx+1];
+        uz = doublevalues[6*idx+2];
+        vx = doublevalues[6*idx+3];
+        vy = doublevalues[6*idx+4];
+        vz = doublevalues[6*idx+5];
+        dd = (ux*ux + uy*uy + uz*uz) * (vx*vx + vy*vy + vz*vz);
+        if ( fabs(dd) > MMG5_EPSD ) {
+          dd = (ux*vx + uy*vy + uz*vz) / sqrt(dd);
+          if ( dd > -mesh->info.dhd ) {
+            intvalues[2*idx+1] = PMMG_UNSET;
+            nc++;
+          }
+        }
+      }
+    }
+  }
+
+  /* Third pass: Tag points */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    if( intvalues[2*idx]   == PMMG_UNSET ) { /* is required */
+      ppt->tag |= MG_REQ;
+      ppt->tag &= ~MG_NOSURF;
+    }
+    if( intvalues[2*idx+1] == PMMG_UNSET ) { /* is corner */
+      ppt->tag |= MG_CRN;
+    }
+  }
+
+  if ( abs(mesh->info.imprim) > 3 && nre > 0 )
+    fprintf(stdout,"     %d corners, %d singular points detected\n",nc,nre);
 
 
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
