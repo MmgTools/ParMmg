@@ -65,9 +65,14 @@ int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       if ( !(pxt->ftag[ifac] & MG_PARBDY) ) continue;
       for ( j=0; j<3; j++ ) {
         ia = MMG5_iarf[ifac][j];
+        /* Get edge vertices and hash it */
         i1 = MMG5_iare[ia][0];
         i2 = MMG5_iare[ia][1];
         MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],pxt->edg[ia],pxt->tag[ia] );
+        /* Tag edge and nodes as parallel */
+        pxt->tag[ia] |= MG_PARBDY;
+        mesh->point[pt->v[i1]].tag |= MG_PARBDY;
+        mesh->point[pt->v[i2]].tag |= MG_PARBDY;
       }
     }
   }
