@@ -262,13 +262,13 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     }
 
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG,
+      MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    comm,&status),return 0 );
 
     MPI_CHECK(
-      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
-                   rtorecv,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
+      MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
+                   rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
                    comm,&status),return 0 );
   }
 
