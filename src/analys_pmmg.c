@@ -399,19 +399,26 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
-  MMG5_pTria     pt,pt1;
-  int            *intvalues;
-  double         *doublevalues;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pTria     ptr;
+  int            *intvalues,*itorecv,*itosend;
+  double         *doublevalues,*rtorecv,*rtosend;
+  int            nitem,color,ie,ifac;
   double         n1[3],n2[3],dhd;
   int            *adja,k,kk,ne,nr;
   char           i,ii,i1,i2;
   int            idx,edg,d;
   int16_t        tag;
+  MPI_Comm       comm;
+  MPI_Status     status;
 
+
+  comm = parmesh->comm;
   int_edge_comm = parmesh->int_edge_comm;
 
-  /* Allocate edge intvalues to tag non-manifold edges */
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,
+  /* Allocate edge intvalues to tag non-manifold and reference edges */
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,
               "intvalues",return 0);
   intvalues = int_edge_comm->intvalues;
 
@@ -421,32 +428,125 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   doublevalues = int_edge_comm->doublevalues;
 
 
-  /** If a triangle touches a parallel edge, store its normal in the
-   *  communicator.
-   */
-  for( k=1; k<=mesh->nt; k++ ) {
-    pt = &mesh->tria[k];
-    if ( !MG_EOK(pt) )  continue;
+  /** Loop on true boundary triangles and store the normal in the edge internal
+   *  communicator where the triangle touches a parallel edge. */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(pt) )  continue;
+
+#warning Luca: this shows that passing tria->tetra tags should be better thought
+    ie   = ptr->cc/4;
+    ifac = ptr->cc%4;
+
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) )  continue;
+    if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+
+    /* Skip faces that are just parallel */
+    if( (pxt->ftag[ifac] & MG_PARBDY) && !(pxt->ftag[ifac] & MG_PARBDYBDY) )
+      continue;
 
     /* triangle normal */
-    MMG5_nortri(mesh,pt,n1);
+    MMG5_nortri(mesh,ptr,n1);
 
-    /* Loop on true boundary triangles and store the normal if the edge is
-     * parallel. */
     for (i=0; i<3; i++) {
-      if ( (pt->tag[i] & MG_PARBDY) || !(pt->tag[i] & MG_PARBDYBDY) ) continue;
+      /* Skip non-manifold edges */
+      if ( (ptr->tag[i] & MG_NOM) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
-      if ( !MMG5_hGet( pHash, pt->v[i1], pt->v[i2], &edg, &tag ) ) continue;
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
       /* Store normal only if it is the first time you touch the edge */
-      if( !intvalues[idx] )
+      if( !intvalues[2*idx] )
         for( d = 0; d < 3; d++ )
           doublevalues[3*idx+d] = n1[d];
-      intvalues[idx]++;
+      intvalues[2*idx]++;
+      intvalues[2*idx+1] = ptr->ref;
     }
   }
+
+  /** Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,3*nitem,double,"rtosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,3*nitem,double,"rtorecv array",
+                return 0);
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+    rtosend = ext_edge_comm->rtosend;
+    rtorecv = ext_edge_comm->rtorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+      for( d = 0; d < 3; d++ )
+          rtosend[3*i+d] = doublevalues[3*idx+d];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+
+    MPI_CHECK(
+      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
+                   rtorecv,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
+                   comm,&status),return 0 );
+
+    /* Accumulate the number of triangles touching the edge in intvalues */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      intvalues[2*idx] += itorecv[2*i];
+    }
+  }
+
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+    rtosend = ext_edge_comm->rtosend;
+    rtorecv = ext_edge_comm->rtorecv;
+
+
+    if( intvalues[idx] > 2 ) { /* Mark edge as non-manifold */
+      continue;
+    } else if( intvalues[idx] ) { /* MG_PARBDYBDY have already been excluded */
+    }
+    if( (itosend[2*i] + itorecv[2*i] == 1) ) {
+    }  else if( (itosend[2*i] == 1) && (itorecv[2*i] == 1) ) {
+      for( d = 0; d < 3; d++ ) {
+        n1[d] = itosend[3*i+d];
+        n2[d] = itorecv[3*i+d];
+      }
+      dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
+/* tag geo */
+//      if ( dhd <= mesh->info.dhd ) {
+//        pt->tag[i]   |= MG_GEO;
+//        pt1->tag[ii] |= MG_GEO;
+//        i1 = MMG5_inxt2[i];
+//        i2 = MMG5_inxt2[i1];
+//        mesh->point[pt->v[i1]].tag |= MG_GEO;
+//        mesh->point[pt->v[i2]].tag |= MG_GEO;
+//        nr++;
+//      }
+    } else if( itorecv[2*idx] == 2 ) {
+    }
+  }
+
 
 
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
@@ -454,6 +554,14 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
   PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,int_edge_comm->doublevalues,double,"doublevalues");
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtosend,double,"rtosend array");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtorecv,double,"rtorecv array");
+  }
+
 
   return 1;
 }
