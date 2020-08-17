@@ -396,6 +396,66 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   return 1;
 }
 
+int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
+  PMMG_pInt_comm int_edge_comm;
+  PMMG_pExt_comm ext_edge_comm;
+  MMG5_pTria     pt,pt1;
+  int            *intvalues;
+  double         *doublevalues;
+  double         n1[3],n2[3],dhd;
+  int            *adja,k,kk,ne,nr;
+  char           i,ii,i1,i2;
+  int            idx,edg,d;
+  int16_t        tag;
+
+  int_edge_comm = parmesh->int_edge_comm;
+
+  /* Allocate edge intvalues to tag non-manifold edges */
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,
+              "intvalues",return 0);
+  intvalues = int_edge_comm->intvalues;
+
+  /* Allocate edge doublevalues to store triangles normals */
+  PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,3*int_edge_comm->nitem,double,
+              "doublevalues",return 0);
+  doublevalues = int_edge_comm->doublevalues;
+
+
+  /** If a triangle touches a parallel edge, store its normal in the
+   *  communicator.
+   */
+  for( k=1; k<=mesh->nt; k++ ) {
+    pt = &mesh->tria[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    /* triangle normal */
+    MMG5_nortri(mesh,pt,n1);
+
+    for (i=0; i<3; i++) {
+      if ( !(pt->tag[i] & MG_PARBDY) ) continue;
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+      idx = edg-1;
+      /* Store normal only if it is the first time you touch the edge */
+      if( !intvalues[idx] )
+        for( d = 0; d < 3; d++ )
+          doublevalues[3*idx+d] = n1[d];
+      intvalues[idx]++;
+    }
+  }
+
+
+  if ( abs(mesh->info.imprim) > 3 && nr > 0 )
+    fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
+
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,int_edge_comm->doublevalues,double,"doublevalues");
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
