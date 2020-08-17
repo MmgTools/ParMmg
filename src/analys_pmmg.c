@@ -431,12 +431,14 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     /* triangle normal */
     MMG5_nortri(mesh,pt,n1);
 
+    /* Loop on true boundary triangles and store the normal if the edge is
+     * parallel. */
     for (i=0; i<3; i++) {
-      if ( !(pt->tag[i] & MG_PARBDY) ) continue;
+      if ( (pt->tag[i] & MG_PARBDY) || !(pt->tag[i] & MG_PARBDYBDY) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
-      if ( !MMG5_hGet( pHash, pt->v[i1], pt->v[i2], &edg, &tag ) ) return 0;
+      if ( !MMG5_hGet( pHash, pt->v[i1], pt->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
       /* Store normal only if it is the first time you touch the edge */
       if( !intvalues[idx] )
