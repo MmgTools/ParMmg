@@ -168,6 +168,9 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
           ++pt->mark;
           /* Mark face as a previously parallel one */
           pxt->ftag[j] |= MG_OLDPARBDY;
+          /* Check that there is no reference on an old parallel face that is
+           * not a true boundary */
+          if( !(pxt->ftag[j] & MG_PARBDYBDY) ) assert( !pxt->ref[j] );
         } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Untag faces which are not parallel anymore */
           pxt->ftag[j] &= ~MG_OLDPARBDY;
