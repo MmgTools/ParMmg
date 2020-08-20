@@ -97,7 +97,7 @@ int main (int argc, char ** argv)
     fprintf(file,"#include \"%s/libparmmgtypesf.h\"\n\n",libparmmg_include);
   }
   else {
-    fprintf(file,"#include \"libmmgtypesf.h\"\n\n");
+    fprintf(file,"#include \"mmg/mmg3d/libmmgtypesf.h\"\n\n");
   }
   fclose(file);
 
