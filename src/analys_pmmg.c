@@ -406,7 +406,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   double         *doublevalues,*rtorecv,*rtosend;
   int            nitem,color,ie,ifac;
   double         n1[3],n2[3],dhd;
-  int            *adja,k,kk,ne,nr;
+  int            *adja,k,kk,ne,nr,j;
   char           i,ii,i1,i2;
   int            idx,edg,d;
   int16_t        tag;
@@ -423,7 +423,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   intvalues = int_edge_comm->intvalues;
 
   /* Allocate edge doublevalues to store triangles normals */
-  PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,3*int_edge_comm->nitem,double,
+  PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,6*int_edge_comm->nitem,double,
               "doublevalues",return 0);
   doublevalues = int_edge_comm->doublevalues;
 
@@ -450,6 +450,8 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     /* triangle normal */
     MMG5_nortri(mesh,ptr,n1);
 
+    /* Get parallel edge touched by a MG_BDY face and store normal.
+     * Use codes PMMG_UNSET for ref edges, 2*PMMG_UNSET for geo edges. */
     for (i=0; i<3; i++) {
       /* Skip non-manifold edges */
       if ( (ptr->tag[i] & MG_NOM) ) continue;
@@ -458,12 +460,22 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       i2 = MMG5_inxt2[i1];
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
-      /* Store normal only if it is the first time you touch the edge */
-      if( !intvalues[2*idx] )
-        for( d = 0; d < 3; d++ )
-          doublevalues[3*idx+d] = n1[d];
+
+      /* Count how many times the edge is seen locally */
       intvalues[2*idx]++;
-      intvalues[2*idx+1] = ptr->ref;
+      /* Do not store anything else for non-manifold */
+      if( intvalues[2*idx] > 2 ) continue;
+      /* Store reference if the edge is visited for the first time */
+      if( intvalues[2*idx] == 1 )
+        intvalues[2*idx+1] = ptr->ref;
+      /* Check for ref edge if the edge is visited for the second time */
+      if( intvalues[2*idx] == 2 )
+        if( intvalues[2*idx+1] != ptr->ref )
+          intvalues[2*idx] = PMMG_UNSET;
+      /* Store the normal in the free position */
+      for( d = 0; d < 3; d++ )
+        doublevalues[6*idx+3*(intvalues[2*idx]-1)+d] = n1[d];
+
     }
   }
 
@@ -477,9 +489,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
                 return 0);
     PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
                 return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,3*nitem,double,"rtosend array",
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,6*nitem,double,"rtosend array",
                 return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,3*nitem,double,"rtorecv array",
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,6*nitem,double,"rtorecv array",
                 return 0);
     itosend = ext_edge_comm->itosend;
     itorecv = ext_edge_comm->itorecv;
@@ -489,26 +501,23 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     /* Fill buffers */
     for ( i=0; i<nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
-      itosend[i] = intvalues[idx];
-      for( d = 0; d < 3; d++ )
-          rtosend[3*i+d] = doublevalues[3*idx+d];
+      for( j = 0; j < 2; j++ ) {
+        itosend[2*i+j] = intvalues[2*idx+j];
+        /* Take every value, its meaning will be evaluated at recv */
+        for( d = 0; d < 3; d++ )
+          rtosend[6*i+3*j+d] = doublevalues[6*idx+3*j+d];
+      }
     }
 
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+      MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    comm,&status),return 0 );
 
     MPI_CHECK(
-      MPI_Sendrecv(rtosend,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
-                   rtorecv,nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
+      MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
+                   rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
                    comm,&status),return 0 );
-
-    /* Accumulate the number of triangles touching the edge in intvalues */
-    for ( i=0; i<nitem; ++i ) {
-      idx  = ext_edge_comm->int_comm_index[i];
-      intvalues[2*idx] += itorecv[2*i];
-    }
   }
 
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
@@ -521,6 +530,11 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     rtosend = ext_edge_comm->rtosend;
     rtorecv = ext_edge_comm->rtorecv;
 
+    /* Accumulate the number of triangles touching the edge in intvalues */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      intvalues[2*idx] += itorecv[2*i];
+    }
 
     if( intvalues[idx] > 2 ) { /* Mark edge as non-manifold */
       continue;
