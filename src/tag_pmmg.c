@@ -133,6 +133,54 @@ void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
   }
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Count the number of parallel triangle in each tetra and store the info into
+ * the mark field of the tetra.
+ * Reset the OLDPARBDY tag after mesh adaptation in order to track previous
+ * parallel faces during load balancing.
+ *
+ */
+inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  int          k,i,j;
+
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+
+    if ( !mesh ) continue;
+
+    for ( k=1; k<=mesh->ne; ++k ) {
+      pt       = &mesh->tetra[k];
+      pt->mark = 1;
+
+      if ( (!MG_EOK(pt)) || (!pt->xt) ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+
+      for ( j=0; j<4; ++j ) {
+        if ( pxt->ftag[j] & MG_PARBDY ) {
+          /* Increase counter */
+          ++pt->mark;
+          /* Mark face as a previously parallel one */
+          pxt->ftag[j] |= MG_OLDPARBDY;
+          /* Check that there is no reference on an old parallel face that is
+           * not a true boundary */
+          if( !(pxt->ftag[j] & MG_PARBDYBDY) ) assert( !pxt->ref[j] );
+        } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
+          /* Untag faces which are not parallel anymore */
+          pxt->ftag[j] &= ~MG_OLDPARBDY;
+        }
+      }
+    }
+  }
+
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -400,9 +448,12 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       /* Faces on the external communicator have been visited only once */
       if( seenFace[idx] != 1 ) continue;
 
-      /* Tag face as "true" boundary if its ref is different */
+      /* Tag face as "true" boundary if its ref is different, delete reference
+       * if it is only a parallel boundary */
       if( intvalues[idx] != pt->ref )
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+      else
+        pxt->ref[ifac] = PMMG_NUL;
     }
   }
 

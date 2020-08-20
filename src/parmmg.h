@@ -571,6 +571,7 @@ void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_node(MMG5_pPoint ppt);
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
 int  PMMG_parbdySet( PMMG_pParMesh parmesh );
 
