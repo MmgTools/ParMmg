@@ -400,9 +400,12 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       /* Faces on the external communicator have been visited only once */
       if( seenFace[idx] != 1 ) continue;
 
-      /* Tag face as "true" boundary if its ref is different */
+      /* Tag face as "true" boundary if its ref is different, delete reference
+       * if it is only a parallel boundary */
       if( intvalues[idx] != pt->ref )
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+      else
+        pxt->ref[ifac] = PMMG_NUL;
     }
   }
 
