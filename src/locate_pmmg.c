@@ -926,6 +926,7 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
   MMG5_pTetra pt;
   int         ie,iloc,ip;
 
+#ifdef USE_POINTMAP
   /* Reset indices */
   for( ip = 1; ip <= meshOld->np; ip++ )
     meshOld->point[ip].s = 0;
@@ -972,6 +973,7 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
     ppt->s = meshOld->point[ppt->src].s;
     assert(ppt->s);
   }
+#endif
 
 }
 
