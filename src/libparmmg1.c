@@ -852,6 +852,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
 
+#warning Luca: until analysis is not ready
+      for( k = 1; k <= mesh->np; k++ )
+        mesh->point[k].src = k;
+
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.fem;
 

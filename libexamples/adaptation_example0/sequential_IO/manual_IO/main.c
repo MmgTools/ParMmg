@@ -391,6 +391,18 @@ int main(int argc,char *argv[]) {
   //PMMG_saveAllSols_centralized(parmesh,"init-solphys.sol");
 
   /** ------------------------------ STEP  II -------------------------- */
+  /* Set verbosity */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  /* No surface adaptation */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
 

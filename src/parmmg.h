@@ -46,6 +46,7 @@
 #include <mpi_pmmg.h>
 
 #include "libparmmg.h"
+#include "interpmesh_pmmg.h"
 #include "mmg3d.h"
 
 #ifdef __cplusplus
@@ -505,6 +506,11 @@ int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+void PMMG_setfunc( PMMG_pParMesh parmesh );
+
+/* Mesh analysis */
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 
 /* Internal library */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
@@ -532,13 +538,6 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax );
 int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int* );
 int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, MMG5_pSol,MMG5_pSol, int* permNodGlob,unsigned char);
-int PMMG_interp4bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
-int PMMG_interp4bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
-int PMMG_interp3bar_iso(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
-int PMMG_interp3bar_ani(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
-
-extern int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,double *phi);
-extern int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,double *phi);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
@@ -572,6 +571,7 @@ void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_node(MMG5_pPoint ppt);
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
 int  PMMG_parbdySet( PMMG_pParMesh parmesh );
 
