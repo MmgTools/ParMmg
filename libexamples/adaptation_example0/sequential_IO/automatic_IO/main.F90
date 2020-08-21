@@ -128,6 +128,12 @@ PROGRAM main
   ENDIF
 
   !> ------------------------------ STEP  II --------------------------
+  !>  No surface adaptation */
+  CALL PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1, ier )
+  IF ( ier /= 1 )THEN
+     CALL MPI_Abort(ier)
+  ENDIF
+
   !> remesh function
   CALL PMMG_parmmglib_centralized(parmesh,ier)
 

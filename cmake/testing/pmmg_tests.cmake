@@ -14,15 +14,14 @@ IF( BUILD_TESTING )
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
         WORKING_DIRECTORY ${PARENT_DIR}
         )
+      EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} checkout 2182d86771506d99971226a4ae2a9eab137e127f
+        WORKING_DIRECTORY ${CI_DIR}
+        )
     ENDIF()
 
-    EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} checkout master
-      WORKING_DIRECTORY ${CI_DIR}
-      )
-
     set ( mesh_size 16384 )
-    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -158,26 +157,26 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol )
+      -sol field3_iso-coarse.sol ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -hsiz 0.2 )
+      -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
-      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol )
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol ${myargs} )
 
     add_test( NAME InterpolationFields-refinement-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
-      -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol )
+      -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
 
   ENDIF()
 
@@ -351,6 +350,63 @@ IF( BUILD_TESTING )
   ENDFOREACH ( )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
+
+    # Localization test
+    SET ( main_path  ${CI_DIR}/WaveSurface/locate.c )
+    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+
+    SET ( test_name  WaveSurface_locate_saddle )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_saddle.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.375 0.375 0.51 217 )
+
+    SET ( test_name  WaveSurface_locate_concave )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_concave.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.755 5934 )
+
+    SET ( test_name  WaveSurface_locate_convex )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_convex.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 3888 )
+
+    SET ( test_name  WaveSurface_locate_exhaustive )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_exhaustive.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 2494 )
+
+    SET ( test_name  WaveSurface_locate_inexistent )
+    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_inexistent.mesh )
+    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.25 3888 )
+    SET_PROPERTY( TEST ${test_name} PROPERTY WILL_FAIL ON )
+
+    # Surface interpolation tests
+    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+    SET ( input_met  ${CI_DIR}/WaveSurface/wave-met.sol )
+    SET ( test_name  WaveSurface_interp )
+
+    FOREACH( NP 1 4 )
+      add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 )
+    ENDFOREACH()
+
+    SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+    SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
+    SET ( test_name  TennisSurf_interp )
+
+    FOREACH( NP 1 4 )
+      add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 )
+    ENDFOREACH()
+
+
     # Sequential test
     SET ( test_name  LnkdList_unitTest )
     SET ( main_path  ${CI_DIR}/LnkdList_unitTest/main.c )

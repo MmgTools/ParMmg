@@ -84,24 +84,25 @@ int PMMG_create_MPI_lightPoint(MPI_Datatype *mpi_light_point)
 int PMMG_create_MPI_Point(MPI_Datatype *mpi_point)
 {
   MMG5_Point   point[2];
-  int          i,blck_lengths[5] = {3, 3, 1, 1, 1};
-  MPI_Aint     displs[5],lb,ub;
+  int          i,blck_lengths[6] = {3, 3, 1, 1, 1, 1};
+  MPI_Aint     displs[6],lb,ub;
   MPI_Datatype mpi_noextent;
-  MPI_Datatype types[5] = {MPI_DOUBLE,MPI_DOUBLE,MPI_INT,MPI_INT,MPI_INT16_T};
+  MPI_Datatype types[6] = {MPI_DOUBLE,MPI_DOUBLE,MPI_INT,MPI_INT,MPI_INT,MPI_INT16_T};
 
   MPI_CHECK( MPI_Get_address(&(point[0]),       &lb),return 0 );
   MPI_CHECK( MPI_Get_address(&(point[0].c[0]),  &displs[0]),return 0 );
   MPI_CHECK( MPI_Get_address(&(point[0].n),     &displs[1]),return 0 );
-  MPI_CHECK( MPI_Get_address(&(point[0].ref),   &displs[2]),return 0 );
-  MPI_CHECK( MPI_Get_address(&(point[0].xp),    &displs[3]),return 0 );
-  MPI_CHECK( MPI_Get_address(&(point[0].tag),   &displs[4]),return 0 );
+  MPI_CHECK( MPI_Get_address(&(point[0].src),   &displs[2]),return 0 );
+  MPI_CHECK( MPI_Get_address(&(point[0].ref),   &displs[3]),return 0 );
+  MPI_CHECK( MPI_Get_address(&(point[0].xp),    &displs[4]),return 0 );
+  MPI_CHECK( MPI_Get_address(&(point[0].tag),   &displs[5]),return 0 );
   MPI_CHECK( MPI_Get_address(&(point[1]),       &ub),return 0 );
 
   /* Relative displacement from field 0 to field i */
-  for ( i=4 ; i>= 0; --i )
+  for ( i=5 ; i>= 0; --i )
     displs[i] -= lb;
 
-  MPI_CHECK( MPI_Type_create_struct(5, blck_lengths, displs, types, &mpi_noextent),
+  MPI_CHECK( MPI_Type_create_struct(6, blck_lengths, displs, types, &mpi_noextent),
              return 0 );
 
   MPI_CHECK( MPI_Type_create_resized(mpi_noextent,lb,ub-lb,mpi_point),return 0);

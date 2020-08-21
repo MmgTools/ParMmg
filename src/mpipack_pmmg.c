@@ -251,6 +251,8 @@ int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
   idx += mesh->np*sizeof(int); // mesh->point[k].ref;
   /* Tag */
   idx += mesh->np*sizeof(int16_t); // mesh->point[k].tag;
+  /* Src */
+  idx += mesh->np*sizeof(int); // mesh->point[k].src;
 
   /** Pack mesh boundary points */
   /* First normal */
@@ -824,6 +826,8 @@ void PMMG_mpipack_meshArrays ( PMMG_pGrp grp,char **buffer ) {
     *( (int *) tmp) = mesh->point[k].ref; tmp += sizeof(int);
     /* Tag */
     *( (int16_t *) tmp) = mesh->point[k].tag; tmp += sizeof(int16_t);
+    /* Src */
+    *( (int *) tmp) = mesh->point[k].src; tmp += sizeof(int);
   }
 
   /** Pack mesh boundary points */

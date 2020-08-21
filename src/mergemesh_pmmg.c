@@ -190,7 +190,7 @@ int PMMG_check_solsNpmax(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
  */
 static inline
 int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
-                              MMG5_pSol disp,MMG5_pSol field,double *c,int16_t tag) {
+                              MMG5_pSol disp,MMG5_pSol field,double *c,int16_t tag,int src) {
   MMG5_pSol psl;
   int ip       = 0;
   int oldnpmax = mesh->npmax;
@@ -205,7 +205,7 @@ int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
                      MMG5_INCREASE_MEM_MESSAGE();
                      met->np = mesh->np; met->npmax = mesh->npmax;
                      ip = 0,
-                     c,tag);
+                     c,tag,src);
 
   if ( !ip ) {
     assert ( PMMG_check_solsNpmax(mesh,met,ls,disp,field) );
@@ -347,10 +347,10 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
 
     /* Point pptJ is not found in the merged mesh. Add it */
     if ( !intvalues[ poi_id_glo ] ) {
-      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
+      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
       if ( !ip ) {
         /* reallocation of point table and associated solutions structures*/
-        ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag);
+        ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,pptJ->src);
         if ( !ip ) {
           return 0;
         }
@@ -498,10 +498,10 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     if ( !MG_VOK(pptJ) ) continue;
     if ( pptJ->tmp )     continue;
 
-    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag);
+    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
     if ( !ip ) {
       /* reallocation of point table and associated solutions structures*/
-      ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag);
+      ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,pptJ->src);
       if ( !ip ) {
         return 0;
       }
