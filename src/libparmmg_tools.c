@@ -446,6 +446,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
 #endif
 
+      case 's':
+        if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_nosurf,0) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        break;
       case 'v':  /* verbosity */
         if ( ++i < argc ) {
           if ( isdigit(argv[i][0]) ||
