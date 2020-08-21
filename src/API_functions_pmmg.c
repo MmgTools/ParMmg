@@ -692,7 +692,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
+      if( !val ) fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented! Switching it off by default.\n");
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
     }
     break;
   case PMMG_IPARAM_numberOfLocalParam :
