@@ -635,8 +635,10 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->point[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
       /* Tag */
       mesh->point[k].tag = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
+#ifdef USE_POINTMAP
       /* Src */
       mesh->point[k].src = *( (int *) *buffer); *buffer += sizeof(int);
+#endif
     }
 
     /** Unpack mesh boundary points */

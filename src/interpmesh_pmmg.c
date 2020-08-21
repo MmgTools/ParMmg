@@ -562,7 +562,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
     pt->flag = oldMesh->base;
   }
 
-#ifdef NO_POINTMAP
+#ifndef USE_POINTMAP
   ifoundTetra = ifoundTria = 1;
 #else
   PMMG_locate_setStart( mesh,oldMesh );
@@ -586,7 +586,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         continue; // treated by copyMetric_points
       } else if ( ppt->tag & MG_BDY ) {
 
-#ifndef NO_POINTMAP
+#ifdef USE_POINTMAP
         ifoundTria = ppt->s;
 #endif
         /** Locate point in the old mesh */
@@ -636,7 +636,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
       } else {
 
-#ifndef NO_POINTMAP
+#ifdef USE_POINTMAP
         ifoundTetra = ppt->s;
 #endif
         /** Locate point in the old volume mesh */

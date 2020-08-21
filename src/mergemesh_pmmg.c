@@ -309,7 +309,7 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
   MMG5_pxPoint   pxpI,pxpJ;
   int            *intvalues,nitem_int_node_comm;
   int            *node2int_node_comm_index1,*node2int_node_comm_index2;
-  int            k,poi_id_glo,ip,is;
+  int            k,poi_id_glo,ip,is,src;
   static int8_t  warnMet=0,warnLs=0,warnDisp=0,warnField=0;
 
   intvalues = parmesh->int_node_comm->intvalues;
@@ -344,13 +344,17 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
     pptJ = &meshJ->point[ node2int_node_comm_index1[ k ] ];
 
     if ( (!MG_VOK(pptJ)) || pptJ->tmp ) continue;
-
+#ifdef USE_POINTMAP
+    src = pptJ->src;
+#else
+    src = 1;
+#endif
     /* Point pptJ is not found in the merged mesh. Add it */
     if ( !intvalues[ poi_id_glo ] ) {
-      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
+      ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,src);
       if ( !ip ) {
         /* reallocation of point table and associated solutions structures*/
-        ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,pptJ->src);
+        ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,src);
         if ( !ip ) {
           return 0;
         }
@@ -476,7 +480,7 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
   MMG5_pSol      fieldI,fieldJ,pslI,pslJ;
   MMG5_pPoint    pptI,pptJ;
   MMG5_pxPoint   pxpI,pxpJ;
-  int            ip,ier,k,is;
+  int            ip,ier,k,is,src;
   static int8_t  warnMet=0,warnLs=0,warnDisp=0,warnField=0;
 
   meshI  = grpI->mesh;
@@ -497,11 +501,15 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     pptJ = &meshJ->point[k];
     if ( !MG_VOK(pptJ) ) continue;
     if ( pptJ->tmp )     continue;
-
-    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,pptJ->src);
+#ifdef USE_POINTMAP
+    src = pptJ->src;
+#else
+    src = 1;
+#endif
+    ip = MMG3D_newPt(meshI,pptJ->c,pptJ->tag,src);
     if ( !ip ) {
       /* reallocation of point table and associated solutions structures*/
-      ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,pptJ->src);
+      ip = PMMG_realloc_pointAndSols(meshI,metI,lsI,dispI,fieldI,pptJ->c,pptJ->tag,src);
       if ( !ip ) {
         return 0;
       }

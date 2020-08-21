@@ -424,6 +424,12 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
 
+  for( k = 0; k < parmesh->ngrp; k++ ) {
+    mesh = parmesh->listgrp[k].mesh;
+#warning Option -nosurf imposed by default
+    mesh->info.nosurf = 1;
+  }
+
   /* Init MPI data */
   parmesh->comm   = comm;
 
