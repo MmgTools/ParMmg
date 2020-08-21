@@ -448,10 +448,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
       case 's':
         if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_nosurf,0) )  {
-            ret_val = 0;
-            goto fail_proc;
-          }
+          parmesh->listgrp[0].mesh->info.nosurf = 0;
         }
         break;
       case 'v':  /* verbosity */
