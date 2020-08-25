@@ -414,10 +414,12 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
   if ( parmesh->ngrp==1 ) {
     mesh = parmesh->listgrp[0].mesh;
     met = parmesh->listgrp[0].met;
-    ier = MMG3D_computePrilen( mesh, met, &lenStats.avlen, &lenStats.lmin,
-                               &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                               &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                               &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+    if ( met && met->m ) {
+      ier = MMG3D_computePrilen( mesh, met, &lenStats.avlen, &lenStats.lmin,
+                                 &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                 &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                 &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+    }
   }
 
   if( isCentral )
