@@ -898,17 +898,27 @@ int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
 void PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int ier,
                                  int myrank,int igrp ) {
   MMG5_pPoint ppt;
+  static int8_t pmmgWarn0 = 0;
+  static int8_t pmmgWarn1 = 0;
 
   ppt = &mesh->point[ip];
 
   if( !ier ) {
-    fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): closest element for"
-            " point %d (tag %d), coords %e %e %e\n",__func__,myrank,igrp,
-            ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+    if ( !pmmgWarn0 ) {
+      pmmgWarn0 = 1;
+      fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): at least one"
+              " localisation issue: closest element for"
+              " point %d (tag %d), coords %e %e %e\n",__func__,myrank,igrp,
+              ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+    }
   } else if ( ier < 0 ) {
-    fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): exhaustive search for"
-            " point %d (tag %d), coords %e %e %e\n",__func__,myrank,igrp,
-            ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+    if ( !pmmgWarn1 ) {
+      pmmgWarn1 = 1;
+      fprintf(stderr,"\n  ## Warning: %s (rank %d, grp %d): at least one"
+              " exhaustive search for"
+              " point %d (tag %d), coords %e %e %e\n",__func__,myrank,igrp,
+              ip,ppt->tag,ppt->c[0],ppt->c[1],ppt->c[2]);
+    }
   }
 }
 
