@@ -241,7 +241,7 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
   mesh->nt  = nt;
   mesh->xp  = xp;
   mesh->xt  = xt;
- 
+
   mesh->npi = mesh->np;
   mesh->nei = mesh->ne;
   mesh->nti = mesh->nt;
@@ -734,7 +734,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   }
 
   *memAv -= (parmesh->memMax - oldMemMax);
-  
+
   return 1;
 }
 
@@ -939,7 +939,7 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
     int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
     size_t *memAv,size_t *oldMemMax,int *pos ) {
   int iploc;
- 
+
   *pos   = 4*(tet-1)+1+fac;
 
   /* Give the available memory to the parmesh */
@@ -1079,12 +1079,12 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           /* Reallocation of metric, ls, displacement and sol fields */
           /* Met */
           if ( met ) {
-          if ( met->m ) {
-            PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
-                         met->size*(met->npmax+1),double,
-                         "metric array",return 0);
-          }
-          met->npmax = mesh->npmax;
+            if ( met->m ) {
+              PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
+                           met->size*(met->npmax+1),double,
+                           "metric array",return 0);
+            }
+            met->npmax = mesh->npmax;
           }
 
           /* level-set */
@@ -1217,7 +1217,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           tetraCur->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[tetraCur->xt];
-        pxt->ref[fac] = 0;
+
         /* If already boundary, make it recognizable as a "true" boundary */
         if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY;
         PMMG_tag_par_face(pxt,fac);
@@ -1446,7 +1446,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, fac, ie;
   int ret_val = 1;
- 
+
   grpOld  = &parmesh->listgrp[grpIdOld];
   meshOld = grpOld->mesh;
 
@@ -1480,8 +1480,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     iplocFaceComm[4*(ie-1)+1+fac] = (grpOld->face2int_face_comm_index1[i]%12)%3;
   }
 
-  /* 
-   * Use point[].tmp field to store index in internal communicator of
+  /* Use point[].tmp field to store index in internal communicator of
      vertices. specifically: place a copy of vertices' node2index2 position at
      point[].tmp field or -1 if they are not in the comm.
      Use point[].s field to store assigned point subgroup.
@@ -1681,8 +1680,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   /** Perform group splitting */
   ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part );
   if( ret_val != 1) goto fail_counters;
-
-//DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
 
   PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
   parmesh->listgrp = grpsNew;
