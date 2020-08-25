@@ -131,7 +131,7 @@ PROGRAM main
   !>  No surface adaptation */
   CALL PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1, ier )
   IF ( ier /= 1 )THEN
-     CALL MPI_Abort(ier)
+     CALL MPI_Abort(MPI_COMM_WORLD,1,ier)
   ENDIF
 
   !> remesh function
