@@ -450,6 +450,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
           parmesh->listgrp[0].mesh->info.nosurf = 0;
         }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
         break;
       case 'v':  /* verbosity */
         if ( ++i < argc ) {
