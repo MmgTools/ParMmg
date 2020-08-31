@@ -404,7 +404,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MMG5_pTria     ptr;
   int            *intvalues,*itorecv,*itosend;
   double         *doublevalues,*rtorecv,*rtosend;
-  int            nitem,color,ie,ifac;
+  int            nitem,color,ie,ifac,nt0,nt1;
   double         n1[3],n2[3],dhd;
   int            *adja,k,kk,ne,nr,j;
   char           i,ii,i1,i2;
@@ -468,10 +468,11 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       /* Store reference if the edge is visited for the first time */
       if( intvalues[2*idx] == 1 )
         intvalues[2*idx+1] = ptr->ref;
-      /* Check for ref edge if the edge is visited for the second time */
+      /* Check for ref edge if the edge is visited for the second time, and
+       * unset the reference if a ref edge is found */
       if( intvalues[2*idx] == 2 )
         if( intvalues[2*idx+1] != ptr->ref )
-          intvalues[2*idx] = PMMG_UNSET;
+          intvalues[2*idx+1] = PMMG_UNSET;
       /* Store the normal in the free position */
       for( d = 0; d < 3; d++ )
         doublevalues[6*idx+3*(intvalues[2*idx]-1)+d] = n1[d];
@@ -520,6 +521,36 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
                    comm,&status),return 0 );
   }
 
+  /** First pass */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    itorecv = ext_edge_comm->itorecv;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+
+      /* Current nb. of triangles */
+      nt0 = intvalues[2*idx];
+
+      /* Accumulate the number of triangles touching the edge in intvalues */
+      intvalues[2*idx] += itorecv[2*i];
+
+      /* Go to the next if non-manifold */
+      nt1 = intvalues[2*idx];
+      if( nt1 > 2 ) continue;
+
+      if( nt0 < 2 ) { /* If there is room for another normal vector */
+        for( j = 0; j < nt1-nt0; j++ ) { /* Loop on newly received vectors */
+          for( d = 0; d < 3; d++ ) { /* Store them in doublevalues */
+            doublevalues[6*idx+3*(nt0+j)+d] = rtorecv[6*i+3*j+d];
+          }
+        }
+      }
+    }
+  }
+
+  /** Second pass */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
     nitem         = ext_edge_comm->nitem;
@@ -530,23 +561,22 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     rtosend = ext_edge_comm->rtosend;
     rtorecv = ext_edge_comm->rtorecv;
 
-    /* Accumulate the number of triangles touching the edge in intvalues */
     for ( i=0; i<nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
-      intvalues[2*idx] += itorecv[2*i];
-    }
 
-    if( intvalues[idx] > 2 ) { /* Mark edge as non-manifold */
-      continue;
-    } else if( intvalues[idx] ) { /* MG_PARBDYBDY have already been excluded */
-    }
-    if( (itosend[2*i] + itorecv[2*i] == 1) ) {
-    }  else if( (itosend[2*i] == 1) && (itorecv[2*i] == 1) ) {
-      for( d = 0; d < 3; d++ ) {
-        n1[d] = itosend[3*i+d];
-        n2[d] = itorecv[3*i+d];
-      }
-      dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
+      nt1 = intvalues[2*idx];
+
+      if( nt1 > 2 ) { /* Mark edge as non-manifold */
+        continue;
+      } else if ( nt1 == 1 ) {
+        /* ? */
+        continue;
+      } else { /* MG_PARBDYBDY have already been excluded */
+        for( d = 0; d < 3; d++ ) {
+          n1[d] = doublevalues[6*idx+d];
+          n2[d] = doublevalues[6*idx+3+d];
+        }
+        dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
 /* tag geo */
 //      if ( dhd <= mesh->info.dhd ) {
 //        pt->tag[i]   |= MG_GEO;
@@ -557,7 +587,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 //        mesh->point[pt->v[i2]].tag |= MG_GEO;
 //        nr++;
 //      }
-    } else if( itorecv[2*idx] == 2 ) {
+      }
     }
   }
 
