@@ -540,6 +540,12 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       nt1 = intvalues[2*idx];
       if( nt1 > 2 ) continue;
 
+      /* Check new ref */
+      if( (nt1 == 2) && (nt0 == 1) ) {
+        if( intvalues[2*idx+1] != itorecv[2*i+1] )
+          intvalues[2*idx+1] = PMMG_UNSET;
+      }
+
       if( nt0 < 2 ) { /* If there is room for another normal vector */
         for( j = 0; j < nt1-nt0; j++ ) { /* Loop on newly received vectors */
           for( d = 0; d < 3; d++ ) { /* Store them in doublevalues */
@@ -569,15 +575,27 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       if( nt1 > 2 ) { /* Mark edge as non-manifold */
         continue;
       } else if ( nt1 == 1 ) {
-        /* ? */
-        continue;
+//        pt->tag[i] |= MG_GEO;
+//        i1 = MMG5_inxt2[i];
+//        i2 = MMG5_inxt2[i1];
+//        mesh->point[pt->v[i1]].tag |= MG_GEO;
+//        mesh->point[pt->v[i2]].tag |= MG_GEO;
+//        nr++;
       } else { /* MG_PARBDYBDY have already been excluded */
+        if( intvalues[2*idx+1] == PMMG_UNSET ) {
+//          pt->tag[i]   |= MG_REF;
+//          pt1->tag[ii] |= MG_REF;
+//          i1 = MMG5_inxt2[i];
+//          i2 = MMG5_inxt2[i1];
+//          mesh->point[pt->v[i1]].tag |= MG_REF;
+//          mesh->point[pt->v[i2]].tag |= MG_REF;
+//          ne++;
+        }
         for( d = 0; d < 3; d++ ) {
           n1[d] = doublevalues[6*idx+d];
           n2[d] = doublevalues[6*idx+3+d];
         }
         dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
-/* tag geo */
 //      if ( dhd <= mesh->info.dhd ) {
 //        pt->tag[i]   |= MG_GEO;
 //        pt1->tag[ii] |= MG_GEO;
