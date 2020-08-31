@@ -147,6 +147,21 @@ IF( BUILD_TESTING )
       ENDFOREACH()
     ENDFOREACH ( )
 
+    ### test openbdy mode on 6 procs
+    add_test( NAME opnbdy_peninsula-6
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+      -opnbdy
+      ${CI_DIR}/OpnBdy_peninsula/peninsula.mesh
+      -out ${CI_DIR_RESULTS}/opnbdy-peninsula.o.mesh
+      )
+
+    add_test( NAME opnbdy_island-6
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+      -opnbdy
+      ${CI_DIR}/OpnBdy_island/island.mesh
+      -out ${CI_DIR_RESULTS}/opnbdy-island.o.mesh
+      )
+
     ###############################################################################
     #####
     #####        Tests fields interpolation with or without metric

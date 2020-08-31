@@ -1756,7 +1756,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
- * \return 0 if failed, 1 otherwise.
+ * \return 1 if success, 0 or -1 otherwise
  *
  * Read mesh data.
  *
@@ -1773,7 +1773,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
- * \return 0 if failed, 1 otherwise.
+ * \return 1 if success, 0 or -1 otherwise
  *
  * Read mesh data.
  *

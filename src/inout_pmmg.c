@@ -434,9 +434,7 @@ int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
 
-  if ( 1 != ier ) return 0;
-
-  return 1;
+  return ier;
 }
 
 int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename) {

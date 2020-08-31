@@ -268,7 +268,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
-#warning: Luca: check this function
+#warning Luca: check this function
     MMG3D_prilen(mesh,met,0);
   }
 
