@@ -763,8 +763,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
-#warning Luca: here a parallel edge communicator would be useful
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
+    fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+  if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
