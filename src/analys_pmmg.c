@@ -406,7 +406,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   double         *doublevalues,*rtorecv,*rtosend;
   int            nitem,color,ie,ifac,nt0,nt1;
   double         n1[3],n2[3],dhd;
-  int            *adja,k,kk,ne,nr,j;
+  int            *adja,k,kk,ne,nr,nm,j;
   char           i,ii,i1,i2;
   int            idx,edg,d;
   int16_t        tag;
@@ -450,8 +450,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     /* triangle normal */
     MMG5_nortri(mesh,ptr,n1);
 
-    /* Get parallel edge touched by a MG_BDY face and store normal.
-     * Use codes PMMG_UNSET for ref edges, 2*PMMG_UNSET for geo edges. */
+    /* Get parallel edge touched by a MG_BDY face and store normal vectors */
     for (i=0; i<3; i++) {
       /* Skip non-manifold edges */
       if ( (ptr->tag[i] & MG_NOM) ) continue;
@@ -521,7 +520,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
                    comm,&status),return 0 );
   }
 
-  /** First pass */
+  /** First pass: Increment the number of seen triangles, check for reference
+   *  edges and mark them with PMMG_UNSET, and store new triangles normals if
+   *  there is room for them. */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
 
@@ -556,59 +557,98 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     }
   }
 
-  /** Second pass */
+  /** Second pass: Check dihedral angle and mark geometric edge with
+   *  2*PMMG_UNSET (3x if it is already a reference edge) */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
-    nitem         = ext_edge_comm->nitem;
-    color         = ext_edge_comm->color_out;
 
-    itosend = ext_edge_comm->itosend;
-    itorecv = ext_edge_comm->itorecv;
-    rtosend = ext_edge_comm->rtosend;
-    rtorecv = ext_edge_comm->rtorecv;
-
-    for ( i=0; i<nitem; ++i ) {
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
 
       nt1 = intvalues[2*idx];
 
-      if( nt1 > 2 ) { /* Mark edge as non-manifold */
-        continue;
-      } else if ( nt1 == 1 ) {
-//        pt->tag[i] |= MG_GEO;
-//        i1 = MMG5_inxt2[i];
-//        i2 = MMG5_inxt2[i1];
-//        mesh->point[pt->v[i1]].tag |= MG_GEO;
-//        mesh->point[pt->v[i2]].tag |= MG_GEO;
-//        nr++;
-      } else { /* MG_PARBDYBDY have already been excluded */
-        if( intvalues[2*idx+1] == PMMG_UNSET ) {
-//          pt->tag[i]   |= MG_REF;
-//          pt1->tag[ii] |= MG_REF;
-//          i1 = MMG5_inxt2[i];
-//          i2 = MMG5_inxt2[i1];
-//          mesh->point[pt->v[i1]].tag |= MG_REF;
-//          mesh->point[pt->v[i2]].tag |= MG_REF;
-//          ne++;
-        }
+      if( nt1 == 2 ) {
         for( d = 0; d < 3; d++ ) {
           n1[d] = doublevalues[6*idx+d];
           n2[d] = doublevalues[6*idx+3+d];
         }
         dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
-//      if ( dhd <= mesh->info.dhd ) {
-//        pt->tag[i]   |= MG_GEO;
-//        pt1->tag[ii] |= MG_GEO;
-//        i1 = MMG5_inxt2[i];
-//        i2 = MMG5_inxt2[i1];
-//        mesh->point[pt->v[i1]].tag |= MG_GEO;
-//        mesh->point[pt->v[i2]].tag |= MG_GEO;
-//        nr++;
-//      }
+        if ( dhd <= mesh->info.dhd ) {
+          if( intvalues[2*idx+1] != PMMG_UNSET )
+            intvalues[2*idx+1] = 2*PMMG_UNSET;
+          else
+            intvalues[2*idx+1] = 3*PMMG_UNSET;
+        }
       }
     }
   }
 
+  /** Third pass: Loop on triangles to tag edges and points */
+  ne = nr = nm = 0;
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(pt) )  continue;
+
+#warning Luca: this shows that passing tria->tetra tags should be better thought
+    ie   = ptr->cc/4;
+    ifac = ptr->cc%4;
+
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) )  continue;
+    if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+
+    /* Skip faces that are just parallel */
+    if( (pxt->ftag[ifac] & MG_PARBDY) && !(pxt->ftag[ifac] & MG_PARBDYBDY) )
+      continue;
+
+    /* Get parallel edge touched by a MG_BDY face and store normal vectors */
+    for (i=0; i<3; i++) {
+      /* Skip non-manifold edges */
+      if ( (ptr->tag[i] & MG_NOM) ) continue;
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+      idx = edg-1;
+
+      if( intvalues[2*idx] == 1 ) { /* no adjacent */
+        ptr->tag[i] |= MG_GEO;
+        i1 = MMG5_inxt2[i];
+        i2 = MMG5_inxt2[i1];
+        mesh->point[ptr->v[i1]].tag |= MG_GEO;
+        mesh->point[ptr->v[i2]].tag |= MG_GEO;
+        nr++;
+      } else {
+        if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
+            (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* reference edge */
+          ptr->tag[i]   |= MG_REF;
+          i1 = MMG5_inxt2[i];
+          i2 = MMG5_inxt2[i1];
+          mesh->point[ptr->v[i1]].tag |= MG_REF;
+          mesh->point[ptr->v[i2]].tag |= MG_REF;
+          ne++;
+        }
+        if( (intvalues[2*idx+1] == 2*PMMG_UNSET) ||
+            (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* geometric edge */
+          ptr->tag[i]   |= MG_GEO;
+          i1 = MMG5_inxt2[i];
+          i2 = MMG5_inxt2[i1];
+          mesh->point[ptr->v[i1]].tag |= MG_GEO;
+          mesh->point[ptr->v[i2]].tag |= MG_GEO;
+          nr++;
+        }
+        if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
+          ptr->tag[i] |= MG_NOM;
+          i1 = MMG5_inxt2[i];
+          i2 = MMG5_inxt2[i1];
+          mesh->point[ptr->v[i1]].tag |= MG_NOM;
+          mesh->point[ptr->v[i2]].tag |= MG_NOM;
+          nm++;
+        }
+      }
+    }
+  }
 
 
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
