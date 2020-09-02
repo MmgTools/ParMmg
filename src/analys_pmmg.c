@@ -668,6 +668,170 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   return 1;
 }
 
+/** compute normals at C1 vertices, for C0: tangents */
+int PMMG_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
+  MMG5_pTria     pt;
+  MMG5_pPoint    ppt;
+  MMG5_xPoint    *pxp;
+  double         n[3],dd;
+  int            *adja,k,kk,ng,nn,nt,nf,nnr;
+  char           i,ii,i1;
+
+  /* recomputation of normals only if mesh->xpoint has been freed */
+  if ( mesh->xpoint ) {
+    if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug ) {
+      fprintf(stdout,"  ## Warning: %s: no research of boundary points"
+              " and normals of mesh. mesh->xpoint must be freed to enforce"
+              " analysis.\n",__func__);
+    }
+    return 1;
+  }
+
+  /* identify boundary points */
+  ++mesh->base;
+  mesh->xp = 0;
+  nnr      = 0;
+  for (k=1; k<=mesh->nt; k++) {
+    pt = &mesh->tria[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    for (i=0; i<3; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if ( ppt->flag == mesh->base )  continue;
+      else {
+        ++mesh->xp;
+        ppt->flag = mesh->base;
+        if ( mesh->nc1 ) {
+          if ( ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2] > 0 ) {
+            if ( ppt->tag & MG_CRN || ppt->tag & MG_NOM || MG_EDG(ppt->tag) ) {
+              ++nnr;
+              continue;
+            }
+            ppt->xp = -1;
+          }
+        }
+      }
+    }
+  }
+
+  /* memory to store normals for boundary points */
+  mesh->xpmax  = MG_MAX( (long long)(1.5*mesh->xp),mesh->npmax);
+
+  MMG5_ADD_MEM(mesh,(mesh->xpmax+1)*sizeof(MMG5_xPoint),"boundary points",return 0);
+  MMG5_SAFE_CALLOC(mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,return 0);
+
+  /* compute normals + tangents */
+  nn = ng = nt = nf = 0;
+  mesh->xp = 0;
+  ++mesh->base;
+  for (k=1; k<=mesh->nt; k++) {
+    pt = &mesh->tria[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    adja = &mesh->adjt[3*(k-1)+1];
+    for (i=0; i<3; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if ( ppt->tag & MG_CRN || ppt->tag & MG_NOM || ppt->flag == mesh->base )  continue;
+
+      /* C1 point */
+      if ( !MG_EDG(ppt->tag) ) {
+
+        if ( (!mesh->nc1) ||
+             ppt->n[0]*ppt->n[0]+ppt->n[1]*ppt->n[1]+ppt->n[2]*ppt->n[2]<=MMG5_EPSD2 ) {
+          if ( !MMG5_boulen(mesh,mesh->adjt,k,i,ppt->n) ) {
+            ++nf;
+            continue;
+          }
+          else ++nn;
+        }
+
+        ++mesh->xp;
+        if(mesh->xp > mesh->xpmax){
+          MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                             "larger xpoint table",
+                             mesh->xp--;return 0;);
+        }
+        ppt->xp = mesh->xp;
+        pxp = &mesh->xpoint[ppt->xp];
+        memcpy(pxp->n1,ppt->n,3*sizeof(double));
+        ppt->n[0] = ppt->n[1] = ppt->n[2] = 0.;
+        ppt->flag = mesh->base;
+
+      }
+
+      /* along ridge-curve */
+      i1  = MMG5_inxt2[i];
+      if ( !MG_EDG(pt->tag[i1]) )  continue;
+      else if ( !MMG5_boulen(mesh,mesh->adjt,k,i,n) ) {
+        ++nf;
+        continue;
+      }
+      ++mesh->xp;
+      if(mesh->xp > mesh->xpmax){
+        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                           "larger xpoint table",
+                           mesh->xp--;return 0;);
+      }
+      ppt->xp = mesh->xp;
+      pxp = &mesh->xpoint[ppt->xp];
+      memcpy(pxp->n1,n,3*sizeof(double));
+
+      if ( pt->tag[i1] & MG_GEO && adja[i1] > 0 ) {
+        kk = adja[i1] / 3;
+        ii = adja[i1] % 3;
+        ii = MMG5_inxt2[ii];
+        if ( !MMG5_boulen(mesh,mesh->adjt,kk,ii,n) ) {
+          ++nf;
+          continue;
+        }
+        memcpy(pxp->n2,n,3*sizeof(double));
+
+        /* compute tangent as intersection of n1 + n2 */
+        ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+        ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+        ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+        dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
+        if ( dd > MMG5_EPSD2 ) {
+          dd = 1.0 / sqrt(dd);
+          ppt->n[0] *= dd;
+          ppt->n[1] *= dd;
+          ppt->n[2] *= dd;
+        }
+        ppt->flag = mesh->base;
+        ++nt;
+        continue;
+      }
+
+      /* compute tgte */
+      ppt->flag = mesh->base;
+      ++nt;
+      if ( !MMG5_boulec(mesh,mesh->adjt,k,i,ppt->n) ) {
+        ++nf;
+        continue;
+      }
+      dd = pxp->n1[0]*ppt->n[0] + pxp->n1[1]*ppt->n[1] + pxp->n1[2]*ppt->n[2];
+      ppt->n[0] -= dd*pxp->n1[0];
+      ppt->n[1] -= dd*pxp->n1[1];
+      ppt->n[2] -= dd*pxp->n1[2];
+      dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
+      if ( dd > MMG5_EPSD2 ) {
+        dd = 1.0 / sqrt(dd);
+        ppt->n[0] *= dd;
+        ppt->n[1] *= dd;
+        ppt->n[2] *= dd;
+      }
+    }
+  }
+  mesh->nc1 = 0;
+
+  if ( abs(mesh->info.imprim) > 3 && nn+nt > 0 ) {
+    if ( nnr )
+      fprintf(stdout,"     %d input normals ignored\n",nnr);
+    fprintf(stdout,"     %d normals,  %d tangents updated  (%d failed)\n",nn,nt,nf);
+  }
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
@@ -793,7 +957,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* define (and regularize) normals: create xpoints */
 #warning Luca: it uses boulen (twice) and boulec
-  if ( !MMG5_norver(mesh) ) {
+  if ( !PMMG_norver( parmesh,mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
