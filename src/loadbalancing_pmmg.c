@@ -98,7 +98,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     fprintf(stdout,"               group split for metis     %s\n",stim);
   }
 
-  if ( ier_glob <= 0) {
+  if ( ier_glob <= 0 && parmesh->myrank == parmesh->info.root ) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     return ier_glob;
   }
