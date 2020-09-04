@@ -1149,7 +1149,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
       displs[k] = displs[k-1] + rcv_pack_size[k-1];
     }
     pack_size_tot        = (size_t)(displs[nprocs-1])+(size_t)(rcv_pack_size[nprocs-1]);
-    assert ( pack_size_tot < SIZE_T_MAX && "SIZE_T_MAX overflow" );
+    assert ( pack_size_tot < SIZE_MAX && "SIZE_MAX overflow" );
     PMMG_MALLOC( parmesh,rcv_buffer,pack_size_tot,char,"rcv_buffer",ier=0);
   }
 
