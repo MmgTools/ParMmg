@@ -1099,9 +1099,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
 
-  size_t     available;
-  int        *rcv_pack_size,*displs,ier,ier_glob,k,ier_pack;
-  int        nprocs,root,pack_size,pack_size_tot;
+  size_t     available,pack_size_tot;
+  int        *rcv_pack_size,ier,ier_glob,k,*displs,ier_pack;
+  int        nprocs,root,pack_size;
   char       *rcv_buffer,*buffer,*ptr;
 
   nprocs        = parmesh->nprocs;
@@ -1121,7 +1121,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   /** 1: Memory alloc */
   if ( parmesh->myrank == root ) {
     PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,int,"rcv_pack_size",ier=0);
-    PMMG_CALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
+    PMMG_MALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
     PMMG_CALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
     PMMG_MALLOC( parmesh, (*rcv_int_node_comm) ,nprocs,PMMG_Int_comm,"rcv_int_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_next_node_comm),nprocs,int,"rcv_next_comm" ,ier=0);
@@ -1145,9 +1145,11 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     displs[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
-      displs[k] += displs[k-1] + rcv_pack_size[k-1];
+      assert ( displs[k-1] <= INT_MAX - rcv_pack_size[k-1] && "INT_MAX overflow");
+      displs[k] = displs[k-1] + rcv_pack_size[k-1];
     }
-    pack_size_tot        = displs[nprocs-1]+rcv_pack_size[nprocs-1];
+    pack_size_tot        = (size_t)(displs[nprocs-1])+(size_t)(rcv_pack_size[nprocs-1]);
+    assert ( pack_size_tot < SIZE_T_MAX && "SIZE_T_MAX overflow" );
     PMMG_MALLOC( parmesh,rcv_buffer,pack_size_tot,char,"rcv_buffer",ier=0);
   }
 
