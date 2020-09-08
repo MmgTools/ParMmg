@@ -542,12 +542,9 @@ SET( pmmg_headers
 # Install header files in /usr/local or equivalent
 INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COMPONENT headers )
 
-COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
+# Copy header files in project directory at every build step
+COPY_HEADERS_AND_CREATE_TARGET ( ${PMMG_SOURCE_DIR} ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 
-# Copy header files in project directory at configuration step
-# (generated file don't exists yet or are outdated)
-FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
-  PATTERN "libparmmg*f.h"  EXCLUDE)
 
 install(EXPORT ParMmgTargets
   FILE ParMmgTargets.cmake
