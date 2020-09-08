@@ -438,32 +438,26 @@ IF( BUILD_TESTING )
     # Distributed API test
     SET ( PMMG_DISTR_LIB_TESTS
       libparmmg_distributed_manual_example0
-      libparmmg_distributed_manual_opnbdy
       libparmmg_distributed_automatic_example0
       )
     SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
-      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/opnbdy.c
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
-      ""
       ""
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTMET
       ""
       ""
-      ""
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTSOL
-      ""
       ""
       ""
       )
     SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
       ${CI_DIR_RESULTS}/io-par-manual-cube.o
-      ${CI_DIR_RESULTS}/io-par-manual-opnbdy.o
       ${CI_DIR_RESULTS}/io-par-automatic-cube.o
       )
 
@@ -491,6 +485,17 @@ IF( BUILD_TESTING )
       ENDFOREACH()
 
     ENDFOREACH()
+
+    ADD_LIBRARY_TEST ( libparmmg_distributed_manual_opnbdy
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/opnbdy.c
+      "copy_pmmg_headers" "${lib_name}"
+      )
+
+    ADD_TEST ( NAME libparmmg_distributed_manual_opnbdy-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2
+      $<TARGET_FILE:libparmmg_distributed_manual_opnbdy>
+      ${CI_DIR_RESULTS}/io-par-manual-opnbdy.o.mesh )
+
   ENDIF()
 
   # Distributed lib test
