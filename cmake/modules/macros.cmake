@@ -64,11 +64,11 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
 
   ADD_CUSTOM_TARGET(pmmgtypes_header ALL
     DEPENDS
-    ${PMMG_SOURCE_DIR}/libparmmgtypes.h )
+    ${source_dir}/libparmmgtypes.h )
 
   ADD_CUSTOM_TARGET(pmmg_header ALL
     DEPENDS
-    ${PMMG_SOURCE_DIR}/libparmmg.h )
+    ${source_dir}/libparmmg.h )
 
   COPY_HEADER (
     ${source_dir} libparmmgtypes.h
