@@ -183,6 +183,26 @@ extern "C" {
  */
 #define PMMG_PREDEF_PART 0
 
+/**
+ * \enum PMMG_Format
+ * \brief Type of supported file format
+ */
+enum PMMG_Format {
+  PMMG_FMT_MeditASCII  = MMG5_FMT_MeditASCII, /*!< ASCII Medit (.mesh) */
+  PMMG_FMT_MeditBinary = MMG5_FMT_MeditBinary,/*!< Binary Medit (.meshb) */
+  PMMG_FMT_GmshASCII   = MMG5_FMT_GmshASCII,  /*!< ASCII Gmsh */
+  PMMG_FMT_GmshBinary  = MMG5_FMT_GmshBinary, /*!< Binary Gmsh */
+  PMMG_FMT_VtkPvtp     = MMG5_FMT_VtkPvtp,    /*!< VTK pvtp */
+  PMMG_FMT_VtkPvtu     = MMG5_FMT_VtkPvtu,    /*!< VTK pvtu */
+  PMMG_FMT_VtkVtu      = MMG5_FMT_VtkVtu,     /*!< VTK vtu */
+  PMMG_FMT_VtkVtp      = MMG5_FMT_VtkVtp,     /*!< VTK vtp */
+  PMMG_FMT_VtkVtk      = MMG5_FMT_VtkVtk,     /*!< VTK vtk */
+  PMMG_FMT_Tetgen      = MMG5_FMT_Tetgen,     /*!< Tetgen or Triangle */
+  PMMG_FMT_Centralized,                       /*!< Centralized Setters/Getters */
+  PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
+  PMMG_FMT_Unknown,                           /*!< Unrecognized */
+};
+
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
 

@@ -388,11 +388,14 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       assert( MG_EOK(pt) && pt->xt );
       pxt = &mesh->xtetra[pt->xt];
 
-      /* Tag face as "true" boundary if its second ref is different */
-      if( !seenFace[idx] )
+      /* Tag face as "true" boundary if its second ref is different or if
+       * triangle has a non-nul ref in opnbdy mode */
+      if( !seenFace[idx] ) {
         intvalues[idx] = pt->ref;
-      else if( intvalues[idx] != pt->ref )
+      }
+      else if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) || (intvalues[idx] != pt->ref ) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+      }
 
       /* Mark face each time that it's seen */
       seenFace[idx]++;
@@ -448,12 +451,15 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       /* Faces on the external communicator have been visited only once */
       if( seenFace[idx] != 1 ) continue;
 
-      /* Tag face as "true" boundary if its ref is different, delete reference
-       * if it is only a parallel boundary */
-      if( intvalues[idx] != pt->ref )
+      /* Tag face as "true" boundary if its ref is different (or if triangle has
+       * a non nul ref in openbdy mode), delete reference if it is only a
+       * parallel boundary */
+      if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) || (intvalues[idx] != pt->ref ) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
-      else
+      }
+      else {
         pxt->ref[ifac] = PMMG_NUL;
+      }
     }
   }
 

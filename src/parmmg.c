@@ -65,7 +65,7 @@ int main( int argc, char *argv[] )
   int           rank;
   int           ier,iermesh,iresult,ierSave,fmtin;
   int8_t        tim;
-  char          stim[32],*ptr;
+  char          stim[32],*ptr,*filename=NULL;
 
   // Shared memory communicator: processes that are on the same node, sharing
   //    local memory and can potentially communicate without using the network
@@ -144,11 +144,13 @@ int main( int argc, char *argv[] )
   ier     = 1;
 
   ptr   = MMG5_Get_filenameExt(parmesh->meshin);
+
   fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
 
   ptr                  = MMG5_Get_filenameExt(parmesh->meshout);
-  if( !(parmesh->info.fmtout == PMMG_UNSET) )
+  if( parmesh->info.fmtout == PMMG_FMT_Unknown ) {
     parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
+  }
 
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
@@ -288,6 +290,41 @@ check_mesh_loading:
     case ( MMG5_FMT_VtkVtk ):
       printf("  ## Error: Output format not yet implemented.\n");
       PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      break;
+
+    case ( PMMG_FMT_Distributed ):
+      // Dirty : use a clean parallel output.
+      /* Force output at Medit ascii format */
+      assert ( parmesh->meshout );
+      filename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
+
+      MMG5_SAFE_REALLOC(filename,strlen(filename)+1,strlen(filename)+13,char,"",return 2);
+
+      sprintf(filename,"%s.%d.o.mesh",filename,parmesh->myrank);
+      char *ptr = strstr(filename,".mesh");
+
+      ierSave = MMG3D_saveMesh(parmesh->listgrp[0].mesh,filename);
+      if ( ierSave ) {
+        if ( ptr ) {
+          *ptr = '\0';
+        }
+        strcat(filename,".sol");
+        ptr = strstr(filename,".sol");
+        ierSave = MMG3D_saveSol(parmesh->listgrp[0].mesh,parmesh->listgrp[0].met,
+                                filename);
+      }
+      if ( ierSave &&  grp->field ) {
+        if ( ptr ) {
+          *ptr = '\0';
+        }
+        strcat(filename,"-field.sol");
+        ierSave = MMG3D_saveSol(parmesh->listgrp[0].mesh,parmesh->listgrp[0].field,
+                                filename);
+      }
+      MPI_Allreduce( &ierSave, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm );
+      if ( !ier ) {
+        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      }
       break;
     default:
       ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);

@@ -1149,7 +1149,7 @@ int PMMG_part_getInterfaces( PMMG_pParMesh parmesh,int *part,int *ngrps,int targ
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
-  int *map_grps; 
+  int         *map_grps;
   int         igrp,iproc,color;
   int         sumngrps[parmesh->nprocs+1];
   int         ie,i,count;

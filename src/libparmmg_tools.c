@@ -423,11 +423,18 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
 
       case 'd':
-        if ( !strcmp(argv[i],"-d") ) {
-        /* debug */
-        if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
-          ret_val = 0;
-          goto fail_proc;
+        if ( !strcmp(argv[i],"-distributed-output") ) {
+          /* force distributed output */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,1) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-d") ) {
+          /* debug */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+            ret_val = 0;
+            goto fail_proc;
           }
         }
         else {

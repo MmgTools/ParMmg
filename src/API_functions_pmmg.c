@@ -423,6 +423,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.nodeGloNum         = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
+  parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
   for( k = 0; k < parmesh->ngrp; k++ ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -622,6 +623,16 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     parmesh->ddebug = val;
     break;
 
+  case PMMG_IPARAM_distributedOutput :
+
+    if ( val == 1 ) {
+      parmesh->info.fmtout = PMMG_FMT_Distributed;
+    }
+    else if ( val == 0 ) {
+      parmesh->info.fmtout = PMMG_FMT_Centralized;
+    }
+    break;
+
   case PMMG_IPARAM_mmgDebug :
 
     /* Set the mmg debug mode */
@@ -658,7 +669,12 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nofem,val) ) return 0;
     }
     break;
-
+  case PMMG_IPARAM_opnbdy :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
+    }
+    break;
   case PMMG_IPARAM_optim :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;

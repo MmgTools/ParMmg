@@ -59,13 +59,15 @@ enum PMMG_Param {
   PMMG_IPARAM_mmgVerbose,        /*!< [-10..10], Tune level of verbosity of Mmg */
   PMMG_IPARAM_mem,               /*!< [n/-1], Set memory size to n Mbytes or keep the default value */
   PMMG_IPARAM_debug,             /*!< [1/0], Turn on/off debug mode */
+  PMMG_IPARAM_distributedOutput, /*!< [0/1], Turn off/on distributed output */
   PMMG_IPARAM_mmgDebug,          /*!< [1/0], Turn on/off debug mode */
   PMMG_IPARAM_angle,             /*!< [1/0], Turn on/off angle detection */
   PMMG_IPARAM_iso,               /*!< [1/0], Level-set meshing */
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
+  PMMG_IPARAM_opnbdy,            /*!< [0/1], Enable preservation of open boundaries */
   PMMG_IPARAM_optim,             /*!< [1/0], Optimize mesh keeping its initial edge sizes */
   PMMG_IPARAM_optimLES,          /*!< [1/0], Strong mesh optimization for Les computations */
-  PMMG_IPARAM_nofem,            /*!< [1/0], Generate a non finite element mesh */
+  PMMG_IPARAM_nofem,             /*!< [1/0], Generate a non finite element mesh */
   PMMG_IPARAM_noinsert,          /*!< [1/0], Avoid/allow point insertion */
   PMMG_IPARAM_noswap,            /*!< [1/0], Avoid/allow edge or face flipping */
   PMMG_IPARAM_nomove,            /*!< [1/0], Avoid/allow point relocation */

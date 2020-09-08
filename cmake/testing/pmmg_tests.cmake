@@ -15,7 +15,7 @@ IF( BUILD_TESTING )
         WORKING_DIRECTORY ${PARENT_DIR}
         )
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} checkout 2182d86771506d99971226a4ae2a9eab137e127f
+        COMMAND ${GIT_EXECUTABLE} checkout 119598d4c34f7eb49e46584e94d48e0eef3e96a6
         WORKING_DIRECTORY ${CI_DIR}
         )
     ENDIF()
@@ -283,16 +283,16 @@ IF( BUILD_TESTING )
     SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
 
     LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
-      # libparmmg_centralized_manual_example0_io_0
-      # libparmmg_centralized_manual_example0_io_1
-      # libparmmg_distributed_manual_example0
+      # libparmmg_fortran_centralized_manual_example0_io_0
+      # libparmmg_fortran_centralized_manual_example0_io_1
+      # libparmmg_fortran_distributed_manual_example0
       )
 
     LIST ( APPEND PMMG_LIB_TESTS_MAIN_PATH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.F90
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
+      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
+      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
+      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.F90
       )
 
     LIST ( APPEND PMMG_LIB_TESTS_INPUTMESH
@@ -438,26 +438,32 @@ IF( BUILD_TESTING )
     # Distributed API test
     SET ( PMMG_DISTR_LIB_TESTS
       libparmmg_distributed_manual_example0
+      libparmmg_distributed_manual_opnbdy
       libparmmg_distributed_automatic_example0
       )
     SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/opnbdy.c
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/automatic_IO/main.c
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
+      ""
       ""
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTMET
       ""
       ""
+      ""
       )
     SET ( PMMG_DISTR_LIB_TESTS_INPUTSOL
+      ""
       ""
       ""
       )
     SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
       ${CI_DIR_RESULTS}/io-par-manual-cube.o
+      ${CI_DIR_RESULTS}/io-par-manual-opnbdy.o
       ${CI_DIR_RESULTS}/io-par-automatic-cube.o
       )
 
