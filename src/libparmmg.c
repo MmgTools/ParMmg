@@ -595,7 +595,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
   int           ier;
-  int           iresult,ierlib;
+  int           ierlib;
   mytime        ctim[TIMEMAX];
   int8_t        tim;
   char          stim[32];
@@ -668,8 +668,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  int              ier,iresult,ierlib,npmax,nemax,xpmax,xtmax;
-  long int         tmpmem;
+  int              ier,iresult,ierlib;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
   char             stim[32];
