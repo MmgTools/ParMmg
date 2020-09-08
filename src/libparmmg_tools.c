@@ -601,7 +601,7 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
 int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char* filename ) {
   PMMG_pExt_comm ext_comm;
   int ncomm,color,nitem;
-  int icomm,i,iglob;
+  int icomm,i;
   FILE *fid;
 
   if( filename )

@@ -275,7 +275,7 @@ int PMMG_Set_inputDispName(PMMG_pParMesh parmesh, const char* dispin) {
 
 int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   MMG5_pMesh mesh;
-  int        k,ier,len;
+  int        k,ier;
   char       *defname;
 
   if ( parmesh->meshout ) {
@@ -1973,7 +1973,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
-  MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;

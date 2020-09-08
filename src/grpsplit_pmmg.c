@@ -335,12 +335,10 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   MMG5_pMesh       mesh;
   MMG5_pSol        met,ls,disp,field,psl,pslOld;
   MMG5_pTetra      pt,ptCur;
-  MMG5_pTria       ptr,ptrCur;
   MMG5_pPoint      ppt,pptCur;
   MMG5_Hash        hash;
   int              *adja,*oldAdja;
-  int              *adjt,*oldAdjt;
-  int              ie,ip,is,k;
+  int              ie,ip,is;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;

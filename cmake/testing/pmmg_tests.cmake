@@ -14,11 +14,13 @@ IF( BUILD_TESTING )
         COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
         WORKING_DIRECTORY ${PARENT_DIR}
         )
-      EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} checkout 119598d4c34f7eb49e46584e94d48e0eef3e96a6
-        WORKING_DIRECTORY ${CI_DIR}
-        )
     ENDIF()
+    EXECUTE_PROCESS(
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
+      WORKING_DIRECTORY ${CI_DIR}
+      #COMMAND_ECHO STDOUT
+      )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
@@ -201,239 +203,83 @@ IF( BUILD_TESTING )
   #####        Tests that needs the PARMMG LIBRARY
   #####
   ###############################################################################
-
-  SET ( PMMG_LIB_TESTS
-    libparmmg_centralized_auto_example0
-    libparmmg_centralized_auto_cpp_example0
-    libparmmg_centralized_manual_example0_io_0
-    libparmmg_centralized_manual_example0_io_1
-    #libparmmg_distributed_manual_example0
-    )
-
-  SET ( PMMG_LIB_TESTS_MAIN_PATH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
-    )
-
-  SET ( PMMG_LIB_TESTS_INPUTMESH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
-    ""
-    ""
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
-    )
-
-  SET ( PMMG_LIB_TESTS_INPUTMET
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
-    ""
-    ""
-    #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
-    )
-
-  SET ( PMMG_LIB_TESTS_INPUTSOL
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
-    ""
-    ""
-    #""
-    )
-
-  SET ( PMMG_LIB_TESTS_OUTPUTMESH
-    ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
-    ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
-    ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
-    ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
-    #${CI_DIR_RESULTS}/io-seq-par-cube.o
-    )
-
-  SET ( PMMG_LIB_TESTS_OPTIONS
-    "-met"
-    "-met"
-    "0"
-    "1"
-    #"-met"
-    )
-
-  SET ( PMMG_LIB_TESTS_FIELDOPT
-    "-field"
-    "-field"
-    ""
-    ""
-    #"-met"
-    )
-
+  SET ( LIB_TESTS OFF )
   IF ( LIBPARMMG_STATIC )
     SET ( lib_name lib${PROJECT_NAME}_a )
+    SET ( LIB_TESTS ON )
   ELSEIF ( LIBPARMMG_SHARED )
+    SET ( LIB_TESTS ON )
     SET ( lib_name lib${PROJECT_NAME}_so )
   ELSE ()
     MESSAGE(WARNING "You must activate the compilation of the static or"
       " shared ${PROJECT_NAME} library to compile this tests." )
   ENDIF ( )
 
-  #####         Fortran Tests
-
-  IF ( MPI_Fortran_FOUND )
-    SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
-    SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
-    SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
-
-    LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
-      # libparmmg_fortran_centralized_manual_example0_io_0
-      # libparmmg_fortran_centralized_manual_example0_io_1
-      # libparmmg_fortran_distributed_manual_example0
+  if ( LIB_TESTS )
+    #----------------- library examples in the ParMmg repo
+    SET ( PMMG_LIB_TESTS
+      libparmmg_centralized_auto_example0
+      libparmmg_centralized_auto_cpp_example0
+      libparmmg_centralized_manual_example0_io_0
+      libparmmg_centralized_manual_example0_io_1
+      #libparmmg_distributed_manual_example0
       )
 
-    LIST ( APPEND PMMG_LIB_TESTS_MAIN_PATH
-      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.F90
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
-      # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.F90
+    SET ( PMMG_LIB_TESTS_MAIN_PATH
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.c
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.cpp
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.c
+      #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.c
       )
 
-    LIST ( APPEND PMMG_LIB_TESTS_INPUTMESH
+    SET ( PMMG_LIB_TESTS_INPUTMESH
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
-      #""
-      #""
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+      ""
+      ""
       #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
       )
 
-    LIST ( APPEND PMMG_LIB_TESTS_INPUTMET
+    SET ( PMMG_LIB_TESTS_INPUTMET
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
-     # ""
-     # ""
-     # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
-     )
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+      ""
+      ""
+      #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+      )
 
-    LIST ( APPEND PMMG_LIB_TESTS_INPUTSOL
+    SET ( PMMG_LIB_TESTS_INPUTSOL
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
-      #""
-      #""
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
+      ""
+      ""
       #""
       )
 
-    LIST ( APPEND PMMG_LIB_TESTS_OUTPUTMESH
+    SET ( PMMG_LIB_TESTS_OUTPUTMESH
       ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
-      #${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
-      #${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
+      ${CI_DIR_RESULTS}/io-seq-auto-cpp-cube.o.mesh
+      ${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
+      ${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
       #${CI_DIR_RESULTS}/io-seq-par-cube.o
-       )
+      )
 
-     LIST ( APPEND PMMG_LIB_TESTS_OPTIONS
-       "-met"
-       #"0"
-       #"1"
-       #"-met"
-       )
+    SET ( PMMG_LIB_TESTS_OPTIONS
+      "-met"
+      "-met"
+      "0"
+      "1"
+      #"-met"
+      )
 
-     LIST ( APPEND PMMG_LIB_TESTS_FIELDOPT
-       "-field"
-       #"0"
-       #"1"
-       #"-met"
-       )
-  ENDIF ( )
-
-  LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
-  MATH(EXPR nbTests "${nbTests_tmp} - 1")
-
-  LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
-  LIST ( APPEND lib_name ${MPI_CXX_LIBRARIES})
-
-  FOREACH ( test_idx RANGE ${nbTests} )
-    LIST ( GET PMMG_LIB_TESTS            ${test_idx} test_name )
-    LIST ( GET PMMG_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
-    LIST ( GET PMMG_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
-    LIST ( GET PMMG_LIB_TESTS_INPUTMET   ${test_idx} input_met )
-    LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
-    LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
-    LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
-    LIST ( GET PMMG_LIB_TESTS_FIELDOPT   ${test_idx} field )
-
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-
-    FOREACH( NP 1 2 6 )
-      ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-        $<TARGET_FILE:${test_name}>
-        ${input_mesh} ${output_mesh} ${options} ${input_met} ${field} ${input_sol})
-    ENDFOREACH()
-
-  ENDFOREACH ( )
-
-  IF ( NOT ONLY_LIBRARY_TESTS )
-
-    # Localization test
-    SET ( main_path  ${CI_DIR}/WaveSurface/locate.c )
-    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
-
-    SET ( test_name  WaveSurface_locate_saddle )
-    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_saddle.mesh )
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.375 0.375 0.51 217 )
-
-    SET ( test_name  WaveSurface_locate_concave )
-    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_concave.mesh )
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.755 5934 )
-
-    SET ( test_name  WaveSurface_locate_convex )
-    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_convex.mesh )
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 3888 )
-
-    SET ( test_name  WaveSurface_locate_exhaustive )
-    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_exhaustive.mesh )
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 2494 )
-
-    SET ( test_name  WaveSurface_locate_inexistent )
-    SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_inexistent.mesh )
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.25 3888 )
-    SET_PROPERTY( TEST ${test_name} PROPERTY WILL_FAIL ON )
-
-    # Surface interpolation tests
-    SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
-    SET ( input_met  ${CI_DIR}/WaveSurface/wave-met.sol )
-    SET ( test_name  WaveSurface_interp )
-
-    FOREACH( NP 1 4 )
-      add_test( NAME ${test_name}-${NP}
-          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${input_mesh} -sol ${input_met}
-          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 1 -nobalance -v 10 -surf )
-    ENDFOREACH()
-
-    SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
-    SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
-    SET ( test_name  TennisSurf_interp )
-
-    FOREACH( NP 1 4 )
-      add_test( NAME ${test_name}-${NP}
-          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${input_mesh} -sol ${input_met}
-          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 1 -nobalance -v 10 -surf )
-    ENDFOREACH()
-
-
-    # Sequential test
-    SET ( test_name  LnkdList_unitTest )
-    SET ( main_path  ${CI_DIR}/LnkdList_unitTest/main.c )
-
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
-
-    SET ( test_name  API_set_XName )
-    SET ( main_path  ${CI_DIR}/API/PMMG_set_XName/main.c )
-
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-    ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+    SET ( PMMG_LIB_TESTS_FIELDOPT
+      "-field"
+      "-field"
+      ""
+      ""
+      #"-met"
+      )
 
     # Distributed API test
     SET ( PMMG_DISTR_LIB_TESTS
@@ -483,9 +329,9 @@ IF( BUILD_TESTING )
           ENDFOREACH()
         ENDFOREACH()
       ENDFOREACH()
-
     ENDFOREACH()
 
+    # Usable on 2 procs only
     ADD_LIBRARY_TEST ( libparmmg_distributed_manual_opnbdy
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/opnbdy.c
       "copy_pmmg_headers" "${lib_name}"
@@ -496,46 +342,220 @@ IF( BUILD_TESTING )
       $<TARGET_FILE:libparmmg_distributed_manual_opnbdy>
       ${CI_DIR_RESULTS}/io-par-manual-opnbdy.o.mesh )
 
-  ENDIF()
+    #####         Fortran Tests
+    IF ( MPI_Fortran_FOUND )
+      SET( CMAKE_Fortran_COMPILE_FLAGS "${CMAKE_Fortran_COMPILE_FLAGS} ${MPI_COMPILE_FLAGS}" )
+      SET( CMAKE_Fortran_LINK_FLAGS "${CMAKE_Fortran_LINK_FLAGS} ${MPI_LINK_FLAGS}" )
+      SET( FORTRAN_LIBRARIES ${MPI_Fortran_LIBRARIES} )
 
-  # Distributed lib test
-  SET ( PMMG_DISTR_LIB_TESTS
-    libparmmg_distributed_external_example0
-    libparmmg_distributed_external_gen_mesh
-    )
-  SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/gen_distributedMesh.c
-    )
-  SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube_in
-    ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
-    )
-  SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
-    ${CI_DIR_RESULTS}/io-par-external-cube.o
-    ""
-    )
+      LIST ( APPEND PMMG_LIB_TESTS libparmmg_fortran_centralized_auto_example0
+        # libparmmg_fortran_centralized_manual_example0_io_0
+        # libparmmg_fortran_centralized_manual_example0_io_1
+        # libparmmg_fortran_distributed_manual_example0
+        )
 
-  LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
-  MATH(EXPR nbTests "${nbTests_tmp} - 1")
+      LIST ( APPEND PMMG_LIB_TESTS_MAIN_PATH
+        ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/automatic_IO/main.F90
+        # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
+        # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/sequential_IO/manual_IO/main.F90
+        # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/manual_IO/main.F90
+        )
 
-  FOREACH ( test_idx RANGE ${nbTests} )
-    LIST ( GET PMMG_DISTR_LIB_TESTS            ${test_idx} test_name )
-    LIST ( GET PMMG_DISTR_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
-    LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
-    LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+      LIST ( APPEND PMMG_LIB_TESTS_INPUTMESH
+        ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+        #""
+        #""
+        #${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube.mesh
+        )
 
-    ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      LIST ( APPEND PMMG_LIB_TESTS_INPUTMET
+        ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+        # ""
+        # ""
+        # ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-met.sol
+        )
 
-    FOREACH( API_mode 0 1 )
-      FOREACH( NP 4 )
-        ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+      LIST ( APPEND PMMG_LIB_TESTS_INPUTSOL
+        ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube-solphys.sol
+        #""
+        #""
+        #""
+        )
+
+      LIST ( APPEND PMMG_LIB_TESTS_OUTPUTMESH
+        ${CI_DIR_RESULTS}/io-seq-auto-cube.o.mesh
+        #${CI_DIR_RESULTS}/io-seq-manual-cube_io_0.o
+        #${CI_DIR_RESULTS}/io-seq-manual-cube_io_1.o
+        #${CI_DIR_RESULTS}/io-seq-par-cube.o
+        )
+
+      LIST ( APPEND PMMG_LIB_TESTS_OPTIONS
+        "-met"
+        #"0"
+        #"1"
+        #"-met"
+        )
+
+      LIST ( APPEND PMMG_LIB_TESTS_FIELDOPT
+        "-field"
+        #"0"
+        #"1"
+        #"-met"
+        )
+    ENDIF ( )
+
+    LIST(LENGTH PMMG_LIB_TESTS nbTests_tmp)
+    MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+    LIST ( APPEND lib_name ${FORTRAN_LIBRARIES})
+    LIST ( APPEND lib_name ${MPI_CXX_LIBRARIES})
+
+    FOREACH ( test_idx RANGE ${nbTests} )
+      LIST ( GET PMMG_LIB_TESTS            ${test_idx} test_name )
+      LIST ( GET PMMG_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
+      LIST ( GET PMMG_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
+      LIST ( GET PMMG_LIB_TESTS_INPUTMET   ${test_idx} input_met )
+      LIST ( GET PMMG_LIB_TESTS_INPUTSOL   ${test_idx} input_sol )
+      LIST ( GET PMMG_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+      LIST ( GET PMMG_LIB_TESTS_OPTIONS    ${test_idx} options )
+      LIST ( GET PMMG_LIB_TESTS_FIELDOPT   ${test_idx} field )
+
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+
+      FOREACH( NP 1 2 6 )
+        ADD_TEST ( NAME ${test_name}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:${test_name}>
-          ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} )
+          ${input_mesh} ${output_mesh} ${options} ${input_met} ${field} ${input_sol})
       ENDFOREACH()
+
+    ENDFOREACH ( )
+
+    # Distributed lib test
+    SET ( PMMG_DISTR_LIB_TESTS
+      libparmmg_distributed_external_example0
+      libparmmg_distributed_external_gen_mesh
+      )
+    SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/gen_distributedMesh.c
+      )
+    SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube_in
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
+      )
+    SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
+      ${CI_DIR_RESULTS}/io-par-external-cube.o
+      ""
+      )
+
+    LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
+    MATH(EXPR nbTests "${nbTests_tmp} - 1")
+
+    FOREACH ( test_idx RANGE ${nbTests} )
+      LIST ( GET PMMG_DISTR_LIB_TESTS            ${test_idx} test_name )
+      LIST ( GET PMMG_DISTR_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
+      LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
+      LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+
+      FOREACH( API_mode 0 1 )
+        FOREACH( NP 4 )
+          ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+            $<TARGET_FILE:${test_name}>
+            ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} )
+        ENDFOREACH()
+      ENDFOREACH()
+
     ENDFOREACH()
 
-  ENDFOREACH()
+    #----------------- Tests using the library in the testparmmg repos
+    IF ( NOT ONLY_LIBRARY_TESTS )
+
+      # Localization test
+      SET ( main_path  ${CI_DIR}/WaveSurface/locate.c )
+      SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+
+      SET ( test_name  WaveSurface_locate_saddle )
+      SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_saddle.mesh )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.375 0.375 0.51 217 )
+
+      SET ( test_name  WaveSurface_locate_concave )
+      SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_concave.mesh )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.755 5934 )
+
+      SET ( test_name  WaveSurface_locate_convex )
+      SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_convex.mesh )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 3888 )
+
+      SET ( test_name  WaveSurface_locate_exhaustive )
+      SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_exhaustive.mesh )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.74 2494 )
+
+      SET ( test_name  WaveSurface_locate_inexistent )
+      SET ( output_mesh ${CI_DIR_RESULTS}/out_locate_wave_inexistent.mesh )
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 1 $<TARGET_FILE:${test_name}> ${input_mesh} ${output_mesh} 0.5 0.5 0.25 3888 )
+      SET_PROPERTY( TEST ${test_name} PROPERTY WILL_FAIL ON )
+
+      # Surface interpolation tests
+      SET ( input_mesh ${CI_DIR}/WaveSurface/wave.mesh )
+      SET ( input_met  ${CI_DIR}/WaveSurface/wave-met.sol )
+      SET ( test_name  WaveSurface_interp )
+
+      FOREACH( NP 1 4 )
+        add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 -surf )
+      ENDFOREACH()
+
+      SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+      SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
+      SET ( test_name  TennisSurf_interp )
+
+      FOREACH( NP 1 4 )
+        add_test( NAME ${test_name}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${input_mesh} -sol ${input_met}
+          -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
+          -niter 1 -nobalance -v 10 -surf )
+      ENDFOREACH()
 
 
+      # Sequential test
+      SET ( test_name  LnkdList_unitTest )
+      SET ( main_path  ${CI_DIR}/LnkdList_unitTest/main.c )
+
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+
+      SET ( test_name  API_set_XName )
+      SET ( main_path  ${CI_DIR}/API/PMMG_set_XName/main.c )
+
+      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
+      ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+
+      # 2 procs tests
+      ADD_LIBRARY_TEST ( opnbdy-along-interface
+        ${CI_DIR}/Parallel_IO/manual_IO/opnbdy-along-interface.c "copy_pmmg_headers"
+        "${lib_name}" )
+
+      ADD_TEST ( NAME opnbdy-along-interface-FaceComm
+        COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2
+        $<TARGET_FILE:opnbdy-along-interface>
+        ${CI_DIR_RESULTS}/opnbdy-along-interface-FaceComm 0)
+
+      ADD_TEST ( NAME opnbdy-along-interface-NodeComm
+        COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2
+        $<TARGET_FILE:opnbdy-along-interface>
+        ${CI_DIR_RESULTS}/opnbdy-along-interface-FaceComm 1)
+
+    ENDIF()
+  ENDIF ( LIB_TESTS )
 ENDIF()
