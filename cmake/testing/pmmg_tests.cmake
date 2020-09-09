@@ -204,15 +204,13 @@ IF( BUILD_TESTING )
   #####
   ###############################################################################
   SET ( LIB_TESTS OFF )
+
   IF ( LIBPARMMG_STATIC )
     SET ( lib_name lib${PROJECT_NAME}_a )
     SET ( LIB_TESTS ON )
   ELSEIF ( LIBPARMMG_SHARED )
     SET ( LIB_TESTS ON )
     SET ( lib_name lib${PROJECT_NAME}_so )
-  ELSE ()
-    MESSAGE(WARNING "You must activate the compilation of the static or"
-      " shared ${PROJECT_NAME} library to compile this tests." )
   ENDIF ( )
 
   if ( LIB_TESTS )
@@ -556,6 +554,6 @@ IF( BUILD_TESTING )
         $<TARGET_FILE:opnbdy-along-interface>
         ${CI_DIR_RESULTS}/opnbdy-along-interface-FaceComm 1)
 
-    ENDIF()
+    ENDIF(  NOT ONLY_LIBRARY_TESTS )
   ENDIF ( LIB_TESTS )
 ENDIF()

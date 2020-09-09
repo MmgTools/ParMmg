@@ -102,19 +102,8 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
-# Only allow building of static OR shared libraries
-SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
-FUNCTION (INVERT_BOOL OUTVAR INVAR)
-  IF(${INVAR})
-    SET(${OUTVAR} OFF PARENT_SCOPE)
-  ELSE()
-    SET(${OUTVAR} ON PARENT_SCOPE)
-  ENDIF()
-ENDFUNCTION()
-
 OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
-INVERT_BOOL("LIBPARMMG_STATIC" ${LIBPARMMG_SHARED})
 
 ############################################################################
 #####
@@ -284,10 +273,11 @@ IF ( DOWNLOAD_MMG )
 
   INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
 
-  IF( LIBPARMMG_STATIC )
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
-  ELSE()
+  IF( LIBPARMMG_SHARED )
     SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  ELSE()
+    # default behaviour is to link static libs
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
   ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
@@ -500,7 +490,6 @@ SET(CMAKE_MACOSX_RPATH 1)
 ############################################################################
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
@@ -516,7 +505,6 @@ IF ( LIBPARMMG_STATIC )
 ENDIF()
 
 # Compile shared library
-OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
@@ -551,6 +539,12 @@ install(EXPORT ParMmgTargets
   NAMESPACE ParMmg::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
   )
+
+IF (LIBPARMMG_STATIC OR LIBPARMMG_SHARED)
+  SET(LIBPARMMG_INTERNAL ON )
+ELSE()
+  SET(LIBPARMMG_INTERNAL OFF )
+ENDIF()
 
 ###############################################################################
 #####
@@ -630,9 +624,10 @@ IF(DOXYGEN_FOUND)
 ENDIF ( DOXYGEN_FOUND )
 
 OPTION ( BUILD_TESTING "Enable / Disable tests" OFF )
+
 CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
-  (non library tests)" OFF  "BUILD_TESTING" OFF )
+  (non library tests)" OFF  "BUILD_TESTING;LIBPARMMG_INTERNAL" OFF )
 
 
 INCLUDE( ${PROJECT_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )
