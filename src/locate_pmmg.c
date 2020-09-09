@@ -998,6 +998,10 @@ void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateS
   MMG5_pPoint ppt;
   int         ip,np;
 
+  if ( !locStats ) {
+    return;
+  }
+
   locStats->stepmin  = meshOld->ne;
   locStats->stepmax  = 0;
   locStats->stepav   = 0;
@@ -1036,6 +1040,10 @@ void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateS
  */
 void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank ) {
   int igrp;
+
+  if ( !locStats ) {
+    return;
+  }
 
   for( igrp = 0; igrp < ngrp; igrp++ )
     printf("         Localization report (rank %d grp %d): nexhaust %d max step %d, min step %d, av %f\n",myrank,igrp,locStats[igrp].nexhaust,locStats[igrp].stepmax,locStats[igrp].stepmin,locStats[igrp].stepav);

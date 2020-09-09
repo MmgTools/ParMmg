@@ -701,7 +701,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   MMG5_pMesh       mesh,oldMesh;
   MMG5_pSol        met,oldMet,field,oldField;
   MMG5_Hash        hash;
-  PMMG_locateStats *locStats;
+  PMMG_locateStats *locStats,*mylocStats;
   size_t           memAv,oldMemMax;
   double           *faceAreas,*triaNormals;
   int              *nodeTrias;
@@ -710,7 +710,19 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
 
   PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
-  PMMG_MALLOC( parmesh,locStats,parmesh->ngrp,PMMG_locateStats,"locStats",return 0 );
+  locStats = NULL;
+#ifndef NDEBUG
+  /* Check that alloc size does not overflow PTRDIFF_MAX (max size
+   * authorized by malloc) */
+  if ( parmesh->ngrp*sizeof(PMMG_locateStats) + sizeof(size_t) > PTRDIFF_MAX ) {
+    printf(" ## Warning (dev): %s: alloc size (%zu) for locStats exceeds the"
+           " maximum object size (%zu).\n",__func__,
+           parmesh->ngrp*sizeof(PMMG_locateStats) + sizeof(size_t),PTRDIFF_MAX);
+  }
+  else {
+    PMMG_MALLOC( parmesh,locStats,parmesh->ngrp,PMMG_locateStats,"locStats", );
+  }
+#endif
 
   /** Loop on current groups */
   ier = 1;
@@ -735,11 +747,17 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
       allocated = 1;
     }
 
+    mylocStats = NULL;
+    if ( locStats ) {
+      mylocStats = locStats + igrp;
+    }
     if( !PMMG_interpMetricsAndFields_mesh( mesh,oldMesh,met,oldMet,
                                            field,oldField,
                                            faceAreas,triaNormals,nodeTrias,
                                            permNodGlob,parmesh->info.inputMet,
-                                           parmesh->myrank,igrp,&locStats[igrp] ) ) ier = 0;
+                                           parmesh->myrank,igrp,mylocStats ) ) {
+      ier = 0;
+    }
 
     /** Deallocate oriented face areas and surface unit normals */
     if( allocated ) {
@@ -751,9 +769,11 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   }
 
 #ifndef NDEBUG
-  if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) )
+  if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 ) ) {
     PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
-#endif
+  }
   PMMG_DEL_MEM(parmesh,locStats,PMMG_locateStats,"locStats");
+#endif
+
   return ier;
 }

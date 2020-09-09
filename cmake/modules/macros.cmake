@@ -32,7 +32,7 @@ ENDMACRO ( )
 #####         Copy an automatically generated header file to another place
 #####
 ###############################################################################
-MACRO ( COPY_FORTRAN_HEADER
+MACRO ( COPY_HEADER
     in_dir in_file out_dir out_file
     file_dependencies
     target_name
@@ -55,30 +55,47 @@ ENDMACRO ( )
 
 ###############################################################################
 #####
-#####         Copy an automatically generated header file to another place
-#####         and create the associated target
+#####         Copy source and automatically generated header files to another
+#####         place and create the associated target
 #####
 ###############################################################################
-MACRO ( COPY_FORTRAN_HEADER_AND_CREATE_TARGET
-    binary_dir include_dir )
+MACRO ( COPY_HEADERS_AND_CREATE_TARGET
+    source_dir binary_dir include_dir )
 
-  COPY_FORTRAN_HEADER (
+  ADD_CUSTOM_TARGET(pmmgtypes_header ALL
+    DEPENDS
+    ${source_dir}/libparmmgtypes.h )
+
+  ADD_CUSTOM_TARGET(pmmg_header ALL
+    DEPENDS
+    ${source_dir}/libparmmg.h )
+
+  COPY_HEADER (
+    ${source_dir} libparmmgtypes.h
+    ${include_dir} libparmmgtypes.h
+    pmmgtypes_header copy_libpmmgtypes )
+
+  COPY_HEADER (
+    ${source_dir} libparmmg.h
+    ${include_dir} libparmmg.h
+    pmmg_header copy_libpmmg
+    )
+
+  COPY_HEADER (
     ${binary_dir} libparmmgtypesf.h
     ${include_dir} libparmmgtypesf.h
     pmmgtypes_fortran_header copy_libpmmgtypesf )
 
-  COPY_FORTRAN_HEADER (
-    ${binary_dir}
-    libparmmgf.h ${include_dir}
-    libparmmgf.h
+  COPY_HEADER (
+    ${binary_dir} libparmmgf.h
+    ${include_dir} libparmmgf.h
     pmmg_fortran_header copy_libpmmgf
     )
 
   ADD_CUSTOM_TARGET(copy_pmmg_headers ALL
     DEPENDS
     copy_libpmmgf copy_libpmmgtypesf
-    ${include_dir}/libparmmg.h
-    ${include_dir}/libparmmgtypes.h )
+    copy_libpmmg copy_libpmmgtypes )
 
 ENDMACRO ( )
 
