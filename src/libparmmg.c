@@ -500,6 +500,8 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
   int8_t        tim;
   char          stim[32];
 
+  tminit(ctim,TIMEMAX);
+
   iresult = 1;
 
   switch ( parmesh->info.fmtout ) {
