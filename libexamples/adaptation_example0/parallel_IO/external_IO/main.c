@@ -32,12 +32,8 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  MMG5_pMesh      meshIN;
-  MMG5_pSol       solIN;
-  MMG5_pPoint     ppt;
-  MMG5_pTria      ptt;
   MMG5_pTetra     pt;
-  int             ip,ie,ier,ierlib,rank,i,k;
+  int             ie,ier,ierlib,rank,k;
   int             opt,API_mode,niter;
   char            *filename,*metname,*solname,*fileout,*metout,*tmp;
   FILE            *inm;
@@ -73,14 +69,7 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
   strcpy(filename,argv[1]);
-  switch( API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      sprintf(filename,"%s_faces",filename);
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      sprintf(filename,"%s_nodes",filename);
-      break;
-  }
+
   sprintf(filename, "%s.%d", filename, rank );
   strcat(filename,".mesh");
 

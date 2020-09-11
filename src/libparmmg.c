@@ -517,6 +517,9 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     }
 
     ier = PMMG_bdryBuild ( parmesh );
+
+
+
     MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !iresult ) {
       if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -570,7 +573,8 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
       ier = PMMG_bdryBuild ( parmesh );
 
       if ( !iresult ) {
-        /* Centralization has failed: needs to reduce the error value */
+        /* Centralization has failed: needs to reduce the error value and to
+         * build the communicators */
         MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
         ier = iresult;
       }

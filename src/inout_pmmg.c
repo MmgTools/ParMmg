@@ -62,7 +62,7 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
   int ntot,k,idxl,idxg,icomm,i;
 
   PMMG_CALLOC(parmesh,inxt,ncomm,int,"inxt",return 0);
- 
+
   rewind(inm);
   fseek(inm,pos,SEEK_SET);
   /* Read color and nb of items */
@@ -160,7 +160,7 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
       idx_loc[icomm][inxt[icomm]] = idxl;
       idx_glo[icomm][inxt[icomm]] = idxg;
       inxt[icomm]++;
-      }
+    }
   }
 
   PMMG_DEL_MEM(parmesh,inxt,int,"inxt");
@@ -189,53 +189,18 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   int         iswp;
   int         binch,bpos;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
-  char        *ptr,*data;
 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
   /** Open mesh file */
-  bin = 0;
-  PMMG_CALLOC(parmesh,data,strlen(filename)+7,char,"data",return -1);
-
-  strcpy(data,filename);
-  ptr = strstr(data,".mesh");
-
-  if ( !ptr ) {
-    /* data contains the filename without extension */
-    strcat(data,".meshb");
-    if( !(inm = fopen(data,"rb")) ) {
-      /* our file is not a .meshb file, try with .mesh ext */
-      ptr = strstr(data,".mesh");
-      *ptr = '\0';
-      strcat(data,".mesh");
-      if( !(inm = fopen(data,"rb")) ) {
-        PMMG_DEL_MEM(parmesh,data,char,"data");
-        return 0;
-      }
-    }
-    else  bin = 1;
-  }
-  else {
-    ptr = strstr(data,".meshb");
-    if ( ptr )  bin = 1;
-    if( !(inm = fopen(data,"rb")) ) {
-      PMMG_DEL_MEM(parmesh,data,char,"data");
-      return 0;
-    }
-  }
-
-  if ( mesh->info.imprim >= 0 ) {
-    fprintf(stdout,"  %%%% %s OPENED\n",data);
-  }
-  PMMG_DEL_MEM(parmesh,data,char,"data");
+  ier = MMG3D_openMesh(mesh->info.imprim,filename,&inm,&bin,"rb","rb");
 
   /** Read communicators */
   pos = 0;
   ncomm = 0;
   iswp = 0;
   API_mode = PMMG_UNSET;
-
 
   rewind(inm);
   if (!bin) {
@@ -266,7 +231,9 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
     else if(meshver!=1) {
       fprintf(stderr,"BAD FILE ENCODING\n");
     }
-    while(fread(&binch,MMG5_SW,1,inm)!=0 && binch!=54 ) {
+
+    int endcount = 0;
+    while(fread(&binch,MMG5_SW,1,inm)!=0 && endcount != 2 ) {
       if(iswp) binch=MMG5_swapbin(binch);
       if(binch==54) break;
       if(!ncomm && binch==70) { // ParallelTriangleCommunicators
@@ -287,6 +254,9 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         rewind(inm);
         fseek(inm,bpos,SEEK_SET);
         continue;
+      } else if ( binch==54 ) {
+        /* The end keyword will be present twice */
+        ++endcount;
       } else {
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);

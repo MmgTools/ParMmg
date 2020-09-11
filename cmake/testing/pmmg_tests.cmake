@@ -429,42 +429,31 @@ IF( BUILD_TESTING )
     ENDFOREACH ( )
 
     # Distributed lib test
-    SET ( PMMG_DISTR_LIB_TESTS
-      libparmmg_distributed_external_example0
-      libparmmg_distributed_external_gen_mesh
-      )
-    SET ( PMMG_DISTR_LIB_TESTS_MAIN_PATH
-      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
+    ADD_LIBRARY_TEST ( libparmmg_distributed_external_gen_mesh
       ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/gen_distributedMesh.c
-      )
-    SET ( PMMG_DISTR_LIB_TESTS_INPUTMESH
-      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube_in
-      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
-      )
-    SET ( PMMG_DISTR_LIB_TESTS_OUTPUTMESH
-      ${CI_DIR_RESULTS}/io-par-external-cube.o
-      ""
-      )
+      "copy_pmmg_headers" "${lib_name}" )
+    ADD_LIBRARY_TEST ( libparmmg_distributed_external_example0
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/parallel_IO/external_IO/main.c
+      "copy_pmmg_headers" "${lib_name}" )
 
-    LIST(LENGTH PMMG_DISTR_LIB_TESTS nbTests_tmp)
-    MATH(EXPR nbTests "${nbTests_tmp} - 1")
+    # Run the test only if the mesh distribution has succeed
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_external_gen_mesh_API_${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
+          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP} ${API_mode} )
 
-    FOREACH ( test_idx RANGE ${nbTests} )
-      LIST ( GET PMMG_DISTR_LIB_TESTS            ${test_idx} test_name )
-      LIST ( GET PMMG_DISTR_LIB_TESTS_MAIN_PATH  ${test_idx} main_path )
-      LIST ( GET PMMG_DISTR_LIB_TESTS_INPUTMESH  ${test_idx} input_mesh )
-      LIST ( GET PMMG_DISTR_LIB_TESTS_OUTPUTMESH ${test_idx} output_mesh )
+        ADD_TEST ( NAME  libparmmg_distributed_external_example0_API_${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_example0>
+          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP}_out
+          ${CI_DIR_RESULTS}/io-par-external-cube_API_${API_mode}-${NP} ${API_mode} )
 
-      ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
-
-      FOREACH( API_mode 0 1 )
-        FOREACH( NP 4 )
-          ADD_TEST ( NAME ${test_name}_API_${API_mode}-${NP} COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
-            $<TARGET_FILE:${test_name}>
-            ${input_mesh} ${output_mesh}_API_${API_mode}-${NP} ${API_mode} )
-        ENDFOREACH()
+        set_tests_properties(libparmmg_distributed_external_example0_API_${API_mode}-${NP}
+          PROPERTIES DEPENDS libparmmg_distributed_external_gen_mesh_API_${API_mode}-${NP})
       ENDFOREACH()
-
     ENDFOREACH()
 
     #----------------- Tests using the library in the testparmmg repos

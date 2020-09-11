@@ -2409,7 +2409,6 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param API_mode print face or node communicator.
  * \param idx_loc double pointer to the local indices of entities in each communicator.
  * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
  * \param filename file name (if null, print on stdout).
@@ -2429,7 +2428,8 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
  * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char *filename );
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,int **idx_loc,int **idx_glob,
+                            const char *filename );
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

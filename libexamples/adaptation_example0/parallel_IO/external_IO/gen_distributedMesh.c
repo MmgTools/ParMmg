@@ -35,12 +35,9 @@
 
 int main(int argc,char *argv[]) {
   PMMG_pParMesh   parmesh;
-  MMG5_pMesh      mesh;
-  int             ier,rank,nprocs,i;
+  int             ier,rank,nprocs;
   int             opt,API_mode;
-  char            *filename,*metname,*solname,*fileout,*metout,*tmp;
-  int             nVertices,nTetrahedra,nTriangles,nEdges;
-
+  char            *filename,*metname,*solname,*fileout,*tmp;
 
   MPI_Init( &argc, &argv );
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -53,7 +50,7 @@ int main(int argc,char *argv[]) {
   tmp     = NULL;
 
   if ( (argc!=4) && !rank ) {
-    printf(" Usage: %s fileout io_option\n",argv[0]);
+    printf(" Usage: %s filein fileout io_option\n",argv[0]);
     printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
     printf("     API_mode = 1   to Get/Set the parallel interfaces through nodes\n");
     return 1;
@@ -75,18 +72,6 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
   strcpy(fileout,argv[2]);
-  sprintf(fileout, "%s-P%02d", fileout, rank );
-  strcat(fileout,".mesh");
-
-
-  metout = (char *) calloc(strlen(argv[2]) + 9 + 4, sizeof(char));
-  if ( metout == NULL ) {
-    perror("  ## Memory problem: calloc");
-    exit(EXIT_FAILURE);
-  }
-  strcpy(metout,argv[2]);
-  sprintf(metout, "%s-P%02d", metout, rank );
-  strcat(metout,"-met.sol");
 
   /* Option to Set mesh entities vertex by vertex */
   opt      = 1;
@@ -160,172 +145,156 @@ int main(int argc,char *argv[]) {
   /** ------------------------------ STEP  II -------------------------- */
   /** Preprocess and partition the mesh.
    */
+  // Perform 0 iteration => analysis only
+  PMMG_Set_iparameter(parmesh,PMMG_IPARAM_niter,0);
 
-  if( PMMG_distributeMesh_centralized(parmesh) != PMMG_SUCCESS ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
+  // Do not centralize meshes at the end of the library call
+  PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,1);
 
+  // Set API mode
+  PMMG_Set_iparameter(parmesh,PMMG_IPARAM_APImode,API_mode);
+
+  PMMG_parmmglib_centralized(parmesh);
 
   /** ------------------------------ STEP  III ------------------------- */
   /** Get parallel interfaces and swap meshes, so that you can use meshIN to
    * initialize a new mesh in parmesh */
 
-  /* Create boundary entities */
-  mesh = parmesh->listgrp[0].mesh;
-  if( MMG3D_bdryBuild(mesh) == -1) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-
   /** 1) Recover parallel interfaces */
+  if ( API_mode==PMMG_APIDISTRIB_faces ) {
+    int n_face_comm,*nitem_face_comm;
+    int *color_face,**face_owner,nunique_face,ntot_face;
+    int **idx_face_loc,**idx_face_glob;
+    int icomm;
 
-  int n_node_comm,n_face_comm,*nitem_node_comm,*nitem_face_comm;
-  int *color_node, *color_face,**face_owner,nunique_face,ntot_face;
-  int **idx_node_loc,**idx_node_glob,**node_owner,nunique_node,ntot_node;
-  int **idx_face_loc,**idx_face_glob;
-  int icomm;
-
-  /* Get number of node interfaces */
-  ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&n_node_comm);
-  if ( ier!=1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Get outward proc rank and number of nodes on each interface */
-  color_node      = (int *) malloc(n_node_comm*sizeof(int));
-  nitem_node_comm = (int *) malloc(n_node_comm*sizeof(int));
-  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
-    ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm,
-                                           &color_node[icomm],
-                                           &nitem_node_comm[icomm]);
-    if ( ier !=1 ) {
-      MPI_Finalize();
-      exit(EXIT_FAILURE);
-    }
-  }
-
-  /* Get IDs of nodes on each interface */
-  idx_node_loc  = (int **) malloc(n_node_comm*sizeof(int *));
-  idx_node_glob = (int **) malloc(n_node_comm*sizeof(int *));
-  node_owner    = (int **) malloc(n_node_comm*sizeof(int *));
-  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
-    idx_node_loc[icomm]  = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
-    idx_node_glob[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
-    node_owner[icomm]    = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
-  }
-  ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc);
-  if ( ier!=1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Get number of face interfaces */
-  ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&n_face_comm);
-  if ( ier!=1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Get outward proc rank and number of faces on each interface */
-  color_face      = (int *) malloc(n_face_comm*sizeof(int));
-  nitem_face_comm = (int *) malloc(n_face_comm*sizeof(int));
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm,
-                                           &color_face[icomm],
-                                           &nitem_face_comm[icomm]);
+    /* Get number of face interfaces */
+    ier = PMMG_Get_numberOfFaceCommunicators(parmesh,&n_face_comm);
     if ( ier!=1 ) {
       MPI_Finalize();
       exit(EXIT_FAILURE);
     }
+
+    /* Get outward proc rank and number of faces on each interface */
+    color_face      = (int *) malloc(n_face_comm*sizeof(int));
+    nitem_face_comm = (int *) malloc(n_face_comm*sizeof(int));
+    for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+      ier = PMMG_Get_ithFaceCommunicatorSize(parmesh, icomm,
+                                             &color_face[icomm],
+                                             &nitem_face_comm[icomm]);
+      if ( ier!=1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    /* Get IDs of triangles on each interface */
+    idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
+    idx_face_glob = (int **) malloc(n_face_comm*sizeof(int *));
+    face_owner    = (int **) malloc(n_face_comm*sizeof(int *));
+    for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+      idx_face_loc[icomm]  = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+      idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+      face_owner[icomm]    = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+    }
+    ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
+    if ( ier!=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+    /* Color interface triangles with a unique global enumeration that encompasses
+     * all interface triangles currently present in the global mesh, and assign
+     * a owner partition to each of them.
+     */
+    if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob,&nunique_face,&ntot_face) ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+    /** save mesh and interfaces **/
+    char filemesh[256];
+    sprintf(filemesh,"%s_out.%d.mesh",fileout,parmesh->myrank);
+    MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
+
+    PMMG_printCommunicator(parmesh,idx_face_loc,idx_face_glob,filemesh);
+
+    for( icomm = 0; icomm < n_face_comm; icomm++ ) {
+      free(idx_face_loc[icomm]);
+      free(idx_face_glob[icomm]);
+      free(face_owner[icomm]);
+    }
+    free(idx_face_loc);
+    free(idx_face_glob);
+    free(face_owner);
   }
+  else {
+    int n_node_comm,*nitem_node_comm;
+    int *color_node;
+    int **idx_node_loc,**idx_node_glob,**node_owner,nunique_node,ntot_node;
+    int icomm;
 
-  /* Get IDs of triangles on each interface */
-  idx_face_loc  = (int **) malloc(n_face_comm*sizeof(int *));
-  idx_face_glob = (int **) malloc(n_face_comm*sizeof(int *));
-  face_owner    = (int **) malloc(n_face_comm*sizeof(int *));
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    idx_face_loc[icomm]  = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
-    idx_face_glob[icomm] = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
-    face_owner[icomm]    = (int *) malloc(nitem_face_comm[icomm]*sizeof(int));
+    /* Get number of node interfaces */
+    ier = PMMG_Get_numberOfNodeCommunicators(parmesh,&n_node_comm);
+    if ( ier!=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+    /* Get outward proc rank and number of nodes on each interface */
+    color_node      = (int *) malloc(n_node_comm*sizeof(int));
+    nitem_node_comm = (int *) malloc(n_node_comm*sizeof(int));
+    for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+      ier = PMMG_Get_ithNodeCommunicatorSize(parmesh, icomm,
+                                             &color_node[icomm],
+                                             &nitem_node_comm[icomm]);
+      if ( ier !=1 ) {
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    /* Get IDs of nodes on each interface */
+    idx_node_loc  = (int **) malloc(n_node_comm*sizeof(int *));
+    idx_node_glob = (int **) malloc(n_node_comm*sizeof(int *));
+    node_owner    = (int **) malloc(n_node_comm*sizeof(int *));
+    for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+      idx_node_loc[icomm]  = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
+      idx_node_glob[icomm] = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
+      node_owner[icomm]    = (int *) malloc(nitem_node_comm[icomm]*sizeof(int));
+    }
+    ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_node_loc);
+    if ( ier!=1 ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+    /* Color interface nodes with a unique global enumeration that encompasses
+     * interface nodes currently present in the global mesh, and assign
+     * a owner partition to each of them.
+     */
+    if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob,&nunique_node,&ntot_node) ) {
+      MPI_Finalize();
+      exit(EXIT_FAILURE);
+    }
+
+    /** save mesh and interfaces **/
+    char filemesh[256];
+    sprintf(filemesh,"%s_out.%d.mesh",fileout,parmesh->myrank);
+    MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
+
+    PMMG_printCommunicator(parmesh,idx_node_loc,idx_node_glob,filemesh);
+
+    /* Free arrays */
+    for( icomm = 0; icomm < n_node_comm; icomm++ ) {
+      free(idx_node_loc[icomm]);
+      free(idx_node_glob[icomm]);
+      free(node_owner[icomm]);
+    }
+    free(idx_node_loc);
+    free(idx_node_glob);
+    free(node_owner);
+
   }
-  ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_face_loc);
-  if ( ier!=1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Get triangle nodes */
-  nVertices   = 0;
-  nTetrahedra = 0;
-  nTriangles  = 0;
-  nEdges      = 0;
-  if ( PMMG_Get_meshSize(parmesh,&nVertices,&nTetrahedra,NULL,&nTriangles,NULL,
-                         &nEdges) !=1 ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  int *ref       = (int*)calloc(nTriangles,sizeof(int));
-  int *required  = (int*)calloc(nTriangles,sizeof(int));
-  int *triaNodes = (int*)calloc(3*nTriangles,sizeof(int));
-
-  if ( PMMG_Get_triangles(parmesh,triaNodes,ref,required) != 1 ) {
-    fprintf(stderr,"Unable to get mesh triangles\n");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Color interface triangles with a unique global enumeration that encompasses
-   * all interface triangles currently present in the global mesh, and assign
-   * a owner partition to each of them.
-   */
-  if( !PMMG_Get_FaceCommunicator_owners(parmesh,face_owner,idx_face_glob,&nunique_face,&ntot_face) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Color interface nodes with a unique global enumeration that encompasses
-   * interface nodes currently present in the global mesh, and assign
-   * a owner partition to each of them.
-   */
-  if( !PMMG_Get_NodeCommunicator_owners(parmesh,node_owner,idx_node_glob,&nunique_node,&ntot_node) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
-
-  /** save mesh and interfaces **/
-  char filemesh[256];
-  sprintf(filemesh,"%s_out.%d.mesh",filename,parmesh->myrank);
-  MMG3D_saveMesh(parmesh->listgrp[0].mesh,filemesh);
-
-  sprintf(filemesh,"%s_out.%d.mesh_parFaces",filename,parmesh->myrank);
-  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_faces,idx_face_loc,idx_face_glob,filemesh);
-
-  sprintf(filemesh,"%s_out.%d.mesh_parNodes",filename,parmesh->myrank);
-  PMMG_printCommunicator(parmesh,PMMG_APIDISTRIB_nodes,idx_node_loc,idx_node_glob,filemesh);
-
-  /* Free arrays */
-  for( icomm = 0; icomm < n_node_comm; icomm++ ) {
-    free(idx_node_loc[icomm]);
-    free(idx_node_glob[icomm]);
-    free(node_owner[icomm]);
-  }
-  free(idx_node_loc);
-  free(idx_node_glob);
-  free(node_owner);
-
-  for( icomm = 0; icomm < n_face_comm; icomm++ ) {
-    free(idx_face_loc[icomm]);
-    free(idx_face_glob[icomm]);
-    free(face_owner[icomm]);
-  }
-  free(idx_face_loc);
-  free(idx_face_glob);
-  free(face_owner);
 
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
@@ -337,10 +306,6 @@ int main(int argc,char *argv[]) {
 
   free(fileout);
   fileout = NULL;
-
-  free(metout);
-  metout = NULL;
-
 
   MPI_Finalize();
 
