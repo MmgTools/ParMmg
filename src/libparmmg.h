@@ -1760,7 +1760,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 1 if success, 0 or -1 otherwise
  *
- * Read mesh data.
+ * Read distributed mesh data. Insert rank index to the mesh name.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_LOADMESH_DISTRIBUTED(parmesh,filename,strlen,retval)\n
@@ -1777,7 +1777,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 1 if success, 0 or -1 otherwise
  *
- * Read mesh data.
+ * Read centralized mesh data.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_LOADMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
@@ -1807,6 +1807,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load metric field. The solution file must contains only 1 solution: the
+ * metric. Insert rank index in the file name.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMET_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMet_distributed(PMMG_pParMesh parmesh,const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -1882,7 +1900,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
  * \return 0 if failed, 1 otherwise.
  *
- * Save mesh data.
+ * Save mesh data for a centralized mesh.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SAVEMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
@@ -1894,6 +1912,26 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh, const char *filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename pointer toward the name of file.
+
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Save mesh data for a distributed mesh (the MPI rank index is added to the
+ * filename)
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMESH_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMesh_distributed(PMMG_pParMesh parmesh, const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -1911,6 +1949,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveMet_centralized(PMMG_pParMesh parmesh, const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write isotropic or anisotropic metric of a distributed mesh (insert rank
+ * index to filename).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMET_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMet_distributed(PMMG_pParMesh parmesh, const char *filename);
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -2349,7 +2406,6 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 
 /**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface node
  * \param idx_glob global IDs of interface nodes
  * \param nunique nb of non-redundant interface nodes on current rank
@@ -2372,7 +2428,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
 /**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface triangle
  * \param idx_glob global IDs of interface triangles
  * \param nunique nb of non-redundant interface triangles on current rank
@@ -2409,8 +2464,6 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param idx_loc double pointer to the local indices of entities in each communicator.
- * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
  * \param filename file name (if null, print on stdout).
  *
  * \return 0 if fail, 1 otherwise
@@ -2419,17 +2472,14 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
  * \remark Mostly for debug purposes.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_PRINTCOMMUNICATOR(parmesh,API_mode,idx_loc,idx_glob,filename,retval)\n
+ * >   SUBROUTINE PMMG_PRINTCOMMUNICATOR(parmesh,API_mode,idx_loc,idx_glob,filename,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)      :: parmesh\n
- * >     INTEGER, INTENT(IN)                 :: API_mode
- * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_loc\n
- * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_glob\n
  * >     CHARACTER(LEN=*), INTENT(IN)        :: filename\n
+ * >     INTEGER, INTENT(IN)                 :: strlen\n
  * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_printCommunicator( PMMG_pParMesh parmesh,int **idx_loc,int **idx_glob,
-                            const char *filename );
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char *filename );
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

@@ -176,8 +176,8 @@ int PMMG_merge_subgroup( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int color,
 int PMMG_list_contiguous( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,
                           int *list ) {
   MMG5_pTetra      pt,pt1;
-  int              *adja,ilist,cur,k,k1,l;
-  int              base,color;
+  int              ilist,cur,k,k1,l;
+  int              base;
 
   /* New flag */
   base = ++mesh->base;

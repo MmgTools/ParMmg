@@ -200,6 +200,8 @@ enum PMMG_Format {
   PMMG_FMT_Tetgen      = MMG5_FMT_Tetgen,     /*!< Tetgen or Triangle */
   PMMG_FMT_Centralized,                       /*!< Centralized Setters/Getters */
   PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
+  PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
+  PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
   PMMG_FMT_Unknown,                           /*!< Unrecognized */
 };
 

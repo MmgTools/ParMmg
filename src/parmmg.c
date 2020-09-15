@@ -47,7 +47,6 @@ static void PMMG_endcod() {
   fprintf(stdout,"\n   ELAPSED TIME  %s\n",stim);
 }
 
-
 /**
  * \param argc number of command line arguments.
  * \param argv command line arguments.
@@ -63,9 +62,9 @@ int main( int argc, char *argv[] )
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
   int           rank;
-  int           ier,iermesh,iresult,ierSave,fmtin;
-  int8_t        tim;
-  char          stim[32],*ptr,*filename=NULL;
+  int           ier,iermesh,iresult,ierSave,fmtin,fmtout;
+  int8_t        tim,distributedInput;
+  char          stim[32],*ptr;
 
   // Shared memory communicator: processes that are on the same node, sharing
   //    local memory and can potentially communicate without using the network
@@ -147,15 +146,69 @@ int main( int argc, char *argv[] )
 
   fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
 
-  ptr                  = MMG5_Get_filenameExt(parmesh->meshout);
-  if( parmesh->info.fmtout == PMMG_FMT_Unknown ) {
-    parmesh->info.fmtout = MMG5_Get_format(ptr,fmtin);
-  }
+  /* Compute default output format */
+  ptr = MMG5_Get_filenameExt(parmesh->meshout);
+
+  /* Format from output mesh name */
+  fmtout = MMG5_Get_format(ptr,fmtin);
+
+  distributedInput = 0;
 
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
 
+    // Algiane: Dirty (to be discussed, I don't have a clean solution)
     iermesh = PMMG_loadMesh_centralized(parmesh,parmesh->meshin);
+    MPI_Bcast( &iermesh,     1, MPI_INT, parmesh->info.root, parmesh->comm );
+
+    if ( 1 != iermesh ) {
+      /* try to load distributed mesh */
+      int ier_loc = PMMG_loadMesh_distributed(parmesh,parmesh->meshin);
+      MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+      if ( iermesh == 1 ) {
+        distributedInput = 1;
+        if ( parmesh->info.fmtout == PMMG_FMT_Centralized ) {
+          /* Force centralization for output medit format: fmtout contains
+           * already suitable info */
+          parmesh->info.fmtout = fmtout;
+        }
+        else if ( fmtout == MMG5_FMT_MeditASCII ) {
+          /* Distributed ASCII Medit */
+          parmesh->info.fmtout = PMMG_FMT_DistributedMeditASCII;
+        }
+        else if ( fmtout == MMG5_FMT_MeditBinary ) {
+          /* Distributed Binary Medit */
+          parmesh->info.fmtout = PMMG_FMT_DistributedMeditBinary;
+        }
+        else if ( parmesh->info.fmtout != PMMG_UNSET ) {
+          /* other format output: store format into parmesh->info.fmtout */
+          parmesh->info.fmtout = fmtout;
+        }
+      }
+    }
+    else {
+      /* Centralized mesh */
+      if ( parmesh->info.fmtout == PMMG_FMT_Distributed ) {
+        /* Force distribution */
+        if ( fmtout == MMG5_FMT_MeditASCII ) {
+          /* Distributed ASCII Medit */
+          parmesh->info.fmtout = PMMG_FMT_DistributedMeditASCII;
+        }
+        else if ( fmtout == MMG5_FMT_MeditBinary ) {
+          /* Distributed Binary Medit */
+          parmesh->info.fmtout = PMMG_FMT_DistributedMeditBinary;
+        }
+        else if ( parmesh->info.fmtout != PMMG_UNSET ) {
+          /* format is already good: store it in parmesh->info.fmtout */
+          parmesh->info.fmtout = fmtout;
+        }
+      }
+      else if ( parmesh->info.fmtout != PMMG_UNSET ){
+        /* format is already good: store it in parmesh->info.fmtout */
+        parmesh->info.fmtout = fmtout;
+      }
+    }
+
     if ( 1 != iermesh && rank == parmesh->info.root ) {
       if ( iermesh==0 ) {
         fprintf(stderr,"  ** %s  NOT FOUND.\n",parmesh->meshin);
@@ -184,7 +237,16 @@ int main( int argc, char *argv[] )
 
     if ( grp->mesh->info.lag >= 0 || grp->mesh->info.iso ) {
       /* displacement or isovalue are mandatory */
-      if ( PMMG_loadSol_centralized( parmesh, NULL ) < 1 ) {
+      if( !distributedInput ) {
+        iermesh = ( PMMG_loadSol_centralized( parmesh, NULL ) );
+      }
+      else {
+        printf("  ## Error: Distributed input not yet implemented for displacement.\n");
+        //int ier_loc = PMMG_loadSol_distributed( parmesh, NULL );
+        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+        iermesh = 0;
+      }
+      if ( iermesh < 1 ) {
         if ( rank == parmesh->info.root ) {
           fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD SOLUTION FILE.\n");
         }
@@ -194,7 +256,14 @@ int main( int argc, char *argv[] )
     }
     else {
       /* Facultative metric */
-      if ( -1 == PMMG_loadSol_centralized( parmesh, NULL ) ) {
+      if ( !distributedInput ) {
+        iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+      }
+      else {
+        int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+      }
+      if ( -1 == iermesh  ) {
         if ( rank == parmesh->info.root ) {
           fprintf(stderr,"\n  ## ERROR: WRONG DATA TYPE OR WRONG SOLUTION NUMBER.\n");
         }
@@ -204,7 +273,14 @@ int main( int argc, char *argv[] )
     }
     /* In iso mode: read metric if any */
     if ( grp->mesh->info.iso && parmesh->metin ) {
-      if ( -1 == PMMG_loadMet_centralized( parmesh, parmesh->metin ) ) {
+      if ( !distributedInput ) {
+        iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+      }
+      else {
+        int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+      }
+      if ( -1 == iermesh ) {
         if ( rank == parmesh->info.root ) {
           fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
         }
@@ -214,13 +290,21 @@ int main( int argc, char *argv[] )
     }
 
     /* Read solutions field if provided */
-    if ( parmesh->fieldin && *parmesh->fieldin &&
-         !PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin) ) {
-      ier = 0;
-      goto check_mesh_loading;
+    if ( parmesh->fieldin && *parmesh->fieldin ) {
+      if ( !distributedInput ) {
+        iermesh = PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin);
+      }
+      else {
+        //int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
+        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+        printf("  ## Error: Distributed fields input not yet implemented.\n");
+        iermesh = 0;
+      }
+      if ( iermesh < 1 ) {
+        ier = 0;
+        goto check_mesh_loading;
+      }
     }
-
-
     break;
 
   default:
@@ -230,7 +314,6 @@ int main( int argc, char *argv[] )
     ier = 0;
     goto check_mesh_loading;
   }
-
 
   if ( !PMMG_parsop(parmesh) ) {
     ier = 0;
@@ -255,9 +338,13 @@ check_mesh_loading:
     ier = 2;//PMMG_defaultOption(grp->mesh,grp->met);
     PMMG_RETURN_AND_FREE(parmesh,ier);
   }
-  else {
-    /* Parallel remeshing */
+  else if ( !distributedInput ) {
+    /* Parallel remeshing starting from a centralized mesh */
     ier = PMMG_parmmglib_centralized(parmesh);
+  }
+  else {
+    /* Parallel remeshing starting from a distributed mesh */
+    ier = PMMG_parmmglib_distributed(parmesh);
   }
 
   /** Check result and save output files */
@@ -269,7 +356,19 @@ check_mesh_loading:
 
   grp = &parmesh->listgrp[0];
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
+    if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditASCII ) {
+      char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
+      fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.mesh\n",basename);
+      MMG5_SAFE_FREE ( basename );
+    }
+    else if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditBinary ) {
+      char *basename = MMG5_Remove_ext ( parmesh->meshout,".meshb" );
+      fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.meshb\n",basename);
+      MMG5_SAFE_FREE ( basename );
+    }
+    else {
+      fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
+    }
   }
 
   if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
@@ -293,33 +392,30 @@ check_mesh_loading:
       break;
 
     case ( PMMG_FMT_Distributed ):
-      // Dirty : use a clean parallel output.
-      /* Force output at Medit ascii format */
+    case ( PMMG_FMT_DistributedMeditASCII):
+      ptr = MMG5_Get_filenameExt( parmesh->meshout );
+      if ( (!ptr) || strcmp(ptr,".mesh") ) {
+        size_t memAv,oldMemMax;
+        PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+
+        /* Add .mesh extension to avoid saving at binary format */
+        PMMG_REALLOC(parmesh,parmesh->meshout,strlen(parmesh->meshout)+6,
+                     strlen(parmesh->meshout)+1,char,"",);
+        strcat(parmesh->meshout,".mesh");
+      }
+    case ( PMMG_FMT_DistributedMeditBinary):
       assert ( parmesh->meshout );
-      filename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
 
-      MMG5_SAFE_REALLOC(filename,strlen(filename)+1,strlen(filename)+13,char,"",return 2);
-
-      sprintf(filename,"%s.%d.o.mesh",filename,parmesh->myrank);
-      char *ptr = strstr(filename,".mesh");
-
-      ierSave = MMG3D_saveMesh(parmesh->listgrp[0].mesh,filename);
+      ierSave = PMMG_saveMesh_distributed(parmesh,parmesh->meshout);
       if ( ierSave ) {
-        if ( ptr ) {
-          *ptr = '\0';
+        if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
+          ierSave = PMMG_saveMet_distributed(parmesh,parmesh->metout);
         }
-        strcat(filename,".sol");
-        ptr = strstr(filename,".sol");
-        ierSave = MMG3D_saveSol(parmesh->listgrp[0].mesh,parmesh->listgrp[0].met,
-                                filename);
       }
       if ( ierSave &&  grp->field ) {
-        if ( ptr ) {
-          *ptr = '\0';
-        }
-        strcat(filename,"-field.sol");
-        ierSave = MMG3D_saveSol(parmesh->listgrp[0].mesh,parmesh->listgrp[0].field,
-                                filename);
+        fprintf(stderr,"  ## Error: %s: PMMG_saveAllSols_distributed function"
+                " not yet implemented."
+                " Ignored.\n",__func__);
       }
       MPI_Allreduce( &ierSave, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm );
       if ( !ier ) {
@@ -331,8 +427,10 @@ check_mesh_loading:
       if ( !ierSave ) {
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
       }
-      if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
+        if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
+          PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+        }
       }
 
       if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout) ) {

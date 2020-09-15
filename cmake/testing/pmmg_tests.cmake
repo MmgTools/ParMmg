@@ -443,12 +443,12 @@ IF( BUILD_TESTING )
           COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
           ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example0/cube
-          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP} ${API_mode} )
+          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP}.mesh ${API_mode} )
 
         ADD_TEST ( NAME  libparmmg_distributed_external_example0_API_${API_mode}-${NP}
           COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:libparmmg_distributed_external_example0>
-          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP}_out
+          ${CI_DIR_RESULTS}/cube-distrib_API_${API_mode}-${NP}
           ${CI_DIR_RESULTS}/io-par-external-cube_API_${API_mode}-${NP} ${API_mode} )
 
         set_tests_properties(libparmmg_distributed_external_example0_API_${API_mode}-${NP}

@@ -509,6 +509,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     /* No output */
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
+  case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
     /* Distributed Output */
     tim = 1;
     chrono(ON,&(ctim[tim]));

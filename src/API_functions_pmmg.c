@@ -361,9 +361,9 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
       strncat ( parmesh->fieldout,".o.sol",7 );
     }
 
-    PMMG_DEL_MEM ( parmesh,path,char,"" );
+    MMG5_SAFE_FREE ( path );
     free ( nopath ); nopath = NULL;
-    PMMG_DEL_MEM ( parmesh,basename,char,"" );
+    MMG5_SAFE_FREE ( basename );
   }
   else {
     PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(solout)+1,char,"fieldout",return 0);
@@ -2005,7 +2005,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     iproc2comm[iproc] = icomm;
   }
 
-
   /**
    * 1) Number and count. Analyse each communicator by external color order,
    *     fill internal communicator with (PMMG_UNSET-color) if the node is not
@@ -2053,22 +2052,24 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   }
 
 
-  /**
-   * 2)  Store owners in the output array. Not-owned nodes store a
-   *      (PMMG_UNSET-color) label in the internal communicator, while nodes
-   *      owned by myrank store a non-negative label.
-   */
-  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = ext_node_comm->color_out;
-    nitem = ext_node_comm->nitem;
+  if ( owner ) {
+    /**
+     * 2)  Store owners in the output array. Not-owned nodes store a
+     *      (PMMG_UNSET-color) label in the internal communicator, while nodes
+     *      owned by myrank store a non-negative label.
+     */
+    for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+      ext_node_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_node_comm->color_out;
+      nitem = ext_node_comm->nitem;
 
-    for( i = 0; i < nitem; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      if( intvalues[idx] < 0 )
-        owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
-      else
-        owner[icomm][i] = parmesh->myrank;
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        if( intvalues[idx] < 0 )
+          owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
+        else
+          owner[icomm][i] = parmesh->myrank;
+      }
     }
   }
 
@@ -2253,8 +2254,12 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     nitem = ext_face_comm->nitem;
     unique += nitem;
     if( color > parmesh->myrank ) npairs_loc += nitem;//1;
-    for( i = 0; i < nitem; i++ )
-      owner[icomm][i] = MG_MIN(color,parmesh->myrank);
+
+    if ( owner ) {
+      for( i = 0; i < nitem; i++ ) {
+        owner[icomm][i] = MG_MIN(color,parmesh->myrank);
+      }
+    }
   }
 
 
