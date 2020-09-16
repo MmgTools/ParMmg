@@ -498,7 +498,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     ret_val = 0;
     goto fail_proc;
   }
-  parmesh->info.fem = parmesh->listgrp[0].mesh->info.fem;
+  parmesh->info.fem = parmesh->listgrp[0].mesh->info.setfem;
 
   /* Store mesh names into the parmesh if needed */
   if ( !parmesh->meshin ) {
