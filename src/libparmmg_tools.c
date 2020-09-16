@@ -413,6 +413,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         } else if ( 0 == strncmp( argv[i], "-nobalance", 9 ) ) {
           parmesh->info.nobalancing = MMG5_ON;
+        } else if ( 0 == strncmp( argv[i], "-nofem", 5 ) ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_nofem,1) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
         } else if ( 0 == strncmp( argv[i], "-noout", 5 ) ) {
           parmesh->info.fmtout = PMMG_UNSET;
         } else {
@@ -498,7 +503,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     ret_val = 0;
     goto fail_proc;
   }
-  parmesh->info.fem = parmesh->listgrp[0].mesh->info.setfem;
 
   /* Store mesh names into the parmesh if needed */
   if ( !parmesh->meshin ) {
