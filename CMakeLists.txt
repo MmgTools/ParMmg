@@ -219,14 +219,6 @@ ENDIF ( )
 ############################################################################
 INCLUDE ( ExternalProject )
 
-# Use pointmap
-OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
-IF( USE_POINTMAP )
-  SET(CMAKE_C_FLAGS       "-DUSE_POINTMAP ${CMAKE_C_FLAGS}")
-  SET(CMAKE_CXX_FLAGS     "-DUSE_POINTMAP ${CMAKE_CXX_FLAGS}")
-  SET(CMAKE_Fortran_FLAGS "-DUSE_POINTMAP ${CMAKE_Fortran_FLAGS}")
-ENDIF ()
-
 # forward scotch configuration
 SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
   -DSCOTCH_scotch.h_DIRS=${SCOTCH_scotch.h_DIRS}
@@ -253,13 +245,16 @@ IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
   UNSET(MMG_BUILDDIR CACHE)
 
+  # Use pointmap
+  OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
+
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG  6cdbe90b1a3460379b
+    GIT_TAG  52a919
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP})
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
@@ -289,10 +284,12 @@ IF ( DOWNLOAD_MMG )
   INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
 
 ELSE ( )
-  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  UNSET ( USE_POINTMAP CACHE )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
+
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
 
   FIND_PACKAGE(MMG)
 
@@ -306,6 +303,7 @@ ELSE ( )
       " MMG_BUILDDIR "
       "to your mmg build directory.")
   ELSE()
+
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
 
     MESSAGE(STATUS
