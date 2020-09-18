@@ -609,7 +609,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 
  if ( parmesh->info.imprim > PMMG_VERB_NO ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VERSION_RELEASE,PMMG_RELEASE_DATE,PMMG_STR);
     fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
     fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
     fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
@@ -683,7 +683,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VERSION_RELEASE,PMMG_RELEASE_DATE,PMMG_STR);
     fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
     fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
     fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);

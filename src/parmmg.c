@@ -76,12 +76,12 @@ int main( int argc, char *argv[] )
   MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
   if ( !rank ) {
-    fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VER,PMMG_REL);
-    fprintf(stdout,"     %s\n",PMMG_CPY);
+    fprintf(stdout,"  -- PARMMG, Release %s (%s) \n",PMMG_VERSION_RELEASE,PMMG_RELEASE_DATE);
+    fprintf(stdout,"     %s\n",PMMG_COPYRIGHT);
     fprintf(stdout,"     %s %s\n\n",__DATE__,__TIME__);
 
-    fprintf(stdout,"  -- MMG3D,    Release %s (%s) \n",MG_VER,MG_REL);
-    fprintf(stdout,"     %s\n",MG_CPY);
+    fprintf(stdout,"  -- MMG3D,    Release %s (%s) \n",MMG_VERSION_RELEASE,MMG_RELEASE_DATE);
+    fprintf(stdout,"     %s\n",MMG_COPYRIGHT);
   }
 
   if ( !rank ) {

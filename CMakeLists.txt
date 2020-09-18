@@ -35,6 +35,10 @@ SET(PMMG_INCLUDE         ${PROJECT_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
 FILE(MAKE_DIRECTORY ${PMMG_BINARY_DIR})
 
 
+# Create pmmgversion.h file with the release infos
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/src/pmmgversion.h.in
+  ${PMMG_BINARY_DIR}/pmmgversion.h @ONLY)
+
 # To see flags and options of compilation
 #SET(CMAKE_VERBOSE_MAKEFILE TRUE)
 
@@ -250,7 +254,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG  52a919
+    GIT_TAG  3b200e0252a6
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -523,7 +527,12 @@ SET( pmmg_headers
   ${PMMG_BINARY_DIR}/libparmmgf.h
   ${PMMG_SOURCE_DIR}/libparmmgtypes.h
   ${PMMG_BINARY_DIR}/libparmmgtypesf.h
+  ${PMMG_BINARY_DIR}/pmmgversion.h
   )
+IF (NOT WIN32 OR MINGW)
+  LIST(APPEND pmmg_headers  ${PMMG_BINARY_DIR}/git_log_pmmg.h )
+ENDIF()
+
 
 # Install header files in /usr/local or equivalent
 INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COMPONENT headers )
