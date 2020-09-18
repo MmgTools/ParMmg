@@ -166,6 +166,38 @@ IF( BUILD_TESTING )
 
     ###############################################################################
     #####
+    #####        Test centralized/distributed I/O (on multidomain and openbdy tests)
+    #####
+    ###############################################################################
+
+    add_test( NAME opnbdy_island-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -opnbdy -distributed-output
+      ${CI_DIR}/OpnBdy_island/island.mesh
+      -out ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
+      )
+    add_test( NAME opnbdy_island-8-rerun
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -opnbdy -centralized-output
+      ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
+      )
+    set_tests_properties(opnbdy_island-8-rerun PROPERTIES DEPENDS opnbdy_island-8 )
+
+    add_test( NAME multidom_wave-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -distributed-output
+      ${CI_DIR}/WaveSurface/wave.mesh
+      -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      )
+    add_test( NAME multidom_wave-8-rerun
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -centralized-output
+      ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      )
+    set_tests_properties(multidom_wave-8-rerun PROPERTIES DEPENDS multidom_wave-8 )
+
+    ###############################################################################
+    #####
     #####        Tests fields interpolation with or without metric
     #####
     ###############################################################################
