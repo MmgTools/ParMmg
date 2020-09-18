@@ -761,7 +761,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
       y   = doublevalues[3*idx+1] - rtorecv[3*i+1];
       z   = doublevalues[3*idx+2] - rtorecv[3*i+2];
 
-      if ( x*x + y*y + z*z > MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSOK ) {
         fprintf(stderr,"  ## Error: %s: rank %d:\n"
                 "       2 different points (dist %e) in the same position (%d)"
                 " of the external communicator %d %d (%d th item):\n"
@@ -836,7 +836,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   status      = NULL;
 
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
- 
+
   /** Step 0: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
     ier           = 1;
@@ -997,7 +997,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx  ] - rtorecv[9*i  ];
       y   = doublevalues[9*idx+1] - rtorecv[9*i+1];
       z   = doublevalues[9*idx+2] - rtorecv[9*i+2];
-      if ( x*x + y*y + z*z > MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSOK ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,
@@ -1010,7 +1010,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx+3  ] - rtorecv[9*i+6  ];
       y   = doublevalues[9*idx+3+1] - rtorecv[9*i+6+1];
       z   = doublevalues[9*idx+3+2] - rtorecv[9*i+6+2];
-      if ( x*x + y*y + z*z > MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSOK ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,
@@ -1023,7 +1023,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       x   = doublevalues[9*idx+6  ] - rtorecv[9*i+3  ];
       y   = doublevalues[9*idx+6+1] - rtorecv[9*i+3+1];
       z   = doublevalues[9*idx+6+2] - rtorecv[9*i+3+2];
-      if ( x*x + y*y + z*z > MMG5_EPSD ) {
+      if ( x*x + y*y + z*z > MMG5_EPSOK ) {
         printf("  ## Error: %s: item %d of the external communicator %d->%d:\n"
                "                     vertex %d: %e %e %e -- %e %e %e"
                " (dist = %e)\n",__func__,i,
