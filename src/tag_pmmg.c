@@ -454,8 +454,17 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       /* Tag face as "true" boundary if its ref is different (or if triangle has
        * a non nul ref in openbdy mode), delete reference if it is only a
        * parallel boundary */
-      if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) || (intvalues[idx] != pt->ref ) ) {
+      if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+      } else if ( intvalues[idx] > pt->ref ) {
+        /* Tria belongs to my neighbor */
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
+        MG_CLR(pxt->ori,ifac);
+      }
+      else if ( intvalues[idx] < pt->ref ) {
+        /* Tria belongs to me */
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
+        MG_SET(pxt->ori,ifac);
       }
       else {
         pxt->ref[ifac] = PMMG_NUL;
