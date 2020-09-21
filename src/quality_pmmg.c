@@ -346,6 +346,235 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 }
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \param met pointer toward the metric structure.
+ * \param avlen average length (to fill).
+ * \param lmin minimal length (to fill).
+ * \param lmax max length (to fill).
+ * \param ned number of edges (to fill).
+ * \param amin (to fill).
+ * \param bmin (to fill).
+ * \param amax (to fill).
+ * \param bmax (to fill).
+ * \param nullEdge (to fill).
+ * \param metRidTyp (to fill).
+ * \param bd_in (to fill).
+ * \param hl (to fill).
+ *
+ * \return 0 if fail, 1 otherwise.
+ *
+ * Compute the required information to print the length histogram
+ *
+ */
+int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, double* avlen,
+                        double* lmin, double* lmax, int* ned, int* amin, int* bmin, int* amax,
+                        int* bmax, int* nullEdge, char metRidTyp, double** bd_in, int hl[9] )
+{
+  PMMG_pGrp       grp;
+  PMMG_pInt_comm  int_edge_comm;
+  PMMG_pExt_comm  ext_edge_comm;
+  MMG5_pTetra     pt;
+  MMG5_pPoint     ppt;
+  MMG5_HGeom      hpar;
+  MMG5_Hash       hash;
+  int             *intvalues,idx;
+  double          len;
+  int             i,k,ia,np,nq,n;
+  int             ref;
+  int16_t         tag;
+  char            i0,i1,ier;
+  static double   bd[9]= {0.0, 0.3, 0.6, 0.7071, 0.9, 1.3, 1.4142, 2.0, 5.0};
+
+  *bd_in = bd;
+  memset(hl,0,9*sizeof(int));
+  *ned = 0;
+  *avlen = 0.0;
+  *lmax = 0.0;
+  *lmin = 1.e30;
+  *amin = *amax = *bmin = *bmax = 0;
+  *nullEdge = 0;
+
+  /* Hash parallel edges in the mesh */
+  if ( PMMG_hashPar(mesh,&hpar) != PMMG_SUCCESS ) return 0;
+
+  /* Build parallel edge communicator */
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+
+  int_edge_comm = parmesh->int_edge_comm;
+  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_edge_comm->intvalues;
+  for( i = 0; i < int_edge_comm->nitem; i++ )
+    intvalues[i] = parmesh->myrank;
+
+  for( k = 0; k < parmesh->next_edge_comm; k++ ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    for( i = 0; i < ext_edge_comm->nitem; i++ ) {
+      idx = ext_edge_comm->int_comm_index[i];
+      if( ext_edge_comm->color_out < intvalues[idx] )
+        intvalues[idx] = ext_edge_comm->color_out;
+    }
+  }
+
+  /* Give memory to Mmg for the edge length computation */
+  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+
+  /* Hash all edges in the mesh */
+  if ( !MMG5_hashNew(mesh,&hash,mesh->np,7*mesh->np) )  return 0;
+
+  for(k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+
+    for(ia=0; ia<6; ia++) {
+      i0 = MMG5_iare[ia][0];
+      i1 = MMG5_iare[ia][1];
+      np = pt->v[i0];
+      nq = pt->v[i1];
+
+      if(!MMG5_hashEdge(mesh,&hash,np,nq,0)){
+        fprintf(stderr,"  ## Error: %s: function MMG5_hashEdge return 0\n",
+                __func__);
+        return 0;
+      }
+    }
+  }
+
+
+  /** Pop edges from hash table, and analyze their length */
+
+  /* First on parallel edges */
+  grp = &parmesh->listgrp[0];
+  for( i = 0; i < grp->nitem_int_edge_comm; i++ ) {
+    ia  = grp->edge2int_edge_comm_index1[i];
+    idx = grp->edge2int_edge_comm_index2[i];
+
+    /* Only analyse owned edges */
+    if( intvalues[idx] != parmesh->myrank ) continue;
+
+    np = mesh->edge[ia].a;
+    nq = mesh->edge[ia].b;
+    if( MMG5_hGet(&hpar,np,nq,&ref,&tag) ) {
+      assert( tag & MG_BDY );
+
+      /* Remove edge from hash ; ier = 1 if edge has been found */
+      ier = MMG5_hashPop(&hash,np,nq);
+      if( ier ) {
+        if ( (!metRidTyp) && met->size==6 && met->m ) {
+          len = MMG5_lenSurfEdg33_ani(mesh,met,np,nq,(tag & MG_GEO));
+        }
+        else
+          len = MMG5_lenSurfEdg_iso(mesh,met,np,nq,0);
+
+
+        if ( !len ) {
+          ++(*nullEdge);
+        }
+        else {
+          *avlen += len;
+          (*ned)++;
+
+          if( len < (*lmin) ) {
+            *lmin = len;
+            *amin = np;
+            *bmin = nq;
+          }
+
+          if ( len > (*lmax) ) {
+            *lmax = len;
+            *amax = np;
+            *bmax = nq;
+          }
+
+          /* Locate size of edge among given table */
+          for(i=0; i<8; i++) {
+            if ( bd[i] <= len && len < bd[i+1] ) {
+              hl[i]++;
+              break;
+            }
+          }
+          if( i == 8 ) hl[8]++;
+        }
+      }
+    }
+
+    /* Mark edge as analysed */
+    intvalues[idx] = parmesh->nprocs;
+  }
+
+
+
+  /* Then on internal edges */
+  for(k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+    n = 0;
+    for(i=0 ; i<4 ; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if(!(MG_SIN(ppt->tag) || MG_NOM & ppt->tag) && (ppt->tag & MG_GEO)) continue;
+      n++;
+    }
+    if(!n) {
+      continue;
+    }
+    for(ia=0; ia<6; ia++) {
+      i0 = MMG5_iare[ia][0];
+      i1 = MMG5_iare[ia][1];
+      np = pt->v[i0];
+      nq = pt->v[i1];
+
+      /* Remove edge from hash ; ier = 1 if edge has been found */
+      ier = MMG5_hashPop(&hash,np,nq);
+      if( ier ) {
+        if ( (!metRidTyp) && met->size==6 && met->m ) {
+          len = MMG5_lenedg33_ani(mesh,met,ia,pt);
+        }
+        else
+          len = MMG5_lenedg(mesh,met,ia,pt);
+
+
+        if ( !len ) {
+          ++(*nullEdge);
+        }
+        else {
+          *avlen += len;
+          (*ned)++;
+
+          if( len < (*lmin) ) {
+            *lmin = len;
+            *amin = np;
+            *bmin = nq;
+          }
+
+          if ( len > (*lmax) ) {
+            *lmax = len;
+            *amax = np;
+            *bmax = nq;
+          }
+
+          /* Locate size of edge among given table */
+          for(i=0; i<8; i++) {
+            if ( bd[i] <= len && len < bd[i+1] ) {
+              hl[i]++;
+              break;
+            }
+          }
+          if( i == 8 ) hl[8]++;
+        }
+      }
+    }
+  }
+
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
+  PMMG_edge_comm_free( parmesh );
+  MMG5_DEL_MEM(mesh,hpar.geom);
+  MMG5_DEL_MEM(mesh,hash.item);
+  MMG5_DEL_MEM(mesh,mesh->edge);
+  mesh->na = 0;
+
+ return 1;
+}
+
+/**
  * \param parmesh pointer to parmesh structure
  * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
  * \param isCentral 1 for centralized mesh, 0 for distributed mesh.
@@ -415,10 +644,18 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
     mesh = parmesh->listgrp[0].mesh;
     met = parmesh->listgrp[0].met;
     if ( met && met->m ) {
-      ier = MMG3D_computePrilen( mesh, met, &lenStats.avlen, &lenStats.lmin,
-                                 &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                                 &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                 &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+      if( isCentral )
+        ier = MMG3D_computePrilen( mesh, met,
+                                   &lenStats.avlen, &lenStats.lmin,
+                                   &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                   &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                   &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+      else
+        ier = PMMG_computePrilen( parmesh, mesh, met, 
+                                  &lenStats.avlen, &lenStats.lmin,
+                                  &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                  &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                  &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
     }
   }
 
