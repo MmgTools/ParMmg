@@ -566,6 +566,7 @@ void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
 void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);
 void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
 void PMMG_node_comm_free( PMMG_pParMesh );
+void PMMG_edge_comm_free( PMMG_pParMesh );
 
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
@@ -576,6 +577,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
+int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar );
 
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh);
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh);
@@ -585,6 +587,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
 
 /* Tags */
 void PMMG_tag_par_node(MMG5_pPoint ppt);
