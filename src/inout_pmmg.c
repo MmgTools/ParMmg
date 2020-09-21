@@ -204,12 +204,25 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   FILE        *inm;
   int         bin;
   long        pos;
-  int         iswp;
+  int         iswp,k;
   int         binch,bpos;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
+
+  /* A non-// tria may be marked as // in Medit serial I/O (if its 3 edges are
+   * //): as we can infer // triangles from communicators, reset useless (and
+   * maybe erroneous) tags */
+  for ( k=1; k<=mesh->nt; ++k ) {
+    if ( (mesh->tria[k].tag[0] & MG_PARBDY) &&
+         (mesh->tria[k].tag[1] & MG_PARBDY) &&
+         (mesh->tria[k].tag[2] & MG_PARBDY) ) {
+      mesh->tria[k].tag[0] &= ~MG_PARBDY;
+      mesh->tria[k].tag[1] &= ~MG_PARBDY;
+      mesh->tria[k].tag[2] &= ~MG_PARBDY;
+    }
+  }
 
   /** Open mesh file */
   ier = MMG3D_openMesh(mesh->info.imprim,filename,&inm,&bin,"rb","rb");
