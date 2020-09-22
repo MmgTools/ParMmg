@@ -662,7 +662,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
   if( isCentral )
     ieresult = ier;
   else
-    MPI_Reduce( &ieresult, &ier,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+    MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
 
   if ( !ieresult ) {
     MPI_Type_free( &mpi_lenStats_t );
