@@ -589,7 +589,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *triaNormals,int *nodeTrias,PMMG_barycoord *barycoord,
                          int *iTria,int *ifoundEdge,int *ifoundVertex ) {
   MMG5_pTria     ptr,ptr1;
-  int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
+  int            *adjt,j,i,k,k1,kprev,step,closestTria,stuck,backward;
   int            iloc;
   double         vol,eps,h,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
@@ -631,8 +631,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
     /** Compute new direction */
     adjt = &mesh->adjt[3*(k-1)+1];
     kprev = k;
-    for( i=0; i<3; i++ ) {
-      k1 = adjt[barycoord[i].idx]/3;
+    for( j=0; j<3; j++ ) {
+      i = barycoord[j].idx;
+      k1 = adjt[i]/3;
 
       /* Skip if on boundary */
       if( !k1 ) continue;
@@ -640,15 +641,15 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
       /* Test shadow regions if the tria has already been visited */
       ptr1 = &mesh->tria[k1];
       if(ptr1->flag == mesh->base) {
-        iloc = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,barycoord );
+        iloc = PMMG_locatePointInWedge( mesh,ptr,k,i,ppt,barycoord );
         if( iloc == PMMG_UNSET ) continue;
         if( iloc == 4 ) {
-          *ifoundEdge = iprev;
+          *ifoundEdge = i;
           ppt->s = step;
           *iTria = k;
           return 1;
         } else {
-          ier = PMMG_locatePointInCone( mesh,nodeTrias,kprev,iloc,ppt );
+          ier = PMMG_locatePointInCone( mesh,nodeTrias,k,iloc,ppt );
           if( ier ) {
             *ifoundVertex = iloc;
             ppt->s = step;
@@ -663,7 +664,6 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
       k = k1;
       break;
     }
-    iprev = barycoord[i].idx;
 
     /** Stuck: Start exhaustive research */
     if (i == 3) stuck = 1;
