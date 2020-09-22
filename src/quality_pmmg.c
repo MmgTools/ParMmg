@@ -346,6 +346,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  * \param met pointer toward the metric structure.
  * \param avlen average length (to fill).
@@ -400,12 +401,14 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   /* Build parallel edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
 
+  /* Initialize internal communicator with current rank */
   int_edge_comm = parmesh->int_edge_comm;
   PMMG_MALLOC(parmesh,int_edge_comm->intvalues,int_edge_comm->nitem,int,"intvalues",return 0);
   intvalues = int_edge_comm->intvalues;
   for( i = 0; i < int_edge_comm->nitem; i++ )
     intvalues[i] = parmesh->myrank;
 
+  /* Assign parallel edge to the lowest rank */
   for( k = 0; k < parmesh->next_edge_comm; k++ ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
     for( i = 0; i < ext_edge_comm->nitem; i++ ) {
@@ -442,7 +445,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
 
   /** Pop edges from hash table, and analyze their length */
 
-  /* First on parallel edges */
+  /* 1) On parallel edges */
   grp = &parmesh->listgrp[0];
   for( i = 0; i < grp->nitem_int_edge_comm; i++ ) {
     ia  = grp->edge2int_edge_comm_index1[i];
@@ -502,8 +505,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   }
 
 
-
-  /* Then on internal edges */
+  /* 2) On internal edges */
   for(k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) ) continue;
@@ -571,7 +573,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   MMG5_DEL_MEM(mesh,mesh->edge);
   mesh->na = 0;
 
- return 1;
+  return 1;
 }
 
 /**
