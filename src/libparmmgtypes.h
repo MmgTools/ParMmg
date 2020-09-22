@@ -33,6 +33,7 @@
 #define _LIBPARMMGTYPES_H
 
 #include "mmg/mmg3d/libmmgtypes.h"
+#include "pmmgversion.h"
 #include <mpi.h>
 
 

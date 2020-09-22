@@ -66,6 +66,10 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
     DEPENDS
     ${source_dir}/libparmmgtypes.h )
 
+  ADD_CUSTOM_TARGET(pmmgversion_header ALL
+    DEPENDS
+    ${binary_dir}/pmmgversion.h )
+
   ADD_CUSTOM_TARGET(pmmg_header ALL
     DEPENDS
     ${source_dir}/libparmmg.h )
@@ -74,6 +78,11 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
     ${source_dir} libparmmgtypes.h
     ${include_dir} libparmmgtypes.h
     pmmgtypes_header copy_libpmmgtypes )
+
+  COPY_HEADER (
+    ${binary_dir} pmmgversion.h
+    ${include_dir} pmmgversion.h
+    pmmgversion_header copy_pmmgversion )
 
   COPY_HEADER (
     ${source_dir} libparmmg.h
@@ -92,10 +101,20 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
     pmmg_fortran_header copy_libpmmgf
     )
 
+  SET ( tgt_list  copy_libpmmgf copy_libpmmgtypesf
+    copy_libpmmg copy_libpmmgtypes copy_pmmgversion)
+
+  IF (NOT WIN32 OR MINGW)
+    COPY_HEADER (
+      ${binary_dir} git_log_pmmg.h
+      ${include_dir} git_log_pmmg.h
+      GenerateGitHash copy_pmmggithash )
+
+    LIST ( APPEND tgt_list copy_pmmggithash)
+  ENDIF ()
+
   ADD_CUSTOM_TARGET(copy_pmmg_headers ALL
-    DEPENDS
-    copy_libpmmgf copy_libpmmgtypesf
-    copy_libpmmg copy_libpmmgtypes )
+    DEPENDS ${tgt_list})
 
 ENDMACRO ( )
 
@@ -181,7 +200,8 @@ MACRO ( ADD_AND_INSTALL_EXECUTABLE
 
   TARGET_LINK_LIBRARIES ( ${exec_name} ${LIBRARIES}  )
 
-  INSTALL(TARGETS ${exec_name} RUNTIME DESTINATION bin COMPONENT appli)
+  INSTALL(TARGETS ${exec_name}
+    EXPORT ParMmgTargets RUNTIME DESTINATION bin COMPONENT appli)
 
   ADD_TARGET_POSTFIX(${exec_name})
 

@@ -175,7 +175,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   int        mmgArgc = 0;
   char**     mmgArgv = NULL;
 
-  assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+  assert ( parmesh->ngrp == 1 && "Not available for more than 1 group per proc.\n");
 
   /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
    * and call the mmg3d parser. */
@@ -210,6 +210,21 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
+      case 'c':
+        if ( !strcmp(argv[i],"-centralized-output") ) {
+          /* force centralized output: only relevant using medit distributed
+           * input or library call */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,0) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
+        break;
       case 'f':
         if ( !strcmp(argv[i],"-field") ) {
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
@@ -269,7 +284,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
           else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-             ret_val = 0;
+            ret_val = 0;
             goto fail_proc;
           }
         }
@@ -300,7 +315,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
           else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-             ret_val = 0;
+            ret_val = 0;
             goto fail_proc;
           }
         }
@@ -389,7 +404,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       case 'n':  /* number of adaptation iterations */
         if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
           ++i;
-          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
+          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) >= 0 ) ) {
             parmesh->niter = atoi( argv[i] );
           } else {
             parmesh->niter = PMMG_NITER;
@@ -428,11 +443,19 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
 
       case 'd':
-        if ( !strcmp(argv[i],"-d") ) {
-        /* debug */
-        if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
-          ret_val = 0;
-          goto fail_proc;
+        if ( !strcmp(argv[i],"-distributed-output") ) {
+          /* force distributed output: only relevant using medit centralized
+           * input or library call */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,1) )  {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( !strcmp(argv[i],"-d") ) {
+          /* debug */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+            ret_val = 0;
+            goto fail_proc;
           }
         }
         else {
@@ -475,7 +498,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         else {
           fprintf(stderr,"\nMissing argument option %c\n",argv[i-1][1]);
-           ret_val = 0;
+          ret_val = 0;
           goto fail_proc;
         }
         break;
@@ -583,74 +606,280 @@ void PMMG_setfunc( PMMG_pParMesh parmesh ) {
 }
 
 /**
+ * \param fp file pointer
+ * \param bin 1 if file is at Medit binary format
+ * \param linesep line separator
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Search the End keyword in an Medit file and position the file pointer before
+ * this keyword.
+ *
+ */
+static inline
+int PMMG_search_filePosition ( FILE *fp,int bin,char linesep ) {
+  int  ier;
+  long pos;
+  char c;
+
+  /* Return if file pointer is not valid */
+  if ( !fp ) {
+    return 1;
+  }
+
+  if ( !bin ) {
+    /* Search last char of file before EOF */
+    ier =  fseek(fp, -1, SEEK_END);
+
+    if ( ier ) {
+      /* Empty file (fseek has failed) */
+      return 1;
+    }
+
+    /* File exists and is not empty: search the last char that is not a line
+     * separator */
+    c = fgetc(fp);
+    while ( c == linesep ) {
+      ier = fseek(fp, -2, SEEK_CUR);
+      if ( ier ) {
+        /* The file contains only one line break */
+        break;
+      }
+      c = fgetc(fp);
+    }
+
+    /* Search the end of the previous line and compute the length of the last one */
+    int len = 1;
+    while ( c != linesep ) {
+      ier = fseek(fp, -2, SEEK_CUR);
+      if ( ier ) {
+        /* The file contains only one line break */
+        break;
+      }
+      ++len;
+      c = fgetc(fp);
+    }
+
+    if ( ier ) {
+      /* fseek has failed because we reach the file beginning: go back to the very
+       * beginning of file. */
+      rewind(fp);
+    }
+    else {
+      char chaine[MMG5_FILESTR_LGTH];
+      pos = ftell(fp);
+
+      ier = fscanf(fp,"%127s",&chaine[0]);
+
+      if ( !strncmp(chaine,"End",strlen("End") ) ) {
+
+        rewind(fp);
+        fseek(fp,pos,SEEK_SET);
+      }
+    }
+  }
+  else {
+    /* Append to file (because we are not able to compute the new position of
+     * the end key so it brokes medit to remove it). */
+    ier = fseek(fp,0, SEEK_END);
+    if ( ier ) {
+      /* No EOF... why? */
+      fprintf(stderr,"  ## Error: %s: Unexpected error\n.",__func__);
+      return 0;
+    }
+  }
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
- * \param API_mode print face or node communicator.
- * \param idx_loc double pointer to the local indices of entities in each communicator.
- * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
  * \param filename file name (if null, print on stdout).
  *
  * \return 0 if fail, 1 otherwise
  *
- * Print parallel communicator in ASCII format.
- * \remark Mostly for debug purposes.
+ * Print parallel communicator in ASCII format: communicators are printed in
+ * stdout if no provided filename.
+ * Otherwise:
+ *   - if the file doesn't exists with Medit extension, it is created;
+ *   - if it exists, communicators are appened at the end of the existing Medit
+ *      file, removing a possibly existing "End"" keyword
  *
  */
-int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char* filename ) {
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
   PMMG_pExt_comm ext_comm;
-  int ncomm,color,nitem;
-  int icomm,i,iglob;
+  int   **idx_loc,**idx_glob;
+  int   bin,ncomm,color,nitem;
+  int   icomm,i,ier,ier_glob;
   FILE *fid;
 
-  if( filename )
-    fid = fopen(filename,"w");
-  else
-    fid = stdout;
-
-  if( API_mode == PMMG_APIDISTRIB_faces ) {
-    ncomm = parmesh->next_face_comm;
-    fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      ext_comm = &parmesh->ext_face_comm[icomm];
-      color = ext_comm->color_out;
-      nitem = ext_comm->nitem;
-      fprintf(fid,"%d %d\n",color,nitem);
+  /** Step 1: find where to write communicators */
+  bin = 0;
+  ier = 1;
+  if ( filename ) {
+    ier = MMG3D_openMesh(PMMG_VERB_NO,filename,&fid,&bin,"rb+","rb+");
+    if ( ier == -1 ) {
+      /* Memory issue: nothing to do */
+      fprintf(stderr," ** lack of memory\n");
     }
-    fprintf(fid,"\nParallelCommunicatorTriangles\n");
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      ext_comm = &parmesh->ext_face_comm[icomm];
-      color = ext_comm->color_out;
-      nitem = ext_comm->nitem;
-      if( idx_glob )
-        for( i = 0; i < nitem; i++ )
-          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
-      else
-        for( i = 0; i < nitem; i++ )
-          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    else if ( !ier ) {
+      /* File creation */
+      ier = MMG3D_openMesh(parmesh->info.imprim,filename,&fid,&bin,"w+","wb+");
     }
-  } else if( API_mode == PMMG_APIDISTRIB_nodes ) {
-    ncomm = parmesh->next_node_comm;
-    fprintf(fid,"ParallelVertexCommunicators\n%d\n",ncomm);
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      ext_comm = &parmesh->ext_node_comm[icomm];
-      color = ext_comm->color_out;
-      nitem = ext_comm->nitem;
-      fprintf(fid,"%d %d\n",color,nitem);
-    }
-    fprintf(fid,"\nParallelCommunicatorVertices\n");
-    for( icomm = 0; icomm < ncomm; icomm++ ) {
-      ext_comm = &parmesh->ext_node_comm[icomm];
-      color = ext_comm->color_out;
-      nitem = ext_comm->nitem;
-      if( idx_glob )
-        for( i = 0; i < nitem; i++ )
-          fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
-      else
-        for( i = 0; i < nitem; i++ )
-          fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+    else {
+      /* File exists: search for the End keyword and position the file pointer
+       * before */
+      ier = PMMG_search_filePosition(fid,bin,'\n');
+      if ( !ier ) {
+        fprintf(stderr,"  ## Error: %s: Unable to position file pointer."
+                " Exit.\n",__func__);
+      }
     }
   }
+  else {
+    fid = stdout;
+  }
 
-  if( filename ) fclose(fid);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  if ( ier_glob != 1 ) {
+    return ier_glob;
+  }
+
+  /** Step 2: compute communicators for output */
+  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+    MMG5_SAFE_MALLOC ( idx_loc,  parmesh->next_face_comm, int *,
+                       fprintf(stderr," ** lack of memory\n");ier=0);
+    MMG5_SAFE_MALLOC ( idx_glob, parmesh->next_face_comm, int *,
+                       fprintf(stderr," ** lack of memory\n");ier=0);
+
+    for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+      ext_comm = &parmesh->ext_face_comm[icomm];
+      nitem    = ext_comm->nitem;
+      MMG5_SAFE_MALLOC ( idx_loc[icomm],nitem, int,
+                         fprintf(stderr," ** lack of memory\n");ier=0);
+      MMG5_SAFE_MALLOC ( idx_glob[icomm],nitem, int,
+                         fprintf(stderr," ** lack of memory\n");ier=0);
+    }
+
+    ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_loc);
+
+    MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier_glob != 1 ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to compute face communicators.\n",
+              __func__);
+      return ier_glob;
+    }
+    ier = PMMG_Get_FaceCommunicator_owners(parmesh,NULL,idx_glob,NULL,NULL);
+
+  }
+  else {
+    MMG5_SAFE_MALLOC ( idx_loc,  parmesh->next_node_comm, int *,
+                       fprintf(stderr," ** lack of memory\n");ier=0);
+    MMG5_SAFE_MALLOC ( idx_glob, parmesh->next_node_comm, int *,
+                       fprintf(stderr," ** lack of memory\n");ier=0);
+
+    for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+      ext_comm = &parmesh->ext_node_comm[icomm];
+      nitem    = ext_comm->nitem;
+      MMG5_SAFE_MALLOC ( idx_loc[icomm],nitem, int,
+                         fprintf(stderr," ** lack of memory\n");ier=0);
+      MMG5_SAFE_MALLOC ( idx_glob[icomm],nitem, int,
+                         fprintf(stderr," ** lack of memory\n");ier=0);
+    }
+
+    ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_loc);
+
+    MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier_glob != 1 ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to compute node communicators.\n",
+              __func__);
+
+      return ier_glob;
+    }
+
+    ier = PMMG_Get_NodeCommunicator_owners(parmesh,NULL,idx_glob,NULL,NULL);
+  }
+
+  /** Step 3: file saving */
+  if ( !bin ) {
+    if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+      ncomm = parmesh->next_face_comm;
+      fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
+        ext_comm = &parmesh->ext_face_comm[icomm];
+        color = ext_comm->color_out;
+        nitem = ext_comm->nitem;
+        fprintf(fid,"%d %d\n",color,nitem);
+      }
+      fprintf(fid,"\nParallelCommunicatorTriangles\n");
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
+        ext_comm = &parmesh->ext_face_comm[icomm];
+        color = ext_comm->color_out;
+        nitem = ext_comm->nitem;
+        if( idx_glob ) {
+          for( i = 0; i < nitem; i++ ) {
+            fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+          }
+        }
+        else {
+          for( i = 0; i < nitem; i++ ) {
+            fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+          }
+        }
+      }
+
+      /* Free mem */
+      for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+        MMG5_SAFE_FREE ( idx_loc[icomm] );
+        MMG5_SAFE_FREE ( idx_glob[icomm] );
+      }
+      MMG5_SAFE_FREE ( idx_loc );
+      MMG5_SAFE_FREE ( idx_glob );
+
+    } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes ) {
+      ncomm = parmesh->next_node_comm;
+      fprintf(fid,"ParallelVertexCommunicators\n%d\n",ncomm);
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
+        ext_comm = &parmesh->ext_node_comm[icomm];
+        color = ext_comm->color_out;
+        nitem = ext_comm->nitem;
+        fprintf(fid,"%d %d\n",color,nitem);
+      }
+      fprintf(fid,"\nParallelCommunicatorVertices\n");
+      for( icomm = 0; icomm < ncomm; icomm++ ) {
+        ext_comm = &parmesh->ext_node_comm[icomm];
+        color = ext_comm->color_out;
+        nitem = ext_comm->nitem;
+        if( idx_glob ) {
+          for( i = 0; i < nitem; i++ ) {
+            fprintf(fid,"%d %d %d\n",idx_loc[icomm][i],idx_glob[icomm][i],icomm);
+          }
+        }
+        else {
+          for( i = 0; i < nitem; i++ ) {
+            fprintf(fid,"%d -1 %d\n",idx_loc[icomm][i],icomm);
+          }
+        }
+      }
+
+      /* Free mem */
+      for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+        MMG5_SAFE_FREE ( idx_loc[icomm] );
+        MMG5_SAFE_FREE ( idx_glob[icomm] );
+      }
+      MMG5_SAFE_FREE ( idx_loc );
+      MMG5_SAFE_FREE ( idx_glob );
+    }
+    fprintf(fid,"\n\nEnd\n");
+  }
+  else {
+    fprintf(stderr,"  ## Error: %s: Binary file format not yet implemented"
+            " for communicators. Exit.\n",__func__);
+    return 0;
+  }
+
+  if( filename ) {
+    fclose(fid);
+  }
 
   return 1;
 }

@@ -26,7 +26,8 @@
  * \brief Group distribution on the processors
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
- * \version 5
+ * \author Luca Cirrotola (Inria)
+ * \version 1
  * \copyright GNU Lesser General Public License.
  *
  * \remark to not deaclock when 1 process fail, we continue the process even
