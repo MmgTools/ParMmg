@@ -745,7 +745,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   char       stim[32];
   unsigned char inputMet;
 
-
   tminit(ctim,TIMEMAX);
 
   ier_end = PMMG_SUCCESS;

@@ -441,20 +441,175 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
   return iresult;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh
+ *
+ * \return 1 if success, 0 otherwise
+ *
+ * Give memory to Mmg and build the boundary entities (triangles, edges...).
+ *
+ */
+static inline
+int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
+  MMG5_pMesh mesh;
+  size_t     tmpmem;
+  int        npmax,xpmax,nemax,xtmax;
+
+  tmpmem = parmesh->memMax - parmesh->memCur;
+  parmesh->memMax = parmesh->memCur;
+  parmesh->listgrp[0].mesh->memMax += tmpmem;
+
+  mesh = parmesh->listgrp[0].mesh;
+  mesh  = parmesh->listgrp[0].mesh;
+  npmax = mesh->npmax;
+  nemax = mesh->nemax;
+  xpmax = mesh->xpmax;
+  xtmax = mesh->xtmax;
+  mesh->npmax = mesh->np;
+  mesh->nemax = mesh->ne;
+  mesh->xpmax = mesh->xp;
+  mesh->xtmax = mesh->xt;
+
+  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+    fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
+    return 0;
+  }
+
+  if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
+    /** Impossible to rebuild the triangle */
+    return 0;
+  }
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh
+ *
+ * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if merge or boundary
+ * reconstruction fail
+ *
+ * Mesh post-treatment:
+ *  1. merge meshes if centralized output is asked;
+ *  2. build boundary entities of merged or distributed meshes (triangles, edges...);
+ *
+ */
+static inline
+int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
+  mytime        ctim[TIMEMAX];
+  int           ier,iresult;
+  int8_t        tim;
+  char          stim[32];
+
+  tminit(ctim,TIMEMAX);
+
+  iresult = 1;
+
+  switch ( parmesh->info.fmtout ) {
+  case ( PMMG_UNSET ):
+    /* No output */
+    break;
+  case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
+  case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+    /* Distributed Output */
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n   -- PHASE 3 : MESH PACKED UP\n" );
+    }
+
+    ier = PMMG_bdryBuild ( parmesh );
+
+
+
+    MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+    if ( !iresult ) {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
+      }
+      return PMMG_LOWFAILURE;
+    }
+
+    chrono(OFF,&(ctim[tim]));
+    if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
+      printim(ctim[tim].gdif,stim);
+      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
+    }
+
+    break;
+  default:
+    /* Centralized Output */
+    /** Merge all the meshes on the proc 0 */
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
+    }
+
+    ier = PMMG_merge_parmesh( parmesh );
+    MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+    if ( !iresult ) {
+      /* Try to save at parallel format */
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO CENTRALIZE MESHES..."
+                " TRY TO SAVE DISTRIBUTED MESHES\n\n\n");
+      }
+    }
+
+    chrono(OFF,&(ctim[tim]));
+    if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
+      printim(ctim[tim].gdif,stim);
+      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
+    }
+
+    /** Boundaries reconstruction: by all the procs if the merge has failed,
+     * only by proc 0 if the merge has succeed. */
+    tim = 2;
+    chrono(ON,&(ctim[tim]));
+    if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
+    }
+
+    if ( (!iresult) || (!parmesh->myrank) ) {
+      ier = PMMG_bdryBuild ( parmesh );
+
+      if ( !iresult ) {
+        /* Centralization has failed: needs to reduce the error value and to
+         * build the communicators */
+        MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+        ier = iresult;
+      }
+      /* Check the bdy reconstruction */
+      if ( !ier ) {
+        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
+        }
+        return PMMG_LOWFAILURE;
+      }
+
+      chrono(OFF,&(ctim[tim]));
+      if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
+        printim(ctim[tim].gdif,stim);
+        fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
+      }
+    }
+  }
+  return PMMG_SUCCESS;
+}
+
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   PMMG_pGrp     grp;
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
   int           ier;
-  int           iresult,ierlib,npmax,xpmax,nemax,xtmax;
-  long int      tmpmem;
+  int           ierlib;
   mytime        ctim[TIMEMAX];
   int8_t        tim;
   char          stim[32];
 
  if ( parmesh->info.imprim > PMMG_VERB_NO ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_CENTRALIZED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VERSION_RELEASE,PMMG_RELEASE_DATE,PMMG_STR);
     fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
     fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
     fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
@@ -474,7 +629,6 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
               __func__,parmesh->myrank);
     }
   }
-
 
   /* Distribute the mesh */
   ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
@@ -504,78 +658,8 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
     return ierlib;
   }
 
-#warning remove the lib_centralized and lib_distributed library to have modular centralized input + annalysis or parallel input + analysis , libparmmg1 call, then centralized or distributed output
-  switch ( parmesh->info.fmtout ) {
-  case ( PMMG_UNSET ):
-    /* No output */
-    break;
-  case ( MMG5_FMT_VtkPvtu ):
-    // Distributed Output
-#warning boundaries arent rebuilded
-
-    break;
-  default:
-    // Centralized Output
-    /** Merge all the meshes on the proc 0 */
-    tim = 4;
-    chrono(ON,&(ctim[tim]));
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
-    }
-
-    iresult = PMMG_merge_parmesh( parmesh );
-    if ( !iresult ) {
-      // Add saving at parallel format
-      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
-    }
-
-    chrono(OFF,&(ctim[tim]));
-    if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
-      printim(ctim[tim].gdif,stim);
-      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
-    }
-
-    if ( !parmesh->myrank ) {
-      /** Boundaries reconstruction */
-      tim = 5;
-      chrono(ON,&(ctim[tim]));
-      if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
-      }
-
-      tmpmem = parmesh->memMax - parmesh->memCur;
-      parmesh->memMax = parmesh->memCur;
-      parmesh->listgrp[0].mesh->memMax += tmpmem;
-
-      mesh = parmesh->listgrp[0].mesh;
-      mesh  = parmesh->listgrp[0].mesh;
-      npmax = mesh->npmax;
-      nemax = mesh->nemax;
-      xpmax = mesh->xpmax;
-      xtmax = mesh->xtmax;
-      mesh->npmax = mesh->np;
-      mesh->nemax = mesh->ne;
-      mesh->xpmax = mesh->xp;
-      mesh->xtmax = mesh->xt;
-
-      if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
-        fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
-        PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-      }
-
-      if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
-        /** Impossible to rebuild the triangle */
-        fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-        PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-      }
-
-      chrono(OFF,&(ctim[tim]));
-      if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
-        printim(ctim[tim].gdif,stim);
-        fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
-      }
-    }
-  }
+  ier = PMMG_parmmglib_post(parmesh);
+  ierlib = MG_MAX ( ier, ierlib );
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
@@ -591,8 +675,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
-  int              ier,iresult,ierlib,npmax,nemax,xpmax,xtmax;
-  long int         tmpmem;
+  int              ier,iresult,ierlib;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
   char             stim[32];
@@ -600,7 +683,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
 
   if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
     fprintf(stdout,"\n  %s\n   MODULE PARMMGLIB_DISTRIBUTED: IMB-LJLL : "
-            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VER,PMMG_REL,PMMG_STR);
+            "%s (%s)\n  %s\n",PMMG_STR,PMMG_VERSION_RELEASE,PMMG_RELEASE_DATE,PMMG_STR);
     fprintf(stdout,"     git branch: %s\n",PMMG_GIT_BRANCH);
     fprintf(stdout,"     git commit: %s\n",PMMG_GIT_COMMIT);
     fprintf(stdout,"     git date:   %s\n\n",PMMG_GIT_DATE);
@@ -612,6 +695,10 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   /** Check input data */
   tim = 1;
   chrono(ON,&(ctim[tim]));
+
+  if ( parmesh->info.fmtout == PMMG_FMT_Unknown ) {
+    parmesh->info.fmtout = PMMG_FMT_Distributed;
+  }
 
   /* I/O check: if an input field name is provided but the output one is not,
    compute automatically an output solution field name. */
@@ -686,42 +773,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     return ierlib;
   }
 
-  /** Boundaries reconstruction */
-  tim = 4;
-  chrono(ON,&(ctim[tim]));
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n   -- PHASE 3 : MESH PACKED UP\n");
-
-  /** All the memory is devoted to the mesh **/
-  tmpmem = parmesh->memMax - parmesh->memCur;
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax += tmpmem;
-
-  mesh  = parmesh->listgrp[0].mesh;
-  npmax = mesh->npmax;
-  nemax = mesh->nemax;
-  xpmax = mesh->xpmax;
-  xtmax = mesh->xtmax;
-  mesh->npmax = mesh->np;
-  mesh->nemax = mesh->ne;
-  mesh->xpmax = mesh->xp;
-  mesh->xtmax = mesh->xt;
-  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
-    fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
-    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-  }
-
-  if ( (!MMG3D_hashTetra( mesh, 0 )) || ( -1 == MMG3D_bdryBuild(parmesh->listgrp[0].mesh) ) ) {
-    /** Impossible to rebuild the triangle **/
-    fprintf(stdout,"\n\n\n  -- IMPOSSIBLE TO BUILD THE BOUNDARY MESH\n\n\n");
-    PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
-  }
-
-  chrono(OFF,&(ctim[tim]));
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"\n   -- PHASE 3 COMPLETED.     %s\n",stim);
-  }
+  ier = PMMG_parmmglib_post(parmesh);
+  ierlib = MG_MAX ( ier, ierlib );
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);

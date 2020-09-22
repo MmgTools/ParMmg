@@ -284,7 +284,6 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
  *
  */
 int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,PMMG_barycoord *barycoord ) {
-  MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
   double      a[3],p[3],norm2,dist,alpha;
   int         i0,i1,d;

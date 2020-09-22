@@ -64,7 +64,7 @@ int main(int argc,char *argv[]) {
   tmp     = NULL;
 
   if ( (argc!=4) && !rank ) {
-    printf(" Usage: %s fileout io_option\n",argv[0]);
+    printf(" Usage: %s fileout niter API_mode\n",argv[0]);
     printf("     niter    = 0   to perform a dry run of Parmmg and check paralle interfaces construction\n");
     printf("     niter    = [n] to perform [n] iterations of remeshing\n");
     printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
