@@ -766,7 +766,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
         y   = doublevalues[6*idx+3*j+1] - rtorecv[6*i+3*j+1];
         z   = doublevalues[6*idx+3*j+2] - rtorecv[6*i+3*j+2];
 
-        if ( x*x + y*y + z*z > MMG5_EPSD ) {
+        if ( x*x + y*y + z*z > PMMG_EPSCOOR ) {
           fprintf(stderr,"  ## Error: %s: rank %d:\n"
                   "       2 different points (dist %e:%e,%e,%e) in the same position (%d)"
                   " of the external communicator %d %d (%d th item):\n"
