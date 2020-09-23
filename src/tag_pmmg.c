@@ -199,6 +199,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   MMG5_HGeom      hash;
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
   int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
+  int16_t         gettag;
   size_t          available,oldMemMax;
 
   /* Compute available memory (previously given to the communicators) */
@@ -232,7 +233,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
         PMMG_untag_par_face(pxt,j);
     }
 
-    /* Create hash table for edges */
+    /* Create hash table for edges on xtetra, without reference or tags */
     if ( !MMG5_hNew(mesh, &hash, 6*mesh->xt, 8*mesh->xt) ) return 0;
     for ( k=1; k<=mesh->ne; k++ ) {
       pt = &mesh->tetra[k];
@@ -244,7 +245,8 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       }
     }
 
-    /** Step 2: Re-tag boundary entities starting from xtetra faces. */
+    /** Step 2: Re-tag boundary entities starting from xtetra faces.
+     *  Just add the appropriate tag to the face, edge (hash) or node. */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
@@ -312,7 +314,8 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       }
     }
 
-    /** Step 4: Get edge tag and delete hash table */
+    /** Step 4: Get edge tag from hash table, add it to the edge tag on the
+     *  xtetra,and delete hash table */
     for ( k=1; k<=mesh->ne; k++ ) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
@@ -320,8 +323,9 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( j=0; j<6; j++ ) {
         ip0 = pt->v[MMG5_iare[j][0]];
         ip1 = pt->v[MMG5_iare[j][1]];
-        /* Put the tag stored in the hash table on the xtetra edge */
-        if( !MMG5_hGet( &hash, ip0, ip1, &getref, &pxt->tag[j] ) ) return 0;
+        /* Add the tag stored in the hash table to the xtetra edge */
+        if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+        pxt->tag[j] |= gettag;
       }
     }
     PMMG_DEL_MEM( mesh, hash.geom, MMG5_hgeom, "Edge hash table" );
