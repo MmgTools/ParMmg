@@ -1174,12 +1174,13 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     part[igrp] = igrp;
 
   /* Transfer the groups in parallel */
-  ier = PMMG_transfer_all_grps(parmesh,part);
+  int build_interaction_map = 0;
+  ier = PMMG_transfer_all_grps(parmesh,part,build_interaction_map);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
 
-  assert( parmesh->ngrp = 1);
+  assert ( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
