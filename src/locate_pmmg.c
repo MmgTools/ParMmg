@@ -666,7 +666,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
     }
 
     /** Stuck: Start exhaustive research */
-    if (i == 3) stuck = 1;
+    if (j == 3) stuck = 1;
 
   }
 
