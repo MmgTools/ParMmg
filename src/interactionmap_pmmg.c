@@ -66,10 +66,6 @@ int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interacti
   int           nprocs,myrank,i,j,k,l,proc,ninteractions;
   int           ier;
 
-  if ( parmesh->info.imprim >= PMMG_VERB_DETQUAL ) {
-    fprintf(stdout,"\n  ** MAP OF INTERACTIONS COMPUTATION\n");
-  }
-
   ier = 1;
   myrank = parmesh->myrank;
   comm   = parmesh->comm;
@@ -275,7 +271,7 @@ int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interacti
     MPI_CHECK ( MPI_Allreduce(mybuf,buf,2,MPI_INT,MPI_SUM,comm), ier=0 );
 
     if  ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
-      fprintf(stdout,"      ratio of the interaction map: %12.4f\n",
+         fprintf(stdout,"         interaction map ratio %f\n",
               (float)buf[0]/(float)buf[1]);
     }
   }
