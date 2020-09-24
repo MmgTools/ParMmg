@@ -1958,7 +1958,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
     ninteractions = -1;
   }
 
-  if ( ninteractions < 0 ) {
+  if ( ninteractions <= 0 ) {
     PMMG_DEL_MEM ( parmesh, interactions, int, "interactions");
     if ( !interaction_map ) {
       PMMG_CALLOC ( parmesh,interaction_map,nprocs,int,"interaction_map" ,ier=0 );
