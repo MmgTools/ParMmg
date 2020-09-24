@@ -657,11 +657,13 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     x = ppt0->c[0] - ppt1->c[0];
     y = ppt0->c[1] - ppt1->c[1];
     z = ppt0->c[2] - ppt1->c[2];
-    /* z-order the edge vertices */
-    if( (x> 0.0) || (x > -MMG5_EPSD && y > 0.0) || (x > -MMG5_EPSD && y > -MMG5_EPSD && z > 0.0) ) {
+    /* Point the edge vector in the direction of the highest first coordinate */
+    if( (x > MMG5_EPSOK) ||
+        (fabs(x) < MMG5_EPSOK && y > MMG5_EPSOK) ||
+        (fabs(x) < MMG5_EPSOK && fabs(y) < MMG5_EPSOK && z > MMG5_EPSOK) ) {
       for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
       for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
-    } else if( x > -MMG5_EPSD && y > -MMG5_EPSD && z > -MMG5_EPSD ) {
+    } else if( fabs(x) <= MMG5_EPSOK && fabs(y) <= MMG5_EPSOK && fabs(z) <= MMG5_EPSOK ) {
       fprintf(stderr,"  ## Error: %s: rank %d: nearly coincident vertices for"
               " edge %d, distance: (%e,%e,%e)",__func__,parmesh->myrank,ia,
               x,y,z);
@@ -764,13 +766,13 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
         y   = doublevalues[6*idx+3*j+1] - rtorecv[6*i+3*j+1];
         z   = doublevalues[6*idx+3*j+2] - rtorecv[6*i+3*j+2];
 
-        if ( x*x + y*y + z*z > MMG5_EPSD ) {
+        if ( x*x + y*y + z*z > PMMG_EPSCOOR ) {
           fprintf(stderr,"  ## Error: %s: rank %d:\n"
-                  "       2 different points (dist %e) in the same position (%d)"
+                  "       2 different points (dist %e:%e,%e,%e) in the same position (%d)"
                   " of the external communicator %d %d (%d th item):\n"
                   "       - point : %e %e %e\n"
                   "       - point : %e %e %e\n",__func__,parmesh->myrank,
-                  x*x+y*y+z*z,idx,parmesh->myrank,color,i,
+                  x*x+y*y+z*z,x,y,z,idx,parmesh->myrank,color,i,
                   doublevalues[6*idx+3*j],
                   doublevalues[6*idx+3*j+1],
                   doublevalues[6*idx+3*j+2],
