@@ -416,20 +416,6 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  *
  */
 #define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
-    int    myj;                                                         \
-                                                                        \
-    parmesh->memMax = parmesh->memCur;                                  \
-    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
-    oldMemMax   = parmesh->memCur;                                      \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
-      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
-    }                                                                   \
-    parmesh->memMax += myavailable;                                       \
   } while(0)
 
 /**
@@ -440,28 +426,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  *
  */
 #define PMMG_TRANSFER_AVMEM_TO_MESHES(Parmesh) do {                     \
-    size_t myavailable;                                                 \
-    int    myj;                                                         \
-                                                                        \
-    parmesh->memMax = parmesh->memCur;                                  \
-    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
-                                                                        \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
-      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
-    }                                                                   \
-    myavailable /= parmesh->ngrp;                                       \
-                                                                        \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax += myavailable;                \
-    }                                                                   \
   } while(0)
-
-
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -474,23 +439,6 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  * the parmesh, and give the available memory (previously given to the parmesh)
  * to the group mesh structure. */
 #define PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax) do { \
-                                                                        \
-    parmesh->memMax = parmesh->memCur;                                  \
-                                                                        \
-    if ( parmesh->memMax > oldMemMax ) {                                \
-      if ( memAv < parmesh->memMax - oldMemMax ) {                      \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      memAv          -= (parmesh->memMax - oldMemMax );                 \
-    }                                                                   \
-    else if ( oldMemMax > parmesh->memMax ) {                           \
-      memAv           += ( oldMemMax - parmesh->memMax );               \
-      assert ( memAv+mesh->memMax <= parmesh->memGloMax );              \
-    }                                                                   \
-    oldMemMax        = mesh->memCur;                                    \
-    mesh->memMax    += memAv;                                           \
-                                                                        \
   } while(0)
 
 /**
@@ -504,22 +452,6 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  * the mesh, and give the available memory (previously given to the mesh)
  * to the parmesh structure. */
 #define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax) do {   \
-    mesh->memMax = mesh->memCur;                                        \
-                                                                        \
-    if ( mesh->memMax > oldMemMax ) {                                   \
-      if ( memAv < mesh->memMax - oldMemMax ) {                         \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      memAv           -= ( mesh->memMax - oldMemMax );                  \
-    }                                                                   \
-    else if ( oldMemMax > mesh->memMax ) {                              \
-      memAv           += ( oldMemMax - mesh->memMax );                  \
-      assert ( memAv+parmesh->memMax <= parmesh->memGloMax );           \
-    }                                                                   \
-    oldMemMax        = parmesh->memCur;                                 \
-    parmesh->memMax += memAv;                                           \
-                                                                        \
   } while(0)
 
 /* Input */

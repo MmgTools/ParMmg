@@ -101,8 +101,8 @@ void PMMG_mpiunpack_meshSizes ( PMMG_pGrp grp,char **buffer,
   (*xt) = *( (int *) *buffer); *buffer += sizeof(int);
 
   if ( ier_grp ) {
-    /* Give all the available memory to the mesh */
-    mesh->memMax = *memAv;
+//    /* Give all the available memory to the mesh */
+//    mesh->memMax = *memAv;
 
     /** Set the mesh size */
     (*ier_mesh) = PMMG_grpSplit_setMeshSize( mesh,*np,*ne,0,*xp,*xt );
@@ -608,11 +608,11 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
   int   k,i,is;
 
   if ( mesh ) {
-    /* Use exactly the amount of needed memory for this mesh and metric */
-    mesh->memMax = mesh->memCur;
-
-    /* Update the available memory count */
-    *memAv -= mesh->memMax;
+//    /* Use exactly the amount of needed memory for this mesh and metric */
+//    mesh->memMax = mesh->memCur;
+//
+//    /* Update the available memory count */
+//    *memAv -= mesh->memMax;
   }
   else {
     *ier = 0;
@@ -859,8 +859,8 @@ void PMMG_mpiunpack_grpintcomm ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
 
   int   k,ier_comm;
 
-  /* Give all the available mem to the communicators */
-  parmesh->memMax = *memAv;
+//  /* Give all the available mem to the communicators */
+//  parmesh->memMax = *memAv;
 
   /** Unpack communicators */
   ier_comm = 1;
@@ -897,9 +897,9 @@ void PMMG_mpiunpack_grpintcomm ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
   PMMG_MALLOC(parmesh,grp->face2int_face_comm_index2,grp->nitem_int_face_comm,
               int,"face2int_face_comm_index1",*ier = ier_comm = 0);
 
-  /* Use the minimal memory needed for the parmesh  */
-  parmesh->memMax = parmesh->memCur;
-  *memAv         -= parmesh->memMax;
+//  /* Use the minimal memory needed for the parmesh  */
+//  parmesh->memMax = parmesh->memCur;
+//  *memAv         -= parmesh->memMax;
 
   if ( ier_comm ) {
     for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
@@ -934,8 +934,8 @@ void PMMG_mpiunpack_nodeintvalues ( PMMG_pParMesh parmesh,
                                     int *ier ) {
   int            k,ier_comm;
 
-  /* Give all the available mem to the communicators */
-  parmesh->memMax = *memAv;
+//  /* Give all the available mem to the communicators */
+//  parmesh->memMax = *memAv;
 
   /** Unpack intvalues array */
   ier_comm = 1;
@@ -979,8 +979,8 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
 
   int k,i,ier_comm,nitem_unread;
 
-  /* Give all the available mem to the communicators */
-  parmesh->memMax = *memAv;
+//  /* Give all the available mem to the communicators */
+//  parmesh->memMax = *memAv;
 
   /** Unpack communicators */
   ier_comm = 1;
@@ -1025,9 +1025,9 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
     }
   }
 
-  /* Use the minimal memory needed */
-  parmesh->memMax = parmesh->memCur;
-  *memAv         -= parmesh->memMax;
+//  /* Use the minimal memory needed */
+//  parmesh->memMax = parmesh->memCur;
+//  *memAv         -= parmesh->memMax;
 
 }
 

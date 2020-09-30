@@ -1035,12 +1035,12 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     mesh0->npi = mesh0->np;
     mesh0->nei = mesh0->ne;
 
-    /* Free merged mesh and increase mesh0->memMax*/
-    mesh0->memMax += grp->mesh->memCur;
+//    /* Free merged mesh and increase mesh0->memMax*/
+//    mesh0->memMax += grp->mesh->memCur;
     PMMG_grp_free(parmesh,grp);
   }
 
-  assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
+//  assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
   /* Give all the memory to the communicators */
@@ -1177,10 +1177,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 
   PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
 
-  /** 4: Unpack parmeshes */
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax - parmesh->memMax;
-  assert ( available >= 0 );
+//  /** 4: Unpack parmeshes */
+//  parmesh->memMax = parmesh->memCur;
+//  available = parmesh->memGloMax - parmesh->memMax;
+//  assert ( available >= 0 );
 
 #ifndef NDEBUG
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -1249,14 +1249,14 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
 
   if ( parmesh->myrank != parmesh->info.root ) return 1;
 
-  /** Give all the memory to the mesh */
-  parmesh->memMax  = parmesh->memCur;
+//  /** Give all the memory to the mesh */
+//  parmesh->memMax  = parmesh->memCur;
 
   assert ( !parmesh->listgrp );
 
-  if ( parmesh->memMax + sizeof(PMMG_Grp) <= parmesh->memGloMax ) {
-    parmesh->memMax += sizeof(PMMG_Grp);
-  }
+//  if ( parmesh->memMax + sizeof(PMMG_Grp) <= parmesh->memGloMax ) {
+//    parmesh->memMax += sizeof(PMMG_Grp);
+//  }
 
   PMMG_CALLOC(parmesh,parmesh->listgrp,1,PMMG_Grp,"listgrp", return 0);
 
@@ -1268,9 +1268,9 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   mesh   = grp->mesh;
   met    = grp->met ;
 
-  /** Give all the memory to the mesh */
-  memAv            = parmesh->memGloMax - parmesh->memMax - mesh->memMax;
-  mesh->memMax    += memAv;
+//  /** Give all the memory to the mesh */
+//  memAv            = parmesh->memGloMax - parmesh->memMax - mesh->memMax;
+//  mesh->memMax    += memAv;
 
   np = 0;
 
@@ -1603,19 +1603,19 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
-  /* Give all the memory to the Process 0 and to the communicators: we
-   * overflow slightly the maximal memory here because the other
-   * parmeshes are not totally empty but they must take only few hundred of Ko */
-  parmesh->memGloMax *= parmesh->size_shm;
-
-  available = parmesh->memGloMax;
-  if ( grp ) {
-    grp->mesh->memMax = grp->mesh->memCur;
-    available -= grp->mesh->memMax;
-  }
-
-  assert ( available >= 0 );
-  parmesh->memMax += available;
+//  /* Give all the memory to the Process 0 and to the communicators: we
+//   * overflow slightly the maximal memory here because the other
+//   * parmeshes are not totally empty but they must take only few hundred of Ko */
+//  parmesh->memGloMax *= parmesh->size_shm;
+//
+//  available = parmesh->memGloMax;
+//  if ( grp ) {
+//    grp->mesh->memMax = grp->mesh->memCur;
+//    available -= grp->mesh->memMax;
+//  }
+//
+//  assert ( available >= 0 );
+//  parmesh->memMax += available;
 
   /* Internal comm allocation */
   int_node_comm = parmesh->int_node_comm;
@@ -1686,7 +1686,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
 
   if ( parmesh->myrank != parmesh->info.root ) {
     /** Empty normally */
-    parmesh->memGloMax = parmesh->memCur;
+//    parmesh->memGloMax = parmesh->memCur;
     parmesh->ngrp = 0;
   }
   else {

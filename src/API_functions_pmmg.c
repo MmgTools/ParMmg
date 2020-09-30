@@ -464,7 +464,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
 
-  mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
+  mem = parmesh->memMax;
+//  mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -574,7 +575,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     }
     PMMG_parmesh_SetMemGloMax(parmesh);
 
-    mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
+    mem = parmesh->memMax;
+//    mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
 
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;

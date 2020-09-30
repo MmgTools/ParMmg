@@ -455,9 +455,9 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   size_t     tmpmem;
   int        npmax,xpmax,nemax,xtmax;
 
-  tmpmem = parmesh->memMax - parmesh->memCur;
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax += tmpmem;
+//  tmpmem = parmesh->memMax - parmesh->memCur;
+//  parmesh->memMax = parmesh->memCur;
+//  parmesh->listgrp[0].mesh->memMax += tmpmem;
 
   mesh = parmesh->listgrp[0].mesh;
   mesh  = parmesh->listgrp[0].mesh;

@@ -240,24 +240,24 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   mesh = (*parmesh)->listgrp[0].mesh;
   met  = (*parmesh)->listgrp[0].met;
 
-  memAv = (*parmesh)->memGloMax - (*parmesh)->memMax;
-  if ( (*parmesh)->listgrp[0].mesh->memMax > memAv ) {
-    if ( (*parmesh)->listgrp[0].mesh->memCur > memAv ) {
-      fprintf(stderr,"\n  ## Error: %s: %zu Mo of memory ",__func__,
-              memAv/MMG5_MILLION);
-      fprintf(stderr,"is not enough to initialize an empty mesh."
-              " You need to ask %zu Mo minimum.\n",
-              ((*parmesh)->listgrp[0].mesh->memCur + (*parmesh)->memMax) /MMG5_MILLION+1);
-      fprintf(stderr,"\nTry to use the -m option to impose the maximal memory per process.\n");
-
-
-      MMG3D_Free_all(MMG5_ARG_start,
-                     MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
-                     MMG5_ARG_end);
-      goto fail_mesh;
-    }
-    (*parmesh)->listgrp[0].mesh->memMax = memAv;
-  }
+//  memAv = (*parmesh)->memGloMax - (*parmesh)->memMax;
+//  if ( (*parmesh)->listgrp[0].mesh->memMax > memAv ) {
+//    if ( (*parmesh)->listgrp[0].mesh->memCur > memAv ) {
+//      fprintf(stderr,"\n  ## Error: %s: %zu Mo of memory ",__func__,
+//              memAv/MMG5_MILLION);
+//      fprintf(stderr,"is not enough to initialize an empty mesh."
+//              " You need to ask %zu Mo minimum.\n",
+//              ((*parmesh)->listgrp[0].mesh->memCur + (*parmesh)->memMax) /MMG5_MILLION+1);
+//      fprintf(stderr,"\nTry to use the -m option to impose the maximal memory per process.\n");
+//
+//
+//      MMG3D_Free_all(MMG5_ARG_start,
+//                     MMG5_ARG_ppMesh,&mesh,MMG5_ARG_ppMet,&met,
+//                     MMG5_ARG_end);
+//      goto fail_mesh;
+//    }
+//    (*parmesh)->listgrp[0].mesh->memMax = memAv;
+//  }
 
   return 1;
 

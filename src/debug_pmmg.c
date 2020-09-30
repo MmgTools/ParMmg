@@ -470,12 +470,12 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  oldMemMax = 0;
-  if ( mesh->memCur == mesh->memMax ) {
-    oldMemMax = parmesh->memCur;
-    memAv = parmesh->memMax-oldMemMax;
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
-  }
+//  oldMemMax = 0;
+//  if ( mesh->memCur == mesh->memMax ) {
+//    oldMemMax = parmesh->memCur;
+//    memAv = parmesh->memMax-oldMemMax;
+//    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+//  }
 
   /* Rebuild boundary */
   if ( !mesh->adja ) {
@@ -503,9 +503,9 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
     MMG3D_saveAllSols( mesh, &field, name );
   }
 
-  if ( oldMemMax ) {
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
-  }
+//  if ( oldMemMax ) {
+//    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+//  }
 
   return ier;
 }
@@ -531,9 +531,9 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
   
-  oldMemMax = parmesh->memCur;
-  memAv = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+//  oldMemMax = parmesh->memCur;
+//  memAv = parmesh->memMax-oldMemMax;
+//  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
  
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
@@ -547,7 +547,7 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   PMMG_saveMark( mesh, name );
 
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+//  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
 
   return ier;
 }
@@ -573,9 +573,9 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
   
-  oldMemMax = parmesh->memCur;
-  memAv = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+//  oldMemMax = parmesh->memCur;
+//  memAv = parmesh->memMax-oldMemMax;
+//  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
  
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
@@ -589,7 +589,7 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   PMMG_saveQual( mesh, name );
 
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+//  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
 
   return ier;
 }
@@ -711,48 +711,48 @@ void PMMG_dump_malloc_allocator_info( char *msg, int id )
   fclose(fp);
 }
 
-/**
- * \param parmesh pointer to parmmg structure
- * \param msg     custom msg to include in the output messages
- *
- * check if any of the
- *   sum of memMax fields (in parmesh struct and in listgrp meshes)
- * or
- *   sum of memCur fields (in parmesh struct and in listgrp meshes)
- * exceed the memGloMax limit.
- */
-void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
-{
-  size_t i,n_total = parmesh->memCur;
-  const size_t mb = 1024 * 1024;
-
-  for ( i = 0; i < parmesh->ngrp; ++i )
-    n_total += parmesh->listgrp[ i ].mesh->memCur;
-
-  if ( n_total > parmesh->memGloMax )
-    fprintf( stderr,
-             "%2d-%2d: %s: memCur check ERROR: memCur ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
-             parmesh->myrank, parmesh->nprocs, msg,
-             n_total / (float) mb, parmesh->memGloMax / (float) mb,
-             __func__, __FILE__, __LINE__ );
-//  else
+///**
+// * \param parmesh pointer to parmmg structure
+// * \param msg     custom msg to include in the output messages
+// *
+// * check if any of the
+// *   sum of memMax fields (in parmesh struct and in listgrp meshes)
+// * or
+// *   sum of memCur fields (in parmesh struct and in listgrp meshes)
+// * exceed the memGloMax limit.
+// */
+//void PMMG_check_mem_max_and_mem_cur( PMMG_pParMesh parmesh, const char *msg )
+//{
+//  size_t i,n_total = parmesh->memCur;
+//  const size_t mb = 1024 * 1024;
+//
+//  for ( i = 0; i < parmesh->ngrp; ++i )
+//    n_total += parmesh->listgrp[ i ].mesh->memCur;
+//
+//  if ( n_total > parmesh->memGloMax )
 //    fprintf( stderr,
-//             "%2d-%2d: %s: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
-//             parmesh->myrank, parmesh->nprocs, mesg,
-//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
-
-  n_total = parmesh->memMax;
-  for ( i = 0; i < parmesh->ngrp; ++i )
-    n_total += parmesh->listgrp[ i ].mesh->memMax;
-  if ( n_total > parmesh->memGloMax )
-    fprintf( stderr,
-             "%2d-%2d: %s: memMax check ERROR: memMax ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
-             parmesh->myrank, parmesh->nprocs, msg,
-             n_total / (float) mb, parmesh->memGloMax / (float) mb,
-             __func__, __FILE__, __LINE__ );
-//  else
-//    fprintf( stderr,
-//             "%2d-%2d: %s: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
+//             "%2d-%2d: %s: memCur check ERROR: memCur ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
 //             parmesh->myrank, parmesh->nprocs, msg,
-//             n_total / (float) mb, parmesh->memGloMax / (float) mb );
-}
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb,
+//             __func__, __FILE__, __LINE__ );
+////  else
+////    fprintf( stderr,
+////             "%2d-%2d: %s: memCur check OK: memCur = %8.2fMb - memGloMax = %8.2fMb \n",
+////             parmesh->myrank, parmesh->nprocs, mesg,
+////             n_total / (float) mb, parmesh->memGloMax / (float) mb );
+//
+//  n_total = parmesh->memMax;
+//  for ( i = 0; i < parmesh->ngrp; ++i )
+//    n_total += parmesh->listgrp[ i ].mesh->memMax;
+//  if ( n_total > parmesh->memGloMax )
+//    fprintf( stderr,
+//             "%2d-%2d: %s: memMax check ERROR: memMax ( %8.2fMb ) > memGloMax ( %8.2fMb ) at %s %s %d\n",
+//             parmesh->myrank, parmesh->nprocs, msg,
+//             n_total / (float) mb, parmesh->memGloMax / (float) mb,
+//             __func__, __FILE__, __LINE__ );
+////  else
+////    fprintf( stderr,
+////             "%2d-%2d: %s: memMax check OK: memMax = %8.2fMb - memGloMax = %8.2fMb \n",
+////             parmesh->myrank, parmesh->nprocs, msg,
+////             n_total / (float) mb, parmesh->memGloMax / (float) mb );
+//}
