@@ -638,7 +638,15 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     return 0;
   }
 
-  MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm );
+  MPI_CHECK(
+      MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm ),
+      ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
 
   offset = 0;
   for( k = 0; k < parmesh->myrank; k++ )
