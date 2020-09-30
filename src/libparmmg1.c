@@ -543,6 +543,133 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   return 1;
 }
 
+int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pTria     ptr;
+  int            *intvalues,*xtet2tria;
+  int            ie,ifac,k,i,idx,xt;
+  int            iglob,nglob,*nglobvec,offset;
+  int            ier = 0;
+
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** Compact xtetra numbering */
+  for( ie = 1; ie <= mesh->ne; ie++ )
+    mesh->tetra[ie].flag = 0;
+
+  xt = 0;
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !pt->xt ) continue;
+    pt->flag = ++xt;
+  }
+  assert( xt == mesh->xt );
+
+
+  /** Allocate xtetra->tria map to store both local and global tria index */
+  PMMG_CALLOC(parmesh,xtet2tria,8*mesh->xt,int,"xtet2tria",ier = 1 );
+  if( ier ) return 0;
+
+
+  /** Count and mark not-owned triangles */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+  intvalues = int_face_comm->intvalues;
+
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    for( i = 0; i < ext_face_comm->nitem; i++ ) {
+      idx = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = ext_face_comm->color_out;
+    }
+  }
+
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    k    = grp->face2int_face_comm_index1[i];
+    idx  = grp->face2int_face_comm_index2[i];
+    ie   = k / 4;
+    ifac = k % 4;
+    pt = &mesh->tetra[ie];
+    assert(pt->xt);
+    xt = pt->flag;
+    if( intvalues[idx] > parmesh->myrank ) {
+      assert( xtet2tria[8*(xt-1)+ifac+1] != PMMG_UNSET );
+      xtet2tria[8*(xt-1)+ifac+1] = PMMG_UNSET;
+    }
+  }
+
+
+  /** Assign a global numbering by skipping not-owned PARBDYBDY triangles and
+   *  purely PARBDY triangles */
+  nglob = 0;
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
+    assert(ie);
+    pt = &mesh->tetra[ie];
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+    xtet2tria[8*(xt-1)+ifac]   = k; /* store local triangle index */
+    if( (pxt->ftag[ifac] & MG_PARBDY) && !(pxt->ftag[ifac] & MG_PARBDYBDY) )
+      continue; /* skip purely parallel faces */
+    if( xtet2tria[8*(xt-1)+ifac+1] == PMMG_UNSET ) continue; /* skip not-owned */
+    xtet2tria[8*(xt-1)+ifac+1] = ++nglob; /* first guess for global index */
+  }
+
+  /** Compute numbering offsets amog procs */
+  PMMG_CALLOC(parmesh,nglobvec,parmesh->nprocs+1,int,"nglobvec",ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+
+  MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm );
+
+  offset = 0;
+  for( k = 0; k < parmesh->myrank; k++ )
+    nglobvec[k+1] += nglobvec[k];
+  offset = nglobvec[k];
+
+
+  /** Store the numbering in tria and update it with the offset */
+  for( k = 1; k <= mesh->nt; k++ )
+    mesh->tria[k].flag = 0;
+
+  for( xt = 1; k <= mesh->xt; xt++ ) {
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      k     = xtet2tria[8*(xt-1)+ifac];
+      iglob = xtet2tria[8*(xt-1)+ifac+1];
+      if( !iglob || (iglob == PMMG_UNSET) ) continue;
+      assert(k);
+      ptr = &mesh->tria[k];
+      ptr->flag = iglob+offset;
+    }
+  }
+
+
+  /** Free memory */
+  PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+
+  return 1;
+}
+
 int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
