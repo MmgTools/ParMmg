@@ -573,6 +573,8 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   /** Step 2: Assign a global numbering, skip not-owned PARBDYBDY triangles and
    *  purely PARBDY triangles.
    */
+
+  /* Count and enumerate owned BDY triangles */
   nglob = 0;
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr  = &mesh->tria[k];
@@ -599,12 +601,12 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     if( xtet2tria[pos+2] != parmesh->myrank ) continue;
 
     /* Global index (without processor offset) */
+    assert( !xtet2tria[pos+1] );
     xtet2tria[pos+1] = ++nglob;
   }
 
 
-  /** Step 3: Compute numbering offsets among procs and apply it.
-   */
+  /** Compute numbering offsets among procs and apply it */
   PMMG_CALLOC(parmesh,nglobvec,parmesh->nprocs+1,int,"nglobvec",ier = 1 );
   if( ier ) {
     PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
@@ -635,6 +637,83 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
 
+  /** Step 3: Assign a global numbering on purely PARBDY triangles.
+   */
+
+  /* Count and enumerate simply PARBDY triangles */
+  nglob = 0;
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+
+    /* Store local triangle index */
+    xtet2tria[pos] = k;
+
+    /* Skip non-parallel or PARBDYBDY faces */
+    if( !(pxt->ftag[ifac] & MG_PARBDY) ||
+         (pxt->ftag[ifac] & MG_PARBDYBDY) ) continue;
+
+    /* Skip not-owned */
+    if( xtet2tria[pos+2] != parmesh->myrank ) continue;
+
+    /* Global index (without processor offset) */
+    assert( !xtet2tria[pos+1] );
+    xtet2tria[pos+1] = ++nglob;
+  }
+
+  /** Compute numbering offsets among procs and apply it */
+  MPI_CHECK(
+      MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm ),
+      ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+
+  offset = 0;
+  for( k = 0; k < parmesh->myrank; k++ )
+    nglobvec[k+1] += nglobvec[k];
+  offset = nglobvec[k];
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+
+    /* Skip non-parallel or PARBDYBDY faces */
+    if( !(pxt->ftag[ifac] & MG_PARBDY) ||
+         (pxt->ftag[ifac] & MG_PARBDYBDY) ) continue;
+
+    /* Skip not-owned */
+    if( xtet2tria[pos+2] != parmesh->myrank ) continue;
+
+    /* Apply processor offset) */
+    assert( xtet2tria[pos+1] );
+    xtet2tria[pos+1] += offset;
+  }
+
+
   /** Step 4: Communicate global numbering and retrieve it on not-owned
    *  triangles.
    */
@@ -652,7 +731,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     xt = pt->flag;
 
     pos = 12*(xt-1)+3*ifac;
-    xtet2tria[pos+1] += offset;
     intvalues[idx] = xtet2tria[pos+1];
   }
 
@@ -734,20 +812,33 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     ptr->base = PMMG_UNSET;
   }
 
-  for( xt = 1; xt <= nxt; xt++ ) {
-    for( ifac = 0; ifac < 4; ifac++ ) {
-      pos = 12*(xt-1)+3*ifac;
-      k     = xtet2tria[pos];
-      iglob = xtet2tria[pos+1];
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
 
-      /* skip parallel triangles */
-      if( !iglob ) continue;
+    assert(ie);
+    pt = &mesh->tetra[ie];
 
-      assert(k);
-      ptr = &mesh->tria[k];
-      ptr->flag = iglob;
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+
+    pos   = 12*(xt-1)+3*ifac;
+    k     = xtet2tria[pos];
+
+    assert(k);
+    ptr = &mesh->tria[k];
+
+    /* Store global index */
+    ptr->flag = xtet2tria[pos+1];
+
+    /* Store owner if boundary, unset otherwise */
+    if( !(pxt->ftag[ifac] & MG_PARBDY) ||
+         (pxt->ftag[ifac] & MG_PARBDYBDY) )
       ptr->base = xtet2tria[pos+2];
-    }
+    else
+      ptr->base = PMMG_UNSET;
   }
 
 
