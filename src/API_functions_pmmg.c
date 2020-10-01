@@ -420,7 +420,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
-  parmesh->info.nodeGloNum         = PMMG_NUL;
+  parmesh->info.globalNum          = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
@@ -604,8 +604,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
     break;
-  case PMMG_IPARAM_nodeGloNum :
-    parmesh->info.nodeGloNum = val;
+  case PMMG_IPARAM_globalNum :
+    parmesh->info.globalNum = val;
     break;
   case PMMG_IPARAM_niter :
     parmesh->niter = val;
@@ -1885,7 +1885,7 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
 
-  if( !parmesh->info.nodeGloNum ) {
+  if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
             __func__);
     fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
@@ -1939,7 +1939,7 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   MMG5_pPoint ppt;
   int         ip;
 
-  if( !parmesh->info.nodeGloNum ) {
+  if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
             __func__);
     fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");

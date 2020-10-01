@@ -482,6 +482,464 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   return 1;
 }
 
+int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_face_comm;
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pTria     ptr;
+  int            *intvalues,*xtet2tria,*itosend,*itorecv;
+  int            ie,ifac,k,i,idx,xt,nxt,pos;
+  int            icomm,nitem,color;
+  int            iglob,nglob,*nglobvec,offset;
+  int            ier = 0;
+  MPI_Status     status;
+
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** Step 0: Count and compact xtetra numbering, and allocate xtetra->tria map
+   *  to store local tria index, global tria index, and owner process.
+   */
+
+  /* Count xtetra and and store compact index in tetra flag */
+  nxt = 0;
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+    if( !pt->xt ) continue;
+    pt->flag = ++nxt;
+  }
+
+  /* Allocate xtetra->tria map. Don't initialize local index, initialize global
+   * index to 0, and owner to myrank. */
+  PMMG_MALLOC(parmesh,xtet2tria,12*nxt,int,"xtet2tria",ier = 1 );
+  if( ier ) return 0;
+  for( xt = 1; xt <= nxt; xt++ ) {
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      pos = 12*(xt-1)+3*ifac;
+      xtet2tria[pos+1] = 0;
+      xtet2tria[pos+2] = parmesh->myrank;
+    }
+  }
+
+
+  /** Step 1: Mark not-owned triangles.
+   */
+
+  /* Allocate internal communicator */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+  intvalues = int_face_comm->intvalues;
+
+  /** Store outer color in the internal communicator */
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    for( i = 0; i < ext_face_comm->nitem; i++ ) {
+      idx = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = ext_face_comm->color_out;
+    }
+  }
+
+  /** Retrieve outer color from the internal communicator and compare it with
+   *  the current rank */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   = (grp->face2int_face_comm_index1[i] / 12);
+    ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+    idx  =  grp->face2int_face_comm_index2[i];
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+    if( intvalues[idx] > parmesh->myrank ) {
+      assert( xtet2tria[pos+2] == parmesh->myrank );
+      xtet2tria[pos+2] = intvalues[idx];
+    }
+  }
+
+
+  /** Step 2: Assign a global numbering, skip not-owned PARBDYBDY triangles and
+   *  purely PARBDY triangles.
+   */
+  nglob = 0;
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+
+    /* Store local triangle index */
+    xtet2tria[pos] = k;
+
+    /* Skip purely parallel faces */
+    if(  (pxt->ftag[ifac] & MG_PARBDY) &&
+        !(pxt->ftag[ifac] & MG_PARBDYBDY) ) continue;
+
+    /* Skip not-owned */
+    if( xtet2tria[pos+2] != parmesh->myrank ) continue;
+
+    /* Global index (without processor offset) */
+    xtet2tria[pos+1] = ++nglob;
+  }
+
+
+  /** Step 3: Compute numbering offsets among procs and apply it.
+   */
+  PMMG_CALLOC(parmesh,nglobvec,parmesh->nprocs+1,int,"nglobvec",ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+
+  MPI_CHECK(
+      MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm ),
+      ier = 1 );
+  if( ier ) {
+    PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+    PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+    return 0;
+  }
+
+  offset = 0;
+  for( k = 0; k < parmesh->myrank; k++ )
+    nglobvec[k+1] += nglobvec[k];
+  offset = nglobvec[k];
+
+  for( xt = 1; xt <= nxt; xt++ ) {
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      pos = 12*(xt-1)+3*ifac;
+      xtet2tria[pos+1] += offset;
+    }
+  }
+
+
+  /** Step 4: Communicate global numbering and retrieve it on not-owned
+   *  triangles.
+   */
+
+  /* Store numbering in the internal communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   = (grp->face2int_face_comm_index1[i] / 12);
+    ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+    idx  =  grp->face2int_face_comm_index2[i];
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+    xtet2tria[pos+1] += offset;
+    intvalues[idx] = xtet2tria[pos+1];
+  }
+
+  /* Send and receive external communicators */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend",ier = 1);
+    if( ier ) {
+      for( k = 0; k < icomm; k++ ) {
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itorecv,int,"itorecv");
+      }
+      PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+      PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+      PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+      return 0;
+    }
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",ier = 1);
+    if( ier ) {
+      for( k = 0; k < icomm; k++ ) {
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itorecv,int,"itorecv");
+      }
+      PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[icomm].itosend,int,"itosend");
+      PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+      PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+      PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+      return 0;
+    }
+    itorecv = ext_face_comm->itorecv;
+
+    for( i = 0; i < nitem; i++ ) {
+      idx        = ext_face_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   parmesh->comm,&status),return 0 );
+
+    /* Store the info in intvalues */
+    for( i = 0; i < nitem; i++ ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* Retrieve numbering from the internal communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   = (grp->face2int_face_comm_index1[i] / 12);
+    ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+    idx  =  grp->face2int_face_comm_index2[i];
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+
+    /* Retrieve gloabl index only if the triangle is owned by another process */
+    if( xtet2tria[pos+2] != parmesh->myrank )
+      xtet2tria[pos+1] = intvalues[idx];
+  }
+
+
+  /** Step 5: Store the numbering and the owners in the tria structure.
+   */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    ptr->flag = 0;
+    ptr->base = PMMG_UNSET;
+  }
+
+  for( xt = 1; xt <= nxt; xt++ ) {
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      pos = 12*(xt-1)+3*ifac;
+      k     = xtet2tria[pos];
+      iglob = xtet2tria[pos+1];
+
+      /* skip parallel triangles */
+      if( !iglob ) continue;
+
+      assert(k);
+      ptr = &mesh->tria[k];
+      ptr->flag = iglob;
+      ptr->base = xtet2tria[pos+2];
+    }
+  }
+
+
+  /** Free memory */
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itorecv,int,"itorecv");
+  }
+  PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+
+  return 1;
+}
+
+int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            *intvalues,*iproc2comm;
+  int            *itosend,*itorecv,src,dst,tag;
+  int            nitem,color;
+  int            nowned,*offsets;
+  int            iproc,icomm,i,idx,ip,counter;
+
+  /* Groups should be merged */
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = parmesh->listgrp[0].mesh;
+
+  /* Allocate internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_MALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+
+  /** Step 0: Count nowned nodes */
+
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+  }
+
+  /* Mark nodes with the owner color (overwritten by higher-rank procs) */
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = MG_MAX(parmesh->myrank,ext_node_comm->color_out);
+    /* Mark nodes */
+    for( i = 0; i < ext_node_comm->nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = color;
+    }
+  }
+
+  /* Store owner in the point flag */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = parmesh->myrank;
+  }
+
+  /* Overwrite flag for communicator nodes */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    mesh->point[ip].flag = intvalues[idx];
+  }
+
+  /* Count owned nodes */
+  nowned = mesh->np;
+  for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
+    if( intvalues[idx] != parmesh->myrank ) nowned--;
+  }
+
+  /* Compute offsets on each proc */
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",return 0);
+  MPI_Allgather( &nowned,1,MPI_INT,
+                 &offsets[1],1,MPI_INT,parmesh->comm );
+  for( i = 1; i <= parmesh->nprocs; i++ )
+    offsets[i] += offsets[i-1];
+
+#ifndef NDEBUG
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    mesh->point[ip].tmp = PMMG_UNSET;
+  }
+#endif
+
+  /** Step 1: Pack */
+  counter = 0;
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( ppt->flag != parmesh->myrank ) continue;
+    ppt->tmp = ++counter+offsets[parmesh->myrank];
+    assert(ppt->tmp);
+  }
+  assert( counter == nowned );
+
+
+  /** Step 2: Communicate global numbering */
+
+  /* Store numbering in the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    intvalues[idx] = mesh->point[ip].tmp;
+    assert(intvalues[idx]);
+  }
+
+  /* Send-recv */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+        assert(itosend[i]);
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+    }
+  }
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* Retrieve numbering from the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    if( ppt->flag > parmesh->myrank ){
+      ppt->tmp = intvalues[idx];
+    }
+  }
+
+#ifndef NDEBUG
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    assert( (ppt->tmp > 0) && (ppt->tmp <= offsets[parmesh->nprocs]) );
+  }
+#endif
+
+  /* Free arrays */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
+  PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
+  PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  return 1;
+}
 /**
  * \param parmesh pointer toward the parmesh
  *
@@ -503,6 +961,27 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
   tminit(ctim,TIMEMAX);
 
   iresult = 1;
+
+  if( parmesh->info.globalNum ) {
+    size_t myavailable,oldMemMax;
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
+
+    ier = PMMG_Compute_verticesGloNum( parmesh );
+    if( !ier ) {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+      }
+    }
+
+    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    if( !ier ) {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE TRIANGLE GLOBAL NUMBERING\n\n\n");
+      }
+    }
+
+    PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+  }
 
   switch ( parmesh->info.fmtout ) {
   case ( PMMG_UNSET ):
@@ -594,6 +1073,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
       }
     }
   }
+
   return PMMG_SUCCESS;
 }
 
