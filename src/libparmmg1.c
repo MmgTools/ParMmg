@@ -563,8 +563,11 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   mesh = grp->mesh;
 
 
-  /** 1) Count and compact xtetra numbering
+  /** Step 0: Count and compact xtetra numbering, and allocate xtetra->tria map
+   *  to store local tria index, global tria index, and owner process.
    */
+
+  /* Count xtetra and and store compact index in tetra flag */
   nxt = 0;
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
@@ -573,10 +576,8 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     pt->flag = ++nxt;
   }
 
-
-  /** 2) Allocate xtetra->tria map to store both local and global tria index,
-   *     and owner. Initialize global index to 0, owner to myrank.
-   */
+  /* Allocate xtetra->tria map. Don't initialize local index, initialize global
+   * index to 0, and owner to myrank. */
   PMMG_MALLOC(parmesh,xtet2tria,12*nxt,int,"xtet2tria",ier = 1 );
   if( ier ) return 0;
   for( xt = 1; xt <= nxt; xt++ ) {
@@ -587,10 +588,11 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     }
   }
 
-  /** 3) Mark not-owned triangles:
-   *     a) Store color_out in intvalues,
-   *     b) Retrieve intvalues and compare it with current rank.
+
+  /** Step 1: Mark not-owned triangles.
    */
+
+  /* Allocate internal communicator */
   int_face_comm = parmesh->int_face_comm;
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",ier = 1 );
   if( ier ) {
@@ -599,7 +601,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
   intvalues = int_face_comm->intvalues;
 
-  /** 3.a) Store color_out in intvalues. */
+  /** Store outer color in the internal communicator */
   for( k = 0; k < parmesh->next_face_comm; k++ ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     for( i = 0; i < ext_face_comm->nitem; i++ ) {
@@ -608,7 +610,8 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     }
   }
 
-  /** 3.b) Retrieve intvalues and compare it with current rank */
+  /** Retrieve outer color from the internal communicator and compare it with
+   *  the current rank */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
     k    = grp->face2int_face_comm_index1[i];
     idx  = grp->face2int_face_comm_index2[i];
@@ -630,8 +633,8 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
 
-  /** 4) Assign a global numbering by skipping not-owned PARBDYBDY triangles
-   *     and purely PARBDY triangles.
+  /** Step 2: Assign a global numbering, skip not-owned PARBDYBDY triangles and
+   *  purely PARBDY triangles.
    */
   nglob = 0;
   for( k = 1; k <= mesh->nt; k++ ) {
@@ -663,7 +666,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
 
-  /** 5) Compute numbering offsets among procs and apply it.
+  /** Step 3: Compute numbering offsets among procs and apply it.
    */
   PMMG_CALLOC(parmesh,nglobvec,parmesh->nprocs+1,int,"nglobvec",ier = 1 );
   if( ier ) {
@@ -695,7 +698,9 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
 
-  /** 6) Communicate global numbering */
+  /** Step 4: Communicate global numbering and retrieve it on not-owned
+   *  triangles.
+   */
 
   /* Store numbering in the internal communicator */
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
@@ -781,12 +786,15 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     xt = pt->flag;
 
     pos = 12*(xt-1)+ifac;
+
+    /* Retrieve gloabl index only if the triangle is owned by another process */
     if( xtet2tria[pos+2] != parmesh->myrank )
       xtet2tria[pos+1] = intvalues[idx];
   }
 
 
-  /** Step 7: Store the numbering in tria and update it with the offset */
+  /** Step 5: Store the numbering and the owners in the tria structure.
+   */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
     ptr->flag = 0;
@@ -798,7 +806,10 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
       pos = 12*(xt-1)+ifac;
       k     = xtet2tria[pos];
       iglob = xtet2tria[pos+1];
-      if( !iglob ) continue; /* skip parallel triangles */
+
+      /* skip parallel triangles */
+      if( !iglob ) continue;
+
       assert(k);
       ptr = &mesh->tria[k];
       ptr->flag = iglob;
