@@ -500,6 +500,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
+  assert( mesh->nt );
 
 
   /** Step 0: Count and compact xtetra numbering, and allocate xtetra->tria map
@@ -515,13 +516,14 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     pt->flag = ++nxt;
   }
 
-  /* Allocate xtetra->tria map. Don't initialize local index, initialize global
-   * index to 0, and owner to myrank. */
+  /* Allocate xtetra->tria map. Initialize local and global index to 0, and
+   * initialize owner to myrank. */
   PMMG_MALLOC(parmesh,xtet2tria,12*nxt,int,"xtet2tria",ier = 1 );
   if( ier ) return 0;
   for( xt = 1; xt <= nxt; xt++ ) {
     for( ifac = 0; ifac < 4; ifac++ ) {
       pos = 12*(xt-1)+3*ifac;
+      xtet2tria[pos+0] = 0;
       xtet2tria[pos+1] = 0;
       xtet2tria[pos+2] = parmesh->myrank;
     }
@@ -560,9 +562,10 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     pt = &mesh->tetra[ie];
 
     assert(pt->xt);
-    xt = pt->flag;
 
+    xt = pt->flag;
     pos = 12*(xt-1)+3*ifac;
+
     if( intvalues[idx] > parmesh->myrank ) {
       assert( xtet2tria[pos+2] == parmesh->myrank );
       xtet2tria[pos+2] = intvalues[idx];
@@ -586,11 +589,13 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
 
     assert(pt->xt);
     pxt = &mesh->xtetra[pt->xt];
-    xt = pt->flag;
+    assert( pxt->ftag[ifac] & MG_BDY );
 
+    xt = pt->flag;
     pos = 12*(xt-1)+3*ifac;
 
-    /* Store local triangle index */
+    /* Store local triangle index for every triangle */
+    assert( !xtet2tria[pos] );
     xtet2tria[pos] = k;
 
     /* Skip purely parallel faces */
@@ -600,13 +605,13 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     /* Skip not-owned */
     if( xtet2tria[pos+2] != parmesh->myrank ) continue;
 
-    /* Global index (without processor offset) */
+    /* Global index (without processor offset): it should be still set to 0 */
     assert( !xtet2tria[pos+1] );
     xtet2tria[pos+1] = ++nglob;
   }
 
 
-  /** Compute numbering offsets among procs and apply it */
+  /** Compute a first numbering offsets among procs and apply it */
   PMMG_CALLOC(parmesh,nglobvec,parmesh->nprocs+1,int,"nglobvec",ier = 1 );
   if( ier ) {
     PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
@@ -629,6 +634,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     nglobvec[k+1] += nglobvec[k];
   offset = nglobvec[k];
 
+  /* Apply the offset to every triangle */
   for( xt = 1; xt <= nxt; xt++ ) {
     for( ifac = 0; ifac < 4; ifac++ ) {
       pos = 12*(xt-1)+3*ifac;
@@ -637,7 +643,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
 
-  /** Step 3: Assign a global numbering on purely PARBDY triangles.
+  /** Step 3: Assign a global numbering on simply PARBDY triangles.
    */
 
   /* Count and enumerate simply PARBDY triangles */
@@ -652,12 +658,12 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
 
     assert(pt->xt);
     pxt = &mesh->xtetra[pt->xt];
+    assert( pxt->ftag[ifac] & MG_BDY );
+
     xt = pt->flag;
-
     pos = 12*(xt-1)+3*ifac;
-
-    /* Store local triangle index */
-    xtet2tria[pos] = k;
+    /* Local index has been assigned in the previous pass */
+    assert( xtet2tria[pos] );
 
     /* Skip non-parallel or PARBDYBDY faces */
     if( !(pxt->ftag[ifac] & MG_PARBDY) ||
@@ -666,12 +672,12 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     /* Skip not-owned */
     if( xtet2tria[pos+2] != parmesh->myrank ) continue;
 
-    /* Global index (without processor offset) */
-    assert( !xtet2tria[pos+1] );
-    xtet2tria[pos+1] = ++nglob;
+    /* Global index: it should still be set to the last process offset */
+    assert( xtet2tria[pos+1] == offset );
+    xtet2tria[pos+1] += ++nglob;
   }
 
-  /** Compute numbering offsets among procs and apply it */
+  /** Compute a second numbering offsets among procs and apply it */
   MPI_CHECK(
       MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm ),
       ier = 1 );
@@ -687,6 +693,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     nglobvec[k+1] += nglobvec[k];
   offset = nglobvec[k];
 
+  /* Apply this second offset only to simply parallel triangles */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr  = &mesh->tria[k];
     ie   = ptr->cc / 4;
@@ -712,6 +719,24 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     assert( xtet2tria[pos+1] );
     xtet2tria[pos+1] += offset;
   }
+
+#ifndef NDEBUG
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr  = &mesh->tria[k];
+    ie   = ptr->cc / 4;
+    ifac = ptr->cc % 4;
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    pxt = &mesh->xtetra[pt->xt];
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+    assert( xtet2tria[pos] );
+  }
+#endif
 
 
   /** Step 4: Communicate global numbering and retrieve it on not-owned
@@ -798,7 +823,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
 
     pos = 12*(xt-1)+3*ifac;
 
-    /* Retrieve gloabl index only if the triangle is owned by another process */
+    /* Retrieve global index only if the triangle is owned by another process */
     if( xtet2tria[pos+2] != parmesh->myrank )
       xtet2tria[pos+1] = intvalues[idx];
   }
