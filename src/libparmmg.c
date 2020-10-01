@@ -1078,27 +1078,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
   iresult = 1;
 
-  if( parmesh->info.globalNum ) {
-    size_t myavailable,oldMemMax;
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
-
-    ier = PMMG_Compute_verticesGloNum( parmesh );
-    if( !ier ) {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-      }
-    }
-
-    ier = PMMG_Compute_trianglesGloNum( parmesh );
-    if( !ier ) {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE TRIANGLE GLOBAL NUMBERING\n\n\n");
-      }
-    }
-
-    PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
-  }
-
   switch ( parmesh->info.fmtout ) {
   case ( PMMG_UNSET ):
     /* No output */
@@ -1114,8 +1093,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
     ier = PMMG_bdryBuild ( parmesh );
 
-
-
     MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( !iresult ) {
       if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -1123,6 +1100,29 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
       }
       return PMMG_LOWFAILURE;
     }
+
+
+    if( parmesh->info.globalNum ) {
+      size_t myavailable,oldMemMax;
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
+
+      ier = PMMG_Compute_verticesGloNum( parmesh );
+      if( !ier ) {
+        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+        }
+      }
+
+      ier = PMMG_Compute_trianglesGloNum( parmesh );
+      if( !ier ) {
+        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE TRIANGLE GLOBAL NUMBERING\n\n\n");
+        }
+      }
+
+      PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
+    }
+
 
     chrono(OFF,&(ctim[tim]));
     if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
