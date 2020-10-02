@@ -2409,6 +2409,8 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
  *
  * Get global node numbering (starting from 1) and rank of the process owning
  * the triangle.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_TRIANGLEGLONUM(parmesh,idx_glob,owner,&\n
@@ -2429,9 +2431,11 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
  *
  * Get global nodes numbering (starting from 1) and ranks of processes owning
  * each node.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_TRIANGLEESGLONUM(parmesh,idx_glob,owner,&\n
+ * >   SUBROUTINE PMMG_GET_TRIANGLESGLONUM(parmesh,idx_glob,owner,&\n
  * >                                      retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
