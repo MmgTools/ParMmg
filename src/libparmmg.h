@@ -2402,6 +2402,46 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 
 /**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global triangle numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the triangle.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TRIANGLEGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                    retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(OUT)                 :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TRIANGLEESGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                      retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
  * \param parmesh pointer toward parmesh structure
  * \param owner IDs of the process owning each interface node
  * \param idx_glob global IDs of interface nodes
