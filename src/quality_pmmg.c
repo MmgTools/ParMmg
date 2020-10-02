@@ -196,7 +196,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   /* Reset node intvalues (in order to avoid counting parallel nodes twice) */
   int_node_comm = parmesh->int_node_comm;
   if( int_node_comm ) {
-    PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+    MMG5_SAFE_CALLOC( int_node_comm->intvalues,int_node_comm->nitem,int,return 0);
     intvalues = int_node_comm->intvalues;
 
     /* Mark nodes not to be counted if the outer rank is lower than myrank */
@@ -340,7 +340,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   }
 
   if( int_node_comm )
-    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+    MMG5_SAFE_FREE( int_node_comm->intvalues );
 
   return 1;
 }
