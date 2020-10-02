@@ -829,6 +829,73 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
       xtet2tria[pos+1] = intvalues[idx];
   }
 
+#ifndef NDEBUG
+  /* Store numbering in the internal communicator */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   = (grp->face2int_face_comm_index1[i] / 12);
+    ifac = (grp->face2int_face_comm_index1[i] % 12) / 3;
+    idx  =  grp->face2int_face_comm_index2[i];
+
+    assert(ie);
+    pt = &mesh->tetra[ie];
+
+    assert(pt->xt);
+    xt = pt->flag;
+
+    pos = 12*(xt-1)+3*ifac;
+    intvalues[idx] = xtet2tria[pos+1];
+  }
+
+  /* Send and receive external communicators */
+  for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[icomm];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend",ier = 1);
+    if( ier ) {
+      for( k = 0; k < icomm; k++ ) {
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itorecv,int,"itorecv");
+      }
+      PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+      PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+      PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+      return 0;
+    }
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",ier = 1);
+    if( ier ) {
+      for( k = 0; k < icomm; k++ ) {
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
+        PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itorecv,int,"itorecv");
+      }
+      PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[icomm].itosend,int,"itosend");
+      PMMG_DEL_MEM(parmesh,nglobvec,int,"nglobvec");
+      PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+      PMMG_DEL_MEM(parmesh,xtet2tria,int,"xtet2tria");
+      return 0;
+    }
+    itorecv = ext_face_comm->itorecv;
+
+    for( i = 0; i < nitem; i++ ) {
+      idx        = ext_face_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   parmesh->comm,&status),return 0 );
+
+    /* Assert that the sent/received values are the same*/
+    for( i = 0; i < nitem; i++ ) {
+      assert( itorecv[i] == itosend[i] );
+    }
+  }
+#endif
+
 
   /** Step 5: Store the numbering and the owners in the tria structure.
    */
