@@ -630,9 +630,9 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
   offset = 0;
-  for( k = 0; k < parmesh->myrank; k++ )
+  for( k = 0; k < parmesh->nprocs; k++ )
     nglobvec[k+1] += nglobvec[k];
-  offset = nglobvec[k];
+  offset = nglobvec[parmesh->myrank];
 
   /* Apply the offset to every triangle */
   for( xt = 1; xt <= nxt; xt++ ) {
@@ -663,7 +663,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     xt = pt->flag;
     pos = 12*(xt-1)+3*ifac;
     /* Local index has been assigned in the previous pass */
-    assert( xtet2tria[pos] );
+    assert( xtet2tria[pos] == k );
 
     /* Skip non-parallel or PARBDYBDY faces */
     if( !(pxt->ftag[ifac] & MG_PARBDY) ||
@@ -674,10 +674,11 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
 
     /* Global index: it should still be set to the last process offset */
     assert( xtet2tria[pos+1] == offset );
-    xtet2tria[pos+1] += ++nglob;
+    xtet2tria[pos+1] = ++nglob;
   }
 
   /** Compute a second numbering offsets among procs and apply it */
+  nglobvec[0] = nglobvec[parmesh->nprocs];
   MPI_CHECK(
       MPI_Allgather( &nglob,1,MPI_INT, &nglobvec[1],1,MPI_INT,parmesh->comm ),
       ier = 1 );
@@ -689,9 +690,9 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
   }
 
   offset = 0;
-  for( k = 0; k < parmesh->myrank; k++ )
+  for( k = 0; k < parmesh->nprocs; k++ )
     nglobvec[k+1] += nglobvec[k];
-  offset = nglobvec[k];
+  offset = nglobvec[parmesh->myrank];
 
   /* Apply this second offset only to simply parallel triangles */
   for( k = 1; k <= mesh->nt; k++ ) {
@@ -734,7 +735,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     xt = pt->flag;
 
     pos = 12*(xt-1)+3*ifac;
-    assert( xtet2tria[pos] );
+    assert( xtet2tria[pos] == k );
   }
 #endif
 
@@ -831,12 +832,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
 
   /** Step 5: Store the numbering and the owners in the tria structure.
    */
-  for( k = 1; k <= mesh->nt; k++ ) {
-    ptr = &mesh->tria[k];
-    ptr->flag = 0;
-    ptr->base = PMMG_UNSET;
-  }
-
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr  = &mesh->tria[k];
     ie   = ptr->cc / 4;
