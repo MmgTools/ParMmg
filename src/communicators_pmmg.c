@@ -184,7 +184,7 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   PMMG_CALLOC(parmesh,parmesh->int_edge_comm,1,PMMG_Int_comm,"int_edge_comm",return 0);
   int_edge_comm = parmesh->int_edge_comm;
@@ -199,7 +199,7 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
 
   /* Create edge array */
   if ( mesh->na ) {
-   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
     MMG5_ADD_MEM(mesh,(mesh->na+1)*sizeof(MMG5_Edge),"edges",
                  return 0;
                  printf("  ## Warning: uncomplete mesh\n"));
@@ -219,7 +219,7 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
       /* Use base to keep track of the out rank */
       mesh->edge[mesh->na].base = PMMG_UNSET;
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   }
 
   /* Set nb. of items */

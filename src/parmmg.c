@@ -395,8 +395,7 @@ check_mesh_loading:
     case ( PMMG_FMT_DistributedMeditASCII):
       ptr = MMG5_Get_filenameExt( parmesh->meshout );
       if ( (!ptr) || strcmp(ptr,".mesh") ) {
-        size_t memAv,oldMemMax;
-        PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+        PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
         /* Add .mesh extension to avoid saving at binary format */
         PMMG_REALLOC(parmesh,parmesh->meshout,strlen(parmesh->meshout)+6,

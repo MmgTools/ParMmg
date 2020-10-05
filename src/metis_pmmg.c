@@ -358,7 +358,6 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
   MMG5_pTetra pt,pt1;
   int         *adja,igrp,ie,je,ifac;
   int         ncolors,maxcolors,nb_seen,mark_notseen,done,istart;
-  size_t      memAv,oldMemMax;
 
   /** Labels */
   mark_notseen = 0;
@@ -369,16 +368,14 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
     grp  = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
-//    oldMemMax = parmesh->memCur;
-//    memAv = parmesh->memMax-oldMemMax;
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
     if ( !mesh->adja ) {
       if ( !MMG3D_hashTetra(mesh,0) ) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         return 0;
       }
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
     /** Reset tetra flag */
     for( ie = 1; ie < mesh->ne+1; ie++ )
@@ -649,7 +646,6 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  * \param xadj pointer toward the position of the elt adjacents in adjncy
  * \param adjncy pointer toward the list of the adjacent of each elt
  * \param nadjncy number of data in adjncy array
- * \param memAv pointer toward the available memory (to update)
  *
  * \return  1 if success, 0 if fail
  *
@@ -660,31 +656,26 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol met,
                                idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
-                               idx_t *nadjncy,size_t *memAv) {
+                               idx_t *nadjncy ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  size_t       memMaxOld;
   int          *adja;
   int          j,k,iadr,jel,count,nbAdj,wgt,ier;
 
   /** Step 1: mesh adjacency creation */
 
-//  /* Give the available memory to the mesh */
-//  memMaxOld     = mesh->memMax;
-//  mesh->memMax += *memAv;
+  /* Give the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
+
   if ( (!mesh->adja) && (1 != MMG3D_hashTetra( mesh, 1 )) ) {
     fprintf( stderr,"  ## PMMG Hashing problem (1).\n" );
     return 0;
   }
-//  /* Update the available memory */
-//  mesh->memMax = mesh->memCur;
-//  *memAv      -= (mesh->memMax - memMaxOld);
 
   /** Step 2: build the metis graph */
 
-//  /* Give the available memory to the parmesh */
-//  memMaxOld        = parmesh->memMax;
-//  parmesh->memMax += *memAv;
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   PMMG_CALLOC(parmesh, (*xadj), mesh->ne+1, idx_t, "allocate xadj",
               return 0);
@@ -710,8 +701,6 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
   PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
   if( !ier ) {
     PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
-//    parmesh->memMax = parmesh->memCur;
-//    *memAv -= (parmesh->memMax - memMaxOld);
     return ier;
   }
   /* Don't compute weights if output load balancing is required at last iter */
@@ -720,8 +709,6 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     if( !ier ) {
       PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
       PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
-//      parmesh->memMax = parmesh->memCur;
-//      *memAv -= (parmesh->memMax - memMaxOld);
       return ier;
     }
   }
@@ -758,9 +745,6 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     }
     assert( count == ( (*xadj)[k] ) );
   }
-
-//  parmesh->memMax = parmesh->memCur;
-//  *memAv -= (parmesh->memMax - memMaxOld);
 
   return ier;
 }
@@ -1216,7 +1200,6 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
   MMG5_pSol  met  = grp[0].met;
-  size_t     memAv;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
   idx_t      adjsize;
   idx_t      nelt = mesh->ne;
@@ -1233,17 +1216,12 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
     (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
-//  /* Fit the parmesh and the meshes in memory and compute the available memory */
-//  parmesh->memMax = parmesh->memCur;
-//  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
-//  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memMax;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize) )
     return 0;
 
-//  /* Give the memory to the parmesh */
-//  parmesh->memMax += memAv;
 
   /** Call metis and get the partition array */
   if( nproc >= 8 ) {
@@ -1303,7 +1281,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   idx_t      objval = 0;
   int        ngrp,nprocs,ier;
   int        iproc,root,ip,status;
-  size_t     memAv,oldMemMax;
 
   ngrp   = parmesh->ngrp;
   nprocs = parmesh->nprocs;
@@ -1386,7 +1363,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
 
   /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
 
   /** Call metis and get the partition array */
