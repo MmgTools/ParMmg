@@ -91,6 +91,7 @@ void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp )
                               &grp->face2int_face_comm_index2,
                               &grp->nitem_int_face_comm);
 
+#warning MEMORY inconsistency
   MMG3D_Free_all( MMG5_ARG_start,
                   MMG5_ARG_ppMesh, &grp->mesh,
                   MMG5_ARG_ppSols, &grp->field,

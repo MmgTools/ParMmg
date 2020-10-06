@@ -421,8 +421,32 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
     }                                                                   \
   } while(0)
 
+#define PMMG_COMPUTE_USEDMEM_EXT(parmesh,listgrp,ngrp,memUsed) do {     \
+    int i;                                                              \
+                                                                        \
+    PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                              \
+    if( listgrp ) {                                                     \
+      for( i = 0; i < ngrp; i++ ) {                                     \
+        memUsed += (listgrp)[i].mesh->memCur;                           \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
+
 #define PMMG_FIT_MEM(mesh) do {                                         \
     mesh->memMax = mesh->memCur;                                        \
+  } while(0)
+
+#define PMMG_GHOST_MEM(parmesh,mesh) do {                                  \
+    PMMG_FIT_MEM(mesh);                                                    \
+    if( mesh->memCur >= parmesh->memMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"              \
+              "     Allowed: %zu\n"                                        \
+              "     Current: %zu\n",__func__,parmesh->memMax,mesh->memCur);\
+      assert(0);                                                           \
+      return 0;                                                            \
+    } else {                                                               \
+      parmesh->memMax -= mesh->memCur;                                     \
+    }                                                                      \
   } while(0)
 
 #define PMMG_FIT_MEM_MESHES(parmesh) do {                               \
@@ -438,9 +462,10 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
   } while(0)
 
 #ifndef NDEBUG
-#define PMMG_ASSERT_MEM(parmesh,memAv) do {                             \
-    size_t memUsed,memSum;                                              \
+#define PMMG_ASSERT_MEM(parmesh,meshTaker) do {                         \
+    size_t memAv,memUsed,memSum;                                        \
                                                                         \
+    memAv = meshTaker->memMax-meshTaker->memCur;                        \
     PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                              \
     memSum = memUsed + memAv;                                           \
     if( memSum != parmesh->memGloMax ) {                                \
@@ -454,6 +479,26 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 #else
 #define PMMG_ASSERT_MEM(parmesh,memAv) do {} while(0)
 #endif
+
+#ifndef NDEBUG
+#define PMMG_ASSERT_MEM_EXT(parmesh,listgrp,ngrp,meshTaker) do {        \
+    size_t memAv,memUsed,memSum;                                        \
+                                                                        \
+    memAv = meshTaker->memMax-meshTaker->memCur;                        \
+    PMMG_COMPUTE_USEDMEM_EXT(parmesh,listgrp,ngrp,memUsed);             \
+    memSum = memUsed + memAv;                                           \
+    if( memSum != parmesh->memGloMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: memory count mismatch.\n"       \
+              "     Total:          %zu -- Used %zu, available %zu\n"   \
+              "     Used+available: %zu\n",__func__,                    \
+              parmesh->memGloMax,memUsed,memAv,memSum);                 \
+      assert(0);                                                        \
+    } \
+  } while(0)
+#else
+#define PMMG_ASSERT_MEM_EXT(parmesh,memAv) do {} while(0)
+#endif
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -473,6 +518,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
       fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"            \
               "     Maximum: %zu\n"                                      \
               "     Used:    %zu\n",__func__,parmesh->memGloMax,memUsed);\
+      assert(0);                                                         \
       return 0;                                                          \
     } else {                                                             \
       memAv = parmesh->memGloMax-memUsed;                                \
@@ -523,7 +569,6 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
       return 0;                                                          \
     } else {                                                             \
       memAv = meshDonor->memMax-meshDonor->memCur;                       \
-      /*PMMG_ASSERT_MEM(parmesh,memAv);*/                                    \
                                                                          \
       meshDonor->memMax = meshDonor->memCur;                             \
       if( meshTaker->memMax != meshTaker->memCur ) {                     \
@@ -553,8 +598,17 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
                                                                         \
     if( parmesh->memGloMax ) { /* check on the arguments order */       \
       PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(parmesh,mesh);              \
+      PMMG_ASSERT_MEM(parmesh,mesh);                                    \
     }                                                                   \
   } while(0)
+
+#define PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,igrp,ngrp) do { \
+    MMG5_pMesh mesh = listgrp[igrp].mesh;                                            \
+                                                                                     \
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(parmesh,mesh);                             \
+    PMMG_ASSERT_MEM_EXT(parmesh,listgrp,ngrp,mesh);                                  \
+  } while(0)
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -570,7 +624,15 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
                                                                         \
     if( parmesh->memGloMax ) { /* check on the arguments order */       \
       PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(mesh,parmesh);              \
+      PMMG_ASSERT_MEM(parmesh,parmesh);                                 \
     }                                                                   \
+  } while(0)
+
+#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,igrp,ngrp) do { \
+    MMG5_pMesh mesh = listgrp[igrp].mesh;                                            \
+                                                                                     \
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(mesh,parmesh);                             \
+    PMMG_ASSERT_MEM_EXT(parmesh,listgrp,ngrp,parmesh);                               \
   } while(0)
 
 /* Input */
