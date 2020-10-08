@@ -49,7 +49,7 @@
  *
  * Store edges and count the number of ridges and reference edges incident to
  * the vertex \a ip.
- * \remark Sams as MMG5_bouler(), but skip edges whose extremity is flagged with
+ * \remark Same as MMG5_bouler(), but skip edges whose extremity is flagged with
  * a rank lower than myrank.
  *
  */
@@ -1001,6 +1001,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
+  MMG5_DEL_MEM(mesh,mesh->edge);
+  mesh->na = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
 
