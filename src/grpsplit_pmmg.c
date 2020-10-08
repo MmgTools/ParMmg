@@ -335,12 +335,10 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
   MMG5_pMesh       mesh;
   MMG5_pSol        met,ls,disp,field,psl,pslOld;
   MMG5_pTetra      pt,ptCur;
-  MMG5_pTria       ptr,ptrCur;
   MMG5_pPoint      ppt,pptCur;
   MMG5_Hash        hash;
   int              *adja,*oldAdja;
-  int              *adjt,*oldAdjt;
-  int              ie,ip,is,k;
+  int              ie,ip,is;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
@@ -566,8 +564,8 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *old
 static int
 PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
                          size_t *memAv,int ne,int *f2ifc_max,int *n2inc_max ) {
-  PMMG_pGrp  const grpOld = &parmesh->listgrp[igrp];
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
+  PMMG_pGrp  const grpOld   = &parmesh->listgrp[igrp];
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrp].mesh;
   MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
   MMG5_pSol  const dispOld  = parmesh->listgrp[igrp].disp;
   MMG5_pSol  const lsOld    = parmesh->listgrp[igrp].ls;
@@ -583,7 +581,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
   grp->ls   = NULL;
   grp->disp = NULL;
   grp->field= NULL;
-
 
   MMG3D_Init_mesh( MMG5_ARG_start,
                    MMG5_ARG_ppMesh, &grp->mesh,
@@ -786,6 +783,7 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
       }
     }
   }
+
   return 1;
 }
 
@@ -810,6 +808,7 @@ static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp
     MMG5_pMesh mesh,MMG5_pPoint ppt,int ip,int *n2inc_max,size_t *memAv,size_t *oldMemMax ) {
 
   /* Give the available memory to the parmesh */
+  assert ( parmesh->memCur == parmesh->memMax && "parmesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
 
   /* Add point in subgroup's communicator if it already was in group's
@@ -823,6 +822,7 @@ static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp
   }
 
   /* Give back the memory to the mesh */
+  assert ( mesh->memCur == mesh->memMax && "mesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
@@ -861,6 +861,7 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
   int ip,iploc,iplocadj;
 
   /* Give the available memory to the parmesh */
+  assert ( parmesh->memCur == parmesh->memMax && "parmesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
 
   /** Build the internal communicator for the boundary faces */
@@ -905,6 +906,7 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
     }
   }
 
+  assert ( mesh->memCur == mesh->memMax && "mesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
@@ -943,6 +945,7 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
   *pos   = 4*(tet-1)+1+fac;
 
   /* Give the available memory to the parmesh */
+  assert ( parmesh->memCur == parmesh->memMax && "parmesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
 
   if ( adja[ fac ] == 0 ) {
@@ -970,6 +973,7 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
   }
 
   /* Give the available memory to the mesh */
+  assert ( mesh->memCur == mesh->memMax && "mesh not at min size.");
   PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
@@ -1020,6 +1024,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   field = grp->field;
 
   /** Give the available memory to the mesh */
+  assert ( mesh->memMax == mesh->memCur && "mesh not at its minimal size");
   oldMemMax = mesh->memMax;
   mesh->memMax += *memAv;
 
@@ -1307,6 +1312,7 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
 /**
  * \param grp pointer toward the PMMG group
  * \param np number of points in the mesh
+ * \param memAv available memory to update
  *
  * \return 0 if fail, 1 if success
  *
@@ -1318,7 +1324,7 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
  *
  */
 static inline
-int PMMG_splitGrps_cleanMesh( PMMG_pGrp grp,int np )
+int PMMG_splitGrps_cleanMesh( PMMG_pParMesh parmesh,PMMG_pGrp grp,int np,size_t *memAv )
 {
   MMG5_pMesh   mesh = grp->mesh;
   MMG5_pSol    met  = grp->met;
@@ -1328,9 +1334,12 @@ int PMMG_splitGrps_cleanMesh( PMMG_pGrp grp,int np )
   MMG5_pSol    psl;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
+  size_t       oldMemMax;
   int          k,i;
 
   /* Mesh reallocation at the smallest possible size */
+  oldMemMax = mesh->memCur;
+
   PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
                MMG5_Point,"fitted point table",return 0);
   mesh->npmax = mesh->np = mesh->npi = np;
@@ -1373,11 +1382,14 @@ int PMMG_splitGrps_cleanMesh( PMMG_pGrp grp,int np )
       PMMG_REALLOC(mesh,psl->m,psl->size*(np+1),psl->size*(psl->npmax+1),
                    double,"fitted field table",return 0);
       psl->npmax = psl->np = psl->npi = np;
-  }
+    }
   }
 
   /* Set memMax to the smallest possible value */
   mesh->memMax = mesh->memCur;
+  assert ( oldMemMax >= mesh->memMax && "Memory consumption when cleaning the mesh.");
+
+  *memAv += (oldMemMax - mesh->memMax);
 
   /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
    * shell of an edge, it is possible that one of the xtetra has set the edge
@@ -1436,7 +1448,25 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax )
   return 1;
 }
 
-int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx_t ngrp,int *countPerGrp,idx_t *part ) {
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpIdOld label of the original group to be splitted.
+ * \param grpsNew list of new groups
+ * \param ngrp number of groups to split the mesh into.
+ * \param countPerGrp number of tetras in each new groups.
+ * \param part array of the mesh element partitioning.
+ *
+ * \return -1 : no possibility to save the mesh
+ *         0  : failed but the mesh is correct
+ *         1  : success
+ *
+ * Split one mesh it into into several meshes.
+ *
+ * \warning tetra must be packed.
+ *
+ */
+int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
+                        idx_t ngrp,int *countPerGrp,idx_t *part ) {
   PMMG_pGrp grpOld,grpCur;
   MMG5_pMesh meshOld,meshCur;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
@@ -1498,8 +1528,11 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
 
   /* Available memory to create the groups */
   parmesh->memMax = parmesh->memCur;
+  memAv = parmesh->memGloMax-parmesh->memMax;
+  for ( grpId=0; grpId<parmesh->ngrp; ++grpId ) {
+    memAv -= parmesh->listgrp[grpId].mesh->memCur;
+  }
   parmesh->listgrp[grpIdOld].mesh->memMax = parmesh->listgrp[grpIdOld].mesh->memCur;
-  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[grpIdOld].mesh->memCur;
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group */
@@ -1539,21 +1572,26 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
       ret_val = -1;
       goto fail_sgrp;
     }
-
     /* Mesh cleaning in the new group */
-    if ( !PMMG_splitGrps_cleanMesh(grpCur,poiPerGrp[grpId]) ) {
+    if ( !PMMG_splitGrps_cleanMesh(parmesh,grpCur,poiPerGrp[grpId],&memAv) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
       ret_val = -1;
       goto fail_sgrp;
     }
-    /* Remove the memory used by this mesh from the available memory */
-    if ( memAv < meshCur->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory to allocate a new"
-              " mesh.\n",__func__);
-      goto fail_sgrp;
+    assert ( meshCur->memMax==meshCur->memCur && "mesh not at min size");
+
+#ifndef NDEBUG
+    /* Check the memAv value */
+    size_t memCheck = parmesh->memGloMax-parmesh->memMax;
+    for ( int myi=0; myi<parmesh->ngrp; ++myi ) {
+      memCheck -= parmesh->listgrp[myi].mesh->memCur;
     }
-    memAv -= meshCur->memMax;
+    for ( int myi=0; myi<ngrp; ++myi  ) {
+      memCheck -= grpsNew[myi].mesh->memCur;
+    }
+    assert ( memAv == memCheck && "Computed available memory differs.");
+#endif
 
     /* Give the memory to the parmesh */
     oldMemMax        = parmesh->memMax;

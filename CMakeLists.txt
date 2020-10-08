@@ -35,6 +35,10 @@ SET(PMMG_INCLUDE         ${PROJECT_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
 FILE(MAKE_DIRECTORY ${PMMG_BINARY_DIR})
 
 
+# Create pmmgversion.h file with the release infos
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/src/pmmgversion.h.in
+  ${PMMG_BINARY_DIR}/pmmgversion.h @ONLY)
+
 # To see flags and options of compilation
 #SET(CMAKE_VERBOSE_MAKEFILE TRUE)
 
@@ -102,19 +106,8 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
-# Only allow building of static OR shared libraries
-SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
-FUNCTION (INVERT_BOOL OUTVAR INVAR)
-  IF(${INVAR})
-    SET(${OUTVAR} OFF PARENT_SCOPE)
-  ELSE()
-    SET(${OUTVAR} ON PARENT_SCOPE)
-  ENDIF()
-ENDFUNCTION()
-
 OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
-INVERT_BOOL("LIBPARMMG_STATIC" ${LIBPARMMG_SHARED})
 
 ############################################################################
 #####
@@ -230,14 +223,6 @@ ENDIF ( )
 ############################################################################
 INCLUDE ( ExternalProject )
 
-# Use pointmap
-OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
-IF( USE_POINTMAP )
-  SET(CMAKE_C_FLAGS       "-DUSE_POINTMAP ${CMAKE_C_FLAGS}")
-  SET(CMAKE_CXX_FLAGS     "-DUSE_POINTMAP ${CMAKE_CXX_FLAGS}")
-  SET(CMAKE_Fortran_FLAGS "-DUSE_POINTMAP ${CMAKE_Fortran_FLAGS}")
-ENDIF ()
-
 # forward scotch configuration
 SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
   -DSCOTCH_scotch.h_DIRS=${SCOTCH_scotch.h_DIRS}
@@ -264,13 +249,16 @@ IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
   UNSET(MMG_BUILDDIR CACHE)
 
+  # Use pointmap
+  OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
+
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 90371befa5271afd427d7bdbdec0a68284730805
+    GIT_TAG 647ca9
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} )
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP})
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
@@ -284,10 +272,11 @@ IF ( DOWNLOAD_MMG )
 
   INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
 
-  IF( LIBPARMMG_STATIC )
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
-  ELSE()
+  IF( LIBPARMMG_SHARED )
     SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  ELSE()
+    # default behaviour is to link static libs
+    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
   ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
@@ -299,10 +288,12 @@ IF ( DOWNLOAD_MMG )
   INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
 
 ELSE ( )
-  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  UNSET ( USE_POINTMAP CACHE )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
   SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
+
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
 
   FIND_PACKAGE(MMG)
 
@@ -316,6 +307,7 @@ ELSE ( )
       " MMG_BUILDDIR "
       "to your mmg build directory.")
   ELSE()
+
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
 
     MESSAGE(STATUS
@@ -500,7 +492,6 @@ SET(CMAKE_MACOSX_RPATH 1)
 ############################################################################
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
@@ -516,7 +507,6 @@ IF ( LIBPARMMG_STATIC )
 ENDIF()
 
 # Compile shared library
-OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
@@ -537,23 +527,31 @@ SET( pmmg_headers
   ${PMMG_BINARY_DIR}/libparmmgf.h
   ${PMMG_SOURCE_DIR}/libparmmgtypes.h
   ${PMMG_BINARY_DIR}/libparmmgtypesf.h
+  ${PMMG_BINARY_DIR}/pmmgversion.h
   )
+IF (NOT WIN32 OR MINGW)
+  LIST(APPEND pmmg_headers  ${PMMG_BINARY_DIR}/git_log_pmmg.h )
+ENDIF()
+
 
 # Install header files in /usr/local or equivalent
 INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COMPONENT headers )
 
-COPY_FORTRAN_HEADER_AND_CREATE_TARGET ( ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
+# Copy header files in project directory at every build step
+COPY_HEADERS_AND_CREATE_TARGET ( ${PMMG_SOURCE_DIR} ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 
-# Copy header files in project directory at configuration step
-# (generated file don't exists yet or are outdated)
-FILE(INSTALL  ${pmmg_headers} DESTINATION ${PMMG_INCLUDE}
-  PATTERN "libparmmg*f.h"  EXCLUDE)
 
 install(EXPORT ParMmgTargets
   FILE ParMmgTargets.cmake
   NAMESPACE ParMmg::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
   )
+
+IF (LIBPARMMG_STATIC OR LIBPARMMG_SHARED)
+  SET(LIBPARMMG_INTERNAL ON )
+ELSE()
+  SET(LIBPARMMG_INTERNAL OFF )
+ENDIF()
 
 ###############################################################################
 #####
@@ -633,9 +631,10 @@ IF(DOXYGEN_FOUND)
 ENDIF ( DOXYGEN_FOUND )
 
 OPTION ( BUILD_TESTING "Enable / Disable tests" OFF )
+
 CMAKE_DEPENDENT_OPTION (
   ONLY_LIBRARY_TESTS "Enable / Disable tests hosted outside the ParMmg repos
-  (non library tests)" OFF  "BUILD_TESTING" OFF )
+  (non library tests)" OFF  "BUILD_TESTING;LIBPARMMG_INTERNAL" OFF )
 
 
 INCLUDE( ${PROJECT_SOURCE_DIR}/cmake/testing/pmmg_tests.cmake )

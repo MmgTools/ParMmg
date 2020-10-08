@@ -43,10 +43,10 @@
  *
  */
 typedef struct {
+  double stepav;   /*!< average number of steps on the search paths */
   int    nexhaust; /*!< number of exhaustive searches */
   int    stepmax;  /*!< maximum number of steps on the search paths */
   int    stepmin;  /*!< minimum number of steps on the search paths */
-  double stepav;   /*!< average number of steps on the search paths */
 } PMMG_locateStats;
 
 int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals );

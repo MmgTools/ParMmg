@@ -178,6 +178,18 @@ int PMMG_add_cell2lnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,
   return 2;
 }
 
+/**
+ * \param parmesh   pointer toward the parmesh structure.
+ * \param list      pointer toward a PMMG_cellLnkdList structure.
+ * \param val1      first Cell value (removed)
+ * \param val2      first Cell value (removed)
+ *
+ * \return 1
+ *
+ * Remove the first item of a list and fill \a val1 and \a val2 with the values
+ * of the removed cell.
+ *
+ */
 int PMMG_pop_cell_lnkdList( PMMG_pParMesh parmesh,PMMG_cellLnkdList *list,
                             int *val1,int *val2 ) {
   PMMG_lnkdCell *cell;
@@ -240,6 +252,16 @@ int PMMG_add_val2lnkdList( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,
   return 1;
 }
 
+/**
+ * \param parmesh   pointer toward the parmesh structure.
+ * \param list      pointer toward a PMMG_valLnkdList structure.
+ * \param val       first list value (removed)
+ *
+ * \return 1
+ *
+ * Remove the first item of a list and fill \a val with this removed value.
+ *
+ */
 int PMMG_pop_val_lnkdList( PMMG_pParMesh parmesh,PMMG_valLnkdList *list,
                            int *val ) {
   PMMG_lnkdVal *cell;
@@ -454,6 +476,16 @@ int PMMG_compare_valLnkdListLen (const void * a, const void * b) {
   return 0;
 }
 
+/**
+ * \param a  pointer toward a PMMG_lnkdCell structure.
+ * \param b  pointer toward a PMMG_lnkdCell structure.
+ *
+ * \return 1 if val2 of cell \a a is greater than val2 of cell \a b, -1 if
+ * smaller 0 if equals.
+ *
+ * Compare two cells from their second field (\a val2).
+ *
+ */
 int PMMG_compare_cell2 (const void * a, const void * b) {
   PMMG_lnkdCell cell1,cell2;
 
@@ -466,6 +498,18 @@ int PMMG_compare_cell2 (const void * a, const void * b) {
   return 0;
 }
 
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param array1  pointer toward an integer array.
+ * \param array2  pointer toward another integer array.
+ * \param oldIdx  array of the initial item position.
+ *
+ * \return 1.
+ *
+ * Sort 2 arrays in the ascending order of the second one.
+ * The first array is not mandatory.
+ *
+ */
 int PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
                       int nitem ) {
   PMMG_lnkdCell *cell;
@@ -473,20 +517,37 @@ int PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
 
   /* Initialize and fill lists of int pairs */
   PMMG_CALLOC(parmesh,cell,nitem,PMMG_lnkdCell,"array of cells",return 0);
-  for( i = 0; i < nitem; i++ ) {
-    cell[i].val1 = array1[i];
-    cell[i].val2 = array2[i];
-    cell[i].id   = i;
+
+  if ( array1 ) {
+    for( i = 0; i < nitem; i++ ) {
+      cell[i].val1 = array1[i];
+      cell[i].val2 = array2[i];
+      cell[i].id   = i;
+    }
+  }
+  else {
+    for( i = 0; i < nitem; i++ ) {
+      cell[i].val2 = array2[i];
+      cell[i].id   = i;
+    }
   }
 
   /* Sort lists based on values in array2, in ascending order */
   qsort(cell,nitem,sizeof(PMMG_lnkdCell),PMMG_compare_cell2);
 
   /* Permute arrays and deallocate lists */
-  for( i = 0; i < nitem; i++ ) {
-    array1[i] = cell[i].val1;
-    array2[i] = cell[i].val2;
-    oldIdx[i] = cell[i].id;
+  if ( array1 ) {
+    for( i = 0; i < nitem; i++ ) {
+      array1[i] = cell[i].val1;
+      array2[i] = cell[i].val2;
+      oldIdx[i] = cell[i].id;
+    }
+  }
+  else {
+    for( i = 0; i < nitem; i++ ) {
+      array2[i] = cell[i].val2;
+      oldIdx[i] = cell[i].id;
+    }
   }
 
   PMMG_DEL_MEM(parmesh,cell,PMMG_lnkdCell,"array of cells");

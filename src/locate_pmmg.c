@@ -284,7 +284,6 @@ int PMMG_locatePointInCone( MMG5_pMesh mesh,int *nodeTrias,int iel,int iloc,
  *
  */
 int PMMG_locatePointInWedge( MMG5_pMesh mesh,MMG5_pTria ptr,int k,int l,MMG5_pPoint ppt,PMMG_barycoord *barycoord ) {
-  MMG5_pTria  ptr1;
   MMG5_pPoint ppt0,ppt1;
   double      a[3],p[3],norm2,dist,alpha;
   int         i0,i1,d;
@@ -590,7 +589,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
                          double *triaNormals,int *nodeTrias,PMMG_barycoord *barycoord,
                          int *iTria,int *ifoundEdge,int *ifoundVertex ) {
   MMG5_pTria     ptr,ptr1;
-  int            *adjt,i,k,k1,kprev,iprev,step,closestTria,stuck,backward;
+  int            *adjt,j,i,k,k1,kprev,step,closestTria,stuck,backward;
   int            iloc;
   double         vol,eps,h,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
@@ -632,8 +631,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
     /** Compute new direction */
     adjt = &mesh->adjt[3*(k-1)+1];
     kprev = k;
-    for( i=0; i<3; i++ ) {
-      k1 = adjt[barycoord[i].idx]/3;
+    for( j=0; j<3; j++ ) {
+      i = barycoord[j].idx;
+      k1 = adjt[i]/3;
 
       /* Skip if on boundary */
       if( !k1 ) continue;
@@ -641,15 +641,15 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
       /* Test shadow regions if the tria has already been visited */
       ptr1 = &mesh->tria[k1];
       if(ptr1->flag == mesh->base) {
-        iloc = PMMG_locatePointInWedge( mesh,ptr,kprev,iprev,ppt,barycoord );
+        iloc = PMMG_locatePointInWedge( mesh,ptr,k,i,ppt,barycoord );
         if( iloc == PMMG_UNSET ) continue;
         if( iloc == 4 ) {
-          *ifoundEdge = iprev;
+          *ifoundEdge = i;
           ppt->s = step;
           *iTria = k;
           return 1;
         } else {
-          ier = PMMG_locatePointInCone( mesh,nodeTrias,kprev,iloc,ppt );
+          ier = PMMG_locatePointInCone( mesh,nodeTrias,k,iloc,ppt );
           if( ier ) {
             *ifoundVertex = iloc;
             ppt->s = step;
@@ -664,10 +664,9 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
       k = k1;
       break;
     }
-    iprev = barycoord[i].idx;
 
     /** Stuck: Start exhaustive research */
-    if (i == 3) stuck = 1;
+    if (j == 3) stuck = 1;
 
   }
 
@@ -999,6 +998,10 @@ void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateS
   MMG5_pPoint ppt;
   int         ip,np;
 
+  if ( !locStats ) {
+    return;
+  }
+
   locStats->stepmin  = meshOld->ne;
   locStats->stepmax  = 0;
   locStats->stepav   = 0;
@@ -1037,6 +1040,10 @@ void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateS
  */
 void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank ) {
   int igrp;
+
+  if ( !locStats ) {
+    return;
+  }
 
   for( igrp = 0; igrp < ngrp; igrp++ )
     printf("         Localization report (rank %d grp %d): nexhaust %d max step %d, min step %d, av %f\n",myrank,igrp,locStats[igrp].nexhaust,locStats[igrp].stepmax,locStats[igrp].stepmin,locStats[igrp].stepav);

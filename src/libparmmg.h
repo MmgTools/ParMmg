@@ -40,9 +40,6 @@
 extern "C" {
 #endif
 
-#define PMMG_VER   "1.0.0"
-#define PMMG_REL   "2016"
-#define PMMG_CPY   "Copyright (c) Bx INP/INRIA, 2016-"
 #define PMMG_STR   "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
 
 /**
@@ -59,13 +56,15 @@ enum PMMG_Param {
   PMMG_IPARAM_mmgVerbose,        /*!< [-10..10], Tune level of verbosity of Mmg */
   PMMG_IPARAM_mem,               /*!< [n/-1], Set memory size to n Mbytes or keep the default value */
   PMMG_IPARAM_debug,             /*!< [1/0], Turn on/off debug mode */
+  PMMG_IPARAM_distributedOutput, /*!< [0/1], Turn off/on distributed output */
   PMMG_IPARAM_mmgDebug,          /*!< [1/0], Turn on/off debug mode */
   PMMG_IPARAM_angle,             /*!< [1/0], Turn on/off angle detection */
   PMMG_IPARAM_iso,               /*!< [1/0], Level-set meshing */
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
+  PMMG_IPARAM_opnbdy,            /*!< [0/1], Enable preservation of open boundaries */
   PMMG_IPARAM_optim,             /*!< [1/0], Optimize mesh keeping its initial edge sizes */
   PMMG_IPARAM_optimLES,          /*!< [1/0], Strong mesh optimization for Les computations */
-  PMMG_IPARAM_nofem,            /*!< [1/0], Generate a non finite element mesh */
+  PMMG_IPARAM_nofem,             /*!< [1/0], Generate a non finite element mesh */
   PMMG_IPARAM_noinsert,          /*!< [1/0], Avoid/allow point insertion */
   PMMG_IPARAM_noswap,            /*!< [1/0], Avoid/allow edge or face flipping */
   PMMG_IPARAM_nomove,            /*!< [1/0], Avoid/allow point relocation */
@@ -79,7 +78,7 @@ enum PMMG_Param {
   PMMG_IPARAM_ifcLayers,         /*!< [n], Number of layers of interface displacement */
   PMMG_DPARAM_groupsRatio,       /*!< [val], Allowed imbalance between current and desired groups size */
   PMMG_IPARAM_APImode,           /*!< [0/1], Initialize parallel library through interface faces or nodes */
-  PMMG_IPARAM_nodeGloNum,        /*!< [1,0], Compute nodes global numbering in output */
+  PMMG_IPARAM_globalNum,         /*!< [1,0], Compute nodes and triangles global numbering in output */
   PMMG_IPARAM_niter,             /*!< [n], Set the number of remeshing iterations */
   PMMG_DPARAM_angleDetection,    /*!< [val], Value for angle detection */
   PMMG_DPARAM_hmin,              /*!< [val], Minimal mesh size */
@@ -1758,7 +1757,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 1 if success, 0 or -1 otherwise
  *
- * Read mesh data.
+ * Read distributed mesh data. Insert rank index to the mesh name.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_LOADMESH_DISTRIBUTED(parmesh,filename,strlen,retval)\n
@@ -1775,7 +1774,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 1 if success, 0 or -1 otherwise
  *
- * Read mesh data.
+ * Read centralized mesh data.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_LOADMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
@@ -1805,6 +1804,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load metric field. The solution file must contains only 1 solution: the
+ * metric. Insert rank index in the file name.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMET_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMet_distributed(PMMG_pParMesh parmesh,const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -1880,7 +1897,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
  * \return 0 if failed, 1 otherwise.
  *
- * Save mesh data.
+ * Save mesh data for a centralized mesh.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SAVEMESH_CENTRALIZED(parmesh,filename,strlen,retval)\n
@@ -1892,6 +1909,26 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh, const char *filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename pointer toward the name of file.
+
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Save mesh data for a distributed mesh (the MPI rank index is added to the
+ * filename)
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMESH_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMesh_distributed(PMMG_pParMesh parmesh, const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -1909,6 +1946,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_saveMet_centralized(PMMG_pParMesh parmesh, const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write isotropic or anisotropic metric of a distributed mesh (insert rank
+ * index to filename).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMET_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMet_distributed(PMMG_pParMesh parmesh, const char *filename);
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
@@ -2346,8 +2402,51 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
 
 /**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global triangle numbering.
+ * \param owner pointer to the rank of the process owning the node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global node numbering (starting from 1) and rank of the process owning
+ * the triangle.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TRIANGLEGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                    retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(OUT)                 :: idx_glob\n
+ * >     INTEGER, INTENT(OUT)                 :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global nodes numbering.
+ * \param owner array of ranks of processes owning each node.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global nodes numbering (starting from 1) and ranks of processes owning
+ * each node.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TRIANGLESGLONUM(parmesh,idx_glob,owner,&\n
+ * >                                      retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: idx_glob\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: owner\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ */
+int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner );
+
+/**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface node
  * \param idx_glob global IDs of interface nodes
  * \param nunique nb of non-redundant interface nodes on current rank
@@ -2370,7 +2469,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
 /**
  * \param parmesh pointer toward parmesh structure
- * \param color_out array of interface colors
  * \param owner IDs of the process owning each interface triangle
  * \param idx_glob global IDs of interface triangles
  * \param nunique nb of non-redundant interface triangles on current rank
@@ -2407,9 +2505,6 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param API_mode print face or node communicator.
- * \param idx_loc double pointer to the local indices of entities in each communicator.
- * \param idx_glo double pointer to the global indices of entities in each communicator (can be null).
  * \param filename file name (if null, print on stdout).
  *
  * \return 0 if fail, 1 otherwise
@@ -2418,16 +2513,14 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
  * \remark Mostly for debug purposes.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_PRINTCOMMUNICATOR(parmesh,API_mode,idx_loc,idx_glob,filename,retval)\n
+ * >   SUBROUTINE PMMG_PRINTCOMMUNICATOR(parmesh,API_mode,idx_loc,idx_glob,filename,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)      :: parmesh\n
- * >     INTEGER, INTENT(IN)                 :: API_mode
- * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_loc\n
- * >     INTEGER, DIMENSION(:,:), INTENT(IN) :: idx_glob\n
  * >     CHARACTER(LEN=*), INTENT(IN)        :: filename\n
+ * >     INTEGER, INTENT(IN)                 :: strlen\n
  * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  */
-int PMMG_printCommunicator( PMMG_pParMesh parmesh,int API_mode,int **idx_loc,int **idx_glob,const char *filename );
+int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char *filename );
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

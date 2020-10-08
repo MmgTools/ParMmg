@@ -183,6 +183,28 @@ extern "C" {
  */
 #define PMMG_PREDEF_PART 0
 
+/**
+ * \enum PMMG_Format
+ * \brief Type of supported file format
+ */
+enum PMMG_Format {
+  PMMG_FMT_MeditASCII  = MMG5_FMT_MeditASCII, /*!< ASCII Medit (.mesh) */
+  PMMG_FMT_MeditBinary = MMG5_FMT_MeditBinary,/*!< Binary Medit (.meshb) */
+  PMMG_FMT_GmshASCII   = MMG5_FMT_GmshASCII,  /*!< ASCII Gmsh */
+  PMMG_FMT_GmshBinary  = MMG5_FMT_GmshBinary, /*!< Binary Gmsh */
+  PMMG_FMT_VtkPvtp     = MMG5_FMT_VtkPvtp,    /*!< VTK pvtp */
+  PMMG_FMT_VtkPvtu     = MMG5_FMT_VtkPvtu,    /*!< VTK pvtu */
+  PMMG_FMT_VtkVtu      = MMG5_FMT_VtkVtu,     /*!< VTK vtu */
+  PMMG_FMT_VtkVtp      = MMG5_FMT_VtkVtp,     /*!< VTK vtp */
+  PMMG_FMT_VtkVtk      = MMG5_FMT_VtkVtk,     /*!< VTK vtk */
+  PMMG_FMT_Tetgen      = MMG5_FMT_Tetgen,     /*!< Tetgen or Triangle */
+  PMMG_FMT_Centralized,                       /*!< Centralized Setters/Getters */
+  PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
+  PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
+  PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
+  PMMG_FMT_Unknown,                           /*!< Unrecognized */
+};
+
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
 
@@ -526,7 +548,8 @@ int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
 /* Load Balancing */
-int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part);
+int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interaction_map);
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int);
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );

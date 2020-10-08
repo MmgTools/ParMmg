@@ -275,7 +275,7 @@ int PMMG_Set_inputDispName(PMMG_pParMesh parmesh, const char* dispin) {
 
 int PMMG_Set_outputMeshName(PMMG_pParMesh parmesh, const char* meshout) {
   MMG5_pMesh mesh;
-  int        k,ier,len;
+  int        k,ier;
   char       *defname;
 
   if ( parmesh->meshout ) {
@@ -361,9 +361,9 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
       strncat ( parmesh->fieldout,".o.sol",7 );
     }
 
-    PMMG_DEL_MEM ( parmesh,path,char,"" );
+    MMG5_SAFE_FREE ( path );
     free ( nopath ); nopath = NULL;
-    PMMG_DEL_MEM ( parmesh,basename,char,"" );
+    MMG5_SAFE_FREE ( basename );
   }
   else {
     PMMG_MALLOC(parmesh,parmesh->fieldout,strlen(solout)+1,char,"fieldout",return 0);
@@ -420,9 +420,10 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.target_mesh_size   = PMMG_REMESHER_TARGET_MESH_SIZE;
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
-  parmesh->info.nodeGloNum         = PMMG_NUL;
+  parmesh->info.globalNum          = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
+  parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
   for( k = 0; k < parmesh->ngrp; k++ ) {
     mesh = parmesh->listgrp[k].mesh;
@@ -603,8 +604,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_APImode :
     parmesh->info.API_mode = val;
     break;
-  case PMMG_IPARAM_nodeGloNum :
-    parmesh->info.nodeGloNum = val;
+  case PMMG_IPARAM_globalNum :
+    parmesh->info.globalNum = val;
     break;
   case PMMG_IPARAM_niter :
     parmesh->niter = val;
@@ -620,6 +621,16 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
 #endif
   case PMMG_IPARAM_debug :
     parmesh->ddebug = val;
+    break;
+
+  case PMMG_IPARAM_distributedOutput :
+
+    if ( val == 1 ) {
+      parmesh->info.fmtout = PMMG_FMT_Distributed;
+    }
+    else if ( val == 0 ) {
+      parmesh->info.fmtout = PMMG_FMT_Centralized;
+    }
     break;
 
   case PMMG_IPARAM_mmgDebug :
@@ -658,7 +669,12 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,met,MMG3D_IPARAM_nofem,val) ) return 0;
     }
     break;
-
+  case PMMG_IPARAM_opnbdy :
+    for ( k=0; k<parmesh->ngrp; ++k ) {
+      mesh = parmesh->listgrp[k].mesh;
+      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
+    }
+    break;
   case PMMG_IPARAM_optim :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
@@ -1857,6 +1873,96 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
 
 /**
  * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob pointer to the global triangle numbering.
+ * \param owner pointer to the rank of the process owning the triangle.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global triangle numbering (starting from 1) and rank of the process owning
+ * the triangle.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
+ */
+int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh mesh;
+  MMG5_pTria ptr;
+
+  if( !parmesh->info.globalNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Triangle global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_globalNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  if ( mesh->nti == mesh->nt ) {
+    mesh->nti = 0;
+    if( mesh->info.ddebug ) {
+      fprintf(stderr,"\n  ## Warning: %s: reset the internal counter of triangles.\n",
+              __func__);
+      fprintf(stderr,"     You must pass here exactly one time (the first time ");
+      fprintf(stderr,"you call the PMMG_Get_triangleGloNum function).\n");
+      fprintf(stderr,"     If not, the number of call of this function");
+      fprintf(stderr," exceed the number of triangles: %d\n ",mesh->nt);
+    }
+  }
+
+  mesh->nti++;
+
+  if ( mesh->nti > mesh->nt ) {
+    fprintf(stderr,"\n  ## Error: %s: unable to get numbering.\n",__func__);
+    fprintf(stderr,"     The number of call of PMMG_Get_triangleGloNum function");
+    fprintf(stderr," can not exceed the number of triangles: %d\n ",mesh->nt);
+    return 0;
+  }
+
+  ptr = &mesh->tria[mesh->nti];
+  *idx_glob = ptr->flag;
+  *owner    = ptr->base;
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure.
+ * \param idx_glob array of global triangles numbering.
+ * \param owner array of ranks of processes owning each triangle.
+ * \return 1 if success, 0 if fail.
+ *
+ * Get global triangles numbering (starting from 1) and ranks of processes owning
+ * each node.
+ * If of the triangle is simply a parallel face (but not a boundary), its owner
+ * will be negative.
+ */
+int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
+  MMG5_pMesh mesh;
+  MMG5_pTria ptr;
+  int        k;
+
+  if( !parmesh->info.globalNum ) {
+    fprintf(stderr,"\n  ## Error: %s: Triangles global numbering has not been computed.\n",
+            __func__);
+    fprintf(stderr,"     Parameter PMMG_IPARAM_globalNum has to be set to 1.\n");
+    fprintf(stderr,"     Please rerun ParMmg).\n");
+    return 0;
+  }
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  for( k = 1; k <= mesh->nt; k++ ){
+    ptr = &mesh->tria[k];
+    idx_glob[k-1] = ptr->flag;
+    owner[k-1]    = ptr->base;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward parmesh structure.
  * \param idx_glob pointer to the global node numbering.
  * \param owner pointer to the rank of the process owning the node.
  * \return 1 if success, 0 if fail.
@@ -1869,10 +1975,10 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
 
-  if( !parmesh->info.nodeGloNum ) {
+  if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
             __func__);
-    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Parameter PMMG_IPARAM_globalNum has to be set to 1.\n");
     fprintf(stderr,"     Please rerun ParMmg).\n");
     return 0;
   }
@@ -1923,10 +2029,10 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   MMG5_pPoint ppt;
   int         ip;
 
-  if( !parmesh->info.nodeGloNum ) {
+  if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
             __func__);
-    fprintf(stderr,"     Parameter PMMG_IPARAM_nodeGloNum has to be set to 1.\n");
+    fprintf(stderr,"     Parameter PMMG_IPARAM_globalNum has to be set to 1.\n");
     fprintf(stderr,"     Please rerun ParMmg).\n");
     return 0;
   }
@@ -1957,7 +2063,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
-  MMG5_pPoint    ppt;
   MPI_Request    request;
   MPI_Status     status;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
@@ -1989,7 +2094,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     iproc = ext_node_comm->color_out;
     iproc2comm[iproc] = icomm;
   }
-
 
   /**
    * 1) Number and count. Analyse each communicator by external color order,
@@ -2038,22 +2142,24 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   }
 
 
-  /**
-   * 2)  Store owners in the output array. Not-owned nodes store a
-   *      (PMMG_UNSET-color) label in the internal communicator, while nodes
-   *      owned by myrank store a non-negative label.
-   */
-  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = ext_node_comm->color_out;
-    nitem = ext_node_comm->nitem;
+  if ( owner ) {
+    /**
+     * 2)  Store owners in the output array. Not-owned nodes store a
+     *      (PMMG_UNSET-color) label in the internal communicator, while nodes
+     *      owned by myrank store a non-negative label.
+     */
+    for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+      ext_node_comm = &parmesh->ext_node_comm[icomm];
+      color = ext_node_comm->color_out;
+      nitem = ext_node_comm->nitem;
 
-    for( i = 0; i < nitem; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      if( intvalues[idx] < 0 )
-        owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
-      else
-        owner[icomm][i] = parmesh->myrank;
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        if( intvalues[idx] < 0 )
+          owner[icomm][i] = -(intvalues[idx]-PMMG_UNSET);
+        else
+          owner[icomm][i] = parmesh->myrank;
+      }
     }
   }
 
@@ -2238,8 +2344,12 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     nitem = ext_face_comm->nitem;
     unique += nitem;
     if( color > parmesh->myrank ) npairs_loc += nitem;//1;
-    for( i = 0; i < nitem; i++ )
-      owner[icomm][i] = MG_MIN(color,parmesh->myrank);
+
+    if ( owner ) {
+      for( i = 0; i < nitem; i++ ) {
+        owner[icomm][i] = MG_MIN(color,parmesh->myrank);
+      }
+    }
   }
 
 

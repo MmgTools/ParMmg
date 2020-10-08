@@ -22,39 +22,39 @@
 */
 
 /**
- * \file coorcell_pmmg.h
- * \brief coorcell_pmmg.c header file
- * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \file libparmmg_toolsf.c
+ * \brief Fortran API functions for PARMMG library.
  * \author Algiane Froehly (Inria)
- * \version 5
+ * \author Luca Cirrottola (Inria)
+ * \version 1
+ * \date 09 2020
  * \copyright GNU Lesser General Public License.
+ * \note Please, refer to the \ref libparmmg.h file for functions
+ * documentation.
+ *
+ * Define the Fortran API functions for PARMMG library: adds function
+ * definitions with upcase, underscore and double underscore to match
+ * any fortran compiler.
+ *
  */
-
-#ifndef COORCELL_PMMG_H
-
-#define COORCELL_PMMG_H
 
 #include "parmmg.h"
 
-/* numerical accuracy for squared node distance */
-#define PMMG_EPSCOOR 1.e-28
-
 /**
- * \struct PMMG_coorCell
- *
- * \brief Cell containing a point coordinate and an index
- *
+ * See \ref PMMG_printCommunicator function in \ref libparmmg.h file.
  */
-typedef struct {
-  double  c[3]; /*!< point coordinates */
-  int     idx;  /*!< index associated to the point */
-  int     grp;  /*!< a group to which belong the point */
-} PMMG_coorCell;
+FORTRAN_NAME(PMMG_PRINTCOMMUNICATOR,pmmg_printcommunicator,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen, retval)){
+  char *tmp = NULL;
 
+  MMG5_SAFE_MALLOC(tmp,*strlen+1,char,return);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
 
-int PMMG_compare_coorCell (const void * a, const void * b);
-int PMMG_find_coorCellListBoundingBox(PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_scale_coorCellList (PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_unscale_coorCellList (PMMG_coorCell*,int,double*,double*,double);
+  *retval = PMMG_printCommunicator(*parmesh,tmp);
 
-#endif
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}

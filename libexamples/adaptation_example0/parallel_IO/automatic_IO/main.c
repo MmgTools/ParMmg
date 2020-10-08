@@ -467,8 +467,8 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
-  /* Compute ouput nodes global numbering */
-  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nodeGloNum, 1 ) ) {
+  /* Compute output nodes and triangles global numbering */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_globalNum, 1 ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };

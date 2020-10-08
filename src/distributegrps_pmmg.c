@@ -26,7 +26,8 @@
  * \brief Group distribution on the processors
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
- * \version 5
+ * \author Luca Cirrotola (Inria)
+ * \version 1
  * \copyright GNU Lesser General Public License.
  *
  * \remark to not deaclock when 1 process fail, we continue the process even
@@ -1652,6 +1653,8 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
  * \param sndr index of the proc that send the groups
  * \param recv index of the proc that receive the groups
  * \param interaction_map map of interactions with the other processors
+ * \param called_from_distrib_mesh 1 if called for initial mesh distrib.
+ * In this case do not print warnings about empty procs.
  *
  * \return 0 if fail, 1 if we success
  *
@@ -1661,7 +1664,8 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
  */
 static inline
 int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
-                                const int recv,int *interaction_map) {
+                                const int recv,int *interaction_map,
+                                int called_from_distrib_mesh) {
 
   PMMG_pExt_comm ext_face_comm,ext_send_comm,ext_recv_comm;
   MPI_Status     status;
@@ -1833,7 +1837,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
   /** Step 4: pack the groups and face communicators */
   err = PMMG_pack_grps( parmesh,&parmesh->listgrp);
   ier = MG_MIN ( ier, err );
-  if ( (!parmesh->ngrp) && parmesh->ddebug ) {
+  if ( (!parmesh->ngrp) && parmesh->ddebug && (!called_from_distrib_mesh) ) {
     fprintf(stderr,"  ## Warning: %s: rank %d: processor without any groups.\n",
             __func__,myrank);
   }
@@ -1860,6 +1864,9 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
 /**
  * \param parmesh pointer toward the mesh structure.
  * \param part pointer toward the metis array containing the partitions.
+ * \param called_from_distrib_mesh 1 if function is called from the
+ * distributedmesh one. In this case we don't want to build the interaction map
+ * (no interactions).
  *
  * \return 0 if fail but we can try to save a mesh, -1 if we fail and are unable
  * to save the mesh, 1 if we success
@@ -1868,16 +1875,16 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  * Deallocate the \a part array.
  *
  */
-int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_distrib_mesh) {
   MPI_Comm       comm;
   int            myrank,nprocs;
-  int            *interaction_map;
+  int            ninteractions,*interaction_map,*interactions;
   int            *send_grps,*recv_grps,*nfaces2send,*nfaces2recv;
   int            *next_comm2send,*ext_comms_next_idx,*nitems2send;
   int            *extComm_next_idx,*items_next_idx,*recv_array;
   int            *extComm_grpFaces2extComm,*extComm_grpFaces2face2int;
   int            max_ngrp;
-  int            ier,ier_glob,k,j,err;
+  int            ier,k,i,j,err;
 
   myrank    = parmesh->myrank;
   nprocs    = parmesh->nprocs;
@@ -1897,6 +1904,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   extComm_grpFaces2face2int = NULL;
   recv_array                = NULL;
   interaction_map           = NULL;
+  interactions              = NULL;
 
   /** Step 1: Merge all the groups that must be sended to a given proc into 1
    * group */
@@ -1924,15 +1932,14 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
   }
   PMMG_DEL_MEM(parmesh,part,idx_t,"parmetis partition");
 
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
+  MPI_Allreduce( MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
 
-  if ( ier_glob < 0 ) {
+  if ( ier < 0 ) {
     fprintf(stderr,"\n  ## Error: %s: unable to compute the new group"
             " partition.\n",__func__);
-    ier = -1;
     goto end;
   }
-  else if ( !ier_glob ) {
+  else if ( !ier ) {
     fprintf(stderr,"\n  ## Warning: %s: unable to compute the new group"
             " partition. Try to send it nevertheless.\n",__func__);
   }
@@ -1941,32 +1948,55 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
    * the external communicators) */
   PMMG_node_comm_free(parmesh);
 
-  /** Step 3:
-   *
-   * Compute the map of interactions: each proc interacts with all the other
-   * procs (worst case)
-   *
+  /** Step 3: Compute the map of interactions, if fail, consider that each proc
+   * interacts with all the other procs (worst case)
    */
-#warning add interaction map
-  ier = 0;
-  PMMG_CALLOC(parmesh,interaction_map,nprocs,int,"interaction_map",goto end);
-  for ( k=0; k<nprocs; ++k ) {
-    interaction_map[k] = 1;
+  if ( (!called_from_distrib_mesh) && parmesh->nprocs > 2 ) {
+    ninteractions = PMMG_interactionMap(parmesh,&interactions,&interaction_map);
+  }
+  else {
+    ninteractions = -1;
+  }
+
+  if ( ninteractions <= 0 ) {
+    PMMG_DEL_MEM ( parmesh, interactions, int, "interactions");
+    if ( !interaction_map ) {
+      PMMG_CALLOC ( parmesh,interaction_map,nprocs,int,"interaction_map" ,ier=0 );
+    }
+    for ( k=0; k<nprocs; ++k ) {
+      interaction_map[k] = 1;
+    }
   }
 
   /** Step 4: proc k send its data (group and/or communicators), proc j receive
    * data */
   ier = 1;
-  for ( k=0; k<nprocs; ++k ) {
-    for ( j=0; j<nprocs; ++j ) {
-      if ( j==k ) continue;
-      err =  PMMG_transfer_grps_fromItoJ(parmesh,k,j,interaction_map);
+
+  if ( interactions ) {
+    for ( k=0; k<ninteractions; ++k ) {
+      i = interactions[2*k];
+      j = interactions[2*k+1];
+      if ( i==j ) {
+        continue;
+      }
+      err =  PMMG_transfer_grps_fromItoJ(parmesh,i,j,interaction_map,called_from_distrib_mesh);
       ier = MG_MIN ( ier,err );
     }
   }
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
+  else {
+    for ( k=0; k<nprocs; ++k ) {
+      for ( j=0; j<nprocs; ++j ) {
+        if ( j==k ) {
+          continue;
+        }
+        err =  PMMG_transfer_grps_fromItoJ(parmesh,k,j,interaction_map,called_from_distrib_mesh);
+        ier = MG_MIN ( ier,err );
+      }
+    }
+  }
+  MPI_Allreduce( MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
 
-  if ( ier_glob <= 0 ) {
+  if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Error: %s: unable to transfer the groups toward"
             " their new processor.\n",__func__);
     ier = -1;
@@ -1995,6 +2025,9 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part) {
 end:
   if ( interaction_map )
     PMMG_DEL_MEM(parmesh,interaction_map,int,"interaction_map");
+  if ( interactions )
+    PMMG_DEL_MEM(parmesh,interactions,int,"interactions");
+
   if ( send_grps )
     PMMG_DEL_MEM(parmesh,send_grps,int,"send_grps");
   if ( recv_grps )
@@ -2047,7 +2080,7 @@ end:
  */
 int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   idx_t *part;
-  int   ngrp,ier,ier_glob;
+  int   ngrp,ier;
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
@@ -2069,7 +2102,7 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   } else {
 
     switch ( parmesh->info.loadbalancing_mode ) {
- 
+
 #ifdef USE_PARMETIS
     case PMMG_LOADBALANCING_parmetis:
       ier = PMMG_part_parmeshGrps2parmetis(parmesh,part,parmesh->nprocs);
@@ -2087,15 +2120,15 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   if ( !ier )
     fprintf(stderr,"\n  ## Unable to compute the new group partition.\n");
 
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  MPI_Allreduce( MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
-  if ( !ier_glob ) {
+  if ( !ier ) {
     PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate parmetis partition");
-    return ier_glob;
+    return ier;
   }
 
   /** Send the suitable groups to other procs and recieve their groups */
-  ier = PMMG_transfer_all_grps(parmesh,part);
+  ier = PMMG_transfer_all_grps(parmesh,part,0);
   if ( ier <= 0 )
     fprintf(stderr,"\n  ## Unable to communicate groups through processors.\n");
 
