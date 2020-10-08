@@ -526,7 +526,7 @@ IF( BUILD_TESTING )
       SET ( input_met  ${CI_DIR}/WaveSurface/wave-met.sol )
       SET ( test_name  WaveSurface_interp )
 
-      FOREACH( NP 1 )
+      FOREACH( NP 1 4 )
         add_test( NAME ${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${input_mesh} -sol ${input_met}
