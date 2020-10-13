@@ -68,11 +68,12 @@ int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
         /* Get edge vertices and hash it */
         i1 = MMG5_iare[ia][0];
         i2 = MMG5_iare[ia][1];
-        MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],pxt->edg[ia],pxt->tag[ia] );
+        MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],0,MG_NOTAG);
         /* Tag edge and nodes as parallel */
         pxt->tag[ia] |= MG_PARBDY;
         mesh->point[pt->v[i1]].tag |= MG_PARBDY;
         mesh->point[pt->v[i2]].tag |= MG_PARBDY;
+        MMG5_hTag( pHash,pt->v[i1],pt->v[i2],0,pxt->tag[ia] );
       }
     }
   }
@@ -113,9 +114,6 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
 
     pxt = &mesh->xtetra[pt->xt];
     for ( i=0; i<6; ++i ) {
-      if ( pxt->tag[i] & MG_PARBDY )
-        continue;
-
       i1 = MMG5_iare[i][0];
       i2 = MMG5_iare[i][1];
       if ( !MMG5_hGet( &hash, pt->v[i1], pt->v[i2], &edg, &tag ) )
