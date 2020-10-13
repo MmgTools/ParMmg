@@ -496,10 +496,20 @@ IF( BUILD_TESTING )
 
     FOREACH( API_mode 0 )
       FOREACH( NP 4 )
-        ADD_TEST ( NAME  libparmmg_distributed_example1_${API_mode}-${NP}
+        ADD_TEST ( NAME  libparmmg_distributed_example1_wave${API_mode}-${NP}
           COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:${test_name}>
           ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/wave
+          ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
+      ENDFOREACH()
+    ENDFOREACH()
+
+    FOREACH( API_mode 0 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_example1_brickLS${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/brickLS
           ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
       ENDFOREACH()
     ENDFOREACH()

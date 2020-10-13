@@ -135,7 +135,7 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
-  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_angle, 0 ) ) {
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_angle, 45 ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
