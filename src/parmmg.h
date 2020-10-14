@@ -561,7 +561,7 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp,size_t *memAv,size_t *
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh,size_t *memAv,size_t *oldMemMax );
 int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int* );
-int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, MMG5_pSol,MMG5_pSol, int* permNodGlob,unsigned char);
+int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, MMG5_pSol,MMG5_pSol, int* permNodGlob,uint8_t);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
@@ -648,8 +648,8 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,char,int );
-int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
+int PMMG_prilen( PMMG_pParMesh parmesh,int8_t,int );
+int PMMG_tetraQual( PMMG_pParMesh parmesh,int8_t metRidTyp );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

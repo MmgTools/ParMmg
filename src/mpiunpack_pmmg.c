@@ -478,20 +478,22 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     info->nmat      = *( (int *) *buffer); *buffer += sizeof(int);
     info->nsd       = *( (int *) *buffer); *buffer += sizeof(int);
 
-    info->nreg      = *( (char *) *buffer); *buffer += sizeof(char);
-    info->imprim    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->ddebug    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->iso       = *( (char *) *buffer); *buffer += sizeof(char);
-    info->lag       = *( (char *) *buffer); *buffer += sizeof(char);
-    info->parTyp    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->optim     = *( (char *) *buffer); *buffer += sizeof(char);
-    info->optimLES  = *( (char *) *buffer); *buffer += sizeof(char);
-    info->noinsert  = *( (char *) *buffer); *buffer += sizeof(char);
-    info->noswap    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->nomove    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->nosurf    = *( (char *) *buffer); *buffer += sizeof(char);
-    info->sethmin   = *( (char *) *buffer); *buffer += sizeof(char);
-    info->sethmax   = *( (char *) *buffer); *buffer += sizeof(char);
+    info->nreg      = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->imprim    = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->ddebug    = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->iso       = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->lag       = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->parTyp    = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->sethmin   = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+    info->sethmax   = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+
+    info->optim     = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->optimLES  = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->noinsert  = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->noswap    = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->nomove    = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->nosurf    = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
+    info->nosizreq  = *( (uint8_t *) *buffer); *buffer += sizeof(uint8_t);
 
     /* affectation of old refs in ls-mode */
     if ( info->nmat ) {
@@ -500,14 +502,14 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
 
       if ( *ier ) {
         for ( k=0; k<info->nmat; ++k ) {
-          info->mat[k].dospl = *( (char *) *buffer); *buffer += sizeof(char);
+          info->mat[k].dospl = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
           info->mat[k].ref   = *( (int *) *buffer); *buffer += sizeof(int);
           info->mat[k].rin   = *( (int *) *buffer); *buffer += sizeof(int);
           info->mat[k].rex   = *( (int *) *buffer); *buffer += sizeof(int);
         }
       }
       else {
-        *buffer += sizeof(char);
+        *buffer += sizeof(int8_t);
         *buffer += 3*sizeof(int);
       }
     }
@@ -523,11 +525,11 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
           info->par[k].hmax = *( (double *) *buffer); *buffer += sizeof(double);
           info->par[k].hausd = *( (double *) *buffer); *buffer += sizeof(double);
           info->par[k].ref = *( (int *) *buffer); *buffer += sizeof(int);
-          info->par[k].elt = *( (char *) *buffer); *buffer += sizeof(char);
+          info->par[k].elt = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
         }
       }
       else {
-        *buffer += 3*sizeof(double) + sizeof(int) + sizeof(char);
+        *buffer += 3*sizeof(double) + sizeof(int) + sizeof(int8_t);
       }
     }
   }
@@ -541,10 +543,11 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     npar = *( (int *) *buffer); *buffer += sizeof(int);
     nmat = *( (int *) *buffer); *buffer += sizeof(int);
 
-    *buffer += 13*sizeof(char);
+    *buffer += 8*sizeof(int8_t);
+    *buffer += 7*sizeof(uint8_t);
 
     if ( nmat ) {
-      *buffer += nmat*sizeof(char);
+      *buffer += nmat*sizeof(int8_t);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
@@ -556,7 +559,7 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
       *buffer += npar*sizeof(double);
       *buffer += npar*sizeof(double);
       *buffer += npar*sizeof(int);
-      *buffer += npar*sizeof(char);
+      *buffer += npar*sizeof(int8_t);
     }
   }
 }
@@ -651,6 +654,8 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->xpoint[k].n2[0] = *( (double *) *buffer); *buffer += sizeof(double);
       mesh->xpoint[k].n2[1] = *( (double *) *buffer); *buffer += sizeof(double);
       mesh->xpoint[k].n2[2] = *( (double *) *buffer); *buffer += sizeof(double);
+      /* nnor */
+      mesh->xpoint[k].nnor  = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
     }
 
     /** Unpack mesh elements */
@@ -699,7 +704,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
       mesh->xtetra[k].tag[4] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       mesh->xtetra[k].tag[5] = *( (int16_t *) *buffer); *buffer += sizeof(int16_t);
       /* Orientation of the triangles */
-      mesh->xtetra[k].ori = *( (char *) *buffer); *buffer += sizeof(char);
+      mesh->xtetra[k].ori = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
     }
   }
   else {
@@ -729,6 +734,8 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     *buffer += xp*sizeof(double);
     *buffer += xp*sizeof(double);
     *buffer += xp*sizeof(double);
+    /* nnor */
+    *buffer += xp*sizeof(int8_t);
 
     /** Unpack mesh elements */
     /* Tetra vertices */
@@ -769,7 +776,7 @@ void PMMG_mpiunpack_meshArrays ( PMMG_pGrp grp,char **buffer,
     *buffer += xt*sizeof(int16_t);
     *buffer += xt*sizeof(int16_t);
     /* Triangle orientation */
-    *buffer += xt*sizeof(char);
+    *buffer += xt*sizeof(int8_t);
   }
 
   /** Unpack metric */
