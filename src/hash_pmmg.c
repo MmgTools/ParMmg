@@ -73,7 +73,7 @@ int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
         pxt->tag[ia] |= MG_PARBDY;
         mesh->point[pt->v[i1]].tag |= MG_PARBDY;
         mesh->point[pt->v[i2]].tag |= MG_PARBDY;
-        MMG5_hTag( pHash,pt->v[i1],pt->v[i2],0,pxt->tag[ia] );
+        MMG5_hTag( pHash,pt->v[i1],pt->v[i2],pxt->edg[ia],pxt->tag[ia] );
       }
     }
   }
