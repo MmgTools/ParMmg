@@ -435,7 +435,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
    *  communicator where the triangle touches a parallel edge. */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
-    if( !MG_EOK(pt) )  continue;
+    if( !MG_EOK(ptr) )  continue;
 
 #warning Luca: this shows that passing tria->tetra tags should be better thought
     ie   = ptr->cc/4;
@@ -530,6 +530,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
 
     itorecv = ext_edge_comm->itorecv;
+    rtorecv = ext_edge_comm->rtorecv;
 
     for ( i=0; i<ext_edge_comm->nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
