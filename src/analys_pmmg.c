@@ -591,7 +591,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   ne = nr = nm = 0;
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
-    if( !MG_EOK(pt) )  continue;
+    if( !MG_EOK(ptr) )  continue;
 
 #warning Luca: this shows that passing tria->tetra tags should be better thought
     ie   = ptr->cc/4;
