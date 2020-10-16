@@ -409,7 +409,7 @@ int PMMG_copySol_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 static
 int PMMG_copyMetrics_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                             MMG5_pSol met,MMG5_pSol oldMet,int* permNodGlob,
-                            unsigned char inputMet ) {
+                            uint8_t inputMet ) {
   int            ier;
 
   if ( !inputMet || mesh->info.hsiz > 0.0 ) return 1;
@@ -469,7 +469,7 @@ int PMMG_copyFields_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh ,MMG5_pMesh oldMesh,
                                      MMG5_pSol  met  ,MMG5_pSol  oldMet,
                                      MMG5_pSol  field,MMG5_pSol  oldField,
-                                     int* permNodGlob,unsigned char inputMet) {
+                                     int* permNodGlob,uint8_t inputMet) {
   int ier;
 
   ier = PMMG_copyMetrics_point(mesh,oldMesh,met,oldMet,permNodGlob,inputMet);
@@ -516,7 +516,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                       MMG5_pSol met,MMG5_pSol oldMet,
                                       MMG5_pSol field,MMG5_pSol oldField,
                                       double *faceAreas,double *triaNormals,int *nodeTrias,
-                                      int *permNodGlob,unsigned char inputMet,
+                                      int *permNodGlob,uint8_t inputMet,
                                       int myrank,int igrp,PMMG_locateStats *locStats ) {
   MMG5_pTetra pt;
   MMG5_pPoint ppt;

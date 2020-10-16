@@ -834,7 +834,7 @@ int PMMG_mark_boulevolp( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *displsgrp,
   int    *adja,nump,ilist,base,cur,k,k1,j1,j2;
   int    igrp;
   int     start,color,iloc;
-  char    j,l,i;
+  int8_t  j,l,i;
 
   /* Get point color */
   start  = mesh->point[ip].s / 4;
@@ -948,7 +948,7 @@ int PMMG_mark_sideFront_ppt( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int ip,
   MMG5_pPoint  ppt;
   int    *adja,nump,ilist,base,cur,k,k1,j1;
   int     start,iloc;
-  char    j,l,i;
+  int8_t  j,l,i;
 
   /* Get point color */
   start  = mesh->point[ip].s / 4;

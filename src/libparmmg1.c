@@ -563,7 +563,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   int        ier,ier_end,ieresult,i,k,is,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
-  unsigned char inputMet;
+  uint8_t    inputMet;
 
   tminit(ctim,TIMEMAX);
 

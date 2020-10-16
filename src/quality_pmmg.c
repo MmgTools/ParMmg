@@ -369,7 +369,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
  */
 int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, double* avlen,
                         double* lmin, double* lmax, int* ned, int* amin, int* bmin, int* amax,
-                        int* bmax, int* nullEdge, char metRidTyp, double** bd_in, int hl[9] )
+                        int* bmax, int* nullEdge,int8_t metRidTyp, double** bd_in, int hl[9] )
 {
   PMMG_pGrp       grp;
   PMMG_pInt_comm  int_edge_comm;
@@ -383,7 +383,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   int             i,k,ia,np,nq,n;
   int             ref;
   int16_t         tag;
-  char            i0,i1,ier;
+  int8_t          i0,i1,ier;
   static double   bd[9]= {0.0, 0.3, 0.6, 0.7071, 0.9, 1.3, 1.4142, 2.0, 5.0};
 
   *bd_in = bd;
@@ -591,7 +591,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
  * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
  *
  */
-int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
+int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
 {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -720,7 +720,7 @@ int PMMG_prilen( PMMG_pParMesh parmesh, char metRidTyp, int isCentral )
  * Compute elements quality in a given metrics.
  *
  */
-int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp ) {
+int PMMG_tetraQual( PMMG_pParMesh parmesh,int8_t metRidTyp ) {
   PMMG_pGrp grp;
   int       igrp;
 
