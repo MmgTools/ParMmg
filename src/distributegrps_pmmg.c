@@ -849,7 +849,6 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   /* If this step is too expensive in memory, we can count the number of procs
      with which we will communicate and fill directly the pack array. */
-#warning MEMORY: this could be inconsistent
   PMMG_CALLOC( parmesh,grps,nprocs,PMMG_Grp,"Groups to send",return 0 );
 
   j = 0;
@@ -857,9 +856,9 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     /* Free the adja array */
     meshI = parmesh->listgrp[k].mesh;
     if ( meshI->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshI);
+      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
       PMMG_DEL_MEM(meshI, meshI->adja, int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshI);
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
     }
 
     /* Group initialization */
@@ -885,6 +884,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   for ( k=0; k<ngrp; ++k ) {
 
+    /* Merge the group that have not been moved */
     if ( !listgrp[k].mesh ) continue;
 
     grpI = &grps[(*part)[k]];
@@ -894,29 +894,27 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     meshI = grpI->mesh;
     meshJ = grpJ->mesh;
     if ( meshI->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshI);
+      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
       PMMG_DEL_MEM(meshI, meshI->adja,int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshI);
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
     }
     if ( meshJ->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshJ);
+      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshJ);
       PMMG_DEL_MEM(meshJ, meshJ->adja,int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshJ);
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshJ);
     }
 
     /* Update the available memory and give it to the mesh */
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshI);
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
 
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
 
     /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshI);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
 
     if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 
     /* Delete the useless group to gain memory space */
-#warning MEMORY: this could be made cleaner
-    parmesh->memMax += meshJ->memCur;
     PMMG_grp_free(parmesh,&listgrp[k]);
   }
 
@@ -1622,7 +1620,7 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   ptr = buffer;
   if ( ier0 ) {
     for ( k=0; k<grpscount; ++k ) {
-      err = PMMG_mpiunpack_grp(parmesh,&parmesh->listgrp[ngrp+k],&ptr);
+      err = PMMG_mpiunpack_grp(parmesh,parmesh->listgrp,ngrp+k,&ptr);
       ier = MG_MIN(ier,err);
       parmesh->listgrp[ngrp+k].flag = PMMG_UNSET;
     }

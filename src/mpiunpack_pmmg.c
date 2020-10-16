@@ -34,7 +34,8 @@
 
 
 /**
- * \param grp pointer toward a PMMG_Grp structure.
+ * \param listgrp pointer toward a PMMG_Grp structure array.
+ * \param igrp index of the group to handle.
  * \param buffer pointer toward the buffer in which we unpack the group
  * \param np number of point    in the mesh
  * \param ne number of elements in the mesh
@@ -64,15 +65,18 @@
  *
  */
 static
-int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
+int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
+                                char **buffer,
                                 int *np,int *ne,int *xp,int *xt,
                                 int *ier_mesh,int *npmet,int *ier_met,int *metsize,
                                 int *npls,int *ier_ls,int *lssize,
                                 int *npdisp,int *ier_disp,int *dispsize,
                                 int *nsols,int* ier_field,
                                 int *fieldsize ) {
+  PMMG_pGrp  const grp = &listgrp[igrp];
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp;
+  int const  nprocs = parmesh->nprocs;
   int        is,ier_grp;
   int        type[MMG5_NSOLS_MAX];
   int        ismet,isls,isdisp;
@@ -101,10 +105,9 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer
 
   if ( ier_grp ) {
     /* Take into account the minimal amount of memory used by the initialization */
-    PMMG_FIT_MEM(mesh);
+    PMMG_GHOSTMEM_INIT(parmesh,mesh);
     /* Give all the available memory to the mesh */
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-#warning MEMORY: small inconsistency
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,nprocs,mesh);
 
     /** Set the mesh size */
     (*ier_mesh) = PMMG_grpSplit_setMeshSize( mesh,*np,*ne,0,*xp,*xt );
@@ -566,7 +569,8 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
 }
 
 /**
- * \param grp pointer toward a PMMG_Grp structure.
+ * \param listgrp pointer toward a PMMG_Grp structure array.
+ * \param igrp index of the group to handle.
  * \param buffer pointer toward the buffer in which we unpack the group
  * \param np number of point    in the mesh
  * \param ne number of elements in the mesh
@@ -594,25 +598,28 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
  *
  */
 static
-int PMMG_mpiunpack_meshArrays ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer,
+int PMMG_mpiunpack_meshArrays ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
+                                char **buffer,
                                 int np,int ne,int xp,int xt,
                                 int ier_mesh,int npmet,int ier_met,int metsize,
                                 int npls,int ier_ls,int lssize,
                                 int npdisp,int ier_disp,int dispsize,
                                 int nsols,int ier_field,
                                 int *fieldsize ) {
+  const PMMG_pGrp  grp   = &listgrp[igrp];
   const MMG5_pMesh mesh  = grp->mesh;
   const MMG5_pSol  met   = grp->met;
   const MMG5_pSol  ls    = grp->ls;
   const MMG5_pSol  disp  = grp->disp;
   MMG5_pSol        psl;
+  int const        nprocs = parmesh->nprocs;
   int              ier = 1;
 
   int   k,i,is;
 
   if ( mesh ) {
     /* Use exactly the amount of needed memory for this mesh and metric */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,nprocs,mesh);
   }
   else {
     ier = 0;
@@ -1013,7 +1020,8 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
 
 /**
  * \param parmesh pointer toward a parmesh structure.
- * \param grp pointer toward a PMMG_Grp structure.
+ * \param listgrp pointer toward a PMMG_Grp structure array.
+ * \param igrp index of the group to handle.
  * \param buffer pointer toward the buffer in which we unpack the group
  *
  * \return 0 if fail, 1 otherwise
@@ -1029,7 +1037,8 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
  * dereferencing the adress of the buffer.
  *
  */
-int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer ) {
+int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,char **buffer ) {
+  PMMG_pGrp const grp = &listgrp[igrp];
   int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
@@ -1043,7 +1052,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer ) {
     return ier;
   }
 
-  ier = PMMG_mpiunpack_meshSizes ( parmesh,grp,buffer,&np,&ne,&xp,&xt,
+  ier = PMMG_mpiunpack_meshSizes ( parmesh,listgrp,igrp,buffer,&np,&ne,&xp,&xt,
                              &ier_mesh,&npmet,&ier_met,&metsize,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
@@ -1052,7 +1061,7 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer ) {
 
   PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
-  ier = PMMG_mpiunpack_meshArrays( parmesh,grp,buffer,np,ne,xp,xt,ier_mesh,
+  ier = PMMG_mpiunpack_meshArrays( parmesh,listgrp,igrp,buffer,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
                              ier_disp,dispsize,nsols,ier_field,fieldsize );
 
@@ -1064,7 +1073,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer ) {
 
 /**
  * \param parmesh pointer toward a parmesh structure.
- * \param grp pointer toward a PMMG_Grp structure.
+ * \param listgrp pointer toward a PMMG_Grp structure array.
+ * \param igrp index of the group to handle.
  * \param int_node_comm pointer toward an internal communicator.
  * \param next_node_comm pointer toward the number of external communicators.
  * \param ext_node_comm pointer toward an array of external communicators.
@@ -1083,11 +1093,12 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp grp,char **buffer ) {
  * dereferencing the adress of the buffer.
  *
  */
-int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
+int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
                              PMMG_pInt_comm int_node_comm,
                              int *next_node_comm,
                              PMMG_pExt_comm *ext_node_comm,
                              char **buffer ) {
+  PMMG_pGrp const grp = &listgrp[igrp];
   int        ier,ier_mesh,ier_met,ier_ls,ier_disp,ier_field;
   int        np,npmet,npdisp,npls,xp,ne,xt;
   int        metsize,lssize,dispsize,fieldsize[MMG5_NSOLS_MAX];
@@ -1101,14 +1112,14 @@ int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp grp,
     return ier;
   }
 
-  ier = PMMG_mpiunpack_meshSizes ( parmesh,grp,buffer,&np,&ne,&xp,&xt,
+  ier = PMMG_mpiunpack_meshSizes ( parmesh,listgrp,igrp,buffer,&np,&ne,&xp,&xt,
                              &ier_mesh,&npmet,&ier_met,&metsize,
                              &npls,&ier_ls,&lssize,&npdisp,&ier_disp,&dispsize,
                              &nsols,&ier_field,fieldsize );
 
   PMMG_mpiunpack_infos(&(grp->mesh->info),buffer,&ier,ier_mesh);
 
-  ier = PMMG_mpiunpack_meshArrays( parmesh,grp,buffer,np,ne,xp,xt,ier_mesh,
+  ier = PMMG_mpiunpack_meshArrays( parmesh,listgrp,igrp,buffer,np,ne,xp,xt,ier_mesh,
                              npmet,ier_met,metsize,npls,ier_ls,lssize,npdisp,
                              ier_disp,dispsize,nsols,ier_field,fieldsize );
 

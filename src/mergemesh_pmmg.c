@@ -1035,8 +1035,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     mesh0->nei = mesh0->ne;
 
     /* Free merged mesh and increase mesh0->memMax*/
-#warning MEMORY: this could be made cleaner
-    mesh0->memMax += grp->mesh->memCur;
     PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
     PMMG_grp_free(parmesh,grp);
     PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
@@ -1191,7 +1189,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     ptr = rcv_buffer;
     for ( k=0; k<nprocs; ++k ) {
-      ier_pack = PMMG_mpiunpack_parmesh ( parmesh,(*rcv_grps)+k,(*rcv_int_node_comm)+k,
+      ier_pack = PMMG_mpiunpack_parmesh ( parmesh,(*rcv_grps),k,(*rcv_int_node_comm)+k,
                                           (*rcv_next_node_comm)+k,(*rcv_ext_node_comm)+k,
                                           &rcv_buffer );
       ier = MG_MIN(ier_pack,ier);
@@ -1260,10 +1258,9 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   met    = grp->met ;
 
   /* Take into account the minimal amount of memory used by the initialization */
-  PMMG_FIT_MEM(mesh);
+  PMMG_GHOSTMEM_INIT(parmesh,mesh);
   /* Give all the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-#warning MEMORY: small inconsistency
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,rcv_grps,nprocs,mesh);
 
   np = 0;
 
