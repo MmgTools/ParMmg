@@ -114,6 +114,9 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
     if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
     if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
+#warning Option -nosurf overrides part of the surface analysis
+    if ( pxt->tag[j] & MG_NOM)    pxt->tag[j] &= ~MG_NOM;
+    if ( pxt->tag[j] & MG_GEO)    pxt->tag[j] &= ~MG_GEO;
   }
 }
 
