@@ -130,10 +130,6 @@ EXECUTE_PROCESS ( COMMAND grep "OMPI_MAJOR_VERSION"  "${MPI_C_INCLUDE_PATH}/mpi.
   RESULT_VARIABLE CMD_ERROR
   OUTPUT_VARIABLE CMD_OUTPUT )
 
-IF ( ${CMD_ERROR} MATCHES 0 )
-  MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
-ENDIF()
-
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 SET( CMAKE_CXX_FLAGS "-DUSE_MPI ${CMAKE_CXX_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
@@ -246,18 +242,19 @@ OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
 IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
-  UNSET(MMG_BUILDDIR CACHE)
 
   # Use pointmap
   OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
 
   EXTERNALPROJECT_ADD ( Mmg
-    GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG f353d07ea55da617965806a39de8a6d76f3e020f
+    URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/mmg-f353d07e.tar.gz
+    URL_MD5 5a59e3655b5b8c0b3dd4c7d7a19d6574
+    UPDATE_COMMAND ""
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP})
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP}
+    BUILD_COMMAND make libmmg3d_a)
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
@@ -290,42 +287,40 @@ ELSE ( )
   UNSET ( USE_POINTMAP CACHE )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-  SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg")
 
   FIND_PACKAGE(MMG)
 
-  IF(NOT MMG_FOUND )
+  IF ( NOT MMG_FOUND )
 
-    MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
-      "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-      "If you have already installed Mmg and want to use it, "
-      "please set the CMake variable or environment variable MMG_DIR "
-      "to your mmg directory and the CMake variable or environment variable"
-      " MMG_BUILDDIR "
-      "to your mmg build directory.")
+    MESSAGE ( FATAL_ERROR "ERROR: Mmg library not found. "
+      "You can help CMake by setting the MMG_INCDIR variable to your "
+      "Mmg include directory and the MMG_LIBDIR one toward the path to the "
+      "mmg3d library.")
   ELSE()
 
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+    INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/mmg3d)
+
 
     MESSAGE(STATUS
       "Compilation with Mmg: ${MMG_LIBRARIES}")
 
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
-    # Additionnal directories to access the Mmg sources
-    INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
     IF ( MMG_DIR )
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
+      # Adds internal Mmg headers
       INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
       INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
     ELSE ( )
-      MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
-        "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-        "If you have already installed Mmg and want to use it, "
+      MESSAGE ( FATAL_ERROR "ERROR: Mmg source directory is required to find "
+        "internal Mmg headers. "
+        "You can download Mmg on github: https://github.com/MmgTools/mmg. "
+        "If you have already downloaded Mmg and want to use it, "
         "please set the CMake variable or environment variable MMG_DIR "
-        "to your mmg directory.")
+        "to your mmg directory. Be careful to point over the Mmg sources used to "
+        "build the founded Mmg library.")
     ENDIF ( )
   ENDIF ( )
 ENDIF()
@@ -343,6 +338,7 @@ IF ( DOWNLOAD_METIS )
   # Metis
   EXTERNALPROJECT_ADD ( Metis
     URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/metis-5.1.0.tar.gz
+    URL_MD5 5465e67079419a69e0116de24fce58fe
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ${CMAKE_MAKE_PROGRAM} config prefix=../../../Metis-install
     BUILD_IN_SOURCE 1
