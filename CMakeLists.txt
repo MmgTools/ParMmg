@@ -28,6 +28,9 @@ SET (CMAKE_RELEASE_VERSION
 #####
 ###############################################################################
 
+OPTION(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+OPTION(BUILD_STATIC_LIBS "Build static libraries" ON)
+
 SET(PMMG_BINARY_DIR      ${PROJECT_BINARY_DIR}/src/parmmg)
 SET(PMMG_SHRT_INCLUDE    parmmg )
 SET(PMMG_INCLUDE         ${PROJECT_BINARY_DIR}/include/${PMMG_SHRT_INCLUDE} )
@@ -483,9 +486,6 @@ SET(CMAKE_MACOSX_RPATH 1)
 #####
 ############################################################################
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
-
-OPTION(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-OPTION(BUILD_STATIC_LIBS "Build static libraries" ON)
 
 IF ( BUILD_STATIC_LIBS )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
