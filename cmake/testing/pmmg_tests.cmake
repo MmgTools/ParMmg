@@ -237,10 +237,10 @@ IF( BUILD_TESTING )
   ###############################################################################
   SET ( LIB_TESTS OFF )
 
-  IF ( LIBPARMMG_STATIC )
+  IF ( BUILD_STATIC_LIBS )
     SET ( lib_name lib${PROJECT_NAME}_a )
     SET ( LIB_TESTS ON )
-  ELSEIF ( LIBPARMMG_SHARED )
+  ELSEIF ( BUILD_SHARED_LIBS )
     SET ( LIB_TESTS ON )
     SET ( lib_name lib${PROJECT_NAME}_so )
   ENDIF ( )
