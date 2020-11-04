@@ -1074,6 +1074,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
     }
   }
 
@@ -1086,6 +1087,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     itorecv = ext_node_comm->itorecv;
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
+      assert(itorecv[i]);
       intvalues[idx] = itorecv[i];
     }
   }
@@ -1103,9 +1105,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    assert( (ppt->tmp > 0) && (ppt->tmp <= offsets[parmesh->nprocs]) );
+    assert(ppt->tmp > 0);
+    assert(ppt->tmp <= offsets[parmesh->nprocs]);
   }
 #endif
+
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
 
   /* Free arrays */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
@@ -1114,10 +1120,11 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
   PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
-  PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
+
 /**
  * \param parmesh pointer toward the parmesh
  *
