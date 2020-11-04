@@ -2286,6 +2286,9 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
 #endif
 
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
   PMMG_DEL_MEM(parmesh,displ,int,"displ");
@@ -2407,6 +2410,9 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     for( i = 0; i < nitem; i++ )
       idx_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
   }
+
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
