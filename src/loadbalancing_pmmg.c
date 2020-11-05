@@ -47,7 +47,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   mytime     ctim[5];
   int8_t     tim;
   char       stim[32];
-  size_t     memAv,oldMemMax;
 
 
   tminit(ctim,5);
@@ -152,7 +151,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
       }
     }
   }
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

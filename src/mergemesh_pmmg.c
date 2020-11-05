@@ -963,7 +963,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
   PMMG_pGrp      listgrp,grp;
   MMG5_pMesh     mesh0;
   PMMG_pInt_comm int_node_comm,int_face_comm;
-  size_t         available,oldMemMax;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            imsh,k,iel;
 
@@ -985,7 +984,7 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
   if ( parmesh->ngrp == 1 ) return 1;
 
   /* Give the memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm = parmesh->int_node_comm;
@@ -999,9 +998,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
   //DEBUGGING:
   //saveGrpsToMeshes(listgrp,parmesh->ngrp,parmesh->myrank,"BeforeMergeGrp");
 
-  /* Give all the memory to mesh0 */
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh0,available,oldMemMax);
-
   /** Step 0: Store the indices of the interface faces of mesh0 into the
    * internal face communicator */
   face2int_face_comm_index1 = listgrp[0].face2int_face_comm_index1;
@@ -1013,6 +1009,9 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
               && "check intvalues indices" );
     parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
   }
+
+  /* Give all the memory to mesh0 */
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
 
   /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh) ) goto fail_comms;
@@ -1040,15 +1039,15 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     mesh0->nei = mesh0->ne;
 
     /* Free merged mesh and increase mesh0->memMax*/
-    mesh0->memMax += grp->mesh->memCur;
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
     PMMG_grp_free(parmesh,grp);
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
   }
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
 
   assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
-  /* Give all the memory to the communicators */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh0,available,oldMemMax);
 
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
 
@@ -1103,7 +1102,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
 
-  size_t     available,pack_size_tot;
+  size_t     pack_size_tot;
   int        *rcv_pack_size,ier,ier_glob,k,*displs,ier_pack;
   int        nprocs,root,pack_size;
   char       *rcv_buffer,*buffer,*ptr;
@@ -1182,9 +1181,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
 
   /** 4: Unpack parmeshes */
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax - parmesh->memMax;
-  assert ( available >= 0 );
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
 #ifndef NDEBUG
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -1196,10 +1193,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     ptr = rcv_buffer;
     for ( k=0; k<nprocs; ++k ) {
-      assert ( available >= 0 );
-      ier_pack = PMMG_mpiunpack_parmesh ( parmesh,(*rcv_grps)+k,(*rcv_int_node_comm)+k,
+      ier_pack = PMMG_mpiunpack_parmesh ( parmesh,(*rcv_grps),k,(*rcv_int_node_comm)+k,
                                           (*rcv_next_node_comm)+k,(*rcv_ext_node_comm)+k,
-                                          &rcv_buffer,&available );
+                                          &rcv_buffer );
       ier = MG_MIN(ier_pack,ier);
     }
   }
@@ -1253,14 +1249,7 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
 
   if ( parmesh->myrank != parmesh->info.root ) return 1;
 
-  /** Give all the memory to the mesh */
-  parmesh->memMax  = parmesh->memCur;
-
   assert ( !parmesh->listgrp );
-
-  if ( parmesh->memMax + sizeof(PMMG_Grp) <= parmesh->memGloMax ) {
-    parmesh->memMax += sizeof(PMMG_Grp);
-  }
 
   PMMG_CALLOC(parmesh,parmesh->listgrp,1,PMMG_Grp,"listgrp", return 0);
 
@@ -1272,9 +1261,10 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   mesh   = grp->mesh;
   met    = grp->met ;
 
-  /** Give all the memory to the mesh */
-  memAv            = parmesh->memGloMax - parmesh->memMax - mesh->memMax;
-  mesh->memMax    += memAv;
+  /* Take into account the minimal amount of memory used by the initialization */
+  PMMG_GHOSTMEM_INIT(parmesh,mesh);
+  /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,rcv_grps,nprocs,mesh);
 
   np = 0;
 
@@ -1592,7 +1582,6 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm *rcv_ext_node_comm,enc;
   MMG5_pMesh     mesh;
   MMG5_pPoint    ppt;
-  size_t         available;
   int            *rcv_next_node_comm;
   int            k,idx,ier,ieresult;
 
@@ -1611,15 +1600,10 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
    * overflow slightly the maximal memory here because the other
    * parmeshes are not totally empty but they must take only few hundred of Ko */
   parmesh->memGloMax *= parmesh->size_shm;
+#warning MEMORY: small inconsistency
 
-  available = parmesh->memGloMax;
-  if ( grp ) {
-    grp->mesh->memMax = grp->mesh->memCur;
-    available -= grp->mesh->memMax;
-  }
-
-  assert ( available >= 0 );
-  parmesh->memMax += available;
+  if( grp )
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   /* Internal comm allocation */
   int_node_comm = parmesh->int_node_comm;

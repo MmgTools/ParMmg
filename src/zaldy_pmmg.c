@@ -71,7 +71,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   }
 
   /** Step 2: Set maximal memory per process depending on the -m option setting */
-  maxAvail = MMG5_memSize()/parmesh->size_shm;
+  maxAvail = MMG5_memSize();
 
   if ( parmesh->info.mem <= 0 ) {
     /* Nos users specifications */
@@ -379,8 +379,6 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
       }
     }
   }
-
-  mesh->memMax = mesh->memCur;
 
   return ier;
 }

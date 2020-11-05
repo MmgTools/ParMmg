@@ -452,15 +452,11 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
 static inline
 int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   MMG5_pMesh mesh;
-  size_t     tmpmem;
   int        npmax,xpmax,nemax,xtmax;
 
-  tmpmem = parmesh->memMax - parmesh->memCur;
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax += tmpmem;
-
   mesh = parmesh->listgrp[0].mesh;
-  mesh  = parmesh->listgrp[0].mesh;
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
+
   npmax = mesh->npmax;
   nemax = mesh->nemax;
   xpmax = mesh->xpmax;
@@ -472,13 +468,17 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
 
   if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
     fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
     return 0;
   }
 
   if ( (!MMG3D_hashTetra( mesh, 0 )) || (-1 == MMG3D_bdryBuild( mesh )) ) {
     /** Impossible to rebuild the triangle */
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
     return 0;
   }
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   return 1;
 }
 
@@ -1153,6 +1153,8 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
   case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+
     /* Distributed Output */
     tim = 1;
     chrono(ON,&(ctim[tim]));
@@ -1172,8 +1174,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
 
     if( parmesh->info.globalNum ) {
-      size_t myavailable,oldMemMax;
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
       ier = PMMG_Compute_verticesGloNum( parmesh );
       if( !ier ) {
