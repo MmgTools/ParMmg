@@ -407,6 +407,30 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 
 
 /**
+ * \param mesh pointer toward a mesh structure
+ *
+ * Set memMax to memCur. */
+#define PMMG_FIT_MEM(mesh) do {                                         \
+    mesh->memMax = mesh->memCur;                                        \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ *
+ * Set memMax to memCur for all meshes. */
+#define PMMG_FIT_MEM_MESHES(parmesh) do {                               \
+    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {                     \
+      PMMG_FIT_MEM(parmesh->listgrp[igrp].mesh);                        \
+    }                                                                   \
+    if( parmesh->old_listgrp ) {                                        \
+      for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {               \
+        if( !parmesh->old_listgrp[igrp].mesh ) continue;                \
+        PMMG_FIT_MEM(parmesh->old_listgrp[igrp].mesh);                  \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
+
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
  *
@@ -431,30 +455,6 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  * Give to parmesh the memory freed by mesh pointers deallocation. */
 #define PMMG_GHOSTMEM_FREE(parmesh,mesh) do {                              \
     parmesh->memMax += mesh->memCur;                                       \
-  } while(0)
-
-/**
- * \param mesh pointer toward a mesh structure
- *
- * Set memMax to memCur. */
-#define PMMG_FIT_MEM(mesh) do {                                         \
-    mesh->memMax = mesh->memCur;                                        \
-  } while(0)
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * Set memMax to memCur for all meshes. */
-#define PMMG_FIT_MEM_MESHES(parmesh) do {                               \
-    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {                     \
-      PMMG_FIT_MEM(parmesh->listgrp[igrp].mesh);                        \
-    }                                                                   \
-    if( parmesh->old_listgrp ) {                                        \
-      for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {               \
-        if( !parmesh->old_listgrp[igrp].mesh ) continue;                \
-        PMMG_FIT_MEM(parmesh->old_listgrp[igrp].mesh);                  \
-      }                                                                 \
-    }                                                                   \
   } while(0)
 
 /**
@@ -484,8 +484,10 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  * \param ngrp number of external groups
  * \param memUsed amount of memory used
  *
- * Global memory count, taking into account grous not listed in the
- * parmesh structure. */
+ * Global memory count, taking into account grous potentially not listed in the
+ * parmesh structure.
+ * The implementation of the function is transparent to groups that are already
+ * listed in the parmesh (i.e. they are counted only once). */
 #define PMMG_COMPUTE_USEDMEM_EXT(parmesh,grps,ngrp,memUsed) do {        \
     int i;                                                              \
                                                                         \
