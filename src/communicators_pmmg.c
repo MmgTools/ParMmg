@@ -1627,7 +1627,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
                 - scaled_coor[j];
               dd += dist[j]*dist[j];
             }
-            assert ( dd<PMMG_EPSCOOR );
+            assert ( dd < PMMG_EPSCOOR2 );
 #endif
           }
         }
@@ -1668,7 +1668,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
                 -scaled_coor[j];
               dd += dist[j]*dist[j];
             }
-            assert ( dd < PMMG_EPSCOOR );
+            assert ( dd < PMMG_EPSCOOR2 );
 #endif
           }
         }
