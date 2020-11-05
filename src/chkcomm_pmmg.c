@@ -282,7 +282,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
           dist_norm += dist[j]*dist[j];
         }
 
-        if ( dist_norm > PMMG_EPSCOOR ) {
+        if ( dist_norm > PMMG_EPSCOOR2 ) {
           fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                  "       2 different points (dist %e) in the same position (%d)"
                  " of the internal communicator:\n"
@@ -315,7 +315,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
         dist[j] = coor_list[ commIdx2 ].c[j]-coor_list[ commIdx1 ].c[j];
         dist_norm += dist[j]*dist[j];
       }
-      if ( dist_norm < PMMG_EPSCOOR ) {
+      if ( dist_norm < PMMG_EPSCOOR2 ) {
         int grp1_id   = coor_list[ commIdx1 ].grp;
         int grp2_id   = coor_list[ commIdx2 ].grp;
         int pos1_idx  = coor_list[ commIdx1 ].idx;
@@ -489,7 +489,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
             dist_norm += dist[j]*dist[j];
           }
 
-          if ( dist_norm > PMMG_EPSCOOR ) {
+          if ( dist_norm > PMMG_EPSCOOR2 ) {
             fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                     "       2 different points (dist %e) in the same position (%d)"
                     " of the internal communicator:\n"
@@ -658,12 +658,12 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     y = ppt0->c[1] - ppt1->c[1];
     z = ppt0->c[2] - ppt1->c[2];
     /* Point the edge vector in the direction of the highest first coordinate */
-    if( (x > MMG5_EPSOK) ||
-        (fabs(x) < MMG5_EPSOK && y > MMG5_EPSOK) ||
-        (fabs(x) < MMG5_EPSOK && fabs(y) < MMG5_EPSOK && z > MMG5_EPSOK) ) {
+    if( (x > PMMG_EPSCOOR) ||
+        (fabs(x) < PMMG_EPSCOOR && y > PMMG_EPSCOOR) ||
+        (fabs(x) < PMMG_EPSCOOR && fabs(y) < PMMG_EPSCOOR && z > PMMG_EPSCOOR) ) {
       for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
       for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
-    } else if( fabs(x) <= MMG5_EPSOK && fabs(y) <= MMG5_EPSOK && fabs(z) <= MMG5_EPSOK ) {
+    } else if( fabs(x) <= PMMG_EPSCOOR && fabs(y) <= PMMG_EPSCOOR && fabs(z) <= PMMG_EPSCOOR ) {
       fprintf(stderr,"  ## Error: %s: rank %d: nearly coincident vertices for"
               " edge %d, distance: (%e,%e,%e)",__func__,parmesh->myrank,ia,
               x,y,z);
@@ -766,7 +766,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
         y   = doublevalues[6*idx+3*j+1] - rtorecv[6*i+3*j+1];
         z   = doublevalues[6*idx+3*j+2] - rtorecv[6*i+3*j+2];
 
-        if ( x*x + y*y + z*z > PMMG_EPSCOOR ) {
+        if ( x*x + y*y + z*z > PMMG_EPSCOOR2 ) {
           fprintf(stderr,"  ## Error: %s: rank %d:\n"
                   "       2 different points (dist %e:%e,%e,%e) in the same position (%d)"
                   " of the external communicator %d %d (%d th item):\n"
