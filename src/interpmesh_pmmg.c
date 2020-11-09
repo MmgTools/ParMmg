@@ -768,7 +768,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   }
 
 #ifndef NDEBUG
-  if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )
+  if( ((( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) || mesh->nsols)
       && (parmesh->info.imprim0 > PMMG_VERB_DETQUAL) ) {
     PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
   }
