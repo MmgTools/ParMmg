@@ -6,21 +6,33 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
 
-
   IF ( NOT ONLY_LIBRARY_TESTS )
 
-    IF ( NOT EXISTS ${CI_DIR} )
+    FIND_PACKAGE ( Git )
+
+    IF ( Git_FOUND )
+
+      IF ( NOT EXISTS ${CI_DIR} )
+        EXECUTE_PROCESS(
+          COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
+          WORKING_DIRECTORY ${PARENT_DIR}
+          )
+      ENDIF()
+
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
-        WORKING_DIRECTORY ${PARENT_DIR}
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
+        WORKING_DIRECTORY ${CI_DIR}
+        #COMMAND_ECHO STDOUT
         )
-    ENDIF()
-    EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
-      WORKING_DIRECTORY ${CI_DIR}
-      #COMMAND_ECHO STDOUT
-      )
+    ELSE ( )
+      MESSAGE ( WARNING "Git library not founded: library tests only will be runned" )
+      SET ( ONLY_LIBRARY_TESTS ON )
+    ENDIF ( )
+
+  ENDIF ( )
+
+  IF ( NOT ONLY_LIBRARY_TESTS )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
