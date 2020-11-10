@@ -206,20 +206,22 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol ${myargs} )
+      -sol field3_iso-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -hsiz 0.2 ${myargs} )
+      -mesh-size 60000 -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
-      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol ${myargs} )
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-refinement-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
