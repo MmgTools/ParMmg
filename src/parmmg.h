@@ -45,6 +45,7 @@
 #include <math.h>
 #include <mpi_pmmg.h>
 
+#include "metis.h"
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
 #include "mmg3d.h"
