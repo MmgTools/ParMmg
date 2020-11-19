@@ -703,8 +703,9 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
     return ier;
   }
-  /* Don't compute weights if output load balancing is required at last iter */
-  if( (parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing ) {
+  /* Don't compute weights at mesh distribution, or if output load balancing is required at last iter */
+  if( (parmesh->iter != PMMG_UNSET) &&
+      ((parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing) ) {
     PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
     if( !ier ) {
       PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
