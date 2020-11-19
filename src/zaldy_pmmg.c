@@ -97,7 +97,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
     }
   }
 
-  if ( abs(parmesh->info.imprim) > 4 || parmesh->ddebug ) {
+  if ( abs(parmesh->info.imprim) > 0 || parmesh->ddebug ) {
     fprintf(stdout,"  MAXIMUM MEMORY AUTHORIZED PER PROCESS (MB)    %zu\n",
             parmesh->memGloMax/MMG5_MILLION);
   }
