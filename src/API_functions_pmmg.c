@@ -408,7 +408,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.root               = PMMG_NUL;
 
   parmesh->ddebug                  = PMMG_NUL;
-  parmesh->iter                    = PMMG_NUL;
+  parmesh->iter                    = PMMG_UNSET;
   parmesh->niter                   = PMMG_NITER;
   parmesh->info.fem                = MMG5_FEM;
   parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
