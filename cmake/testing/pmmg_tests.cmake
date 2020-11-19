@@ -188,11 +188,13 @@ IF( BUILD_TESTING )
       -distributed-output
       ${CI_DIR}/WaveSurface/wave.mesh
       -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
       -centralized-output
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
     set_tests_properties(multidom_wave-8-rerun PROPERTIES DEPENDS multidom_wave-8 )
 
