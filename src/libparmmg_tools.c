@@ -712,6 +712,9 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
   int   icomm,i,ier,ier_glob;
   FILE *fid;
 
+  /* Don't print communicators  outside the adaptation loop */
+  if( parmesh->iter == PMMG_UNSET ) return 1;
+
   /** Step 1: find where to write communicators */
   bin = 0;
   ier = 1;

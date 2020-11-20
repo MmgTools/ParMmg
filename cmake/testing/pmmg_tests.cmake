@@ -200,11 +200,13 @@ IF( BUILD_TESTING )
       -distributed-output
       ${CI_DIR}/WaveSurface/wave.mesh
       -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
       -centralized-output
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
     set_tests_properties(multidom_wave-8-rerun PROPERTIES DEPENDS multidom_wave-8 )
 
@@ -218,20 +220,22 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol ${myargs} )
+      -sol field3_iso-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -hsiz 0.2 ${myargs} )
+      -mesh-size 60000 -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.mesh
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
-      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol ${myargs} )
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-refinement-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>

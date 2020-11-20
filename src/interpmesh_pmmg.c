@@ -702,13 +702,12 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   MMG5_pSol        met,oldMet,field,oldField;
   MMG5_Hash        hash;
   PMMG_locateStats *locStats,*mylocStats;
-  size_t           memAv,oldMemMax;
   double           *faceAreas,*triaNormals;
   int              *nodeTrias;
   int              igrp,ier;
   int8_t           allocated;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   locStats = NULL;
 #ifndef NDEBUG
@@ -769,7 +768,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   }
 
 #ifndef NDEBUG
-  if( ( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )
+  if( ((( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) || mesh->nsols)
       && (parmesh->info.imprim0 > PMMG_VERB_DETQUAL) ) {
     PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
   }

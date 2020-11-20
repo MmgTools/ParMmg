@@ -34,9 +34,9 @@
  */
 #include "libmmgtypes.h"
 
-int PMMG_mpiunpack_grp ( PMMG_pParMesh,PMMG_pGrp,char **buffer,size_t *memAv);
+int PMMG_mpiunpack_grp ( PMMG_pParMesh,PMMG_pGrp,int,char **buffer);
 
-int PMMG_mpiunpack_parmesh ( PMMG_pParMesh,PMMG_pGrp,PMMG_pInt_comm,int*,
-                             PMMG_pExt_comm*,char**,size_t* );
+int PMMG_mpiunpack_parmesh ( PMMG_pParMesh,PMMG_pGrp,int,PMMG_pInt_comm,int*,
+                             PMMG_pExt_comm*,char** );
 
 #endif

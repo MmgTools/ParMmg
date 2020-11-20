@@ -458,7 +458,6 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
   MMG5_pSol  met,field;
-  size_t     memAv,oldMemMax;
   char       name[ 2048 ];
   int        ier;
 
@@ -470,12 +469,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  oldMemMax = 0;
-  if ( mesh->memCur == mesh->memMax ) {
-    oldMemMax = parmesh->memCur;
-    memAv = parmesh->memMax-oldMemMax;
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
-  }
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   /* Rebuild boundary */
   if ( !mesh->adja ) {
@@ -503,9 +497,7 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
     MMG3D_saveAllSols( mesh, &field, name );
   }
 
-  if ( oldMemMax ) {
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
-  }
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
@@ -521,19 +513,16 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
 int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  size_t     memAv,oldMemMax;
   char       name[ 2048 ];
   int        ier;
- 
+
   grp  = &parmesh->listgrp[grpId];
   mesh = grp->mesh;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
-  
-  oldMemMax = parmesh->memCur;
-  memAv = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
  
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
@@ -547,7 +536,7 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   PMMG_saveMark( mesh, name );
 
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
@@ -563,20 +552,17 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
 int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  size_t     memAv,oldMemMax;
   char       name[ 2048 ];
   int        ier;
- 
+
   grp  = &parmesh->listgrp[grpId];
   mesh = grp->mesh;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
-  
-  oldMemMax = parmesh->memCur;
-  memAv = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
- 
+
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
+
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   /* Destroy boundary */
@@ -584,12 +570,12 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   mesh->nt = 0;
 
   MMG3D_saveMesh( mesh, name );
- 
+
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
   PMMG_saveQual( mesh, name );
 
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
