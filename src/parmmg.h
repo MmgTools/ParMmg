@@ -46,6 +46,7 @@
 #include <mpi_pmmg.h>
 
 #include "libparmmg.h"
+#include "interpmesh_pmmg.h"
 #include "mmg3d.h"
 
 #ifdef __cplusplus
@@ -175,6 +176,34 @@ extern "C" {
  */
 #define PMMG_GRPSPL_MMG_TARGET 2
 
+/**
+ *
+ * Use custom partitioning saved in the reference field (1=yes, 0=no)
+ *
+ */
+#define PMMG_PREDEF_PART 0
+
+/**
+ * \enum PMMG_Format
+ * \brief Type of supported file format
+ */
+enum PMMG_Format {
+  PMMG_FMT_MeditASCII  = MMG5_FMT_MeditASCII, /*!< ASCII Medit (.mesh) */
+  PMMG_FMT_MeditBinary = MMG5_FMT_MeditBinary,/*!< Binary Medit (.meshb) */
+  PMMG_FMT_GmshASCII   = MMG5_FMT_GmshASCII,  /*!< ASCII Gmsh */
+  PMMG_FMT_GmshBinary  = MMG5_FMT_GmshBinary, /*!< Binary Gmsh */
+  PMMG_FMT_VtkPvtp     = MMG5_FMT_VtkPvtp,    /*!< VTK pvtp */
+  PMMG_FMT_VtkPvtu     = MMG5_FMT_VtkPvtu,    /*!< VTK pvtu */
+  PMMG_FMT_VtkVtu      = MMG5_FMT_VtkVtu,     /*!< VTK vtu */
+  PMMG_FMT_VtkVtp      = MMG5_FMT_VtkVtp,     /*!< VTK vtp */
+  PMMG_FMT_VtkVtk      = MMG5_FMT_VtkVtk,     /*!< VTK vtk */
+  PMMG_FMT_Tetgen      = MMG5_FMT_Tetgen,     /*!< Tetgen or Triangle */
+  PMMG_FMT_Centralized,                       /*!< Centralized Setters/Getters */
+  PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
+  PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
+  PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
+  PMMG_FMT_Unknown,                           /*!< Unrecognized */
+};
 
 /**< Subgroups target size for a fast remeshing step */
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
@@ -242,7 +271,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
                                                                         \
       if ( parmesh->listgrp[kgrp].mesh ) {                              \
         for ( ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
-          parmesh->listgrp[kgrp].sol[ksol].npi  = parmesh->listgrp[kgrp].sol[ksol].np; \
+          parmesh->listgrp[kgrp].field[ksol].npi  = parmesh->listgrp[kgrp].field[ksol].np; \
         }                                                               \
       }                                                                 \
     }                                                                   \
@@ -378,29 +407,174 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 
 
 /**
+ * \param mesh pointer toward a mesh structure
+ *
+ * Set memMax to memCur. */
+#define PMMG_FIT_MEM(mesh) do {                                         \
+    mesh->memMax = mesh->memCur;                                        \
+  } while(0)
+
+/**
  * \param parmesh pointer toward a parmesh structure
- * \param myavailable available memory at the beginning of the process
- * \param oldMemMax initial value for parmesh->memCur
+ *
+ * Set memMax to memCur for all meshes. */
+#define PMMG_FIT_MEM_MESHES(parmesh) do {                               \
+    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {                     \
+      PMMG_FIT_MEM(parmesh->listgrp[igrp].mesh);                        \
+    }                                                                   \
+    if( parmesh->old_listgrp ) {                                        \
+      for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {               \
+        if( !parmesh->old_listgrp[igrp].mesh ) continue;                \
+        PMMG_FIT_MEM(parmesh->old_listgrp[igrp].mesh);                  \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ *
+ * Take from parmesh the memory used by mesh pointers allocation. */
+#define PMMG_GHOSTMEM_INIT(parmesh,mesh) do {                              \
+    PMMG_FIT_MEM(mesh);                                                    \
+    if( mesh->memCur >= parmesh->memMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"              \
+              "     Allowed: %zu\n"                                        \
+              "     Current: %zu\n",__func__,parmesh->memMax,mesh->memCur);\
+      assert(0);                                                           \
+      return 0;                                                            \
+    } else {                                                               \
+      parmesh->memMax -= mesh->memCur;                                     \
+    }                                                                      \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ *
+ * Give to parmesh the memory freed by mesh pointers deallocation. */
+#define PMMG_GHOSTMEM_FREE(parmesh,mesh) do {                              \
+    parmesh->memMax += mesh->memCur;                                       \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param memUsed amount of memory used
+ *
+ * Global memory count. */
+#define PMMG_COMPUTE_USEDMEM(parmesh,memUsed) do {                      \
+    int        igrp;                                                    \
+                                                                        \
+    memUsed = parmesh->memCur;                                          \
+    for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {                     \
+      if( !parmesh->listgrp[igrp].mesh ) continue;                      \
+      memUsed += parmesh->listgrp[igrp].mesh->memCur;                   \
+    }                                                                   \
+    if( parmesh->old_listgrp ) {                                        \
+      for( igrp = 0; igrp < parmesh->nold_grp; igrp++ ) {               \
+        if( !parmesh->old_listgrp[igrp].mesh ) continue;                \
+        memUsed += parmesh->old_listgrp[igrp].mesh->memCur;             \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param grps pointer toward external groups
+ * \param ngrp number of external groups
+ * \param memUsed amount of memory used
+ *
+ * Global memory count, taking into account grous potentially not listed in the
+ * parmesh structure.
+ * The implementation of the function is transparent to groups that are already
+ * listed in the parmesh (i.e. they are counted only once). */
+#define PMMG_COMPUTE_USEDMEM_EXT(parmesh,grps,ngrp,memUsed) do {        \
+    int i;                                                              \
+                                                                        \
+    PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                              \
+    if( grps && (grps != parmesh->listgrp) ) {                          \
+      for( i = 0; i < ngrp; i++ ) {                                     \
+        if( !(grps)[i].mesh ) continue;                                 \
+        memUsed += (grps)[i].mesh->memCur;                              \
+      }                                                                 \
+    }                                                                   \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ *
+ * Assert the global memory count. */
+#ifndef NDEBUG
+#define PMMG_ASSERT_MEM(parmesh,meshTaker) do {                         \
+    size_t memAv,memUsed,memSum;                                        \
+                                                                        \
+    memAv = meshTaker->memMax-meshTaker->memCur;                        \
+    PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                              \
+    memSum = memUsed + memAv;                                           \
+    if( memSum != parmesh->memGloMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: memory count mismatch.\n"       \
+              "     Total:          %zu -- Used %zu, available %zu\n"   \
+              "     Used+available: %zu\n",__func__,                    \
+              parmesh->memGloMax,memUsed,memAv,memSum);                 \
+      assert(0);                                                        \
+    } \
+  } while(0)
+#else
+#define PMMG_ASSERT_MEM(parmesh,meshTaker) do {} while(0)
+#endif
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param grps pointer toward external groups
+ * \param ngrp number of external groups
+ * \param mesh pointer toward a mesh structure
+ *
+ * Assert the global memory count, taking into account grous not listed in the
+ * parmesh structure. */
+#ifndef NDEBUG
+#define PMMG_ASSERT_MEM_EXT(parmesh,grps,ngrp,meshTaker) do {           \
+    size_t memAv,memUsed,memSum;                                        \
+                                                                        \
+    memAv = meshTaker->memMax-meshTaker->memCur;                        \
+    PMMG_COMPUTE_USEDMEM_EXT(parmesh,grps,ngrp,memUsed);                \
+    memSum = memUsed + memAv;                                           \
+    if( memSum != parmesh->memGloMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: memory count mismatch.\n"       \
+              "     Total:          %zu -- Used %zu, available %zu\n"   \
+              "     Used+available: %zu\n",__func__,                    \
+              parmesh->memGloMax,memUsed,memAv,memSum);                 \
+      assert(0);                                                        \
+    } \
+  } while(0)
+#else
+#define PMMG_ASSERT_MEM_EXT(parmesh,grps,ngrp,meshTaker) do {} while(0)
+#endif
+
+/**
+ * \param parmesh pointer toward a parmesh structure
  *
  * Set memMax to memCur for every group mesh, compute the available memory and
  * give it to the parmesh
  *
  */
-#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax) do {        \
-    int    myj;                                                         \
-                                                                        \
-    parmesh->memMax = parmesh->memCur;                                  \
-    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
-    oldMemMax   = parmesh->memCur;                                      \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
-      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
-    }                                                                   \
-    parmesh->memMax += myavailable;                                       \
+#define PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh) do {                     \
+    size_t memUsed,memAv;                                                \
+    int    igrp;                                                         \
+                                                                         \
+    PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                               \
+    if( memUsed >= parmesh->memGloMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"            \
+              "     Maximum: %zu\n"                                      \
+              "     Used:    %zu\n",__func__,parmesh->memGloMax,memUsed);\
+      assert(0);                                                         \
+      return 0;                                                          \
+    } else {                                                             \
+      memAv = parmesh->memGloMax-memUsed;                                \
+      parmesh->memMax = parmesh->memCur+memAv;                           \
+                                                                         \
+      PMMG_FIT_MEM_MESHES(parmesh);                                      \
+    }                                                                    \
   } while(0)
 
 /**
@@ -410,96 +584,143 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
  * repartite it to the mesh
  *
  */
-#define PMMG_TRANSFER_AVMEM_TO_MESHES(Parmesh) do {                     \
-    size_t myavailable;                                                 \
-    int    myj;                                                         \
-                                                                        \
-    parmesh->memMax = parmesh->memCur;                                  \
-    myavailable = parmesh->memGloMax - parmesh->memMax;                 \
-                                                                        \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax = parmesh->listgrp[myj].mesh->memCur; \
-      if( myavailable < parmesh->listgrp[myj].mesh->memMax ) {          \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      myavailable -= parmesh->listgrp[myj].mesh->memMax;                \
-    }                                                                   \
-    myavailable /= parmesh->ngrp;                                       \
-                                                                        \
-    for (  myj=0; myj<parmesh->ngrp; ++myj ) {                          \
-      parmesh->listgrp[myj].mesh->memMax += myavailable;                \
-    }                                                                   \
+#define PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh) do {                      \
+    size_t memUsed,memAv;                                                \
+    int    igrp;                                                         \
+                                                                         \
+    PMMG_COMPUTE_USEDMEM(parmesh,memUsed);                               \
+    if( memUsed >= parmesh->memGloMax ) {                                \
+      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"            \
+              "     Maximum: %zu\n"                                      \
+              "     Used:    %zu\n",__func__,parmesh->memGloMax,memUsed);\
+      return 0;                                                          \
+    } else {                                                             \
+      memAv = parmesh->memGloMax-memUsed;                                \
+      memAv /= parmesh->ngrp;                                            \
+                                                                         \
+      PMMG_FIT_MEM(parmesh);                                             \
+      PMMG_FIT_MEM_MESHES(parmesh);                                      \
+                                                                         \
+      for(  igrp = 0; igrp < parmesh->ngrp; igrp++ )                     \
+        parmesh->listgrp[igrp].mesh->memMax += memAv;                    \
+    }                                                                    \
   } while(0)
 
+/**
+ * \param meshDonor pointer toward the donor mesh
+ * \param meshTaker pointer toward the taker mesh
+ *
+ * Transfer available memory from mesh donor to mesh taker.
+ *
+ */
+#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(meshDonor,meshTaker) do {  \
+    size_t memAv;                                                        \
+                                                                         \
+    if( meshDonor->memCur >= meshDonor->memMax ) {                       \
+      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n"            \
+              "     Allowed: %zu\n"                                      \
+              "     Current: %zu\n",__func__,meshDonor->memMax,meshDonor->memCur);\
+      assert(0);                                                         \
+      return 0;                                                          \
+    } else {                                                             \
+      memAv = meshDonor->memMax-meshDonor->memCur;                       \
+                                                                         \
+      meshDonor->memMax = meshDonor->memCur;                             \
+      if( meshTaker->memMax != meshTaker->memCur ) {                     \
+        fprintf(stderr,"\n  ## Error: %s: taker memory not fitted.\n"    \
+                "     Max: %zu, current %zu\n",__func__,                 \
+                meshTaker->memMax,meshTaker->memCur);                    \
+        assert(0);                                                       \
+        return 0;                                                        \
+      } else {                                                           \
+        meshTaker->memMax = meshTaker->memCur+memAv;                     \
+      }                                                                  \
+    }                                                                    \
+  } while(0)
 
 
 /**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward a mesh structure
- * \param memAv available memory
- * \param oldMemMax memory previously used by parmesh
  *
  * Limit parmesh->memMax to the currently used memory, update the value of the
  * available memory by removing the amount of memory that has been allocated by
  * the parmesh, and give the available memory (previously given to the parmesh)
  * to the group mesh structure. */
-#define PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax) do { \
+#define PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh) do {     \
                                                                         \
-    parmesh->memMax = parmesh->memCur;                                  \
-                                                                        \
-    if ( parmesh->memMax > oldMemMax ) {                                \
-      if ( memAv < parmesh->memMax - oldMemMax ) {                      \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      memAv          -= (parmesh->memMax - oldMemMax );                 \
+    if( parmesh->memGloMax ) { /* check on the arguments order */       \
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(parmesh,mesh);              \
+      PMMG_ASSERT_MEM(parmesh,mesh);                                    \
     }                                                                   \
-    else if ( oldMemMax > parmesh->memMax ) {                           \
-      memAv           += ( oldMemMax - parmesh->memMax );               \
-      assert ( memAv+mesh->memMax <= parmesh->memGloMax );              \
-    }                                                                   \
-    oldMemMax        = mesh->memCur;                                    \
-    mesh->memMax    += memAv;                                           \
-                                                                        \
   } while(0)
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param grps pointer toward external groups
+ * \param ngrp number of external groups
  * \param mesh pointer toward a mesh structure
- * \param memAv available memory
- * \param oldMemMax memory previously used by mesh
+ *
+ * Limit parmesh->memMax to the currently used memory, update the value of the
+ * available memory by removing the amount of memory that has been allocated by
+ * the parmesh, and give the available memory (previously given to the parmesh)
+ * to the group mesh structure.
+ * Also take into account groups not listed in the parmesh structure. */
+#define PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,ngrp,mesh) do { \
+                                                                                  \
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(parmesh,mesh);                          \
+    PMMG_ASSERT_MEM_EXT(parmesh,grps,ngrp,mesh);                                  \
+  } while(0)
+
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param grps pointer toward external groups
+ * \param ngrp number of external groups
+ * \param mesh pointer toward a mesh structure
  *
  * Limit mesh->memMax to the currently used memory, update the value of the
  * available memory by removing the amount of memory that has been allocated by
  * the mesh, and give the available memory (previously given to the mesh)
  * to the parmesh structure. */
-#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax) do {   \
-    mesh->memMax = mesh->memCur;                                        \
+#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh) do {     \
                                                                         \
-    if ( mesh->memMax > oldMemMax ) {                                   \
-      if ( memAv < mesh->memMax - oldMemMax ) {                         \
-        fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__); \
-        return 0;                                                       \
-      }                                                                 \
-      memAv           -= ( mesh->memMax - oldMemMax );                  \
+    if( parmesh->memGloMax ) { /* check on the arguments order */       \
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(mesh,parmesh);              \
+      PMMG_ASSERT_MEM(parmesh,parmesh);                                 \
     }                                                                   \
-    else if ( oldMemMax > mesh->memMax ) {                              \
-      memAv           += ( oldMemMax - mesh->memMax );                  \
-      assert ( memAv+parmesh->memMax <= parmesh->memGloMax );           \
-    }                                                                   \
-    oldMemMax        = parmesh->memCur;                                 \
-    parmesh->memMax += memAv;                                           \
-                                                                        \
   } while(0)
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward a mesh structure
+ *
+ * Limit mesh->memMax to the currently used memory, update the value of the
+ * available memory by removing the amount of memory that has been allocated by
+ * the mesh, and give the available memory (previously given to the mesh)
+ * to the parmesh structure.
+ * Also take into account groups not listed in the parmesh structure. */
+#define PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,ngrp,mesh) do { \
+                                                                                  \
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_MESH(mesh,parmesh);                          \
+    PMMG_ASSERT_MEM_EXT(parmesh,grps,ngrp,parmesh);                               \
+  } while(0)
+
+
 /* Input */
+int PMMG_Set_name(PMMG_pParMesh,char **,const char* name,const char* defname);
 int PMMG_check_inputData ( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh );
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh );
 int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
+void PMMG_setfunc( PMMG_pParMesh parmesh );
+
+/* Mesh analysis */
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash );
 
 /* Internal library */
+void PMMG_setfunc( PMMG_pParMesh parmesh );
 int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 
 /* Mesh distrib */
@@ -511,7 +732,8 @@ int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
 /* Load Balancing */
-int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part);
+int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interaction_map);
+int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int);
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
 int PMMG_loadBalancing( PMMG_pParMesh parmesh );
 int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
@@ -522,14 +744,15 @@ void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp );
 int PMMG_update_oldGrps( PMMG_pParMesh parmesh );
-int PMMG_interpMetrics_grps( PMMG_pParMesh parmesh,int* );
-int PMMG_copyMetrics_point( PMMG_pGrp grp,PMMG_pGrp oldGrp, int* permNodGlob);
+int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int* );
+int PMMG_copyMetricsAndFields_point( MMG5_pMesh mesh, MMG5_pMesh oldMesh, MMG5_pSol met, MMG5_pSol oldMet, MMG5_pSol,MMG5_pSol, int* permNodGlob,uint8_t);
 
 /* Communicators building and unallocation */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh,PMMG_pInt_comm);
 void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);
 void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
 void PMMG_node_comm_free( PMMG_pParMesh );
+void PMMG_edge_comm_free( PMMG_pParMesh );
 
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
@@ -540,7 +763,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
-int PMMG_parbdySet( PMMG_pParMesh parmesh );
+int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar );
 
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh);
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh);
@@ -550,6 +773,18 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
 int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
 int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
+
+/* Tags */
+void PMMG_tag_par_node(MMG5_pPoint ppt);
+void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_node(MMG5_pPoint ppt);
+void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
+void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
+int  PMMG_updateTag(PMMG_pParMesh parmesh);
+int  PMMG_parbdySet( PMMG_pParMesh parmesh );
 
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
@@ -583,7 +818,7 @@ void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent);
 int  PMMG_setMemMax_realloc( MMG5_pMesh,int,int,int,int);
-int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met);
+int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp );
 int  PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh,int percent,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
@@ -591,15 +826,14 @@ void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
-int  PMMG_updateTag(PMMG_pParMesh parmesh);
 
 /* Tools */
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
 int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,char,int );
-int PMMG_tetraQual( PMMG_pParMesh parmesh,char metRidTyp );
+int PMMG_prilen( PMMG_pParMesh parmesh,int8_t,int );
+int PMMG_tetraQual( PMMG_pParMesh parmesh,int8_t metRidTyp );
 
 /* Variadic_pmmg.c */
 int PMMG_Init_parMesh_var_internal(va_list argptr,int callFromC);

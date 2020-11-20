@@ -36,53 +36,6 @@
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * \return 1 if success, 0 if fail.
- *
- * Count the number of parallel triangle in each tetra and store the info into
- * the mark field of the tetra.
- * Reset the OLDPARBDY tag after mesh adaptation in order to track previous
- * parallel faces during load balancing.
- *
- */
-static inline
-int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
-  MMG5_pMesh   mesh;
-  MMG5_pTetra  pt;
-  MMG5_pxTetra pxt;
-  int          k,i,j;
-
-  for ( i=0; i<parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-
-    if ( !mesh ) continue;
-
-    for ( k=1; k<=mesh->ne; ++k ) {
-      pt       = &mesh->tetra[k];
-      pt->mark = 1;
-
-      if ( (!MG_EOK(pt)) || (!pt->xt) ) continue;
-      pxt = &mesh->xtetra[pt->xt];
-
-      for ( j=0; j<4; ++j ) {
-        if ( pxt->ftag[j] & MG_PARBDY ) {
-          /* Increase counter */
-          ++pt->mark;
-          /* Mark face as a previously parallel one */
-          pxt->ftag[j] |= MG_OLDPARBDY;
-        } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
-          /* Untag faces which are not parallel anymore */
-          pxt->ftag[j] &= ~MG_OLDPARBDY;
-        }
-      }
-    }
-  }
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
  * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *
  * Load balancing of the mesh groups over the processors.
@@ -94,7 +47,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   mytime     ctim[5];
   int8_t     tim;
   char       stim[32];
-  size_t     memAv,oldMemMax;
 
 
   tminit(ctim,5);
@@ -145,7 +97,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     fprintf(stdout,"               group split for metis     %s\n",stim);
   }
 
-  if ( ier_glob <= 0) {
+  if ( ier_glob <= 0 && parmesh->myrank == parmesh->info.root ) {
     fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
     return ier_glob;
   }
@@ -183,7 +135,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
-  }
+    }
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -199,7 +151,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
       }
     }
   }
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

@@ -33,6 +33,7 @@
 #define _LIBPARMMGTYPES_H
 
 #include "mmg/mmg3d/libmmgtypes.h"
+#include "pmmgversion.h"
 #include <mpi.h>
 
 
@@ -284,9 +285,10 @@ typedef PMMG_Ext_comm  * PMMG_pExt_comm;
  */
 typedef struct {
   MMG5_pMesh   mesh;  /*!< mesh definition : coordinates, tetra etc.. */
-  MMG5_pSol    sol;  /*!< physical solutions defined on each point of the mesh */
+  MMG5_pSol    field; /*!< physical solutions defined on each point of the mesh and interpolated from init to final mesh */
   MMG5_pSol    met;   /*!< metric */
   MMG5_pSol    disp;  /*!< displacement */
+  MMG5_pSol    ls;    /*!< level-set */
 
   /* communicators */
   int          nitem_int_node_comm;       /*!< Nb nodes of this grp in internal communicator*/
@@ -320,12 +322,17 @@ typedef struct {
   int repartitioning; /*!< way to perform mesh repartitioning */
   int ifc_layers;  /*!< nb of layers for interface displacement */
   double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
+  int nobalancing; /*!< switch off final load balancing */
   int loadbalancing_mode; /*!< way to perform the loadbalanding (see LOADBALANCING) */
   int contiguous_mode; /*!< force/don't force partitions contiguity */
   int metis_ratio; /*!< wanted ratio between the number of meshes and the number of metis super nodes */
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
+  int globalNum; /*!< compute nodes and triangles global numbering in output */
   int fmtout; /*!< store the output format asked */
+  int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
+  int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
+  uint8_t inputMet; /* 1 if User prescribe a metric or a size law */
 } PMMG_Info;
 
 
@@ -345,6 +352,13 @@ typedef struct {
   size_t    memGloMax; /*!< Maximum memory available to all structs */
   size_t    memMax; /*!< Maximum memory parmesh is allowed to allocate */
   size_t    memCur; /*!< Currently allocated memory */
+
+  /* file names */
+  char     *meshin,*meshout;
+  char     *metin,*metout;
+  char     *lsin;
+  char     *dispin;
+  char     *fieldin,*fieldout;
 
   /* grp */
   int       ngrp;       /*!< Number of grp */
@@ -368,6 +382,7 @@ typedef struct {
 
   /* global variables */
   int            ddebug; //! Debug level
+  int            iter;   //! Current adaptation iteration
   int            niter;  //! Number of adaptation iterations
 
   /* parameters of the run */

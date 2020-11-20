@@ -35,16 +35,38 @@
 
 #define LOCATE_PMMG_H
 
-#include "parmmg.h"
+#include "barycoord_pmmg.h"
 
-/** \struct PMMG_baryCoord
+/** \struct PMMG_locateStats
  *
- * \brief Struct containing the index and value of a barycentric coordinate
+ * \brief Struct containing the statistics of localization searches
  *
  */
 typedef struct {
-  int    idx; /*!< direction */
-  double val; /*!< coordinate value */
-} PMMG_baryCoord;
+  double stepav;   /*!< average number of steps on the search paths */
+  int    nexhaust; /*!< number of exhaustive searches */
+  int    stepmax;  /*!< maximum number of steps on the search paths */
+  int    stepmin;  /*!< minimum number of steps on the search paths */
+} PMMG_locateStats;
+
+int PMMG_precompute_triaNormals( MMG5_pMesh mesh,double *triaNormals );
+int PMMG_precompute_faceAreas( MMG5_pMesh mesh,double *faceAreas );
+int PMMG_precompute_nodeTrias( PMMG_pParMesh parmesh,MMG5_pMesh mesh,int **nodeTrias );
+int PMMG_locatePointInTria( MMG5_pMesh mesh,MMG5_pTria ptr,int k,MMG5_pPoint ppt,
+                            double *triaNormal,PMMG_barycoord *barycoord,
+                            double *h,double *closestDist,int *closestTria );
+int PMMG_locatePointInTetra( MMG5_pMesh mesh,MMG5_pTetra pt,int k,MMG5_pPoint ppt,
+                             double *faceAreas,PMMG_barycoord *barycoord,
+                             double *closestDist,int *closestTet);
+int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
+                         double *triaNormals,int *nodeTrias,PMMG_barycoord *barycoord,
+                         int *iTria,int *foundWedge,int *foundCone );
+int PMMG_locatePointVol( MMG5_pMesh mesh,MMG5_pPoint ppt,
+                         double *faceAreas,PMMG_barycoord *barycoord,
+                         int *idxTet );
+void PMMG_locatePoint_errorCheck( MMG5_pMesh mesh,int ip,int ier,int myrank,int igrp );
+void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld );
+void PMMG_locate_postprocessing( MMG5_pMesh mesh,MMG5_pMesh meshOld,PMMG_locateStats *locStats );
+void PMMG_locate_print( PMMG_locateStats *locStats,int ngrp,int myrank );
 
 #endif

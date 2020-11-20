@@ -8,9 +8,12 @@ HEADER_FILE="git_log_pmmg.h"
 # test if $HEADER_FILE is present
 if [ ! -f "$PMMG_BINARY_DIR/$HEADER_FILE" ]; then
    \touch $PMMG_BINARY_DIR/$HEADER_FILE
+   echo "#ifndef _GIT_LOG_PMMG_H" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
+   echo "#define _GIT_LOG_PMMG_H" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
    echo "#define PMMG_GIT_BRANCH \"No git branch found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
    echo "#define PMMG_GIT_COMMIT \"No git commit found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
    echo "#define PMMG_GIT_DATE   \"No git commit found\"" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
+   echo "#endif" >> "$PMMG_BINARY_DIR/$HEADER_FILE"
 fi
 
 # parameter
@@ -36,9 +39,12 @@ if [ $git_is_present -eq 1 ]; then
    # erase any previous version file
    \rm -f $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
    \touch $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#ifndef _GIT_LOG_PMMG_H" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#define _GIT_LOG_PMMG_H" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
    echo "#define PMMG_GIT_BRANCH \"$git_branch\"" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
    echo "#define PMMG_GIT_COMMIT \"$git_commit\"" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
    echo "#define PMMG_GIT_DATE   \"$git_date\""   >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
+   echo "#endif" >> $PMMG_BINARY_DIR/$HEADER_FILE"_tmp"
 
    # diff
    diff=`diff $PMMG_BINARY_DIR/$HEADER_FILE"_tmp" "$PMMG_BINARY_DIR/$HEADER_FILE"`

@@ -197,14 +197,16 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
-  MMG5_pSol   disp;
-  int         np,nc,igrp;
+  MMG5_pSol   disp,ls;
+  MMG5_pSol   field;
+  int         np,nc,igrp,k;
 
   for ( igrp=0; igrp<parmesh->ngrp; ++igrp ) {
     grp                       = &parmesh->listgrp[igrp];
     mesh                      = grp->mesh;
     met                       = grp->met;
     disp                      = grp->disp;
+    ls                        = grp->ls;
 
     if ( !mesh ) continue;
 
@@ -226,6 +228,18 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     /* compact displacement */
     if ( disp && disp->m )
       if ( !MMG3D_pack_sol(mesh,disp) ) return 0;
+
+    /* compact level-set */
+    if ( ls && ls->m )
+      if ( !MMG3D_pack_sol(mesh,ls) ) return 0;
+
+    /* compact solution field */
+    if ( grp->field ) {
+      for ( k=0; k<mesh->nsols; ++k ) {
+        field = &grp->field[k];
+        if ( field->m && (!MMG3D_pack_sol(mesh,field)) ) return 0;
+      }
+    }
 
     /** Store in tmp the pack index of each point and count the corner*/
     if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
@@ -427,7 +441,9 @@ hash:
   MMG5_DEL_MEM(mesh,hash.item);
 
 facesData:
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   PMMG_DEL_MEM(parmesh,facesData,int,"facesData");
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   return ier;
 }
@@ -439,6 +455,91 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
   *warnScotch = 1;
 
   return;
+}
+
+/**
+ * \param parmesh pointer to the parmesh structure.
+ * \param igrp index of the current group
+ * \param permNodGlob pointer toward the array storing the node permutation
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Scoth renumbering and update of face and node communicators.
+ *
+ */
+int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  met,field;
+  int        *facesData;
+  int        k,imprim;
+  int8_t     warnScotch;
+
+  mesh  = parmesh->listgrp[igrp].mesh;
+  met   = parmesh->listgrp[igrp].met;
+  field = parmesh->listgrp[igrp].field;
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+
+  /* Allocation of the array that will store the node permutation */
+  PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+              PMMG_scotch_message(&warnScotch) );
+  if ( permNodGlob ) {
+    for ( k=1; k<=mesh->np; ++k ) {
+      permNodGlob[k] = k;
+    }
+  }
+
+  if( !PMMG_store_faceVerticesInIntComm(parmesh,igrp,&facesData) ){
+    fprintf(stderr,"\n  ## Interface faces storage problem."
+            " Exit program.\n");
+    return 0;
+  }
+
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
+
+  if ( !mesh->adja ) {
+    if ( !MMG3D_hashTetra(mesh,0) ) {
+      fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+      return 0;
+    }
+  }
+
+  /* renumerotation if available */
+  assert ( mesh->npi==mesh->np );
+
+  if ( permNodGlob ) {
+
+    /* Print message at parmmg verbosity */
+    imprim = mesh->info.imprim;
+    mesh->info.imprim = parmesh->info.imprim;
+
+    if ( !MMG5_scotchCall(mesh,met,field,permNodGlob) )
+    {
+      PMMG_scotch_message(&warnScotch);
+    }
+    mesh->info.imprim = imprim;
+  }
+
+  /** Update interface tetra indices in the face communicator */
+  if ( ! PMMG_update_face2intInterfaceTetra(parmesh,igrp,facesData,permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    return 0;
+  }
+  /** Update nodal communicators if node renumbering is enabled */
+  if ( mesh->info.renum &&
+    !PMMG_update_node2intRnbg(&parmesh->listgrp[igrp],permNodGlob) ) {
+    fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+    return 0;
+  }
+
+  /* Scotch may have change the np value: update mesh->npi */
+  mesh->npi = mesh->np;
+
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
+
+  PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+
+  return 1;
 }
 
 /**
@@ -457,17 +558,42 @@ static inline void PMMG_scotch_message( int8_t *warnScotch ) {
 int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
-  size_t     oldMemMax,available;
+  MMG5_pSol  met,field,psl;
   mytime     ctim[TIMEMAX];
-  int        it,ier,ier_end,ieresult,i,k,*facesData,*permNodGlob;
+  int        ier,ier_end,ieresult,i,k,is,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
-
+  uint8_t    inputMet;
 
   tminit(ctim,TIMEMAX);
 
   ier_end = PMMG_SUCCESS;
+
+  assert ( parmesh->ngrp >= 1 );
+  assert ( parmesh->listgrp[0].mesh );
+
+  /** Set inputMet flag */
+  parmesh->info.inputMet = 0;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    met         = parmesh->listgrp[i].met;
+    if ( met && met->m ) {
+      parmesh->info.inputMet = 1;
+      break;
+    }
+  }
+
+  ier = 1;
+#ifndef NDEBUG
+  inputMet = 0;
+  MPI_CHECK( MPI_Allreduce( &parmesh->info.inputMet,&inputMet,1,MPI_UNSIGNED_CHAR,MPI_MAX,
+                            parmesh->comm ),ier = 0 );
+
+  if ( inputMet != parmesh->info.inputMet ) {
+    printf ("  ## Warning: input metric not provided on rank %d while provided on others.\n",
+      parmesh->myrank);
+    parmesh->info.inputMet = inputMet;
+  }
+#endif
 
   /** Groups creation */
   if ( parmesh->info.imprim > PMMG_VERB_QUAL ) {
@@ -475,8 +601,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
-                         PMMG_REDISTRIBUTION_graph_balancing );
+  if ( ier ) {
+    ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
+                               PMMG_REDISTRIBUTION_graph_balancing );
+  }
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -513,10 +641,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Mesh adaptation */
   warnScotch = 0;
-  for ( it = 0; it < parmesh->niter; ++it ) {
+  for ( parmesh->iter = 0; parmesh->iter < parmesh->niter; parmesh->iter++ ) {
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
-      if ( it > 0 ) {
+      if ( parmesh->iter > 0 ) {
         chrono(OFF,&(ctim[tim]));
       }
       if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -525,10 +653,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       printim(ctim[tim].gdif,stim);
       chrono(ON,&(ctim[tim]));
-      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",it+1,stim);fflush(stdout);
+      fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
 
-    /** Update old groups for metrics interpolation */
+    /** Update old groups for metrics and solution interpolation */
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
     PMMG_update_oldGrps( parmesh );
 
     tim = 4;
@@ -540,6 +669,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     for ( i=0; i<parmesh->ngrp; ++i ) {
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
+      field        = parmesh->listgrp[i].field;
+
+#warning Luca: until analysis is not ready
+#ifdef USE_POINTMAP
+      for( k = 1; k <= mesh->np; k++ )
+        mesh->point[k].src = k;
+#endif
 
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.fem;
@@ -549,7 +685,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         continue;
       }
 
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
+      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
@@ -571,19 +707,27 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           for ( k=1; k<=mesh->np; ++k ) {
             permNodGlob[k] = k;
           }
+          for ( k=1; k<=mesh->npi; ++k ) {
+            assert  ( permNodGlob[k] >0 );
+          }
+
         }
 
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,
+                                                 parmesh->listgrp[i].mesh);
 
-        /* renumerotation if available */
-        if ( !MMG5_scotchCall(mesh,met,permNodGlob) )
-        {
-          PMMG_scotch_message(&warnScotch);
+        /* renumerotation if available: no need to renum the field here (they
+         * will be interpolated) */
+        assert ( mesh->npi==mesh->np );
+        if ( permNodGlob ) {
+          if ( !MMG5_scotchCall(mesh,met,NULL,permNodGlob) )
+          {
+            PMMG_scotch_message(&warnScotch);
+          }
         }
 #else
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,
+                                                 parmesh->listgrp[i].mesh);
 #endif
 
         /* Mark reinitialisation in order to be able to remesh all the mesh */
@@ -610,9 +754,28 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #else
         ier = MMG5_mmg3d1_delone( mesh, met, permNodGlob );
 #endif
+        mesh->npi = mesh->np;
+        mesh->nei = mesh->ne;
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
+        }
+
+        /* Realloc the solution fields at the same size than other structures */
+        if ( mesh->nsols ) {
+          for ( is=0; is<mesh->nsols; ++is ) {
+            psl    = field + is;
+            assert ( psl && psl->m );
+            PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),
+                         psl->size*(psl->npmax+1),double,
+                         "field array",goto strong_failed);
+            psl->npmax = mesh->npmax;
+          }
+        }
+
+        if ( parmesh->iter < parmesh->niter-1 && (!parmesh->info.inputMet) ) {
+          /* Delete the metrec computed by Mmg except at last iter */
+          PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
 
         /** Pack the tetra */
@@ -635,18 +798,23 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         /** Update nodal communicators if node renumbering is enabled */
         if ( mesh->info.renum &&
              !PMMG_update_node2intRnbg(&parmesh->listgrp[i],permNodGlob) ) {
-          fprintf(stderr,"\n  ## Interface tetra updating problem. Exit program.\n");
+          fprintf(stderr,"\n  ## Nodal communicator updating problem. Exit program.\n");
           goto strong_failed;
         }
 #endif
 
         if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
 
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,
+                                                 parmesh->listgrp[i].mesh);
 
-        if ( !PMMG_copyMetrics_point( &parmesh->listgrp[i],&parmesh->old_listgrp[i],
-                                      permNodGlob) ) {
+        if ( !PMMG_copyMetricsAndFields_point( parmesh->listgrp[i].mesh,
+                                               parmesh->old_listgrp[i].mesh,
+                                               parmesh->listgrp[i].met,
+                                               parmesh->old_listgrp[i].met,
+                                               parmesh->listgrp[i].field,
+                                               parmesh->old_listgrp[i].field,
+                                               permNodGlob,parmesh->info.inputMet) ) {
           goto strong_failed;
         }
 
@@ -654,6 +822,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       }
       /* Reset the mesh->gap field in case Mmg have modified it */
       mesh->gap = MMG5_GAP;
+
+#ifdef USE_SCOTCH
+      PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+#endif
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -666,25 +838,25 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if ( !ieresult )
       goto failed_handling;
 
-    /** Interpolate metrics */
+    /** Interpolate metrics and solution fields */
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       tim = 2;
       chrono(RESET,&(ctim[tim]));
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_interpMetrics_grps( parmesh, permNodGlob );
+    ier = PMMG_interpMetricsAndFields( parmesh, permNodGlob );
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
-      fprintf(stdout,"       metric interpolation              %s\n",stim);
+      fprintf(stdout,"       metric and fields interpolation   %s\n",stim);
     }
 
     if ( !ieresult ) {
       if ( !parmesh->myrank )
-        fprintf(stderr,"\n  ## Metrics interpolation problem. Try to save the mesh and exit program.\n");
+        fprintf(stderr,"\n  ## Metrics or fields interpolation problem. Try to save the mesh and exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
 
@@ -698,10 +870,30 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
     }
 
-    ier = PMMG_loadBalancing(parmesh);
+    if ( parmesh->iter == parmesh->niter-1 ) {
+
+      if ( !parmesh->info.nobalancing ) {
+        /** Load balancing of the output mesh */
+
+        /* Store user repartitioning mode */
+        int repartitioning_mode;
+        repartitioning_mode = parmesh->info.repartitioning;
+
+        /* Load balance using mesh groups graph */
+        parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+        ier = PMMG_loadBalancing(parmesh);
+
+        /* Repristinate user repartitioning mode */
+        parmesh->info.repartitioning = repartitioning_mode;
+      }
+    } else {
+      /** Standard parallel mesh repartitioning */
+      ier = PMMG_loadBalancing(parmesh);
+    }
+
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
-   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
+    if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(OFF,&(ctim[tim]));
       printim(ctim[tim].gdif,stim);
       fprintf(stdout,"       load balancing                    %s\n",stim);
@@ -722,6 +914,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     printf("\n");
   }
 
+#ifdef USE_SCOTCH
+  for( i = 0; i < parmesh->ngrp; i++ ) {
+    if( !PMMG_scotchCall( parmesh,i,permNodGlob ) ) {
+      goto strong_failed;
+    }
+  }
+#endif
+
   ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -732,7 +932,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     tim = 4;
     chrono(ON,&(ctim[tim]));
-  }
+    }
 
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -768,10 +968,17 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
   }
 
+#ifdef USE_SCOTCH
+  if( !PMMG_scotchCall( parmesh,0,permNodGlob ) ) {
+    goto strong_failed;
+  }
+#endif
+
   /* Give memory to Mmg for the edge length computation */
   PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
-  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso ) {
+  if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso && parmesh->iter>0 ) {
+    assert ( parmesh->listgrp[0].met->m );
     PMMG_prilen(parmesh,0,0);
   }
 
@@ -809,6 +1016,15 @@ failed_handling:
     printim(ctim[5].gdif,stim);
     fprintf(stdout,"       group merging                     %s\n",stim);
   }
+
+  /* Reset hmin/hmax values of the mesh if needed */
+  if ( !parmesh->info.sethmin ) {
+    if ( parmesh->listgrp[0].mesh ) parmesh->listgrp[0].mesh->info.sethmin = 0;
+  }
+  if ( !parmesh->info.sethmax ) {
+    if ( parmesh->listgrp[0].mesh ) parmesh->listgrp[0].mesh->info.sethmax = 0;
+  }
+
 
   PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
 }

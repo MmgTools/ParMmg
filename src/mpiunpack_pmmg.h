@@ -21,41 +21,22 @@
 ** =============================================================================
 */
 
+#ifndef MPIUNPACK_PMMG_H
+#define MPIUNPACK_PMMG_H
 /**
- * \file coorcell_pmmg.h
- * \brief coorcell_pmmg.c header file
- * \author Cécile Dobrzynski (Bx INP/Inria)
+ * \file mpiunpack_pmmg.h
+ * \brief header of unpacking functions (unpack from a char buffer)
+ * \author Luca Cirrottola (Inria)
  * \author Algiane Froehly (Inria)
  * \version 5
  * \copyright GNU Lesser General Public License.
- */
-
-#ifndef COORCELL_PMMG_H
-
-#define COORCELL_PMMG_H
-
-#include "parmmg.h"
-
-/* numerical accuracy for coordinate checks */
-#define PMMG_EPSCOOR  1.e-14
-#define PMMG_EPSCOOR2 3.e-28
-
-/**
- * \struct PMMG_coorCell
- *
- * \brief Cell containing a point coordinate and an index
  *
  */
-typedef struct {
-  double  c[3]; /*!< point coordinates */
-  int     idx;  /*!< index associated to the point */
-  int     grp;  /*!< a group to which belong the point */
-} PMMG_coorCell;
+#include "libmmgtypes.h"
 
+int PMMG_mpiunpack_grp ( PMMG_pParMesh,PMMG_pGrp,int,char **buffer);
 
-int PMMG_compare_coorCell (const void * a, const void * b);
-int PMMG_find_coorCellListBoundingBox(PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_scale_coorCellList (PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_unscale_coorCellList (PMMG_coorCell*,int,double*,double*,double);
+int PMMG_mpiunpack_parmesh ( PMMG_pParMesh,PMMG_pGrp,int,PMMG_pInt_comm,int*,
+                             PMMG_pExt_comm*,char** );
 
 #endif

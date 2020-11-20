@@ -89,8 +89,8 @@ int main(int argc,char *argv[]) {
    * PMMG_ARG_start: we start to give the args of a variadic func
    * PMMG_ARG_ppParMesh: next arg will be a pointer over a PMMG_pParMesh
    * &parmesh: pointer toward your PMMG_pParMesh
-   * MMG5_ARG_pMesh: initialization of a mesh inside the parmesh.
-   * MMG5_ARG_pMet: init a metric inside the parmesh
+   * PMMG_ARG_pMesh: initialization of a mesh inside the parmesh.
+   * PMMG_ARG_pMet: init a metric inside the parmesh
    * PMMG_ARG_dim: next arg will be the mesh dimension
    * 3: mesh dimension
    * PMMG_MPIComm: next arg will be the MPI COmmunicator
@@ -379,7 +379,7 @@ int main(int argc,char *argv[]) {
           exit(EXIT_FAILURE);
         }
         /* Third */
-        pos = 6*(k-1);
+        pos = 6*k;
         if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
           MPI_Abort(MPI_COMM_WORLD,2);
           exit(EXIT_FAILURE);
@@ -391,6 +391,18 @@ int main(int argc,char *argv[]) {
   //PMMG_saveAllSols_centralized(parmesh,"init-solphys.sol");
 
   /** ------------------------------ STEP  II -------------------------- */
+  /* Set verbosity */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  /* No surface adaptation */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
 
@@ -717,7 +729,7 @@ int main(int argc,char *argv[]) {
     fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
   }
 
-  /** 5) Free the PMMG5 structures */
+  /** 5) Free the PMMG structures */
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,
                 PMMG_ARG_end);

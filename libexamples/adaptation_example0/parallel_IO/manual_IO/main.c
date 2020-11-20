@@ -64,7 +64,7 @@ int main(int argc,char *argv[]) {
   tmp     = NULL;
 
   if ( (argc!=4) && !rank ) {
-    printf(" Usage: %s fileout io_option\n",argv[0]);
+    printf(" Usage: %s fileout niter API_mode\n",argv[0]);
     printf("     niter    = 0   to perform a dry run of Parmmg and check paralle interfaces construction\n");
     printf("     niter    = [n] to perform [n] iterations of remeshing\n");
     printf("     API_mode = 0   to Get/Set the parallel interfaces through triangles\n");
@@ -718,7 +718,7 @@ int main(int argc,char *argv[]) {
         exit(EXIT_FAILURE);
       }
       /* Third */
-      pos = 6*(k-1);
+      pos = 6*k;
       if ( PMMG_Set_ithSol_inSolsAtVertices(parmesh,3,&(tensor_sol[pos]),k+1) != 1 ) {
         MPI_Finalize();
         exit(EXIT_FAILURE);
@@ -821,6 +821,13 @@ int main(int argc,char *argv[]) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
+
+  /* Don't remesh the surface */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
 
   /* remeshing function */
   ierlib = PMMG_parmmglib_distributed( parmesh );

@@ -105,6 +105,41 @@ FORTRAN_NAME(PMMG_SET_INPUTMETNAME, pmmg_set_inputmetname,
 }
 
 /**
+ * See \ref PMMG_Set_inputDispName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTDISPNAME, pmmg_set_inputdispname,
+             (PMMG_pParMesh *parmesh,char* dispin, int* strlen, int* retval),
+             (parmesh,dispin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,dispin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputDispName(*parmesh,tmp);
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+/**
+ * See \ref PMMG_Set_inputLsName function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_INPUTLSNAME, pmmg_set_inputlsname,
+             (PMMG_pParMesh *parmesh,char* lsin, int* strlen, int* retval),
+             (parmesh,lsin,strlen,retval)) {
+
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,lsin,*strlen);
+  tmp[*strlen] = '\0';
+  *retval = PMMG_Set_inputLsName(*parmesh,tmp);
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_Set_outputMeshName function in libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_SET_OUTPUTMESHNAME,pmmg_set_outputmeshname,
@@ -199,6 +234,28 @@ FORTRAN_NAME(PMMG_SET_METSIZE, pmmg_set_metsize,
      int* retval),
     (parmesh, typEntity, np, typMet, retval)) {
   *retval = PMMG_Set_metSize(*parmesh,*typEntity,*np,*typMet);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_iparameter function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_IPARAMETER, pmmg_set_iparameter,
+    (PMMG_pParMesh *parmesh,int* iparam,int *val,
+     int* retval),
+    (parmesh, iparam, val, retval)) {
+  *retval = PMMG_Set_iparameter(*parmesh,*iparam,*val);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_dparameter function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_DPARAMETER, pmmg_set_dparameter,
+    (PMMG_pParMesh *parmesh,int* dparam,double *val,
+     int* retval),
+    (parmesh, dparam, val, retval)) {
+  *retval = PMMG_Set_dparameter(*parmesh,*dparam,*val);
   return;
 }
 
@@ -757,6 +814,183 @@ FORTRAN_NAME(PMMG_GET_TENSORMETS,pmmg_get_tensormets,
 }
 
 /**
+ * See \ref PMMG_Set_numberOfNodeCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_NUMBEROFNODECOMMUNICATORS, pmmg_set_numberofnodecommunicators,
+    (PMMG_pParMesh *parmesh,int* next_comm,
+     int* retval),
+    (parmesh, next_comm, retval)) {
+  *retval = PMMG_Set_numberOfNodeCommunicators(*parmesh,*next_comm);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_numberOfFaceCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_NUMBEROFFACECOMMUNICATORS, pmmg_set_numberoffacecommunicators,
+    (PMMG_pParMesh *parmesh,int* next_comm,
+     int* retval),
+    (parmesh, next_comm, retval)) {
+  *retval = PMMG_Set_numberOfFaceCommunicators(*parmesh,*next_comm);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_ithNodeCommunicatorSize function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_ITHNODECOMMUNICATORSIZE, pmmg_set_ithnodecommunicatorsize,
+    (PMMG_pParMesh *parmesh,int* ext_comm_index, int* color_out, int* nitem,
+     int* retval),
+    (parmesh, ext_comm_index, color_out, nitem, retval)) {
+  *retval = PMMG_Set_ithNodeCommunicatorSize(*parmesh,*ext_comm_index,*color_out,*nitem);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_ithFaceCommunicatorSize function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_ITHFACECOMMUNICATORSIZE, pmmg_set_ithfacecommunicatorsize,
+    (PMMG_pParMesh *parmesh,int* ext_comm_index, int* color_out, int* nitem,
+     int* retval),
+    (parmesh, ext_comm_index, color_out, nitem, retval)) {
+  *retval = PMMG_Set_ithFaceCommunicatorSize(*parmesh,*ext_comm_index,*color_out,*nitem);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_ithNodeCommunicator_nodes function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_ITHNODECOMMUNICATOR_NODES, pmmg_set_ithnodecommunicator_nodes,
+    (PMMG_pParMesh *parmesh, int *ext_comm_index, int* local_index, int* global_index, int *isNotOrdered,
+     int* retval),
+    (parmesh, ext_comm_index, local_index, global_index, isNotOrdered, retval)) {
+  *retval = PMMG_Set_ithNodeCommunicator_nodes(*parmesh,*ext_comm_index,local_index,global_index,*isNotOrdered);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_ithFaceCommunicator_faces function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_ITHFACECOMMUNICATOR_FACES, pmmg_set_ithfacecommunicator_faces,
+    (PMMG_pParMesh *parmesh, int *ext_comm_index, int* local_index, int* global_index, int *isNotOrdered,
+     int* retval),
+    (parmesh, ext_comm_index, local_index, global_index, isNotOrdered, retval)) {
+  *retval = PMMG_Set_ithFaceCommunicator_faces(*parmesh,*ext_comm_index,local_index,global_index,*isNotOrdered);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_ithNodeCommunicatorSize function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_ITHNODECOMMUNICATORSIZE, pmmg_get_ithnodecommunicatorsize,
+    (PMMG_pParMesh *parmesh,int* ext_comm_index, int* color_out, int* nitem,
+     int* retval),
+    (parmesh, ext_comm_index, color_out, nitem, retval)) {
+  *retval = PMMG_Get_ithNodeCommunicatorSize(*parmesh,*ext_comm_index,color_out,nitem);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_ithFaceCommunicatorSize function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_ITHFACECOMMUNICATORSIZE, pmmg_get_ithfacecommunicatorsize,
+    (PMMG_pParMesh *parmesh,int* ext_comm_index, int* color_out, int* nitem,
+     int* retval),
+    (parmesh, ext_comm_index, color_out, nitem, retval)) {
+  *retval = PMMG_Get_ithFaceCommunicatorSize(*parmesh,*ext_comm_index,color_out,nitem);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_NodeCommunicator_nodes function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_NODECOMMUNICATOR_NODES, pmmg_get_nodecommunicator_nodes,
+    (PMMG_pParMesh *parmesh, int** local_index,
+     int* retval),
+    (parmesh, local_index, retval)) {
+  *retval = PMMG_Get_NodeCommunicator_nodes(*parmesh,local_index);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_FaceCommunicator_faces function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_FACECOMMUNICATOR_FACES, pmmg_get_facecommunicator_faces,
+    (PMMG_pParMesh *parmesh, int** local_index,
+     int* retval),
+    (parmesh, local_index, retval)) {
+  *retval = PMMG_Get_FaceCommunicator_faces(*parmesh,local_index);
+  return;
+}
+
+/**
+ * See \ref PMMG_Check_Set_NodeCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_CHECK_SET_NODECOMMUNICATORS, pmmg_check_set_nodecommunicators,
+    (PMMG_pParMesh *parmesh,int* ncomm,int* nitem,int* color, int** local_index,
+     int* retval),
+    (parmesh, ncomm, nitem, color, local_index, retval)) {
+  *retval = PMMG_Check_Set_NodeCommunicators(*parmesh,*ncomm,nitem,color,local_index);
+  return;
+}
+
+/**
+ * See \ref PMMG_Check_Set_FaceCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_CHECK_SET_FACECOMMUNICATORS, pmmg_check_set_facecommunicators,
+    (PMMG_pParMesh *parmesh,int* ncomm,int* nitem,int* color, int** trianodes,
+     int* retval),
+    (parmesh, ncomm, nitem, color, trianodes, retval)) {
+  *retval = PMMG_Check_Set_FaceCommunicators(*parmesh,*ncomm,nitem,color,trianodes);
+  return;
+}
+
+/**
+ * See \ref PMMG_Check_Get_NodeCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_CHECK_GET_NODECOMMUNICATORS, pmmg_check_get_nodecommunicators,
+    (PMMG_pParMesh *parmesh,
+     int* ncomm_in,int* nitem_in,int* color_in, int** local_index_in,
+     int* ncomm_out,int* nitem_out,int* color_out, int** local_index_out,
+     int* retval),
+    (parmesh,ncomm_in,nitem_in,color_in,local_index_in,
+     ncomm_out,nitem_out,color_out,local_index_out,retval)) {
+  *retval = PMMG_Check_Get_NodeCommunicators(*parmesh,*ncomm_in,nitem_in,
+                                             color_in,local_index_in,
+                                             *ncomm_out,nitem_out,
+                                             color_out,local_index_out);
+  return;
+}
+
+/**
+ * See \ref PMMG_Check_Get_FaceCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_CHECK_GET_FACECOMMUNICATORS, pmmg_check_get_facecommunicators,
+    (PMMG_pParMesh *parmesh,
+     int* ncomm_in,int* nitem_in,int* color_in, int** trianodes_in,
+     int* ncomm_out,int* nitem_out,int* color_out, int** trianodes_out,
+     int* retval),
+    (parmesh,ncomm_in,nitem_in,color_in,trianodes_in,
+     ncomm_out,nitem_out,color_out,trianodes_out,retval)) {
+  *retval = PMMG_Check_Get_FaceCommunicators(*parmesh,*ncomm_in,nitem_in,
+                                             color_in,trianodes_in,
+                                             *ncomm_out,nitem_out,
+                                             color_out,trianodes_out);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_vertexGloNum function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_VERTEXGLONUM, pmmg_get_vertexglonum,
+    (PMMG_pParMesh *parmesh,int* idx_glob,int* owner,
+     int* retval),
+    (parmesh,idx_glob,owner,retval)) {
+  *retval = PMMG_Get_vertexGloNum(*parmesh,idx_glob,owner);
+  return;
+}
+
+/**
  * See \ref PMMG_Free_all function in \ref mmg3d/libmmg3d.h file.
  */
 FORTRAN_VARIADIC(PMMG_FREE_ALL,pmmg_free_all,
@@ -815,6 +1049,25 @@ FORTRAN_NAME(PMMG_LOADMESH_CENTRALIZED,pmmg_loadmesh_centralized,
 }
 
 /**
+ * See \ref PMMG_loadMesh function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADMESH_DISTRIBUTED,pmmg_loadmesh_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen, retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadMesh_distributed(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_loadMet_centralized function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_LOADMET_CENTRALIZED,pmmg_loadmet_centralized,
@@ -832,6 +1085,26 @@ FORTRAN_NAME(PMMG_LOADMET_CENTRALIZED,pmmg_loadmet_centralized,
 
   return;
 }
+
+/**
+ * See \ref PMMG_loadMet_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADMET_DISTRIBUTED,pmmg_loadmet_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadMet_distributed(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
 /**
  * See \ref PMMG_loadLs_centralized function in \ref libparmmg.h file.
  */
@@ -926,6 +1199,25 @@ FORTRAN_NAME(PMMG_SAVEMESH_CENTRALIZED,pmmg_savemesh_centralized,
 }
 
 /**
+ * See \ref PMMG_saveMesh_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SAVEMESH_DISTRIBUTED,pmmg_savemesh_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen, retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_saveMesh_distributed(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_saveMet_centralized function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_SAVEMET_CENTRALIZED,pmmg_savemet_centralized,
@@ -938,6 +1230,25 @@ FORTRAN_NAME(PMMG_SAVEMET_CENTRALIZED,pmmg_savemet_centralized,
   tmp[*strlen] = '\0';
 
   *retval = PMMG_saveMet_centralized(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_saveMet_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SAVEMET_DISTRIBUTED,pmmg_savemet_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_saveMet_distributed(*parmesh,tmp);
 
   MMG5_SAFE_FREE(tmp);
 
@@ -959,6 +1270,28 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
   *retval = PMMG_saveAllSols_centralized(*parmesh,tmp);
 
   MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_Free_names function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_FREE_NAMES,pmmg_free_names,
+             (PMMG_pParMesh *parmesh, int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_Free_names(*parmesh);
+  return;
+}
+
+/**
+ * See \ref PMMG_setfunc function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SETFUNC,pmmg_setfunc,
+             (PMMG_pParMesh *parmesh),
+             (parmesh)) {
+
+  PMMG_setfunc(*parmesh);
 
   return;
 }

@@ -71,7 +71,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   }
 
   /** Step 2: Set maximal memory per process depending on the -m option setting */
-  maxAvail = MMG5_memSize()/parmesh->size_shm;
+  maxAvail = MMG5_memSize();
 
   if ( parmesh->info.mem <= 0 ) {
     /* Nos users specifications */
@@ -186,8 +186,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
  *
  */
 int PMMG_link_mesh( MMG5_pMesh mesh ) {
-  MMG5_pTetra pt;
-  int k,iadr;
+  int k;
 
   /* keep track of empty links */
   if ( mesh->npmax > mesh->np ) {
@@ -305,8 +304,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
 
 /**
  * \param parmesh pointer toward a parmesh.
- * \param mesh pointer toward the mesh that we want to fit.
- * \param met pointer toward the metric that we want to fit.
+ * \param grp pointer toward the grp that we want to fit.
  *
  * \return 1 if success, 0 if fail.
  *
@@ -314,8 +312,15 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
  * the less possible memory.
  *
  */
-int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met ) {
-  int npmax_old,xpmax_old,nemax_old,xtmax_old;
+int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
+  const MMG5_pMesh mesh  = grp->mesh;
+  const MMG5_pSol  met   = grp->met;
+  const MMG5_pSol  disp  = grp->disp;
+  const MMG5_pSol  ls    = grp->ls;
+  const MMG5_pSol  field = grp->field;
+  MMG5_pSol        psl;
+
+  int npmax_old,xpmax_old,nemax_old,xtmax_old,is;
   int ier = 1;
 
   npmax_old = mesh->npmax;
@@ -328,17 +333,52 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met 
   mesh->nemax = mesh->ne;
   mesh->xtmax = mesh->xt;
 
-  met->npmax = mesh->npmax;
+  if ( met ) {
+    met->npmax = mesh->npmax;
+  }
+  if ( ls ) {
+    ls->npmax   = mesh->npmax;
+  }
+  if ( disp ) {
+    disp->npmax = mesh->npmax;
+  }
+
+  if ( mesh->nsols ) {
+    assert ( field );
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl = &field[is];
+      psl->npmax = mesh->npmax;
+    }
+  }
 
   if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,
                                nemax_old,xtmax_old) ) ier = 0;
 
-  if ( met->m ) {
-    PMMG_REALLOC(parmesh,met->m,met->size*(met->npmax+1),
+  if ( met && met->m ) {
+    PMMG_REALLOC(mesh,met->m,met->size*(met->npmax+1),
                  met->size*(npmax_old+1),double,"metric_array",
-                 assert(0);ier = 0;);
+                 ier = 0;);
   }
-  mesh->memMax = mesh->memCur;
+  if ( ls && ls->m ) {
+    PMMG_REALLOC(mesh,ls->m,ls->size*(ls->npmax+1),
+                 ls->size*(npmax_old+1),double,"ls_array",
+                 ier = 0;);
+  }
+  if ( disp && disp->m ) {
+    PMMG_REALLOC(mesh,disp->m,disp->size*(disp->npmax+1),
+                 disp->size*(npmax_old+1),double,"disp_array",
+                 ier = 0;);
+  }
+  if ( mesh->nsols ) {
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl = &field[is];
+      if ( psl && psl->m ) {
+        PMMG_REALLOC(mesh,psl->m,psl->size*(psl->npmax+1),
+                     psl->size*(npmax_old+1),double,"field_array",
+                     ier = 0;);
+      }
+    }
+  }
 
   return ier;
 }
@@ -356,10 +396,10 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol met 
 int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,ls,disp,field,psl;
   size_t     available,used,delta;
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
-  int        i;
+  int        i,is;
 
   /* Fit parmesh max memory to the currently used memory, and update available memory */
   parmesh->memMax = parmesh->memCur;
@@ -430,11 +470,60 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
     if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,nemax_old,xtmax_old) )
       return 0;
 
-    met->np     = mesh->np;
-    met->npmax  = mesh->npmax;
-    if ( met->m )
+    if ( met ) {
+      met->np    = mesh->np;
+      met->npmax = mesh->npmax;
+    }
+
+    ls = parmesh->listgrp[i].ls;
+    if ( ls ) {
+      ls->np      = mesh->np;
+      ls->npmax   = mesh->npmax;
+    }
+
+    disp = parmesh->listgrp[i].disp;
+    if ( disp ) {
+      disp->np    = mesh->np;
+      disp->npmax = mesh->npmax;
+    }
+
+    field = parmesh->listgrp[i].field;
+    if ( mesh->nsols ) {
+      assert ( field );
+      for ( is=0; is<mesh->nsols; ++is ) {
+        psl = &field[is];
+        psl->np    = mesh->np;
+        psl->npmax = mesh->npmax;
+      }
+    }
+
+    if ( met && met->m )
       PMMG_REALLOC(mesh,met->m,met->size*(met->npmax+1),met->size*(npmax_old+1),
                    double,"metric array",return 0);
+
+    if ( ls && ls->m ) {
+      PMMG_REALLOC(mesh,ls->m,ls->size*(ls->npmax+1),
+                   ls->size*(npmax_old+1),double,"ls_array",
+                   return 0);
+    }
+
+    if ( disp && disp->m ) {
+      PMMG_REALLOC(mesh,disp->m,disp->size*(disp->npmax+1),
+                   disp->size*(npmax_old+1),double,"disp_array",
+                   return 0);
+    }
+
+    if ( mesh->nsols ) {
+      for ( is=0; is<mesh->nsols; ++is ) {
+        psl = field + is;
+        if ( psl && psl->m ) {
+          PMMG_REALLOC(mesh,psl->m,psl->size*(psl->npmax+1),
+                       psl->size*(npmax_old+1),double,"field_array",
+                       return 0);
+        }
+      }
+    }
+
 
     /* Count the remaining available memory */
     if ( available < delta ) {

@@ -193,7 +193,8 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh   mesh;
   MMG5_pSol    met;
   MPI_Datatype mpi_light_point, mpi_light_tetra, mpi_tria,mpi_edge;
-  int          k,rank,root,ier,ieresult,isMet;
+  int          k,rank,root,ier,ieresult;
+  unsigned char isMet;
 
   /** Proc 0 send the mesh to the other procs */
   grp    = &parmesh->listgrp[0];
@@ -202,6 +203,8 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   rank   = parmesh->myrank;
   root   = parmesh->info.root;
   isMet  = met->m ? 1 : 0;
+
+  assert ( parmesh->info.inputMet == isMet );
 
   /* Minimize the memory used by the mesh */
   ier = 1;
@@ -238,7 +241,7 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &met->type,  1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->npmax, 1, MPI_INT, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &met->np,    1, MPI_INT, root, parmesh->comm ), ier=6);
-  MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_INT, root, parmesh->comm ), ier=6);
+  MPI_CHECK( MPI_Bcast( &isMet,      1, MPI_UNSIGNED_CHAR, root, parmesh->comm ), ier=6);
   /* Info */
   MPI_CHECK( MPI_Bcast( &mesh->info.dhd,       1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.hmin,      1, MPI_DOUBLE, root, parmesh->comm ), ier=6);
@@ -271,7 +274,6 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
   MPI_CHECK( MPI_Bcast( &mesh->info.noswap,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.nomove,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
   MPI_CHECK( MPI_Bcast( &mesh->info.nosurf,    1, MPI_CHAR, root, parmesh->comm ), ier=6);
-  MPI_CHECK( MPI_Bcast( &mesh->info.inputMet,  1, MPI_CHAR, root, parmesh->comm ), ier=6);
 
   /* affectation of old refs in ls-mode */
   if ( mesh->info.nmat ) {
@@ -327,8 +329,9 @@ int PMMG_bcast_mesh( PMMG_pParMesh parmesh )
     if ( mesh->na )
       PMMG_CALLOC(mesh,mesh->edge,mesh->na+1,MMG5_Edge,"initial edges", ier=6);
 
-    if ( isMet )
+    if ( isMet ) {
       PMMG_CALLOC(mesh,met->m,met->size*(met->npmax+1),double,"initial metric", ier=6);
+    }
   }
 
   if ( ier<6 && !PMMG_create_MPI_lightPoint( &mpi_light_point ) ) { ier=6; }
@@ -592,11 +595,11 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
         /* Parallel face (if already boundary, make it recognizable as a true
          * boundary) */
         if ( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
-        pxt->ftag[ifac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+        PMMG_tag_par_face(pxt,ifac);
 
         /* Parallel edges */
         for ( j=0; j<3; ++j )
-          pxt->tag[MMG5_iarf[ifac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_edge(pxt,MMG5_iarf[ifac][j]);
       }
 
       for ( j=0; j<3; ++j ) {
@@ -625,7 +628,7 @@ int PMMG_mark_localMesh(PMMG_pParMesh parmesh,idx_t *part,MMG5_pMesh mesh,
               ++(*shared_pt)[rankVois1];
 
               /* Mark parallel vertex */
-              ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+              PMMG_tag_par_node(ppt);
 
 // TO REMOVE WHEN MMG WILL BE READY
               if ( !ppt->xp ) {
@@ -1131,10 +1134,20 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     /** Call metis for partionning */
     PMMG_CALLOC ( parmesh,part,mesh->ne,idx_t,"allocate metis buffer", ier=5 );
 
-    if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
-      ier = 5;
+    /* Call metis, or recover a custom partitioning if provided (only to debug
+     * the interface displacement, adaptation will be blocked) */
+    if( !PMMG_PREDEF_PART ) {
+      if ( !PMMG_part_meshElts2metis( parmesh, part, parmesh->nprocs ) ) {
+        ier = 5;
+      }
+      if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
+    } else {
+      int k;
+      for( k = 1; k <= mesh->ne; k++ ) {
+        part[k-1] = mesh->tetra[k].ref;
+        mesh->tetra[k].tag |= MG_REQ;
+      }
     }
-    if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
 
     /* Split grp 0 into (nprocs) groups */
     ier = PMMG_split_grps( parmesh,0,parmesh->nprocs,part,1 );
@@ -1150,7 +1163,10 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   /**
    * 2) Distribute the groups over the processors.
    */
-  if( parmesh->myrank != parmesh->info.root ) parmesh->ngrp = 0;
+  if( parmesh->myrank != parmesh->info.root ) {
+    PMMG_listgrp_free( parmesh, &parmesh->listgrp, parmesh->ngrp );
+    parmesh->ngrp = 0;
+  }
 
   /* Create the groups partition array */
   PMMG_CALLOC ( parmesh,part,parmesh->nprocs+1,idx_t,"allocate metis buffer", ier=5 );
@@ -1158,23 +1174,23 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     part[igrp] = igrp;
 
   /* Transfer the groups in parallel */
-  ier = PMMG_transfer_all_grps(parmesh,part);
+  ier = PMMG_transfer_all_grps(parmesh,part,1);
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
 
-  assert( parmesh->ngrp = 1);
+  assert ( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
- 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
             __func__);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   /* At this point all communicators have been created and all tags are OK */
 
@@ -1187,7 +1203,6 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
 
   /* The part array is deallocated when groups to be sent are merged (do not
    * do it here) */
-
-  ieresult = 1;
+  ieresult = ier;
   return ieresult==1;
 }

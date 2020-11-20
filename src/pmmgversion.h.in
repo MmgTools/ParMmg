@@ -21,41 +21,35 @@
 ** =============================================================================
 */
 
-/**
- * \file coorcell_pmmg.h
- * \brief coorcell_pmmg.c header file
- * \author Cécile Dobrzynski (Bx INP/Inria)
- * \author Algiane Froehly (Inria)
- * \version 5
- * \copyright GNU Lesser General Public License.
- */
+#ifndef _WIN32
+#include "git_log_pmmg.h"
+#endif
 
-#ifndef COORCELL_PMMG_H
+#if !defined(PMMGVERSION_H)
+#define PMMGVERSION_H
 
-#define COORCELL_PMMG_H
+#define PMMG_VERSION_RELEASE "@CMAKE_RELEASE_VERSION@"
+#define PMMG_VERSION_MAJOR "@CMAKE_RELEASE_VERSION_MAJOR@"
+#define PMMG_VERSION_MINOR "@CMAKE_RELEASE_VERSION_MINOR@"
+#define PMMG_VERSION_PATCH "@CMAKE_RELEASE_VERSION_PATCH@"
+#define PMMG_RELEASE_DATE "@CMAKE_RELEASE_DATE@"
 
-#include "parmmg.h"
+#define PMMG_COPYRIGHT  "Copyright (c) Bx INP/INRIA, 2016-"
 
-/* numerical accuracy for coordinate checks */
-#define PMMG_EPSCOOR  1.e-14
-#define PMMG_EPSCOOR2 3.e-28
+#define PMMG_VERSION_EQ(MAJOR,MINOR) \
+((MMG_VERSION_MAJOR == (MAJOR)) && (MMG_VERSION_MINOR == (MINOR))
 
-/**
- * \struct PMMG_coorCell
- *
- * \brief Cell containing a point coordinate and an index
- *
- */
-typedef struct {
-  double  c[3]; /*!< point coordinates */
-  int     idx;  /*!< index associated to the point */
-  int     grp;  /*!< a group to which belong the point */
-} PMMG_coorCell;
+#define PMMG_VERSION_ MMG_VERSION_EQ
 
+#define PMMG_VERSION_LT(MAJOR,MINOR)                                  \
+  (MMG_VERSION_MAJOR < (MAJOR) || (MMG_VERSION_MAJOR == (MAJOR) &&   \
+                                   (MMG_VERSION_MINOR < (MINOR) )))
 
-int PMMG_compare_coorCell (const void * a, const void * b);
-int PMMG_find_coorCellListBoundingBox(PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_scale_coorCellList (PMMG_coorCell*,int,double*,double*,double*);
-int PMMG_unscale_coorCellList (PMMG_coorCell*,int,double*,double*,double);
+#define PMMG_VERSION_LE(MAJOR,MINOR) \
+  (MMG_VERSION_LT(MAJOR,MINOR) || MMG_VERSION_EQ(MAJOR,MINOR))
+
+#define PMMG_VERSION_GT(MAJOR,MINOR) (0 == MMG_VERSION_LE(MAJOR,MINOR))
+
+#define PMMG_VERSION_GE(MAJOR,MINOR) (0 == MMG_VERSION_LT(MAJOR,MINOR))
 
 #endif

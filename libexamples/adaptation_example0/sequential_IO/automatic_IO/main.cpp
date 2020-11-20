@@ -35,7 +35,7 @@ int main(int argc,char *argv[]) {
   if ( !rank ) fprintf(stdout,"  -- TEST PARMMGLIB \n");
 
   if ( (argc<3) && !rank ) {
-    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile] \n",argv[0]);
+    printf(" Usage: %s filein fileout [[-sol metfile]/[-met metfile]] [-field solfile] \n",argv[0]);
     return 1;
   }
 
@@ -52,7 +52,7 @@ int main(int argc,char *argv[]) {
       ++i;
     }
 
-    else if ( tmp.compare("-solphys")==0 ) {
+    else if ( tmp.compare("-field")==0 ) {
       solname = argv[i+1];
       ++i;
     }
@@ -70,8 +70,8 @@ int main(int argc,char *argv[]) {
    * PMMG_ARG_start: we start to give the args of a variadic func
    * PMMG_ARG_ppParMesh: next arg will be a pointer over a PMMG_pParMesh
    * &parmesh: pointer toward your PMMG_pParMesh
-   * MMG5_ARG_pMesh: initialization of a mesh inside the parmesh.
-   * MMG5_ARG_pMet: init a metric inside the parmesh
+   * PMMG_ARG_pMesh: initialization of a mesh inside the parmesh.
+   * PMMG_ARG_pMet: init a metric inside the parmesh
    * PMMG_ARG_dim: next arg will be the mesh dimension
    * 3: mesh dimension
    * PMMG_MPIComm: next arg will be the MPI COmmunicator
@@ -86,7 +86,7 @@ int main(int argc,char *argv[]) {
                     PMMG_ARG_dim,3,PMMG_ARG_MPIComm,MPI_COMM_WORLD,
                     PMMG_ARG_end);
 
-  /** 2) Build mesh in MMG5 format */
+  /** 2) Build mesh in PMMG format */
   /** Two solutions: just use the PMMG_loadMesh_centralized function that will
       read a .mesh(b) file formatted or manually set your mesh using the
       PMMG_Set* functions */
@@ -114,6 +114,12 @@ int main(int argc,char *argv[]) {
   /** With PMMG_loadAllSols_centralized function */
 
   if ( !solname.empty() ) {
+    /* Compute automatically output solution name from the output mesh path
+       and the input field name */
+    PMMG_Set_outputMeshName(parmesh,fileout.c_str());
+    PMMG_Set_inputSolsName(parmesh,solname.c_str());
+    PMMG_Set_outputSolsName(parmesh,NULL);
+
     if ( PMMG_loadAllSols_centralized(parmesh,solname.c_str()) != 1 ) {
       MPI_Finalize();
       exit(EXIT_FAILURE);
@@ -121,6 +127,18 @@ int main(int argc,char *argv[]) {
   }
 
   /** ------------------------------ STEP  II -------------------------- */
+  /* Set verbosity */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  /* No surface adaptation */
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
   /** remesh function */
   ier = PMMG_parmmglib_centralized(parmesh);
 
@@ -146,7 +164,7 @@ int main(int argc,char *argv[]) {
     /** 3) Automatically save the solutions if needed */
     PMMG_Get_solsAtVerticesSize(parmesh,&nsols,NULL,NULL);
     if ( nsols ) {
-      if ( PMMG_saveAllSols_centralized(parmesh,fileout.c_str()) != 1 ) {
+      if ( PMMG_saveAllSols_centralized(parmesh,NULL) != 1 ) {
         fprintf(stdout,"UNABLE TO SAVE SOLUTIONS\n");
         ier = PMMG_LOWFAILURE;
       }
@@ -156,7 +174,7 @@ int main(int argc,char *argv[]) {
     fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
   }
 
-  /** 4) Free the PMMG5 structures */
+  /** 4) Free the PMMG structures */
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,
                 PMMG_ARG_end);

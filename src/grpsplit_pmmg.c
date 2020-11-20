@@ -27,6 +27,7 @@
  * \author Cécile Dobrzynski (Bx INP/Inria)
  * \author Algiane Froehly (Inria)
  * \author Nikos Pattakos (Inria)
+ * \author Luca Cirrottola (Inria)
  * \version 1
  * \copyright GNU Lesser General Public License.
  */
@@ -196,7 +197,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  * \param mesh pointer toward the mesh structure.
  * \param np number of vertices.
  * \param ne number of tetrahedra.
- * \param nprism number of prisms.
+ * \param nt number of triangles.
  * \param xp number of boundary point
  * \param xt number of boundary tetra
  *
@@ -206,7 +207,7 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
  *
  */
 int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
-                                       int nprism, int xp, int xt ) {
+                                       int nt, int xp, int xt ) {
 
   if ( ( (mesh->info.imprim > PMMG_VERB_DETQUAL) || mesh->info.ddebug ) &&
        ( mesh->point || mesh->xpoint || mesh->tetra || mesh->xtetra) )
@@ -237,12 +238,13 @@ int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
 
   mesh->np  = np;
   mesh->ne  = ne;
+  mesh->nt  = nt;
   mesh->xp  = xp;
   mesh->xt  = xt;
-  mesh->nprism = nprism;
 
   mesh->npi = mesh->np;
   mesh->nei = mesh->ne;
+  mesh->nti = mesh->nt;
 
   return 1;
 }
@@ -270,13 +272,9 @@ int PMMG_grpSplit_setMeshSize_alloc( MMG5_pMesh mesh ) {
   PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
               "boundary tetra array", return 0);
 
-  if ( mesh->nprism ) {
-    PMMG_CALLOC(mesh,mesh->prism,mesh->nprism+1,MMG5_Prism,
-                "prisms array", return 0);
-  }
-  if ( mesh->xpr ) {
-    PMMG_CALLOC(mesh,mesh->xprism,mesh->xpr+1,MMG5_xPrism,
-                "boundary prisms array", return 0);
+  if ( mesh->nt ) {
+    PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,
+                "triangles array", return 0);
   }
 
   return ( PMMG_link_mesh( mesh ) );
@@ -287,7 +285,7 @@ int PMMG_grpSplit_setMeshSize_alloc( MMG5_pMesh mesh ) {
  * \param mesh pointer toward the mesh structure.
  * \param np number of vertices.
  * \param ne number of tetrahedra.
- * \param nprism number of prisms.
+ * \param nt number of triangles.
  * \param xp number of boundary points.
  * \param xt number of boundary tetra.
  *
@@ -297,15 +295,16 @@ int PMMG_grpSplit_setMeshSize_alloc( MMG5_pMesh mesh ) {
  *
  */
 int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
-                              int nprism,int xp,int xt ) {
+                              int nt,int xp,int xt ) {
 
   /* Check input data and set mesh->ne/na/np/nt to the suitable values */
-  if ( !PMMG_grpSplit_setMeshSize_initData(mesh,np,ne,nprism,xp,xt) )
+  if ( !PMMG_grpSplit_setMeshSize_initData(mesh,np,ne,nt,xp,xt) )
     return 0;
 
   mesh->npmax  = mesh->np;
-  mesh->xpmax  = mesh->xp;
   mesh->nemax  = mesh->ne;
+  mesh->ntmax  = mesh->nt;
+  mesh->xpmax  = mesh->xp;
   mesh->xtmax  = mesh->xt;
 
   /* Mesh allocation and linkage */
@@ -321,21 +320,32 @@ int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
  *
  * \return 0 if fail, 1 if success
  *
- * Creation of a new group for the background mesh (without communication
- * structures (info.inputMet == 1 if a metrics is provided by the user).
+ * Creation of a mimimal size new group for the background mesh (without
+ * communication structures, info.inputMet == 1 if a metrics is provided by the
+ * user).
  *
  */
-int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
+int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrp].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrp].met;
+  MMG5_pSol  const dispOld  = parmesh->listgrp[igrp].disp;
+  MMG5_pSol  const lsOld    = parmesh->listgrp[igrp].ls;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrp].field;
   PMMG_pGrp        grp;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  size_t           oldMemMax,memAv;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
+  MMG5_pTetra      pt,ptCur;
+  MMG5_pPoint      ppt,pptCur;
+  MMG5_Hash        hash;
+  int              *adja,*oldAdja;
+  int              ie,ip,is;
 
   grp = &parmesh->old_listgrp[igrp];
   grp->mesh = NULL;
   grp->met  = NULL;
+  grp->disp   = NULL;
+  grp->ls     = NULL;
+  grp->field  = NULL;
 
   MMG3D_Init_mesh( MMG5_ARG_start,
                    MMG5_ARG_ppMesh, &grp->mesh,
@@ -345,177 +355,109 @@ int PMMG_oldGrps_newGroup( PMMG_pParMesh parmesh,int igrp ) {
   mesh = grp->mesh;
   met  = grp->met;
 
-  /* Give all the available memory to the mesh */
-  oldMemMax = parmesh->memCur;
-  memAv     = parmesh->memMax-oldMemMax;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
+  /* Take into account the minimal amount of memory used by the initialization */
+  PMMG_GHOSTMEM_INIT(parmesh,mesh);
 
-  /* Copy the mesh filenames */
+  /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
+
+  if ( lsOld ) {
+    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    ls = grp->ls;
+  }
+  else {
+    ls = NULL;
+  }
+
+  if ( dispOld ) {
+    assert ( meshOld->nsols );
+    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    disp = grp->disp;
+  }
+  else {
+    disp = NULL;
+  }
+
+  if ( meshOld->nsols ) {
+    assert ( fieldOld );
+    mesh->nsols = meshOld->nsols;
+    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    field = grp->field;
+  }
+  else {
+    field = NULL;
+  }
+
+  /** 1) Create old group */
+
+  /* Copy the mesh and metric,ls,disp and fields filenames */
   if ( !MMG5_Set_inputMeshName(  mesh,meshOld->namein) )      return 0;
   if ( !MMG5_Set_inputSolName(   mesh,met,metOld->namein ) )  return 0;
+  if ( ls   && !MMG5_Set_inputSolName( mesh,ls,lsOld->namein     ) )  return 0;
+  if ( disp && !MMG5_Set_inputSolName( mesh,disp,dispOld->namein ) )  return 0;
+
   if ( !MMG5_Set_outputMeshName( mesh,meshOld->nameout ) )    return 0;
   if ( !MMG5_Set_outputSolName(  mesh,met,metOld->nameout ) ) return 0;
+  if ( ls   && !MMG5_Set_outputSolName( mesh,  ls,lsOld->nameout   ) ) return 0;
+  if ( disp && !MMG5_Set_outputSolName( mesh,disp,dispOld->nameout ) ) return 0;
+
+  if ( field ) {
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl    = field    + is;
+      pslOld = fieldOld + is;
+      if ( !MMG5_Set_inputSolName ( mesh,psl,pslOld->namein ) )  return 0;
+      if ( !MMG5_Set_outputSolName( mesh,psl,pslOld->nameout ) )  return 0;
+    }
+  }
 
   /* Set sizes and allocate new mesh */
   if ( !PMMG_grpSplit_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
     return 0;
 
-  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
+  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"tetra adjacency table",return 0);
 
-  /* Set metrics size */
-  if ( meshOld->info.inputMet == 1 )
+  /* Set metric size */
+  if ( parmesh->info.inputMet == 1 ) {
     if ( !MMG3D_Set_solSize(mesh,met,MMG5_Vertex,meshOld->np,metOld->type) )
       return 0;
+  }
+
+  /* Set ls size */
+  if ( lsOld && lsOld->m ) {
+    assert ( lsOld->np );
+    if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,lsOld->np,lsOld->type) )
+      return 0;
+  }
+
+  /* Set disp size */
+  if ( dispOld && dispOld->m ) {
+    assert ( dispOld->np );
+    if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,dispOld->np,dispOld->type) )
+      return 0;
+  }
+
+  /* Set fields size */
+  if ( meshOld->nsols ) {
+    assert ( field );
+    for ( is=0; is<meshOld->nsols; ++is ) {
+      psl    = field + is;
+      pslOld = fieldOld + is;
+      psl->ver = 2;
+
+      if ( !MMG3D_Set_solSize(mesh,psl,MMG5_Vertex,meshOld->np,pslOld->type) )
+        return 0;
+    }
+  }
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
   memcpy(&(mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
 
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure
- * \param group pointer toward the new group to create
- * \param igrp index of the old group which is splitted
- * \param memAv available mem for the mesh allocation
- * \param ne number of elements in the new group mesh
- * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
- * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
- *
- * \return 0 if fail, 1 if success
- *
- * Creation of the new group \a grp: allocation and initialization of the mesh
- * and communicator structures. Set the f2ifc_max variable at the size at which
- * we allocate the face2int_face_comm arrays and the n2inc_max variable at the
- * size at which the node2int_node_comm arrays are allocated.
- *
- */
-static int
-PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int igrp,
-                         size_t *memAv,int ne,int *f2ifc_max,int *n2inc_max ) {
-  PMMG_pGrp  const grpOld = &parmesh->listgrp[igrp];
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pMesh       mesh;
-  size_t           oldMemMax;
-
-  grp->mesh = NULL;
-  grp->met  = NULL;
-  grp->disp = NULL;
-
-  MMG3D_Init_mesh( MMG5_ARG_start, MMG5_ARG_ppMesh, &grp->mesh,
-                   MMG5_ARG_ppMet, &grp->met, MMG5_ARG_end );
-
-  mesh      = grp->mesh;
-
-  /* Give all the available memory to the mesh */
-  mesh->memMax = *memAv;
-
-  /* Copy the mesh filenames */
-  if ( !MMG5_Set_inputMeshName( mesh,meshOld->namein) )                return 0;
-  if ( !MMG5_Set_inputSolName(  mesh,grp->met,grpOld->met->namein ) )  return 0;
-  if ( !MMG5_Set_outputMeshName(mesh, meshOld->nameout ) )             return 0;
-  if ( !MMG5_Set_outputSolName( mesh,grp->met,grpOld->met->nameout ) ) return 0;
-
-  /* Uses the Euler-poincare formulae to estimate the number of entities (np =
-   * ne/6, nt=ne/3 */
-  if ( !PMMG_grpSplit_setMeshSize( mesh,MG_MAX(ne/6,4),ne,0,MG_MAX(ne/6,3),MG_MAX(ne/3,1)) ) return 0;
-
-  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
-
-  grp->mesh->np = 0;
-  grp->mesh->npi = 0;
-
-  if ( grpOld->met->m ) {
-    if ( grpOld->met->size == 1 )
-      grp->met->type = MMG5_Scalar;
-    else if ( grpOld->met->size == 6 )
-      grp->met->type = MMG5_Tensor;
-
-    /** If we have an initial metric, force the metric allocation (even if for
-     * now, we don't know the number of point that will be stored in it) */
-    int allocMetric = 1;
-    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocMetric,grp->met->type) )
-      return 0;
-  }
-
-  /* Copy the info structure of the initial mesh: it contains the remeshing
-   * options */
-  if ( !PMMG_copy_mmgInfo ( &meshOld->info,&grp->mesh->info ) ) return 0;
-
-
-  /* Give the available memory to the parmesh */
-  grp->mesh->memMax = grp->mesh->memCur;
-  if ( *memAv < grp->mesh->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory to allocate a new"
-              " mesh.\n",__func__);
-      return 0;
-  }
-
-  *memAv           -= grp->mesh->memMax;
-
-  oldMemMax         = parmesh->memMax;
-  parmesh->memMax  += *memAv;
-
-  *n2inc_max = ne/3;
-  assert( (grp->nitem_int_node_comm == 0 ) && "non empty comm" );
-  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,*n2inc_max,int,
-              "subgroup internal1 communicator ",return 0);
-  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,*n2inc_max,int,
-              "subgroup internal2 communicator ",return 0);
-
-  *f2ifc_max = mesh->xtmax;
-  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,*f2ifc_max,int,
-              "face2int_face_comm_index1 communicator",return 0);
-  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,*f2ifc_max,int,
-              "face2int_face_comm_index2 communicator",return 0);
-
-  /* Update the available memory */
-  parmesh->memMax = parmesh->memCur;
-  assert ( parmesh->memMax >= oldMemMax );
-  if ( *memAv < (parmesh->memMax - oldMemMax) ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__);
-      return 0;
-  }
-
-  *memAv -= (parmesh->memMax - oldMemMax);
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure
- * \param igrp index of the group to fill
- *
- * Fill the background mesh with the current mesh on group igrp
- * (info.inputMet == 1 if a  metrics is provided by the user).
- *
- */
-int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
-
-  MMG5_pMesh const meshOld= parmesh->listgrp[igrp].mesh;
-  MMG5_pSol  const metOld = parmesh->listgrp[igrp].met;
-  MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  MMG5_pTetra      pt,ptCur;
-  MMG5_pPoint      ppt,pptCur;
-  int              *adja,*oldAdja,ie,ip;
-
-  mesh = parmesh->old_listgrp[igrp].mesh;
-  met  = parmesh->old_listgrp[igrp].met;
-
-  assert( mesh->ne == meshOld->ne );
-  assert( mesh->np == meshOld->np );
-
   /* Loop on tetras */
   for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
     pt = &meshOld->tetra[ie];
     ptCur = &mesh->tetra[ie];
- 
+
     if ( !MG_EOK(pt) ) continue;
 
     /* Copy tetra */
@@ -550,15 +492,230 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
       memcpy( pptCur, ppt, sizeof(MMG5_Point) );
 
       /* Copy metrics */
-      if ( mesh->info.inputMet == 1 )
+      if ( parmesh->info.inputMet == 1 ) {
         memcpy( &met->m[ ip*met->size ], &metOld->m[ip*met->size], met->size*sizeof(double) );
+      }
+
+      /* Copy ls */
+      if ( ls && ls->m ) {
+        assert ( lsOld && lsOld->m );
+        memcpy( &ls->m[ ip*ls->size ], &lsOld->m[ip*ls->size], ls->size*sizeof(double) );
+      }
+
+      /* Copy disp */
+      if ( disp && disp->m ) {
+        assert ( dispOld && dispOld->m );
+        memcpy( &disp->m[ ip*disp->size ], &dispOld->m[ip*dispOld->size], disp->size*sizeof(double) );
+      }
+
+      /* Copy fields */
+      for ( is=0; is<mesh->nsols; ++is ) {
+        psl    = field + is;
+        pslOld = fieldOld + is;
+        assert ( psl && pslOld );
+        memcpy( &psl->m[ ip*psl->size ], &pslOld->m[ip*pslOld->size], psl->size*sizeof(double) );
+      }
 
       /* Skip xpoint */
       pptCur->xp = 0;
-
     }
   }
-  
+
+  /** 1) Create the boundary on the background mesh */
+
+  /* Create boundary */
+  if ( !MMG5_chkBdryTria(mesh) ) {
+    fprintf(stderr,"\n  ## Problem building boundary.\n");
+    return 0;
+  }
+
+  /* Create surface adjacency */
+  memset ( &hash, 0x0, sizeof(MMG5_Hash));
+  if ( !MMG3D_hashTria(mesh,&hash) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    fprintf(stderr,"\n  ## Hashing problem.\n");
+    return 0;
+  }
+  MMG5_DEL_MEM(mesh,hash.item);
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param group pointer toward the new group to create
+ * \param igrp index of the new group
+ * \param igrpOld index of the old group which is splitted
+ * \param memAv available mem for the mesh allocation
+ * \param ne number of elements in the new group mesh
+ * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
+ * \param n2inc_max maximum number of elements in the node2int_node_comm arrays
+ *
+ * \return 0 if fail, 1 if success
+ *
+ * Creation of the new group \a grp: allocation and initialization of the mesh
+ * and communicator structures. Set the f2ifc_max variable at the size at which
+ * we allocate the face2int_face_comm arrays and the n2inc_max variable at the
+ * size at which the node2int_node_comm arrays are allocated.
+ *
+ */
+static int
+PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int igrpOld,
+                         int ne,int *f2ifc_max,int *n2inc_max ) {
+  PMMG_pGrp  const grp      = &listgrp[igrp];
+  PMMG_pGrp  const grpOld   = &parmesh->listgrp[igrpOld];
+  MMG5_pMesh const meshOld  = parmesh->listgrp[igrpOld].mesh;
+  MMG5_pSol  const metOld   = parmesh->listgrp[igrpOld].met;
+  MMG5_pSol  const dispOld  = parmesh->listgrp[igrpOld].disp;
+  MMG5_pSol  const lsOld    = parmesh->listgrp[igrpOld].ls;
+  MMG5_pSol  const fieldOld = parmesh->listgrp[igrpOld].field;
+
+  MMG5_pMesh       mesh;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
+  int              is;
+
+  grp->mesh = NULL;
+  grp->met  = NULL;
+  grp->ls   = NULL;
+  grp->disp = NULL;
+  grp->field= NULL;
+
+  MMG3D_Init_mesh( MMG5_ARG_start,
+                   MMG5_ARG_ppMesh, &grp->mesh,
+                   MMG5_ARG_ppMet,  &grp->met,
+                   MMG5_ARG_end );
+
+  mesh = grp->mesh;
+  met  = grp->met;
+
+  /* Take into account the minimal amount of memory used by the initialization */
+  PMMG_GHOSTMEM_INIT(parmesh,mesh);
+
+  /* Give all the available memory to the mesh */
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,igrp+1,mesh);
+
+  if ( lsOld ) {
+    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    ls = grp->ls;
+  }
+  else {
+    ls = NULL;
+  }
+
+  if ( dispOld ) {
+    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    disp = grp->disp;
+  }
+  else {
+    disp = NULL;
+  }
+
+  if ( meshOld->nsols ) {
+    assert ( fieldOld );
+    mesh->nsols = meshOld->nsols;
+    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    field = grp->field;
+  }
+  else {
+    field = NULL;
+  }
+
+  /* Copy the mesh filenames */
+  if ( !MMG5_Set_inputMeshName( mesh,meshOld->namein) )                return 0;
+  if ( !MMG5_Set_inputSolName(  mesh, met, metOld->namein ) )  return 0;
+  if ( ls   && !MMG5_Set_inputSolName(  mesh,ls,lsOld->namein     ) )  return 0;
+  if ( disp && !MMG5_Set_inputSolName(  mesh,disp,dispOld->namein ) )  return 0;
+
+  if ( !MMG5_Set_outputMeshName(mesh, meshOld->nameout ) )             return 0;
+  if ( !MMG5_Set_outputSolName( mesh, met, metOld->nameout ) ) return 0;
+  if ( ls   && !MMG5_Set_outputSolName( mesh,  ls,lsOld->nameout   ) ) return 0;
+  if ( disp && !MMG5_Set_outputSolName( mesh,disp,dispOld->nameout ) ) return 0;
+
+  if ( field ) {
+    for ( is=0; is<mesh->nsols; ++is ) {
+      psl    = field    + is;
+      pslOld = fieldOld + is;
+      if ( !MMG5_Set_inputSolName ( mesh,psl,pslOld->namein ) )  return 0;
+      if ( !MMG5_Set_outputSolName( mesh,psl,pslOld->nameout ) )  return 0;
+    }
+  }
+
+  /* Uses the Euler-poincare formulae to estimate the number of entities (np =
+   * ne/6, nt=ne/3 */
+  if ( !PMMG_grpSplit_setMeshSize( mesh,MG_MAX(ne/6,4),ne,0,MG_MAX(ne/6,3),MG_MAX(ne/3,1)) ) return 0;
+
+  PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
+
+  grp->mesh->np = 0;
+  grp->mesh->npi = 0;
+
+  int allocSize = 1;
+
+  if ( grpOld->met && grpOld->met->m ) {
+    if ( grpOld->met->size == 1 ) {
+      grp->met->type = MMG5_Scalar;
+    }
+    else if ( grpOld->met->size == 6 ) {
+      grp->met->type = MMG5_Tensor;
+    }
+
+    /** If we have an initial metric, force the metric allocation (even if for
+     * now, we don't know the number of point that will be stored in it) */
+    if ( !MMG3D_Set_solSize(grp->mesh,grp->met,MMG5_Vertex,allocSize,grp->met->type) )
+      return 0;
+  }
+
+  /* Set ls size */
+  if ( lsOld && lsOld->m ) {
+    assert ( lsOld->np );
+    if ( !MMG3D_Set_solSize(mesh,ls,MMG5_Vertex,allocSize,lsOld->type) )
+      return 0;
+  }
+  /* Set disp size */
+  if ( dispOld && dispOld->m ) {
+    assert ( dispOld->np );
+    if ( !MMG3D_Set_solSize(mesh,disp,MMG5_Vertex,allocSize,dispOld->type) )
+      return 0;
+  }
+
+  /* Set fields size */
+  if ( meshOld->nsols ) {
+
+    for ( is=0; is<meshOld->nsols; ++is ) {
+      psl    = field + is;
+      pslOld = fieldOld + is;
+      psl->ver = 2;
+
+      if ( !MMG3D_Set_solSize(mesh,psl,MMG5_Vertex,allocSize,pslOld->type) )
+        return 0;
+    }
+  }
+
+
+  /* Copy the info structure of the initial mesh: it contains the remeshing
+   * options */
+  if ( !PMMG_copy_mmgInfo ( &meshOld->info,&grp->mesh->info ) ) return 0;
+
+
+  /* Give the available memory to the parmesh */
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,igrp+1,mesh);
+
+  *n2inc_max = ne/3;
+  assert( (grp->nitem_int_node_comm == 0 ) && "non empty comm" );
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index1,*n2inc_max,int,
+              "subgroup internal1 communicator ",return 0);
+  PMMG_CALLOC(parmesh,grp->node2int_node_comm_index2,*n2inc_max,int,
+              "subgroup internal2 communicator ",return 0);
+
+  *f2ifc_max = mesh->xtmax;
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index1,*f2ifc_max,int,
+              "face2int_face_comm_index1 communicator",return 0);
+  PMMG_CALLOC(parmesh,grp->face2int_face_comm_index2,*f2ifc_max,int,
+              "face2int_face_comm_index2 communicator",return 0);
+
   return 1;
 }
 
@@ -573,8 +730,6 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  * \param grpId intex of the current group
  * \param n2ifc_max maximum number of nodes in the node2int_node_comm arrays
  * \param part partition array for the old tetrahedra
- * \param memAv pointer to the available memory
- * \param oldMemMax pointer to the old max memory
  *
  * \return 0 if fail, 1 if success.
  *
@@ -583,7 +738,7 @@ int PMMG_oldGrps_fillGroup( PMMG_pParMesh parmesh,int igrp ) {
  */
 static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp,
     MMG5_pMesh mesh, MMG5_pMesh meshOld,MMG5_pTetra tetraCur,MMG5_pTetra pt,
-    int tet,int grpId,int *n2inc_max,int *part,size_t *memAv,size_t *oldMemMax ) {
+    int tet,int grpId,int *n2inc_max,int *part ) {
   MMG5_pPoint ppt;
   int *adja,fac,poi,adjidx;
 
@@ -610,6 +765,7 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
       }
     }
   }
+
   return 1;
 }
 
@@ -621,8 +777,6 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
  * \param it index of the current point
  * \param fac intex of the current face
  * \param n2ifc_max maximum number of nodes in the node2int_node_comm arrays
- * \param memAv pointer to the available memory
- * \param oldMemMax pointer to the old max memory
  * \param pos pointer to the tetra+face index
  *
  * \return 0 if fail, 1 if success.
@@ -631,10 +785,7 @@ static int PMMG_splitGrps_updateNodeCommNew( PMMG_pParMesh parmesh,PMMG_pGrp grp
  *
  */
 static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp,
-    MMG5_pMesh mesh,MMG5_pPoint ppt,int ip,int *n2inc_max,size_t *memAv,size_t *oldMemMax ) {
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+    MMG5_pMesh mesh,MMG5_pPoint ppt,int ip,int *n2inc_max ) {
 
   /* Add point in subgroup's communicator if it already was in group's
      communicator */
@@ -645,9 +796,6 @@ static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp
     }
     ++parmesh->int_node_comm->nitem;
   }
-
-  /* Give back the memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
 }
@@ -667,8 +815,6 @@ static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp
  * face ones).
  * communicator (-1 if not in the internal face comm)
  * \param tetPerGrp number of tetra in the group
- * \param memAv pointer to the available memory
- * \param oldMemMax pointer to the old max memory
  * \param pos tetra+face index
  *
  * \return 0 if fail, 1 if success.
@@ -679,12 +825,10 @@ static int PMMG_splitGrps_updateNodeCommOld( PMMG_pParMesh parmesh,PMMG_pGrp grp
 static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
     PMMG_pGrp grp, MMG5_pMesh mesh,MMG5_pMesh meshOld,MMG5_pTetra pt,int fac,int adjidx,int vidx,
     int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
-    size_t *memAv,size_t *oldMemMax,int pos ) {
+    int pos ) {
+
   MMG5_pTetra ptadj;
   int ip,iploc,iplocadj;
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
 
   /** Build the internal communicator for the boundary faces */
   /* 1) Check if this face has already a position in the internal face
@@ -728,10 +872,7 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
     }
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
-
   return 1;
-
 }
 
 /**
@@ -748,8 +889,6 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
  * face ones).
  * communicator (-1 if not in the internal face comm)
  * \param tetPerGrp number of tetra in the group
- * \param memAv pointer to the available memory
- * \param oldMemMax pointer to the old max memory
  * \param pos pointer to the tetra+face index
  *
  * \return 0 if fail, 1 if success, -1 if you can continue to the next tetra
@@ -760,13 +899,10 @@ static int PMMG_splitGrps_updateFaceCommNew( PMMG_pParMesh parmesh,
 static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
     PMMG_pGrp grp, MMG5_pMesh mesh,int *adja,int tet,int fac,
     int *posInIntFaceComm, int *iplocFaceComm,int *f2ifc_max,int tetPerGrp,
-    size_t *memAv,size_t *oldMemMax,int *pos ) {
+    int *pos ) {
   int iploc;
- 
-  *pos   = 4*(tet-1)+1+fac;
 
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,*oldMemMax);
+  *pos   = 4*(tet-1)+1+fac;
 
   if ( adja[ fac ] == 0 ) {
     /** Build the internal communicator for the parallel faces */
@@ -774,8 +910,6 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
      * communicator. If not, the face is not parallel and we have nothing
      * to do */
     if ( posInIntFaceComm[*pos]<0 ) {
-      /* Give the available memory to the mesh */
-      PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
       return -1;
     }
 
@@ -787,13 +921,8 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
                            posInIntFaceComm[*pos] ) ) {
       return 0;
     }
-    /* Give the available memory to the mesh */
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
     return -1;
   }
-
-  /* Give the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,*oldMemMax);
 
   return 1;
 }
@@ -801,6 +930,7 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param group pointer toward the new group to fill
+ * \param ngrp nb. of new groups
  * \param grpIdOld index of the group that is splitted in the old list of groups
  * \param grpId index of the group that we create in the list of groups
  * \param ne number of elements in the new group mesh
@@ -820,28 +950,29 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
  *
  */
 static int
-PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int grpId,int ne,
+PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int grpIdOld,int grpId,int ne,
                           int *np,int *f2ifc_max,int *n2inc_max,idx_t *part,
-                          int* posInIntFaceComm,int* iplocFaceComm,size_t *memAv ) {
-
+                          int* posInIntFaceComm,int* iplocFaceComm ) {
+  PMMG_pGrp  const grp    = &listgrp[grpId];
   PMMG_pGrp  const grpOld = &parmesh->listgrp[grpIdOld];
   MMG5_pMesh const meshOld= parmesh->listgrp[grpIdOld].mesh;
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
-  MMG5_pTetra      pt,ptadj,tetraCur;
+  MMG5_pSol        met,ls,disp,field,psl,pslOld;
+  MMG5_pTetra      pt,tetraCur;
   MMG5_pxTetra     pxt;
   MMG5_pPoint      ppt;
-  size_t           oldMemMax;
-  int              *adja,adjidx,vidx,fac,pos,ip,iploc,iplocadj;
-  int              ie,tetPerGrp,tet,poi,j,newsize;
+  int              *adja,adjidx,vidx,fac,pos;
+  int              ie,is,tetPerGrp,tet,poi,j,newsize;
   int              ier;
 
   mesh = grp->mesh;
   met  = grp->met;
+  ls    = grp->ls;
+  disp  = grp->disp;
+  field = grp->field;
 
   /** Give the available memory to the mesh */
-  oldMemMax = mesh->memMax;
-  mesh->memMax += *memAv;
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
   /** Reinitialize to the value that n2i_n_c arrays are initially allocated
       Otherwise grp #1,2,etc will incorrectly use the values that the previous
@@ -896,20 +1027,84 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           for (j=mesh->npnil; j<mesh->npmax-1; j++)
             mesh->point[j].tmp  = j+1;
 
-          if ( met->m ) {
-            PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
-                         met->size*(met->npmax+1),double,
-                         "metric array",return 0);
+          /* Reallocation of metric, ls, displacement and sol fields */
+          /* Met */
+          if ( met ) {
+            if ( met->m ) {
+              PMMG_REALLOC(mesh,met->m,met->size*(mesh->npmax+1),
+                           met->size*(met->npmax+1),double,
+                           "metric array",return 0);
+            }
+            met->npmax = mesh->npmax;
           }
-          met->npmax = mesh->npmax;
+
+          /* level-set */
+          if ( ls ) {
+            if ( ls->m ) {
+              PMMG_REALLOC(mesh,ls->m,ls->size*(mesh->npmax+1),
+                           ls->size*(ls->npmax+1),double,
+                           "ls array",return 0);
+            }
+            ls->npmax = mesh->npmax;
+          }
+          /* Displacment */
+          if ( disp ) {
+            if ( disp->m ) {
+              PMMG_REALLOC(mesh,disp->m,disp->size*(mesh->npmax+1),
+                           disp->size*(met->npmax+1),double,
+                           "displacement array",return 0);
+            }
+            disp->npmax = mesh->npmax;
+          }
+
+          /* Sol fields */
+          if ( mesh->nsols ) {
+            for ( is=0; is<mesh->nsols; ++is ) {
+              psl    = field + is;
+              assert ( psl && psl->m );
+              PMMG_REALLOC(mesh,psl->m,psl->size*(mesh->npmax+1),
+                           psl->size*(psl->npmax+1),double,
+                           "field array",return 0);
+              psl->npmax = mesh->npmax;
+            }
+          }
+
           assert ( *np<=mesh->npmax );
         }
         memcpy( mesh->point+(*np),&meshOld->point[pt->v[poi]],
                 sizeof(MMG5_Point) );
+
+        /* metric */
         if ( met->m ) {
           memcpy( &met->m[ (*np) * met->size ],
                   &grpOld->met->m[pt->v[poi] * met->size],
                   met->size * sizeof( double ) );
+        }
+        /* level-set */
+        if ( ls ) {
+          if ( ls->m ) {
+            memcpy( &ls->m[ (*np) * ls->size ],
+                    &grpOld->ls->m[pt->v[poi] * ls->size],
+                    ls->size * sizeof( double ) );
+          }
+        }
+        /* disp */
+        if ( disp ) {
+          if ( disp->m ) {
+            memcpy( &disp->m[ (*np) * disp->size ],
+                    &grpOld->disp->m[pt->v[poi] * disp->size],
+                    disp->size * sizeof( double ) );
+          }
+        }
+        /* solution field */
+        if ( mesh->nsols ) {
+          for ( is=0; is<mesh->nsols; ++is ) {
+            psl    = field + is;
+            pslOld = grpOld->field + is;
+            memcpy( &psl->m[ (*np) * psl->size ],
+                    &pslOld->m[pt->v[poi] * psl->size],
+                    psl->size * sizeof( double ) );
+          }
         }
 
         /* Update tetra vertex index */
@@ -930,8 +1125,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           mesh->point[*np].xp = mesh->xp;
         }
 
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
         if( !PMMG_splitGrps_updateNodeCommOld( parmesh,grp,mesh,ppt,*np,
-              n2inc_max,memAv,&oldMemMax ) ) return 0;
+              n2inc_max ) ) return 0;
+        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
       } else {
         // point is already included in this subgroup, update current tetra
@@ -951,9 +1148,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
 
     /* Update element's adjaceny to elements in the new mesh */
     for ( fac = 0; fac < 4; ++fac ) {
-
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
       ier = PMMG_splitGrps_updateFaceCommOld( parmesh,grp,mesh,adja,tet,fac,
-          posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,&pos );
+          posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,&pos );
+      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
       if( ier == 0 )  return 0;
       if( ier == -1 ) continue; /* not in the old communicator, continue */
 
@@ -973,18 +1171,22 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
           tetraCur->xt = mesh->xt;
         }
         pxt = &mesh->xtetra[tetraCur->xt];
-        pxt->ref[fac] = 0;
-        /* If already boundary, make it recognizable as a "true" boundary */
-        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY; 
-        pxt->ftag[fac] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 
-        if( !PMMG_splitGrps_updateFaceCommNew( parmesh,grp,mesh,meshOld,pt,fac,adjidx,vidx,posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,memAv,&oldMemMax,pos ) ) return 0;
+        /* If already boundary, make it recognizable as a "true" boundary */
+        if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY;
+        PMMG_tag_par_face(pxt,fac);
+
+        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
+        if( !PMMG_splitGrps_updateFaceCommNew( parmesh,grp,mesh,meshOld,pt,fac,
+              adjidx,vidx,posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,
+              pos ) ) return 0;
+        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
         for ( j=0; j<3; ++j ) {
           /* Update the face and face vertices tags */
-          pxt->tag[MMG5_iarf[fac][j]] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_edge(pxt,MMG5_iarf[fac][j]);
           ppt = &mesh->point[tetraCur->v[MMG5_idir[fac][j]]];
-          ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+          PMMG_tag_par_node(ppt);
 
           /** Add an xPoint if needed */
 // TO REMOVE WHEN MMG WILL BE READY
@@ -1019,7 +1221,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
   assert( (mesh->ne == ne) && "Error in the tetra count" );
 
   /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,*memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
 
   for ( ie = 1; ie <= mesh->ne; ie++ ) {
     /* Get tetra in the new mesh */
@@ -1030,10 +1232,10 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp grp,int grpIdOld,int g
     pt = &meshOld->tetra[tet];
 
     if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
-          tet,grpId,n2inc_max,part,memAv,&oldMemMax ) ) return 0;
+          tet,grpId,n2inc_max,part ) ) return 0;
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,*memAv,oldMemMax);
+  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
   return 1;
 }
@@ -1061,9 +1263,9 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
 }
 
 /**
- * \param mesh pointer toward an MMG5 mesh structure
- * \param met pointer toward an MMG5 metric structure
+ * \param grp pointer toward the PMMG group
  * \param np number of points in the mesh
+ * \param memAv available memory to update
  *
  * \return 0 if fail, 1 if success
  *
@@ -1075,16 +1277,23 @@ PMMG_splitGrps_countTetPerGrp( PMMG_pParMesh parmesh,MMG5_pMesh meshOld,
  *
  */
 static inline
-int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
+int PMMG_splitGrps_cleanMesh( PMMG_pParMesh parmesh,PMMG_pGrp grp,int np )
 {
+  MMG5_pMesh   mesh = grp->mesh;
+  MMG5_pSol    met  = grp->met;
+  MMG5_pSol    ls   = grp->ls;
+  MMG5_pSol    disp = grp->disp;
+  MMG5_pSol    field= grp->field;
+  MMG5_pSol    psl;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,i;
 
   /* Mesh reallocation at the smallest possible size */
+
   PMMG_REALLOC(mesh,mesh->point,np+1,mesh->npmax+1,
                MMG5_Point,"fitted point table",return 0);
-  mesh->npmax = np;
+  mesh->npmax = mesh->np = mesh->npi = np;
   mesh->npnil = 0;
   mesh->nenil = 0;
 
@@ -1097,22 +1306,36 @@ int PMMG_splitGrps_cleanMesh( MMG5_pMesh mesh,MMG5_pSol met,int np )
   PMMG_REALLOC(mesh,mesh->xtetra,mesh->xt+1,mesh->xtmax+1,
                MMG5_xTetra,"fitted xtetra table",return 0);
   mesh->xtmax = mesh->xt;
-  if ( met->m )
-    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
-                 double,"fitted metric table",return 0);
-  met->npmax = mesh->npmax;
-
-  /* Set memMax to the smallest possible value */
-  mesh->memMax = mesh->memCur;
-
-  // Update the empty points' values as per the convention used in MMG3D
-  mesh->np  = np;
-  mesh->npi = np;
 
   if ( met->m ) {
-    met->np  = np;
-    met->npi = np;
+    PMMG_REALLOC(mesh,met->m,met->size*(np+1),met->size*(met->npmax+1),
+                 double,"fitted metric table",return 0);
   }
+  met->npmax = met->np = met->npi = np;
+
+  if ( ls && ls->m ) {
+    PMMG_REALLOC(mesh,ls->m,ls->size*(np+1),ls->size*(ls->npmax+1),
+                 double,"fitted ls table",return 0);
+    ls->npmax = ls->np = ls->npi = np;
+  }
+
+  if ( disp && disp->m ) {
+    PMMG_REALLOC(mesh,disp->m,disp->size*(np+1),disp->size*(disp->npmax+1),
+                 double,"fitted disp table",return 0);
+    disp->npmax = disp->np = disp->npi = np;
+  }
+
+  if ( mesh->nsols ) {
+    assert ( field );
+    for ( i=0; i<mesh->nsols; ++i ) {
+      psl = field + i;
+      assert ( psl->m );
+      PMMG_REALLOC(mesh,psl->m,psl->size*(np+1),psl->size*(psl->npmax+1),
+                   double,"fitted field table",return 0);
+      psl->npmax = psl->np = psl->npi = np;
+    }
+  }
+
 
   /* Udate tags and refs of tetra edges (if we have 2 boundary tetra in the
    * shell of an edge, it is possible that one of the xtetra has set the edge
@@ -1159,34 +1382,46 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
   for ( grpId = 0; grpId < parmesh->ngrp; ++grpId ) {
 
     /* New group initialisation */
-    if ( !PMMG_oldGrps_newGroup( parmesh, grpId ) ) {
+    /* New group initialisation and fill */
+    if ( !PMMG_create_oldGrp( parmesh, grpId ) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new background"
               " group (%d).\n",__func__,grpId);
       return 0;
     }
 
-    /* Fill group */
-    if ( !PMMG_oldGrps_fillGroup( parmesh, grpId ) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to fill new background"
-              "group (%d).\n",__func__,grpId);
-      return 0;
-    }
   }
 
   return 1;
 }
 
-int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx_t ngrp,int *countPerGrp,idx_t *part ) {
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grpIdOld label of the original group to be splitted.
+ * \param grpsNew list of new groups
+ * \param ngrp number of groups to split the mesh into.
+ * \param countPerGrp number of tetras in each new groups.
+ * \param part array of the mesh element partitioning.
+ *
+ * \return -1 : no possibility to save the mesh
+ *         0  : failed but the mesh is correct
+ *         1  : success
+ *
+ * Split one mesh it into into several meshes.
+ *
+ * \warning tetra must be packed.
+ *
+ */
+int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
+                        idx_t ngrp,int *countPerGrp,idx_t *part ) {
   PMMG_pGrp grpOld,grpCur;
   MMG5_pMesh meshOld,meshCur;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
    *  actual node2int_node_comm */
   int *n2inc_max,*f2ifc_max,*poiPerGrp;
-  size_t memAv,oldMemMax;
   int *posInIntFaceComm,*iplocFaceComm;
   int i, grpId, poi, fac, ie;
   int ret_val = 1;
- 
+
   grpOld  = &parmesh->listgrp[grpIdOld];
   meshOld = grpOld->mesh;
 
@@ -1220,8 +1455,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     iplocFaceComm[4*(ie-1)+1+fac] = (grpOld->face2int_face_comm_index1[i]%12)%3;
   }
 
-  /* 
-   * Use point[].tmp field to store index in internal communicator of
+  /* Use point[].tmp field to store index in internal communicator of
      vertices. specifically: place a copy of vertices' node2index2 position at
      point[].tmp field or -1 if they are not in the comm.
      Use point[].s field to store assigned point subgroup.
@@ -1238,16 +1472,14 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
       grpOld->node2int_node_comm_index2[ i ];
 
   /* Available memory to create the groups */
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[grpIdOld].mesh->memMax = parmesh->listgrp[grpIdOld].mesh->memCur;
-  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[grpIdOld].mesh->memCur;
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group */
     grpCur  = &grpsNew[grpId];
 
     /** New group initialisation */
-    if ( !PMMG_splitGrps_newGroup(parmesh,&grpsNew[grpId],grpIdOld,&memAv,
+    if ( !PMMG_splitGrps_newGroup(parmesh,grpsNew,grpId,grpIdOld,
                                   countPerGrp[grpId],&f2ifc_max[grpId],
                                   &n2inc_max[grpId]) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to initialize new"
@@ -1270,35 +1502,27 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
     grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
 
-    if ( !PMMG_splitGrps_fillGroup(parmesh,&grpsNew[grpId],grpIdOld,grpId,
+    if ( !PMMG_splitGrps_fillGroup(parmesh,grpsNew,ngrp,grpIdOld,grpId,
                                    countPerGrp[grpId],&poiPerGrp[grpId],
                                    &f2ifc_max[grpId],
                                    &n2inc_max[grpId],part,posInIntFaceComm,
-                                   iplocFaceComm,&memAv) ) {
+                                   iplocFaceComm) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to fill new group (%d).\n",
               __func__,grpId);
       ret_val = -1;
       goto fail_sgrp;
     }
-
     /* Mesh cleaning in the new group */
-    if ( !PMMG_splitGrps_cleanMesh(meshCur,grpCur->met,poiPerGrp[grpId]) ) {
+    if ( !PMMG_splitGrps_cleanMesh(parmesh,grpCur,poiPerGrp[grpId]) ) {
       fprintf(stderr,"\n  ## Error: %s: unable to clean the mesh of"
               " new group (%d).\n",__func__,grpId);
       ret_val = -1;
       goto fail_sgrp;
     }
-    /* Remove the memory used by this mesh from the available memory */
-    if ( memAv < meshCur->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory to allocate a new"
-              " mesh.\n",__func__);
-      goto fail_sgrp;
-    }
-    memAv -= meshCur->memMax;
+
 
     /* Give the memory to the parmesh */
-    oldMemMax        = parmesh->memMax;
-    parmesh->memMax += memAv;
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grpsNew,ngrp,meshCur);
 
     /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
@@ -1319,13 +1543,6 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
                   "subgroup interface faces communicator ",
                   ret_val = -1;goto fail_sgrp );
 
-    parmesh->memMax = parmesh->memCur;
-    assert ( parmesh->memMax <= oldMemMax );
-    if ( memAv < oldMemMax - parmesh->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory.\n",__func__);
-      goto fail_sgrp;
-    }
-    memAv          -= (parmesh->memMax - oldMemMax);
   }
 
   /* No error so far, skip deallocation of lstgrps */
@@ -1334,6 +1551,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,idx
   /* fail_sgrp deallocates any mesh that has been allocated in listgroup.
      Should be executed only if an error has occured */
 fail_sgrp:
+  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
@@ -1356,12 +1574,14 @@ fail_sgrp:
 
     /* mesh */
     if ( meshCur ) {
+      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshCur);
       if ( meshCur->adja != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->adja,int,"adjacency table");
       if ( meshCur->xpoint != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->xpoint,MMG5_xPoint,"boundary points");
       if ( meshCur->xtetra != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->xtetra,MMG5_xTetra,"msh boundary tetra");
+      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshCur);
     }
   }
 
@@ -1422,8 +1642,6 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part );
   if( ret_val != 1) goto fail_counters;
 
-//DEBUGGING:  saveGrpsToMeshes( grpsNew, ngrp, parmesh->myrank, "AfterSplitGrp" );
-
   PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
   parmesh->listgrp = grpsNew;
   parmesh->ngrp = ngrp;
@@ -1440,10 +1658,26 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
-end:
 
   return ret_val;
 
+}
+
+/**
+ * \param parmesh pointer toward the parmesh
+ * \param ier error value to return
+ * \return \a ier
+ *
+ * Check communicator consistency.
+ *
+ */
+static inline
+int PMMG_check_allComm(PMMG_pParMesh parmesh,int ier) {
+  assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
+  assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+  return ier;
 }
 
 /**
@@ -1472,11 +1706,14 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   int meshOld_ne = 0;
   idx_t ngrp = 1;
   idx_t *part = NULL;
-  int grpId,grpIdOld, tet;
-  int ne_all[parmesh->nprocs],ngrps_all[parmesh->nprocs],noldgrps_all[parmesh->nprocs];
+  int grpIdOld;
+  int noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
-  if ( !parmesh->ngrp ) goto end;
+  if ( !parmesh->ngrp ) {
+    /* Check the communicators and return failure */
+    return PMMG_check_allComm(parmesh,ret_val);
+  }
 
   /* We are splitting group 0 */
   grpIdOld = 0;
@@ -1485,13 +1722,17 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
 
-  if ( !meshOld ) goto end;
+  if ( !meshOld ) {
+    /* Check the communicators and return failure */
+    return PMMG_check_allComm(parmesh,ret_val);
+  }
 
+  /* Count how many groups to split into */
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     /* Set to a value higher than 1 just to continue until the true
      * computation (which is after a jump on ngrp==1) */
-//#warning: fix this conditional jump
+#warning: fix this conditional jump
     ngrp = 2;
   } else {
 
@@ -1523,32 +1764,36 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     }
   }
 
-  /* Print split info */
-  MPI_CHECK( MPI_Gather(&ngrp,1,MPI_INT,
-                        ngrps_all,1,MPI_INT,0,parmesh->comm),
-             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-  MPI_CHECK( MPI_Gather(&meshOld->ne,1,MPI_INT,
-                        ne_all,1,MPI_INT,0,parmesh->comm),
-             PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  /* Share old number of groups with all procs: must be done here to ensure that
+   * each proc call the collective comm */
   MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
-                             parmesh->comm), return 0 );
+                           parmesh->comm), return 0 );
 
+  /* Print split info */
+  int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
+  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL ) {
+    spltinfo[0] = ngrp;
+    spltinfo[1] = meshOld->ne;
+
+    MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
+               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  }
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     int i;
     for( i=0; i<parmesh->nprocs; i++ ) {
       fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
-              i,ne_all[i],ngrps_all[i]);
+              i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
     }
   }
 
   /* Does the group need to be further subdivided to subgroups or not? */
   if ( ngrp == 1 )  {
-    if ( parmesh->ddebug )
+    if ( parmesh->ddebug ) {
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                parmesh->myrank+1, parmesh->nprocs, ngrp );
-    goto end;
-
+    }
+    return PMMG_check_allComm(parmesh,ret_val);
   } else {
     if ( parmesh->ddebug )
       fprintf( stdout,
@@ -1578,11 +1823,15 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
   meshOld_ne = meshOld->ne;
 
-
+  /* Get interfaces layers or call metis. Use interface displacement if:
+   * - This is the required method, and
+   * - you are before group distribution or there are not too many groups.
+   */
   if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       ((target == PMMG_GRPSPL_DISTR_TARGET) ||
        ((target == PMMG_GRPSPL_MMG_TARGET) &&
         (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
+
     ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
     if ( ngrp == 1 )  {
       if ( parmesh->ddebug )
@@ -1590,7 +1839,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
       goto fail_part;
-    } 
+    }
   }
   else {
     if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
@@ -1600,9 +1849,9 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       ret_val = 0;
       goto fail_part;
     }
-    
+
     /* If this is the first split of the input mesh, and interface displacement
-     * will beb performed, check that the groups are contiguous. */
+     * will be performed, check that the groups are contiguous. */
     if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
       if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
   }
@@ -1614,7 +1863,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
 
-end:
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
@@ -1701,14 +1949,13 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 #endif
 
   if ( parmesh->ddebug ) {
-    size_t dummy1,dummy2;
 
     PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
     PMMG_qualhisto( parmesh, PMMG_INQUA, 0 );
     PMMG_prilen( parmesh, 0, 0 );
 
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,dummy1,dummy2);
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   }
 
@@ -1719,17 +1966,16 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
-    size_t available,oldMemMax;
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
+    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
+    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
     if ( !mesh->adja ) {
       if ( !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         return 0;
       }
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
+    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
     /*  Move interfaces */
     if( target == PMMG_GRPSPL_DISTR_TARGET ) {
       int base_front;

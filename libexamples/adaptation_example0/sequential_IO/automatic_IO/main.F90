@@ -37,7 +37,7 @@ PROGRAM main
 
   IF ( (argc<2) .AND. rank == 0 ) THEN
      PRINT*, " Usage: ",TRIM(ADJUSTL(exec_name)),&
-          " filein fileout [[-sol metfile]/[-met metfile]] [-solphys solfile]"
+          " filein fileout [[-sol metfile]/[-met metfile]] [-field solfile]"
      CALL EXIT(1);
   ENDIF
 
@@ -55,7 +55,7 @@ PROGRAM main
            i = i + 1
            hasMet = 1
            CALL get_command_ARGUMENT(i, metname)
-        ELSEIF ( TRIM(tmp) ==  "-solphys" ) THEN
+        ELSEIF ( TRIM(tmp) ==  "-field" ) THEN
            i = i + 1
            hasSol = 1
            CALL get_command_ARGUMENT(i, solname)
@@ -74,8 +74,8 @@ PROGRAM main
   ! PMMG_ARG_start: we start to give the args of a variadic func
   ! PMMG_ARG_ppParMesh: next arg will be a pointer over a PMMG_pParMesh
   ! &parmesh: pointer toward your PMMG_pParMesh
-  ! MMG5_ARG_pMesh: initialization of a mesh inside the parmesh.
-  ! MMG5_ARG_pMet: init a metric inside the parmesh
+  ! PMMG_ARG_pMesh: initialization of a mesh inside the parmesh.
+  ! PMMG_ARG_pMet: init a metric inside the parmesh
   ! PMMG_ARG_dim: next arg will be the mesh dimension
   ! 3: mesh dimension
   ! PMMG_MPIComm: next arg will be the MPI COmmunicator
@@ -90,7 +90,7 @@ PROGRAM main
        PMMG_ARG_dim,%val(3),PMMG_ARG_MPIComm,%val(MPI_COMM_WORLD), &
        PMMG_ARG_end);
 
-  !> 2) Build mesh in MMG5 format
+  !> 2) Build mesh in PMMG format
   !> Two solutions: just use the PMMG_loadMesh_centralized function that will
   !> read a .mesh(b) file formatted or manually set your mesh using the
   !> PMMG_Set* functions
@@ -123,11 +123,17 @@ PROGRAM main
   IF ( hasSol == 1 ) THEN
      CALL PMMG_loadAllSols_centralized(parmesh,trim(solname),len(trim(solname)),ier)
      IF ( ier /= 1 )THEN
-        CALL MPI_Abort(ier)
+        CALL MPI_Abort(MPI_COMM_WORLD,1,ier)
      ENDIF
   ENDIF
 
   !> ------------------------------ STEP  II --------------------------
+  !>  No surface adaptation */
+  CALL PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1, ier )
+  IF ( ier /= 1 )THEN
+     CALL MPI_Abort(MPI_COMM_WORLD,1,ier)
+  ENDIF
+
   !> remesh function
   CALL PMMG_parmmglib_centralized(parmesh,ier)
 
@@ -165,7 +171,7 @@ PROGRAM main
      PRINT*,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH"
   ENDIF
 
-  !> 4) Free the PMMG5 structures
+  !> 4) Free the PMMG structures
   CALL PMMG_Free_all ( PMMG_ARG_start,     &
        PMMG_ARG_ppParMesh,parmesh,         &
        PMMG_ARG_end);
