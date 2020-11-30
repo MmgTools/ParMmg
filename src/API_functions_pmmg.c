@@ -463,6 +463,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
+  PMMG_parmesh_SetMemMax( parmesh, 20 );
 
   mem = (parmesh->memGloMax-parmesh->memMax)/(MMG5_MILLION*parmesh->ngrp) - 1;
 
