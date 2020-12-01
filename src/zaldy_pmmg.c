@@ -370,6 +370,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int fitMesh )
 
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
+    mesh->memMax = parmesh->memGloMax;
 
     /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
     mesh->info.mem = mesh->memMax/MMG5_MILLION;

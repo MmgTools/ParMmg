@@ -1249,6 +1249,9 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   mesh   = grp->mesh;
   met    = grp->met ;
 
+  /* Set maximum memory */
+  mesh->memMax = parmesh->memGloMax;
+
   np = 0;
 
   /** Mesh renumbering to have the same indices at points shared by multiple

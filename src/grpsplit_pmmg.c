@@ -355,6 +355,9 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   mesh = grp->mesh;
   met  = grp->met;
 
+  /* Set maximum memory */
+  mesh->memMax = parmesh->memGloMax;
+
   if ( lsOld ) {
     PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
     ls = grp->ls;
@@ -1608,6 +1611,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   /** Check grps contiguity */
   ret_val = PMMG_checkAndReset_grps_contiguity( parmesh );
 
+  /* Set memMax of the new meshes */
   if ( PMMG_parmesh_updateMemMax(parmesh, fitMesh) ) {
     /* No error so far, skip deallocation of lstgrps */
     goto fail_counters;
@@ -1617,6 +1621,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 
 fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
+
+#ifndef NDEBUG
+  int i;
+  for( i = 0; i < parmesh->ngrp; i++ )
+    PMMG_MEM_CHECK(parmesh,parmesh->listgrp[i].mesh,return 0);
+#endif
 
   return ret_val;
 

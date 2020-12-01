@@ -97,6 +97,9 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
   mesh = grp->mesh;
   met  = grp->met;
 
+  /* Set maximum memory */
+  mesh->memMax = parmesh->memGloMax;
+
   /** Get the mesh maximal authorized memory */
   (*np) = *( (int *) *buffer); *buffer += sizeof(int);
   (*xp) = *( (int *) *buffer); *buffer += sizeof(int);
