@@ -1038,14 +1038,13 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     mesh0->npi = mesh0->np;
     mesh0->nei = mesh0->ne;
 
-    /* Free merged mesh and increase mesh0->memMax*/
+    /* Free merged mesh */
     PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
     PMMG_grp_free(parmesh,grp);
     PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
   }
   PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
 
-  assert ( mesh0->memMax+parmesh->memMax<=parmesh->memGloMax );
 
   /** Step 5: Update the communicators */
 

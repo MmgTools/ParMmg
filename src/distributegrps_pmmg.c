@@ -1609,7 +1609,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 #ifndef NDEBUG
   for ( k=0; k<ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    assert ( mesh->memCur == mesh->memMax );
     assert ( mesh->npmax == mesh->np );
     assert ( mesh->xpmax == mesh->xp );
     assert ( mesh->nemax == mesh->ne );
