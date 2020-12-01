@@ -1048,7 +1048,7 @@ int PMMG_partBcast_mesh( PMMG_pParMesh parmesh )
              ier = 3 );
 
   /* Memory repartition */
-  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+  if ( !PMMG_parmesh_updateMemMax( parmesh,1 ) ) ier = 3;
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
    * shared entites with the other procs */

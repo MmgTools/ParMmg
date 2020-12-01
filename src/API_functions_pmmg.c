@@ -463,14 +463,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   /* Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
-  PMMG_parmesh_SetMemMax( parmesh, 20 );
-
-  mem = parmesh->memMax;
-
-  for ( k=0; k<parmesh->ngrp; ++k ) {
-    mesh = parmesh->listgrp[k].mesh;
-    MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_mem,(int)mem);
-  }
+  PMMG_parmesh_SetMemMax( parmesh );
 
 }
 

@@ -248,57 +248,25 @@ int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
 }
 
 /**
- * \param parmesh parmesh structure to adjust
- * \param percent integer value bewtween 0 and 100
+ * \param parmesh parmesh structure
  *
  * \return 1 if success, 0 if fail
  *
  * Set the maximum memory that parmesh and the meshes in listgrp can use.
- * The total memory available is split between the parmesh structure and the
- * listgrp structures according to the percentage specified by the percent
- * input variable:
- *   percent % of the available mem is assigned to pmesh.memMax
- *   (100-percent)/100 are assigned to the mesh[i].memMax
  */
-int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
-{
+int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
   MMG5_pMesh mesh;
-  size_t     available;
-  int        remaining_ngrps;
-  int        i = 0;
+  size_t     memMax;
+  int        i;
 
-  assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
+  memMax = parmesh->memGloMax;
 
-  parmesh->memMax = parmesh->memGloMax;// * percent / 100;
-
-//  if ( parmesh->memGloMax <= parmesh->memMax ) {
-//    fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-//            __func__);
-//    return 0;
-//  }
-//  available       = parmesh->memGloMax - parmesh->memMax;
-//
-//  remaining_ngrps = parmesh->ngrp;
-  for ( i = 0; i < parmesh->ngrp; ++i ) {
+  parmesh->memMax = memMax;
+  for( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
-    mesh->memMax = parmesh->memGloMax;// available/remaining_ngrps;
-
-//    /* Not enough memory: set the minimal memory to be able to continue */
-//    if ( mesh->memMax < mesh->memCur ) {
-//      mesh->memMax = mesh->memCur;
-//    }
-//    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-//    mesh->info.mem = mesh->memMax/MMG5_MILLION;
-//
-//    /* Count the remaining available memory */
-//    if ( available < mesh->memMax ) {
-//      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
-//      return 0;
-//    }
-//
-//    available -= mesh->memMax;
-//    --remaining_ngrps;
+    mesh->memMax = parmesh->memGloMax;
   }
+
   return 1;
 }
 
@@ -385,7 +353,6 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
 
 /**
  * \param parmesh parmesh structure to adjust
- * \param percent ratio of the available memory to give to the parmesh
  * \param fitMesh if 1, set maximum mesh size at its exact size.
  *
  * \return 1 if success, 0 if fail
@@ -393,7 +360,7 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
  * Update the memory repartition between the communicators and the groups.
  *
  */
-int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
+int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int fitMesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp,field,psl;
@@ -401,50 +368,11 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
   int        i,is;
 
-//  /* Fit parmesh max memory to the currently used memory, and update available memory */
-//  parmesh->memMax = parmesh->memCur;
-//
-//  if (  parmesh->memGloMax <=  parmesh->memMax ) {
-//    fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-//            __func__);
-//    return 0;
-//  }
-//  available = parmesh->memGloMax - parmesh->memMax;
-//  used = parmesh->memMax;
-//
-//  /* Fit meshes max memory to the currently used memory, and update available memory */
-//  for ( i = 0; i < parmesh->ngrp; ++i ) {
-//    mesh = parmesh->listgrp[i].mesh;
-//
-//    mesh->memMax = mesh->memCur;
-//
-//    if ( available < mesh->memMax ) {
-//      fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-//              __func__);
-//      return 0;
-//    }
-//    available -= mesh->memMax;
-//    used      += mesh->memMax;
-//  }
-//  assert( parmesh->memGloMax == (available+used) );
-//
-//  /* Increase parmesh memory */
-//  delta = percent * available/100;
-//  parmesh->memMax += delta;
-//  available       -= delta;
-//  used            += delta;
-//
-//  /* Distribute the rest of the available memory among the groups */
-//  remaining_ngrps = parmesh->ngrp;
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
 
-//    /* Give a slice of the available memory to this mesh */
-//    delta = available/remaining_ngrps;
-//    mesh->memMax += delta;
-//
-//    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-//    mesh->info.mem = mesh->memMax/MMG5_MILLION;
+    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
+    mesh->info.mem = mesh->memMax/MMG5_MILLION;
 
     /* Memory repartition for the MMG meshes arrays */
     npmax_old = mesh->npmax;
@@ -524,16 +452,6 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       }
     }
 
-
-//    /* Count the remaining available memory */
-//    if ( available < delta ) {
-//      fprintf(stderr,"\n  ## Error: %s: not enough memory %d-%d\n",__func__,parmesh->myrank,i);
-//      return 0;
-//    }
-//
-//    /* Update available memory */
-//    available -= delta;
-//    --remaining_ngrps;
   }
   return 1;
 }

@@ -386,7 +386,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
               parmesh->info.mem = atoi( argv[i] );
               PMMG_parmesh_SetMemGloMax( parmesh );
             }
-            PMMG_parmesh_SetMemMax( parmesh, 20 );
+            PMMG_parmesh_SetMemMax( parmesh );
           } else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             ret_val = 0;

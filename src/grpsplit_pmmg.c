@@ -1608,7 +1608,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   /** Check grps contiguity */
   ret_val = PMMG_checkAndReset_grps_contiguity( parmesh );
 
-  if ( PMMG_parmesh_updateMemMax(parmesh, 5, fitMesh) ) {
+  if ( PMMG_parmesh_updateMemMax(parmesh, fitMesh) ) {
     /* No error so far, skip deallocation of lstgrps */
     goto fail_counters;
   }

@@ -111,7 +111,7 @@ int main( int argc, char *argv[] )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /* Init memMax sizes. Only one mesh for now => pmmg structs do not need much */
-  if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
+  if ( !PMMG_parmesh_SetMemMax(parmesh) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
