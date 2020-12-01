@@ -707,8 +707,6 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   int              igrp,ier;
   int8_t           allocated;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   locStats = NULL;
 #ifndef NDEBUG
   /* Check that alloc size does not overflow PTRDIFF_MAX (max size

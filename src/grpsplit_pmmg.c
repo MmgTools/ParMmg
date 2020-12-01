@@ -355,12 +355,6 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   mesh = grp->mesh;
   met  = grp->met;
 
-  /* Take into account the minimal amount of memory used by the initialization */
-  PMMG_GHOSTMEM_INIT(parmesh,mesh);
-
-  /* Give all the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   if ( lsOld ) {
     PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
     ls = grp->ls;
@@ -538,9 +532,6 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   }
   MMG5_DEL_MEM(mesh,hash.item);
 
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
-
   return 1;
 }
 
@@ -590,12 +581,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
 
   mesh = grp->mesh;
   met  = grp->met;
-
-  /* Take into account the minimal amount of memory used by the initialization */
-  PMMG_GHOSTMEM_INIT(parmesh,mesh);
-
-  /* Give all the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,igrp+1,mesh);
 
   if ( lsOld ) {
     PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
@@ -699,9 +684,6 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
    * options */
   if ( !PMMG_copy_mmgInfo ( &meshOld->info,&grp->mesh->info ) ) return 0;
 
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,igrp+1,mesh);
 
   *n2inc_max = ne/3;
   assert( (grp->nitem_int_node_comm == 0 ) && "non empty comm" );
@@ -971,9 +953,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
   disp  = grp->disp;
   field = grp->field;
 
-  /** Give the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
-
   /** Reinitialize to the value that n2i_n_c arrays are initially allocated
       Otherwise grp #1,2,etc will incorrectly use the values that the previous
       grps assigned to n2inc_max */
@@ -1125,10 +1104,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
           mesh->point[*np].xp = mesh->xp;
         }
 
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
         if( !PMMG_splitGrps_updateNodeCommOld( parmesh,grp,mesh,ppt,*np,
               n2inc_max ) ) return 0;
-        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
       } else {
         // point is already included in this subgroup, update current tetra
@@ -1148,10 +1125,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
 
     /* Update element's adjaceny to elements in the new mesh */
     for ( fac = 0; fac < 4; ++fac ) {
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
       ier = PMMG_splitGrps_updateFaceCommOld( parmesh,grp,mesh,adja,tet,fac,
           posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,&pos );
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
       if( ier == 0 )  return 0;
       if( ier == -1 ) continue; /* not in the old communicator, continue */
 
@@ -1176,11 +1151,9 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
         if( pxt->ftag[fac] & MG_BDY ) pxt->ftag[fac] |= MG_PARBDYBDY;
         PMMG_tag_par_face(pxt,fac);
 
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
         if( !PMMG_splitGrps_updateFaceCommNew( parmesh,grp,mesh,meshOld,pt,fac,
               adjidx,vidx,posInIntFaceComm,iplocFaceComm,f2ifc_max,tetPerGrp,
               pos ) ) return 0;
-        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
         for ( j=0; j<3; ++j ) {
           /* Update the face and face vertices tags */
@@ -1220,9 +1193,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
   }
   assert( (mesh->ne == ne) && "Error in the tetra count" );
 
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,ngrp,mesh);
-
   for ( ie = 1; ie <= mesh->ne; ie++ ) {
     /* Get tetra in the new mesh */
     tetraCur = &mesh->tetra[ie];
@@ -1234,8 +1204,6 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
     if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
           tet,grpId,n2inc_max,part ) ) return 0;
   }
-
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,ngrp,mesh);
 
   return 1;
 }
@@ -1471,9 +1439,6 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
     meshOld->point[ grpOld->node2int_node_comm_index1[ i ] ].tmp =
       grpOld->node2int_node_comm_index2[ i ];
 
-  /* Available memory to create the groups */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     /** New group */
     grpCur  = &grpsNew[grpId];
@@ -1521,9 +1486,6 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
     }
 
 
-    /* Give the memory to the parmesh */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grpsNew,ngrp,meshCur);
-
     /* Fitting of the communicator sizes */
     PMMG_RECALLOC(parmesh, grpCur->node2int_node_comm_index1,
                   grpCur->nitem_int_node_comm, n2inc_max[grpId], int,
@@ -1551,7 +1513,6 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
   /* fail_sgrp deallocates any mesh that has been allocated in listgroup.
      Should be executed only if an error has occured */
 fail_sgrp:
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
   for ( grpId = 0; grpId < ngrp; ++grpId ) {
     grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
@@ -1574,14 +1535,12 @@ fail_sgrp:
 
     /* mesh */
     if ( meshCur ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,meshCur);
       if ( meshCur->adja != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->adja,int,"adjacency table");
       if ( meshCur->xpoint != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->xpoint,MMG5_xPoint,"boundary points");
       if ( meshCur->xtetra != NULL )
         PMMG_DEL_MEM(meshCur,meshCur->xtetra,MMG5_xTetra,"msh boundary tetra");
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,meshCur);
     }
   }
 
@@ -1950,12 +1909,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   if ( parmesh->ddebug ) {
 
-    PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
-
     PMMG_qualhisto( parmesh, PMMG_INQUA, 0 );
     PMMG_prilen( parmesh, 0, 0 );
-
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   }
 
@@ -1967,15 +1922,12 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
   if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
     if ( !mesh->adja ) {
       if ( !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         return 0;
       }
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
     /*  Move interfaces */
     if( target == PMMG_GRPSPL_DISTR_TARGET ) {
       int base_front;

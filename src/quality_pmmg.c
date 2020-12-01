@@ -418,9 +418,6 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
     }
   }
 
-  /* Give memory to Mmg for the edge length computation */
-  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
-
   /* Hash all edges in the mesh */
   if ( !MMG5_hashNew(mesh,&hash,mesh->np,7*mesh->np) )  return 0;
 

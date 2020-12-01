@@ -983,9 +983,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 
   if ( parmesh->ngrp == 1 ) return 1;
 
-  /* Give the memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   /** Use the internal communicators to store the interface entities indices */
   int_node_comm = parmesh->int_node_comm;
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,
@@ -1009,9 +1006,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
               && "check intvalues indices" );
     parmesh->int_face_comm->intvalues[face2int_face_comm_index2[k]] = iel;
   }
-
-  /* Give all the memory to mesh0 */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
 
   /** Step 1: Merge interface points from all meshes into mesh0->points */
   if ( !PMMG_mergeGrps_interfacePoints(parmesh) ) goto fail_comms;
@@ -1039,11 +1033,8 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     mesh0->nei = mesh0->ne;
 
     /* Free merged mesh */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
     PMMG_grp_free(parmesh,grp);
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh0);
   }
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh0);
 
 
   /** Step 5: Update the communicators */
@@ -1180,8 +1171,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
 
   /** 4: Unpack parmeshes */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
 #ifndef NDEBUG
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if ( !ier_glob ) {
@@ -1259,11 +1248,6 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
   met    = grp->met ;
-
-  /* Take into account the minimal amount of memory used by the initialization */
-  PMMG_GHOSTMEM_INIT(parmesh,mesh);
-  /* Give all the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,rcv_grps,nprocs,mesh);
 
   np = 0;
 
@@ -1595,14 +1579,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
-  /* Give all the memory to the Process 0 and to the communicators: we
-   * overflow slightly the maximal memory here because the other
-   * parmeshes are not totally empty but they must take only few hundred of Ko */
-  parmesh->memGloMax *= parmesh->size_shm;
 #warning MEMORY: small inconsistency
-
-  if( grp )
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   /* Internal comm allocation */
   int_node_comm = parmesh->int_node_comm;

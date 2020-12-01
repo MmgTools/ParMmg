@@ -368,14 +368,12 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
     grp  = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
     if ( !mesh->adja ) {
       if ( !MMG3D_hashTetra(mesh,0) ) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         return 0;
       }
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
     /** Reset tetra flag */
     for( ie = 1; ie < mesh->ne+1; ie++ )
@@ -664,18 +662,12 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
 
   /** Step 1: mesh adjacency creation */
 
-  /* Give the available memory to the mesh */
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   if ( (!mesh->adja) && (1 != MMG3D_hashTetra( mesh, 1 )) ) {
     fprintf( stderr,"  ## PMMG Hashing problem (1).\n" );
     return 0;
   }
 
   /** Step 2: build the metis graph */
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   PMMG_CALLOC(parmesh, (*xadj), mesh->ne+1, idx_t, "allocate xadj",
               return 0);
@@ -1206,8 +1198,6 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
     (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   /** Build the graph */
   if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize) )
     return 0;
@@ -1351,9 +1341,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 
   PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
   PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
 
   /** Call metis and get the partition array */

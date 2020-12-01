@@ -469,8 +469,6 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   /* Rebuild boundary */
   if ( !mesh->adja ) {
     ier = MMG3D_hashTetra( mesh, 0 );
@@ -497,8 +495,6 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
     MMG3D_saveAllSols( mesh, &field, name );
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
-
   return ier;
 }
 
@@ -522,8 +518,7 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
- 
+
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   /* Destroy boundary */
@@ -531,12 +526,10 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   mesh->nt = 0;
 
   MMG3D_saveMesh( mesh, name );
- 
+
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
   PMMG_saveMark( mesh, name );
 
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
@@ -561,8 +554,6 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   /* Destroy boundary */
@@ -574,8 +565,6 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
   PMMG_saveQual( mesh, name );
 
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }

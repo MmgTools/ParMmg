@@ -104,11 +104,6 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
   (*xt) = *( (int *) *buffer); *buffer += sizeof(int);
 
   if ( ier_grp ) {
-    /* Take into account the minimal amount of memory used by the initialization */
-    PMMG_GHOSTMEM_INIT(parmesh,mesh);
-    /* Give all the available memory to the mesh */
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,listgrp,nprocs,mesh);
-
     /** Set the mesh size */
     (*ier_mesh) = PMMG_grpSplit_setMeshSize( mesh,*np,*ne,0,*xp,*xt );
   }
@@ -620,13 +615,8 @@ int PMMG_mpiunpack_meshArrays ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp
 
   int   k,i,is;
 
-  if ( mesh ) {
-    /* Use exactly the amount of needed memory for this mesh and metric */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,listgrp,nprocs,mesh);
-  }
-  else {
-    ier = 0;
-  }
+  if ( !mesh ) ier = 0;
+
 
   if ( ier_mesh ) {
     /** Get mesh points */

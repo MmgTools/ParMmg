@@ -141,7 +141,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
 
   /* Rebuild mesh adjacency for the next adaptation iteration */
-  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     mesh = parmesh->listgrp[igrp].mesh;
     if ( !mesh->adja ) {
@@ -151,7 +150,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
       }
     }
   }
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

@@ -839,10 +839,6 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
 
-  /** Step 0: Set mesh sizes to their minimal size and count the available
-   * memory */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   /** Step 1: New groups allocation and initialization: move the groups to have
    * a group that will be send to proc k stored in grps[k]. Free the adja
    * array. */
@@ -856,9 +852,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     /* Free the adja array */
     meshI = parmesh->listgrp[k].mesh;
     if ( meshI->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
       PMMG_DEL_MEM(meshI, meshI->adja, int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
     }
 
     /* Group initialization */
@@ -894,23 +888,13 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     meshI = grpI->mesh;
     meshJ = grpJ->mesh;
     if ( meshI->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
       PMMG_DEL_MEM(meshI, meshI->adja,int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
     }
     if ( meshJ->adja ) {
-      PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshJ);
       PMMG_DEL_MEM(meshJ, meshJ->adja,int, "adjacency table" );
-      PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshJ);
     }
 
-    /* Update the available memory and give it to the mesh */
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH_EXT(parmesh,grps,nprocs,meshI);
-
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
-
-    /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH_EXT(parmesh,grps,nprocs,meshI);
 
     if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 
@@ -1893,16 +1877,11 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
    * group */
   ier = PMMG_merge_grps2send(parmesh,&part);
 
-  /* Give all the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
-    PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,grp->mesh);
     err = PMMG_parmesh_fitMesh( parmesh,grp );
 
     ier = MG_MIN( err, ier );
-
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,grp->mesh);
   }
 
   /* Store the group destination in the group flag */

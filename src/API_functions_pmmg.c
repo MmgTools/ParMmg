@@ -1371,7 +1371,6 @@ int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
 
 
   /** 1) Store node index in intvalues */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
     ip   = grp->node2int_node_comm_index1[i];
@@ -1407,9 +1406,6 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
 
   /** 1) Hash triangles */
   if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
@@ -1423,7 +1419,6 @@ int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   }
 
   /** 2) Store triangle index in intvalues */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,"intvalues",return 0);
   for( i = 0; i < grp->nitem_int_face_comm; i++ ){
     ie   =  grp->face2int_face_comm_index1[i]/12;
@@ -1465,9 +1460,6 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   /** 1) Check number of communicators */
   if( parmesh->next_node_comm != ncomm ) {
     fprintf(stderr,"## Wrong number of node communicators on proc %d: input %d, set %d. ##\n",parmesh->myrank,ncomm,parmesh->next_node_comm);
@@ -1487,7 +1479,6 @@ int PMMG_Check_Set_NodeCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     }
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   PMMG_CALLOC(parmesh,values,int_node_comm->nitem,int,"values",return 0);
   PMMG_CALLOC(parmesh,oldIdx,int_node_comm->nitem,int,"oldIdx",return 0);
@@ -1581,9 +1572,6 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   /** 1) Check number of communicators */
   if( parmesh->next_face_comm != ncomm ) {
     fprintf(stderr,"## Wrong number of face communicators in function %s\n",__func__);
@@ -1669,7 +1657,6 @@ int PMMG_Check_Set_FaceCommunicators(PMMG_pParMesh parmesh,int ncomm,int* nitem,
     }
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hashPair.item);
   return 1;
@@ -1688,9 +1675,6 @@ int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
   /* Meshes are merged in grp 0 */
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
-
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   /** 1) Check number of communicators */
   if( ncomm_in != ncomm_out) {
@@ -1729,7 +1713,6 @@ int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
     if( nitem_in[icomm] > count ) count = nitem_in[icomm];
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   PMMG_CALLOC(parmesh,values,count,int,"values",return 0);
   PMMG_CALLOC(parmesh,oldIdx,count,int,"oldIdx",return 0);
 
@@ -1743,12 +1726,12 @@ int PMMG_Check_Get_NodeCommunicators(PMMG_pParMesh parmesh,
       return 0;
     }
     getComm--;
-    
+
     /* Sort input data */
     PMMG_sort_iarray( parmesh,
                       values,local_index_in[icomm],
                       oldIdx, nitem_in[icomm] );
-    
+
     /* Sort external communicator */
     PMMG_sort_iarray( parmesh,
                       values, local_index_out[getComm],
@@ -1786,9 +1769,6 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
   /* Meshes are merged in grp 0 */
   grp  = &parmesh->listgrp[0];
   mesh = grp->mesh;
-
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   /** 1) Check number of communicators */
   if( ncomm_in != ncomm_out ) return 0;
@@ -1860,7 +1840,6 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
     }
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hashPair.item);
   return 1;

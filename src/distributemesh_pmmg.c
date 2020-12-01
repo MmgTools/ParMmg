@@ -1183,14 +1183,11 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
             __func__);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   /* At this point all communicators have been created and all tags are OK */
 
