@@ -117,7 +117,8 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 static inline
 int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   size_t     usedMem,avMem,reservedMem;
-  int        ctri,npadd,bytes;
+  uint64_t   npadd;
+  int        ctri,bytes;
 
   /* init allocation need 38 octets */
   reservedMem = 38 +  (size_t)
@@ -156,10 +157,10 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
 
   avMem = mesh->memMax-usedMem;
 
-  npadd = (int) ( (double)avMem/bytes );
+  npadd = (uint64_t) ( (double)avMem/bytes );
   mesh->npmax = MG_MIN(mesh->npmax,mesh->np+npadd);
   mesh->xpmax = MG_MIN(mesh->xpmax,mesh->xp+npadd);
-  mesh->nemax = MG_MIN(mesh->nemax,(size_t)(6*npadd+mesh->ne));
+  mesh->nemax = MG_MIN(mesh->nemax,6*npadd+mesh->ne);
   mesh->xtmax = MG_MIN(mesh->xtmax,ctri*npadd+mesh->xt);
 
   met->npmax  = mesh->npmax;
