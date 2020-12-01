@@ -1112,7 +1112,6 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh mesh;
   idx_t      *part;
   int        igrp,ier,ieresult;
-  size_t     available,oldMemMax;
 
   ier = 1;
 

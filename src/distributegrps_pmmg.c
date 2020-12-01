@@ -833,7 +833,6 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
   PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
-  size_t        memAv,oldMemMax;
   int           nprocs,ngrp,k,j,ier;
 
   nprocs = parmesh->nprocs;
