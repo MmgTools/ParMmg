@@ -224,6 +224,37 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
 
 /**
  * \param mesh pointer toward the mesh structure.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Allocation of the array fields of the mesh for the given npmax, xpmax, nemax,
+ * xtmax.
+ *
+ */
+int PMMG_setMeshSize_alloc( MMG5_pMesh mesh ) {
+
+  PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,
+              "vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,
+              "boundary vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,
+              "tetra array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
+              "boundary tetra array", return 0);
+
+  if ( mesh->nt ) {
+    PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,
+                "triangles array", return 0);
+  }
+
+  return ( PMMG_link_mesh( mesh ) );
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
  * \param npmax_old old maximum number of points.
  * \param xpmax_old old maximum number of boundary points.
  * \param nemax_old old maximum number of tetra.
