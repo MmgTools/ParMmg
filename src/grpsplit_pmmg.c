@@ -359,7 +359,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   mesh->memMax = parmesh->memGloMax;
 
   if ( lsOld ) {
-    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    PMMG_CALLOC(parmesh,grp->ls,1,MMG5_Sol,"ls",return 0);
     ls = grp->ls;
   }
   else {
@@ -368,7 +368,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
 
   if ( dispOld ) {
     assert ( meshOld->nsols );
-    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    PMMG_CALLOC(parmesh,grp->disp,1,MMG5_Sol,"disp",return 0);
     disp = grp->disp;
   }
   else {
@@ -378,7 +378,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   if ( meshOld->nsols ) {
     assert ( fieldOld );
     mesh->nsols = meshOld->nsols;
-    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    PMMG_CALLOC(parmesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
     field = grp->field;
   }
   else {
@@ -589,7 +589,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
   mesh->memMax = parmesh->memGloMax;
 
   if ( lsOld ) {
-    PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
+    PMMG_CALLOC(parmesh,grp->ls,1,MMG5_Sol,"ls",return 0);
     ls = grp->ls;
   }
   else {
@@ -597,7 +597,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
   }
 
   if ( dispOld ) {
-    PMMG_CALLOC(mesh,grp->disp,1,MMG5_Sol,"disp",return 0);
+    PMMG_CALLOC(parmesh,grp->disp,1,MMG5_Sol,"disp",return 0);
     disp = grp->disp;
   }
   else {
@@ -607,7 +607,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
   if ( meshOld->nsols ) {
     assert ( fieldOld );
     mesh->nsols = meshOld->nsols;
-    PMMG_CALLOC(mesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
+    PMMG_CALLOC(parmesh,grp->field,mesh->nsols,MMG5_Sol,"fields",return 0);
     field = grp->field;
   }
   else {
