@@ -465,7 +465,7 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   mesh->xpmax = mesh->xp;
   mesh->xtmax = mesh->xt;
 
-  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+  if ( !PMMG_setMeshSize_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
     fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
     return 0;
   }

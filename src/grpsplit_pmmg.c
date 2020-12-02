@@ -1783,7 +1783,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     meshOld->nemax = meshOld->ne;
     meshOld->xpmax = meshOld->xp;
     meshOld->xtmax = meshOld->xt;
-    if ( (!PMMG_setMemMax_realloc( meshOld, npmax, xpmax, nemax, xtmax )) ||
+    if ( (!PMMG_setMeshSize_realloc( meshOld, npmax, xpmax, nemax, xtmax )) ||
          parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
       fprintf( stderr, "Not enough memory to create listgrp struct\n" );
       return 0;

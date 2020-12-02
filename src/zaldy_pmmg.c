@@ -231,12 +231,12 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
  *
  * \return 0 if failed, 1 otherwise.
  *
- * Reallocation of the array fields of the mesh for the given xpmax,
- * npmax,xtmax, nemax.
+ * Reallocation of the array fields of the mesh for the given npmax,
+ * xpmax, nemax, xtmax.
  *
  */
-int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
-                             int nemax_old,int xtmax_old ) {
+int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
+                              int nemax_old,int xtmax_old ) {
 
   PMMG_RECALLOC(mesh,mesh->point,mesh->npmax+1,npmax_old+1,MMG5_Point,
                 "vertices array", return 0);
@@ -330,8 +330,8 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
     }
   }
 
-  if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,
-                               nemax_old,xtmax_old) ) ier = 0;
+  if ( !PMMG_setMeshSize_realloc(mesh,npmax_old,xpmax_old,
+                                 nemax_old,xtmax_old) ) ier = 0;
 
   if ( met && met->m ) {
     PMMG_REALLOC(mesh,met->m,met->size*(met->npmax+1),
@@ -407,7 +407,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int fitMesh )
     met = parmesh->listgrp[i].met;
     if ( !PMMG_memOption_memRepartition(mesh,met) ) return 0;
 
-    if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,nemax_old,xtmax_old) )
+    if ( !PMMG_setMeshSize_realloc(mesh,npmax_old,xpmax_old,nemax_old,xtmax_old) )
       return 0;
 
     if ( met ) {
