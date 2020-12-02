@@ -143,6 +143,11 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
     return 0;
   }
 
+
+  /** Try to estimate the memody usage of adding a point (with the related
+   *  tetra, tria, so:ution...) in order to reduce the maximum size when
+   *  possible. */
+
   ctri = 2;
   /* Euler-poincare: ne = 6*np; nt = 2*np; na = np/5 *
    * point+tria+tets+adja+adjt+sol+item */
@@ -157,7 +162,12 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
 
   avMem = mesh->memMax-usedMem;
 
+  /* The number of points that can be added is approximately given by the
+   * ratio between the available memory and the memory usage of a
+   * point+related structures */
   npadd = (uint64_t) ( (double)avMem/bytes );
+
+  /* Shrink size if too big */
   mesh->npmax = MG_MIN(mesh->npmax,mesh->np+npadd);
   mesh->xpmax = MG_MIN(mesh->xpmax,mesh->xp+npadd);
   mesh->nemax = MG_MIN(mesh->nemax,6*npadd+mesh->ne);
@@ -371,10 +381,10 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int fitMesh )
 
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
-    mesh->memMax = parmesh->memGloMax;
 
-    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/MMG5_MILLION;
+    /* Force the MMG5_memOption_memSet function to find the wanted memMax value
+     * in MMG3D_Set_meshSize, MMG3D_Set_iparameter, MMG3D_zaldy (for i/o) */
+    mesh->info.mem = parmesh->memGloMax/MMG5_MILLION;
 
     /* Memory repartition for the MMG meshes arrays */
     npmax_old = mesh->npmax;

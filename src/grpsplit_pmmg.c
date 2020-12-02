@@ -585,6 +585,9 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
   mesh = grp->mesh;
   met  = grp->met;
 
+  /* Set maximum memory */
+  mesh->memMax = parmesh->memGloMax;
+
   if ( lsOld ) {
     PMMG_CALLOC(mesh,grp->ls,1,MMG5_Sol,"ls",return 0);
     ls = grp->ls;
