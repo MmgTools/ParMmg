@@ -103,6 +103,28 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   }
 }
 
+/**
+ * \param parmesh parmesh structure
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Set the maximum memory that parmesh and the meshes in listgrp can use.
+ */
+int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
+  MMG5_pMesh mesh;
+  size_t     memMax;
+  int        i;
+
+  memMax = parmesh->memGloMax;
+
+  parmesh->memMax = memMax;
+  for( i = 0; i < parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+    mesh->memMax = parmesh->memGloMax;
+  }
+
+  return 1;
+}
 
 /**
  * \param mesh pointer toward the mesh structure
@@ -378,29 +400,6 @@ int PMMG_setMeshSize(MMG5_pMesh mesh,int np,int ne,int nt,int xp,int xt ) {
 }
 
 /**
- * \param parmesh parmesh structure
- *
- * \return 1 if success, 0 if fail
- *
- * Set the maximum memory that parmesh and the meshes in listgrp can use.
- */
-int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
-  MMG5_pMesh mesh;
-  size_t     memMax;
-  int        i;
-
-  memMax = parmesh->memGloMax;
-
-  parmesh->memMax = memMax;
-  for( i = 0; i < parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-    mesh->memMax = parmesh->memGloMax;
-  }
-
-  return 1;
-}
-
-/**
  * \param parmesh pointer toward a parmesh.
  * \param grp pointer toward the grp that we want to fit.
  *
@@ -410,7 +409,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
  * the less possible memory.
  *
  */
-int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
+int PMMG_fitMeshSize( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
   const MMG5_pMesh mesh  = grp->mesh;
   const MMG5_pSol  met   = grp->met;
   const MMG5_pSol  disp  = grp->disp;

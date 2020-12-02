@@ -1878,7 +1878,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
-    err = PMMG_parmesh_fitMesh( parmesh,grp );
+    err = PMMG_fitMeshSize( parmesh,grp );
 
     ier = MG_MIN( err, ier );
   }
