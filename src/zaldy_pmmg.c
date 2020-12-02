@@ -487,10 +487,10 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
  *
  * \return 1 if success, 0 if fail
  *
- * Update the memory repartition between the communicators and the groups.
+ * Update the size of the group meshes.
  *
  */
-int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int fitMesh )
+int PMMG_updateMeshSize( PMMG_pParMesh parmesh, int fitMesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp,field,psl;

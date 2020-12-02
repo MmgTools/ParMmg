@@ -396,7 +396,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -1474,7 +1474,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -1505,7 +1505,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   }
 
   /* Memory repartition */
-  if ( !PMMG_parmesh_updateMemMax( parmesh,1 ) ) return 3;
+  if ( !PMMG_updateMeshSize( parmesh,1 ) ) return 3;
 
   iresult = PMMG_SUCCESS;
   return iresult;

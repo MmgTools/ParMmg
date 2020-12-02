@@ -1494,7 +1494,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   ret_val = PMMG_checkAndReset_grps_contiguity( parmesh );
 
   /* Set memMax of the new meshes */
-  if ( PMMG_parmesh_updateMemMax(parmesh, fitMesh) ) {
+  if ( PMMG_updateMeshSize(parmesh, fitMesh) ) {
     /* No error so far, skip deallocation of lstgrps */
     goto fail_counters;
   }
