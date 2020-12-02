@@ -194,95 +194,6 @@ static int PMMG_f2ifcAppend( PMMG_pParMesh parmesh, PMMG_pGrp grp, int *max,
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
- * \param np number of vertices.
- * \param ne number of tetrahedra.
- * \param nt number of triangles.
- * \param xp number of boundary point
- * \param xt number of boundary tetra
- *
- * \return 0 if failed, 1 otherwise.
- *
- * Check the input mesh size and assign their values to the mesh.
- *
- */
-int PMMG_grpSplit_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne,
-                                       int nt, int xp, int xt ) {
-
-  if ( ( (mesh->info.imprim > PMMG_VERB_DETQUAL) || mesh->info.ddebug ) &&
-       ( mesh->point || mesh->xpoint || mesh->tetra || mesh->xtetra) )
-    fprintf(stderr,"\n  ## Warning: %s: old mesh deletion.\n",__func__);
-
-  if ( !np ) {
-    fprintf(stderr,"  ** MISSING DATA:\n");
-    fprintf(stderr,"     Your mesh must contains at least points.\n");
-    return(0);
-  }
-  if ( !ne && (mesh->info.imprim > PMMG_VERB_DETQUAL || mesh->info.ddebug) ) {
-    fprintf(stderr,"  ** WARNING:\n");
-    fprintf(stderr,"     Your mesh don't contains tetrahedra.\n");
-  }
-
-  if ( mesh->point )
-    MMG5_DEL_MEM(mesh,mesh->point);
-  if ( mesh->tetra )
-    MMG5_DEL_MEM(mesh,mesh->tetra);
-  if ( mesh->prism )
-    MMG5_DEL_MEM(mesh,mesh->prism);
-  if ( mesh->tria )
-    MMG5_DEL_MEM(mesh,mesh->tria);
-  if ( mesh->quadra )
-    MMG5_DEL_MEM(mesh,mesh->quadra);
-  if ( mesh->edge )
-    MMG5_DEL_MEM(mesh,mesh->edge);
-
-  mesh->np  = np;
-  mesh->ne  = ne;
-  mesh->nt  = nt;
-  mesh->xp  = xp;
-  mesh->xt  = xt;
-
-  mesh->npi = mesh->np;
-  mesh->nei = mesh->ne;
-  mesh->nti = mesh->nt;
-
-  return 1;
-}
-
-/**
- * \param mesh pointer toward the mesh structure.
- * \param np number of vertices.
- * \param ne number of tetrahedra.
- * \param nt number of triangles.
- * \param xp number of boundary points.
- * \param xt number of boundary tetra.
- *
- * \return 0 if failed, 1 otherwise.
- *
- * Check the input mesh size and assign their values to the mesh.
- *
- */
-int PMMG_grpSplit_setMeshSize(MMG5_pMesh mesh,int np,int ne,
-                              int nt,int xp,int xt ) {
-
-  /* Check input data and set mesh->ne/na/np/nt to the suitable values */
-  if ( !PMMG_grpSplit_setMeshSize_initData(mesh,np,ne,nt,xp,xt) )
-    return 0;
-
-  mesh->npmax  = mesh->np;
-  mesh->nemax  = mesh->ne;
-  mesh->ntmax  = mesh->nt;
-  mesh->xpmax  = mesh->xp;
-  mesh->xtmax  = mesh->xt;
-
-  /* Mesh allocation and linkage */
-  if ( !PMMG_setMeshSize_alloc( mesh ) ) return 0;
-
-  return(1);
-
-}
-
-/**
  * \param parmesh pointer toward the parmesh structure
  * \param igrp index of the group to create
  *
@@ -376,7 +287,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
   }
 
   /* Set sizes and allocate new mesh */
-  if ( !PMMG_grpSplit_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
+  if ( !PMMG_setMeshSize( mesh,meshOld->np,meshOld->ne,0,0,0) )
     return 0;
 
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"tetra adjacency table",return 0);
@@ -604,7 +515,7 @@ PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int ig
 
   /* Uses the Euler-poincare formulae to estimate the number of entities (np =
    * ne/6, nt=ne/3 */
-  if ( !PMMG_grpSplit_setMeshSize( mesh,MG_MAX(ne/6,4),ne,0,MG_MAX(ne/6,3),MG_MAX(ne/3,1)) ) return 0;
+  if ( !PMMG_setMeshSize( mesh,MG_MAX(ne/6,4),ne,0,MG_MAX(ne/6,3),MG_MAX(ne/3,1)) ) return 0;
 
   PMMG_CALLOC(mesh,mesh->adja,4*mesh->nemax+5,int,"adjacency table",return 0);
 

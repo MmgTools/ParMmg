@@ -446,7 +446,6 @@ int PMMG_parmmglib1 ( PMMG_pParMesh parmesh );
 int PMMG_bdryUpdate( MMG5_pMesh mesh );
 int PMMG_bcast_mesh ( PMMG_pParMesh parmesh );
 int PMMG_partBcast_mesh( PMMG_pParMesh parmesh );
-int PMMG_grpSplit_setMeshSize( MMG5_pMesh,int,int,int,int,int );
 int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
@@ -536,6 +535,7 @@ int  PMMG_link_mesh( MMG5_pMesh mesh );
 void PMMG_listgrp_free( PMMG_pParMesh parmesh, PMMG_pGrp *listgrp, int ngrp );
 void PMMG_grp_free( PMMG_pParMesh parmesh, PMMG_pGrp grp );
 int  PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh);
+int  PMMG_setMeshSize( MMG5_pMesh,int,int,int,int,int );
 int  PMMG_setMeshSize_alloc( MMG5_pMesh );
 int  PMMG_setMeshSize_realloc( MMG5_pMesh,int,int,int,int);
 int  PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp );

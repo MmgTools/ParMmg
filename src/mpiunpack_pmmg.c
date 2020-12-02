@@ -108,7 +108,7 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
 
   if ( ier_grp ) {
     /** Set the mesh size */
-    (*ier_mesh) = PMMG_grpSplit_setMeshSize( mesh,*np,*ne,0,*xp,*xt );
+    (*ier_mesh) = PMMG_setMeshSize( mesh,*np,*ne,0,*xp,*xt );
   }
   else ier = (*ier_mesh) = 0;
 
