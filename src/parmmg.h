@@ -47,7 +47,7 @@
 
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
-#include "mmg3d.h"
+#include "mmg3d/mmg3d.h"
 
 #ifdef __cplusplus
 extern "C" {

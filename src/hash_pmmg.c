@@ -32,7 +32,7 @@
  * \copyright
  *
  */
-#include "mmg3d.h"
+#include "mmg3d/mmg3d.h"
 #include "parmmg.h"
 
 /**
