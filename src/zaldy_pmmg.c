@@ -139,7 +139,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
 static inline
 int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   size_t     usedMem,avMem,reservedMem;
-  uint64_t   npadd;
+  size_t     npadd;
   int        ctri,bytes;
 
   /* init allocation need 38 octets */
@@ -187,7 +187,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   /* The number of points that can be added is approximately given by the
    * ratio between the available memory and the memory usage of a
    * point+related structures */
-  npadd = (uint64_t) ( (double)avMem/bytes );
+  npadd = (size_t) ( (double)avMem/bytes );
 
   /* Shrink size if too big */
   mesh->npmax = MG_MIN(mesh->npmax,mesh->np+npadd);
