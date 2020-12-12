@@ -50,17 +50,15 @@ To get and build ParMmg, you will need:
   If you don't have internet access and/or want to use your own installation of
   Mmg (resp. Metis), you can disable the automatic download of Mmg setting the
   `DOWNLOAD_MMG` (resp. `DOWNLOAD_METIS`) CMake variable to `OFF`. In this case,
-  you can help CMake to find Mmg (resp. Metis) by specifying the source
-  directory of Mmg in the `MMG_DIR` variable and the build directory of Mmg in
-  the `MMG_BUILDDIR` variable (resp. the installation directory of Metis in the
-  `METIS_DIR` variable).
+  you can help CMake to find Mmg (resp. Metis) by specifying the installation
+  directory of Mmg (resp. Metis) in the `MMG_DIR` (resp. `METIS_DIR`) variable.
   
   Example:
   ```Shell
       cd ParMmg  
       mkdir build  
       cd build  
-      cmake -DDOWNLOAD_MMG=OFF -DMMG_DIR=~/mmg -DMMG_BUILDDIR=~/mmg/build ..  
+      cmake -DDOWNLOAD_MMG=OFF -DMMG_DIR=~/mmg-install ..  
       cmake -DDOWNLOAD_METIS=OFF -DMETIS_DIR=~/metis-install ..  
       make  
       make install

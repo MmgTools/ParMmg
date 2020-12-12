@@ -259,7 +259,6 @@ OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
 IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
-  UNSET(MMG_BUILDDIR CACHE)
 
   # Use pointmap
   OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
@@ -267,10 +266,10 @@ IF ( DOWNLOAD_MMG )
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
     GIT_TAG 379209a9bb9b52df5e7a6ca08ae366bf1991960f
-    INSTALL_COMMAND  echo "Mmg installation DISABLED"
+    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP})
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_POINTMAP=${USE_POINTMAP} -DCMAKE_INSTALL_PREFIX=../Mmg-install)
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
@@ -282,30 +281,26 @@ IF ( DOWNLOAD_MMG )
     DEPENDEES update
     DEPENDERS configure )
 
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
+  SET (MMG_INSTALL_DIR ${SOURCE_DIR}/../Mmg-install)
+  INCLUDE_DIRECTORIES(${MMG_INSTALL_DIR}/include/mmg)
+  INCLUDE_DIRECTORIES(${MMG_INSTALL_DIR}/include)
 
   IF( LIBPARMMG_SHARED )
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+    SET(MMG3D_LIBRARY ${MMG_INSTALL_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
   ELSE()
     # default behaviour is to link static libs
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
+    SET(MMG3D_LIBRARY ${MMG_INSTALL_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
   ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
   SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
 
-  # Additionnal directories to access the Mmg sources
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/src/common)
-  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/mmg3d)
-  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
-
 ELSE ( )
   UNSET ( USE_POINTMAP CACHE )
 
   SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-  SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
 
-  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR CMake variable" )
 
   FIND_PACKAGE(MMG)
 
@@ -315,9 +310,7 @@ ELSE ( )
       "(see https://github.com/MmgTools/mmg and  download the branch develop)."
       "If you have already installed Mmg and want to use it, "
       "please set the CMake variable or environment variable MMG_DIR "
-      "to your mmg directory and the CMake variable or environment variable"
-      " MMG_BUILDDIR "
-      "to your mmg build directory.")
+      "to your mmg directory.")
   ELSE()
 
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
@@ -327,19 +320,6 @@ ELSE ( )
 
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
-    # Additionnal directories to access the Mmg sources
-    INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
-    IF ( MMG_DIR )
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
-    ELSE ( )
-      MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
-        "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-        "If you have already installed Mmg and want to use it, "
-        "please set the CMake variable or environment variable MMG_DIR "
-        "to your mmg directory.")
-    ENDIF ( )
   ENDIF ( )
 ENDIF()
 
