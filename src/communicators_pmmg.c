@@ -750,7 +750,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   if( !PMMG_build_completeExtEdgeComm( parmesh ) ) return 0;
 
   /** Check the external edge communicator */
-  if( !PMMG_check_extEdgeComm( parmesh ) ) return 0;
+  assert( PMMG_check_extEdgeComm( parmesh ) );
 
 
   /* Free */
