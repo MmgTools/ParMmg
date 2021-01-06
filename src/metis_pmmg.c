@@ -32,6 +32,97 @@
 #include "metis_pmmg.h"
 #include "linkedlist_pmmg.h"
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param xadj array of shifts (CSR).
+ * \param adjncy array of adjacents (CSR).
+ * \param adjwgt array of weights (CSR).
+ * \param filename filename prefix.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Save mesh graph and weight on file in Medit format.
+ *
+ */
+int PMMG_saveGraph( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
+    idx_t *adjwgt,const char *filename ) {
+  PMMG_pGrp  grp  = &parmesh->listgrp[0];
+  MMG5_pMesh mesh = grp->mesh;
+  MMG5_pTetra pt;
+  MMG5_pPoint ppt;
+  char *sname,*smesh,*ssol;
+  FILE *fmesh,*fsol;
+  double wgt = 0.0;
+  idx_t istart,istop,iadj,nadj;
+  int ip,k,j,jel;
+
+  PMMG_CALLOC(parmesh,sname,strlen(filename)+9,char,"file name prefix",return 0);
+  PMMG_CALLOC(parmesh,smesh,strlen(filename)+15,char,"mesh file name",return 0);
+  PMMG_CALLOC(parmesh,ssol,strlen(filename)+15,char,"sol file name",return 0);
+  sprintf(sname,"%s-P%02d-I%02d",filename,parmesh->myrank,parmesh->iter);
+  strcpy(smesh,sname);
+  strcat(smesh,".mesh");
+  strcpy(ssol,sname);
+  strcat(ssol,".sol");
+
+  /* Open files and write headers */
+  fmesh = fopen(smesh,"w");
+  fprintf(fmesh,"MeshVersionFormatted 2\n");
+  fprintf(fmesh,"\nDimension 3\n");
+
+  fsol  = fopen(ssol,"w");
+  fprintf(fsol,"MeshVersionFormatted 2\n");
+  fprintf(fsol,"\nDimension 3\n");
+
+  /* Write vertices */
+  fprintf(fmesh,"\nVertices\n%d\n",mesh->np);
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    fprintf(fmesh,"%f %f %f %d\n",
+        ppt->c[0],
+        ppt->c[1],
+        ppt->c[2],
+        ppt->ref);
+  }
+
+  /* Write triangles and solution on triangles */
+  fprintf(fmesh,"\nTriangles\n%d\n",xadj[mesh->ne]/2);
+  fprintf(fsol,"\nSolAtTriangles\n%d\n %d %d\n",xadj[mesh->ne]/2,1,MMG5_Scalar);
+  for( k = 1; k <= mesh->ne; k++ ) {
+    pt   = &mesh->tetra[k];
+    istart = xadj[k-1];
+    istop  = xadj[k];
+    nadj   = istop-istart;
+    for ( j = 0; j < nadj; j++ ) {
+      iadj = istart+j;
+      jel = adjncy[iadj]+1;
+      if ( jel < k ) continue;
+
+      /* Save triangle */
+      fprintf(fmesh,"%d %d %d %d\n",
+          pt->v[MMG5_idir[j][0]],
+          pt->v[MMG5_idir[j][1]],
+          pt->v[MMG5_idir[j][2]],
+          0);
+
+      /* Save weight */
+      if( adjwgt ) wgt = (double)adjwgt[iadj];
+      fprintf(fsol,"%f\n",wgt);
+    }
+  }
+
+  /* Close files */
+  fprintf(fmesh,"\n\nEnd");
+  fprintf(fsol,"\n\nEnd");
+  fclose(fmesh);
+  fclose(fsol);
+
+  /* Free memory */
+  PMMG_DEL_MEM(parmesh,sname,char,"file name prefix");
+  PMMG_DEL_MEM(parmesh,smesh,char,"mesh file name");
+  PMMG_DEL_MEM(parmesh,ssol,char,"sol file name");
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure.
