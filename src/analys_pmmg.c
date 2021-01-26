@@ -895,9 +895,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_HGeom     hpar;
   size_t         myavailable,oldMemMax;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
-
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
 
@@ -932,9 +929,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if( PMMG_hashPar( mesh,&hpar ) != PMMG_SUCCESS ) return 0;
 
   /* Build edge communicator */
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
@@ -942,13 +937,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
+
   if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
 
   /* identify singularities on interior points */
   if ( !MMG5_singul(mesh) ) {
@@ -957,7 +951,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
 
   /* identify singularities on parallel points */
   if ( !PMMG_singul(parmesh,mesh) ) {
@@ -966,7 +959,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
@@ -1013,9 +1005,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
   /* release memory */
-//  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
   PMMG_edge_comm_free( parmesh );
-//  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,myavailable,oldMemMax);
   MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
@@ -1023,8 +1013,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   mesh->na = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,myavailable,oldMemMax);
 
   return 1;
 }
