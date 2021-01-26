@@ -470,14 +470,11 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   MMG5_pSol  met,field;
   int        *facesData;
   int        k,imprim;
-  size_t     available,oldMemMax;
   int8_t     warnScotch;
 
   mesh  = parmesh->listgrp[igrp].mesh;
   met   = parmesh->listgrp[igrp].met;
   field = parmesh->listgrp[igrp].field;
-
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
   /* Allocation of the array that will store the node permutation */
   PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
@@ -493,9 +490,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
             " Exit program.\n");
     return 0;
   }
-
-  PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,
-                                         available,oldMemMax);
 
   if ( !mesh->adja ) {
     if ( !MMG3D_hashTetra(mesh,0) ) {
@@ -535,9 +529,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   /* Scotch may have change the np value: update mesh->npi */
   mesh->npi = mesh->np;
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,
-                                         available,oldMemMax);
-
   PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
 
   return 1;
@@ -560,12 +551,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,field,psl;
-  size_t     oldMemMax,available;
   mytime     ctim[TIMEMAX];
   int        ier,ier_end,ieresult,i,k,is,*facesData,*permNodGlob;
   int8_t     tim,warnScotch;
   char       stim[32];
-  unsigned char inputMet;
+  uint8_t    inputMet;
 
   tminit(ctim,TIMEMAX);
 
@@ -659,8 +649,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /** Update old groups for metrics and solution interpolation */
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
-    PMMG_update_oldGrps( parmesh,&available, &oldMemMax );
+    PMMG_update_oldGrps( parmesh );
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -686,8 +675,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         /* Empty mesh */
         continue;
       }
-
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
@@ -715,9 +702,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         }
 
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
-
         /* renumerotation if available: no need to renum the field here (they
          * will be interpolated) */
         assert ( mesh->npi==mesh->np );
@@ -727,9 +711,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
             PMMG_scotch_message(&warnScotch);
           }
         }
-#else
-        PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
 #endif
 
         /* Mark reinitialisation in order to be able to remesh all the mesh */
@@ -806,9 +787,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #endif
 
         if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
-
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,parmesh->listgrp[i].mesh,
-                                               available,oldMemMax);
 
         if ( !PMMG_copyMetricsAndFields_point( parmesh->listgrp[i].mesh,
                                                parmesh->old_listgrp[i].mesh,
@@ -975,9 +953,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     goto strong_failed;
   }
 #endif
-
-  /* Give memory to Mmg for the edge length computation */
-  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso && parmesh->iter>0 ) {
     assert ( parmesh->listgrp[0].met->m );

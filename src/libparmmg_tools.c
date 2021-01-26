@@ -386,7 +386,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
               parmesh->info.mem = atoi( argv[i] );
               PMMG_parmesh_SetMemGloMax( parmesh );
             }
-            PMMG_parmesh_SetMemMax( parmesh, 20 );
+            PMMG_parmesh_SetMemMax( parmesh );
           } else {
             fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
             ret_val = 0;
@@ -711,6 +711,9 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
   int   bin,ncomm,color,nitem;
   int   icomm,i,ier,ier_glob;
   FILE *fid;
+
+  /* Don't print communicators  outside the adaptation loop */
+  if( parmesh->iter == PMMG_UNSET ) return 1;
 
   /** Step 1: find where to write communicators */
   bin = 0;

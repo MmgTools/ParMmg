@@ -182,25 +182,27 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
   idx += sizeof(int); // nmat
   idx += sizeof(int); // nsd
 
-  idx += sizeof(char); // nreg
-  idx += sizeof(char); // imprim
-  idx += sizeof(char); // ddebug
-  idx += sizeof(char); // iso
-  idx += sizeof(char); // lag
-  idx += sizeof(char); // parTyp
-  idx += sizeof(char); // optim
-  idx += sizeof(char); // optimLES
-  idx += sizeof(char); // noinsert
-  idx += sizeof(char); // noswap
-  idx += sizeof(char); // nomove
-  idx += sizeof(char); // nosurf
-  idx += sizeof(char); // sethmin
-  idx += sizeof(char); // sethmax
+  idx += sizeof(int8_t); // nreg
+  idx += sizeof(int8_t); // imprim
+  idx += sizeof(int8_t); // ddebug
+  idx += sizeof(int8_t); // iso
+  idx += sizeof(int8_t); // lag
+  idx += sizeof(int8_t); // parTyp
+  idx += sizeof(int8_t); // sethmin
+  idx += sizeof(int8_t); // sethmax
+
+  idx += sizeof(uint8_t); // optim
+  idx += sizeof(uint8_t); // optimLES
+  idx += sizeof(uint8_t); // noinsert
+  idx += sizeof(uint8_t); // noswap
+  idx += sizeof(uint8_t); // nomove
+  idx += sizeof(uint8_t); // nosurf
+  idx += sizeof(uint8_t); // nosizreq
 
   /* affectation of old refs in ls-mode */
   if ( info->nmat ) {
     assert( info->mat );
-    idx += info->nmat*sizeof(char); // mat->dospl
+    idx += info->nmat*sizeof(int8_t); // mat->dospl
     idx += info->nmat*sizeof(int); //  mat->ref
     idx += info->nmat*sizeof(int); //  mat->rin
     idx += info->nmat*sizeof(int); //  mat->rex
@@ -212,8 +214,8 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
     idx += info->npar*sizeof(double); // par->hmin
     idx += info->npar*sizeof(double); // par->hmax
     idx += info->npar*sizeof(double); // par->hausd
-    idx += info->npar*sizeof(int); //  par->ref
-    idx += info->npar*sizeof(char); // par->elt
+    idx += info->npar*sizeof(int);    // par->ref
+    idx += info->npar*sizeof(int8_t); // par->elt
   }
   return idx;
 }
@@ -258,13 +260,15 @@ int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
 
   /** Pack mesh boundary points */
   /* First normal */
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[0];
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[1];
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[2];
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[0]
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[1]
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n1[2]
   /* Second normal */
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[0];
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[1];
-  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[2];
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[0]
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[1]
+  idx += mesh->xp*sizeof(double); // mesh->xpoint[k].n2[2]
+  /* nnor */
+  idx += mesh->xp*sizeof(int8_t); // mesh->xpoint[k].nnor
 
   /** Pack mesh elements */
   /* Tetra vertices */
@@ -309,7 +313,7 @@ int PMMG_mpisizeof_meshArrays ( PMMG_pGrp grp ) {
   idx += mesh->xt*sizeof(int16_t); // mesh->xtetra[k].tag[4];
   idx += mesh->xt*sizeof(int16_t); // mesh->xtetra[k].tag[5];
   /* Orientation of the triangles */
-  idx += mesh->xt*sizeof(char); // mesh->xtetra[k].ori;
+  idx += mesh->xt*sizeof(int8_t); // mesh->xtetra[k].ori;
 
   /** Pack metric */
   if ( met && met->m ) {
@@ -751,26 +755,28 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
   *( (int *) tmp) = info->nmat;      tmp += sizeof(int);
   *( (int *) tmp) = info->nsd;       tmp += sizeof(int);
 
-  *( (char *) tmp) = info->nreg;     tmp += sizeof(char);
-  *( (char *) tmp) = info->imprim;   tmp += sizeof(char);
-  *( (char *) tmp) = info->ddebug;   tmp += sizeof(char);
-  *( (char *) tmp) = info->iso;      tmp += sizeof(char);
-  *( (char *) tmp) = info->lag;      tmp += sizeof(char);
-  *( (char *) tmp) = info->parTyp;   tmp += sizeof(char);
-  *( (char *) tmp) = info->optim;    tmp += sizeof(char);
-  *( (char *) tmp) = info->optimLES; tmp += sizeof(char);
-  *( (char *) tmp) = info->noinsert; tmp += sizeof(char);
-  *( (char *) tmp) = info->noswap;   tmp += sizeof(char);
-  *( (char *) tmp) = info->nomove;   tmp += sizeof(char);
-  *( (char *) tmp) = info->nosurf;   tmp += sizeof(char);
-  *( (char *) tmp) = info->sethmin;  tmp += sizeof(char);
-  *( (char *) tmp) = info->sethmax;  tmp += sizeof(char);
+  *( (int8_t *) tmp) = info->nreg;     tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->imprim;   tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->ddebug;   tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->iso;      tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->lag;      tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->parTyp;   tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->sethmin;  tmp += sizeof(int8_t);
+  *( (int8_t *) tmp) = info->sethmax;  tmp += sizeof(int8_t);
+
+  *( (uint8_t *) tmp) = info->optim;    tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->optimLES; tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->noinsert; tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->noswap;   tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->nomove;   tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->nosurf;   tmp += sizeof(uint8_t);
+  *( (uint8_t *) tmp) = info->nosizreq; tmp += sizeof(uint8_t);
 
   /* affectation of old refs in ls-mode */
   if ( info->nmat ) {
     assert( info->mat );
     for ( k=0; k<info->nmat; ++k ) {
-      *( (char *) tmp) = info->mat[k].dospl; tmp += sizeof(char);
+      *( (int8_t *) tmp) = info->mat[k].dospl; tmp += sizeof(int8_t);
       *( (int *) tmp)  = info->mat[k].ref; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rin; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rex; tmp += sizeof(int);
@@ -785,7 +791,7 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
       *( (double *) tmp) =  info->par[k].hmax; tmp += sizeof(double);
       *( (double *) tmp) =  info->par[k].hausd; tmp += sizeof(double);
       *( (int *)    tmp) =  info->par[k].ref; tmp += sizeof(int);
-      *( (char *)   tmp) =  info->par[k].elt; tmp += sizeof(char);
+      *( (int8_t *) tmp) =  info->par[k].elt; tmp += sizeof(int8_t);
     }
   }
 
@@ -844,6 +850,8 @@ void PMMG_mpipack_meshArrays ( PMMG_pGrp grp,char **buffer ) {
     *( (double *) tmp) = mesh->xpoint[k].n2[0]; tmp += sizeof(double);
     *( (double *) tmp) = mesh->xpoint[k].n2[1]; tmp += sizeof(double);
     *( (double *) tmp) = mesh->xpoint[k].n2[2]; tmp += sizeof(double);
+    /* nnor */
+    *( (int8_t *) tmp) = mesh->xpoint[k].nnor; tmp += sizeof(int8_t);
   }
 
   /** Pack mesh elements */
@@ -892,7 +900,7 @@ void PMMG_mpipack_meshArrays ( PMMG_pGrp grp,char **buffer ) {
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[4]; tmp += sizeof(int16_t);
     *( (int16_t *) tmp) = mesh->xtetra[k].tag[5]; tmp += sizeof(int16_t);
     /* Orientation of the triangles */
-    *( (char *) tmp) = mesh->xtetra[k].ori; tmp += sizeof(char);
+    *( (int8_t *) tmp) = mesh->xtetra[k].ori; tmp += sizeof(int8_t);
   }
 
   /** Pack metric */

@@ -330,9 +330,9 @@ typedef struct {
   int API_mode; /*!< use faces or nodes information to build communicators */
   int globalNum; /*!< compute nodes and triangles global numbering in output */
   int fmtout; /*!< store the output format asked */
-  char sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
-  char sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
-  unsigned char inputMet; /* 1 if User prescribe a metric or a size law */
+  int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
+  int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
+  uint8_t inputMet; /* 1 if User prescribe a metric or a size law */
 } PMMG_Info;
 
 
@@ -387,7 +387,7 @@ typedef struct {
 
   /* parameters of the run */
   PMMG_Info      info; /*!< \ref PMMG_Info structure */
- 
+
 } PMMG_ParMesh;
 typedef PMMG_ParMesh  * PMMG_pParMesh;
 

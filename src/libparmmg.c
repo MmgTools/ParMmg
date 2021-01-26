@@ -39,9 +39,9 @@
 #include "git_log_pmmg.h"
 
 /* Declared in the header, but defined at compile time */
-int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord *barycoord);
-int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord *barycoord);
-int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -388,7 +388,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -444,15 +444,10 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
 static inline
 int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   MMG5_pMesh mesh;
-  size_t     tmpmem;
   int        npmax,xpmax,nemax,xtmax;
 
-  tmpmem = parmesh->memMax - parmesh->memCur;
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax += tmpmem;
-
   mesh = parmesh->listgrp[0].mesh;
-  mesh  = parmesh->listgrp[0].mesh;
+
   npmax = mesh->npmax;
   nemax = mesh->nemax;
   xpmax = mesh->xpmax;
@@ -462,7 +457,7 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   mesh->xpmax = mesh->xp;
   mesh->xtmax = mesh->xt;
 
-  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+  if ( !PMMG_setMeshSize_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
     fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
     return 0;
   }
@@ -471,6 +466,7 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
     /** Impossible to rebuild the triangle */
     return 0;
   }
+
   return 1;
 }
 
@@ -1066,6 +1062,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
                           parmesh->comm,&status),return 0 );
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
     }
   }
 
@@ -1078,6 +1075,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     itorecv = ext_node_comm->itorecv;
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
+      assert(itorecv[i]);
       intvalues[idx] = itorecv[i];
     }
   }
@@ -1095,9 +1093,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    assert( (ppt->tmp > 0) && (ppt->tmp <= offsets[parmesh->nprocs]) );
+    assert(ppt->tmp > 0);
+    assert(ppt->tmp <= offsets[parmesh->nprocs]);
   }
 #endif
+
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
 
   /* Free arrays */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
@@ -1106,10 +1108,11 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
   PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
-  PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
+
 /**
  * \param parmesh pointer toward the parmesh
  *
@@ -1138,6 +1141,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
   case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+
     /* Distributed Output */
     tim = 1;
     chrono(ON,&(ctim[tim]));
@@ -1157,8 +1161,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
 
     if( parmesh->info.globalNum ) {
-      size_t myavailable,oldMemMax;
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
 
       ier = PMMG_Compute_verticesGloNum( parmesh );
       if( !ier ) {
@@ -1174,7 +1176,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
         }
       }
 
-      PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
     }
 
 
@@ -1465,7 +1466,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -1496,7 +1497,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   }
 
   /* Memory repartition */
-  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) return 3;
+  if ( !PMMG_updateMeshSize( parmesh,1 ) ) return 3;
 
   iresult = PMMG_SUCCESS;
   return iresult;

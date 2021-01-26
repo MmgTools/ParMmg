@@ -71,7 +71,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   }
 
   /** Step 2: Set maximal memory per process depending on the -m option setting */
-  maxAvail = MMG5_memSize()/parmesh->size_shm;
+  maxAvail = MMG5_memSize();
 
   if ( parmesh->info.mem <= 0 ) {
     /* Nos users specifications */
@@ -103,6 +103,28 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
   }
 }
 
+/**
+ * \param parmesh parmesh structure
+ *
+ * \return 1 if success, 0 if fail
+ *
+ * Set the maximum memory that parmesh and the meshes in listgrp can use.
+ */
+int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
+  MMG5_pMesh mesh;
+  size_t     memMax;
+  int        i;
+
+  memMax = parmesh->memGloMax;
+
+  parmesh->memMax = memMax;
+  for( i = 0; i < parmesh->ngrp; ++i ) {
+    mesh = parmesh->listgrp[i].mesh;
+    mesh->memMax = parmesh->memGloMax;
+  }
+
+  return 1;
+}
 
 /**
  * \param mesh pointer toward the mesh structure
@@ -117,7 +139,8 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 static inline
 int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   size_t     usedMem,avMem,reservedMem;
-  int        ctri,npadd,bytes;
+  size_t     npadd;
+  int        ctri,bytes;
 
   /* init allocation need 38 octets */
   reservedMem = 38 +  (size_t)
@@ -142,6 +165,11 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
     return 0;
   }
 
+
+  /** Try to estimate the memody usage of adding a point (with the related
+   *  tetra, tria, so:ution...) in order to reduce the maximum size when
+   *  possible. */
+
   ctri = 2;
   /* Euler-poincare: ne = 6*np; nt = 2*np; na = np/5 *
    * point+tria+tets+adja+adjt+sol+item */
@@ -156,7 +184,12 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
 
   avMem = mesh->memMax-usedMem;
 
-  npadd = (int) ( (double)avMem/bytes );
+  /* The number of points that can be added is approximately given by the
+   * ratio between the available memory and the memory usage of a
+   * point+related structures */
+  npadd = (size_t) ( (double)avMem/bytes );
+
+  /* Shrink size if too big */
   mesh->npmax = MG_MIN(mesh->npmax,mesh->np+npadd);
   mesh->xpmax = MG_MIN(mesh->xpmax,mesh->xp+npadd);
   mesh->nemax = MG_MIN(mesh->nemax,6*npadd+mesh->ne);
@@ -213,6 +246,37 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
 
 /**
  * \param mesh pointer toward the mesh structure.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Allocation of the array fields of the mesh for the given npmax, xpmax, nemax,
+ * xtmax.
+ *
+ */
+int PMMG_setMeshSize_alloc( MMG5_pMesh mesh ) {
+
+  PMMG_CALLOC(mesh,mesh->point,mesh->npmax+1,MMG5_Point,
+              "vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xpoint,mesh->xpmax+1,MMG5_xPoint,
+              "boundary vertices array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->tetra,mesh->nemax+1,MMG5_Tetra,
+              "tetra array", return 0);
+
+  PMMG_CALLOC(mesh,mesh->xtetra,mesh->xtmax+1,MMG5_xTetra,
+              "boundary tetra array", return 0);
+
+  if ( mesh->nt ) {
+    PMMG_CALLOC(mesh,mesh->tria,mesh->nt+1,MMG5_Tria,
+                "triangles array", return 0);
+  }
+
+  return ( PMMG_link_mesh( mesh ) );
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
  * \param npmax_old old maximum number of points.
  * \param xpmax_old old maximum number of boundary points.
  * \param nemax_old old maximum number of tetra.
@@ -220,12 +284,12 @@ int PMMG_link_mesh( MMG5_pMesh mesh ) {
  *
  * \return 0 if failed, 1 otherwise.
  *
- * Reallocation of the array fields of the mesh for the given xpmax,
- * npmax,xtmax, nemax.
+ * Reallocation of the array fields of the mesh for the given npmax,
+ * xpmax, nemax, xtmax.
  *
  */
-int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
-                             int nemax_old,int xtmax_old ) {
+int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
+                              int nemax_old,int xtmax_old ) {
 
   PMMG_RECALLOC(mesh,mesh->point,mesh->npmax+1,npmax_old+1,MMG5_Point,
                 "vertices array", return 0);
@@ -248,58 +312,91 @@ int PMMG_setMemMax_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
 }
 
 /**
- * \param parmesh parmesh structure to adjust
- * \param percent integer value bewtween 0 and 100
+ * \param mesh pointer toward the mesh structure.
+ * \param np number of vertices.
+ * \param ne number of tetrahedra.
+ * \param nt number of triangles.
+ * \param xp number of boundary point
+ * \param xt number of boundary tetra
  *
- * \return 1 if success, 0 if fail
+ * \return 0 if failed, 1 otherwise.
  *
- * Set the maximum memory that parmesh and the meshes in listgrp can use.
- * The total memory available is split between the parmesh structure and the
- * listgrp structures according to the percentage specified by the percent
- * input variable:
- *   percent % of the available mem is assigned to pmesh.memMax
- *   (100-percent)/100 are assigned to the mesh[i].memMax
+ * Check the input mesh size and assign their values to the mesh.
+ *
  */
-int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
-{
-  MMG5_pMesh mesh;
-  size_t     available;
-  int        remaining_ngrps;
-  int        i = 0;
+int PMMG_setMeshSize_initData(MMG5_pMesh mesh, int np, int ne, int nt,
+                              int xp, int xt ) {
 
-  assert ( (0 < percent) && (100 > percent) && "percent has to be >0 and <100" );
+  if ( ( (mesh->info.imprim > PMMG_VERB_DETQUAL) || mesh->info.ddebug ) &&
+       ( mesh->point || mesh->xpoint || mesh->tetra || mesh->xtetra) )
+    fprintf(stderr,"\n  ## Warning: %s: old mesh deletion.\n",__func__);
 
-  parmesh->memMax = parmesh->memGloMax * percent / 100;
-
-  if ( parmesh->memGloMax <= parmesh->memMax ) {
-    fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-            __func__);
-    return 0;
+  if ( !np ) {
+    fprintf(stderr,"  ** MISSING DATA:\n");
+    fprintf(stderr,"     Your mesh must contains at least points.\n");
+    return(0);
   }
-  available       = parmesh->memGloMax - parmesh->memMax;
-
-  remaining_ngrps = parmesh->ngrp;
-  for ( i = 0; i < parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-    mesh->memMax = available/remaining_ngrps;
-
-    /* Not enough memory: set the minimal memory to be able to continue */
-    if ( mesh->memMax < mesh->memCur ) {
-      mesh->memMax = mesh->memCur;
-    }
-    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/MMG5_MILLION;
-
-    /* Count the remaining available memory */
-    if ( available < mesh->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
-      return 0;
-    }
-
-    available -= mesh->memMax;
-    --remaining_ngrps;
+  if ( !ne && (mesh->info.imprim > PMMG_VERB_DETQUAL || mesh->info.ddebug) ) {
+    fprintf(stderr,"  ** WARNING:\n");
+    fprintf(stderr,"     Your mesh don't contains tetrahedra.\n");
   }
+
+  if ( mesh->point )
+    MMG5_DEL_MEM(mesh,mesh->point);
+  if ( mesh->tetra )
+    MMG5_DEL_MEM(mesh,mesh->tetra);
+  if ( mesh->prism )
+    MMG5_DEL_MEM(mesh,mesh->prism);
+  if ( mesh->tria )
+    MMG5_DEL_MEM(mesh,mesh->tria);
+  if ( mesh->quadra )
+    MMG5_DEL_MEM(mesh,mesh->quadra);
+  if ( mesh->edge )
+    MMG5_DEL_MEM(mesh,mesh->edge);
+
+  mesh->np  = np;
+  mesh->ne  = ne;
+  mesh->nt  = nt;
+  mesh->xp  = xp;
+  mesh->xt  = xt;
+
+  mesh->npi = mesh->np;
+  mesh->nei = mesh->ne;
+  mesh->nti = mesh->nt;
+
   return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param np number of vertices.
+ * \param ne number of tetrahedra.
+ * \param nt number of triangles.
+ * \param xp number of boundary points.
+ * \param xt number of boundary tetra.
+ *
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Check the input mesh size and assign their values to the mesh.
+ *
+ */
+int PMMG_setMeshSize(MMG5_pMesh mesh,int np,int ne,int nt,int xp,int xt ) {
+
+  /* Check input data and set mesh->ne/na/np/nt to the suitable values */
+  if ( !PMMG_setMeshSize_initData(mesh,np,ne,nt,xp,xt) )
+    return 0;
+
+  mesh->npmax  = mesh->np;
+  mesh->nemax  = mesh->ne;
+  mesh->ntmax  = mesh->nt;
+  mesh->xpmax  = mesh->xp;
+  mesh->xtmax  = mesh->xt;
+
+  /* Mesh allocation and linkage */
+  if ( !PMMG_setMeshSize_alloc( mesh ) ) return 0;
+
+  return(1);
+
 }
 
 /**
@@ -312,7 +409,7 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh, int percent )
  * the less possible memory.
  *
  */
-int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
+int PMMG_fitMeshSize( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
   const MMG5_pMesh mesh  = grp->mesh;
   const MMG5_pSol  met   = grp->met;
   const MMG5_pSol  disp  = grp->disp;
@@ -351,8 +448,8 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
     }
   }
 
-  if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,
-                               nemax_old,xtmax_old) ) ier = 0;
+  if ( !PMMG_setMeshSize_realloc(mesh,npmax_old,xpmax_old,
+                                 nemax_old,xtmax_old) ) ier = 0;
 
   if ( met && met->m ) {
     PMMG_REALLOC(mesh,met->m,met->size*(met->npmax+1),
@@ -380,22 +477,19 @@ int PMMG_parmesh_fitMesh( PMMG_pParMesh parmesh, PMMG_pGrp grp ) {
     }
   }
 
-  mesh->memMax = mesh->memCur;
-
   return ier;
 }
 
 /**
  * \param parmesh parmesh structure to adjust
- * \param percent ratio of the available memory to give to the parmesh
  * \param fitMesh if 1, set maximum mesh size at its exact size.
  *
  * \return 1 if success, 0 if fail
  *
- * Update the memory repartition between the communicators and the groups.
+ * Update the size of the group meshes.
  *
  */
-int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
+int PMMG_updateMeshSize( PMMG_pParMesh parmesh, int fitMesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp,field,psl;
@@ -403,50 +497,12 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
   int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
   int        i,is;
 
-  /* Fit parmesh max memory to the currently used memory, and update available memory */
-  parmesh->memMax = parmesh->memCur;
-
-  if (  parmesh->memGloMax <=  parmesh->memMax ) {
-    fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-            __func__);
-    return 0;
-  }
-  available = parmesh->memGloMax - parmesh->memMax;
-  used = parmesh->memMax;
-
-  /* Fit meshes max memory to the currently used memory, and update available memory */
   for ( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
 
-    mesh->memMax = mesh->memCur;
-
-    if ( available < mesh->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: all the memory is used for the communicators\n",
-              __func__);
-      return 0;
-    }
-    available -= mesh->memMax;
-    used      += mesh->memMax;
-  }
-  assert( parmesh->memGloMax == (available+used) );
-
-  /* Increase parmesh memory */
-  delta = percent * available/100;
-  parmesh->memMax += delta;
-  available       -= delta;
-  used            += delta;
-
-  /* Distribute the rest of the available memory among the groups */
-  remaining_ngrps = parmesh->ngrp;
-  for ( i = 0; i < parmesh->ngrp; ++i ) {
-    mesh = parmesh->listgrp[i].mesh;
-
-    /* Give a slice of the available memory to this mesh */
-    delta = available/remaining_ngrps;
-    mesh->memMax += delta;
-
-    /* Force the mmg3d zaldy function to find the wanted memMax value (in MMG3D_loadMesh) */
-    mesh->info.mem = mesh->memMax/MMG5_MILLION;
+    /* Force the MMG5_memOption_memSet function to find the wanted memMax value
+     * in MMG3D_Set_meshSize, MMG3D_Set_iparameter, MMG3D_zaldy (for i/o) */
+    mesh->info.mem = parmesh->memGloMax/MMG5_MILLION;
 
     /* Memory repartition for the MMG meshes arrays */
     npmax_old = mesh->npmax;
@@ -469,7 +525,7 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
     met = parmesh->listgrp[i].met;
     if ( !PMMG_memOption_memRepartition(mesh,met) ) return 0;
 
-    if ( !PMMG_setMemMax_realloc(mesh,npmax_old,xpmax_old,nemax_old,xtmax_old) )
+    if ( !PMMG_setMeshSize_realloc(mesh,npmax_old,xpmax_old,nemax_old,xtmax_old) )
       return 0;
 
     if ( met ) {
@@ -526,16 +582,6 @@ int PMMG_parmesh_updateMemMax( PMMG_pParMesh parmesh, int percent, int fitMesh )
       }
     }
 
-
-    /* Count the remaining available memory */
-    if ( available < delta ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory %d-%d\n",__func__,parmesh->myrank,i);
-      return 0;
-    }
-
-    /* Update available memory */
-    available -= delta;
-    --remaining_ngrps;
   }
   return 1;
 }

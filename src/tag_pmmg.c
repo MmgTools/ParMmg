@@ -94,6 +94,10 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
     if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
     if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
+#warning Option -nosurf overrides part of the surface analysis
+    if ( ppt->tag & MG_NOM )    ppt->tag &= ~MG_NOM;
+    if ( ppt->tag & MG_CRN )    ppt->tag &= ~MG_CRN;
+    if ( ppt->tag & MG_GEO )    ppt->tag &= ~MG_GEO;
   }
 }
 
@@ -110,6 +114,9 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
     if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
     if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
+#warning Option -nosurf overrides part of the surface analysis
+    if ( pxt->tag[j] & MG_NOM)    pxt->tag[j] &= ~MG_NOM;
+    if ( pxt->tag[j] & MG_GEO)    pxt->tag[j] &= ~MG_GEO;
   }
 }
 
@@ -196,10 +203,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
   int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
   int16_t         gettag;
-  size_t          available,oldMemMax;
-
-  /* Compute available memory (previously given to the communicators) */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,available,oldMemMax);
 
   /* Loop on groups */
   for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
@@ -207,8 +210,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
     mesh                       = grp->mesh;
     node2int_node_comm0_index1 = grp->node2int_node_comm_index1;
     face2int_face_comm0_index1 = grp->face2int_face_comm_index1;
-
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,available,oldMemMax);
 
     /** Step 1: Loop on xtetras to untag old parallel entities, then build
      * hash table for edges on xtetras. */
@@ -333,7 +334,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       if( ppt->xp ) ppt->xp = 0;
     }
 
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,available,oldMemMax);
   }
 
   return 1;
