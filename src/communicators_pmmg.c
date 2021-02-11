@@ -808,6 +808,11 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
     PMMG_tag_par_face(pxt,ifac);
+
+    /* Set triangle and nodes as parallel */
+    PMMG_tag_par_tria(ptt);
+    for( iloc = 0; iloc < 3; iloc++ )
+      PMMG_tag_par_node(&mesh->point[ptt->v[iloc]]);
   }
 }
 
@@ -870,6 +875,11 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     assert( pt->xt );
     pxt = &mesh->xtetra[pt->xt];
     PMMG_tag_par_face(pxt,ifac);
+
+    /* Set triangle and nodes as parallel */
+    PMMG_tag_par_tria(ptt);
+    for( iloc = 0; iloc < 3; iloc++ )
+      PMMG_tag_par_node(&mesh->point[ptt->v[iloc]]);
   }
 }
 

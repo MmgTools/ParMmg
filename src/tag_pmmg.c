@@ -81,6 +81,17 @@ void PMMG_tag_par_face(MMG5_pxTetra pxt,int j){
   pxt->ftag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
 }
 
+/**
+ * \param ptt pointer to the tria.
+ *
+ * Tag the edges on a triangle as parallel.
+ */
+void PMMG_tag_par_tria(MMG5_pTria ptt){
+  int j;
+
+  for( j = 0; j < 3; j++ )
+    ptt->tag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+}
 
 /**
  * \param pxt pointer to the point.

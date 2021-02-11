@@ -497,6 +497,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
 void PMMG_tag_par_node(MMG5_pPoint ppt);
 void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_tag_par_tria(MMG5_pTria ptt);
 void PMMG_untag_par_node(MMG5_pPoint ppt);
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
