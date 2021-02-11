@@ -69,7 +69,7 @@ int main(int argc,char *argv[]) {
   }
   strcpy(filename,argv[1]);
 
-  fileout = (char *) calloc(strlen(argv[2]) + 1, sizeof(char));
+  fileout = (char *) calloc(strlen(argv[2]) + 8, sizeof(char));
   if ( fileout == NULL ) {
     perror("  ## Memory problem: calloc");
     MPI_Finalize();
@@ -123,7 +123,7 @@ int main(int argc,char *argv[]) {
   /** remesh step */
 
   /* Set the number of remeshing iterations */
-  niter = 0;
+  niter = 1;
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
@@ -136,6 +136,16 @@ int main(int argc,char *argv[]) {
   };
 
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_angle, 45 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  if( !PMMG_Set_dparameter( parmesh, PMMG_DPARAM_hsiz, 1.0 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
@@ -174,6 +184,7 @@ int main(int argc,char *argv[]) {
       the PMMG_getMesh/PMMG_getSol functions */
 
   /** 1) Get the mesh with ParMmg getters and save it at the Medit file format */
+  sprintf(fileout,"%s_%d.mesh",fileout,rank);
   if( !(inm = fopen(fileout,"w")) ) {
     fprintf(stderr,"  ** UNABLE TO OPEN OUTPUT MESH FILE.\n");
     exit(EXIT_FAILURE);
