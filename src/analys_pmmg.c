@@ -402,12 +402,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
-  MMG5_pTetra    pt;
-  MMG5_pxTetra   pxt;
   MMG5_pTria     ptr;
   int            *intvalues,*itorecv,*itosend;
   double         *doublevalues,*rtorecv,*rtosend;
-  int            nitem,color,ie,ifac,nt0,nt1;
+  int            nitem,color,nt0,nt1;
   double         n1[3],n2[3],dhd;
   int            *adja,k,kk,ne,nr,nm,j;
   int            i,ii,i1,i2;
@@ -437,17 +435,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     ptr = &mesh->tria[k];
     if( !MG_EOK(ptr) )  continue;
 
-#warning Luca: this shows that passing tria->tetra tags should be better thought
-    ie   = ptr->cc/4;
-    ifac = ptr->cc%4;
-
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) )  continue;
-    if( !pt->xt ) continue;
-    pxt = &mesh->xtetra[pt->xt];
-
     /* Skip faces that are just parallel */
-    if( (pxt->ftag[ifac] & MG_PARBDY) && !(pxt->ftag[ifac] & MG_PARBDYBDY) )
+    tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
+    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) )
       continue;
 
     /* triangle normal */
@@ -593,17 +583,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     ptr = &mesh->tria[k];
     if( !MG_EOK(ptr) )  continue;
 
-#warning Luca: this shows that passing tria->tetra tags should be better thought
-    ie   = ptr->cc/4;
-    ifac = ptr->cc%4;
-
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) )  continue;
-    if( !pt->xt ) continue;
-    pxt = &mesh->xtetra[pt->xt];
-
     /* Skip faces that are just parallel */
-    if( (pxt->ftag[ifac] & MG_PARBDY) && !(pxt->ftag[ifac] & MG_PARBDYBDY) )
+    tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
+    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) )
       continue;
 
     /* Get parallel edge touched by a MG_BDY face and store normal vectors */
