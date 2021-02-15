@@ -636,7 +636,6 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   PMMG_pInt_comm int_face_comm,int_edge_comm;
   PMMG_pExt_comm ext_face_comm,ext_edge_comm;
   MMG5_pTetra    pt;
-  MMG5_pxTetra   pxt;
   MMG5_pEdge     pa;
   MMG5_hgeom     *ph;
   int            *nitems_ext_comm,color,k,i,idx,ie,ifac,iloc,j,item;
@@ -683,9 +682,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       iloc = (int_face_comm->intvalues[idx]%12)%3;
       /* Get face edges */
       pt = &mesh->tetra[ie];
-      assert( MG_EOK(pt) && pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-      assert( pxt->ftag[ifac] & MG_PARBDY );
+      assert( MG_EOK(pt) );
       for( j = 0; j < 3; j++ ) {
         /* Take the edge opposite to vertex iloc on face ifac */
         i1 = MMG5_idir[ifac][(iloc+j+1)%3];
@@ -728,9 +725,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
       iloc = (int_face_comm->intvalues[idx]%12)%3;
       /* Get face edges */
       pt = &mesh->tetra[ie];
-      assert( MG_EOK(pt) && pt->xt );
-      pxt = &mesh->xtetra[pt->xt];
-      assert( pxt->ftag[ifac] & MG_PARBDY );
+      assert( MG_EOK(pt) );
       /* ext_face_comm are already ordered; use common face point to travel the
        * edges on the face in the same order. */
       if( parmesh->myrank < color ) {
