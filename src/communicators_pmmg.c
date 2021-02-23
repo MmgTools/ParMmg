@@ -762,15 +762,13 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
  *   field initialized by MMG5_bdryTria, and the global node indices temporarily
  *   stored in the points flag.
  * - Store the index triplet in group communicator index 1,
- * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
- *   in MMG5_bdryUpdate).
+ * - Tag corresponding triangle edges and nodes as PARBDY.
  */
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTria   ptt;
   MMG5_pTetra  pt;
-  MMG5_pxTetra pxt;
   int          kt,ie,ifac,iploc;
   int          i,imax,iloc,iglob;
 
@@ -798,12 +796,6 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
     /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
 
-    /* Set xtetra face as parallel */
-    pt  = &mesh->tetra[ie];
-    assert( pt->xt );
-    pxt = &mesh->xtetra[pt->xt];
-    PMMG_tag_par_face(pxt,ifac);
-
     /* Set triangle and nodes as parallel */
     PMMG_tag_par_tria(ptt);
     for( iloc = 0; iloc < 3; iloc++ )
@@ -817,15 +809,13 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
  * - Convert triangle index to tetra-face-node triplet, using the "cc" triangle
  *   field initialized by MMG5_bdryTria, and the nodes coordinates.
  * - Store the index triplet in group communicator index 1,
- * - Tag corresponding xtetras as PARBDY (edges and nodes will be tagged later
- *   in MMG5_bdryUpdate).
+ * - Tag corresponding triangle edges and nodes as PARBDY.
  */
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTria   ptt;
   MMG5_pTetra  pt;
-  MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   int          kt,ie,ifac,iploc;
   double       cmax[3];
@@ -834,7 +824,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   /* Only one group */
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
- 
+
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
@@ -864,12 +854,6 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
 
     /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
-
-    /* Set xtetra face as parallel */
-    pt  = &mesh->tetra[ie];
-    assert( pt->xt );
-    pxt = &mesh->xtetra[pt->xt];
-    PMMG_tag_par_face(pxt,ifac);
 
     /* Set triangle and nodes as parallel */
     PMMG_tag_par_tria(ptt);

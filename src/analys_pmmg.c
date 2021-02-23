@@ -856,12 +856,6 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_freeXTets(mesh);
   MMG5_freeXPrisms(mesh);
 
-  /* set bdry entities to tetra: create xtetra and set references */
-  if ( !MMG5_bdrySet(mesh) ) {
-    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
-    return 0;
-  }
-
   return 1;
 }
 
@@ -950,6 +944,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !PMMG_norver( parmesh,mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
+  /* set bdry entities to tetra: create xtetra and set references */
+  if ( !MMG5_bdrySet(mesh) ) {
+    fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;
   }
 
