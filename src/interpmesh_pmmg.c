@@ -112,7 +112,7 @@ int PMMG_interp2bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   double alpha,dm[3][3],mi[3][3],m[3];
   int    iloc,i,isize,nsize,ier;
 
-  assert( met->size == 3 );
+  assert( met->size == 6 );
   nsize  = met->size;
 
   alpha = barycoord[l].val;
@@ -196,7 +196,7 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
   double phi[3],dm[3][3],mi[3][3],m[3];
   int    iloc,i,isize,nsize,ier;
 
-  assert( met->size == 3 );
+  assert( met->size == 6 );
   nsize  = met->size;
 
   PMMG_barycoord_get( phi, barycoord, 3 );
