@@ -41,6 +41,49 @@
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
+ * Hash the parallel edges. Only use face communicators to this purpose.
+ *
+ */
+int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
+  PMMG_pGrp    grp = &parmesh->listgrp[0];
+  MMG5_pMesh   mesh = grp->mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  PMMG_pInt_comm int_face_comm;
+  int          k,na;
+  int          i,ie,ifac,j,ia,i1,i2;
+
+  assert( parmesh->ngrp == 1 );
+
+  /** Allocation of hash table to store parallel edges */
+  na = (int)(mesh->np*0.2); // Euler-Poincare
+
+  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
+
+  /** Store parallel edges */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   =  grp->face2int_face_comm_index1[i]/12;
+    ifac = (grp->face2int_face_comm_index1[i]%12)/3;
+    pt = &mesh->tetra[ie];
+    for ( j=0; j<3; j++ ) {
+      ia = MMG5_iarf[ifac][j];
+      /* Get edge vertices and hash it */
+      i1 = MMG5_iare[ia][0];
+      i2 = MMG5_iare[ia][1];
+      MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],0,MG_PARBDY);
+    }
+  }
+
+  return PMMG_SUCCESS;
+}
+
+
+/**
+ * \param mesh pointer toward a MMG5 mesh structure.
+ * \param pHash pointer to the edge hash table.
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
+ *
  * Hash the edges. Use the assumption that all paralle edges are seen by a
  * MG_PARBDY face on an xtetra.
  *
