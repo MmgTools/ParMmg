@@ -124,6 +124,72 @@ int PMMG_saveGraph( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
   return 1;
 }
 
+int PMMG_bandGraph_grps( PMMG_pParMesh parmesh,
+                         idx_t *vtxdist_in,idx_t *xadj_in,idx_t *adjncy_in,
+                         idx_t **vtxdist_b,idx_t **xadj_b,idx_t **adjncy_b) {
+  idx_t *vtx_tmp;
+  int nprocs = parmesh->nprocs;
+  int myrank = parmesh->myrank;
+  int nvtx_in = vtxdist_in[myrank+1]-vtxdist_in[myrank];
+  int nvtx_b,nadj_b;
+  int i,k,iadj,kadj;
+
+  PMMG_CALLOC(parmesh,vtx_tmp,nvtx_in,idx_t,"vtx_tmp",return 0);
+
+  for( i = 0; i < nvtx_in; i++ )
+    vtx_tmp[i] = PMMG_UNSET;
+
+  /* Mark and count vertices adjacent to a parallel interface */
+  nvtx_b = 0;
+  for( i = 0; i < nvtx_in; i++ ) {
+    for( k = 0; k < xadj_in[i+1]-xadj_in[i]; k++ ) {
+      if( (adjncy_in[k] <  vtxdist_in[myrank]) ||
+          (adjncy_in[k] >= vtxdist_in[myrank+1]) ) {
+        vtx_tmp[i] = nvtx_b++;
+        break;
+      }
+    }
+  }
+
+  PMMG_CALLOC(parmesh,*xadj_b,nvtx_b,idx_t,"xadj_b",return 0);
+
+  /* Count adjacents in the band */
+  for( i = 0; i < nvtx_in; i++ ) {
+    if( vtx_tmp[i] == PMMG_UNSET ) continue;
+    for( k = 0; k < xadj_in[i+1]-xadj_in[i]; k++ ) {
+      if( (adjncy_in[k] <  vtxdist_in[myrank]) ||
+          (adjncy_in[k] >= vtxdist_in[myrank+1]) ) {
+        iadj = adjncy_in[k]-vtxdist_in[myrank];
+        if( vtx_tmp[iadj] == PMMG_UNSET ) continue;
+        (*xadj_b)[vtx_tmp[i]]++;
+      }
+    }
+  }
+
+  nadj_b = 0;
+  for( i = 0; i < nvtx_b; i++ )
+    nadj_b += (*xadj_b)[i];
+
+  PMMG_CALLOC(parmesh,*adjncy_b,nadj_b,idx_t,"adjncy_b",return 0);
+
+  /* Fill adjacency in the band */
+  for( i = 0; i < nvtx_in; i++ ) {
+    if( vtx_tmp[i] == PMMG_UNSET ) continue;
+    kadj = 0;
+    for( k = 0; k < xadj_in[i+1]-xadj_in[i]; k++ ) {
+      if( (adjncy_in[k] <  vtxdist_in[myrank]) ||
+          (adjncy_in[k] >= vtxdist_in[myrank+1]) ) {
+        iadj = adjncy_in[k]-vtxdist_in[myrank];
+        if( vtx_tmp[iadj] == PMMG_UNSET ) continue;
+        (*adjncy_b)[kadj++] = iadj;
+      }
+    }
+  }
+
+  PMMG_DEL_MEM(parmesh,vtx_tmp,idx_t,"vtx_tmp");
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param hgrp pointer toward the hatable.
