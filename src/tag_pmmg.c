@@ -105,10 +105,6 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
     if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
     if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
-#warning Option -nosurf overrides part of the surface analysis
-    if ( ppt->tag & MG_NOM )    ppt->tag &= ~MG_NOM;
-    if ( ppt->tag & MG_CRN )    ppt->tag &= ~MG_CRN;
-    if ( ppt->tag & MG_GEO )    ppt->tag &= ~MG_GEO;
   }
 }
 
@@ -125,9 +121,6 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
     if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
     if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
-#warning Option -nosurf overrides part of the surface analysis
-    if ( pxt->tag[j] & MG_NOM)    pxt->tag[j] &= ~MG_NOM;
-    if ( pxt->tag[j] & MG_GEO)    pxt->tag[j] &= ~MG_GEO;
   }
 }
 
