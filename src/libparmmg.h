@@ -2072,7 +2072,8 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * Set the nodes on a parallel interface. Global numbering is used to reorder
  * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
  * be listed in the same order on the two sides of the interface (isNotOrdered
- * equal to 0) and global indices are not read.
+ * equal to 0) and ParMmg assumes this ordering is valid, but global indices
+ * are still needed by ParMmg to internally match interface faces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,&\n

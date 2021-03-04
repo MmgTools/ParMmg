@@ -1267,7 +1267,8 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
     PMMG_DEL_MEM(parmesh,oldId,int,"oldId");
   }
 
-  /* Save local and global node indices */
+  /* Save local and global node indices (they will be used by
+   * PMMG_build_faceCommFromNodes). */
   if( ier ) {
     for( i = 0; i < nitem; i++ ) {
       pext_node_comm->int_comm_index[i] = local_index[i];
