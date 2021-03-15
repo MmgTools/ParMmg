@@ -66,20 +66,27 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
   k  = start;
   i  = ip;
   *ng = *nr = ns = 0;
-  if( mesh->point[pt->v[i]].flag < parmesh->myrank ) return ns;
 
   do {
     i1 = MMG5_inxt2[i];
-    if ( MG_EDG(pt->tag[i1]) ) {
-      i2 = MMG5_iprv2[i];
-      if ( pt->tag[i1] & MG_GEO )
-        *ng = *ng + 1;
-      else if ( pt->tag[i1] & MG_REF )
-        *nr = *nr + 1;
-      ns++;
-      list[ns] = pt->v[i2];
-      listref[ns] = pt->edg[i1];
-      if ( ns > lmax-2 )  return -ns;
+    /* Skip parallel boundaries that will be analyzed by another process. No
+     * need to skip simple parallel edges, as there is no adjacent through
+     * them. */
+    if( (pt->tag[i1] & MG_PARBDYBDY) &&
+        (mesh->point[pt->v[i1]].flag < parmesh->myrank) ) {
+      /* do nothing */
+    } else {
+      if ( MG_EDG(pt->tag[i1]) ) {
+        i2 = MMG5_iprv2[i];
+        if ( pt->tag[i1] & MG_GEO )
+          *ng = *ng + 1;
+        else if ( pt->tag[i1] & MG_REF )
+          *nr = *nr + 1;
+        ns++;
+        list[ns] = pt->v[i2];
+        listref[ns] = pt->edg[i1];
+        if ( ns > lmax-2 )  return -ns;
+      }
     }
     adja = &adjt[3*(k-1)+1];
     k  = adja[i1] / 3;
@@ -96,16 +103,24 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
     do {
       pt = &mesh->tria[k];
       i2 = MMG5_iprv2[i];
-      if ( MG_EDG(pt->tag[i2]) ) {
-        i1 = MMG5_inxt2[i];
-        if ( pt->tag[i2] & MG_GEO )
-          *ng = *ng + 1;
-        else if ( pt->tag[i2] & MG_REF )
-          *nr = *nr + 1;
-        ns++;
-        list[ns] = pt->v[i1];
-        listref[ns] = pt->edg[i2];
-        if ( ns > lmax-2 )  return -ns;
+      /* Skip parallel boundaries that will be analyzed by another process. No
+       * need to skip simple parallel edges, as there is no adjacent through
+       * them. */
+      if( (pt->tag[i2] & MG_PARBDYBDY) &&
+          (mesh->point[pt->v[i2]].flag < parmesh->myrank) ) {
+        /* do nothing */
+      } else {
+        if ( MG_EDG(pt->tag[i2]) ) {
+          i1 = MMG5_inxt2[i];
+          if ( pt->tag[i2] & MG_GEO )
+            *ng = *ng + 1;
+          else if ( pt->tag[i2] & MG_REF )
+            *nr = *nr + 1;
+          ns++;
+          list[ns] = pt->v[i1];
+          listref[ns] = pt->edg[i2];
+          if ( ns > lmax-2 )  return -ns;
+        }
       }
       adja = &adjt[3*(k-1)+1];
       k = adja[i2] / 3;
@@ -136,7 +151,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   double         ux,uy,uz,vx,vy,vz,dd;
   int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],nc,xp,nr,ns0,ns1,nre;
   int            ip,idx,iproc,k,i,j,d;
-  int            nitem,color;
+  int            nitem,color,tag;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   double         *doublevalues,*rtosend,*rtorecv;
 
@@ -160,7 +175,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   for( k = 1; k <= mesh->nt; k++ ) {
     pt = &mesh->tria[k];
-    if ( !MG_EOK(pt) )  continue;
+    /* give a valid source triangle (not a PARBDY where no adjacency is
+     * provided) */
+    tag = pt->tag[0] & pt->tag[1] & pt->tag[2];
+    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )  continue;
     for( i = 0; i < 3; i++ ) {
       ppt = &mesh->point[pt->v[i]];
       if( ppt->flag ) continue;
@@ -199,6 +217,8 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     ppt = &mesh->point[ip];
     if( !MG_VOK(ppt) ) continue;
     ppt->flag = intvalues[idx];
+    /* Reset intvalues in order to reuse it to count special edges */
+    intvalues[idx] = 0;
   }
 
 
