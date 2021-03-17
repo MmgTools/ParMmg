@@ -90,7 +90,7 @@ void PMMG_tag_par_tria(MMG5_pTria ptt){
   int j;
 
   for( j = 0; j < 3; j++ )
-    ptt->tag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+    ptt->tag[j] |= (MG_PARBDY + MG_REQ + MG_NOSURF);
 }
 
 /**
