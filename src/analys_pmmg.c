@@ -72,7 +72,7 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
     /* Skip parallel boundaries that will be analyzed by another process. No
      * need to skip simple parallel edges, as there is no adjacent through
      * them. */
-    if( (pt->tag[i1] & MG_PARBDYBDY) &&
+    if( (pt->tag[i1] & MG_PARBDYBDY || pt->tag[i1] & MG_BDY) &&
         (mesh->point[pt->v[i1]].flag < parmesh->myrank) ) {
       /* do nothing */
     } else {
@@ -106,7 +106,7 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
       /* Skip parallel boundaries that will be analyzed by another process. No
        * need to skip simple parallel edges, as there is no adjacent through
        * them. */
-      if( (pt->tag[i2] & MG_PARBDYBDY) &&
+      if( (pt->tag[i2] & MG_PARBDYBDY || pt->tag[i2] & MG_BDY) &&
           (mesh->point[pt->v[i2]].flag < parmesh->myrank) ) {
         /* do nothing */
       } else {
@@ -178,7 +178,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     /* give a valid source triangle (not a PARBDY where no adjacency is
      * provided) */
     tag = pt->tag[0] & pt->tag[1] & pt->tag[2];
-    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )  continue;
+    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY)) )  continue;
     for( i = 0; i < 3; i++ ) {
       ppt = &mesh->point[pt->v[i]];
       if( ppt->flag ) continue;
@@ -457,7 +457,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
     /* Skip faces that are just parallel */
     tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
-    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) )
+    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY) )
       continue;
 
     /* triangle normal */
@@ -605,7 +605,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
     /* Skip faces that are just parallel */
     tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
-    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) )
+    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY) )
       continue;
 
     /* Get parallel edge touched by a MG_BDY face and store normal vectors */
