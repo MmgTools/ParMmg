@@ -891,6 +891,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_HGeom     hpar;
   size_t         myavailable,oldMemMax;
 
+  /* Tag parallel triangles on material interfaces as boundary */
+  if( !PMMG_parbdyTria( parmesh ) ) {
+    fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces. Exit program.\n");
+    return 0;
+  }
+
+
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
 

@@ -476,7 +476,154 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     }
   }
 
+
+
   /* Deallocate and return */
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure.
+ * \return 0 if fail, 1 if success.
+ *
+ * Check if faces on a parallel communicator connect elements with different
+ * references, and tag them as a "true" boundary (thus PARBDYBDY).
+ */
+int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
+  MMG5_Hash      hash;
+  PMMG_pGrp      grp = &parmesh->listgrp[0];
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pTria     ptt;
+  MPI_Comm       comm;
+  MPI_Status     status;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int            *seenFace,*intvalues,*itosend,*itorecv;
+  int            myrank,color,nitem,k,i,idx,ie,ifac,kt,j,ia,ib,ic;
+
+  comm   = parmesh->comm;
+  myrank = parmesh->myrank;
+  assert( parmesh->ngrp == 1 );
+  mesh = grp->mesh;
+
+  /* intvalues will be used to store tetra ref */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+              "intvalues",return 0);
+  intvalues = parmesh->int_face_comm->intvalues;
+
+  /* seenFace will be used to recognize already visited faces */
+  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
+
+  /* Hash triangles */
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for (kt=1; kt<=mesh->nt; kt++) {
+    ptt = &mesh->tria[kt];
+    if ( !MMG5_hashFace(mesh,&hash,ptt->v[0],ptt->v[1],ptt->v[2],kt) ) {
+      MMG5_DEL_MEM(mesh,hash.item);
+      return 0;
+    }
+  }
+
+  /* Tag face as "true" boundary if triangle has a non-nul ref in opnbdy mode */
+  for( kt = 1; kt <= mesh->nt; kt++ ) {
+    ptt = &mesh->tria[kt];
+    if( mesh->info.opnbdy && ptt->ref > 0 )
+      for( j = 0; j < 3; j++) ptt->tag[j] |= MG_PARBDYBDY;
+  }
+
+  /** Fill the internal communicator with the first ref found */
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    ie   =  face2int_face_comm_index1[k]/12;
+    ifac = (face2int_face_comm_index1[k]%12)/3;
+    idx  =  face2int_face_comm_index2[k];
+    pt = &mesh->tetra[ie];
+    assert( MG_EOK(pt) );
+
+    if( !seenFace[idx] ) {
+      intvalues[idx] = pt->ref;
+    }
+
+    /* Mark face each time that it's seen */
+    seenFace[idx]++;
+  }
+
+  /** Send and receive external communicators filled with the tetra ref */
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itorecv = ext_face_comm->itorecv;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      itosend[i]     = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   comm,&status),return 0 );
+
+    /* Store the info in intvalues */
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* Check the internal communicator */
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    ie   =  face2int_face_comm_index1[k]/12;
+    ifac = (face2int_face_comm_index1[k]%12)/3;
+    idx  =  face2int_face_comm_index2[k];
+    pt = &mesh->tetra[ie];
+    assert( MG_EOK(pt) );
+
+    /* Get triangle index from hash table */
+    ia = pt->v[MMG5_idir[ifac][0]];
+    ib = pt->v[MMG5_idir[ifac][1]];
+    ic = pt->v[MMG5_idir[ifac][2]];
+    kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+    ptt = &mesh->tria[kt];
+
+    /* Faces on the external communicator have been visited only once */
+    if( seenFace[idx] != 1 ) continue;
+
+    /* Tag face as "true" boundary if its ref is different */
+    if( intvalues[idx] != pt->ref ) {
+      for( j = 0; j < 3; j++) ptt->tag[j] |= MG_PARBDYBDY;
+    }
+  }
+
+
+  /* Deallocate and return */
+  MMG5_DEL_MEM(mesh,hash.item);
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
   for ( k=0; k<parmesh->next_face_comm; ++k ) {

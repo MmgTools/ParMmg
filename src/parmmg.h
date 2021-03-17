@@ -505,6 +505,7 @@ void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
 int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
 int  PMMG_parbdySet( PMMG_pParMesh parmesh );
+int  PMMG_parbdyTria( PMMG_pParMesh parmesh );
 
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);
