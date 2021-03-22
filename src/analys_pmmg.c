@@ -645,11 +645,11 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
-          ptr->tag[i] |= MG_NOM;
+          ptr->tag[i] |= MG_GEO + MG_NOM;
           i1 = MMG5_inxt2[i];
           i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_NOM;
-          mesh->point[ptr->v[i2]].tag |= MG_NOM;
+          mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
+          mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
           nm++;
         }
       }
