@@ -178,7 +178,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     /* give a valid source triangle (not a PARBDY where no adjacency is
      * provided) */
     tag = pt->tag[0] & pt->tag[1] & pt->tag[2];
-    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY)) )  continue;
+    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )  continue;
     for( i = 0; i < 3; i++ ) {
       ppt = &mesh->point[pt->v[i]];
       if( ppt->flag ) continue;
