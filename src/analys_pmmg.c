@@ -420,8 +420,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 }
 
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
-  PMMG_pInt_comm int_edge_comm;
-  PMMG_pExt_comm ext_edge_comm;
+  PMMG_pInt_comm int_face_comm,int_edge_comm;
+  PMMG_pExt_comm ext_face_comm,ext_edge_comm;
+  MMG5_Hash      hash;
   MMG5_pTria     ptr;
   int            *intvalues,*itorecv,*itosend;
   double         *doublevalues,*rtorecv,*rtosend;
@@ -448,6 +449,54 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
               "doublevalues",return 0);
   doublevalues = int_edge_comm->doublevalues;
 
+  /** Hash triangles */
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for( k = 1; k <= mesh->nt; k++) {
+    ptr = &mesh->tria[k];
+    if ( !MMG5_hashFace(mesh,&hash,ptr->v[0],ptr->v[1],ptr->v[2],k) ) {
+      MMG5_DEL_MEM(mesh,hash.item);
+      return 0;
+    }
+    ptr->flag = PMMG_UNSET;
+  }
+
+  /* Flag triangles with the color of the external process sharing them */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+              "intvalues",return 0);
+
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_face_comm->int_comm_index[i];
+      int_face_comm->intvalues[idx] = color;
+    }
+  }
+
+  PMMG_pGrp grp = &parmesh->listgrp[0];
+  MMG5_pTetra pt;
+  int ie,ifac,ia,ib,ic;
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   =  grp->face2int_face_comm_index1[i]/12;
+    ifac = (grp->face2int_face_comm_index1[i]%12)/3;
+    idx  =  grp->face2int_face_comm_index2[i];
+    /* Get triangle index from hash table */
+    pt = &mesh->tetra[ie];
+    ia = pt->v[MMG5_idir[ifac][0]];
+    ib = pt->v[MMG5_idir[ifac][1]];
+    ic = pt->v[MMG5_idir[ifac][2]];
+    k = MMG5_hashGetFace(&hash,ia,ib,ic);
+    ptr = &mesh->tria[k];
+    /* Flag triangle with the color of the external process */
+    ptr->flag = int_face_comm->intvalues[idx];
+  }
+
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+  MMG5_DEL_MEM(mesh,hash.item);
+
 
   /** Loop on true boundary triangles and store the normal in the edge internal
    *  communicator where the triangle touches a parallel edge. */
@@ -455,10 +504,12 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     ptr = &mesh->tria[k];
     if( !MG_EOK(ptr) )  continue;
 
-    /* Skip faces that are just parallel */
+    /* Skip faces that are just parallel or analyzed by another process */
     tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
-    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY) )
-      continue;
+    if( (tag & MG_PARBDY) )
+      if( !(tag & MG_BDY) )
+        if( !(tag & MG_PARBDYBDY && ptr->flag > parmesh->myrank ) )
+          continue;
 
     /* triangle normal */
     MMG5_nortri(mesh,ptr,n1);
