@@ -35,6 +35,151 @@
 #include "parmmg.h"
 
 /**
+ * \param mesh pointer toward the mesh structure.
+ * \param hash pointer toward an allocated hash table.
+ * \param start index of the starting tetrahedra.
+ * \param ip local index of the point in the tetrahedra \a start.
+ * \param ng pointer toward the number of ridges.
+ * \param nr pointer toward the number of reference edges.
+ * \return ns the number of special edges passing through ip, -1 if fail.
+ *
+ * Count the number of ridges and reference edges incident to
+ * the vertex \a ip when ip is non-manifold.
+ * \remark Same as MMG5_boulernm(), but skip edges whose extremity is flagged with
+ * a rank lower than myrank.
+ *
+ */
+int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int start,int ip,int *ng,int *nr){
+  MMG5_pTetra    pt,pt1;
+  MMG5_pxTetra   pxt;
+  MMG5_hedge    *ph;
+  int            *adja,nump,ilist,base,cur,k,k1,ns;
+  int            list[MMG3D_LMAX+2];
+  int            key,ia,ib,jj,a,b;
+  int8_t         j,l,i,i1;
+  uint8_t        ie;
+
+  /* reset the hash table */
+  for ( k=0;  k<=hash->max; ++k ) {
+    hash->item[k].a = 0;
+    hash->item[k].b = 0;
+  }
+
+  for ( k=0;  k<=hash->siz; ++k ) {
+    hash->item[k].nxt = 0;
+  }
+  for (k=hash->siz; k<hash->max; k++) {
+    hash->item[k].nxt = k+1;
+  }
+
+  base = ++mesh->base;
+  pt   = &mesh->tetra[start];
+  nump = pt->v[ip];
+
+  /* Store initial tetrahedron */
+  pt->flag = base;
+  list[0] = 4*start + ip;
+  ilist = 1;
+
+  *ng = *nr = ns = 0;
+
+  /* Explore list and travel by adjacency through elements sharing p */
+  cur = 0;
+  while ( cur < ilist ) {
+    k = list[cur] / 4;
+    i = list[cur] % 4; // index of point p in tetra k
+    pt = &mesh->tetra[k];
+
+    /* Count the number of ridge of ref edges passing through ip. */
+    if ( pt->xt ) {
+      pxt = &mesh->xtetra[pt->xt];
+      for (l=0; l<3; ++l) {
+        ie = MMG5_arpt[i][l];
+        if( MMG5_iare[ie][0] == i )
+          i1 = MMG5_iare[ie][1];
+        else
+          i1 = MMG5_iare[ie][0];
+
+        /* Skip parallel boundaries that will be analyzed by another process. No
+         * need to skip simple parallel edges, as there is no adjacent through
+         * them. */
+        if( (pxt->tag[ie] & MG_PARBDYBDY || pxt->tag[ie] & MG_BDY) &&
+             (mesh->point[pt->v[i1]].flag < parmesh->myrank) ) {
+           /* do nothing */
+        } else if ( MG_EDG(pxt->tag[ie]) ) {
+          /* Seek if we have already seen the edge. If not, hash it and
+           * increment ng or nr.*/
+          a = pt->v[MMG5_iare[ie][0]];
+          b = pt->v[MMG5_iare[ie][1]];
+          ia  = MG_MIN(a,b);
+          ib  = MG_MAX(a,b);
+          key = (MMG5_KA*ia + MMG5_KB*ib) % hash->siz;
+          ph  = &hash->item[key];
+
+          if ( ph->a == ia && ph->b == ib )
+            continue;
+          else if ( ph->a ) {
+            while ( ph->nxt && ph->nxt < hash->max ) {
+              ph = &hash->item[ph->nxt];
+              if ( ph->a == ia && ph->b == ib )  continue;
+            }
+            ph->nxt   = hash->nxt;
+            ph        = &hash->item[hash->nxt];
+
+            if ( hash->nxt >= hash->max-1 ) {
+              if ( mesh->info.ddebug )
+                fprintf(stderr,"\n  ## Warning: %s: memory alloc problem (edge):"
+                        " %d\n",__func__,hash->max);
+              MMG5_TAB_RECALLOC(mesh,hash->item,hash->max,MMG5_GAP,MMG5_hedge,
+                                 "MMG5_edge",return -1);
+              /* ph pointer may be false after realloc */
+              ph        = &hash->item[hash->nxt];
+
+              for (jj=ph->nxt; jj<hash->max; jj++)  hash->item[jj].nxt = jj+1;
+            }
+            hash->nxt = ph->nxt;
+          }
+
+          /* insert new edge */
+          ph->a = ia;
+          ph->b = ib;
+          ph->nxt = 0;
+
+          if ( pxt->tag[ie] & MG_GEO )
+            ++(*ng);
+          else if ( pxt->tag[ie] & MG_REF )
+            ++(*nr);
+          ++ns;
+        }
+      }
+    }
+
+    /* Continue to travel */
+    adja = &mesh->adja[4*(k-1)+1];
+
+    for (l=0; l<3; l++) {
+      i  = MMG5_inxt3[i];
+      k1 = adja[i];
+      if ( !k1 )  continue;
+      k1 /= 4;
+      pt1 = &mesh->tetra[k1];
+      if ( pt1->flag == base )  continue;
+      pt1->flag = base;
+      for (j=0; j<4; j++)
+        if ( pt1->v[j] == nump )  break;
+      assert(j<4);
+      /* overflow */
+      if ( ilist > MMG3D_LMAX-3 )  return 0;
+      list[ilist] = 4*k1+j;
+      ilist++;
+    }
+    cur++;
+  }
+
+  return ns;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param mesh pointer toward the mesh structure.
  * \param adjt pointer toward the table of triangle adjacency.
