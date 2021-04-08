@@ -214,15 +214,15 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
 
   do {
     i1 = MMG5_inxt2[i];
+    i2 = MMG5_iprv2[i];
     /* Skip parallel boundaries that will be analyzed by another process. No
      * need to skip simple parallel edges, as there is no adjacent through
      * them. */
     if( (pt->tag[i1] & MG_PARBDYBDY || pt->tag[i1] & MG_BDY) &&
-        (mesh->point[pt->v[i1]].flag < parmesh->myrank) ) {
+        (mesh->point[pt->v[i2]].flag < parmesh->myrank) ) {
       /* do nothing */
     } else {
       if ( MG_EDG(pt->tag[i1]) ) {
-        i2 = MMG5_iprv2[i];
         if ( pt->tag[i1] & MG_GEO )
           *ng = *ng + 1;
         else if ( pt->tag[i1] & MG_REF )
