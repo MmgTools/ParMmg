@@ -103,8 +103,8 @@ int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int star
         /* Skip parallel boundaries that will be analyzed by another process. No
          * need to skip simple parallel edges, as there is no adjacent through
          * them. */
-        if( (pxt->tag[ie] & MG_PARBDYBDY || pxt->tag[ie] & MG_BDY) &&
-             (mesh->point[pt->v[i1]].flag < parmesh->myrank) ) {
+        if( (pxt->tag[ie] & MG_PARBDYBDY) &&
+            (mesh->point[pt->v[i]].flag < parmesh->myrank) ) {
            /* do nothing */
         } else if ( MG_EDG(pxt->tag[ie]) ) {
           /* Seek if we have already seen the edge. If not, hash it and
@@ -270,20 +270,24 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     intvalues[idx] = 0;
   }
 
+  /* Hash table used by boulernm to store the special edges passing through
+   * a given point */
+  if ( ! MMG5_hashNew(mesh,&hash,mesh->np,(int)(3.71*mesh->np)) ) return 0;
+
 
   /** Local singularity analysis */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
+    if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) )
       continue;
     else if ( MG_EDG(ppt->tag) ) {
       /* Count the number of ridges passing through the point (xp) and the
        * number of ref edges (nr).
        * Edges on communicators only once as they are flagged with their
        * lowest seen rank. */
-      ns0 = PMMG_boulernm(parmesh, mesh, &hash, ppt->flag/4, ppt->flag%4, &xp, &nr);
+      ns0 = PMMG_boulernm(parmesh, mesh, &hash, ppt->s/4, ppt->s%4, &xp, &nr);
       assert( ns0 == xp+nr );
 
       /* Add nb of ridges/refs to intvalues */
@@ -416,6 +420,30 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
     PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
   }
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer towar the mesh structure.
+ * \param hash edges hash table.
+ * \return 1 if success, 0 if failed.
+ *
+ * Set tags to non-manifold edges and vertices. Not done before because we need
+ * the \ref MMG5_xTetra table.
+ *
+ * \warning if fail, the edge hash table \a hash is not freed.
+ *
+ */
+int PMMG_setNmTag(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_Hash *hash) {
+
+//  /* First: seek edges at the interface of two distinct domains and mark it as
+//   * required */
+//  if ( !MMG5_setEdgeNmTag(mesh,hash) ) return 0;
+
+  /* Second: seek the non-required non-manifold points and try to analyse
+   * whether they are corner or required. */
+  if ( !PMMG_setVertexNmTag(parmesh,mesh) ) return 0;
 
   return 1;
 }
@@ -1427,6 +1455,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     return 0;
   }
+
+  if ( !PMMG_setNmTag(parmesh,mesh,&hash) ) {
+    fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    return 0;
+  }
+
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
 #warning Luca: check that parbdy are skipped
