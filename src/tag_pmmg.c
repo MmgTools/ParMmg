@@ -207,6 +207,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
   int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
   int16_t         gettag;
+  int8_t          isbdy;
 
   /* Loop on groups */
   for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
@@ -321,6 +322,19 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
       pxt = &mesh->xtetra[pt->xt];
+      /* Unreference xtetra that are not on the boundary anymore */
+      isbdy = 0;
+      for( ifac = 0; ifac < 4; ifac++ ) {
+        if( pxt->ftag[ifac] & MG_BDY ) {
+          isbdy = 1;
+          break;
+        }
+      }
+      if( !isbdy ) {
+        pt->xt = 0;
+        continue;
+      }
+      /* get edge tags */
       for ( j=0; j<6; j++ ) {
         ip0 = pt->v[MMG5_iare[j][0]];
         ip1 = pt->v[MMG5_iare[j][1]];
