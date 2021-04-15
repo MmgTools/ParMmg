@@ -651,6 +651,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /** Update old groups for metrics and solution interpolation */
     PMMG_update_oldGrps( parmesh );
 
+    /** update geometric analysis */
+    if( parmesh->iter ) PMMG_update_analys(parmesh);
+
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
       chrono(RESET,&(ctim[tim]));

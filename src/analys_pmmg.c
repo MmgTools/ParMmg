@@ -179,6 +179,334 @@ int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int star
   return ns;
 }
 
+int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
+  MMG5_pTetra     pt;
+  MMG5_pPoint     p0;
+  MMG5_pxPoint    pxp;
+  int             k,base;
+  int             *adja;
+  double          n[3],t[3];
+  int8_t          i,j,ip,ier;
+
+  base = ++mesh->base;
+  for (k=1; k<=mesh->ne; k++) {
+    pt   = &mesh->tetra[k];
+    if( !MG_EOK(pt) ) continue;
+    adja = &mesh->adja[4*(k-1)+1];
+    for (i=0; i<4; i++) {
+      if ( adja[i] ) continue;
+      for (j=0; j<3; j++) {
+        ip = MMG5_idir[i][j];
+        p0 = &mesh->point[pt->v[ip]];
+        if ( p0->flag == base )  continue;
+        else if ( !(p0->tag & MG_OLDPARBDY) ) continue;
+        else if ( !(p0->tag & MG_NOM) )  continue;
+
+        p0->flag = base;
+        ier = MMG5_boulenm(mesh,k,ip,i,n,t);
+
+        if ( ier < 0 )
+          return 0;
+        else if ( !ier ) {
+          p0->tag |= MG_REQ;
+          p0->tag &= ~MG_NOSURF;
+        }
+        else {
+          if ( !p0->xp ) {
+            ++mesh->xp;
+            if(mesh->xp > mesh->xpmax){
+              MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                                 "larger xpoint table",
+                                 mesh->xp--;
+                                 fprintf(stderr,"  Exit program.\n");return 0;);
+            }
+            p0->xp = mesh->xp;
+          }
+          pxp = &mesh->xpoint[p0->xp];
+          memcpy(pxp->n1,n,3*sizeof(double));
+          memcpy(p0->n,t,3*sizeof(double));
+        }
+      }
+    }
+  }
+  /* Deal with the non-manifold points that do not belong to a surface
+   * tetra (a tetra that has a face without adjacent)*/
+  for (k=1; k<=mesh->ne; k++) {
+    pt   = &mesh->tetra[k];
+    if( !MG_EOK(pt) ) continue;
+    
+    for (i=0; i<4; i++) {
+      p0 = &mesh->point[pt->v[i]];
+      if ( !(p0->tag & MG_OLDPARBDY) ) continue;
+      else if ( p0->tag & MG_PARBDY || p0->tag & MG_REQ || !(p0->tag & MG_NOM) || p0->xp ) continue;
+      ier = MMG5_boulenmInt(mesh,k,i,t);
+      if ( ier ) {
+        ++mesh->xp;
+        if(mesh->xp > mesh->xpmax){
+          MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                            "larger xpoint table",
+                            mesh->xp--;
+                            fprintf(stderr,"  Exit program.\n");return 0;);
+        }
+        p0->xp = mesh->xp;
+        pxp = &mesh->xpoint[p0->xp];
+        memcpy(p0->n,t,3*sizeof(double));
+        pxp->nnor = 1;
+      }
+      else {
+        p0->tag |= MG_REQ;
+        p0->tag &= ~MG_NOSURF;
+      }
+    }
+  }
+
+  /*for (k=1; k<=mesh->np; k++) {
+    p0 = &mesh->point[k];
+    if ( !(p0->tag & MG_NOM) || p0->xp ) continue;
+    p0->tag |= MG_REQ;
+    p0->tag &= ~MG_NOSURF;
+  }*/
+  
+  return 1;
+}
+
+static inline
+int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  MMG5_pTetra         ptet;
+  MMG5_pPoint         ppt;
+  MMG5_Hash           hash;
+  int                 k,i;
+  int                 nc, nre, ng, nrp,ier;
+
+  /* Second: seek the non-required non-manifold points and try to analyse
+   * whether they are corner or required. */
+
+  /* Hash table used by boulernm to store the special edges passing through
+   * a given point */
+  if ( ! MMG5_hashNew(mesh,&hash,mesh->np,(int)(3.71*mesh->np)) ) return 0;
+
+  nc = nre = 0;
+  ++mesh->base;
+  for (k=1; k<=mesh->ne; ++k) {
+    ptet = &mesh->tetra[k];
+    if ( !MG_EOK(ptet) ) continue;
+
+    for ( i=0; i<4; ++i ) {
+      ppt = &mesh->point[ptet->v[i]];
+
+      /* Skip non-previously-parallel points */
+      if ( !(ppt->tag & MG_OLDPARBDY) ) continue;
+
+      if ( (!MG_VOK(ppt)) || (ppt->flag==mesh->base)  ) continue;
+      ppt->flag = mesh->base;
+
+      if ( (!MG_EDG(ppt->tag)) || MG_SIN(ppt->tag) ) continue;
+
+      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp);
+      if ( ier < 0 ) return 0;
+      else if ( !ier ) continue;
+
+      if ( (ng+nrp) > 2 ) {
+        ppt->tag |= MG_CRN + MG_REQ;
+        ppt->tag &= ~MG_NOSURF;
+        nre++;
+        nc++;
+      }
+      else if ( (ng == 1) && (nrp == 1) ) {
+        ppt->tag |= MG_REQ;
+        ppt->tag &= ~MG_NOSURF;
+        nre++;
+      }
+      else if ( ng == 1 && !nrp ){
+        ppt->tag |= MG_CRN + MG_REQ;
+        ppt->tag &= ~MG_NOSURF;
+        nre++;
+        nc++;
+      }
+      else if ( ng == 1 && !nrp ){
+        ppt->tag |= MG_CRN + MG_REQ;
+        ppt->tag &= ~MG_NOSURF;
+        nre++;
+        nc++;
+      }
+    }
+  }
+
+  /* Free the edge hash table */
+  MMG5_DEL_MEM(mesh,hash.item);
+
+  if ( mesh->info.ddebug || abs(mesh->info.imprim) > 3 )
+    fprintf(stdout,"     %d corner and %d required vertices added\n",nc,nre);
+
+  return 1;
+}
+
+/** compute normals at C1 vertices, for C0: tangents */
+int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
+  MMG5_pTria     pt;
+  MMG5_pPoint    ppt;
+  MMG5_xPoint    *pxp;
+  double         n[3],dd;
+  int            *adja,k,kk,ng,nn,nt,nf,nnr;
+  int            i,ii,i1;
+
+  /* compute normals + tangents */
+  nn = ng = nt = nf = 0;
+  ++mesh->base;
+  for (k=1; k<=mesh->nt; k++) {
+    pt = &mesh->tria[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    adja = &mesh->adjt[3*(k-1)+1];
+    for (i=0; i<3; i++) {
+      ppt = &mesh->point[pt->v[i]];
+      if ( !(ppt->tag & MG_OLDPARBDY) || ppt->tag & MG_PARBDY || ppt->tag & MG_CRN || ppt->tag & MG_NOM || ppt->flag == mesh->base )  continue;
+
+      /* C1 point */
+      if ( !MG_EDG(ppt->tag) ) {
+
+        if ( (!mesh->nc1) ||
+             ppt->n[0]*ppt->n[0]+ppt->n[1]*ppt->n[1]+ppt->n[2]*ppt->n[2]<=MMG5_EPSD2 ) {
+          if ( !MMG5_boulen(mesh,mesh->adjt,k,i,ppt->n) ) {
+            ++nf;
+            continue;
+          }
+          else ++nn;
+        }
+
+        ++mesh->xp;
+        if(mesh->xp > mesh->xpmax){
+          MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                             "larger xpoint table",
+                             mesh->xp--;return 0;);
+        }
+        ppt->xp = mesh->xp;
+        pxp = &mesh->xpoint[ppt->xp];
+        memcpy(pxp->n1,ppt->n,3*sizeof(double));
+        ppt->n[0] = ppt->n[1] = ppt->n[2] = 0.;
+        ppt->flag = mesh->base;
+
+      }
+
+      /* along ridge-curve */
+      i1  = MMG5_inxt2[i];
+      if ( !MG_EDG(pt->tag[i1]) )  continue;
+      else if ( !MMG5_boulen(mesh,mesh->adjt,k,i,n) ) {
+        ++nf;
+        continue;
+      }
+      ++mesh->xp;
+      if(mesh->xp > mesh->xpmax){
+        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                           "larger xpoint table",
+                           mesh->xp--;return 0;);
+      }
+      ppt->xp = mesh->xp;
+      pxp = &mesh->xpoint[ppt->xp];
+      memcpy(pxp->n1,n,3*sizeof(double));
+
+      if ( pt->tag[i1] & MG_GEO && adja[i1] > 0 ) {
+        kk = adja[i1] / 3;
+        ii = adja[i1] % 3;
+        ii = MMG5_inxt2[ii];
+        if ( !MMG5_boulen(mesh,mesh->adjt,kk,ii,n) ) {
+          ++nf;
+          continue;
+        }
+        memcpy(pxp->n2,n,3*sizeof(double));
+
+        /* compute tangent as intersection of n1 + n2 */
+        ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+        ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+        ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+        dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
+        if ( dd > MMG5_EPSD2 ) {
+          dd = 1.0 / sqrt(dd);
+          ppt->n[0] *= dd;
+          ppt->n[1] *= dd;
+          ppt->n[2] *= dd;
+        }
+        ppt->flag = mesh->base;
+        ++nt;
+        continue;
+      }
+
+      /* compute tgte */
+      ppt->flag = mesh->base;
+      ++nt;
+      if ( !MMG5_boulec(mesh,mesh->adjt,k,i,ppt->n) ) {
+        ++nf;
+        continue;
+      }
+      dd = pxp->n1[0]*ppt->n[0] + pxp->n1[1]*ppt->n[1] + pxp->n1[2]*ppt->n[2];
+      ppt->n[0] -= dd*pxp->n1[0];
+      ppt->n[1] -= dd*pxp->n1[1];
+      ppt->n[2] -= dd*pxp->n1[2];
+      dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
+      if ( dd > MMG5_EPSD2 ) {
+        dd = 1.0 / sqrt(dd);
+        ppt->n[0] *= dd;
+        ppt->n[1] *= dd;
+        ppt->n[2] *= dd;
+      }
+    }
+  }
+  mesh->nc1 = 0;
+
+  if ( abs(mesh->info.imprim) > 3 && nn+nt > 0 ) {
+    if ( nnr )
+      fprintf(stdout,"     %d input normals ignored\n",nnr);
+    fprintf(stdout,"     %d normals,  %d tangents updated  (%d failed)\n",nn,nt,nf);
+  }
+  return 1;
+}
+
+int PMMG_update_analys(PMMG_pParMesh parmesh) {
+  PMMG_pGrp  grp;
+  MMG5_pMesh mesh;
+  MMG5_Hash  hash;
+  int igrp,ip;
+
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    grp = &parmesh->listgrp[igrp];
+    mesh = grp->mesh;
+
+    for( ip = 1; ip <= mesh->np; ip++ )
+      mesh->point[ip].flag = mesh->base;
+
+    /* rebuild triangles*/
+    if ( mesh->tria )
+      MMG5_DEL_MEM(mesh,mesh->tria);
+    mesh->nt = 0;
+
+    if ( !MMG5_chkBdryTria(mesh) ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to rebuild triangles\n",__func__);
+      return -1;
+    }
+
+    /* create tetra adjacency */
+    if ( !MMG3D_hashTetra(mesh,0) ) {
+      fprintf(stderr,"\n  ## Hashing problem (1). Exit program.\n");
+      return 0;
+    }
+
+    /* create surface adjacency */
+    if ( !MMG3D_hashTria(mesh,&hash) ) {
+      MMG5_DEL_MEM(mesh,hash.item);
+      fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
+      return 0;
+    }
+
+    if( !PMMG_update_norver(parmesh,mesh) ) return 0;
+
+    /* define geometry for non manifold points */
+    if( !PMMG_update_nmgeom(parmesh,mesh) ) return 0;
+
+  }
+
+  return 1;
+}
+
 /**
  * \param mesh pointer toward the mesh structure.
  *

@@ -436,6 +436,7 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
 /* Mesh analysis */
 int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_update_analys(PMMG_pParMesh parmesh);
 int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash );
 int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 
