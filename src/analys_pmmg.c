@@ -917,6 +917,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     ppt = &mesh->point[ip];
     if( !MG_VOK(ppt) || !(ppt->tag & MG_PARBDY ) ) continue;
     ppt->flag = 0;
+    ppt->s = 0;
   }
   for( k = 1; k <= mesh->nt; k++ ) {
     pt = &mesh->tria[k];
@@ -967,11 +968,85 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
 
+  /** Exchange point tags that could have been changed by PMMG_setdhd
+   *  (expecially for PARBDYBDY points that don't belong to any PARBDYBDY
+   *  triangle on the current proc) */
+
+  /* Fill communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    intvalues[idx] = ppt->tag;
+  }
+
+  /* Allocate buffers with the size needed by the singularity analysis, but only
+   * use part of theme here to exchange tags */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
+                return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+    rtosend = ext_node_comm->rtosend;
+    rtorecv = ext_node_comm->rtorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   comm,&status),return 0 );
+  }
+
+  /* Get tags and reset buffers and communicator */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    itorecv = ext_node_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+      intvalues[idx] |= itorecv[i];
+      itosend[i] = 0;
+      itorecv[i] = 0;
+    }
+  }
+
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    ppt->tag |= intvalues[idx];
+    intvalues[idx] = 0;
+  }
+
+
   /** Local singularity analysis */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
+
+    /* skip points that do not belong to a true boundary triangle on this proc */
+    if( !ppt->s ) continue;
+
     if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
       continue;
     else if ( MG_EDG(ppt->tag) ) {
@@ -1004,14 +1079,6 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
