@@ -499,6 +499,9 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
 
     if( !PMMG_update_norver(parmesh,mesh) ) return 0;
 
+    if( !PMMG_update_singul(parmesh,mesh) ) return 0;
+
+
     /* define geometry for non manifold points */
     if( !PMMG_update_nmgeom(parmesh,mesh) ) return 0;
 
