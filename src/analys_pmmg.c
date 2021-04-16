@@ -1718,6 +1718,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
 
+
+#ifdef USE_POINTMAP
+  /* Initialize source point with input index */
+  int ip;
+  for( ip = 1; ip <= mesh->np; ip++ )
+    mesh->point[ip].src = ip;
+#endif
+
   /* release memory */
   PMMG_edge_comm_free( parmesh );
   MMG5_DEL_MEM(mesh,hpar.geom);
