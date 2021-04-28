@@ -1019,6 +1019,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     color         = ext_node_comm->color_out;
 
     itorecv = ext_node_comm->itorecv;
+    itorecv = ext_node_comm->itorecv;
+    rtosend = ext_node_comm->rtosend;
+    rtorecv = ext_node_comm->rtorecv;
 
     /* Fill buffers */
     for ( i=0; i<nitem; ++i ) {
