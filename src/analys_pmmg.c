@@ -1018,7 +1018,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    itorecv = ext_node_comm->itorecv;
+    itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
     rtorecv = ext_node_comm->rtorecv;
