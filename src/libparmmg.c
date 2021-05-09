@@ -1113,6 +1113,208 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 }
 
 /**
+ * \param parmesh pointer toward parmesh structure
+ * \param idx_glob global IDs of interface nodes
+ *
+ * Create non-consecutive global IDs (starting from 1) for nodes on parallel
+ * interfaces.
+ *
+ */
+int PMMG_color_commNodes( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  MPI_Request    request;
+  MPI_Status     status;
+  int            *intvalues,*itosend,*itorecv,*iproc2comm;
+  int            color,nitem;
+  int            *offsets,label;
+  int            icomm,i,idx,iproc,src,dst,tag,ip;
+
+  /* Do this only if there is one group */
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  /* Allocate internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+  /* Reorder communicators and count max (theoretically) owned nodes
+   * (each rank owns nodes on the interface with lower-rank procs). */
+  nitem = 0;
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+    if( iproc < parmesh->myrank )
+      nitem += ext_node_comm->nitem;
+  }
+
+  /* Compute offsets on each proc */
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",return 0);
+  MPI_Allgather( &nitem,1,MPI_INT,
+                 &offsets[1],1,MPI_INT,parmesh->comm );
+  for( i = 1; i <= parmesh->nprocs; i++ )
+    offsets[i] += offsets[i-1];
+
+
+  /**
+   * 1) Label nodes owned by myrank (starting from 1 + the rank offset).
+   */
+  label = offsets[parmesh->myrank];
+  for( color = 0; color < parmesh->myrank; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem =  ext_node_comm->nitem;
+
+    /* Label owned nodes */
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* (Labels of nodes visited more than once are overwritten) */
+      intvalues[idx] = ++label;
+    }
+  }
+
+  /**
+   * 2) Communicate global numbering to the ghost copies.
+   */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+        assert(itosend[i]);
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+#ifndef DNDEBUG
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+#endif
+    }
+  }
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      assert(itorecv[i]);
+      if( itorecv[i] > intvalues[idx] )
+        intvalues[idx] = itorecv[i];
+    }
+  }
+
+
+  /* 3) Retrieve numbering from the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    assert(intvalues[idx]);
+    ppt->tmp = intvalues[idx];
+  }
+
+#ifndef DNDEBUG
+  /* Check */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+        assert(itosend[i]);
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request),return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status),return 0 );
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+    }
+
+  }
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      assert( itorecv[i] == intvalues[idx] );
+    }
+  }
+#endif
+
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+
+  /* Free arrays */
+  PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
+  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh
  *
  * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if merge or boundary

@@ -744,6 +744,23 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   /** Complete the external edge communicator */
   if( !PMMG_build_completeExtEdgeComm( parmesh ) ) return 0;
 
+
+  /* Reorder edge nodes */
+  if( !PMMG_color_commNodes( parmesh ) ) return 0;
+  MMG5_pPoint ppt0,ppt1;
+  int swp;
+  for( k = 1; k <= mesh->na; k++ ) {
+    pa = &mesh->edge[k];
+    ppt0 = &mesh->point[pa->a];
+    ppt1 = &mesh->point[pa->b];
+    /* Swap nodes so that the first one has the highest global label */
+    if( ppt0->tmp < ppt1->tmp ){
+      swp = pa->a;
+      pa->a = pa->b;
+      pa->b = swp;
+    }
+  }
+
   /** Check the external edge communicator */
   assert( PMMG_check_extEdgeComm( parmesh ) );
 
