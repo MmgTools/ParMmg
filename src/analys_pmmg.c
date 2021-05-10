@@ -559,7 +559,7 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   for( k = 1; k <= mesh->ne; k++ ) {
     pt = &mesh->tetra[k];
-    for( i = 0; i < 3; i++ ) {
+    for( i = 0; i < 4; i++ ) {
       ppt = &mesh->point[pt->v[i]];
       if( ppt->flag ) continue;
       ppt->s = 4*k+i;
