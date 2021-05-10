@@ -179,7 +179,6 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
   MMG5_pEdge     pa;
   MMG5_hgeom     *ph;
   int            k;
-  size_t          myavailable,oldMemMax;
 
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
@@ -187,8 +186,13 @@ int PMMG_build_intEdgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hp
   PMMG_CALLOC(parmesh,parmesh->int_edge_comm,1,PMMG_Int_comm,"int_edge_comm",return 0);
   int_edge_comm = parmesh->int_edge_comm;
 
+  /* here edges should not be allocated, unless due to some debut I/O */
+  if( mesh->na ){
+    MMG5_DEL_MEM(mesh,mesh->edge);
+    mesh->na = 0;
+  }
+
   /* Count edges (the hash table only contains parallel edges) */
-  assert( mesh->na == 0 );
   for( k = 0; k <= hpar->max; k++ ) {
     ph = &hpar->geom[k];
     if( !(ph->a) ) continue;
