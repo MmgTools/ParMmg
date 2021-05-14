@@ -184,7 +184,7 @@ int PMMG_interp3bar_ani( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,
                   phi[2]*mi[2][isize];
   }
 
-  if( !MMG5_invmat( mint, &met->m[nsize*ip+isize] ) ) return 0;
+  if( !MMG5_invmat( mint, &met->m[nsize*ip] ) ) return 0;
 
   return 1;
 }
