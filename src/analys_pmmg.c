@@ -477,6 +477,8 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
     /* rebuild triangles*/
     if ( mesh->tria )
       MMG5_DEL_MEM(mesh,mesh->tria);
+    if ( mesh->adjt )
+      MMG5_DEL_MEM(mesh,mesh->adjt);
     mesh->nt = 0;
 
     if ( !MMG5_chkBdryTria(mesh) ) {
