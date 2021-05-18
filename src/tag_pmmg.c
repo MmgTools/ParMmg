@@ -155,12 +155,19 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  int          k,i,j,l;
+  MMG5_pPoint  ppt;
+  int          k,i,j,l,ip;
 
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
 
     if ( !mesh ) continue;
+
+    /* Untag old parallel points */
+    for( ip = 1; ip <= mesh->np; ip++ ) {
+      ppt = &mesh->point[ip];
+      ppt->tag &= ~MG_OLDPARBDY;
+    }
 
     for ( k=1; k<=mesh->ne; ++k ) {
       pt       = &mesh->tetra[k];
@@ -175,6 +182,7 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
           ++pt->mark;
           /* Mark face as a previously parallel one */
           pxt->ftag[j] |= MG_OLDPARBDY;
+          /* Mark its points */
           for( l = 0; l < 3; l++ )
             mesh->point[pt->v[MMG5_idir[j][l]]].tag |= MG_OLDPARBDY;
           /* Check that there is no reference on an old parallel face that is
@@ -183,8 +191,6 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
         } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Untag faces which are not parallel anymore */
           pxt->ftag[j] &= ~MG_OLDPARBDY;
-          for( l = 0; l < 3; l++ )
-            mesh->point[pt->v[MMG5_idir[j][l]]].tag &= ~MG_OLDPARBDY;
         }
       }
     }
