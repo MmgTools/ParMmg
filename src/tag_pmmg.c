@@ -105,7 +105,6 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     ppt->tag &= ~MG_BDY;
     ppt->tag &= ~MG_REQ;
     ppt->tag &= ~MG_NOSURF;
-    ppt->tag &= ~MG_PARBDYBDY;
   }
 }
 
@@ -122,7 +121,6 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     pxt->tag[j] &= ~MG_BDY;
     pxt->tag[j] &= ~MG_REQ;
     pxt->tag[j] &= ~MG_NOSURF;
-    pxt->tag[j] &= ~MG_PARBDYBDY;
   }
 }
 
@@ -139,7 +137,6 @@ void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
     pxt->ftag[j] &= ~MG_BDY;
     pxt->ftag[j] &= ~MG_REQ;
     pxt->ftag[j] &= ~MG_NOSURF;
-    pxt->ftag[j] &= ~MG_PARBDYBDY;
   }
 }
 
