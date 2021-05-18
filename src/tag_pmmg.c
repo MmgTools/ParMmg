@@ -155,7 +155,7 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  int          k,i,j;
+  int          k,i,j,l;
 
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
@@ -175,12 +175,16 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
           ++pt->mark;
           /* Mark face as a previously parallel one */
           pxt->ftag[j] |= MG_OLDPARBDY;
+          for( l = 0; l < 3; l++ )
+            mesh->point[pt->v[MMG5_idir[j][l]]].tag |= MG_OLDPARBDY;
           /* Check that there is no reference on an old parallel face that is
            * not a true boundary */
           if( !(pxt->ftag[j] & MG_PARBDYBDY) ) assert( !pxt->ref[j] );
         } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
           /* Untag faces which are not parallel anymore */
           pxt->ftag[j] &= ~MG_OLDPARBDY;
+          for( l = 0; l < 3; l++ )
+            mesh->point[pt->v[MMG5_idir[j][l]]].tag &= ~MG_OLDPARBDY;
         }
       }
     }
