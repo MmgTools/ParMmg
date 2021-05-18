@@ -105,6 +105,7 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
     if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
     if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
+    if ( ppt->tag & MG_PARBDYBDY ) ppt->tag &= ~MG_PARBDYBDY;
   }
 }
 
@@ -121,6 +122,7 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
     if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
     if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
+    if ( pxt->tag[j] & MG_PARBDYBDY) pxt->tag[j] &= ~MG_PARBDYBDY;
   }
 }
 
@@ -137,6 +139,7 @@ void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
     if ( pxt->ftag[j] & MG_BDY)    pxt->ftag[j] &= ~MG_BDY;
     if ( pxt->ftag[j] & MG_REQ)    pxt->ftag[j] &= ~MG_REQ;
     if ( pxt->ftag[j] & MG_NOSURF) pxt->ftag[j] &= ~MG_NOSURF;
+    if ( pxt->ftag[j] & MG_PARBDYBDY) pxt->ftag[j] &= ~MG_PARBDYBDY;
   }
 }
 
