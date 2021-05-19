@@ -423,6 +423,8 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       }
       else if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) || (intvalues[idx] != pt->ref ) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
       }
 
       /* Mark face each time that it's seen */
@@ -484,14 +486,20 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
        * parallel boundary */
       if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
       } else if ( intvalues[idx] > pt->ref ) {
         /* Tria belongs to my neighbor */
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
         MG_CLR(pxt->ori,ifac);
       }
       else if ( intvalues[idx] < pt->ref ) {
         /* Tria belongs to me */
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
         MG_SET(pxt->ori,ifac);
       }
       else {
@@ -564,8 +572,12 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
   /* Tag face as "true" boundary if triangle has a non-nul ref in opnbdy mode */
   for( kt = 1; kt <= mesh->nt; kt++ ) {
     ptt = &mesh->tria[kt];
-    if( mesh->info.opnbdy && ptt->ref > 0 )
-      for( j = 0; j < 3; j++) ptt->tag[j] |= MG_PARBDYBDY;
+    if( mesh->info.opnbdy && ptt->ref > 0 ) {
+      for( j = 0; j < 3; j++)
+        ptt->tag[j] |= MG_PARBDYBDY;
+      for( j = 0; j < 3; j++)
+        mesh->point[ptt->v[j]].tag |= MG_PARBDYBDY;
+    }
   }
 
   /** Fill the internal communicator with the first ref found */
@@ -641,7 +653,10 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
 
     /* Tag face as "true" boundary if its ref is different */
     if( intvalues[idx] != pt->ref ) {
-      for( j = 0; j < 3; j++) ptt->tag[j] |= MG_PARBDYBDY;
+      for( j = 0; j < 3; j++)
+        ptt->tag[j] |= MG_PARBDYBDY;
+      for( j = 0; j < 3; j++)
+        mesh->point[ptt->v[j]].tag |= MG_PARBDYBDY;
     }
   }
 
