@@ -270,6 +270,8 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( ifac=0 ; ifac<4 ; ifac++ ) {
         if ( pxt->ftag[ifac] & MG_PARBDYBDY ) {
           pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+          for( j = 0; j < 3; j++)
+            mesh->point[pt->v[MMG5_idir[ifac][j]]].tag &= ~MG_PARBDYBDY;
           pxt->ftag[ifac] |= MG_BDY;
         }
         /* Only a "true" boundary after this line */
@@ -311,7 +313,11 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       assert( pt->xt );
       pxt = &mesh->xtetra[pt->xt];
       /* If already boundary, make it recognizable as a "true" boundary */
-      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+      if( pxt->ftag[ifac] & MG_BDY ) {
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( j = 0; j < 3; j++)
+          mesh->point[pt->v[MMG5_idir[ifac][j]]].tag |= MG_PARBDYBDY;
+      }
       /* Tag face */
       PMMG_tag_par_face(pxt,ifac);
       /* Tag face edges */
