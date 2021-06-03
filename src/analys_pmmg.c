@@ -113,7 +113,7 @@ int PMMG_norver( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
     ie   = ptr->cc / 3;
     ifac = ptr->cc % 3;
     pt = &mesh->tetra[ie];
-    ptr->flag = ( pt->flag & (1 << ifac) ) ? 1 : 0;
+    ptr->base = ( pt->flag & (1 << ifac) ) ? 1 : 0;
   }
 
 
@@ -181,7 +181,7 @@ int PMMG_norver( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
     ptr = &mesh->tria[k];
 
     /* skip triangles that will be analyzed by another proc */
-    if( ptr->flag ) continue;
+    if( ptr->base ) continue;
 
     adja = &mesh->adjt[3*(k-1)+1];
 
@@ -213,6 +213,7 @@ int PMMG_norver( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
         assert( MG_EDG(ppt->tag) );
 
         /* Store triangle index in the first free position */
+        idx = ppt->flag;
         if( !intvalues[2*idx] )
           intvalues[2*idx] = 3*k+i1;
         else
