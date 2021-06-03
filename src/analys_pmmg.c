@@ -34,6 +34,116 @@
 
 #include "parmmg.h"
 
+int PMMG_norver( PMMG_pParMesh parmesh ) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm,int_node_comm,int_edge_comm;
+  PMMG_pExt_comm ext_face_comm,ext_node_comm,ext_edge_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pTria     ptr;
+  MMG5_pPoint    ppt;
+  int            *intvalues,i,idx,k,color,nitem,ie,ifac,ip;
+
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  int_face_comm = parmesh->int_face_comm;
+  int_node_comm = parmesh->int_node_comm;
+  int_edge_comm = parmesh->int_edge_comm;
+
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,  int_face_comm->nitem,int,"face intvalues",return 0);
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,  int_edge_comm->nitem,int,"edge intvalues",return 0);
+
+
+  /**
+   *  0) Flag triangles that will be analyzed by another proc.
+   *     Convention: the highest rank analyzes the triangle.
+   */
+
+  intvalues = int_face_comm->intvalues;
+
+  /* Initialize intvalues of parallel faces to my rank */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    idx = grp->face2int_face_comm_index2[i];
+    intvalues[idx] = parmesh->myrank;
+  }
+
+  /* Store highest seen color in intvalues */
+  for( k = 0; k < parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    color = ext_face_comm->color_out;
+    nitem = ext_face_comm->nitem;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_face_comm->int_comm_index[i];
+      if( color > intvalues[idx] )
+        intvalues[idx] = color;
+    }
+  }
+
+  /* Initialize flag to zero on tetra that have xtetra */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !pt->xt ) continue;
+    pt->flag = 0;
+  }
+
+  /* Bitwise-flag tetra faces that will be analyzed by another proc */
+  intvalues = int_face_comm->intvalues;
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   =  grp->face2int_face_comm_index1[i] / 12;
+    ifac = (grp->face2int_face_comm_index1[i] % 12 ) / 3;
+    idx  =  grp->face2int_face_comm_index2[i];
+
+    pt = &mesh->tetra[ie];
+    if( intvalues[idx] != parmesh->myrank )
+      pt->flag |= 1 << ifac;
+  }
+
+  /* Flag triangles that won't be analyzed (fetch flag from tetra) */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    ie   = ptr->cc / 3;
+    ifac = ptr->cc % 3;
+    pt = &mesh->tetra[ie];
+    ptr->flag = ( pt->flag & (1 << ifac) ) ? 1 : 0;
+  }
+
+
+  /**
+   *  1) Flag parallel points with their position in the internal node
+   *     communicator.
+   */
+
+  intvalues = int_node_comm->intvalues;
+
+  /* Initialize point flag to zero */
+  for( ip = 1; ip <= mesh->np; ip ++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = 0;
+  }
+
+  /* Flag parallel points with their position in the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+
+    ppt = &mesh->point[ip];
+    ppt->flag = idx;
+  }
+
+
+  /**
+   *  Free memory
+   */
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face intvalues");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
+
+  return 1;
+}
+
 /**
  * \param mesh pointer toward the mesh structure.
  * \param hash pointer toward an allocated hash table.
