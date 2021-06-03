@@ -34,17 +34,23 @@
 
 #include "parmmg.h"
 
-int PMMG_norver( PMMG_pParMesh parmesh ) {
+int PMMG_norver( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_face_comm,int_node_comm,int_edge_comm;
   PMMG_pExt_comm ext_face_comm,ext_node_comm,ext_edge_comm;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pTria     ptr;
+  MMG5_pEdge     pa;
   MMG5_pPoint    ppt;
-  int            *intvalues,i,idx,k,color,nitem,ie,ifac,ip;
+  int            *intvalues,i,idx,k,color,nitem,ie,ifac,ip,*adja,k1,i1,i2,j;
+  int            *itosend,*itorecv,swp,ia;
+  int16_t        tag;
+  MPI_Comm       comm;
+  MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );
+  comm = parmesh->comm;
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
@@ -58,8 +64,8 @@ int PMMG_norver( PMMG_pParMesh parmesh ) {
 
 
   /**
-   *  0) Flag triangles that will be analyzed by another proc.
-   *     Convention: the highest rank analyzes the triangle.
+   *  0.0) Flag triangles that will be analyzed by another proc.
+   *       Convention: the highest rank analyzes the triangle.
    */
 
   intvalues = int_face_comm->intvalues;
@@ -112,8 +118,39 @@ int PMMG_norver( PMMG_pParMesh parmesh ) {
 
 
   /**
-   *  1) Flag parallel points with their position in the internal node
-   *     communicator.
+   *  0.1) Flag parallel edges that will be analyzed by another proc
+   */
+  intvalues = int_edge_comm->intvalues;
+
+  /* Initialize intvalues of parallel edges to my rank */
+  for( i = 0; i < grp->nitem_int_edge_comm; i++ ) {
+    idx = grp->edge2int_edge_comm_index2[i];
+    intvalues[idx] = parmesh->myrank;
+  }
+
+  /* Store highest seen color in intvalues */
+  for( k = 0; k < parmesh->next_edge_comm; k++ ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    color = ext_edge_comm->color_out;
+    nitem = ext_edge_comm->nitem;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_edge_comm->int_comm_index[i];
+      if( color > intvalues[idx] )
+        intvalues[idx] = color;
+    }
+  }
+
+  /* Flag edges that will be analyzed by another proc */
+  for( ia = 1; ia <= mesh->na; ia++ ) {
+    idx = ia-1;
+    pa = &mesh->edge[ia];
+    pa->base = (intvalues[idx] != parmesh->myrank) ? 1 : 0;
+  }
+
+
+  /**
+   *  0.2) Flag parallel points with their position in the internal node
+   *       communicator.
    */
 
   intvalues = int_node_comm->intvalues;
@@ -135,11 +172,120 @@ int PMMG_norver( PMMG_pParMesh parmesh ) {
 
 
   /**
+   *  1) Find special edge extremities on MG_EDG parallel points.
+   */
+
+  intvalues = int_node_comm->intvalues;
+
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+
+    /* skip triangles that will be analyzed by another proc */
+    if( ptr->flag ) continue;
+
+    adja = &mesh->adjt[3*(k-1)+1];
+
+    for( i = 0; i < 3; i++ ) {
+
+      /* Skip ordinary edges */
+      if( !MG_EDG(ptr->tag[i]) ) continue;
+
+      /* Skip special edges that have already een visited */
+      k1 = adja[i] / 3;
+      if( k1 > k ) continue;
+
+      /* Skip parallel edges that will be analyzed by another proc */
+      if( !k1 && (ptr->tag[i] & MG_BDY) ) {
+        i1 = MMG5_inxt2[i];
+        i2 = MMG5_iprv2[i];
+        assert( MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &ia, &tag ) );
+        pa = &mesh->edge[ia];
+        if( pa->base ) continue;
+      }
+
+      /* Look if the edge vertices are parallel and store triangle index */
+      i1 = i;
+      for( j = 0; j < 2; j++ ) {
+        i1 = MMG5_inxt2[i1];
+        ip = ptr->v[i1];
+        ppt = &mesh->point[ip];
+        if( !(ppt->tag & MG_PARBDY) ) continue;
+        assert( MG_EDG(ppt->tag) );
+
+        /* Store triangle index in the first free position */
+        if( !intvalues[2*idx] )
+          intvalues[2*idx] = 3*k+i1;
+        else
+          intvalues[2*idx+1] = 3*k+i1;
+      }
+    }
+  }
+
+  /** Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+      for( j = 0; j < 2; j++ ) {
+        itosend[2*i+j] = intvalues[2*idx+j];
+      }
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   comm,&status),return 0 );
+
+  }
+
+  /** Check if a proc with a higher rank than mine has found a special edge */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    /* Skip communicators with lower rank */
+    if( color < parmesh->myrank ) continue;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+
+      /* There would be nothing to update if no special edge on my rank */
+      if( intvalues[2*idx] ) {
+        if( itorecv[2*i] ) {
+          /* There is a special edge on both ranks. The highest takes the first
+           * position. */
+          intvalues[2*idx+1] = intvalues[2*idx];
+          intvalues[2*idx]   = 0;
+        }
+      }
+    }
+  }
+
+
+  /**
    *  Free memory
    */
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
   PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
+  }
+
 
   return 1;
 }
