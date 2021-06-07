@@ -598,6 +598,116 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   return 1;
 }
 
+/**
+ * \param mesh pointer toward the mesh  structure.
+ * \param start tetra index.
+ * \param ip point index.
+ * \param iface face index.
+ * \param n computed normal vector.
+ * \param t computed tangent vector.
+ * \return 0 if point is singular, 1 otherwise.
+ *
+ * Mark tetra according to the color of their vertices near a special edge.
+ * \remark Modeled after MMG5_boulenm.
+ *
+ */
+int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
+  MMG5_pTetra   pt;
+  MMG5_pPoint   p0,p1,ppt;
+  int      base,nump,nr,nnm,k,piv,na,nb,adj,nvstart,fstart,aux;
+  int     *adja,color;
+  int16_t  tag;
+  int8_t   iopp,ipiv,indb,inda,i,isface;
+  int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
+
+  base = ++mesh->base;
+  nr  = nnm = 0;
+
+  pt   = &mesh->tetra[start];
+  nump = pt->v[ip];
+  k    = start;
+
+  na   = pt->v[ip];
+  nb   = pt->v[MMG5_idir[iface][MMG5_inxt2[MMG5_idirinv[iface][ip]]]];
+  piv  = pt->v[MMG5_idir[iface][MMG5_iprv2[MMG5_idirinv[iface][ip]]]];
+
+  iopp   = iface;
+  fstart = 4*k+iopp;
+  color = 0;
+  do {
+
+    if ( pt->xt ) {
+      for ( inda=0; inda<4; inda++ ){
+        if ( pt->v[inda]==na ) break;
+      }
+      for ( indb=0; indb<4; indb++ ){
+        if ( pt->v[indb]==nb ) break;
+      }
+      assert( (inda < 4) && (indb < 4));
+      tag = mesh->xtetra[pt->xt].tag[indedg[inda][indb]];
+
+      /* assign color to the surface if MG_EDG has been crossed */
+      if( color % 2 )
+        pt->mark &= (1 << inda);
+    }
+
+    else  tag = 0;
+
+    /* count special edges and switch surface color if a surface has been hit */
+    if ( MG_EDG(tag) && !(tag & MG_NOM) ) {
+      nr++;
+      color++;
+    } else if ( tag & MG_NOM ) {
+      nnm++;
+    }
+
+    /* A boundary face has been hit : change travel edge */
+    aux     = nb;
+    nb      = piv;
+    piv     = aux;
+    nvstart = k;
+    adj     = k;
+
+    /* Now unfold shell of edge (na,nb) starting from k (included) */
+    do {
+      k = adj;
+      pt = &mesh->tetra[k];
+      adja = &mesh->adja[4*(k-1)+1];
+      if ( pt->flag != base ) {
+        for (i=0; i<4; i++)
+          if ( pt->v[i] == nump )  break;
+        assert(i<4);
+        pt->flag = base;
+      }
+
+      /* identification of edge number in tetra k */
+      if ( !MMG3D_findEdge(mesh,pt,k,na,nb,1,NULL,&i) ) return -1;
+
+      /* set sense of travel */
+      if ( pt->v[ MMG5_ifar[i][0] ] == piv ) {
+        adj = adja[ MMG5_ifar[i][0] ] / 4;
+        ipiv = MMG5_ifar[i][1];
+        iopp = MMG5_ifar[i][0];
+        piv = pt->v[ipiv];
+      }
+      else {
+        adj = adja[ MMG5_ifar[i][1] ] / 4;
+        ipiv = MMG5_ifar[i][0];
+        iopp = MMG5_ifar[i][1];
+        piv = pt->v[ipiv];
+      }
+      isface = ((adja[iopp] == 0) || (mesh->tetra[adj].ref != pt->ref));
+    }
+    while ( adj && (adj != nvstart) && !isface );
+  }
+  while ( 4*k+iopp != fstart );
+
+  if ( nnm > 0 || color > 2 )  return 0;
+
+  return 1;
+
+}
+
 /** compute normals at C1 vertices, for C0: tangents */
 int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   MMG5_pTria     pt;
