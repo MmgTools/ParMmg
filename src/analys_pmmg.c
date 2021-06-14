@@ -607,7 +607,6 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * \param start tetra index.
  * \param ip point index.
  * \param iface face index.
- * \param n computed normal vector.
  * \param t computed tangent vector.
  * \return 0 if point is singular, 1 otherwise.
  *
@@ -615,17 +614,24 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * \remark Modeled after MMG5_boulenm.
  *
  */
-int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
+int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface,double t[3]) {
   MMG5_pTetra   pt;
   MMG5_pPoint   p0,p1,ppt;
-  int      base,nump,nr,nnm,k,piv,na,nb,adj,nvstart,fstart,aux;
+  double   dd,l0,l1;
+  int      base,nump,nr,nnm,k,piv,na,nb,adj,nvstart,fstart,aux,ip0,ip1;
   int     *adja,color;
   int16_t  tag;
   int8_t   iopp,ipiv,indb,inda,i,isface;
   int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
 
+  assert( parmesh->ngrp == 1 );
+  assert( mesh == parmesh->listgrp[0].mesh );
+
   base = ++mesh->base;
   nr  = nnm = 0;
+  ip0 = ip1 = 0;
+
+  memset(t,0x00,3*sizeof(double));
 
   pt   = &mesh->tetra[start];
   nump = pt->v[ip];
@@ -651,8 +657,9 @@ int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
       tag = mesh->xtetra[pt->xt].tag[indedg[inda][indb]];
 
       /* assign color to the surface if MG_EDG has been crossed */
-      if( color % 2 )
-        pt->mark &= (1 << inda);
+      if( color % 2 ) {
+        pt->mark |= (1 << inda);
+      }
     }
 
     else  tag = 0;
@@ -661,6 +668,10 @@ int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
     if ( MG_EDG(tag) && !(tag & MG_NOM) ) {
       nr++;
       color++;
+      if ( !ip0 )
+        ip0 = nb;
+      else
+        ip1 = nb;
     } else if ( tag & MG_NOM ) {
       nnm++;
     }
@@ -685,7 +696,10 @@ int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
       }
 
       /* identification of edge number in tetra k */
-      if ( !MMG3D_findEdge(mesh,pt,k,na,nb,1,NULL,&i) ) return -1;
+      if ( !MMG3D_findEdge(mesh,pt,k,na,nb,1,NULL,&i) ) {
+        fprintf(stderr,"  ## Error: rank %d, function %s: edge not found.\n",parmesh->myrank,__func__);
+        return -1;
+      }
 
       /* set sense of travel */
       if ( pt->v[ MMG5_ifar[i][0] ] == piv ) {
@@ -706,7 +720,54 @@ int PMMG_boulen(MMG5_pMesh mesh,int start,int ip,int iface) {
   }
   while ( 4*k+iopp != fstart );
 
-  if ( nnm > 0 || color > 2 )  return 0;
+  assert( color == 2 );
+  if ( nnm > 0 || color > 2 ) {
+    fprintf(stderr,"  ## Error: rank %d, function %s: found non-manifold point.\n",parmesh->myrank,__func__);
+    return 0;
+  }
+
+  assert( ip0 && ip1 );
+  if ( ip0 == ip1 ) {
+    fprintf(stderr,"  ## Error: rank %d, function %s: only one special edge found.\n",parmesh->myrank,__func__);
+    return 0;
+  }
+
+  p0 = &mesh->point[ip0];
+  p1 = &mesh->point[ip1];
+  ppt = &mesh->point[nump];
+
+  l0 = (ppt->c[0] - p0->c[0])*(ppt->c[0] - p0->c[0]) \
+    + (ppt->c[1] - p0->c[1])*(ppt->c[1] - p0->c[1]) + (ppt->c[2] - p0->c[2])*(ppt->c[2] - p0->c[2]);
+  l1 = (ppt->c[0] - p1->c[0])*(ppt->c[0] - p1->c[0]) \
+    + (ppt->c[1] - p1->c[1])*(ppt->c[1] - p1->c[1]) + (ppt->c[2] - p1->c[2])*(ppt->c[2] - p1->c[2]);
+  l0 = sqrt(l0);
+  l1 = sqrt(l1);
+
+  if ( (l0 < MMG5_EPSD2) || (l1 < MMG5_EPSD2) ) {
+    t[0] = p1->c[0] - p0->c[0];
+    t[1] = p1->c[1] - p0->c[1];
+    t[2] = p1->c[2] - p0->c[2];
+  }
+  else if ( l0 < l1 ) {
+    dd = l0 / l1;
+    t[0] = dd*(p1->c[0] - ppt->c[0]) + ppt->c[0] - p0->c[0];
+    t[1] = dd*(p1->c[1] - ppt->c[1]) + ppt->c[1] - p0->c[1];
+    t[2] = dd*(p1->c[2] - ppt->c[2]) + ppt->c[2] - p0->c[2];
+  }
+  else {
+    dd = l1 / l0;
+    t[0] = dd*(p0->c[0] - ppt->c[0]) + ppt->c[0] - p1->c[0];
+    t[1] = dd*(p0->c[1] - ppt->c[1]) + ppt->c[1] - p1->c[1];
+    t[2] = dd*(p0->c[2] - ppt->c[2]) + ppt->c[2] - p1->c[2];
+  }
+
+  dd = t[0]*t[0] + t[1]*t[1] + t[2]*t[2];
+  if ( dd > MMG5_EPSD2 ) {
+    dd = 1.0 / sqrt(dd);
+    t[0] *= dd;
+    t[1] *= dd;
+    t[2] *= dd;
+  }
 
   return 1;
 
