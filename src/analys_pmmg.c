@@ -443,7 +443,12 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
   int             k,base;
   int             *adja;
   double          n[3],t[3];
-  int8_t          i,j,ip,ier;
+  int             ip;
+  int8_t          i,j,ier;
+
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    mesh->point[ip].flag = mesh->base;
+  }
 
   base = ++mesh->base;
   for (k=1; k<=mesh->ne; k++) {
@@ -508,7 +513,6 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
         p0->xp = mesh->xp;
         pxp = &mesh->xpoint[p0->xp];
         memcpy(p0->n,t,3*sizeof(double));
-        pxp->nnor = 1;
       }
       else {
         p0->tag |= MG_REQ;
