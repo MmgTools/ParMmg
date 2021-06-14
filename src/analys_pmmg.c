@@ -775,121 +775,187 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
 
 /** compute normals at C1 vertices, for C0: tangents */
 int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
-  MMG5_pTria     pt;
+  MMG5_pTetra    pt;
+  MMG5_Tria      tt;
   MMG5_pPoint    ppt;
-  MMG5_xPoint    *pxp;
+  MMG5_pxTetra   pxt;
+  MMG5_pxPoint   pxp;
   double         n[3],dd;
-  int            *adja,k,kk,ng,nn,nt,nf,nnr;
-  int            i,ii,i1;
+  int            *adja,ip,ie,ifac,i,iloc,d,base,k1;
 
-  /* compute normals + tangents */
-  nn = ng = nt = nf = 0;
-  ++mesh->base;
-  for (k=1; k<=mesh->nt; k++) {
-    pt = &mesh->tria[k];
-    if ( !MG_EOK(pt) )  continue;
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+  base = mesh->base;
 
-    adja = &mesh->adjt[3*(k-1)+1];
-    for (i=0; i<3; i++) {
-      ppt = &mesh->point[pt->v[i]];
-      if ( !(ppt->tag & MG_OLDPARBDY) || ppt->tag & MG_PARBDY || ppt->tag & MG_CRN || ppt->tag & MG_NOM || ppt->flag == mesh->base )  continue;
+  /* Reset points flag and source element fields */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = 0;
+    ppt->s = 0;
+  }
 
-      /* C1 point */
-      if ( !MG_EDG(ppt->tag) ) {
+  /* Reset tetra mark: it will be used by PMMG_boulen to bitwise flag the
+   * element vertices depending on the portion of surface near a MG_EDG edge.
+   * Initialize point source element field with tetra, face, and local index
+   * on tetra */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) || !pt->xt ) continue;
+    pt->mark = 0;
 
-        if ( (!mesh->nc1) ||
-             ppt->n[0]*ppt->n[0]+ppt->n[1]*ppt->n[1]+ppt->n[2]*ppt->n[2]<=MMG5_EPSD2 ) {
-          if ( !MMG5_boulen(mesh,mesh->adjt,k,i,ppt->n) ) {
-            ++nf;
-            continue;
-          }
-          else ++nn;
-        }
+    pxt = &mesh->xtetra[pt->xt];
 
-        ++mesh->xp;
-        if(mesh->xp > mesh->xpmax){
-          MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                             "larger xpoint table",
-                             mesh->xp--;return 0;);
-        }
-        ppt->xp = mesh->xp;
-        pxp = &mesh->xpoint[ppt->xp];
-        memcpy(pxp->n1,ppt->n,3*sizeof(double));
-        ppt->n[0] = ppt->n[1] = ppt->n[2] = 0.;
-        ppt->flag = mesh->base;
+    for( ifac = 0; ifac < 4; ifac++ ) {
 
-      }
+      /* skip faces not on boundary or already seen depending on orientation */
+      if( !(pxt->ftag[ifac] & MG_BDY) || !MG_GET(pxt->ori,ifac) ) continue;
 
-      /* along ridge-curve */
-      i1  = MMG5_inxt2[i];
-      if ( !MG_EDG(pt->tag[i1]) )  continue;
-      else if ( !MMG5_boulen(mesh,mesh->adjt,k,i,n) ) {
-        ++nf;
-        continue;
-      }
-      ++mesh->xp;
-      if(mesh->xp > mesh->xpmax){
-        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                           "larger xpoint table",
-                           mesh->xp--;return 0;);
-      }
-      ppt->xp = mesh->xp;
-      pxp = &mesh->xpoint[ppt->xp];
-      memcpy(pxp->n1,n,3*sizeof(double));
-
-      if ( pt->tag[i1] & MG_GEO && adja[i1] > 0 ) {
-        kk = adja[i1] / 3;
-        ii = adja[i1] % 3;
-        ii = MMG5_inxt2[ii];
-        if ( !MMG5_boulen(mesh,mesh->adjt,kk,ii,n) ) {
-          ++nf;
-          continue;
-        }
-        memcpy(pxp->n2,n,3*sizeof(double));
-
-        /* compute tangent as intersection of n1 + n2 */
-        ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
-        ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
-        ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
-        dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
-        if ( dd > MMG5_EPSD2 ) {
-          dd = 1.0 / sqrt(dd);
-          ppt->n[0] *= dd;
-          ppt->n[1] *= dd;
-          ppt->n[2] *= dd;
-        }
-        ppt->flag = mesh->base;
-        ++nt;
-        continue;
-      }
-
-      /* compute tgte */
-      ppt->flag = mesh->base;
-      ++nt;
-      if ( !MMG5_boulec(mesh,mesh->adjt,k,i,ppt->n) ) {
-        ++nf;
-        continue;
-      }
-      dd = pxp->n1[0]*ppt->n[0] + pxp->n1[1]*ppt->n[1] + pxp->n1[2]*ppt->n[2];
-      ppt->n[0] -= dd*pxp->n1[0];
-      ppt->n[1] -= dd*pxp->n1[1];
-      ppt->n[2] -= dd*pxp->n1[2];
-      dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
-      if ( dd > MMG5_EPSD2 ) {
-        dd = 1.0 / sqrt(dd);
-        ppt->n[0] *= dd;
-        ppt->n[1] *= dd;
-        ppt->n[2] *= dd;
+      for( i = 0; i < 3; i++ ) {
+        iloc = MMG5_idir[ifac][i];
+        ip = pt->v[iloc];
+        ppt = &mesh->point[ip];
+        ppt->s = 16*ie+4*ifac+iloc;
       }
     }
   }
-  mesh->nc1 = 0;
 
-  if ( abs(mesh->info.imprim) > 3 && nn+nt > 0 ) {
-    if ( nnr )
-      fprintf(stdout,"     %d input normals ignored\n",nnr);
-    fprintf(stdout,"     %d normals,  %d tangents updated  (%d failed)\n",nn,nt,nf);
+  /* Initialize flags on non-parallel, non-singular, manifold, old interface
+   * points.
+   * Reset xpoint or reference/allocate it if needed.
+   * Flag tetra vertices based on the portion of surface they see near a
+   * NG_EDG edge. */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+
+    if( !MG_VOK(ppt) || !(ppt->tag & MG_BDY) ) continue;
+
+    /* Flag points to analyze */
+    if( !(ppt->tag & MG_OLDPARBDY) || ppt->tag & MG_PARBDY ||
+        MG_SIN(ppt->tag) || ppt->tag & MG_NOM ) continue;
+
+    ppt->flag = base;
+
+    /* Reset normal vector or allocate/reference new xpoint */
+    if( ppt->xp ) {
+      pxp = &mesh->xpoint[ppt->xp];
+      memset(pxp->n1,0x00,3*sizeof(double));
+      memset(pxp->n2,0x00,3*sizeof(double));
+    } else {
+      ++mesh->xp;
+      if(mesh->xp > mesh->xpmax){
+        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                          "larger xpoint table",
+                          mesh->xp--;return 0;);
+      }
+      ppt->xp = mesh->xp;
+    }
+
+    /* color portion of surface touching the special point */
+    if( MG_EDG(ppt->tag) ) {
+      ie   =  ppt->s / 16;
+      ifac = (ppt->s % 16) / 4;
+      iloc = (ppt->s % 16) % 4;
+      assert( ie );
+      if( !PMMG_boulen(parmesh,mesh,ie,iloc,ifac,ppt->n) ) {
+        fprintf(stderr,"  ## Error: rank %d, function %s: failed boulen.\n",parmesh->myrank,__func__);
+        return 0;
+      }
+    }
   }
+
+
+  /* compute and attribute normal vectors */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+
+    if( !MG_EOK(pt) || !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+
+    for( ifac = 0; ifac < 4; ifac++ ) {
+
+      /* skip faces not on boundary or already seen depending on orientation */
+      if( !(pxt->ftag[ifac] & MG_BDY) || !MG_GET(pxt->ori,ifac) ) continue;
+
+
+      /* get virtual triangle and compute normal */
+      MMG5_tet2tri(mesh,ie,ifac,&tt);
+      MMG5_nortri(mesh,&tt,n);
+      assert( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] > MMG5_EPSD2 );
+
+      /* loop on face vertices and set contribution if the vertex is flagged */
+      for( i = 0; i < 3; i++ ) {
+        iloc = MMG5_idir[ifac][i];
+        ip = pt->v[iloc];
+        ppt = &mesh->point[ip];
+
+        if( ppt->flag != base ) continue;
+        assert( !(pxt->ftag[ifac] & MG_PARBDY ) );
+
+        assert( ppt->xp );
+        pxp = &mesh->xpoint[ppt->xp];
+
+        if( (pt->mark & (1 << iloc) ) ) {
+          for( d = 0; d < 3; d++ )
+            pxp->n2[d] += n[d];
+        } else {
+          for( d = 0; d < 3; d++ )
+            pxp->n1[d] += n[d];
+        }
+      }
+    }
+  }
+
+  /* normalize normals */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( ppt->flag != base ) continue;
+
+    pxp = &mesh->xpoint[ppt->xp];
+
+    /* normalize first normal vector */
+    dd = 0.0;
+    for( d = 0; d < 3; d++ )
+      dd += pxp->n1[d]*pxp->n1[d];
+    if ( dd <= MMG5_EPSD2 ) {
+      fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
+      assert(0);
+      return 0;
+    }
+    dd = 1.0 / sqrt(dd);
+    for( d = 0; d < 3; d++ )
+      pxp->n1[d] *= dd;
+
+    /* normalize second normal vector if present */
+    if( MG_EDG(ppt->tag) ) {
+      dd = 0.0;
+      for( d = 0; d < 3; d++ )
+        dd += pxp->n2[d]*pxp->n2[d];
+      if ( dd <= MMG5_EPSD2 ) {
+        fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
+        assert(0);
+        return 0;
+      }
+      dd = 1.0 / sqrt(dd);
+      for( d = 0; d < 3; d++ )
+        pxp->n2[d] *= dd;
+    }
+  }
+
+#ifndef NDEBUG
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    if( !MG_VOK(ppt) || !(ppt->tag & MG_BDY) ) continue;
+    if( ppt->tag & MG_OLDPARBDY && !(ppt->tag & MG_PARBDY) &&
+        !MG_SIN(ppt->tag) && !(ppt->tag & MG_NOM) ) {
+      assert(ppt->xp);
+      pxp = &mesh->xpoint[ppt->xp];
+      assert( pxp->n1[0]*pxp->n1[0]+pxp->n1[1]*pxp->n1[1]+pxp->n1[2]*pxp->n1[2] > 0.0 );
+      if( MG_EDG(ppt->tag) )
+        assert( pxp->n2[0]*pxp->n2[0]+pxp->n2[1]*pxp->n2[1]+pxp->n2[2]*pxp->n2[2] > 0.0 );
+    }
+  }
+#endif
+
   return 1;
 }
 
