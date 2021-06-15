@@ -784,7 +784,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   double         n[3],dd;
   int            *adja,ip,ie,ifac,i,iloc,d,base,k1;
 
-  base = mesh->base;
+  base = ++mesh->base;
 
   /* Reset points flag and source element fields */
   for( ip = 1; ip <= mesh->np; ip++ ) {
