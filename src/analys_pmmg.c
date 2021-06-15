@@ -969,17 +969,6 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
     for( ip = 1; ip <= mesh->np; ip++ )
       mesh->point[ip].flag = mesh->base;
 
-    /* rebuild triangles*/
-    if ( mesh->tria )
-      MMG5_DEL_MEM(mesh,mesh->tria);
-    if ( mesh->adjt )
-      MMG5_DEL_MEM(mesh,mesh->adjt);
-    mesh->nt = 0;
-
-    if ( !MMG5_chkBdryTria(mesh) ) {
-      fprintf(stderr,"\n  ## Error: %s: unable to rebuild triangles\n",__func__);
-      return -1;
-    }
 
     /* create tetra adjacency */
     if ( !MMG3D_hashTetra(mesh,0) ) {
@@ -987,14 +976,8 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
       return 0;
     }
 
-    /* create surface adjacency */
-    if ( !MMG3D_hashTria(mesh,&hash) ) {
-      MMG5_DEL_MEM(mesh,hash.item);
-      fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
-      return 0;
-    }
 
-    if( !PMMG_update_norver(parmesh,mesh) ) return 0;
+    if( !PMMG_update_norver(parmesh,mesh) ) return 0 ;
 
     if( !PMMG_update_singul(parmesh,mesh) ) return 0;
 
