@@ -919,7 +919,6 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       dd += pxp->n1[d]*pxp->n1[d];
     if ( dd <= MMG5_EPSD2 ) {
       fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
-      assert(0);
       return 0;
     }
     dd = 1.0 / sqrt(dd);
@@ -933,7 +932,6 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
         dd += pxp->n2[d]*pxp->n2[d];
       if ( dd <= MMG5_EPSD2 ) {
         fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
-        assert(0);
         return 0;
       }
       dd = 1.0 / sqrt(dd);
