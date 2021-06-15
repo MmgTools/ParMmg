@@ -656,10 +656,6 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
       assert( (inda < 4) && (indb < 4));
       tag = mesh->xtetra[pt->xt].tag[indedg[inda][indb]];
 
-      /* assign color to the surface if MG_EDG has been crossed */
-      if( color % 2 ) {
-        pt->mark |= (1 << inda);
-      }
     }
 
     else  tag = 0;
@@ -674,6 +670,11 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
         ip1 = nb;
     } else if ( tag & MG_NOM ) {
       nnm++;
+    }
+
+    /* assign color to the surface if MG_EDG has been crossed */
+    if( color % 2 ) {
+      pt->mark |= (1 << inda);
     }
 
     /* A boundary face has been hit : change travel edge */
