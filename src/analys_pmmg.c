@@ -990,14 +990,24 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
     }
 
 
-    if( !PMMG_update_norver(parmesh,mesh) ) return 0;
+    if( !PMMG_update_norver(parmesh,mesh) ) {
+      fprintf(stderr,"  ## Error: rank %d, function %s: cannot update normal vectors on surface.\n",
+              parmesh->myrank,__func__);
+      return 0;
+    }
 
-    if( !PMMG_update_singul(parmesh,mesh) ) return 0;
-
+    if( !PMMG_update_singul(parmesh,mesh) ) {
+      fprintf(stderr,"  ## Error: rank %d, function %s: cannot update singularities on surface.\n",
+              parmesh->myrank,__func__);
+      return 0;
+    }
 
     /* define geometry for non manifold points */
-    if( !PMMG_update_nmgeom(parmesh,mesh) ) return 0;
-
+    if( !PMMG_update_nmgeom(parmesh,mesh) ) {
+      fprintf(stderr,"  ## Error: rank %d, function %s: cannot update geometric support on non-manifold edges.\n",
+              parmesh->myrank,__func__);
+      return 0;
+    }
   }
 
   return 1;
