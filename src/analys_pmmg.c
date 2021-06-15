@@ -935,6 +935,22 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       dd = 1.0 / sqrt(dd);
       for( d = 0; d < 3; d++ )
         pxp->n2[d] *= dd;
+
+      if( ppt->tag & MG_GEO ) {
+        /* update tangent as cross product of normal vectors if geometric edge
+         * (this cannot be done on a reference edge, as it can lie on a C1
+         * surface) */
+        ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+        ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+        ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+        dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
+        if ( dd > MMG5_EPSD2 ) {
+          dd = 1.0 / sqrt(dd);
+          ppt->n[0] *= dd;
+          ppt->n[1] *= dd;
+          ppt->n[2] *= dd;
+        }
+      }
     }
   }
 
