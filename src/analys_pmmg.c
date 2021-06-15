@@ -784,8 +784,6 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   double         n[3],dd;
   int            *adja,ip,ie,ifac,i,iloc,d,base,k1;
 
-  assert( parmesh->ngrp == 1 );
-  mesh = parmesh->listgrp[0].mesh;
   base = mesh->base;
 
   /* Reset points flag and source element fields */
