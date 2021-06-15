@@ -624,9 +624,6 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
   int8_t   iopp,ipiv,indb,inda,i,isface;
   int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
 
-  assert( parmesh->ngrp == 1 );
-  assert( mesh == parmesh->listgrp[0].mesh );
-
   base = ++mesh->base;
   nr  = nnm = 0;
   ip0 = ip1 = 0;
@@ -993,7 +990,7 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
     }
 
 
-    if( !PMMG_update_norver(parmesh,mesh) ) return 0 ;
+    if( !PMMG_update_norver(parmesh,mesh) ) return 0;
 
     if( !PMMG_update_singul(parmesh,mesh) ) return 0;
 
