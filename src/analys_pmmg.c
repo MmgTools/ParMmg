@@ -671,7 +671,7 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
 
     /* assign color to the surface if MG_EDG has been crossed */
     if( color % 2 ) {
-      pt->mark |= (1 << inda);
+      pt->mark |= (1 << 3*iopp+MMG5_idirinv[iopp][inda]);
     }
 
     /* A boundary face has been hit : change travel edge */
@@ -890,7 +890,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
         assert( ppt->xp );
         pxp = &mesh->xpoint[ppt->xp];
 
-        if( (pt->mark & (1 << iloc) ) ) {
+        if( (pt->mark & (1 << 3*ifac+i) ) ) {
           for( d = 0; d < 3; d++ )
             pxp->n2[d] += n[d];
         } else {
@@ -913,7 +913,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
     for( d = 0; d < 3; d++ )
       dd += pxp->n1[d]*pxp->n1[d];
     if ( dd <= MMG5_EPSD2 ) {
-      fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
+      fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector for first surface.\n",parmesh->myrank,__func__);
       return 0;
     }
     dd = 1.0 / sqrt(dd);
@@ -926,7 +926,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       for( d = 0; d < 3; d++ )
         dd += pxp->n2[d]*pxp->n2[d];
       if ( dd <= MMG5_EPSD2 ) {
-        fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector.\n",parmesh->myrank,__func__);
+        fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector for second surface.\n",parmesh->myrank,__func__);
         return 0;
       }
       dd = 1.0 / sqrt(dd);
