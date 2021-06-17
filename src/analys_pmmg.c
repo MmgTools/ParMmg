@@ -35,6 +35,51 @@
 #include "parmmg.h"
 
 /**
+ * \param pt pointer toward a tetrahedron. structure.
+ *
+ * Function to init the index of the surface ( 0 or 1 ) that is connected to
+ * a special (manifold) edge.
+ *
+ * \warning It uses the tetra->mark field.
+ */
+void PMMG_Analys_Init_SurfNormIndex( MMG5_pTetra pt ) {
+  pt->mark = 0;
+}
+
+/**
+ * \param pt pointer toward a tetrahedron structure.
+ * \param ifac index of the local tetrahedron face the point belongs to.
+ * \param iloc local index of the point on the tetrahedron face.
+ *
+ * Function to switch the index of the surface ( from 0 to 1 ) that is connected
+ * to special (manifold) edge through point (iloc) on face (ifac) on a given
+ * tetrahedron.
+ * A bitwise flag is used for each local point on a local tetrahedron face,
+ * because the same point can belong to two different surfaces (separated by
+ * a special, manifold edge) on the same tetrahedron.
+ *
+ * \warning It uses the tetra->mark field.
+ */
+void PMMG_Analys_Set_SurfNormIndex( MMG5_pTetra pt,int ifac,int iloc ) {
+  pt->mark |= (1 << 3*ifac+iloc);
+}
+
+/**
+ * \param pt pointer toward a tetrahedron structure.
+ * \param ifac index of the local tetrahedron face the point belongs to.
+ * \param iloc local index of the point on the tetrahedron face.
+ *
+ * Function to get the index of the surface ( 0 or 1 ) that is connected
+ * to special (manifold) edge through point (iloc) on face (ifac) on a given
+ * tetrahedron.
+ *
+ * \warning It uses the tetra->mark field.
+ */
+int PMMG_Analys_Get_SurfNormalIndex( MMG5_pTetra pt,int ifac,int iloc ) {
+  return pt->mark & (1 << 3*ifac+iloc);
+}
+
+/**
  * \param mesh pointer toward the mesh structure.
  * \param hash pointer toward an allocated hash table.
  * \param start index of the starting tetrahedra.
@@ -414,7 +459,7 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
 
     /* assign color to the surface if MG_EDG has been crossed */
     if( color % 2 ) {
-      pt->mark |= (1 << 3*iopp+MMG5_idirinv[iopp][inda]);
+      PMMG_Analys_Set_SurfNormIndex( pt,iopp,MMG5_idirinv[iopp][inda] );
     }
 
     /* A boundary face has been hit : change travel edge */
@@ -540,7 +585,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) || !pt->xt ) continue;
-    pt->mark = 0;
+    PMMG_Analys_Init_SurfNormIndex( pt );
 
     pxt = &mesh->xtetra[pt->xt];
 
@@ -633,7 +678,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
         assert( ppt->xp );
         pxp = &mesh->xpoint[ppt->xp];
 
-        if( (pt->mark & (1 << 3*ifac+i) ) ) {
+        if( PMMG_Analys_Get_SurfNormalIndex( pt,ifac,i ) ) {
           for( d = 0; d < 3; d++ )
             pxp->n2[d] += n[d];
         } else {
