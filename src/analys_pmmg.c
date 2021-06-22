@@ -1526,9 +1526,11 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 }
 
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
-  PMMG_pInt_comm int_face_comm,int_edge_comm;
-  PMMG_pExt_comm ext_face_comm,ext_edge_comm;
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm,int_edge_comm,int_node_comm;
+  PMMG_pExt_comm ext_face_comm,ext_edge_comm,ext_node_comm;
   MMG5_Hash      hash;
+  MMG5_pTetra    pt;
   MMG5_pTria     ptr;
   int            *intvalues,*itorecv,*itosend;
   double         *doublevalues,*rtorecv,*rtosend;
@@ -1541,6 +1543,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MPI_Comm       comm;
   MPI_Status     status;
 
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  assert( mesh == grp->mesh );
 
   comm = parmesh->comm;
   int_edge_comm = parmesh->int_edge_comm;
@@ -1555,7 +1560,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
               "doublevalues",return 0);
   doublevalues = int_edge_comm->doublevalues;
 
-  /** Hash triangles */
+  /** Hash triangles and initialize flag to PMMG_UNSET */
   if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
 
   for( k = 1; k <= mesh->nt; k++) {
@@ -1569,7 +1574,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
   /* Flag triangles with the color of the external process sharing them */
   int_face_comm = parmesh->int_face_comm;
-  PMMG_CALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
               "intvalues",return 0);
 
   for( k = 0; k < parmesh->next_face_comm; k++ ) {
@@ -1582,8 +1587,6 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     }
   }
 
-  PMMG_pGrp grp = &parmesh->listgrp[0];
-  MMG5_pTetra pt;
   int ie,ifac,ia,ib,ic;
   for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
     ie   =  grp->face2int_face_comm_index1[i]/12;
@@ -1612,15 +1615,13 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
     /* Skip faces that are just parallel or analyzed by another process */
     tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
-    if( (tag & MG_PARBDY) )
-      if( !(tag & MG_BDY) )
-        if( !(tag & MG_PARBDYBDY && ptr->flag > parmesh->myrank ) )
-          continue;
+    if( ptr->flag > parmesh->myrank ) continue;
+    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) ) continue;
 
     /* triangle normal */
     MMG5_nortri(mesh,ptr,n1);
 
-    /* Get parallel edge touched by a MG_BDY face and store normal vectors */
+    /* Get parallel edge touched by a boundary face and store normal vectors */
     for (i=0; i<3; i++) {
       /* Skip non-manifold edges */
       if ( (ptr->tag[i] & MG_NOM) ) continue;
