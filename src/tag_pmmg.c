@@ -663,6 +663,18 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
         ptt->tag[j] |= MG_PARBDYBDY;
       for( j = 0; j < 3; j++)
         mesh->point[ptt->v[j]].tag |= MG_PARBDYBDY;
+      /* check orientation: set orientation of triangle outward w.r.t. the
+       * highest tetra reference, remove MG_PARBDYBDY from the halo triangle */
+#warning Luca: no opnbdy yet
+      if( pt->ref > intvalues[idx] ) {
+        ptt->v[0] = ia;
+        ptt->v[1] = ib;
+        ptt->v[2] = ic;
+      } else {
+        ptt->tag[0] &= ~MG_PARBDYBDY;
+        ptt->tag[1] &= ~MG_PARBDYBDY;
+        ptt->tag[2] &= ~MG_PARBDYBDY;
+      }
     }
   }
 
