@@ -17,13 +17,13 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout c2a716a
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
 
     set ( mesh_size 16384 )
-    set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -58,7 +58,7 @@ IF( BUILD_TESTING )
           ${CI_DIR}/Torus/torusholes.mesh
           -sol ${CI_DIR}/Torus/torusholes.sol
           -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
-          -mesh-size ${mesh_size} ${myargs} -nosurf )
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -78,7 +78,7 @@ IF( BUILD_TESTING )
     endforeach()
 
     # Option without arguments
-    foreach( OPTION "optim" "optimLES" "nosurf" "noinsert" "noswap"  )
+    foreach( OPTION "optim" "optimLES" "noinsert" "noswap"  )
       foreach( NP 1 6 8 )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -152,14 +152,14 @@ IF( BUILD_TESTING )
     ### test openbdy mode on 6 procs
     add_test( NAME opnbdy_peninsula-6
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy
+      -opnbdy -nosurf
       ${CI_DIR}/OpnBdy_peninsula/peninsula.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-peninsula.o.mesh
       )
 
     add_test( NAME opnbdy_island-6
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy
+      -opnbdy -nosurf
       ${CI_DIR}/OpnBdy_island/island.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-island.o.mesh
       )
@@ -172,13 +172,13 @@ IF( BUILD_TESTING )
 
     add_test( NAME opnbdy_island-8
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -distributed-output
+      -opnbdy -distributed-output -nosurf
       ${CI_DIR}/OpnBdy_island/island.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
       )
     add_test( NAME opnbdy_island-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -centralized-output
+      -opnbdy -centralized-output -nosurf
       ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
       )
     set_tests_properties(opnbdy_island-8-rerun PROPERTIES DEPENDS opnbdy_island-8 )
@@ -192,7 +192,7 @@ IF( BUILD_TESTING )
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -centralized-output
+      -centralized-output -nosurf
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
