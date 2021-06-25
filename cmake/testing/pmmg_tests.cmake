@@ -185,14 +185,14 @@ IF( BUILD_TESTING )
 
     add_test( NAME multidom_wave-8
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -distributed-output -ar 89
+      -distributed-output -ar 89 -nobalance
       ${CI_DIR}/WaveSurface/wave.mesh
       -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -centralized-output -ar 89 -nosurf
+      -centralized-output -ar 89
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
