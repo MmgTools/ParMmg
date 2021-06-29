@@ -648,11 +648,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
 
+
     /** Update old groups for metrics and solution interpolation */
     PMMG_update_oldGrps( parmesh );
 
-    /** update geometric analysis */
-    if( parmesh->iter ) PMMG_update_analys(parmesh);
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -891,6 +890,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
+
+    /** update geometric analysis */
+    if( !PMMG_update_analys(parmesh) )
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
