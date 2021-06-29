@@ -757,12 +757,23 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   return 1;
 }
 
+/**
+ * \param mesh pointer toward the mesh structure.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Update continuous geometry information (normal and tangent vectors) on
+ * previouly parallel points, as this infomation has not been built during
+ * initial analysis.
+ * Also update singular tags as they were erased on parallel points.
+ *
+ */
 int PMMG_update_analys(PMMG_pParMesh parmesh) {
   PMMG_pGrp  grp;
   MMG5_pMesh mesh;
-  MMG5_Hash  hash;
-  int igrp,ip;
+  int        igrp,ip;
 
+  /* Loop on groups */
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
     grp = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
@@ -770,20 +781,21 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
     for( ip = 1; ip <= mesh->np; ip++ )
       mesh->point[ip].flag = mesh->base;
 
-
     /* create tetra adjacency */
     if ( !MMG3D_hashTetra(mesh,0) ) {
       fprintf(stderr,"\n  ## Hashing problem (1). Exit program.\n");
       return 0;
     }
 
-
+    /* build normal and tangent vectors on previously parallel points */
     if( !PMMG_update_norver(parmesh,mesh) ) {
       fprintf(stderr,"  ## Error: rank %d, function %s: cannot update normal vectors on surface.\n",
               parmesh->myrank,__func__);
       return 0;
     }
 
+    /* repristinate singularity tags on points that were previously parallel
+     * (so, their required tags have been erased) */
     if( !PMMG_update_singul(parmesh,mesh) ) {
       fprintf(stderr,"  ## Error: rank %d, function %s: cannot update singularities on surface.\n",
               parmesh->myrank,__func__);
