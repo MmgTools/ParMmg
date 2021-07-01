@@ -224,6 +224,20 @@ int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int star
   return ns;
 }
 
+/**
+ * \param parmesh pointer to the parmesh structure
+ * \param mesh pointer to the mesh structure
+ *
+ * \return 1 if success, 0 if failure.
+ *
+ * Compute continuous geometric support (normal and tangent vectors) on
+ * non-manifold MG_OLDPARBDY points.
+ *
+ * \remark Analogous to the MMG3D_nmgeom function, but it only travels on
+ * old parallel points.
+ * \remark Normal and tangent vectors on these points are overwritten.
+ *
+ */
 int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
   MMG5_pTetra     pt;
   MMG5_pPoint     p0;
@@ -319,6 +333,14 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
   return 1;
 }
 
+/**
+ * \param mesh pointer toward the mesh  structure.
+ * \return 0 if point is singular, 1 otherwise.
+ *
+ * Repristinate singularity tags on MG_OLDPARBDY points, based on the tags
+ * of incident edges.
+ *
+ */
 static inline
 int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pTetra         ptet;
@@ -559,7 +581,26 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
 
 }
 
-/** compute normals at C1 vertices, for C0: tangents */
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Update continuous geometry information (normal and tangent vectors) on
+ * previouly parallel points, as this infomation has not been built during
+ * initial analysis.
+ *
+ * The algorithm analyzes manifold surfaces and gives colors for each of the
+ * vertices seen by a triangles, depending whether a special edge has been
+ * crossed when travelling the surface ball of the vertex (color 1)  or not
+ * (color 0).
+ * This color is used to know whether the triangle normal vector should
+ * contribute to the first (0) average normal vector of the point, or the second
+ * (1) if the point is a special edge.
+ *
+ * \remark Normal and tangent vectors are overzritten on these points.
+ *
+ */
 int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   MMG5_pTetra    pt;
   MMG5_Tria      tt;
@@ -758,7 +799,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure.
  *
  * \return 1 if success, 0 if fail.
  *
@@ -1537,6 +1578,24 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer to the parmesh structure
+ * \param mesh pointer to the mesh structure
+ * \param pHash pointer to the parallel edges hash table
+ *
+ * \return 1 if success, 0 if failure.
+ *
+ * Check dihedral angle to detect ridges on parallel edges.
+ *
+ * The integer Communicator is dimensioned to store the number of triangles seen
+ * by a parallel edge on each partition, and a "flag" to check the references of
+ * the seen triangles. This "flag" is initialized with the first seen triangle,
+ * and it is switched to PMMG_UNSET if the second reference differs.
+ * The double communicator is dimensioned to store at most two normal vectors
+ * per edge. If the dihedral angle check detects a ridge, the edge "flag" is
+ * switched to 2*PMMG_UNSET if the edge is not a reference edge, or to
+ * 3*PMMG_UNSET if the edge is also a reference edge.
+ */
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_edge_comm;
