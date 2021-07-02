@@ -434,6 +434,8 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /* Mesh analysis */
+int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int start,int ip,int *ng,int *nr);
+int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface,double t[3]);
 int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_update_analys(PMMG_pParMesh parmesh);
