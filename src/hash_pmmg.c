@@ -35,6 +35,106 @@
 #include "mmg3d.h"
 #include "parmmg.h"
 
+int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash ) {
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pPoint    ppt;
+  MMG5_hedge    *ph;
+  int            k,kk,hmax,ia,ib;
+  int8_t         i,i1,i2,j,l;
+  unsigned int   key;
+
+  /* adjust hash table params */
+  hmax =(int)(3.71*6*mesh->xt);
+  hash->siz  = 6*mesh->xt;
+  hash->max  = hmax + 1;
+  hash->nxt  = hash->siz;
+  MMG5_ADD_MEM(mesh,(hash->max+1)*sizeof(MMG5_hedge),"hash table",return 0);
+  MMG5_SAFE_CALLOC(hash->item,hash->max+1,MMG5_hedge,return 0);
+
+  for (k=hash->siz; k<hash->max; k++)
+    hash->item[k].nxt = k+1;
+
+  /* loop on tetrahedra */
+  for( k = 1; k <= mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+
+    /* loop on vertices */
+    for( i = 0; i < 4; i++ ) {
+      ppt = &mesh->point[pt->v[i]];
+      if( !(ppt->tag & MG_BDY) || !(ppt->tag & MG_OLDPARBDY) ) continue;
+
+      /* loop on edges touching the vertex */
+      for( j = 0; j < 3; j++ ) {
+        l = MMG5_arpt[i][j];
+        if( !(pxt->tag[l] & MG_NOM ) ) continue;
+
+        i1 = MMG5_iare[l][0];
+        i2 = MMG5_iare[l][1];
+
+        /* compute key */
+        ia  = MG_MIN(pt->v[i1],pt->v[i2]);
+        ib  = MG_MAX(pt->v[i1],pt->v[i2]);
+        key = (MMG5_KA*ia + MMG5_KB*ib) % hash->siz;
+        ph  = &hash->item[key];
+
+        /* store edge */
+        if ( ph->a == 0 ) {
+          ph->a = ia;
+          ph->b = ib;
+          ph->k = 6*k + l;
+          ph->nxt = 0;
+          ++ph->s;
+          continue;
+        }
+        while ( ph->a ) {
+          if ( ph->a == ia && ph->b == ib ) {
+            ++ph->s;
+            break;
+          }
+          else if ( !ph->nxt ) {
+            ph->nxt = hash->nxt;
+            ph = &hash->item[ph->nxt];
+            assert(ph);
+
+            if ( hash->nxt >= hash->max-1 ) {
+              if ( mesh->info.ddebug ) {
+                fprintf(stderr,"\n  ## Warning: %s: memory alloc problem (edge):"
+                        " %d\n",__func__,hash->max);
+              }
+              MMG5_TAB_RECALLOC(mesh,hash->item,hash->max,MMG5_GAP,MMG5_hedge,
+                                 "MMG5_edge",
+                                 MMG5_DEL_MEM(mesh,hash->item);
+                                 return 0);
+
+              ph = &hash->item[hash->nxt];
+
+              for (kk=ph->nxt; kk<hash->max; kk++)
+                hash->item[kk].nxt = kk+1;
+            }
+
+            hash->nxt = ph->nxt;
+            ph->a = ia;
+            ph->b = ib;
+            ph->k = 6*k + l;
+            ph->nxt = 0;
+            ++ph->s;
+            break;
+          }
+          else
+            ph = &hash->item[ph->nxt];
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
 /**
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
