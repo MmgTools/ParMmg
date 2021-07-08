@@ -34,6 +34,7 @@
  */
 
 #include "parmmg.h"
+#include "hdf5.h"
 
 /**
  * \param n integer for which we want to know the number of digits
@@ -986,6 +987,686 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  return ier;
+}
+
+int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
+  /* MMG variables */
+  int ier = MMG5_SUCCESS;
+  int nsols;
+  PMMG_pGrp grp;
+  MMG5_pSol met, sols;
+  MMG5_pMesh mesh;
+  MMG5_pPoint ppt;
+  MMG5_pEdge pa;
+  MMG5_pTria pt;
+  MMG5_pQuad pq;
+  MMG5_pTetra pe;
+  MMG5_pPrism pp;
+
+  /* Local mesh size */
+  int ne, np, nt, na, nquad, nprism;       /* Tetra, points, triangles, edges, quads, prisms */
+  int nc, nreq, npar;                      /* Corners, required and parallel vertices */
+  int nr, nedreq, nedpar;                  /* Ridges, required and parallel edges */
+  int ntreq, ntpar;                        /* Required and parallel triangles */
+  int nqreq, nqpar;                        /* Required and parallel quads */
+  int nereq, nepar;                        /* Required and parallel tetra */
+
+  /* Global mesh size */
+  int neg, npg, ntg, nag, nquadg, nprismg; /* Tetra, points, triangles, edges, quads, prisms */
+  int ncg, nreqg, nparg;                   /* Corners, required and parallel vertices */
+  int nrg, nedreqg, nedparg;               /* Ridges, required and parallel edges */
+  int ntreqg, ntparg;                      /* Required and parallel triangles */
+  int nqreqg, nqparg;                      /* Required and parallel quads */
+  int nereqg, neparg;                      /* Required and parallel tetra */
+
+  /* Buffer arrays */
+  double *ppoint;
+  int *pedge, *ptria, *pquad, *ptet, *pprism;
+  int *pcorner, *preq, *ppar;
+  int *pridges, *pedreq, *pedpar;
+  int *ptreq, *ptpar;
+  int *pqreq, *pqpar;
+  int *ptetreq, *ptetpar;
+  int *ppoint_ref, *pedge_ref, *ptria_ref, *pquad_ref, *ptet_ref, *pprism_ref;
+
+  /* Store the number of entities on each proc */
+  int *nentities;
+
+  /* Offsets for parallel writing */
+  hsize_t point_offset[3] = {0, 0, 0};
+  hsize_t edge_offset[2]  = {0, 0};
+  hsize_t tria_offset[3]  = {0, 0, 0};
+  hsize_t quad_offset[4]  = {0, 0, 0, 0};
+  hsize_t tetra_offset[4] = {0, 0, 0, 0};
+  hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
+  hsize_t scalar_offset = 0; /* Used for the corners, the ridges and the required and parallel entities */
+
+  /* HDF5 variables */
+  hid_t file_id, grp_mesh_id, grp_sols_id;
+  hid_t fapl_id, dxpl_id;
+
+  hid_t dspace_mem_point_id, dspace_file_point_id;
+  hid_t dspace_mem_edge_id, dspace_file_edge_id;
+  hid_t dspace_mem_tria_id, dspace_file_tria_id;
+  hid_t dspace_mem_quad_id, dspace_file_quad_id;
+  hid_t dspace_mem_tetra_id, dspace_file_tetra_id;
+  hid_t dspace_mem_prism_id, dspace_file_prism_id;
+
+  hid_t dspace_mem_ref_point_id, dspace_file_ref_point_id;
+  hid_t dspace_mem_ref_edge_id, dspace_file_ref_edge_id;
+  hid_t dspace_mem_ref_tria_id, dspace_file_ref_tria_id;
+  hid_t dspace_mem_ref_quad_id, dspace_file_ref_quad_id;
+  hid_t dspace_mem_ref_tetra_id, dspace_file_ref_tetra_id;
+  hid_t dspace_mem_ref_prism_id, dspace_file_ref_prism_id;
+
+  hid_t dspace_mem_corner_id, dspace_file_corner_id;
+  hid_t dspace_mem_req_id, dspace_file_req_id;
+  hid_t dspace_mem_par_id, dspace_file_par_id;
+
+  hid_t dspace_mem_ridge_id, dspace_file_ridge_id;
+  hid_t dspace_mem_edreq_id, dspace_file_edreq_id;
+  hid_t dspace_mem_edpar_id, dspace_file_edpar_id;
+
+  hid_t dspace_mem_treq_id, dspace_file_treq_id;
+  hid_t dspace_mem_tpar_id, dspace_file_tpar_id;
+
+  hid_t dspace_mem_qreq_id, dspace_file_qreq_id;
+  hid_t dspace_mem_qpar_id, dspace_file_qpar_id;
+
+  hid_t dspace_mem_tetreq_id, dspace_file_tetreq_id;
+  hid_t dspace_mem_tetpar_id, dspace_file_tetpar_id;
+
+  hid_t dset_id, dset_ref_id;
+  herr_t status;
+
+  /* MPI variables */
+  MPI_Info info = MPI_INFO_NULL;
+  MPI_Comm comm = parmesh->comm;
+  int rank, root, nprocs;
+
+  /*------------------------- INIT -------------------------*/
+
+  /* Set all buffers to NULL */
+  ppoint = NULL; ppoint_ref = NULL;
+  pedge  = NULL; pedge_ref  = NULL;
+  ptria  = NULL; ptria_ref  = NULL;
+  pquad  = NULL; pquad_ref  = NULL;
+  ptet   = NULL; ptet_ref   = NULL;
+  pprism = NULL; pprism_ref = NULL;
+  pcorner = NULL; preq = NULL; ppar = NULL;
+  pridges = NULL; pedreq = NULL; pedpar = NULL;
+  ptreq  = NULL; ptpar = NULL;
+  pqreq = NULL; pqpar = NULL;
+  ptetreq = NULL; ptetpar = NULL;
+  nentities = NULL;
+
+  /* Set MPI variables */
+  MPI_Comm_size(comm, &nprocs);
+  MPI_Comm_rank(comm, &rank);
+  root = parmesh->info.root;
+
+  /* Set local mesh size to 0 */
+  np = na = nt = nquad = ne = nprism = 0;
+  nc = nreq = npar = 0;
+  nr = nedreq = nedpar = 0;
+  ntreq = ntpar = 0;
+  nqreq = nqpar = 0;
+  nereq = nepar = 0;
+  /* Set global mesh size to 0 */
+  npg = nag = ntg = nquadg = neg = nprismg = 0;
+  ncg = nreqg = nparg = 0;
+  nrg = nedreqg = nedparg = 0;
+  ntreqg = ntparg = 0;
+  nqreqg = nqparg = 0;
+  nereqg = neparg = 0;
+
+  /* Check arguments */
+  if (parmesh->ngrp != 1) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+  if (!filename || !*filename) {
+    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
+            __func__);
+    return 0;
+  }
+
+  /* Set ParMmg variables */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  met = grp->met;
+  sols = grp->field;
+  nsols = mesh->nsols;
+  ppt = NULL;
+  pa = NULL;
+  pt = NULL;
+  pq = NULL;
+  pe = NULL;
+  pp = NULL;
+
+  /*------------------------- COUNT LOCAL MESH ENTITIES -------------------------*/
+
+  if ( !mesh->point ) {
+    fprintf(stderr, "\n  ## Error: %s: points array not allocated.\n",
+            __func__);
+    return 0;
+  }
+
+  /* Vertices */
+  for (int k = 1 ; k <= mesh->np ; k++) {
+    ppt = &mesh->point[k];
+    if (MG_VOK(ppt)) {
+      ppt->tmp = ++np;
+      ppt->flag = 0;
+      if (ppt->tag | MG_CRN) nc++;
+      if (ppt->tag | MG_REQ) nreq++;
+      if (ppt->tag | MG_PARBDY) npar++;
+    }
+  }
+
+  /* Edges */
+  if (mesh->na) {
+    for (int k = 1 ; k <= mesh->na ; k++) {
+      pa = &mesh->edge[k];
+      na++;
+      if (pa->tag | MG_GEO) nr++;
+      if (pa->tag | MG_REQ) nedreq++;
+      if (pa->tag | MG_PARBDY) nedpar++;
+    }
+  }
+
+  /* Triangles */
+  if (mesh->nt) {
+    for (int k = 1 ; k <= mesh->nt ; k++) {
+      pt = &mesh->tria[k];
+      nt++;
+      if (pt->tag[0] | MG_REQ && pt->tag[1] | MG_REQ && pt->tag[2] | MG_REQ) ntreq++;
+      if (pt->tag[0] | MG_PARBDY && pt->tag[1] | MG_PARBDY && pt->tag[2] | MG_PARBDY) ntpar++;
+    }
+  }
+
+  /* Quadrilaterals */
+  if (mesh->nquad) {
+    for (int k = 1 ; k <= mesh->nquad ; k++) {
+      pq = &mesh->quadra[k];
+      nquad++;
+      if (pq->tag[0] | MG_REQ && pq->tag[1] | MG_REQ &&
+          pq->tag[2] | MG_REQ && pq->tag[3] | MG_REQ) {
+        nqreq++;
+      }
+      if (pq->tag[0] | MG_PARBDY && pq->tag[1] | MG_PARBDY &&
+          pq->tag[2] | MG_PARBDY && pq->tag[3] | MG_PARBDY) {
+        nqpar++;
+      }
+    }
+  }
+
+  /* Tetrahedra */
+  if (mesh->ne) {
+    for (int k = 1 ; k <= mesh->ne ; k++) {
+      pe = &mesh->tetra[k];
+      if (!MG_EOK(pe)) {
+        continue;
+      }
+      ne++;
+      if (pe->tag | MG_REQ) nereq++;
+      if (pe->tag | MG_PARBDY) nepar++;
+    }
+  } else {
+    fprintf(stderr, "\n  ## Warning: %s: tetra array not allocated.\n",
+            __func__);
+  }
+
+  /* Prisms */
+  if (mesh->nprism) {
+    for (int k = 1 ; k <= mesh->nprism ; k++) {
+      pp = &mesh->prism[k];
+      if (MG_EOK(pp)){
+        continue;
+      }
+      nprism++;
+    }
+  }
+
+  /*------------------------- COUNT GLOBAL MESH ENTITIES -------------------------*/
+
+  nentities = (int*) calloc(18 * nprocs, sizeof(int));
+
+  nentities[18 * rank]      = np;
+  nentities[18 * rank + 1]  = na;
+  nentities[18 * rank + 2]  = nt;
+  nentities[18 * rank + 3]  = nquad;
+  nentities[18 * rank + 4]  = ne;
+  nentities[18 * rank + 5]  = nprism;
+  nentities[18 * rank + 6]  = nc;
+  nentities[18 * rank + 7]  = nreq;
+  nentities[18 * rank + 8]  = npar;
+  nentities[18 * rank + 9]  = nr;
+  nentities[18 * rank + 10] = nedreq;
+  nentities[18 * rank + 11] = nedpar;
+  nentities[18 * rank + 12] = ntreq;
+  nentities[18 * rank + 13] = ntpar;
+  nentities[18 * rank + 14] = nqreq;
+  nentities[18 * rank + 15] = nqpar;
+  nentities[18 * rank + 16] = nereq;
+  nentities[18 * rank + 17] = nepar;
+
+  MPI_Allgather(&nentities[18 * rank], 18, MPI_INT, nentities, 18, MPI_INT, comm);
+
+  for (int k = 0 ; k < nprocs ; k++) {
+    npg     += nentities[18 * k];
+    nag     += nentities[18 * k + 1];
+    ntg     += nentities[18 * k + 2];
+    nquadg  += nentities[18 * k + 3];
+    neg     += nentities[18 * k + 4];
+    nprismg += nentities[18 * k + 5];
+    ncg     += nentities[18 * k + 6];
+    nreqg   += nentities[18 * k + 7];
+    nparg   += nentities[18 * k + 8];
+    nrg     += nentities[18 * k + 9];
+    nedreqg += nentities[18 * k + 10];
+    nedparg += nentities[18 * k + 11];
+    ntreqg  += nentities[18 * k + 12];
+    ntparg  += nentities[18 * k + 13];
+    nqreqg  += nentities[18 * k + 14];
+    nqparg  += nentities[18 * k + 15];
+    nereqg  += nentities[18 * k + 16];
+    neparg  += nentities[18 * k + 17];
+  }
+
+  /*------------------------- COMPUTE OFFSET ARRAYS -------------------------*/
+  for (int i = 0 ; i < rank ; i++) {
+    point_offset[0] += nentities[18 * i];
+    edge_offset[0]  += nentities[18 * i + 1];
+    tria_offset[0]  += nentities[18 * i + 2];
+    quad_offset[0]  += nentities[18 * i + 3];
+    tetra_offset[0] += nentities[18 * i + 4];
+    prism_offset[0] += nentities[18 * i + 5];
+  }
+
+  /*------------------------- HDF5 IOs START HERE -------------------------*/
+
+  /* Shut HDF5 error stack */
+  H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+
+  /* Create the parallel file acces and the parallel dataset transfer property lists */
+  fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+  status = H5Pset_fapl_mpio(fapl_id, comm, info);
+  dxpl_id = H5Pcreate(H5P_DATASET_XFER);
+  status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
+
+  /*------------------------- CREATE ALL HDF5 DATASPACES -------------------------*/
+
+  hsize_t hnp[2]      = {np,3};
+  hsize_t hna[2]      = {na,2};
+  hsize_t hnt[2]      = {nt,3};
+  hsize_t hnquad[2]   = {nquad,4};
+  hsize_t hne[2]      = {ne,4};
+  hsize_t hnprism[2]  = {nprism,2};
+  hsize_t hnc         = nc;
+  hsize_t hnreq       = nreq;
+  hsize_t hnpar       = npar;
+  hsize_t hnr         = nr;
+  hsize_t hnedreq     = nedreq;
+  hsize_t hnedpar     = nedpar;
+  hsize_t hntreq      = ntreq;
+  hsize_t hntpar      = ntpar;
+  hsize_t hnqreq      = nqreq;
+  hsize_t hnqpar      = nqpar;
+  hsize_t hnereq      = nereq;
+  hsize_t hnepar      = nepar;
+
+  dspace_mem_point_id = H5Screate_simple(2, hnp    , NULL);
+  dspace_mem_edge_id  = H5Screate_simple(2, hna    , NULL);
+  dspace_mem_tria_id  = H5Screate_simple(2, hnt    , NULL);
+  dspace_mem_quad_id  = H5Screate_simple(2, hnquad , NULL);
+  dspace_mem_tetra_id = H5Screate_simple(2, hne    , NULL);
+  dspace_mem_prism_id = H5Screate_simple(2, hnprism, NULL);
+
+  dspace_mem_ref_point_id = H5Screate_simple(1, hnp    , NULL);
+  dspace_mem_ref_edge_id  = H5Screate_simple(1, hna    , NULL);
+  dspace_mem_ref_tria_id  = H5Screate_simple(1, hnt    , NULL);
+  dspace_mem_ref_quad_id  = H5Screate_simple(1, hnquad , NULL);
+  dspace_mem_ref_tetra_id = H5Screate_simple(1, hne    , NULL);
+  dspace_mem_ref_prism_id = H5Screate_simple(1, hnprism, NULL);
+
+  dspace_mem_corner_id = H5Screate_simple(1, &hnc, NULL);
+  dspace_mem_req_id = H5Screate_simple(1, &hnreq, NULL);
+  dspace_mem_par_id = H5Screate_simple(1, &hnpar, NULL);
+
+  dspace_mem_ridge_id = H5Screate_simple(1, &hnr, NULL);
+  dspace_mem_edreq_id = H5Screate_simple(1, &hnedreq, NULL);
+  dspace_mem_edpar_id = H5Screate_simple(1, &hnedpar, NULL);
+
+  dspace_mem_treq_id = H5Screate_simple(1, &hntreq, NULL);
+  dspace_mem_tpar_id = H5Screate_simple(1, &hntpar, NULL);
+
+  dspace_mem_qreq_id = H5Screate_simple(1, &hnqreq, NULL);
+  dspace_mem_qpar_id = H5Screate_simple(1, &hnqpar, NULL);
+
+  dspace_mem_tetreq_id = H5Screate_simple(1, &hnereq, NULL);
+  dspace_mem_tetpar_id = H5Screate_simple(1, &hnepar, NULL);
+
+  hsize_t hnpg[2]     = {npg,3};
+  hsize_t hnag[2]     = {nag,2};
+  hsize_t hntg[2]     = {ntg,3};
+  hsize_t hnquadg[2]  = {nquadg,4};
+  hsize_t hneg[2]     = {neg,4};
+  hsize_t hnprismg[2] = {nprismg,2};
+  hsize_t hncg         = ncg;
+  hsize_t hnreqg       = nreqg;
+  hsize_t hnparg       = nparg;
+  hsize_t hnrg         = nrg;
+  hsize_t hnedreqg     = nedreqg;
+  hsize_t hnedparg     = nedparg;
+  hsize_t hntreqg      = ntreqg;
+  hsize_t hntparg      = ntparg;
+  hsize_t hnqreqg      = nqreqg;
+  hsize_t hnqparg      = nqparg;
+  hsize_t hnereqg      = nereqg;
+  hsize_t hneparg      = neparg;
+
+  dspace_file_point_id = H5Screate_simple(2, hnpg    , NULL);
+  dspace_file_edge_id  = H5Screate_simple(2, hnag    , NULL);
+  dspace_file_tria_id  = H5Screate_simple(2, hntg    , NULL);
+  dspace_file_quad_id  = H5Screate_simple(2, hnquadg , NULL);
+  dspace_file_tetra_id = H5Screate_simple(2, hneg    , NULL);
+  dspace_file_prism_id = H5Screate_simple(2, hnprismg, NULL);
+
+  dspace_file_ref_point_id = H5Screate_simple(1, hnpg    , NULL);
+  dspace_file_ref_edge_id  = H5Screate_simple(1, hnag    , NULL);
+  dspace_file_ref_tria_id  = H5Screate_simple(1, hntg    , NULL);
+  dspace_file_ref_quad_id  = H5Screate_simple(1, hnquadg , NULL);
+  dspace_file_ref_tetra_id = H5Screate_simple(1, hneg    , NULL);
+  dspace_file_ref_prism_id = H5Screate_simple(1, hnprismg, NULL);
+
+  dspace_file_corner_id = H5Screate_simple(1, &hncg, NULL);
+  dspace_file_req_id = H5Screate_simple(1, &hnreqg, NULL);
+  dspace_file_par_id = H5Screate_simple(1, &hnparg, NULL);
+
+  dspace_file_ridge_id = H5Screate_simple(1, &hnrg, NULL);
+  dspace_file_edreq_id = H5Screate_simple(1, &hnedreqg, NULL);
+  dspace_file_edpar_id = H5Screate_simple(1, &hnedparg, NULL);
+
+  dspace_file_treq_id = H5Screate_simple(1, &hntreqg, NULL);
+  dspace_file_tpar_id = H5Screate_simple(1, &hntparg, NULL);
+
+  dspace_file_qreq_id = H5Screate_simple(1, &hnqreqg, NULL);
+  dspace_file_qpar_id = H5Screate_simple(1, &hnqparg, NULL);
+
+  dspace_file_tetreq_id = H5Screate_simple(1, &hnereqg, NULL);
+  dspace_file_tetpar_id = H5Screate_simple(1, &hneparg, NULL);
+
+
+  /*------------------------- OPEN FILE AND WRITE DATA -------------------------*/
+
+  /* Create the file and the groups */
+  file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
+  grp_mesh_id = H5Gcreate(file_id, "mesh_grp", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  grp_sols_id = H5Gcreate(file_id, "sols_grp", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  /* Vertices */
+  ppoint = (double*) calloc(np, 3 * sizeof(double));
+  ppoint_ref = (int*) calloc(np, sizeof(int));
+  for (int i = 0 ; i < mesh->np ; i++) {
+    ppt = &mesh->point[i + 1];
+    if (MG_VOK(ppt)){
+      for (int j = 0 ; j < 3 ; j++) {
+        ppoint[3 * i + j] = ppt->c[j];
+      }
+    }
+    ppoint_ref[i] = abs(ppt->ref);
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_point_id, H5S_SELECT_SET, point_offset, NULL, hnp, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_point_id, H5S_SELECT_SET, point_offset, NULL, hnp, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Vertices", H5T_NATIVE_DOUBLE, dspace_file_point_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "VerticesRef", H5T_NATIVE_INT, dspace_file_ref_point_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_point_id, dspace_file_point_id, dxpl_id, ppoint);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_DOUBLE, dspace_mem_ref_point_id, dspace_file_ref_point_id, dxpl_id, ppoint_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(ppoint); ppoint = NULL;
+  free(ppoint_ref); ppoint_ref = NULL;
+
+  /* Edges */
+  pedge = (int*) calloc(na, 2* sizeof(int));
+  pedge_ref = (int*) calloc(na, sizeof(int));
+  if (na) {
+    for (int i = 0 ; i < mesh->na ; i++) {
+      pa = &mesh->edge[i + 1];
+      pedge[2 * i]     = mesh->point[pa->a].tmp + point_offset[0] - 1;
+      pedge[2 * i + 1] = mesh->point[pa->b].tmp + point_offset[0] - 1;
+      pedge_ref[i] = pa->ref;
+    }
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_edge_id, H5S_SELECT_SET, edge_offset, NULL, hna, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_edge_id, H5S_SELECT_SET, edge_offset, NULL, hna, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Edges", H5T_NATIVE_INT, dspace_file_edge_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "EdgesRef", H5T_NATIVE_INT, dspace_file_ref_edge_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_edge_id, dspace_file_edge_id, dxpl_id, pedge);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_INT, dspace_mem_ref_edge_id, dspace_file_ref_edge_id, dxpl_id, pedge_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(pedge); pedge = NULL;
+  free(pedge); pedge_ref = NULL;
+
+  /* Triangles */
+  ptria = (int*) calloc(nt, 3 * sizeof(int));
+  ptria_ref = (int*) calloc(nt, sizeof(int));
+  if (nt) {
+    for (int i = 0 ; i < mesh->nt ; i++) {
+      pt = &mesh->tria[i + 1];
+      for (int j = 0 ; j < 3 ; j++) {
+        ptria[3 * i + j] = mesh->point[pt->v[j]].tmp + point_offset[0] - 1;
+      }
+      ptria_ref[i] = pt->ref;
+    }
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_tria_id, H5S_SELECT_SET, tria_offset, NULL, hnt, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_tria_id, H5S_SELECT_SET, tria_offset, NULL, hnt, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Triangles", H5T_NATIVE_INT, dspace_file_tria_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "TrianglesRef", H5T_NATIVE_INT, dspace_file_ref_tria_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_tria_id, dspace_file_tria_id, dxpl_id, ptria);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_INT, dspace_mem_ref_tria_id, dspace_file_ref_tria_id, dxpl_id, ptria_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(ptria); ptria = NULL;
+  free(ptria); ptria_ref = NULL;
+
+  /* Quadrilaterals */
+  pquad = (int*) calloc(nquad, 4 * sizeof(int));
+  pquad_ref = (int*) calloc(nquad, sizeof(int));
+  if (nquad){
+    for (int i = 0 ; i < mesh->nquad ; i++) {
+      pq = &mesh->quadra[i + 1];
+      for (int j = 0 ; j < 4 ; j++) {
+        pquad[4 * i + j] = mesh->point[pq->v[j]].tmp + point_offset[0] - 1;
+      }
+      pquad_ref[i] = pq->ref;
+    }
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_quad_id, H5S_SELECT_SET, quad_offset, NULL, hnquad, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_quad_id, H5S_SELECT_SET, quad_offset, NULL, hnquad, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Quadrilaterals", H5T_NATIVE_INT, dspace_file_quad_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "Quadrilaterals", H5T_NATIVE_INT, dspace_file_ref_quad_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_quad_id, dspace_file_quad_id, dxpl_id, pquad);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_INT, dspace_mem_ref_quad_id, dspace_file_ref_quad_id, dxpl_id, pquad_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(pquad); pquad = NULL;
+  free(pquad); pquad_ref = NULL;
+
+  /* Tetrahedra */
+  ptet = (int*) calloc(ne, 4 * sizeof(int));
+  ptet_ref = (int*) calloc(ne, sizeof(int));
+  if (ne) {
+    for (int i = 0 ; i < mesh->ne ; i++) {
+      pe = &mesh->tetra[i + 1];
+      if (MG_EOK(pe)) {
+        for (int j = 0 ; j < 4 ; j++) {
+          ptet[4 * i + j] = mesh->point[pe->v[j]].tmp + point_offset[0] - 1;
+        }
+      }
+      ptet_ref[i] = pe->ref;
+    }
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_tetra_id, H5S_SELECT_SET, tetra_offset, NULL, hne, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_tetra_id, H5S_SELECT_SET, tetra_offset, NULL, hne, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Tetrahedra", H5T_NATIVE_INT, dspace_file_tetra_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "TetrahedraRef", H5T_NATIVE_INT, dspace_file_ref_tetra_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_tetra_id, dspace_file_tetra_id, dxpl_id, ptet);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_INT, dspace_mem_ref_tetra_id, dspace_file_ref_tetra_id, dxpl_id, ptet_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(ptet); ptet = NULL;
+  free(ptet); ptet_ref = NULL;
+
+  /* Prisms */
+  pprism = (int*) calloc(nprism, 6 * sizeof(int));
+  pprism_ref = (int*) calloc(nprism, sizeof(int));
+  if (nprism){
+    for (int i = 0 ; i < mesh->nprism ; i++) {
+      pp = &mesh->prism[i + 1];
+      for (int j = 0 ; j < 6 ; j++) {
+        pprism[6 * i + j] = mesh->point[pp->v[j]].tmp + point_offset[0] - 1;
+      }
+      pprism_ref[i] = pp->ref;
+    }
+  }
+
+  status = H5Sselect_hyperslab(dspace_file_prism_id, H5S_SELECT_SET, prism_offset, NULL, hnprism, NULL);
+  status = H5Sselect_hyperslab(dspace_file_ref_prism_id, H5S_SELECT_SET, prism_offset, NULL, hnprism, NULL);
+
+  dset_id = H5Dcreate(grp_mesh_id, "Prisms", H5T_NATIVE_INT, dspace_file_prism_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset_ref_id = H5Dcreate(grp_mesh_id, "PrismsRef", H5T_NATIVE_INT, dspace_file_ref_prism_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_prism_id, dspace_file_prism_id, dxpl_id, pprism);
+  status = H5Dwrite(dset_ref_id, H5T_NATIVE_INT, dspace_mem_ref_prism_id, dspace_file_ref_prism_id, dxpl_id, pprism_ref);
+
+  H5Dclose(dset_id);
+  H5Dclose(dset_ref_id);
+
+  free(pprism); pprism = NULL;
+  free(pprism); pprism_ref = NULL;
+
+  /*------------------------- END -------------------------*/
+
+  /* Release the remaining HDF5 IDs */
+  status = H5Sclose(dspace_mem_point_id);
+  status = H5Sclose(dspace_mem_edge_id);
+  status = H5Sclose(dspace_mem_tria_id);
+  status = H5Sclose(dspace_mem_quad_id);
+  status = H5Sclose(dspace_mem_tetra_id);
+  status = H5Sclose(dspace_mem_prism_id);
+
+  status = H5Sclose(dspace_mem_ref_point_id);
+  status = H5Sclose(dspace_mem_ref_edge_id);
+  status = H5Sclose(dspace_mem_ref_tria_id);
+  status = H5Sclose(dspace_mem_ref_quad_id);
+  status = H5Sclose(dspace_mem_ref_tetra_id);
+  status = H5Sclose(dspace_mem_ref_prism_id);
+
+  status = H5Sclose(dspace_mem_corner_id);
+  status = H5Sclose(dspace_mem_req_id);
+  status = H5Sclose(dspace_mem_par_id);
+
+  status = H5Sclose(dspace_mem_ridge_id);
+  status = H5Sclose(dspace_mem_edreq_id);
+  status = H5Sclose(dspace_mem_edpar_id);
+
+  status = H5Sclose(dspace_mem_treq_id);
+  status = H5Sclose(dspace_mem_tpar_id);
+
+  status = H5Sclose(dspace_mem_qreq_id);
+  status = H5Sclose(dspace_mem_qpar_id);
+
+  status = H5Sclose(dspace_mem_tetreq_id);
+  status = H5Sclose(dspace_mem_tetpar_id);
+
+  status = H5Sclose(dspace_file_point_id);
+  status = H5Sclose(dspace_file_edge_id);
+  status = H5Sclose(dspace_file_tria_id);
+  status = H5Sclose(dspace_file_quad_id);
+  status = H5Sclose(dspace_file_tetra_id);
+  status = H5Sclose(dspace_file_prism_id);
+
+  status = H5Sclose(dspace_file_ref_point_id);
+  status = H5Sclose(dspace_file_ref_edge_id);
+  status = H5Sclose(dspace_file_ref_tria_id);
+  status = H5Sclose(dspace_file_ref_quad_id);
+  status = H5Sclose(dspace_file_ref_tetra_id);
+  status = H5Sclose(dspace_file_ref_prism_id);
+
+  status = H5Sclose(dspace_file_corner_id);
+  status = H5Sclose(dspace_file_req_id);
+  status = H5Sclose(dspace_file_par_id);
+
+  status = H5Sclose(dspace_file_ridge_id);
+  status = H5Sclose(dspace_file_edreq_id);
+  status = H5Sclose(dspace_file_edpar_id);
+
+  status = H5Sclose(dspace_file_treq_id);
+  status = H5Sclose(dspace_file_tpar_id);
+
+  status = H5Sclose(dspace_file_qreq_id);
+  status = H5Sclose(dspace_file_qpar_id);
+
+  status = H5Sclose(dspace_file_tetreq_id);
+  status = H5Sclose(dspace_file_tetpar_id);
+
+  status = H5Gclose(grp_mesh_id);
+  status = H5Gclose(grp_sols_id);
+  status = H5Fclose(file_id);
+  status = H5Pclose(fapl_id);
+  status = H5Pclose(dxpl_id);
+
+  /* Free all allocated memory */
+  free(pcorner); pcorner = NULL;
+  free(preq)   ; preq    = NULL;
+  free(ppar)   ; ppar    = NULL;
+
+  free(pridges); pridges = NULL;
+  free(pedreq) ; pedreq  = NULL;
+  free(pedpar) ; pedpar  = NULL;
+
+  free(ptreq); ptreq = NULL;
+  free(ptpar); ptpar = NULL;
+
+  free(pqreq); pqreq = NULL;
+  free(pqpar); pqpar = NULL;
+
+  free(ptetreq); ptetreq = NULL;
+  free(ptetpar); ptetpar = NULL;
+
+  free(nentities); nentities = NULL;
 
   return ier;
 }
