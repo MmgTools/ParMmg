@@ -1438,11 +1438,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Save the attributes (Version and Dimension) */
   attr_ver_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_scalar_id, H5P_DEFAULT, H5P_DEFAULT);
   status = H5Awrite(attr_ver_id, H5T_NATIVE_INT, &mesh->ver);
-  status = H5Aclose(attr_ver_id);
+  H5Aclose(attr_ver_id);
 
   attr_dim_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_scalar_id, H5P_DEFAULT, H5P_DEFAULT);
   status = H5Awrite(attr_dim_id, H5T_NATIVE_INT, &mesh->dim);
-  status = H5Aclose(attr_dim_id);
+  H5Aclose(attr_dim_id);
 
   /* Vertices */
   ppoint = (double*) calloc(np, 3 * sizeof(double));
@@ -1738,68 +1738,68 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   /*------------------------- HDF5 IOs END HERE -------------------------*/
 
-  /* /\*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*\/ */
+  /*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*/
 
-  /* if (rank == root) { */
-  /*   FILE *xdmf_file = NULL; */
-  /*   xdmf_file = fopen(xdmfout, "w"); */
-  /*   fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"); */
-  /*   fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n"); */
-  /*   fprintf(xdmf_file, "<Domain>\n"); */
-  /*   fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n"); */
-  /*   fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\">\n", neg); */
-  /*   fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n"); */
-  /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
-  /*   fprintf(xdmf_file, "                  Dimensions=\"%d 4\">\n", neg); */
-  /*   fprintf(xdmf_file, "          %s:/mesh_grp/Tetrahedra\n", fileout); */
-  /*   fprintf(xdmf_file, "        </DataItem>\n"); */
-  /*   fprintf(xdmf_file, "      </Topology>\n"); */
-  /*   fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n"); */
-  /*   fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
-  /*   fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
-  /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
-  /*   fprintf(xdmf_file, "                  Dimensions=\"%d 3\">\n", npg); */
-  /*   fprintf(xdmf_file, "          %s:/mesh_grp/Vertices\n", fileout); */
-  /*   fprintf(xdmf_file, "        </DataItem>\n"); */
-  /*   fprintf(xdmf_file, "      </Geometry>\n"); */
-  /*   if (met) { */
-  /*     if (met->size == 6) */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n"); */
-  /*     else if (met->size == 3) */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Vector\">\n"); */
-  /*     else if (met->size == 1) */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n"); */
-  /*     fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
-  /*     fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
-  /*     fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
-  /*     fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, grp->met->size); */
-  /*     fprintf(xdmf_file, "          %s:/sols_grp/MetricAtVertices\n", fileout); */
-  /*     fprintf(xdmf_file, "        </DataItem>\n"); */
-  /*     fprintf(xdmf_file, "      </Attribute>\n"); */
-  /*   } */
-  /*   for (int i = 0 ; i < nsols ; i++) { */
-  /*     if (sols->type == MMG5_Scalar) { */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i); */
-  /*     } */
-  /*     else if (sols->type == MMG5_Vector) { */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i); */
-  /*     } */
-  /*     else if (sols->type == MMG5_Tensor) { */
-  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i); */
-  /*     } */
-  /*     fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
-  /*     fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
-  /*     fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
-  /*     fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, sols[i].size); */
-  /*     fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", fileout, i); */
-  /*     fprintf(xdmf_file, "        </DataItem>\n"); */
-  /*     fprintf(xdmf_file, "      </Attribute>\n"); */
-  /*   } */
-  /*   fprintf(xdmf_file, "    </Grid>\n"); */
-  /*   fprintf(xdmf_file, "  </Domain>\n"); */
-  /*   fprintf(xdmf_file, "</Xdmf>\n"); */
-  /*   fclose(xdmf_file); */
-  /* } */
+  if (rank == root) {
+    FILE *xdmf_file = NULL;
+    xdmf_file = fopen(xdmfname, "w");
+    fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+    fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
+    fprintf(xdmf_file, "<Domain>\n");
+    fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
+    fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\">\n", neg);
+    fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%d 4\">\n", neg);
+    fprintf(xdmf_file, "          %s:/mesh_grp/Tetrahedra\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Topology>\n");
+    fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
+    fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+    fprintf(xdmf_file, "                  Precision=\"8\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%d 3\">\n", npg);
+    fprintf(xdmf_file, "          %s:/mesh_grp/Vertices\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Geometry>\n");
+    /* if (met) { */
+    /*   if (met->size == 6) */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n"); */
+    /*   else if (met->size == 3) */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Vector\">\n"); */
+    /*   else if (met->size == 1) */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n"); */
+    /*   fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
+    /*   fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
+    /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+    /*   fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, grp->met->size); */
+    /*   fprintf(xdmf_file, "          %s:/sols_grp/MetricAtVertices\n", filename); */
+    /*   fprintf(xdmf_file, "        </DataItem>\n"); */
+    /*   fprintf(xdmf_file, "      </Attribute>\n"); */
+    /* } */
+    /* for (int i = 0 ; i < nsols ; i++) { */
+    /*   if (sols->type == MMG5_Scalar) { */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i); */
+    /*   } */
+    /*   else if (sols->type == MMG5_Vector) { */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i); */
+    /*   } */
+    /*   else if (sols->type == MMG5_Tensor) { */
+    /*     fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i); */
+    /*   } */
+    /*   fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
+    /*   fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
+    /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+    /*   fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, sols[i].size); */
+    /*   fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", fileout, i); */
+    /*   fprintf(xdmf_file, "        </DataItem>\n"); */
+    /*   fprintf(xdmf_file, "      </Attribute>\n"); */
+    /* } */
+    fprintf(xdmf_file, "    </Grid>\n");
+    fprintf(xdmf_file, "  </Domain>\n");
+    fprintf(xdmf_file, "</Xdmf>\n");
+    fclose(xdmf_file);
+  }
 
   /*------------------------- END -------------------------*/
 
