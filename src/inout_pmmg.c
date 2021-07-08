@@ -1053,6 +1053,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hid_t file_id, grp_mesh_id, grp_sols_id;
   hid_t fapl_id, dxpl_id;
 
+  hid_t attr_dim_id, attr_ver_id;
+
+  hid_t dspace_scalar_id; /* Dataspace used to store 1 scalar (attributes) */
+
   hid_t dspace_mem_point_id, dspace_file_point_id;
   hid_t dspace_mem_edge_id, dspace_file_edge_id;
   hid_t dspace_mem_tria_id, dspace_file_tria_id;
@@ -1305,6 +1309,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     parallel_offset[4] += nentities[18 * i + 17];
   }
 
+  /* We no longer need the number of entities */
+  free(nentities); nentities = NULL;
+
   /*------------------------- HDF5 IOs START HERE -------------------------*/
 
   /* Shut HDF5 error stack */
@@ -1317,6 +1324,8 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
 
   /*------------------------- CREATE ALL HDF5 DATASPACES -------------------------*/
+
+  dspace_scalar_id = H5Screate(H5S_SCALAR);
 
   hsize_t hnp[2]      = {np,3};
   hsize_t hna[2]      = {na,2};
@@ -1425,6 +1434,15 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
   grp_mesh_id = H5Gcreate(file_id, "mesh_grp", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   grp_sols_id = H5Gcreate(file_id, "sols_grp", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  /* Save the attributes (Version and Dimension) */
+  attr_ver_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_scalar_id, H5P_DEFAULT, H5P_DEFAULT);
+  status = H5Awrite(attr_ver_id, H5T_NATIVE_INT, &mesh->ver);
+  status = H5Aclose(attr_ver_id);
+
+  attr_dim_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_scalar_id, H5P_DEFAULT, H5P_DEFAULT);
+  status = H5Awrite(attr_dim_id, H5T_NATIVE_INT, &mesh->dim);
+  status = H5Aclose(attr_dim_id);
 
   /* Vertices */
   ppoint = (double*) calloc(np, 3 * sizeof(double));
@@ -1718,6 +1736,71 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   free(pprism); pprism = NULL;
   free(pprism); pprism_ref = NULL;
 
+  /*------------------------- HDF5 IOs END HERE -------------------------*/
+
+  /* /\*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*\/ */
+
+  /* if (rank == root) { */
+  /*   FILE *xdmf_file = NULL; */
+  /*   xdmf_file = fopen(xdmfout, "w"); */
+  /*   fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"); */
+  /*   fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n"); */
+  /*   fprintf(xdmf_file, "<Domain>\n"); */
+  /*   fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n"); */
+  /*   fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\">\n", neg); */
+  /*   fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n"); */
+  /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+  /*   fprintf(xdmf_file, "                  Dimensions=\"%d 4\">\n", neg); */
+  /*   fprintf(xdmf_file, "          %s:/mesh_grp/Tetrahedra\n", fileout); */
+  /*   fprintf(xdmf_file, "        </DataItem>\n"); */
+  /*   fprintf(xdmf_file, "      </Topology>\n"); */
+  /*   fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n"); */
+  /*   fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
+  /*   fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
+  /*   fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+  /*   fprintf(xdmf_file, "                  Dimensions=\"%d 3\">\n", npg); */
+  /*   fprintf(xdmf_file, "          %s:/mesh_grp/Vertices\n", fileout); */
+  /*   fprintf(xdmf_file, "        </DataItem>\n"); */
+  /*   fprintf(xdmf_file, "      </Geometry>\n"); */
+  /*   if (met) { */
+  /*     if (met->size == 6) */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n"); */
+  /*     else if (met->size == 3) */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Vector\">\n"); */
+  /*     else if (met->size == 1) */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n"); */
+  /*     fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
+  /*     fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
+  /*     fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+  /*     fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, grp->met->size); */
+  /*     fprintf(xdmf_file, "          %s:/sols_grp/MetricAtVertices\n", fileout); */
+  /*     fprintf(xdmf_file, "        </DataItem>\n"); */
+  /*     fprintf(xdmf_file, "      </Attribute>\n"); */
+  /*   } */
+  /*   for (int i = 0 ; i < nsols ; i++) { */
+  /*     if (sols->type == MMG5_Scalar) { */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i); */
+  /*     } */
+  /*     else if (sols->type == MMG5_Vector) { */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i); */
+  /*     } */
+  /*     else if (sols->type == MMG5_Tensor) { */
+  /*       fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i); */
+  /*     } */
+  /*     fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n"); */
+  /*     fprintf(xdmf_file, "                  Precision=\"8\"\n"); */
+  /*     fprintf(xdmf_file, "                  Format=\"HDF\"\n"); */
+  /*     fprintf(xdmf_file, "                  Dimensions=\"%d %d\">\n", npg, sols[i].size); */
+  /*     fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", fileout, i); */
+  /*     fprintf(xdmf_file, "        </DataItem>\n"); */
+  /*     fprintf(xdmf_file, "      </Attribute>\n"); */
+  /*   } */
+  /*   fprintf(xdmf_file, "    </Grid>\n"); */
+  /*   fprintf(xdmf_file, "  </Domain>\n"); */
+  /*   fprintf(xdmf_file, "</Xdmf>\n"); */
+  /*   fclose(xdmf_file); */
+  /* } */
+
   /*------------------------- END -------------------------*/
 
   /* Release the remaining HDF5 IDs (Dataspace, property lists, groups and the file) */
@@ -1788,9 +1871,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   status = H5Fclose(file_id);
   status = H5Pclose(fapl_id);
   status = H5Pclose(dxpl_id);
-
-  /* Free all allocated memory */
-  free(nentities); nentities = NULL;
 
   return ier;
 }
