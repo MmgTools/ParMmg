@@ -428,7 +428,7 @@ ENDIF ( )
 #####        HDF5
 #####
 ############################################################################
-OPTION ( DOWNLOAD_HDF5 "Download and build automatically Hdf5." ON )
+OPTION ( DOWNLOAD_HDF5 "Download and build automatically Hdf5." OFF )
 
 IF ( DOWNLOAD_HDF5 )
   UNSET ( HDF5_DIR CACHE )
@@ -473,7 +473,12 @@ ELSE ( )
       MESSAGE(STATUS
         "Compilation with hdf5: ${HDF5_LIBRARIES}")
       SET( LIBRARIES ${HDF5_LIBRARIES} ${LIBRARIES})
-    ENDIF()
+
+      IF (NOT ${HDF5_IS_PARALLEL})
+        MESSAGE ( ERROR " HDF5 parallel library not found: "
+          "Please enable parallel support for HDF5.")
+      ENDIF ( )
+    ENDIF ( )
   ELSE ( )
     MESSAGE(STATUS ${HDF5_INCLUDE_DIR} ${HDF5_LIBRARIES} )
 
