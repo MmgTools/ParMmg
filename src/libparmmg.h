@@ -2004,6 +2004,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  */
   int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname);
 
+ /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the HDF5 file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Load the mesh data, the metric, and all the solutions from an HDF5 file in
+ * a distributed parmesh.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename);
+
 int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 
 /**
