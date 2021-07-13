@@ -991,6 +991,211 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+int PMMG_Get_parmeshSize(PMMG_pParMesh parmesh, int ntyp_entities,
+                         hsize_t *np, hsize_t *na, hsize_t *nt, hsize_t *nquad, hsize_t *ne, hsize_t *nprism,
+                         hsize_t *nc, hsize_t *nreq, hsize_t *npar,
+                         hsize_t *nr, hsize_t *nedreq, hsize_t *nedpar,
+                         hsize_t *ntreq, hsize_t *ntpar,
+                         hsize_t *nqreq, hsize_t *nqpar,
+                         hsize_t *nereq, hsize_t *nepar,
+                         hsize_t *nnor, hsize_t *ntan,
+                         hsize_t *npg, hsize_t *nag, hsize_t *ntg, hsize_t *nquadg, hsize_t *neg, hsize_t *nprismg,
+                         hsize_t *ncg, hsize_t *nreqg, hsize_t *nparg,
+                         hsize_t *nrg, hsize_t *nedreqg, hsize_t *nedparg,
+                         hsize_t *ntreqg, hsize_t *ntparg,
+                         hsize_t *nqreqg, hsize_t *nqparg,
+                         hsize_t *nereqg, hsize_t *neparg,
+                         hsize_t *nnorg, hsize_t *ntang,
+                         hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset,
+                         hsize_t *quad_offset, hsize_t *tetra_offset, hsize_t *prism_offset,
+                         hsize_t *corner_offset, hsize_t *ridge_offset,
+                         hsize_t *required_offset, hsize_t *parallel_offset) {
+
+  /* MMG variables */
+  PMMG_pGrp grp   = &parmesh->listgrp[0];
+  MMG5_pMesh mesh = grp->mesh;
+  MMG5_pPoint ppt = NULL;
+  MMG5_pEdge pa   = NULL;
+  MMG5_pTria pt   = NULL;
+  MMG5_pQuad pq   = NULL;
+  MMG5_pTetra pe  = NULL;
+  MMG5_pPrism pp  = NULL;
+  hsize_t *nentities;
+
+  /* MPI variables */
+  int nprocs = parmesh->nprocs;
+  int rank = parmesh->myrank;
+  MPI_Comm comm = parmesh->comm;
+
+  nentities = NULL;
+
+  /*------------------------- COUNT LOCAL MESH ENTITIES -------------------------*/
+
+  if ( !mesh->point ) {
+    fprintf(stderr, "\n  ## Error: %s: points array not allocated.\n",
+            __func__);
+    return 0;
+  }
+
+  /* Vertices, normals and tangents */
+  for (int k = 1 ; k <= mesh->np ; k++) {
+    ppt = &mesh->point[k];
+    if (MG_VOK(ppt)) {
+      ppt->tmp = ++(*np);
+      ppt->flag = 0;
+      if (ppt->tag & MG_CRN) (*nc)++;
+      if (ppt->tag & MG_REQ) (*nreq)++;
+      if (ppt->tag & MG_PARBDY) (*npar)++;
+      if ((!ppt->flag) || MG_SIN(ppt->tag)) continue;
+      if (ppt->tag & MG_BDY && (!(ppt->tag & MG_GEO) || ppt->tag & MG_NOM)) (*nnor)++;
+      if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) (*ntan)++;
+    }
+  }
+
+  /* Edges */
+  if (mesh->na) {
+    for (int k = 1 ; k <= mesh->na ; k++) {
+      pa = &mesh->edge[k];
+      (*na)++;
+      if (pa->tag & MG_GEO) (*nr)++;
+      if (pa->tag & MG_REQ) (*nedreq)++;
+      if (pa->tag & MG_PARBDY) (*nedpar)++;
+    }
+  }
+
+  /* Triangles */
+  if (mesh->nt) {
+    for (int k = 1 ; k <= mesh->nt ; k++) {
+      pt = &mesh->tria[k];
+      (*nt)++;
+      if (pt->tag[0] & MG_REQ && pt->tag[1] & MG_REQ && pt->tag[2] & MG_REQ) (*ntreq)++;
+      if (pt->tag[0] & MG_PARBDY && pt->tag[1] & MG_PARBDY && pt->tag[2] & MG_PARBDY) (*ntpar)++;
+    }
+  }
+
+  /* Quadrilaterals */
+  if (mesh->nquad) {
+    for (int k = 1 ; k <= mesh->nquad ; k++) {
+      pq = &mesh->quadra[k];
+      (*nquad)++;
+      if (pq->tag[0] & MG_REQ && pq->tag[1] & MG_REQ &&
+          pq->tag[2] & MG_REQ && pq->tag[3] & MG_REQ) {
+        (*nqreq)++;
+      }
+      if (pq->tag[0] & MG_PARBDY && pq->tag[1] & MG_PARBDY &&
+          pq->tag[2] & MG_PARBDY && pq->tag[3] & MG_PARBDY) {
+        (*nqpar)++;
+      }
+    }
+  }
+
+  /* Tetrahedra */
+  if (mesh->ne) {
+    for (int k = 1 ; k <= mesh->ne ; k++) {
+      pe = &mesh->tetra[k];
+      if (!MG_EOK(pe)) {
+        continue;
+      }
+      (*ne)++;
+      if (pe->tag & MG_REQ) (*nereq)++;
+      if (pe->tag & MG_PARBDY) (*nepar)++;
+    }
+  } else {
+    fprintf(stderr, "\n  ## Warning: %s: tetra array not allocated.\n",
+            __func__);
+  }
+
+  /* Prisms */
+  if (mesh->nprism) {
+    for (int k = 1 ; k <= mesh->nprism ; k++) {
+      pp = &mesh->prism[k];
+      if (!MG_EOK(pp)){
+        continue;
+      }
+      (*nprism)++;
+    }
+  }
+
+  /*------------------------- COUNT GLOBAL MESH ENTITIES -------------------------*/
+
+  nentities = (hsize_t*) calloc(ntyp_entities * nprocs, sizeof(hsize_t));
+
+  nentities[ntyp_entities * rank]      = *np;
+  nentities[ntyp_entities * rank + 1]  = *na;
+  nentities[ntyp_entities * rank + 2]  = *nt;
+  nentities[ntyp_entities * rank + 3]  = *nquad;
+  nentities[ntyp_entities * rank + 4]  = *ne;
+  nentities[ntyp_entities * rank + 5]  = *nprism;
+  nentities[ntyp_entities * rank + 6]  = *nc;
+  nentities[ntyp_entities * rank + 7]  = *nreq;
+  nentities[ntyp_entities * rank + 8]  = *npar;
+  nentities[ntyp_entities * rank + 9]  = *nr;
+  nentities[ntyp_entities * rank + 10] = *nedreq;
+  nentities[ntyp_entities * rank + 11] = *nedpar;
+  nentities[ntyp_entities * rank + 12] = *ntreq;
+  nentities[ntyp_entities * rank + 13] = *ntpar;
+  nentities[ntyp_entities * rank + 14] = *nqreq;
+  nentities[ntyp_entities * rank + 15] = *nqpar;
+  nentities[ntyp_entities * rank + 16] = *nereq;
+  nentities[ntyp_entities * rank + 17] = *nepar;
+  nentities[ntyp_entities * rank + 18] = *nnor;
+  nentities[ntyp_entities * rank + 19] = *ntan;
+
+  MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG,
+                nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm);
+
+  for (int k = 0 ; k < nprocs ; k++) {
+    *npg     += nentities[ntyp_entities * k];
+    *nag     += nentities[ntyp_entities * k + 1];
+    *ntg     += nentities[ntyp_entities * k + 2];
+    *nquadg  += nentities[ntyp_entities * k + 3];
+    *neg     += nentities[ntyp_entities * k + 4];
+    *nprismg += nentities[ntyp_entities * k + 5];
+    *ncg     += nentities[ntyp_entities * k + 6];
+    *nreqg   += nentities[ntyp_entities * k + 7];
+    *nparg   += nentities[ntyp_entities * k + 8];
+    *nrg     += nentities[ntyp_entities * k + 9];
+    *nedreqg += nentities[ntyp_entities * k + 10];
+    *nedparg += nentities[ntyp_entities * k + 11];
+    *ntreqg  += nentities[ntyp_entities * k + 12];
+    *ntparg  += nentities[ntyp_entities * k + 13];
+    *nqreqg  += nentities[ntyp_entities * k + 14];
+    *nqparg  += nentities[ntyp_entities * k + 15];
+    *nereqg  += nentities[ntyp_entities * k + 16];
+    *neparg  += nentities[ntyp_entities * k + 17];
+    *nnorg   += nentities[ntyp_entities * k + 18];
+    *ntang   += nentities[ntyp_entities * k + 19];
+  }
+
+  /*------------------------- COMPUTE OFFSET ARRAYS -------------------------*/
+
+  for (int k = 0 ; k < rank ; k++) {
+    point_offset[0]    += nentities[ntyp_entities * k];
+    edge_offset[0]     += nentities[ntyp_entities * k + 1];
+    tria_offset[0]     += nentities[ntyp_entities * k + 2];
+    quad_offset[0]     += nentities[ntyp_entities * k + 3];
+    tetra_offset[0]    += nentities[ntyp_entities * k + 4];
+    prism_offset[0]    += nentities[ntyp_entities * k + 5];
+    corner_offset      += nentities[ntyp_entities * k + 6];
+    required_offset[0] += nentities[ntyp_entities * k + 7];
+    parallel_offset[0] += nentities[ntyp_entities * k + 8];
+    ridge_offset       += nentities[ntyp_entities * k + 9];
+    required_offset[1] += nentities[ntyp_entities * k + 10];
+    parallel_offset[1] += nentities[ntyp_entities * k + 11];
+    required_offset[2] += nentities[ntyp_entities * k + 12];
+    parallel_offset[2] += nentities[ntyp_entities * k + 13];
+    required_offset[3] += nentities[ntyp_entities * k + 14];
+    parallel_offset[3] += nentities[ntyp_entities * k + 15];
+    required_offset[4] += nentities[ntyp_entities * k + 16];
+    parallel_offset[4] += nentities[ntyp_entities * k + 17];
+  }
+
+  /* We no longer need the number of entities array */
+  free(nentities); nentities = NULL;
+
+}
+
+
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
   /* MMG variables */
   int ier = 1;
@@ -1025,9 +1230,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t nnorg, ntang;                        /* Normals and Tangents */
 
   /* Buffer arrays */
+  /* 6 buffers is the minimum amount for what we have to do */
   double *ppoint;   /* Point coordinates */
   int *pent;        /* Other entities : edges, trias, quads, tetra, prisms. */
-  int *pcornridg;   /* Corners and ridges */
+  int *pcr;         /* Corners and ridges */
   int *preq, *ppar; /* Required and parallel entities */
   int *pref;        /* References */
 
@@ -1069,7 +1275,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Set all buffers to NULL */
   ppoint = NULL;
   pent = NULL;
-  pcornridg = NULL;
+  pcr = NULL;
   preq = NULL; ppar = NULL;
   pref = NULL;
   nentities = NULL;
@@ -1079,7 +1285,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   rank = parmesh->myrank;
   root = parmesh->info.root;
 
-  /* Set local mesh size to 0 */
+  /* Set mesh size to 0 */
   np = na = nt = nquad = ne = nprism = 0;
   nc = nreq = npar = 0;
   nr = nedreq = nedpar = 0;
@@ -1088,7 +1294,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   nereq = nepar = 0;
   nnor = ntan = 0;
 
-  /* Set global mesh size to 0 */
   npg = nag = ntg = nquadg = neg = nprismg = 0;
   ncg = nreqg = nparg = 0;
   nrg = nedreqg = nedparg = 0;
@@ -1131,84 +1336,168 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     return 0;
   }
 
-  /* Vertices, normals and tangents */
-  for (int k = 1 ; k <= mesh->np ; k++) {
-    ppt = &mesh->point[k];
-    if (MG_VOK(ppt)) {
-      ppt->tmp = ++np;
-      ppt->flag = 0;
-      if (ppt->tag & MG_CRN) nc++;
-      if (ppt->tag & MG_REQ) nreq++;
-      if (ppt->tag & MG_PARBDY) npar++;
-      if ((!ppt->flag) || MG_SIN(ppt->tag)) continue;
-      if (ppt->tag & MG_BDY && (!(ppt->tag & MG_GEO) || ppt->tag & MG_NOM)) nnor++;
-      if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) ntan++;
-    }
-  }
+  /* /\* Vertices, normals and tangents *\/ */
+  /* for (int k = 1 ; k <= mesh->np ; k++) { */
+  /*   ppt = &mesh->point[k]; */
+  /*   if (MG_VOK(ppt)) { */
+  /*     ppt->tmp = ++np; */
+  /*     ppt->flag = 0; */
+  /*     if (ppt->tag & MG_CRN) nc++; */
+  /*     if (ppt->tag & MG_REQ) nreq++; */
+  /*     if (ppt->tag & MG_PARBDY) npar++; */
+  /*     if ((!ppt->flag) || MG_SIN(ppt->tag)) continue; */
+  /*     if (ppt->tag & MG_BDY && (!(ppt->tag & MG_GEO) || ppt->tag & MG_NOM)) nnor++; */
+  /*     if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) ntan++; */
+  /*   } */
+  /* } */
 
-  /* Edges */
-  if (mesh->na) {
-    for (int k = 1 ; k <= mesh->na ; k++) {
-      pa = &mesh->edge[k];
-      na++;
-      if (pa->tag & MG_GEO) nr++;
-      if (pa->tag & MG_REQ) nedreq++;
-      if (pa->tag & MG_PARBDY) nedpar++;
-    }
-  }
+  /* /\* Edges *\/ */
+  /* if (mesh->na) { */
+  /*   for (int k = 1 ; k <= mesh->na ; k++) { */
+  /*     pa = &mesh->edge[k]; */
+  /*     na++; */
+  /*     if (pa->tag & MG_GEO) nr++; */
+  /*     if (pa->tag & MG_REQ) nedreq++; */
+  /*     if (pa->tag & MG_PARBDY) nedpar++; */
+  /*   } */
+  /* } */
 
-  /* Triangles */
-  if (mesh->nt) {
-    for (int k = 1 ; k <= mesh->nt ; k++) {
-      pt = &mesh->tria[k];
-      nt++;
-      if (pt->tag[0] & MG_REQ && pt->tag[1] & MG_REQ && pt->tag[2] & MG_REQ) ntreq++;
-      if (pt->tag[0] & MG_PARBDY && pt->tag[1] & MG_PARBDY && pt->tag[2] & MG_PARBDY) ntpar++;
-    }
-  }
+  /* /\* Triangles *\/ */
+  /* if (mesh->nt) { */
+  /*   for (int k = 1 ; k <= mesh->nt ; k++) { */
+  /*     pt = &mesh->tria[k]; */
+  /*     nt++; */
+  /*     if (pt->tag[0] & MG_REQ && pt->tag[1] & MG_REQ && pt->tag[2] & MG_REQ) ntreq++; */
+  /*     if (pt->tag[0] & MG_PARBDY && pt->tag[1] & MG_PARBDY && pt->tag[2] & MG_PARBDY) ntpar++; */
+  /*   } */
+  /* } */
 
-  /* Quadrilaterals */
-  if (mesh->nquad) {
-    for (int k = 1 ; k <= mesh->nquad ; k++) {
-      pq = &mesh->quadra[k];
-      nquad++;
-      if (pq->tag[0] & MG_REQ && pq->tag[1] & MG_REQ &&
-          pq->tag[2] & MG_REQ && pq->tag[3] & MG_REQ) {
-        nqreq++;
-      }
-      if (pq->tag[0] & MG_PARBDY && pq->tag[1] & MG_PARBDY &&
-          pq->tag[2] & MG_PARBDY && pq->tag[3] & MG_PARBDY) {
-        nqpar++;
-      }
-    }
-  }
+  /* /\* Quadrilaterals *\/ */
+  /* if (mesh->nquad) { */
+  /*   for (int k = 1 ; k <= mesh->nquad ; k++) { */
+  /*     pq = &mesh->quadra[k]; */
+  /*     nquad++; */
+  /*     if (pq->tag[0] & MG_REQ && pq->tag[1] & MG_REQ && */
+  /*         pq->tag[2] & MG_REQ && pq->tag[3] & MG_REQ) { */
+  /*       nqreq++; */
+  /*     } */
+  /*     if (pq->tag[0] & MG_PARBDY && pq->tag[1] & MG_PARBDY && */
+  /*         pq->tag[2] & MG_PARBDY && pq->tag[3] & MG_PARBDY) { */
+  /*       nqpar++; */
+  /*     } */
+  /*   } */
+  /* } */
 
-  /* Tetrahedra */
-  if (mesh->ne) {
-    for (int k = 1 ; k <= mesh->ne ; k++) {
-      pe = &mesh->tetra[k];
-      if (!MG_EOK(pe)) {
-        continue;
-      }
-      ne++;
-      if (pe->tag & MG_REQ) nereq++;
-      if (pe->tag & MG_PARBDY) nepar++;
-    }
-  } else {
-    fprintf(stderr, "\n  ## Warning: %s: tetra array not allocated.\n",
-            __func__);
-  }
+  /* /\* Tetrahedra *\/ */
+  /* if (mesh->ne) { */
+  /*   for (int k = 1 ; k <= mesh->ne ; k++) { */
+  /*     pe = &mesh->tetra[k]; */
+  /*     if (!MG_EOK(pe)) { */
+  /*       continue; */
+  /*     } */
+  /*     ne++; */
+  /*     if (pe->tag & MG_REQ) nereq++; */
+  /*     if (pe->tag & MG_PARBDY) nepar++; */
+  /*   } */
+  /* } else { */
+  /*   fprintf(stderr, "\n  ## Warning: %s: tetra array not allocated.\n", */
+  /*           __func__); */
+  /* } */
 
-  /* Prisms */
-  if (mesh->nprism) {
-    for (int k = 1 ; k <= mesh->nprism ; k++) {
-      pp = &mesh->prism[k];
-      if (!MG_EOK(pp)){
-        continue;
-      }
-      nprism++;
-    }
-  }
+  /* /\* Prisms *\/ */
+  /* if (mesh->nprism) { */
+  /*   for (int k = 1 ; k <= mesh->nprism ; k++) { */
+  /*     pp = &mesh->prism[k]; */
+  /*     if (!MG_EOK(pp)){ */
+  /*       continue; */
+  /*     } */
+  /*     nprism++; */
+  /*   } */
+  /* } */
+
+  /*------------------------- COUNT GLOBAL MESH ENTITIES -------------------------*/
+
+  /* nentities = (hsize_t*) calloc(ntyp_entities * nprocs, sizeof(hsize_t)); */
+
+  /* nentities[ntyp_entities * rank]      = np; */
+  /* nentities[ntyp_entities * rank + 1]  = na; */
+  /* nentities[ntyp_entities * rank + 2]  = nt; */
+  /* nentities[ntyp_entities * rank + 3]  = nquad; */
+  /* nentities[ntyp_entities * rank + 4]  = ne; */
+  /* nentities[ntyp_entities * rank + 5]  = nprism; */
+  /* nentities[ntyp_entities * rank + 6]  = nc; */
+  /* nentities[ntyp_entities * rank + 7]  = nreq; */
+  /* nentities[ntyp_entities * rank + 8]  = npar; */
+  /* nentities[ntyp_entities * rank + 9]  = nr; */
+  /* nentities[ntyp_entities * rank + 10] = nedreq; */
+  /* nentities[ntyp_entities * rank + 11] = nedpar; */
+  /* nentities[ntyp_entities * rank + 12] = ntreq; */
+  /* nentities[ntyp_entities * rank + 13] = ntpar; */
+  /* nentities[ntyp_entities * rank + 14] = nqreq; */
+  /* nentities[ntyp_entities * rank + 15] = nqpar; */
+  /* nentities[ntyp_entities * rank + 16] = nereq; */
+  /* nentities[ntyp_entities * rank + 17] = nepar; */
+  /* nentities[ntyp_entities * rank + 18] = nnor; */
+  /* nentities[ntyp_entities * rank + 19] = ntan; */
+
+  /* MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG, */
+  /*               nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm); */
+
+  /* for (int k = 0 ; k < nprocs ; k++) { */
+  /*   npg     += nentities[ntyp_entities * k]; */
+  /*   nag     += nentities[ntyp_entities * k + 1]; */
+  /*   ntg     += nentities[ntyp_entities * k + 2]; */
+  /*   nquadg  += nentities[ntyp_entities * k + 3]; */
+  /*   neg     += nentities[ntyp_entities * k + 4]; */
+  /*   nprismg += nentities[ntyp_entities * k + 5]; */
+  /*   ncg     += nentities[ntyp_entities * k + 6]; */
+  /*   nreqg   += nentities[ntyp_entities * k + 7]; */
+  /*   nparg   += nentities[ntyp_entities * k + 8]; */
+  /*   nrg     += nentities[ntyp_entities * k + 9]; */
+  /*   nedreqg += nentities[ntyp_entities * k + 10]; */
+  /*   nedparg += nentities[ntyp_entities * k + 11]; */
+  /*   ntreqg  += nentities[ntyp_entities * k + 12]; */
+  /*   ntparg  += nentities[ntyp_entities * k + 13]; */
+  /*   nqreqg  += nentities[ntyp_entities * k + 14]; */
+  /*   nqparg  += nentities[ntyp_entities * k + 15]; */
+  /*   nereqg  += nentities[ntyp_entities * k + 16]; */
+  /*   neparg  += nentities[ntyp_entities * k + 17]; */
+  /*   nnorg   += nentities[ntyp_entities * k + 18]; */
+  /*   ntang   += nentities[ntyp_entities * k + 19]; */
+  /* } */
+
+  /*------------------------- COMPUTE OFFSET ARRAYS -------------------------*/
+
+  /* for (int k = 0 ; k < rank ; k++) { */
+  /*   point_offset[0]    += nentities[ntyp_entities * k]; */
+  /*   edge_offset[0]     += nentities[ntyp_entities * k + 1]; */
+  /*   tria_offset[0]     += nentities[ntyp_entities * k + 2]; */
+  /*   quad_offset[0]     += nentities[ntyp_entities * k + 3]; */
+  /*   tetra_offset[0]    += nentities[ntyp_entities * k + 4]; */
+  /*   prism_offset[0]    += nentities[ntyp_entities * k + 5]; */
+  /*   corner_offset      += nentities[ntyp_entities * k + 6]; */
+  /*   required_offset[0] += nentities[ntyp_entities * k + 7]; */
+  /*   parallel_offset[0] += nentities[ntyp_entities * k + 8]; */
+  /*   ridge_offset       += nentities[ntyp_entities * k + 9]; */
+  /*   required_offset[1] += nentities[ntyp_entities * k + 10]; */
+  /*   parallel_offset[1] += nentities[ntyp_entities * k + 11]; */
+  /*   required_offset[2] += nentities[ntyp_entities * k + 12]; */
+  /*   parallel_offset[2] += nentities[ntyp_entities * k + 13]; */
+  /*   required_offset[3] += nentities[ntyp_entities * k + 14]; */
+  /*   parallel_offset[3] += nentities[ntyp_entities * k + 15]; */
+  /*   required_offset[4] += nentities[ntyp_entities * k + 16]; */
+  /*   parallel_offset[4] += nentities[ntyp_entities * k + 17]; */
+  /* } */
+
+  /* /\* We no longer need the number of entities array *\/ */
+  /* free(nentities); nentities = NULL; */
+
+  PMMG_Get_parmeshSize(parmesh, ntyp_entities, &np, &na, &nt, &nquad, &ne, &nprism, &nc, &nreq, &npar,
+                       &nr, &nedreq, &nedpar, &ntreq, &ntpar, &nqreq, &nqpar, &nereq, &nepar, &nnor, &ntan,
+                       &npg, &nag, &ntg, &nquadg, &neg, &nprismg, &ncg, &nreqg, &nparg,
+                       &nrg, &nedreqg, &nedparg, &ntreqg, &ntparg, &nqreqg, &nqparg, &nereqg, &neparg, &nnorg, &ntang,
+                       point_offset, edge_offset, tria_offset, quad_offset, tetra_offset, prism_offset,
+                       &corner_offset, &ridge_offset, required_offset, parallel_offset);
 
   /* Arrays for bidimensional dataspaces */
   hsize_t hnp[2]      = {np,3};
@@ -1217,91 +1506,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t hnquad[2]   = {nquad,4};
   hsize_t hne[2]      = {ne,4};
   hsize_t hnprism[2]  = {nprism,2};
-
-  /*------------------------- COUNT GLOBAL MESH ENTITIES -------------------------*/
-
-  nentities = (hsize_t*) calloc(ntyp_entities * nprocs, sizeof(hsize_t));
-
-  nentities[ntyp_entities * rank]      = np;
-  nentities[ntyp_entities * rank + 1]  = na;
-  nentities[ntyp_entities * rank + 2]  = nt;
-  nentities[ntyp_entities * rank + 3]  = nquad;
-  nentities[ntyp_entities * rank + 4]  = ne;
-  nentities[ntyp_entities * rank + 5]  = nprism;
-  nentities[ntyp_entities * rank + 6]  = nc;
-  nentities[ntyp_entities * rank + 7]  = nreq;
-  nentities[ntyp_entities * rank + 8]  = npar;
-  nentities[ntyp_entities * rank + 9]  = nr;
-  nentities[ntyp_entities * rank + 10] = nedreq;
-  nentities[ntyp_entities * rank + 11] = nedpar;
-  nentities[ntyp_entities * rank + 12] = ntreq;
-  nentities[ntyp_entities * rank + 13] = ntpar;
-  nentities[ntyp_entities * rank + 14] = nqreq;
-  nentities[ntyp_entities * rank + 15] = nqpar;
-  nentities[ntyp_entities * rank + 16] = nereq;
-  nentities[ntyp_entities * rank + 17] = nepar;
-  nentities[ntyp_entities * rank + 18] = nnor;
-  nentities[ntyp_entities * rank + 19] = ntan;
-
-  MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG,
-                nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm);
-
-  for (int k = 0 ; k < nprocs ; k++) {
-    npg     += nentities[ntyp_entities * k];
-    nag     += nentities[ntyp_entities * k + 1];
-    ntg     += nentities[ntyp_entities * k + 2];
-    nquadg  += nentities[ntyp_entities * k + 3];
-    neg     += nentities[ntyp_entities * k + 4];
-    nprismg += nentities[ntyp_entities * k + 5];
-    ncg     += nentities[ntyp_entities * k + 6];
-    nreqg   += nentities[ntyp_entities * k + 7];
-    nparg   += nentities[ntyp_entities * k + 8];
-    nrg     += nentities[ntyp_entities * k + 9];
-    nedreqg += nentities[ntyp_entities * k + 10];
-    nedparg += nentities[ntyp_entities * k + 11];
-    ntreqg  += nentities[ntyp_entities * k + 12];
-    ntparg  += nentities[ntyp_entities * k + 13];
-    nqreqg  += nentities[ntyp_entities * k + 14];
-    nqparg  += nentities[ntyp_entities * k + 15];
-    nereqg  += nentities[ntyp_entities * k + 16];
-    neparg  += nentities[ntyp_entities * k + 17];
-    nnorg   += nentities[ntyp_entities * k + 18];
-    ntang   += nentities[ntyp_entities * k + 19];
-  }
-
-  /* Arrays for bidimensional dataspaces */
   hsize_t hnpg[2]     = {npg,3};
   hsize_t hnag[2]     = {nag,2};
   hsize_t hntg[2]     = {ntg,3};
   hsize_t hnquadg[2]  = {nquadg,4};
   hsize_t hneg[2]     = {neg,4};
   hsize_t hnprismg[2] = {nprismg,2};
-
-  /*------------------------- COMPUTE OFFSET ARRAYS -------------------------*/
-
-  for (int k = 0 ; k < rank ; k++) {
-    point_offset[0]    += nentities[ntyp_entities * k];
-    edge_offset[0]     += nentities[ntyp_entities * k + 1];
-    tria_offset[0]     += nentities[ntyp_entities * k + 2];
-    quad_offset[0]     += nentities[ntyp_entities * k + 3];
-    tetra_offset[0]    += nentities[ntyp_entities * k + 4];
-    prism_offset[0]    += nentities[ntyp_entities * k + 5];
-    corner_offset      += nentities[ntyp_entities * k + 6];
-    required_offset[0] += nentities[ntyp_entities * k + 7];
-    parallel_offset[0] += nentities[ntyp_entities * k + 8];
-    ridge_offset       += nentities[ntyp_entities * k + 9];
-    required_offset[1] += nentities[ntyp_entities * k + 10];
-    parallel_offset[1] += nentities[ntyp_entities * k + 11];
-    required_offset[2] += nentities[ntyp_entities * k + 12];
-    parallel_offset[2] += nentities[ntyp_entities * k + 13];
-    required_offset[3] += nentities[ntyp_entities * k + 14];
-    parallel_offset[3] += nentities[ntyp_entities * k + 15];
-    required_offset[4] += nentities[ntyp_entities * k + 16];
-    parallel_offset[4] += nentities[ntyp_entities * k + 17];
-  }
-
-  /* We no longer need the number of entities array */
-  free(nentities); nentities = NULL;
 
   /*------------------------- COMMUNICATORS -------------------------*/
 
@@ -1354,10 +1564,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Save the attributes (Version and Dimension) */
   dspace_file_id = H5Screate(H5S_SCALAR);
   attr_ver_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(attr_ver_id, H5T_NATIVE_INT, &mesh->ver);
+  if (rank == root)
+    status = H5Awrite(attr_ver_id, H5T_NATIVE_INT, &mesh->ver);
   H5Aclose(attr_ver_id);
   attr_dim_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(attr_dim_id, H5T_NATIVE_INT, &mesh->dim);
+  if (rank == root)
+    status = H5Awrite(attr_dim_id, H5T_NATIVE_INT, &mesh->dim);
   H5Aclose(attr_dim_id);
   H5Sclose(dspace_file_id);
 
@@ -1367,7 +1579,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   /*------------------------- WRITE COMMUNICATORS -------------------------*/
 
-  grp_comm_id = H5Gcreate2(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  grp_comm_id = H5Gcreate(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   /* Number of communicators */
   hsize_t hnprocs = nprocs;
@@ -1401,12 +1613,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   /*------------------------- WRITE MESH ENTITIES -------------------------*/
 
-  grp_entities_id = H5Gcreate2(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   /* Vertices */
   ppoint = (double*) calloc(np, 3 * sizeof(double));
   pref = (int*) calloc(np, sizeof(int));
-  pcornridg = (int*) calloc(nc, sizeof(int));
+  pcr = (int*) calloc(nc, sizeof(int));
   preq = (int*) calloc(nreq, sizeof(int));
   ppar = (int*) calloc(npar, sizeof(int));
 
@@ -1418,9 +1630,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
       for (int j = 0 ; j < 3 ; j++) {
         ppoint[3 * (ppt->tmp - 1) + j] = ppt->c[j];
       }
-      if (ppt->tag & MG_CRN)    pcornridg[crcount++] = ppt->tmp + point_offset[0] - 1;
+      if (ppt->tag & MG_CRN)    pcr[crcount++] = ppt->tmp + point_offset[0] - 1;
       if (ppt->tag & MG_REQ)    preq[reqcount++]   = ppt->tmp + point_offset[0] - 1;
-      if (ppt->tag & MG_PARBDY) ppar[parcount++]   = ppt->tmp + point_offset[0] - 1;
+      if (ppt->tag & MG_PARBDY) ppar[parcount++]   = ppt->tmp - 1; /* Local index for parallel entities */
       pref[ppt->tmp - 1] = abs(ppt->ref);
     }
   }
@@ -1449,11 +1661,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   dspace_file_id = H5Screate_simple(1, &ncg, NULL);
   status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &corner_offset, NULL, &nc, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Corners", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcornridg);
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
   H5Sclose(dspace_mem_id);
   H5Sclose(dspace_file_id);
-  free(pcornridg) ; pcornridg = NULL;
+  free(pcr) ; pcr = NULL;
 
   dspace_mem_id  = H5Screate_simple(1, &nreq, NULL);
   dspace_file_id = H5Screate_simple(1, &nreqg, NULL);
@@ -1478,7 +1690,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Edges */
   pent = (int*) calloc(na, 2 * sizeof(int));
   pref = (int*) calloc(na, sizeof(int));
-  pcornridg = (int*) calloc(nr, sizeof(int));
+  pcr = (int*) calloc(nr, sizeof(int));
   preq = (int*) calloc(nedreq, sizeof(int));
   ppar = (int*) calloc(nedpar, sizeof(int));
 
@@ -1491,9 +1703,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
       pent[2 * i]     = mesh->point[pa->a].tmp + point_offset[0] - 1;
       pent[2 * i + 1] = mesh->point[pa->b].tmp + point_offset[0] - 1;
       pref[i] = pa->ref;
-      if (pa->tag & MG_GEO)    pcornridg[crcount++] = na + edge_offset[0];
+      if (pa->tag & MG_GEO)    pcr[crcount++] = na + edge_offset[0];
       if (pa->tag & MG_REQ)    preq[reqcount++] = na + edge_offset[0];
-      if (pa->tag & MG_PARBDY) ppar[parcount++] = na + edge_offset[0];
+      if (pa->tag & MG_PARBDY) ppar[parcount++] = na; /* Local index for parallel entities */
       na++;
     }
   }
@@ -1522,11 +1734,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   dspace_file_id = H5Screate_simple(1, &nrg, NULL);
   status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &ridge_offset, NULL, &nr, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Ridges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcornridg);
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
   H5Sclose(dspace_mem_id);
   H5Sclose(dspace_file_id);
-  free(pcornridg); pcornridg = NULL;
+  free(pcr); pcr = NULL;
 
   dspace_mem_id  = H5Screate_simple(1, &nedreq, NULL);
   dspace_file_id = H5Screate_simple(1, &nedreqg, NULL);
@@ -1568,7 +1780,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
         preq[reqcount++] = nt + tria_offset[0];
       }
       if (pt->tag[0] & MG_PARBDY && pt->tag[1] & MG_PARBDY && pt->tag[2] & MG_PARBDY) {
-        ppar[parcount++] = nt + tria_offset[0];
+        ppar[parcount++] = nt; /* Local index for parallel entities */
       }
       nt++;
     }
@@ -1636,7 +1848,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
       }
       if (pq->tag[0] & MG_PARBDY && pq->tag[1] & MG_PARBDY &&
           pq->tag[2] & MG_PARBDY && pq->tag[3] & MG_PARBDY) {
-        ppar[parcount++] = nquad + quad_offset[0];
+        ppar[parcount++] = nquad; /* Local index for parallel entities */
       }
       nquad++;
     }
@@ -1701,7 +1913,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
       }
       pref[i] = pe->ref;
       if (pe->tag & MG_REQ)    preq[reqcount++] = ne + tetra_offset[0];
-      if (pe->tag & MG_PARBDY) ppar[parcount++] = ne + tetra_offset[0];
+      if (pe->tag & MG_PARBDY) ppar[parcount++] = ne; /* Local index for parallel entities */
       ne++;
     }
   }
@@ -1804,7 +2016,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   dspace_mem_id = H5Screate_simple(2, hns, NULL);
   dspace_file_id = H5Screate_simple(2, hnsg, NULL);
   H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hns, NULL);
-  dset_id = H5Dcreate2(grp_sols_id, "MetricAtVertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  dset_id = H5Dcreate(grp_sols_id, "MetricAtVertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, &(met->m[1]));
   H5Dclose(dset_id);
   H5Sclose(dspace_mem_id);
@@ -1885,4 +2097,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /*------------------------- END -------------------------*/
 
   return ier;
+}
+
+
+int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
+
+  return 1;
 }
