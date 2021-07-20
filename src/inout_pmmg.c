@@ -991,13 +991,9 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
-int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
+static int PMMG_countEntities(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities, hsize_t* nentitiesg) {
   /* MMG variables */
-  int ier = 1;
-  int nsols;
   PMMG_pGrp grp;
-  PMMG_pExt_comm comms;
-  MMG5_pSol met, *sols;
   MMG5_pMesh mesh;
   MMG5_pPoint ppt;
   MMG5_pEdge pa;
@@ -1006,7 +1002,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   MMG5_pTetra pe;
   MMG5_pPrism pp;
 
-  /* Local mesh size */
+  /* Local number of entities */
   hsize_t ne, np, nt, na, nquad, nprism;       /* Tetra, points, triangles, edges, quads, prisms */
   hsize_t nc, nreq, npar;                      /* Corners, required and parallel vertices */
   hsize_t nr, nedreq, nedpar;                  /* Ridges, required and parallel edges */
@@ -1015,73 +1011,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t nereq, nepar;                        /* Required and parallel tetra */
   hsize_t nnor, ntan;                          /* Normals and Tangents */
 
-  /* Global mesh size */
-  hsize_t neg, npg, ntg, nag, nquadg, nprismg; /* Tetra, points, triangles, edges, quads, prisms */
-  hsize_t ncg, nreqg, nparg;                   /* Corners, required and parallel vertices */
-  hsize_t nrg, nedreqg, nedparg;               /* Ridges, required and parallel edges */
-  hsize_t ntreqg, ntparg;                      /* Required and parallel triangles */
-  hsize_t nqreqg, nqparg;                      /* Required and parallel quads */
-  hsize_t nereqg, neparg;                      /* Required and parallel tetra */
-  hsize_t nnorg, ntang;                        /* Normals and Tangents */
-
-  /* Mesh buffer arrays */
-  /* 6 buffers is the minimum amount for what we have to do */
-  double *ppoint;   /* Point coordinates */
-  int *pent;        /* Other entities : edges, trias, quads, tetra, prisms. */
-  int *pcr;         /* Corners and ridges */
-  int *preq, *ppar; /* Required and parallel entities */
-  int *pref;        /* References */
-
-  /* Comm buffers */
-  hsize_t *ncomms, ncommg, comm_offset;
-  int *colors, *nface;
-
-  /* Store the number of entities */
-  /* This only serves as a buffer for the MPI communication */
-  int ntyp_entities = 20;
-  hsize_t *nentities;
-
-  /* Counters for the corners/ridges, the required entities and the parallel entities */
-  int crcount, reqcount, parcount;
-
-  /* Offsets for parallel writing */
-  hsize_t point_offset[3] = {0, 0, 0};
-  hsize_t edge_offset[2]  = {0, 0};
-  hsize_t tria_offset[3]  = {0, 0, 0};
-  hsize_t quad_offset[4]  = {0, 0, 0, 0};
-  hsize_t tetra_offset[4] = {0, 0, 0, 0};
-  hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
-  hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /* Used for the required entities */
-  hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
-  hsize_t corner_offset = 0;                        /* Used for the corners */
-  hsize_t ridge_offset = 0;                         /* Used for the ridges */
-  hsize_t *sol_offset;
-
-  /* HDF5 variables */
-  hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
-  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* Property lists */
-  hid_t attr_dim_id, attr_ver_id;                                        /* Attributes */
-  hid_t dspace_mem_id, dspace_file_id;                                   /* Dataspaces */
-  hid_t dset_id;                                                         /* Dataset */
-  herr_t status;
-
   /* MPI variables */
-  MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
   int rank, root, nprocs;
-
-  /*------------------------- INIT -------------------------*/
-
-  /* Set all buffers to NULL */
-  ppoint = NULL;
-  pent = NULL;
-  pcr = NULL;
-  preq = NULL; ppar = NULL;
-  pref = NULL;
-  nentities = NULL;
-  colors = NULL;
-  nface = NULL;
-  ncomms = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
@@ -1097,33 +1029,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   nereq = nepar = 0;
   nnor = ntan = 0;
 
-  npg = nag = ntg = nquadg = neg = nprismg = 0;
-  ncg = nreqg = nparg = 0;
-  nrg = nedreqg = nedparg = 0;
-  ntreqg = ntparg = 0;
-  nqreqg = nqparg = 0;
-  nereqg = neparg = 0;
-  nnorg = ntang = 0;
-
-  /* Check arguments */
-  if (parmesh->ngrp != 1) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
-            __func__);
-    return 0;
-  }
-  if (!filename || !*filename) {
-    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
-            __func__);
-    return 0;
-  }
-
   /* Set ParMmg variables */
   grp = &parmesh->listgrp[0];
-  comms = parmesh->ext_face_comm;
   mesh = grp->mesh;
-  met = grp->met;
-  sols = &grp->field;
-  nsols = mesh->nsols;
   ppt = NULL;
   pa = NULL;
   pt = NULL;
@@ -1131,13 +1039,26 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   pe = NULL;
   pp = NULL;
 
-  /*------------------------- COUNT LOCAL MESH ENTITIES -------------------------*/
+  /* Check arguments */
+  if (!nentities) {
+    fprintf(stderr, "\n  ## Error: %s: nentities array not allocated.\n",
+            __func__);
+    return 0;
+  }
+  if (!nentitiesg) {
+    fprintf(stderr, "\n  ## Error: %s: nentitiesg array not allocated.\n",
+            __func__);
+    return 0;
+  }
 
+  /* Check mesh */
   if ( !mesh->point ) {
     fprintf(stderr, "\n  ## Error: %s: points array not allocated.\n",
             __func__);
     return 0;
   }
+
+  /* Count local entities */
 
   /* Vertices, normals and tangents */
   for (int k = 1 ; k <= mesh->np ; k++) {
@@ -1218,215 +1139,295 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     }
   }
 
-  /*------------------------- COUNT GLOBAL MESH ENTITIES -------------------------*/
-
-  nentities = (hsize_t*) calloc(ntyp_entities * nprocs, sizeof(hsize_t));
-
-  nentities[ntyp_entities * rank]      = np;
-  nentities[ntyp_entities * rank + 1]  = na;
-  nentities[ntyp_entities * rank + 2]  = nt;
-  nentities[ntyp_entities * rank + 3]  = nquad;
-  nentities[ntyp_entities * rank + 4]  = ne;
-  nentities[ntyp_entities * rank + 5]  = nprism;
-  nentities[ntyp_entities * rank + 6]  = nc;
-  nentities[ntyp_entities * rank + 7]  = nreq;
-  nentities[ntyp_entities * rank + 8]  = npar;
-  nentities[ntyp_entities * rank + 9]  = nr;
-  nentities[ntyp_entities * rank + 10] = nedreq;
-  nentities[ntyp_entities * rank + 11] = nedpar;
-  nentities[ntyp_entities * rank + 12] = ntreq;
-  nentities[ntyp_entities * rank + 13] = ntpar;
-  nentities[ntyp_entities * rank + 14] = nqreq;
-  nentities[ntyp_entities * rank + 15] = nqpar;
-  nentities[ntyp_entities * rank + 16] = nereq;
-  nentities[ntyp_entities * rank + 17] = nepar;
-  nentities[ntyp_entities * rank + 18] = nnor;
-  nentities[ntyp_entities * rank + 19] = ntan;
+  /* Count global entities */
+  nentities[ntyp_entities * rank + PMMG_saveVertex]  = np;
+  nentities[ntyp_entities * rank + PMMG_saveEdge]    = na;
+  nentities[ntyp_entities * rank + PMMG_saveTria]    = nt;
+  nentities[ntyp_entities * rank + PMMG_saveQuad]    = nquad;
+  nentities[ntyp_entities * rank + PMMG_saveTetra]   = ne;
+  nentities[ntyp_entities * rank + PMMG_savePrism]   = nprism;
+  nentities[ntyp_entities * rank + PMMG_saveCorner]  = nc;
+  nentities[ntyp_entities * rank + PMMG_saveReq]     = nreq;
+  nentities[ntyp_entities * rank + PMMG_savePar]     = npar;
+  nentities[ntyp_entities * rank + PMMG_saveRidge]   = nr;
+  nentities[ntyp_entities * rank + PMMG_saveEdReq]   = nedreq;
+  nentities[ntyp_entities * rank + PMMG_saveEdPar]   = nedpar;
+  nentities[ntyp_entities * rank + PMMG_saveTriaReq] = ntreq;
+  nentities[ntyp_entities * rank + PMMG_saveTriaPar] = ntpar;
+  nentities[ntyp_entities * rank + PMMG_saveQuadReq] = nqreq;
+  nentities[ntyp_entities * rank + PMMG_saveQuadPar] = nqpar;
+  nentities[ntyp_entities * rank + PMMG_saveTetReq]  = nereq;
+  nentities[ntyp_entities * rank + PMMG_saveTetPar]  = nepar;
+  nentities[ntyp_entities * rank + PMMG_saveNormal]  = nnor;
+  nentities[ntyp_entities * rank + PMMG_saveTangent] = ntan;
 
   MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG,
                 nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm);
 
   for (int k = 0 ; k < nprocs ; k++) {
-    npg     += nentities[ntyp_entities * k];
-    nag     += nentities[ntyp_entities * k + 1];
-    ntg     += nentities[ntyp_entities * k + 2];
-    nquadg  += nentities[ntyp_entities * k + 3];
-    neg     += nentities[ntyp_entities * k + 4];
-    nprismg += nentities[ntyp_entities * k + 5];
-    ncg     += nentities[ntyp_entities * k + 6];
-    nreqg   += nentities[ntyp_entities * k + 7];
-    nparg   += nentities[ntyp_entities * k + 8];
-    nrg     += nentities[ntyp_entities * k + 9];
-    nedreqg += nentities[ntyp_entities * k + 10];
-    nedparg += nentities[ntyp_entities * k + 11];
-    ntreqg  += nentities[ntyp_entities * k + 12];
-    ntparg  += nentities[ntyp_entities * k + 13];
-    nqreqg  += nentities[ntyp_entities * k + 14];
-    nqparg  += nentities[ntyp_entities * k + 15];
-    nereqg  += nentities[ntyp_entities * k + 16];
-    neparg  += nentities[ntyp_entities * k + 17];
-    nnorg   += nentities[ntyp_entities * k + 18];
-    ntang   += nentities[ntyp_entities * k + 19];
+    nentitiesg[PMMG_saveVertex]  += nentities[ntyp_entities * k + PMMG_saveVertex];
+    nentitiesg[PMMG_saveEdge]    += nentities[ntyp_entities * k + PMMG_saveEdge];
+    nentitiesg[PMMG_saveTria]    += nentities[ntyp_entities * k + PMMG_saveTria];
+    nentitiesg[PMMG_saveQuad]    += nentities[ntyp_entities * k + PMMG_saveQuad];
+    nentitiesg[PMMG_saveTetra]   += nentities[ntyp_entities * k + PMMG_saveTetra];
+    nentitiesg[PMMG_savePrism]   += nentities[ntyp_entities * k + PMMG_savePrism];
+    nentitiesg[PMMG_saveCorner]  += nentities[ntyp_entities * k + PMMG_saveCorner];
+    nentitiesg[PMMG_saveReq]     += nentities[ntyp_entities * k + PMMG_saveReq];
+    nentitiesg[PMMG_savePar]     += nentities[ntyp_entities * k + PMMG_savePar];
+    nentitiesg[PMMG_saveRidge]   += nentities[ntyp_entities * k + PMMG_saveRidge];
+    nentitiesg[PMMG_saveEdReq]   += nentities[ntyp_entities * k + PMMG_saveEdReq];
+    nentitiesg[PMMG_saveEdPar]   += nentities[ntyp_entities * k + PMMG_saveEdPar];
+    nentitiesg[PMMG_saveTriaReq] += nentities[ntyp_entities * k + PMMG_saveTriaReq];
+    nentitiesg[PMMG_saveTriaPar] += nentities[ntyp_entities * k + PMMG_saveTriaPar];
+    nentitiesg[PMMG_saveQuadReq] += nentities[ntyp_entities * k + PMMG_saveQuadReq];
+    nentitiesg[PMMG_saveQuadPar] += nentities[ntyp_entities * k + PMMG_saveQuadPar];
+    nentitiesg[PMMG_saveTetReq]  += nentities[ntyp_entities * k + PMMG_saveTetReq];
+    nentitiesg[PMMG_saveTetPar]  += nentities[ntyp_entities * k + PMMG_saveTetPar];
+    nentitiesg[PMMG_saveNormal]  += nentities[ntyp_entities * k + PMMG_saveNormal];
+    nentitiesg[PMMG_saveTangent] += nentities[ntyp_entities * k + PMMG_saveTangent];
   }
 
-  /*------------------------- COMPUTE OFFSET ARRAYS -------------------------*/
+  return 1;
+}
 
-  for (int k = 0 ; k < rank ; k++) {
-    point_offset[0]    += nentities[ntyp_entities * k];
-    edge_offset[0]     += nentities[ntyp_entities * k + 1];
-    tria_offset[0]     += nentities[ntyp_entities * k + 2];
-    quad_offset[0]     += nentities[ntyp_entities * k + 3];
-    tetra_offset[0]    += nentities[ntyp_entities * k + 4];
-    prism_offset[0]    += nentities[ntyp_entities * k + 5];
-    corner_offset      += nentities[ntyp_entities * k + 6];
-    required_offset[0] += nentities[ntyp_entities * k + 7];
-    parallel_offset[0] += nentities[ntyp_entities * k + 8];
-    ridge_offset       += nentities[ntyp_entities * k + 9];
-    required_offset[1] += nentities[ntyp_entities * k + 10];
-    parallel_offset[1] += nentities[ntyp_entities * k + 11];
-    required_offset[2] += nentities[ntyp_entities * k + 12];
-    parallel_offset[2] += nentities[ntyp_entities * k + 13];
-    required_offset[3] += nentities[ntyp_entities * k + 14];
-    parallel_offset[3] += nentities[ntyp_entities * k + 15];
-    required_offset[4] += nentities[ntyp_entities * k + 16];
-    parallel_offset[4] += nentities[ntyp_entities * k + 17];
+static int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities,
+                                 hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset,
+                                 hsize_t *quad_offset, hsize_t *tetra_offset, hsize_t *prism_offset,
+                                 hsize_t *corner_offset, hsize_t *ridge_offset,
+                                 hsize_t *required_offset, hsize_t *parallel_offset) {
+
+  for (int k = 0 ; k < parmesh->myrank ; k++) {
+    point_offset[0]    += nentities[ntyp_entities * k + PMMG_saveVertex];
+    edge_offset[0]     += nentities[ntyp_entities * k + PMMG_saveEdge];
+    tria_offset[0]     += nentities[ntyp_entities * k + PMMG_saveTria];
+    quad_offset[0]     += nentities[ntyp_entities * k + PMMG_saveQuad];
+    tetra_offset[0]    += nentities[ntyp_entities * k + PMMG_saveTetra];
+    prism_offset[0]    += nentities[ntyp_entities * k + PMMG_savePrism];
+    *corner_offset     += nentities[ntyp_entities * k + PMMG_saveCorner];
+    required_offset[0] += nentities[ntyp_entities * k + PMMG_saveReq];
+    parallel_offset[0] += nentities[ntyp_entities * k + PMMG_savePar];
+    *ridge_offset      += nentities[ntyp_entities * k + PMMG_saveRidge];
+    required_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdReq];
+    parallel_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdPar];
+    required_offset[2] += nentities[ntyp_entities * k + PMMG_saveTriaReq];
+    parallel_offset[2] += nentities[ntyp_entities * k + PMMG_saveTriaPar];
+    required_offset[3] += nentities[ntyp_entities * k + PMMG_saveQuadReq];
+    parallel_offset[3] += nentities[ntyp_entities * k + PMMG_saveQuadPar];
+    required_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetReq];
+    parallel_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetPar];
   }
 
-  /* We no longer need the number of entities array */
-  free(nentities); nentities = NULL;
+  return 1;
+}
+
+static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
+  hsize_t neg, npg;
+  PMMG_pGrp grp;
+  MMG5_pSol met, *sols;
+  int nsols, rank, root;
+
+  npg  = nentitiesg[PMMG_saveVertex];
+  neg  = nentitiesg[PMMG_saveTetra];
+  grp  = &parmesh->listgrp[0];
+  met  = grp->met;
+  sols = &grp->field;
+  nsols = grp->mesh->nsols;
+  rank = parmesh->myrank;
+  root = parmesh->info.root;
+
+  if (rank == root) {
+    FILE *xdmf_file = NULL;
+    xdmf_file = fopen(xdmfname, "w");
+    fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+    fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
+    fprintf(xdmf_file, "<Domain>\n");
+    fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
+    fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%llu\">\n", neg);
+    fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%llu 4\">\n", neg);
+    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Tetrahedra\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Topology>\n");
+    fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
+    fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+    fprintf(xdmf_file, "                  Precision=\"8\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%llu 3\">\n", npg);
+    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Geometry>\n");
+    if (met) {
+      if (met->size == 6)
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
+      else if (met->size == 1)
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n");
+      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+      fprintf(xdmf_file, "                  Precision=\"8\"\n");
+      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, met->size);
+      fprintf(xdmf_file, "          %s:/Solutions/MetricAtVertices\n", filename);
+      fprintf(xdmf_file, "        </DataItem>\n");
+      fprintf(xdmf_file, "      </Attribute>\n");
+    }
+    for (int i = 0 ; i < nsols ; i++) {
+      if (sols[i]->type == MMG5_Scalar) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
+      }
+      else if (sols[i]->type == MMG5_Vector) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i);
+      }
+      else if (sols[i]->type == MMG5_Tensor) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i);
+      }
+      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+      fprintf(xdmf_file, "                  Precision=\"8\"\n");
+      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i]->size);
+      fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", filename, i);
+      fprintf(xdmf_file, "        </DataItem>\n");
+      fprintf(xdmf_file, "      </Attribute>\n");
+    }
+    fprintf(xdmf_file, "    </Grid>\n");
+    fprintf(xdmf_file, "  </Domain>\n");
+    fprintf(xdmf_file, "</Xdmf>\n");
+    fclose(xdmf_file);
+  }
+
+  return 1;
+}
+
+static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dcpl_id, hid_t dxpl_id,
+                                      int ntyp_entities, hsize_t *nentities, hsize_t *nentitiesg,
+                                      hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset, hsize_t *quad_offset,
+                                      hsize_t *tetra_offset, hsize_t *prism_offset, hsize_t *required_offset, hsize_t *parallel_offset,
+                                      hsize_t *corner_offset, hsize_t *ridge_offset) {
+  /* MMG variables */
+  PMMG_pGrp grp;
+  MMG5_pMesh mesh;
+  MMG5_pPoint ppt;
+  MMG5_pEdge pa;
+  MMG5_pTria pt;
+  MMG5_pQuad pq;
+  MMG5_pTetra pe;
+  MMG5_pPrism pp;
+
+  /* Local mesh size */
+  hsize_t ne, np, nt, na, nquad, nprism;       /* Tetra, points, triangles, edges, quads, prisms */
+  hsize_t nc, nreq, npar;                      /* Corners, required and parallel vertices */
+  hsize_t nr, nedreq, nedpar;                  /* Ridges, required and parallel edges */
+  hsize_t ntreq, ntpar;                        /* Required and parallel triangles */
+  hsize_t nqreq, nqpar;                        /* Required and parallel quads */
+  hsize_t nereq, nepar;                        /* Required and parallel tetra */
+  hsize_t nnor, ntan;                          /* Normals and Tangents */
+  /* Global mesh size */
+  hsize_t neg, npg, ntg, nag, nquadg, nprismg; /* Tetra, points, triangles, edges, quads, prisms */
+  hsize_t ncg, nreqg, nparg;                   /* Corners, required and parallel vertices */
+  hsize_t nrg, nedreqg, nedparg;               /* Ridges, required and parallel edges */
+  hsize_t ntreqg, ntparg;                      /* Required and parallel triangles */
+  hsize_t nqreqg, nqparg;                      /* Required and parallel quads */
+  hsize_t nereqg, neparg;                      /* Required and parallel tetra */
+  hsize_t nnorg, ntang;                        /* Normals and Tangents */
+
+  /* Mesh buffer arrays */
+  /* 6 buffers is the minimum amount for what we have to do */
+  double *ppoint;   /* Point coordinates */
+  int *pent;        /* Other entities : edges, trias, quads, tetra, prisms. */
+  int *pcr;         /* Corners and ridges */
+  int *preq, *ppar; /* Required and parallel entities */
+  int *pref;        /* References */
+
+  /* Counters for the corners/ridges, the required entities and the parallel entities */
+  int crcount, reqcount, parcount;
+
+  /* MPI variables */
+  int rank, root, nprocs;
+
+  /* HDF5 variables */
+  hid_t dspace_mem_id, dspace_file_id;
+  hid_t dset_id;
+  herr_t status;
+
+  /*------------------------- INIT -------------------------*/
+
+  /* Set all buffers to NULL */
+  ppoint = NULL;
+  pent = NULL;
+  pcr = NULL;
+  preq = NULL; ppar = NULL;
+  pref = NULL;
+
+  /* Set MPI variables */
+  nprocs = parmesh->nprocs;
+  rank = parmesh->myrank;
+  root = parmesh->info.root;
+
+  /* Set ParMmg variables */
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+  ppt = NULL;
+  pa = NULL;
+  pt = NULL;
+  pq = NULL;
+  pe = NULL;
+  pp = NULL;
+
+  /* Get the number of entities */
+  np     = nentities[ntyp_entities * rank + PMMG_saveVertex];
+  na     = nentities[ntyp_entities * rank + PMMG_saveEdge];
+  nt     = nentities[ntyp_entities * rank + PMMG_saveTria];
+  nquad  = nentities[ntyp_entities * rank + PMMG_saveQuad];
+  ne     = nentities[ntyp_entities * rank + PMMG_saveTetra];
+  nprism = nentities[ntyp_entities * rank + PMMG_savePrism];
+  nc     = nentities[ntyp_entities * rank + PMMG_saveCorner];
+  nreq   = nentities[ntyp_entities * rank + PMMG_saveReq];
+  npar   = nentities[ntyp_entities * rank + PMMG_savePar];
+  nr     = nentities[ntyp_entities * rank + PMMG_saveRidge];
+  nedreq = nentities[ntyp_entities * rank + PMMG_saveEdReq];
+  nedpar = nentities[ntyp_entities * rank + PMMG_saveEdPar];
+  ntreq  = nentities[ntyp_entities * rank + PMMG_saveTriaReq];
+  ntpar  = nentities[ntyp_entities * rank + PMMG_saveTriaPar];
+  nqreq  = nentities[ntyp_entities * rank + PMMG_saveQuadReq];
+  nqpar  = nentities[ntyp_entities * rank + PMMG_saveQuadPar];
+  nereq  = nentities[ntyp_entities * rank + PMMG_saveTetReq];
+  nepar  = nentities[ntyp_entities * rank + PMMG_saveTetPar];
+  nnor   = nentities[ntyp_entities * rank + PMMG_saveNormal];
+  ntan   = nentities[ntyp_entities * rank + PMMG_saveTangent];
+
+  npg     = nentitiesg[PMMG_saveVertex];
+  nag     = nentitiesg[PMMG_saveEdge];
+  ntg     = nentitiesg[PMMG_saveTria];
+  nquadg  = nentitiesg[PMMG_saveQuad];
+  neg     = nentitiesg[PMMG_saveTetra];
+  nprismg = nentitiesg[PMMG_savePrism];
+  ncg     = nentitiesg[PMMG_saveCorner];
+  nreqg   = nentitiesg[PMMG_saveReq];
+  nparg   = nentitiesg[PMMG_savePar];
+  nrg     = nentitiesg[PMMG_saveRidge];
+  nedreqg = nentitiesg[PMMG_saveEdReq];
+  nedparg = nentitiesg[PMMG_saveEdPar];
+  ntreqg  = nentitiesg[PMMG_saveTetReq];
+  ntparg  = nentitiesg[PMMG_saveTetPar];
+  nqreqg  = nentitiesg[PMMG_saveQuadReq];
+  nqparg  = nentitiesg[PMMG_saveQuadPar];
+  nereqg  = nentitiesg[PMMG_saveTetReq];
+  neparg  = nentitiesg[PMMG_saveTetPar];
+  nnorg   = nentitiesg[PMMG_saveNormal];
+  ntang   = nentitiesg[PMMG_saveTangent];
 
   /* Arrays for bidimensional dataspaces */
-  hsize_t hnp[2]      = {np,3};
-  hsize_t hna[2]      = {na,2};
-  hsize_t hnt[2]      = {nt,3};
-  hsize_t hnquad[2]   = {nquad,4};
-  hsize_t hne[2]      = {ne,4};
-  hsize_t hnprism[2]  = {nprism,2};
-  hsize_t hnpg[2]     = {npg,3};
-  hsize_t hnag[2]     = {nag,2};
-  hsize_t hntg[2]     = {ntg,3};
-  hsize_t hnquadg[2]  = {nquadg,4};
-  hsize_t hneg[2]     = {neg,4};
-  hsize_t hnprismg[2] = {nprismg,2};
-
-  /*------------------------- COMMUNICATORS -------------------------*/
-
-  ncommg = comm_offset = 0;
-
-  /* Count the number of communicators */
-  PMMG_MALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", return 0);
-  ncomms[rank] = parmesh->next_face_comm;
-  MPI_Allgather(&ncomms[rank], 1, MPI_LONG_LONG, ncomms, 1, MPI_LONG_LONG, comm);
-
-  for (int i = 0 ; i < nprocs ; i++) {
-    ncommg += ncomms[i];
-  }
-  for (int i = 0 ; i < rank ; i++) {
-    comm_offset += ncomms[i];
-  }
-
-  /* Create the buffers */
-  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", return 0);
-  PMMG_MALLOC(parmesh, nface, ncomms[rank], int, "nface", return 0);
-
-  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    colors[icomm] = comms[icomm].color_out;
-    nface[icomm] = comms[icomm].nitem;
-  }
-
-  /*------------------------- HDF5 IOs START HERE -------------------------*/
-
-  /* Shut HDF5 error stack */
-  H5Eset_auto(H5E_DEFAULT, NULL, NULL);
-
-  /* Create the parallel file acces and the parallel dataset transfer property lists */
-  fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-  status = H5Pset_fapl_mpio(fapl_id, comm, info);
-  dxpl_id = H5Pcreate(H5P_DATASET_XFER);
-  status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
-
-  /* Create the dataset creation property list to tell we don't want to write any fill value */
-  dcpl_id = H5Pcreate(H5P_DATASET_CREATE);
-  status = H5Pset_fill_time(dcpl_id, H5D_FILL_TIME_NEVER);
-
-  /*------------------------- OPEN FILE AND WRITE DATA -------------------------*/
-
-  /* Create the file */
-  file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
-  if (file_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not create the hdf5 file.\n",
-            __func__);
-    return 0;
-  }
-
-  /* Save the attributes (Version and Dimension) */
-  dspace_file_id = H5Screate(H5S_SCALAR);
-  attr_ver_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  if (rank == root)
-    status = H5Awrite(attr_ver_id, H5T_NATIVE_INT, &mesh->ver);
-  H5Aclose(attr_ver_id);
-  attr_dim_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  if (rank == root)
-    status = H5Awrite(attr_dim_id, H5T_NATIVE_INT, &mesh->dim);
-  H5Aclose(attr_dim_id);
-  H5Sclose(dspace_file_id);
-
-  /*------------------------- WRITE MESH -------------------------*/
-
-  grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  if (grp_mesh_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not create the mesh group.\n",
-            __func__);
-    return 0;
-  }
-
-  /*------------------------- WRITE COMMUNICATORS -------------------------*/
-
-  grp_comm_id = H5Gcreate(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  if (grp_comm_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not create the communicators group.\n",
-            __func__);
-    return 0;
-  }
-
-  /* Number of communicators */
-  hsize_t hnprocs = nprocs;
-  dspace_file_id = H5Screate_simple(1, &hnprocs, NULL);
-  dset_id = H5Dcreate(grp_comm_id, "NumberOfFaceCommunicators", H5T_NATIVE_LLONG, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  if (rank == root)
-    status = H5Dwrite(dset_id, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &ncomms[rank]);
-  H5Dclose(dset_id);
-  H5Sclose(dspace_file_id);
-
-  /* For each communicator, write the number of faces and the outward proc color */
-  dspace_mem_id  = H5Screate_simple(1, &ncomms[rank], NULL);
-  dspace_file_id = H5Screate_simple(1, &ncommg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
-
-  dset_id = H5Dcreate(grp_comm_id, "ColorsOut", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, colors);
-  H5Dclose(dset_id);
-
-  dset_id = H5Dcreate(grp_comm_id, "NumberOfCommunicatorFaces", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, nface);
-  H5Dclose(dset_id);
-
-  H5Sclose(dspace_mem_id);
-  H5Sclose(dspace_file_id);
-  H5Gclose(grp_comm_id);
-
-  PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
-  PMMG_DEL_MEM(parmesh, colors, int, "colors");
-  PMMG_DEL_MEM(parmesh, nface, int, "nface");
-
-  /*------------------------- WRITE MESH ENTITIES -------------------------*/
-
-  grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  if (grp_entities_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not create the mesh entities group.\n",
-            __func__);
-    return 0;
-  }
+  hsize_t hnp[2]      = {np, 3};
+  hsize_t hna[2]      = {na, 2};
+  hsize_t hnt[2]      = {nt, 3};
+  hsize_t hnquad[2]   = {nquad, 4};
+  hsize_t hne[2]      = {ne, 4};
+  hsize_t hnprism[2]  = {nprism, 2};
+  hsize_t hnpg[2]     = {npg, 3};
+  hsize_t hnag[2]     = {nag, 2};
+  hsize_t hntg[2]     = {ntg, 3};
+  hsize_t hnquadg[2]  = {nquadg, 4};
+  hsize_t hneg[2]     = {neg, 4};
+  hsize_t hnprismg[2] = {nprismg, 2};
 
   /* Vertices */
   PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", return 0);
@@ -1472,7 +1473,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   dspace_mem_id  = H5Screate_simple(1, &nc, NULL);
   dspace_file_id = H5Screate_simple(1, &ncg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &corner_offset, NULL, &nc, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, corner_offset, NULL, &nc, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Corners", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1545,7 +1546,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   dspace_mem_id  = H5Screate_simple(1, &nr, NULL);
   dspace_file_id = H5Screate_simple(1, &nrg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &ridge_offset, NULL, &nr, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, ridge_offset, NULL, &nr, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Ridges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1805,26 +1806,120 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   H5Sclose(dspace_file_id);
   PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-  /* Close the groups */
-  status = H5Gclose(grp_entities_id);
-  status = H5Gclose(grp_mesh_id);
+  return 1;
+}
 
-  /*------------------------- WRITE METRIC AND SOLUTIONS -------------------------*/
+static int PMMG_saveCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id, hid_t dcpl_id, hid_t dxpl_id) {
+  /* MMG variables */
+  PMMG_pExt_comm comms;
+  /* Comm buffers */
+  hsize_t *ncomms, ncommg, comm_offset;
+  int *colors, *nface;
+  /* MPI variables */
+  MPI_Comm comm;
+  int rank, nprocs, root;
+  /* HDF5 variable */
+  hid_t dspace_mem_id, dspace_file_id;
+  hid_t dset_id;
+  herr_t status;
 
+  /* Init variables */
+  rank = parmesh->myrank;
+  nprocs = parmesh->nprocs;
+  root = parmesh->info.root;
+  comm = parmesh->comm;
+  comms = parmesh->ext_face_comm;
+
+  ncommg = comm_offset = 0;
+
+  /* Count the number of communicators */
+  PMMG_MALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", return 0);
+  ncomms[rank] = parmesh->next_face_comm;
+  MPI_Allgather(&ncomms[rank], 1, MPI_LONG_LONG, ncomms, 1, MPI_LONG_LONG, comm);
+
+  for (int i = 0 ; i < nprocs ; i++) {
+    ncommg += ncomms[i];
+  }
+  for (int i = 0 ; i < rank ; i++) {
+    comm_offset += ncomms[i];
+  }
+
+  /* Create the buffers */
+  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", return 0);
+  PMMG_MALLOC(parmesh, nface, ncomms[rank], int, "nface", return 0);
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    colors[icomm] = comms[icomm].color_out;
+    nface[icomm] = comms[icomm].nitem;
+  }
+
+  /* Write the things */
+  /* Number of communicators */
+  hsize_t hnprocs = nprocs;
+  dspace_file_id = H5Screate_simple(1, &hnprocs, NULL);
+  dset_id = H5Dcreate(grp_comm_id, "NumberOfFaceCommunicators", H5T_NATIVE_LLONG, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  if (rank == root)
+    status = H5Dwrite(dset_id, H5T_NATIVE_LLONG, H5S_ALL, H5S_ALL, H5P_DEFAULT, &ncomms[rank]);
+  H5Dclose(dset_id);
+  H5Sclose(dspace_file_id);
+
+  /* For each communicator, write the number of faces and the outward proc color */
+  dspace_mem_id  = H5Screate_simple(1, &ncomms[rank], NULL);
+  dspace_file_id = H5Screate_simple(1, &ncommg, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
+
+  dset_id = H5Dcreate(grp_comm_id, "ColorsOut", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, colors);
+  H5Dclose(dset_id);
+
+  dset_id = H5Dcreate(grp_comm_id, "NumberOfCommunicatorFaces", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, nface);
+  H5Dclose(dset_id);
+
+  status = H5Sclose(dspace_mem_id);
+  status = H5Sclose(dspace_file_id);
+
+  PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
+  PMMG_DEL_MEM(parmesh, colors, int, "colors");
+  PMMG_DEL_MEM(parmesh, nface, int, "nface");
+
+  return 1;
+}
+
+static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
+                                 hsize_t *nentities, hsize_t *nentitiesg, int ntyp_entities, hsize_t *point_offset) {
+  /* MMG variables */
+  int nsols, np, npg;
+  PMMG_pGrp grp;
+  MMG5_pSol met, *sols;
+
+  /* MPI variables */
+  int rank;
+  /* Offset for parallel writing */
+  hsize_t *sol_offset;
+  /* HDF5 variables */
+  hid_t dspace_mem_id, dspace_file_id;
+  hid_t dset_id;
+
+  /* Set ParMmg variables */
+  grp = &parmesh->listgrp[0];
+  met = grp->met;
+  sols = &grp->field;
+  nsols = grp->mesh->nsols;
+
+  /* Set MPI variables */
+  rank = parmesh->myrank;
+
+  /* Get the local and global number of vertices */
+  np = nentities[ntyp_entities * rank + PMMG_saveVertex];
+  npg = nentitiesg[PMMG_saveVertex];
+
+  /* Check the metric */
   if (met->size != 1 && met->size != 6) {
     fprintf(stderr, "\n  ## Error: %s: Wrong metric size\n", __func__);
     return 0;
   }
   if (np != met->np) {
     fprintf(stderr, "\n  ## Error: %s: The metric vertices do not match with the mesh vertices \n", __func__);
-    return 0;
-  }
-
-  /* Open the group */
-  grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  if (grp_sols_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not create the solutions group.\n",
-            __func__);
     return 0;
   }
 
@@ -1867,138 +1962,72 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     PMMG_DEL_MEM(parmesh, sol_offset, hsize_t, "sol_offset");
   }
 
-  /* Close the group */
-  status = H5Gclose(grp_sols_id);
-
-  /* Release the remaining HDF5 IDs (property lists and the file) */
-  status = H5Fclose(file_id);
-  status = H5Pclose(fapl_id);
-  status = H5Pclose(dxpl_id);
-  status = H5Pclose(dcpl_id);
-
-  /*------------------------- HDF5 IOs END HERE -------------------------*/
-
-  /*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*/
-
-  if (rank == root) {
-    FILE *xdmf_file = NULL;
-    xdmf_file = fopen(xdmfname, "w");
-    fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
-    fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
-    fprintf(xdmf_file, "<Domain>\n");
-    fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
-    fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%llu\">\n", neg);
-    fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
-    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-    fprintf(xdmf_file, "                  Dimensions=\"%llu 4\">\n", neg);
-    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Tetrahedra\n", filename);
-    fprintf(xdmf_file, "        </DataItem>\n");
-    fprintf(xdmf_file, "      </Topology>\n");
-    fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
-    fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-    fprintf(xdmf_file, "                  Precision=\"8\"\n");
-    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-    fprintf(xdmf_file, "                  Dimensions=\"%llu 3\">\n", npg);
-    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
-    fprintf(xdmf_file, "        </DataItem>\n");
-    fprintf(xdmf_file, "      </Geometry>\n");
-    if (met) {
-      if (met->size == 6)
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
-      else if (met->size == 1)
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n");
-      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-      fprintf(xdmf_file, "                  Precision=\"8\"\n");
-      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, met->size);
-      fprintf(xdmf_file, "          %s:/Solutions/MetricAtVertices\n", filename);
-      fprintf(xdmf_file, "        </DataItem>\n");
-      fprintf(xdmf_file, "      </Attribute>\n");
-    }
-    for (int i = 0 ; i < nsols ; i++) {
-      if (sols[i]->type == MMG5_Scalar) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
-      }
-      else if (sols[i]->type == MMG5_Vector) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i);
-      }
-      else if (sols[i]->type == MMG5_Tensor) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i);
-      }
-      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-      fprintf(xdmf_file, "                  Precision=\"8\"\n");
-      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i]->size);
-      fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", filename, i);
-      fprintf(xdmf_file, "        </DataItem>\n");
-      fprintf(xdmf_file, "      </Attribute>\n");
-    }
-    fprintf(xdmf_file, "    </Grid>\n");
-    fprintf(xdmf_file, "  </Domain>\n");
-    fprintf(xdmf_file, "</Xdmf>\n");
-    fclose(xdmf_file);
-  }
-
-  /*------------------------- END -------------------------*/
-
-  return ier;
+  return 1;
 }
 
-int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
+static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
+  MMG5_pMesh mesh;
+  hid_t dspace_id;
+  hid_t attr_id;
+  int rank, root;
+  herr_t status;
+
+  mesh = parmesh->listgrp[0].mesh;
+  rank = parmesh->myrank;
+  root = parmesh->info.root;
+
+  dspace_id = H5Screate(H5S_SCALAR);
+  attr_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (rank == root)
+    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->ver);
+  H5Aclose(attr_id);
+  attr_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (rank == root)
+    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->dim);
+  H5Aclose(attr_id);
+  H5Sclose(dspace_id);
+
+  return 1;
+}
+
+int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
   /* MMG variables */
   int ier = 1;
-  int nsols;
-  PMMG_pGrp grp;
-  PMMG_pExt_comm comms;
-  MMG5_pSol met, *sols;
-  MMG5_pMesh mesh;
+  int ntyp_entities = 20;
+  hsize_t *nentities, *nentitiesg;
 
-  /* Buffer arrays */
-  /* 6 buffers is the minimum amount for what we have to do */
-  double *ppoint;   /* Point coordinates */
-  int *pent;        /* Other entities : edges, trias, quads, tetra, prisms. */
-  int *pcr;         /* Corners and ridges */
-  int *preq, *ppar; /* Required and parallel entities */
-  int *pref;        /* References */
-
-  /* Comm buffers */
-  hsize_t *ncomms_read, *ncomms_pmmg, ncommg, comm_offset;
-  int *colors, *nface;
+  /* Offsets for parallel writing */
+  hsize_t point_offset[3] = {0, 0, 0};
+  hsize_t edge_offset[2]  = {0, 0};
+  hsize_t tria_offset[3]  = {0, 0, 0};
+  hsize_t quad_offset[4]  = {0, 0, 0, 0};
+  hsize_t tetra_offset[4] = {0, 0, 0, 0};
+  hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
+  hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /* Used for the required entities */
+  hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
+  hsize_t corner_offset = 0;                        /* Used for the corners */
+  hsize_t ridge_offset = 0;                         /* Used for the ridges */
 
   /* HDF5 variables */
   hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
-  hid_t fapl_id, dxpl_id;                                                /* Property lists */
-  hid_t attr_dim_id, attr_ver_id;                                        /* Attributes */
-  hid_t dspace_mem_id, dspace_file_id;                                   /* Dataspaces */
-  hid_t dset_id;                                                         /* Dataset */
+  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* Property lists */
   herr_t status;
 
   /* MPI variables */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
-  int rank, root, nprocs, nprocs_read;
-
-  /*------------------------- INIT -------------------------*/
+  int nprocs;
 
   /* Set all buffers to NULL */
-  ppoint = NULL;
-  pent = NULL;
-  pcr = NULL;
-  preq = NULL; ppar = NULL;
-  pref = NULL;
-  colors = NULL;
-  nface = NULL;
-  ncomms_read = NULL;
-  ncomms_pmmg = NULL;
+  nentities = NULL;
+  nentitiesg = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
-  rank = parmesh->myrank;
-  root = parmesh->info.root;
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
             __func__);
     return 0;
   }
@@ -2008,13 +2037,15 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
     return 0;
   }
 
-  /* Set ParMmg variables */
-  grp = &parmesh->listgrp[0];
-  comms = parmesh->ext_face_comm;
-  mesh = grp->mesh;
-  met = grp->met;
-  sols = &grp->field;
-  nsols = mesh->nsols;
+  PMMG_CALLOC(parmesh, nentities, ntyp_entities * nprocs, hsize_t, "nentities", return 0);
+  PMMG_CALLOC(parmesh, nentitiesg, ntyp_entities, hsize_t, "nentitiesg", return 0);
+
+  /* Count the number of entities on each proc and globally */
+  PMMG_countEntities(parmesh, ntyp_entities, nentities, nentitiesg);
+
+  /* Compute the offsets for parallel writing */
+  PMMG_computeHDFoffset(parmesh, ntyp_entities, nentities, point_offset, edge_offset, tria_offset, quad_offset,
+                        tetra_offset, prism_offset, &corner_offset, &ridge_offset, required_offset, parallel_offset);
 
   /*------------------------- HDF5 IOs START HERE -------------------------*/
 
@@ -2027,50 +2058,82 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
   dxpl_id = H5Pcreate(H5P_DATASET_XFER);
   status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
 
-  /*------------------------- OPEN FILE AND READ DATA -------------------------*/
+  /* Create the dataset creation property list to tell we don't want to write any fill value */
+  dcpl_id = H5Pcreate(H5P_DATASET_CREATE);
+  status = H5Pset_fill_time(dcpl_id, H5D_FILL_TIME_NEVER);
 
-  /* Open the file */
-  file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
+  /*------------------------- OPEN FILE AND WRITE DATA -------------------------*/
+
+  /* Create the file */
+  file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
   if (file_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the hdf5 file %s.\n",
-            __func__, filename);
+    fprintf(stderr,"\n  ## Error: %s: Could not create the hdf5 file.\n",
+            __func__);
     return 0;
   }
 
-  /*------------------------- COMMUNICATORS -------------------------*/
+  /* Save the attributes (Version and Dimension) */
+  PMMG_saveHeader_hdf5(parmesh, file_id);
 
-  /* Open the mesh group */
-  grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT);
+  /*------------------------- WRITE MESH -------------------------*/
 
-  /* Read the communicators */
-  /* If there are more procs than partitions, excess procs go to sleep
-   * and the other read their part of the mesh.
-   * If there are less procs than partitions, that's harder... */
-  grp_comm_id = H5Gopen(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT);
-  dset_id = H5Dopen(grp_comm_id, "NumberOfFaceCommunicators", H5P_DEFAULT);
-  dspace_file_id = H5Dget_space(dset_id);
-  nprocs_read = H5Sget_simple_extent_npoints(dspace_file_id);
-  H5Dclose(dset_id);
-  H5Sclose(dspace_file_id);
-  H5Gclose(grp_comm_id);
-
-  if (nprocs >= nprocs_read) {
-    if (rank < nprocs_read) {
-
-    }
-  }
-  else {
-
+  grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (grp_mesh_id < 0) {
+    fprintf(stderr,"\n  ## Error: %s: Could not create the mesh group.\n",
+            __func__);
+    return 0;
   }
 
+  /* Write the communicators */
+  grp_comm_id = H5Gcreate(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (grp_comm_id < 0) {
+    fprintf(stderr,"\n  ## Error: %s: Could not create the communicators group.\n",
+            __func__);
+    return 0;
+  }
+  PMMG_saveCommunicators_hdf5(parmesh, grp_comm_id, dcpl_id, dxpl_id);
+  status = H5Gclose(grp_comm_id);
+
+  /* Write the mesh entities */
+  grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (grp_entities_id < 0) {
+    fprintf(stderr,"\n  ## Error: %s: Could not create the mesh entities group.\n",
+            __func__);
+    return 0;
+  }
+  PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, ntyp_entities, nentities, nentitiesg,
+                             point_offset, edge_offset, tria_offset, quad_offset, tetra_offset, prism_offset,
+                             required_offset, parallel_offset, &corner_offset, &ridge_offset);
+  status = H5Gclose(grp_entities_id);
 
   /* Close the mesh group */
-  H5Gclose(grp_mesh_id);
+  status = H5Gclose(grp_mesh_id);
 
-  /* Release the remaining HDF5 IDs (file and property lists) */
-  H5Fclose(file_id);
-  H5Pclose(fapl_id);
-  H5Pclose(dxpl_id);
+  /*------------------------- WRITE METRIC AND SOLUTIONS -------------------------*/
 
-  return 1;
+  grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (grp_sols_id < 0) {
+    fprintf(stderr,"\n  ## Error: %s: Could not create the solutions group.\n",
+            __func__);
+    return 0;
+  }
+  PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentities, nentitiesg, ntyp_entities, point_offset);
+  status = H5Gclose(grp_sols_id);
+
+  /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
+
+  status = H5Fclose(file_id);
+  status = H5Pclose(fapl_id);
+  status = H5Pclose(dxpl_id);
+  status = H5Pclose(dcpl_id);
+
+  /*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*/
+
+  PMMG_writeXDMF(parmesh, filename, xdmfname, nentitiesg);
+
+  /* We no longer need the number of entities */
+  PMMG_DEL_MEM(parmesh, nentities , hsize_t, "nentities");
+  PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
+
+  return ier;
 }
