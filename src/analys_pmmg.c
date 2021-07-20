@@ -34,6 +34,37 @@
 
 #include "parmmg.h"
 
+int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ){
+  MMG5_pTetra pt;
+  MMG5_pPoint ppt;
+  int ie,ia,i,ip[2];
+
+  assert( parmesh->ngrp == 1 );
+  assert( mesh = &parmesh->listgrp[0].mesh );
+
+  /* TODO initialize hash here */
+
+  /* Loop on edges touching an old parallel point and insert them in the hash
+   * table. */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    for( ia = 0; ia < 6; ia++ ) {
+      for( i = 0; i < 2; i++ ) {
+        ip[i] = pt->v[MMG5_iare[ia][i]];
+      }
+      if( (mesh->point[ip[0]].tag & MG_OLDPARBDY) ||
+          (mesh->point[ip[1]].tag & MG_OLDPARBDY) ) {
+        /* TODO hash here */
+      }
+    }
+  }
+
+  /* TODO color edges with rank owner using hTag */
+
+  /* TODO free hash here */
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer to the parmesh structure
  * \param mesh pointer to the mesh structure
