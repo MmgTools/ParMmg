@@ -1055,6 +1055,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
   hsize_t corner_offset = 0;                        /* Used for the corners */
   hsize_t ridge_offset = 0;                         /* Used for the ridges */
+  hsize_t *sol_offset;
 
   /* HDF5 variables */
   hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
@@ -1831,14 +1832,40 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t hns[2]  = {np, met->size};
   hsize_t hnsg[2] = {npg, met->size};
 
+  PMMG_CALLOC(parmesh, sol_offset, np * met->size, hsize_t, "sol_offset", return 0);
+  sol_offset[0] = point_offset[0];
+
   dspace_mem_id = H5Screate_simple(2, hns, NULL);
   dspace_file_id = H5Screate_simple(2, hnsg, NULL);
-  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hns, NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, sol_offset, NULL, hns, NULL);
   dset_id = H5Dcreate(grp_sols_id, "MetricAtVertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, &(met->m[1]));
   H5Dclose(dset_id);
   H5Sclose(dspace_mem_id);
   H5Sclose(dspace_file_id);
+
+  PMMG_DEL_MEM(parmesh, sol_offset, hsize_t, "sol_offset");
+
+  for (int i = 0 ; i < nsols ; i++) {
+    int size = sols[i]->size;
+    hns[0] = np; hns[1] = size;
+    hnsg[0] = npg; hnsg[1] = size;
+    PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset", return 0);
+    sol_offset[0] = point_offset[0];
+    dspace_mem_id = H5Screate_simple(2, hns, NULL);
+    dspace_file_id = H5Screate_simple(2, hnsg, NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hns, NULL);
+    int ndigits = PMMG_count_digits(nsols);
+    char *solname = (char*) malloc((strlen("SolAtvertices") + ndigits) * sizeof(char));
+    strcpy(solname, "SolAtVertices");
+    strcat(solname, (char*)&i);
+    dset_id = H5Dcreate(grp_sols_id, solname, H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, &(sols[i]->m[1]));
+    H5Dclose(dset_id);
+    H5Sclose(dspace_mem_id);
+    H5Sclose(dspace_file_id);
+    PMMG_DEL_MEM(parmesh, sol_offset, hsize_t, "sol_offset");
+  }
 
   /* Close the group */
   status = H5Gclose(grp_sols_id);
