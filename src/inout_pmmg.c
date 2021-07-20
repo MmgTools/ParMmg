@@ -1193,8 +1193,7 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t 
 static int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities,
                                  hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset,
                                  hsize_t *quad_offset, hsize_t *tetra_offset, hsize_t *prism_offset,
-                                 hsize_t *corner_offset, hsize_t *ridge_offset,
-                                 hsize_t *required_offset, hsize_t *parallel_offset) {
+                                 hsize_t *required_offset, hsize_t *parallel_offset, hsize_t *crnt_offset) {
 
   for (int k = 0 ; k < parmesh->myrank ; k++) {
     point_offset[0]    += nentities[ntyp_entities * k + PMMG_saveVertex];
@@ -1203,10 +1202,10 @@ static int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize
     quad_offset[0]     += nentities[ntyp_entities * k + PMMG_saveQuad];
     tetra_offset[0]    += nentities[ntyp_entities * k + PMMG_saveTetra];
     prism_offset[0]    += nentities[ntyp_entities * k + PMMG_savePrism];
-    *corner_offset     += nentities[ntyp_entities * k + PMMG_saveCorner];
+    crnt_offset[0]     += nentities[ntyp_entities * k + PMMG_saveCorner];
     required_offset[0] += nentities[ntyp_entities * k + PMMG_saveReq];
     parallel_offset[0] += nentities[ntyp_entities * k + PMMG_savePar];
-    *ridge_offset      += nentities[ntyp_entities * k + PMMG_saveRidge];
+    crnt_offset[1]     += nentities[ntyp_entities * k + PMMG_saveCorner];
     required_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdReq];
     parallel_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdPar];
     required_offset[2] += nentities[ntyp_entities * k + PMMG_saveTriaReq];
@@ -1215,84 +1214,34 @@ static int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize
     parallel_offset[3] += nentities[ntyp_entities * k + PMMG_saveQuadPar];
     required_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetReq];
     parallel_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetPar];
+    crnt_offset[2]     += nentities[ntyp_entities * k + PMMG_saveNormal];
+    crnt_offset[3]     += nentities[ntyp_entities * k + PMMG_saveTangent];
   }
 
   return 1;
 }
 
-static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
-  hsize_t neg, npg;
-  PMMG_pGrp grp;
-  MMG5_pSol met, *sols;
-  int nsols, rank, root;
+static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
+  MMG5_pMesh mesh;
+  hid_t dspace_id;
+  hid_t attr_id;
+  int rank, root;
+  herr_t status;
 
-  npg  = nentitiesg[PMMG_saveVertex];
-  neg  = nentitiesg[PMMG_saveTetra];
-  grp  = &parmesh->listgrp[0];
-  met  = grp->met;
-  sols = &grp->field;
-  nsols = grp->mesh->nsols;
+  mesh = parmesh->listgrp[0].mesh;
   rank = parmesh->myrank;
   root = parmesh->info.root;
 
-  if (rank == root) {
-    FILE *xdmf_file = NULL;
-    xdmf_file = fopen(xdmfname, "w");
-    fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
-    fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
-    fprintf(xdmf_file, "<Domain>\n");
-    fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
-    fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%llu\">\n", neg);
-    fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
-    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-    fprintf(xdmf_file, "                  Dimensions=\"%llu 4\">\n", neg);
-    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Tetrahedra\n", filename);
-    fprintf(xdmf_file, "        </DataItem>\n");
-    fprintf(xdmf_file, "      </Topology>\n");
-    fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
-    fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-    fprintf(xdmf_file, "                  Precision=\"8\"\n");
-    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-    fprintf(xdmf_file, "                  Dimensions=\"%llu 3\">\n", npg);
-    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
-    fprintf(xdmf_file, "        </DataItem>\n");
-    fprintf(xdmf_file, "      </Geometry>\n");
-    if (met) {
-      if (met->size == 6)
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
-      else if (met->size == 1)
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n");
-      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-      fprintf(xdmf_file, "                  Precision=\"8\"\n");
-      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, met->size);
-      fprintf(xdmf_file, "          %s:/Solutions/MetricAtVertices\n", filename);
-      fprintf(xdmf_file, "        </DataItem>\n");
-      fprintf(xdmf_file, "      </Attribute>\n");
-    }
-    for (int i = 0 ; i < nsols ; i++) {
-      if (sols[i]->type == MMG5_Scalar) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
-      }
-      else if (sols[i]->type == MMG5_Vector) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i);
-      }
-      else if (sols[i]->type == MMG5_Tensor) {
-        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i);
-      }
-      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
-      fprintf(xdmf_file, "                  Precision=\"8\"\n");
-      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i]->size);
-      fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", filename, i);
-      fprintf(xdmf_file, "        </DataItem>\n");
-      fprintf(xdmf_file, "      </Attribute>\n");
-    }
-    fprintf(xdmf_file, "    </Grid>\n");
-    fprintf(xdmf_file, "  </Domain>\n");
-    fprintf(xdmf_file, "</Xdmf>\n");
-    fclose(xdmf_file);
-  }
+  dspace_id = H5Screate(H5S_SCALAR);
+  attr_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (rank == root)
+    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->ver);
+  H5Aclose(attr_id);
+  attr_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
+  if (rank == root)
+    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->dim);
+  H5Aclose(attr_id);
+  H5Sclose(dspace_id);
 
   return 1;
 }
@@ -1301,7 +1250,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
                                       int ntyp_entities, hsize_t *nentities, hsize_t *nentitiesg,
                                       hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset, hsize_t *quad_offset,
                                       hsize_t *tetra_offset, hsize_t *prism_offset, hsize_t *required_offset, hsize_t *parallel_offset,
-                                      hsize_t *corner_offset, hsize_t *ridge_offset) {
+                                      hsize_t *crnt_offset) {
   /* MMG variables */
   PMMG_pGrp grp;
   MMG5_pMesh mesh;
@@ -1473,7 +1422,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nc, NULL);
   dspace_file_id = H5Screate_simple(1, &ncg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, corner_offset, NULL, &nc, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &crnt_offset[0], NULL, &nc, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Corners", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1546,7 +1495,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nr, NULL);
   dspace_file_id = H5Screate_simple(1, &nrg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, ridge_offset, NULL, &nr, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &crnt_offset[1], NULL, &nr, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Ridges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1810,15 +1759,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 }
 
 static int PMMG_saveCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id, hid_t dcpl_id, hid_t dxpl_id) {
-  /* MMG variables */
   PMMG_pExt_comm comms;
-  /* Comm buffers */
   hsize_t *ncomms, ncommg, comm_offset;
   int *colors, *nface;
-  /* MPI variables */
   MPI_Comm comm;
   int rank, nprocs, root;
-  /* HDF5 variable */
   hid_t dspace_mem_id, dspace_file_id;
   hid_t dset_id;
   herr_t status;
@@ -1887,16 +1832,11 @@ static int PMMG_saveCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id,
 
 static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                  hsize_t *nentities, hsize_t *nentitiesg, int ntyp_entities, hsize_t *point_offset) {
-  /* MMG variables */
   int nsols, np, npg;
   PMMG_pGrp grp;
   MMG5_pSol met, *sols;
-
-  /* MPI variables */
   int rank;
-  /* Offset for parallel writing */
   hsize_t *sol_offset;
-  /* HDF5 variables */
   hid_t dspace_mem_id, dspace_file_id;
   hid_t dset_id;
 
@@ -1965,27 +1905,79 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   return 1;
 }
 
-static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
-  MMG5_pMesh mesh;
-  hid_t dspace_id;
-  hid_t attr_id;
-  int rank, root;
-  herr_t status;
+static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
+  hsize_t neg, npg;
+  PMMG_pGrp grp;
+  MMG5_pSol met, *sols;
+  int nsols, rank, root;
 
-  mesh = parmesh->listgrp[0].mesh;
+  npg  = nentitiesg[PMMG_saveVertex];
+  neg  = nentitiesg[PMMG_saveTetra];
+  grp  = &parmesh->listgrp[0];
+  met  = grp->met;
+  sols = &grp->field;
+  nsols = grp->mesh->nsols;
   rank = parmesh->myrank;
   root = parmesh->info.root;
 
-  dspace_id = H5Screate(H5S_SCALAR);
-  attr_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
-  if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->ver);
-  H5Aclose(attr_id);
-  attr_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
-  if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->dim);
-  H5Aclose(attr_id);
-  H5Sclose(dspace_id);
+  if (rank == root) {
+    FILE *xdmf_file = NULL;
+    xdmf_file = fopen(xdmfname, "w");
+    fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+    fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
+    fprintf(xdmf_file, "<Domain>\n");
+    fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
+    fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%llu\">\n", neg);
+    fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%llu 4\">\n", neg);
+    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Tetrahedra\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Topology>\n");
+    fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
+    fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+    fprintf(xdmf_file, "                  Precision=\"8\"\n");
+    fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+    fprintf(xdmf_file, "                  Dimensions=\"%llu 3\">\n", npg);
+    fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
+    fprintf(xdmf_file, "        </DataItem>\n");
+    fprintf(xdmf_file, "      </Geometry>\n");
+    if (met) {
+      if (met->size == 6)
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
+      else if (met->size == 1)
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Scalar\">\n");
+      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+      fprintf(xdmf_file, "                  Precision=\"8\"\n");
+      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, met->size);
+      fprintf(xdmf_file, "          %s:/Solutions/MetricAtVertices\n", filename);
+      fprintf(xdmf_file, "        </DataItem>\n");
+      fprintf(xdmf_file, "      </Attribute>\n");
+    }
+    for (int i = 0 ; i < nsols ; i++) {
+      if (sols[i]->type == MMG5_Scalar) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
+      }
+      else if (sols[i]->type == MMG5_Vector) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i);
+      }
+      else if (sols[i]->type == MMG5_Tensor) {
+        fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i);
+      }
+      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+      fprintf(xdmf_file, "                  Precision=\"8\"\n");
+      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i]->size);
+      fprintf(xdmf_file, "          %s:/sols_grp/SolAtVertices%d\n", filename, i);
+      fprintf(xdmf_file, "        </DataItem>\n");
+      fprintf(xdmf_file, "      </Attribute>\n");
+    }
+    fprintf(xdmf_file, "    </Grid>\n");
+    fprintf(xdmf_file, "  </Domain>\n");
+    fprintf(xdmf_file, "</Xdmf>\n");
+    fclose(xdmf_file);
+  }
 
   return 1;
 }
@@ -2005,8 +1997,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
   hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /* Used for the required entities */
   hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
-  hsize_t corner_offset = 0;                        /* Used for the corners */
-  hsize_t ridge_offset = 0;                         /* Used for the ridges */
+  hsize_t crnt_offset[4] = {0, 0, 0, 0};            /* Used for the corners, ridges, normals and tangents */
 
   /* HDF5 variables */
   hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
@@ -2045,7 +2036,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
 
   /* Compute the offsets for parallel writing */
   PMMG_computeHDFoffset(parmesh, ntyp_entities, nentities, point_offset, edge_offset, tria_offset, quad_offset,
-                        tetra_offset, prism_offset, &corner_offset, &ridge_offset, required_offset, parallel_offset);
+                        tetra_offset, prism_offset, required_offset, parallel_offset, crnt_offset);
 
   /*------------------------- HDF5 IOs START HERE -------------------------*/
 
@@ -2092,7 +2083,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     return 0;
   }
   PMMG_saveCommunicators_hdf5(parmesh, grp_comm_id, dcpl_id, dxpl_id);
-  status = H5Gclose(grp_comm_id);
+  H5Gclose(grp_comm_id);
 
   /* Write the mesh entities */
   grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -2103,11 +2094,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   }
   PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, ntyp_entities, nentities, nentitiesg,
                              point_offset, edge_offset, tria_offset, quad_offset, tetra_offset, prism_offset,
-                             required_offset, parallel_offset, &corner_offset, &ridge_offset);
-  status = H5Gclose(grp_entities_id);
+                             required_offset, parallel_offset, crnt_offset);
+  H5Gclose(grp_entities_id);
 
   /* Close the mesh group */
-  status = H5Gclose(grp_mesh_id);
+  H5Gclose(grp_mesh_id);
 
   /*------------------------- WRITE METRIC AND SOLUTIONS -------------------------*/
 
@@ -2118,7 +2109,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
     return 0;
   }
   PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentities, nentitiesg, ntyp_entities, point_offset);
-  status = H5Gclose(grp_sols_id);
+  H5Gclose(grp_sols_id);
 
   /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
 
