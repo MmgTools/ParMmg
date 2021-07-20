@@ -244,6 +244,33 @@
 #define PMMG_GAP     0.2
 
 /**
+ * \enum PMMG_hdf5_entities
+ * \brief Type of mesh entities that are saved in HDF5 files.
+ */
+enum PMMG_hdf5_entities {
+  PMMG_saveVertex,
+  PMMG_saveEdge,
+  PMMG_saveTria,
+  PMMG_saveQuad,
+  PMMG_saveTetra,
+  PMMG_savePrism,
+  PMMG_saveCorner,
+  PMMG_saveReq,
+  PMMG_savePar,
+  PMMG_saveRidge,
+  PMMG_saveEdReq,
+  PMMG_saveEdPar,
+  PMMG_saveTriaReq,
+  PMMG_saveTriaPar,
+  PMMG_saveQuadReq,
+  PMMG_saveQuadPar,
+  PMMG_saveTetReq,
+  PMMG_saveTetPar,
+  PMMG_saveNormal,
+  PMMG_saveTangent,
+};
+
+/**
  * Types
  */
 /**
