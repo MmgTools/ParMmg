@@ -34,40 +34,74 @@
 
 #include "parmmg.h"
 
-int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ){
-  MMG5_pTetra pt;
-  MMG5_pPoint ppt;
-  int ie,ia,i,ip[2];
+int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_face_comm;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pPoint    ppt;
+  MMG5_HGeom     hash;
+  int            ie,ifac,ia,i,ip0,ip1,ip2,nf,isface;
+  int16_t        tag;
 
   assert( parmesh->ngrp == 1 );
-  assert( mesh = &parmesh->listgrp[0].mesh );
+  grp = &parmesh->listgrp[0];
+  assert( mesh = grp->mesh );
 
-  /* TODO initialize hash here */
+  int_face_comm = parmesh->int_face_comm;
+
+  /* Hash table used to store edges touching a parallel point.
+   * Assume that in the worst case each parallel faces has the three edges in
+   * the table, plus two other internal edges. */
+  if ( !MMG5_hNew(mesh,&hash,3*int_face_comm->nitem,5*int_face_comm->nitem) )
+    return 0;
 
   /* Loop on edges touching an old parallel point and insert them in the hash
    * table. */
+  nf = 0;
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
 
     /* Stay on boundary tetra */
     if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
 
-    /* Loop on edges */
-    for( ia = 0; ia < 6; ia++ ) {
-      for( i = 0; i < 2; i++ ) {
-        ip[i] = pt->v[MMG5_iare[ia][i]];
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      /* Get face tag */
+      tag = pxt->ftag[ifac];
+
+      /* Skip face with reversed orientation (it will be analyzed by another
+       * tetra, on this or on another process) */
+      if( !MG_GET(pxt->ori,ifac) ) continue;
+
+      /* Skip internal faces */
+      if( !(tag & MG_BDY) ||
+          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
+        continue;
+
+      isface = 0;
+      for( i = 0; i < 3; i ++ ) {
+        ip0 = pt->v[MMG5_idir[ifac][i]];
+        ppt = &mesh->point[ip0];
+        if( ppt->tag & MG_PARBDY ) {
+          isface = 1;
+          ip1 = pt->v[MMG5_idir[ifac][MMG5_inxt2[i]]];
+          ip2 = pt->v[MMG5_idir[ifac][MMG5_iprv2[i]]];
+          /* Store recv edge ip0->ip1 */
+          if( !MMG5_hEdge( mesh,&hash,ip0,mesh->np+ip1,0,0 ) ) return 0;
+          /* Store send edge ip2->ip0 */
+          if( !MMG5_hEdge( mesh,&hash,ip2,mesh->np+ip0,0,0 ) ) return 0;
+        }
       }
-      if( (mesh->point[ip[0]].tag & MG_PARBDY) ||
-          (mesh->point[ip[1]].tag & MG_PARBDY) ) {
-        /* TODO hash here */
-      }
+      if( isface ) nf++;
     }
   }
 
-  /* TODO color edges with rank owner using hTag */
 
-  /* TODO free hash here */
+
+  /* Free memory */
+  MMG5_DEL_MEM(mesh,hash.geom);
 
   return 1;
 }
