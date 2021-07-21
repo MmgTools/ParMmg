@@ -47,12 +47,19 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ){
   /* Loop on edges touching an old parallel point and insert them in the hash
    * table. */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) ) continue;
+
+    /* Stay on boundary tetra */
+    if( !pt->xt ) continue;
+
+    /* Loop on edges */
     for( ia = 0; ia < 6; ia++ ) {
       for( i = 0; i < 2; i++ ) {
         ip[i] = pt->v[MMG5_iare[ia][i]];
       }
-      if( (mesh->point[ip[0]].tag & MG_OLDPARBDY) ||
-          (mesh->point[ip[1]].tag & MG_OLDPARBDY) ) {
+      if( (mesh->point[ip[0]].tag & MG_PARBDY) ||
+          (mesh->point[ip[1]].tag & MG_PARBDY) ) {
         /* TODO hash here */
       }
     }
