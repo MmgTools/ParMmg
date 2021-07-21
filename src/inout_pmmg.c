@@ -1166,67 +1166,28 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t 
   nentities[ntyp_entities * rank + PMMG_saveNormal]  = nnor;
   nentities[ntyp_entities * rank + PMMG_saveTangent] = ntan;
 
-  for (int k = 0 ; k < ntyp_entities ; k++) {
-    nentitiesl[k] = nentities[ntyp_entities * rank + k];
+  for (int typent = 0 ; typent < ntyp_entities ; typent++) {
+    nentitiesl[typent] = nentities[ntyp_entities * rank + typent];
   }
 
   MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG,
                 nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm);
 
   for (int k = 0 ; k < nprocs ; k++) {
-    nentitiesg[PMMG_saveVertex]  += nentities[ntyp_entities * k + PMMG_saveVertex];
-    nentitiesg[PMMG_saveEdge]    += nentities[ntyp_entities * k + PMMG_saveEdge];
-    nentitiesg[PMMG_saveTria]    += nentities[ntyp_entities * k + PMMG_saveTria];
-    nentitiesg[PMMG_saveQuad]    += nentities[ntyp_entities * k + PMMG_saveQuad];
-    nentitiesg[PMMG_saveTetra]   += nentities[ntyp_entities * k + PMMG_saveTetra];
-    nentitiesg[PMMG_savePrism]   += nentities[ntyp_entities * k + PMMG_savePrism];
-    nentitiesg[PMMG_saveCorner]  += nentities[ntyp_entities * k + PMMG_saveCorner];
-    nentitiesg[PMMG_saveReq]     += nentities[ntyp_entities * k + PMMG_saveReq];
-    nentitiesg[PMMG_savePar]     += nentities[ntyp_entities * k + PMMG_savePar];
-    nentitiesg[PMMG_saveRidge]   += nentities[ntyp_entities * k + PMMG_saveRidge];
-    nentitiesg[PMMG_saveEdReq]   += nentities[ntyp_entities * k + PMMG_saveEdReq];
-    nentitiesg[PMMG_saveEdPar]   += nentities[ntyp_entities * k + PMMG_saveEdPar];
-    nentitiesg[PMMG_saveTriaReq] += nentities[ntyp_entities * k + PMMG_saveTriaReq];
-    nentitiesg[PMMG_saveTriaPar] += nentities[ntyp_entities * k + PMMG_saveTriaPar];
-    nentitiesg[PMMG_saveQuadReq] += nentities[ntyp_entities * k + PMMG_saveQuadReq];
-    nentitiesg[PMMG_saveQuadPar] += nentities[ntyp_entities * k + PMMG_saveQuadPar];
-    nentitiesg[PMMG_saveTetReq]  += nentities[ntyp_entities * k + PMMG_saveTetReq];
-    nentitiesg[PMMG_saveTetPar]  += nentities[ntyp_entities * k + PMMG_saveTetPar];
-    nentitiesg[PMMG_saveNormal]  += nentities[ntyp_entities * k + PMMG_saveNormal];
-    nentitiesg[PMMG_saveTangent] += nentities[ntyp_entities * k + PMMG_saveTangent];
+    for (int typent = 0 ; typent < ntyp_entities ; typent++) {
+      nentitiesg[typent] += nentities[ntyp_entities * k + typent];
+    }
   }
 
   return 1;
 }
 
-static int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities,
-                                 hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset,
-                                 hsize_t *quad_offset, hsize_t *tetra_offset, hsize_t *prism_offset,
-                                 hsize_t *required_offset, hsize_t *parallel_offset, hsize_t *cr_offset, hsize_t *nt_offset) {
-
+static inline int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities, hsize_t *offset) {
   for (int k = 0 ; k < parmesh->myrank ; k++) {
-    point_offset[0]    += nentities[ntyp_entities * k + PMMG_saveVertex];
-    edge_offset[0]     += nentities[ntyp_entities * k + PMMG_saveEdge];
-    tria_offset[0]     += nentities[ntyp_entities * k + PMMG_saveTria];
-    quad_offset[0]     += nentities[ntyp_entities * k + PMMG_saveQuad];
-    tetra_offset[0]    += nentities[ntyp_entities * k + PMMG_saveTetra];
-    prism_offset[0]    += nentities[ntyp_entities * k + PMMG_savePrism];
-    cr_offset[0]       += nentities[ntyp_entities * k + PMMG_saveCorner];
-    required_offset[0] += nentities[ntyp_entities * k + PMMG_saveReq];
-    parallel_offset[0] += nentities[ntyp_entities * k + PMMG_savePar];
-    cr_offset[1]       += nentities[ntyp_entities * k + PMMG_saveRidge];
-    required_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdReq];
-    parallel_offset[1] += nentities[ntyp_entities * k + PMMG_saveEdPar];
-    required_offset[2] += nentities[ntyp_entities * k + PMMG_saveTriaReq];
-    parallel_offset[2] += nentities[ntyp_entities * k + PMMG_saveTriaPar];
-    required_offset[3] += nentities[ntyp_entities * k + PMMG_saveQuadReq];
-    parallel_offset[3] += nentities[ntyp_entities * k + PMMG_saveQuadPar];
-    required_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetReq];
-    parallel_offset[4] += nentities[ntyp_entities * k + PMMG_saveTetPar];
-    nt_offset[0]       += nentities[ntyp_entities * k + PMMG_saveNormal];
-    nt_offset[3]       += nentities[ntyp_entities * k + PMMG_saveTangent];
+    for (int typent = 0 ; typent < ntyp_entities ; typent++) {
+      offset[2 * typent] += nentities[ntyp_entities * k + typent];
+    }
   }
-
   return 1;
 }
 
@@ -1256,10 +1217,7 @@ static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
 }
 
 static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dcpl_id, hid_t dxpl_id,
-                                      hsize_t *nentitiesl, hsize_t *nentitiesg,
-                                      hsize_t *point_offset, hsize_t *edge_offset, hsize_t *tria_offset,
-                                      hsize_t *quad_offset, hsize_t *tetra_offset, hsize_t *prism_offset,
-                                      hsize_t *required_offset, hsize_t *parallel_offset, hsize_t *cr_offset, hsize_t *nt_offset) {
+                                      hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
   /* MMG variables */
   PMMG_pGrp grp;
   MMG5_pMesh mesh;
@@ -1406,8 +1364,8 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", return 0);
   PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", return 0);
   PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", return 0);
-  PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnor", return 0);
-  PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptan", return 0);
+  PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", return 0);
+  PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", return 0);
 
   crcount = reqcount = parcount = ncount = tcount = 0;
 
@@ -1418,10 +1376,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
         ppoint[3 * (ppt->tmp - 1) + j] = ppt->c[j];
       }
       if (ppt->tag & MG_CRN) {
-        pcr[crcount++] = ppt->tmp + point_offset[0] - 1;
+        pcr[crcount++] = ppt->tmp + offset[2 * PMMG_saveVertex] - 1;
       }
       if (ppt->tag & MG_REQ) {
-        preq[reqcount++] = ppt->tmp + point_offset[0] - 1;
+        preq[reqcount++] = ppt->tmp + offset[2 * PMMG_saveVertex] - 1;
       }
       if (ppt->tag & MG_PARBDY) {
         ppar[parcount++] = ppt->tmp - 1; /* Local index for parallel entities */
@@ -1433,14 +1391,14 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
           for (int j = 0 ; j < 3 ; j++) {
             pnor[3 * ncount + j] = pxp->n1[j];
           }
-          pnorat[ncount++] = ppt->tmp + point_offset[0] - 1;
+          pnorat[ncount++] = ppt->tmp + offset[2 * PMMG_saveVertex] - 1;
         }
         /* Tangents */
         if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) {
           for (int j = 0 ; j < 3 ; j++) {
             ptan[3 * tcount + j] = ppt->n[j];
           }
-          ptanat[tcount++] = ppt->tmp + point_offset[0] - 1;
+          ptanat[tcount++] = ppt->tmp + offset[2 * PMMG_saveVertex] - 1;
         }
       }
       pref[ppt->tmp - 1] = abs(ppt->ref);
@@ -1449,7 +1407,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hnp, NULL);
   dspace_file_id = H5Screate_simple(2, hnpg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hnp, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveVertex], NULL, hnp, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Vertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, ppoint);
   H5Dclose(dset_id);
@@ -1459,7 +1417,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hnp, NULL);
   dspace_file_id = H5Screate_simple(1, hnpg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hnp, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveVertex], NULL, hnp, NULL);
   dset_id = H5Dcreate(grp_entities_id, "VerticesRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1469,7 +1427,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nc, NULL);
   dspace_file_id = H5Screate_simple(1, &ncg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &cr_offset[0], NULL, &nc, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveCorner], NULL, &nc, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Corners", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1479,7 +1437,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &npreq, NULL);
   dspace_file_id = H5Screate_simple(1, &npreqg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &required_offset[0], NULL, &npreq, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveReq], NULL, &npreq, NULL);
   dset_id = H5Dcreate(grp_entities_id, "RequiredVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, preq);
   H5Dclose(dset_id);
@@ -1489,7 +1447,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nppar, NULL);
   dspace_file_id = H5Screate_simple(1, &npparg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &parallel_offset[0], NULL, &nppar, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_savePar], NULL, &nppar, NULL);
   dset_id = H5Dcreate(grp_entities_id, "ParallelVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ppar);
   H5Dclose(dset_id);
@@ -1499,7 +1457,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hnnor, NULL);
   dspace_file_id = H5Screate_simple(2, hnnorg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &nt_offset[0], NULL, hnnor, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveNormal], NULL, hnnor, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Normals", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, pnor);
   H5Dclose(dset_id);
@@ -1509,7 +1467,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hnnor, NULL);
   dspace_file_id = H5Screate_simple(1, hnnorg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &nt_offset[0], NULL, hnnor, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveNormal], NULL, hnnor, NULL);
   dset_id = H5Dcreate(grp_entities_id, "NormalsAtVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pnorat);
   H5Dclose(dset_id);
@@ -1519,7 +1477,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hntan, NULL);
   dspace_file_id = H5Screate_simple(2, hntang, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &nt_offset[3], NULL, hntan, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTangent], NULL, hntan, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Tangents", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, ptan);
   H5Dclose(dset_id);
@@ -1529,7 +1487,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hntan, NULL);
   dspace_file_id = H5Screate_simple(1, hntang, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &nt_offset[3], NULL, hntan, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTangent], NULL, hntan, NULL);
   dset_id = H5Dcreate(grp_entities_id, "TangentsAtVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ptanat);
   H5Dclose(dset_id);
@@ -1550,11 +1508,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     na = 0;
     for (int i = 0 ; i < mesh->na ; i++) {
       pa = &mesh->edge[i + 1];
-      pent[2 * i]     = mesh->point[pa->a].tmp + point_offset[0] - 1;
-      pent[2 * i + 1] = mesh->point[pa->b].tmp + point_offset[0] - 1;
+      pent[2 * i]     = mesh->point[pa->a].tmp + offset[2 * PMMG_saveVertex] - 1;
+      pent[2 * i + 1] = mesh->point[pa->b].tmp + offset[2 * PMMG_saveVertex] - 1;
       pref[i] = pa->ref;
-      if (pa->tag & MG_GEO)    pcr[crcount++] = na + edge_offset[0];
-      if (pa->tag & MG_REQ)    preq[reqcount++] = na + edge_offset[0];
+      if (pa->tag & MG_GEO)    pcr[crcount++] = na + offset[2 * PMMG_saveEdge];
+      if (pa->tag & MG_REQ)    preq[reqcount++] = na + offset[2 * PMMG_saveEdge];
       if (pa->tag & MG_PARBDY) ppar[parcount++] = na; /* Local index for parallel entities */
       na++;
     }
@@ -1562,7 +1520,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hna, NULL);
   dspace_file_id = H5Screate_simple(2, hnag, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, edge_offset, NULL, hna, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveEdge], NULL, hna, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Edges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pent);
   H5Dclose(dset_id);
@@ -1572,7 +1530,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hna, NULL);
   dspace_file_id = H5Screate_simple(1, hnag, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, edge_offset, NULL, hna, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveEdge], NULL, hna, NULL);
   dset_id = H5Dcreate(grp_entities_id, "EdgesRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1582,7 +1540,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nr, NULL);
   dspace_file_id = H5Screate_simple(1, &nrg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &cr_offset[1], NULL, &nr, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveRidge], NULL, &nr, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Ridges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pcr);
   H5Dclose(dset_id);
@@ -1592,7 +1550,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nedreq, NULL);
   dspace_file_id = H5Screate_simple(1, &nedreqg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &required_offset[1], NULL, &nedreq, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveEdReq], NULL, &nedreq, NULL);
   dset_id = H5Dcreate(grp_entities_id, "RequiredEdges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, preq);
   H5Dclose(dset_id);
@@ -1602,7 +1560,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nedpar, NULL);
   dspace_file_id = H5Screate_simple(1, &nedparg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &parallel_offset[1], NULL, &nedpar, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveEdPar], NULL, &nedpar, NULL);
   dset_id = H5Dcreate(grp_entities_id, "ParallelEdges", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ppar);
   H5Dclose(dset_id);
@@ -1623,11 +1581,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     for (int i = 0 ; i < mesh->nt ; i++) {
       pt = &mesh->tria[i + 1];
       for (int j = 0 ; j < 3 ; j++) {
-        pent[3 * i + j] = mesh->point[pt->v[j]].tmp + point_offset[0] - 1;
+        pent[3 * i + j] = mesh->point[pt->v[j]].tmp + offset[2 * PMMG_saveVertex] - 1;
       }
       pref[i] = pt->ref;
       if (pt->tag[0] & MG_REQ && pt->tag[1] & MG_REQ && pt->tag[2] & MG_REQ) {
-        preq[reqcount++] = nt + tria_offset[0];
+        preq[reqcount++] = nt + offset[2 * PMMG_saveTria];
       }
       if (pt->tag[0] & MG_PARBDY && pt->tag[1] & MG_PARBDY && pt->tag[2] & MG_PARBDY) {
         ppar[parcount++] = nt; /* Local index for parallel entities */
@@ -1638,7 +1596,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hnt, NULL);
   dspace_file_id = H5Screate_simple(2, hntg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, tria_offset, NULL, hnt, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTria], NULL, hnt, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Triangles", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pent);
   H5Dclose(dset_id);
@@ -1648,7 +1606,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hnt, NULL);
   dspace_file_id = H5Screate_simple(1, hntg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, tria_offset, NULL, hnt, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTria], NULL, hnt, NULL);
   dset_id = H5Dcreate(grp_entities_id, "TrianglesRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1658,7 +1616,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &ntreq, NULL);
   dspace_file_id = H5Screate_simple(1, &ntreqg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &required_offset[2], NULL, &ntreq, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTriaReq], NULL, &ntreq, NULL);
   dset_id = H5Dcreate(grp_entities_id, "RequiredTriangles", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, preq);
   H5Dclose(dset_id);
@@ -1668,7 +1626,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &ntpar, NULL);
   dspace_file_id = H5Screate_simple(1, &ntparg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &parallel_offset[2], NULL, &ntpar, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTriaPar], NULL, &ntpar, NULL);
   dset_id = H5Dcreate(grp_entities_id, "ParallelTriangles", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ppar);
   H5Dclose(dset_id);
@@ -1689,12 +1647,12 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     for (int i = 0 ; i < mesh->nquad ; i++) {
       pq = &mesh->quadra[i + 1];
       for (int j = 0 ; j < 4 ; j++) {
-        pent[4 * i + j] = mesh->point[pq->v[j]].tmp + point_offset[0] - 1;
+        pent[4 * i + j] = mesh->point[pq->v[j]].tmp + offset[2 * PMMG_saveVertex] - 1;
       }
       pref[i] = pq->ref;
       if (pq->tag[0] & MG_REQ && pq->tag[1] & MG_REQ &&
           pq->tag[2] & MG_REQ && pq->tag[3] & MG_REQ) {
-        preq[reqcount++] = nquad + quad_offset[0];
+        preq[reqcount++] = nquad + offset[2 * PMMG_saveQuad];
       }
       if (pq->tag[0] & MG_PARBDY && pq->tag[1] & MG_PARBDY &&
           pq->tag[2] & MG_PARBDY && pq->tag[3] & MG_PARBDY) {
@@ -1706,7 +1664,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hnquad, NULL);
   dspace_file_id = H5Screate_simple(2, hnquadg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, quad_offset, NULL, hnquad, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveQuad], NULL, hnquad, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Quadrilaterals", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pent);
   H5Dclose(dset_id);
@@ -1716,7 +1674,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hnquad, NULL);
   dspace_file_id = H5Screate_simple(1, hnquadg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, quad_offset, NULL, hnquad, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveQuad], NULL, hnquad, NULL);
   dset_id = H5Dcreate(grp_entities_id, "QuadrilateralsRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1726,7 +1684,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nqreq, NULL);
   dspace_file_id = H5Screate_simple(1, &nqreqg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &required_offset[3], NULL, &nqreq, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveQuadReq], NULL, &nqreq, NULL);
   dset_id = H5Dcreate(grp_entities_id, "RequiredQuadrilaterals", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, preq);
   H5Dclose(dset_id);
@@ -1736,7 +1694,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nqpar, NULL);
   dspace_file_id = H5Screate_simple(1, &nqparg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &parallel_offset[3], NULL, &nqpar, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveQuadPar], NULL, &nqpar, NULL);
   dset_id = H5Dcreate(grp_entities_id, "ParallelQuadrilaterals", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ppar);
   H5Dclose(dset_id);
@@ -1758,11 +1716,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       pe = &mesh->tetra[i + 1];
       if (MG_EOK(pe)) {
         for (int j = 0 ; j < 4 ; j++) {
-          pent[4 * ne + j] = mesh->point[pe->v[j]].tmp + point_offset[0] - 1;
+          pent[4 * ne + j] = mesh->point[pe->v[j]].tmp + offset[2 * PMMG_saveVertex] - 1;
         }
       }
       pref[i] = pe->ref;
-      if (pe->tag & MG_REQ)    preq[reqcount++] = ne + tetra_offset[0];
+      if (pe->tag & MG_REQ)    preq[reqcount++] = ne + offset[2 * PMMG_saveTetra];
       if (pe->tag & MG_PARBDY) ppar[parcount++] = ne; /* Local index for parallel entities */
       ne++;
     }
@@ -1770,7 +1728,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hne, NULL);
   dspace_file_id = H5Screate_simple(2, hneg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, tetra_offset, NULL, hne, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTetra], NULL, hne, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Tetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pent);
   H5Dclose(dset_id);
@@ -1780,7 +1738,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hne, NULL);
   dspace_file_id = H5Screate_simple(1, hneg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, tetra_offset, NULL, hne, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTetra], NULL, hne, NULL);
   dset_id = H5Dcreate(grp_entities_id, "TetrahedraRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1790,7 +1748,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nereq, NULL);
   dspace_file_id = H5Screate_simple(1, &nereqg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &required_offset[4], NULL, &nereq, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTetReq], NULL, &nereq, NULL);
   dset_id = H5Dcreate(grp_entities_id, "RequiredTetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, preq);
   H5Dclose(dset_id);
@@ -1800,7 +1758,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, &nepar, NULL);
   dspace_file_id = H5Screate_simple(1, &neparg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &parallel_offset[4], NULL, &nepar, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_saveTetPar], NULL, &nepar, NULL);
   dset_id = H5Dcreate(grp_entities_id, "ParallelTetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, ppar);
   H5Dclose(dset_id);
@@ -1816,7 +1774,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     for (int i = 0 ; i < mesh->nprism ; i++) {
       pp = &mesh->prism[i + 1];
       for (int j = 0 ; j < 6 ; j++) {
-        pent[6 * i + j] = mesh->point[pp->v[j]].tmp + point_offset[0] - 1;
+        pent[6 * i + j] = mesh->point[pp->v[j]].tmp + offset[2 * PMMG_saveVertex] - 1;
       }
       pref[i] = pp->ref;
     }
@@ -1824,7 +1782,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(2, hnprism, NULL);
   dspace_file_id = H5Screate_simple(2, hnprismg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, prism_offset, NULL, hnprism, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_savePrism], NULL, hnprism, NULL);
   dset_id = H5Dcreate(grp_entities_id, "Prisms", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pent);
   H5Dclose(dset_id);
@@ -1834,7 +1792,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   dspace_mem_id  = H5Screate_simple(1, hnprism, NULL);
   dspace_file_id = H5Screate_simple(1, hnprismg, NULL);
-  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, prism_offset, NULL, hnprism, NULL);
+  status = H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &offset[2 * PMMG_savePrism], NULL, hnprism, NULL);
   dset_id = H5Dcreate(grp_entities_id, "PrismsRef", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, pref);
   H5Dclose(dset_id);
@@ -1918,7 +1876,7 @@ static int PMMG_saveCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id,
 }
 
 static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
-                                 hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *point_offset) {
+                                 hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
   int nsols, np, npg;
   PMMG_pGrp grp;
   MMG5_pSol met, *sols;
@@ -1955,7 +1913,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   hsize_t hnsg[2] = {npg, met->size};
 
   PMMG_CALLOC(parmesh, sol_offset, np * met->size, hsize_t, "sol_offset", return 0);
-  sol_offset[0] = point_offset[0];
+  sol_offset[0] = offset[2 * PMMG_saveVertex];
 
   dspace_mem_id = H5Screate_simple(2, hns, NULL);
   dspace_file_id = H5Screate_simple(2, hnsg, NULL);
@@ -1973,10 +1931,10 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
     hns[0] = np; hns[1] = size;
     hnsg[0] = npg; hnsg[1] = size;
     PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset", return 0);
-    sol_offset[0] = point_offset[0];
+    sol_offset[0] = offset[2 * PMMG_saveVertex];
     dspace_mem_id = H5Screate_simple(2, hns, NULL);
     dspace_file_id = H5Screate_simple(2, hnsg, NULL);
-    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, point_offset, NULL, hns, NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, sol_offset, NULL, hns, NULL);
     int ndigits = PMMG_count_digits(nsols);
     char *solname = (char*) malloc((strlen("SolAtvertices") + ndigits) * sizeof(char));
     strcpy(solname, "SolAtVertices");
@@ -2070,28 +2028,13 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
 }
 
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
-  /* MMG variables */
   int ier = 1;
   int ntyp_entities = 20;
-  hsize_t *nentities, *nentitiesl, *nentitiesg;
-
-  /* Offsets for parallel writing */
-  hsize_t point_offset[3] = {0, 0, 0};
-  hsize_t edge_offset[2]  = {0, 0};
-  hsize_t tria_offset[3]  = {0, 0, 0};
-  hsize_t quad_offset[4]  = {0, 0, 0, 0};
-  hsize_t tetra_offset[4] = {0, 0, 0, 0};
-  hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
-  hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /* Used for the required entities */
-  hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
-  hsize_t cr_offset[2] = {0, 0};                    /* Used for the corners and the ridges */
-  hsize_t nt_offset[6] = {0, 0, 0, 0, 0, 0};        /* Used for the normals and the tangents */
-
-  /* HDF5 variables */
-  hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
-  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* Property lists */
+  hsize_t *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
+  hsize_t *offset;                             /* Offset for the parallel writing with HDF5 */
+  hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
+  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
   herr_t status;
-
   /* MPI variables */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
@@ -2124,9 +2067,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Count the number of entities on each proc and globally */
   PMMG_countEntities(parmesh, ntyp_entities, nentities, nentitiesl, nentitiesg);
 
-  /* Compute the offsets for parallel writing */
-  PMMG_computeHDFoffset(parmesh, ntyp_entities, nentities, point_offset, edge_offset, tria_offset, quad_offset,
-                        tetra_offset, prism_offset, required_offset, parallel_offset, cr_offset, nt_offset);
+  /* Compute the offset for parallel writing */
+  PMMG_CALLOC(parmesh, offset, 2 * ntyp_entities, hsize_t, "offset", return 0);
+  PMMG_computeHDFoffset(parmesh, ntyp_entities, nentities, offset);
 
   /* Now the proc only needs to know its local and the global number of entities */
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
@@ -2183,34 +2126,32 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
             __func__);
     return 0;
   }
-  PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg,
-                             point_offset, edge_offset, tria_offset, quad_offset, tetra_offset, prism_offset,
-                             required_offset, parallel_offset, cr_offset, nt_offset);
+  PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
   H5Gclose(grp_entities_id);
 
   /* Close the mesh group */
   H5Gclose(grp_mesh_id);
 
-  /*------------------------- WRITE METRIC AND SOLUTIONS -------------------------*/
-
+  /* Write the metric and the solutions */
   grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   if (grp_sols_id < 0) {
     fprintf(stderr,"\n  ## Error: %s: Could not create the solutions group.\n",
             __func__);
     return 0;
   }
-  PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, point_offset);
+  PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
   H5Gclose(grp_sols_id);
 
-  /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
+  /* We no longer need the offset */
+  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
 
+  /* Release all HDF5 IDs */
   status = H5Fclose(file_id);
   status = H5Pclose(fapl_id);
   status = H5Pclose(dxpl_id);
   status = H5Pclose(dcpl_id);
 
-  /*------------------------- WRITE LIGHT DATA IN XDMF FILE -------------------------*/
-
+  /* Write light data in XDMF file */
   if (!xdmfname || !*xdmfname)
     fprintf(stderr,"  ## Warning: %s: no XDMF file name provided.", __func__);
   else
