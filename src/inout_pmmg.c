@@ -2082,12 +2082,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
   status = H5Pset_fapl_mpio(fapl_id, comm, info);
+  status = H5Pset_coll_metadata_write(fapl_id, 1);
   dxpl_id = H5Pcreate(H5P_DATASET_XFER);
   status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
   dcpl_id = H5Pcreate(H5P_DATASET_CREATE);
   status = H5Pset_fill_time(dcpl_id, H5D_FILL_TIME_NEVER);
-
-  /*------------------------- OPEN FILE AND WRITE DATA -------------------------*/
 
   /* Create the file */
   file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id);
@@ -2100,8 +2099,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Save the attributes (Version and Dimension) */
   PMMG_saveHeader_hdf5(parmesh, file_id);
 
-  /*------------------------- WRITE MESH -------------------------*/
-
+  /* Open the mesh group */
   grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   if (grp_mesh_id < 0) {
     fprintf(stderr,"\n  ## Error: %s: Could not create the mesh group.\n",
@@ -2164,139 +2162,164 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   return ier;
 }
 
-static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
-  MMG5_pMesh mesh;
-  hid_t attr_id;
+/* static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) { */
+/*   MMG5_pMesh mesh; */
+/*   hid_t attr_id; */
 
-  mesh = parmesh->listgrp[0].mesh;
+/*   mesh = parmesh->listgrp[0].mesh; */
 
-  attr_id = H5Aopen(file_id, "MeshVersionFormatted", H5P_DEFAULT);
-  H5Aread(attr_id, H5T_NATIVE_INT, &mesh->ver);
-  H5Aclose(attr_id);
+/*   attr_id = H5Aopen(file_id, "MeshVersionFormatted", H5P_DEFAULT); */
+/*   H5Aread(attr_id, H5T_NATIVE_INT, &mesh->ver); */
+/*   H5Aclose(attr_id); */
 
-  attr_id = H5Aopen(file_id, "Dimension", H5P_DEFAULT);
-  H5Aread(attr_id, H5T_NATIVE_INT, &mesh->dim);
-  H5Aclose(attr_id);
+/*   attr_id = H5Aopen(file_id, "Dimension", H5P_DEFAULT); */
+/*   H5Aread(attr_id, H5T_NATIVE_INT, &mesh->dim); */
+/*   H5Aclose(attr_id); */
 
-  if (mesh->dim != 3) {
-    return 0;
-  }
+/*   if (mesh->dim != 3) { */
+/*     return 0; */
+/*   } */
 
-  return 1;
-}
+/*   return 1; */
+/* } */
 
-static int PMMG_loadCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id, hid_t dcpl_id, hid_t dxpl_id) {
-  return 1;
-}
+/* static int PMMG_loadCommunicators_hdf5(PMMG_pParMesh parmesh, hid_t grp_comm_id, hid_t dcpl_id, hid_t dxpl_id) { */
+/*   return 1; */
+/* } */
 
-static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dcpl_id, hid_t dxpl_id) {
-  return 1;
-}
+/* static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dcpl_id, hid_t dxpl_id) { */
+/*   return 1; */
+/* } */
 
-int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
-  /* MMG variables */
-  int ier = 1;
-  int ntyp_entities = 20;
-  hsize_t *nentities, *nentitiesl, *nentitiesg;
+/* static int PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id) { */
+/*   return 1; */
+/* } */
 
-  /* Offsets for parallel reading */
-  hsize_t point_offset[3] = {0, 0, 0};
-  hsize_t edge_offset[2]  = {0, 0};
-  hsize_t tria_offset[3]  = {0, 0, 0};
-  hsize_t quad_offset[4]  = {0, 0, 0, 0};
-  hsize_t tetra_offset[4] = {0, 0, 0, 0};
-  hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0};
-  hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /* Used for the required entities */
-  hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /* Used for the parallel entities */
-  hsize_t cr_offset[2] = {0, 0};                    /* Used for the corners and the ridges */
-  hsize_t nt_offset[6] = {0, 0, 0, 0, 0, 0};        /* Used for the normals and the tangents */
+/* int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) { */
+/*   /\* MMG variables *\/ */
+/*   int ier = 1; */
+/*   int ntyp_entities = 20; */
+/*   hsize_t *nentities, *nentitiesl, *nentitiesg; */
 
-  /* HDF5 variables */
-  hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* Objects */
-  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* Property lists */
-  herr_t status;
+/*   /\* Offset for parallel reading *\/ */
+/*   hsize_t point_offset[3] = {0, 0, 0}; */
+/*   hsize_t edge_offset[2]  = {0, 0}; */
+/*   hsize_t tria_offset[3]  = {0, 0, 0}; */
+/*   hsize_t quad_offset[4]  = {0, 0, 0, 0}; */
+/*   hsize_t tetra_offset[4] = {0, 0, 0, 0}; */
+/*   hsize_t prism_offset[6] = {0, 0, 0, 0, 0, 0}; */
+/*   hsize_t required_offset[5] = {0, 0, 0, 0, 0};     /\* Used for the required entities *\/ */
+/*   hsize_t parallel_offset[5] = {0, 0, 0, 0, 0};     /\* Used for the parallel entities *\/ */
+/*   hsize_t cr_offset[2] = {0, 0};                    /\* Used for the corners and the ridges *\/ */
+/*   hsize_t nt_offset[6] = {0, 0, 0, 0, 0, 0};        /\* Used for the normals and the tangents *\/ */
 
-  /* MPI variables */
-  MPI_Info info = MPI_INFO_NULL;
-  MPI_Comm comm = parmesh->comm;
-  int rank, root, nprocs;
+/*   /\* HDF5 variables *\/ */
+/*   hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /\* Objects *\/ */
+/*   hid_t fapl_id, dxpl_id, dapl_id;                                       /\* Property lists *\/ */
+/*   herr_t status; */
 
-  /* Check arguments */
-  if (parmesh->ngrp != 1) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
-            __func__);
-    return 0;
-  }
-  if (!filename || !*filename) {
-    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
-            __func__);
-    return 0;
-  }
+/*   /\* MPI variables *\/ */
+/*   MPI_Info info = MPI_INFO_NULL; */
+/*   MPI_Comm comm = parmesh->comm; */
+/*   int rank, root, nprocs; */
 
-  /* Set all buffers to NULL */
-  nentities = NULL;
-  nentitiesl = NULL;
-  nentitiesg = NULL;
+/*   /\* Check arguments *\/ */
+/*   if (parmesh->ngrp != 1) { */
+/*     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.", */
+/*             __func__); */
+/*     return 0; */
+/*   } */
+/*   if (!filename || !*filename) { */
+/*     fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.", */
+/*             __func__); */
+/*     return 0; */
+/*   } */
 
-  /* Set MPI variables */
-  nprocs = parmesh->nprocs;
-  rank = parmesh->myrank;
-  root = parmesh->info.root;
+/*   /\* Set all buffers to NULL *\/ */
+/*   nentities = NULL; */
+/*   nentitiesl = NULL; */
+/*   nentitiesg = NULL; */
 
-  /* Shut HDF5 error stack */
-  H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+/*   /\* Set MPI variables *\/ */
+/*   nprocs = parmesh->nprocs; */
+/*   rank = parmesh->myrank; */
+/*   root = parmesh->info.root; */
 
-  /* Create the property lists */
-  fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-  status = H5Pset_fapl_mpio(fapl_id, comm, info);
-  dxpl_id = H5Pcreate(H5P_DATASET_XFER);
-  status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE);
-  dcpl_id = H5Pcreate(H5P_DATASET_CREATE);
-  status = H5Pset_fill_time(dcpl_id, H5D_FILL_TIME_NEVER);
+/*   /\* Shut HDF5 error stack *\/ */
+/*   H5Eset_auto(H5E_DEFAULT, NULL, NULL); */
 
-  /* Open the HDF5 file */
-  file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
-  if (file_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the hdf5 file %s.\n",
-            __func__, filename);
-    return 0;
-  }
+/*   /\* Create the property lists *\/ */
+/*   fapl_id = H5Pcreate(H5P_FILE_ACCESS); */
+/*   status = H5Pset_fapl_mpio(fapl_id, comm, info);    /\* Parallel access to the file *\/ */
+/*   status = H5Pset_all_coll_metadata_ops(fapl_id, 1); /\* Collective metadata read *\/ */
+/*   dxpl_id = H5Pcreate(H5P_DATASET_XFER); */
+/*   status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE); /\* Collective dataset xfer operations *\/ */
 
-  /* Load the header (version and dimension) */
-  ier = PMMG_loadHeader_hdf5(parmesh, file_id);
-  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
-  if (ier == 0) {
-    if (rank == root) {
-      fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n",
-              __func__, filename);
-    }
-    return 0;
-  }
+/*   /\* Open the HDF5 file *\/ */
+/*   file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id); */
+/*   if (file_id < 0) { */
+/*     fprintf(stderr,"\n  ## Error: %s: Could not open the hdf5 file %s.\n", */
+/*             __func__, filename); */
+/*     return 0; */
+/*   } */
 
-  /* Open the mesh group */
-  grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT);
-  if (grp_mesh_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh group in file %s.\n",
-            __func__, filename);
-    return 0;
-  }
+/*   /\* Load the header (version and dimension) *\/ */
+/*   ier = PMMG_loadHeader_hdf5(parmesh, file_id); */
+/*   MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm); */
+/*   if (ier == 0) { */
+/*     if (rank == root) { */
+/*       fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n", */
+/*               __func__, filename); */
+/*     } */
+/*     return 0; */
+/*   } */
 
-  /* Open the communicators group */
-  grp_comm_id = H5Gopen(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT);
-  if (grp_comm_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh/FaceCommunicators group in file %s.\n",
-            __func__, filename);
-    return 0;
-  }
+/*   /\* Open the mesh group *\/ */
+/*   grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT); */
+/*   if (grp_mesh_id < 0) { */
+/*     fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh group in file %s.\n", */
+/*             __func__, filename); */
+/*     return 0; */
+/*   } */
 
-  PMMG_loadCommunicators_hdf5(parmesh, grp_comm_id, dcpl_id, dxpl_id);
+/*   /\* Read the communicators and get the partitions *\/ */
+/*   grp_comm_id = H5Gopen(grp_mesh_id, "FaceCommunicators", H5P_DEFAULT); */
+/*   if (grp_comm_id < 0) { */
+/*     fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh/FaceCommunicators group in file %s.\n", */
+/*             __func__, filename); */
+/*     return 0; */
+/*   } */
+/*   PMMG_loadCommunicators_hdf5(parmesh, grp_comm_id, dcpl_id, dxpl_id); */
+/*   H5Gclose(grp_comm_id); */
 
-  /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
+/*   /\* Each proc reads the part of the mesh that is assigned to him *\/ */
+/*   grp_entities_id = H5Gopen(grp_mesh_id, "MeshEntities", H5P_DEFAULT); */
+/*   if (grp_entities_id < 0) { */
+/*     fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh/MeshEntities group in file %s.\n", */
+/*             __func__, filename); */
+/*     return 0; */
+/*   } */
+/*   PMMG_loadMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id); */
+/*   H5Gclose(grp_entities_id); */
 
-  status = H5Fclose(file_id);
-  status = H5Pclose(fapl_id);
-  status = H5Pclose(dxpl_id);
-  status = H5Pclose(dcpl_id);
+/*   /\* Close the mesh group *\/ */
+/*   H5Gclose(grp_mesh_id); */
 
-  return 1;
-}
+/*   /\* Each proc reads the part of the solutions/metric that is assigned to him *\/ */
+/*   grp_sols_id = H5Gopen(file_id, "Solutions", H5P_DEFAULT); */
+/*   if (grp_sols_id < 0) { */
+/*     fprintf(stderr,"\n  ## Error: %s: Could not open the /Solutions group in file %s.\n", */
+/*             __func__, filename); */
+/*     return 0; */
+/*   } */
+/*   PMMG_loadAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id); */
+/*   H5Gclose(grp_sols_id); */
+
+/*   /\*------------------------- RELEASE ALL HDF5 IDs -------------------------*\/ */
+
+/*   status = H5Fclose(file_id); */
+/*   status = H5Pclose(fapl_id); */
+/*   status = H5Pclose(dxpl_id); */
+
+/*   return 1; */
+/* } */
