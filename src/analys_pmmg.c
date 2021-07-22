@@ -34,21 +34,134 @@
 
 #include "parmmg.h"
 
+void PMMG_hashNorver_loopVariable_init( int *ie,int *ifac,int *iloc ) {
+  *ie   = 1;
+  *ifac = 0;
+  *iloc = 0;
+  return;
+}
+
+void PMMG_hashNorver_loopVariable_next( int *ie,int *ifac,int *iloc ) {
+  *iloc += 1;
+  if( *iloc == 3 ) {
+    *iloc  = 0;
+    *ifac += 1;
+    if( *ifac == 4 ) {
+      *ifac = 0;
+      *ie  += 1;
+    }
+  }
+  return;
+}
+
+int PMMG_hashNorver_loop( MMG5_pMesh mesh,
+                          MMG5_pTetra *pt,MMG5_pxTetra *pxt,MMG5_pPoint *ppt,
+                          int *ie,int *ifac,int *iloc,int *ip,int *ip1,int *ip2 ) {
+  int16_t tag;
+
+  /*
+   * Triple loop on:
+   * - boundary tetra,
+   *   - well-oriented true boundary face,
+   *     - manifold parallel face vertices.
+   *
+   * Exit as soon as a valid entity is found.
+   */
+  int8_t found = 0;
+  for( int ie_ = (*ie); ie_ <= mesh->ne && !found; ie_++ ) {
+    *pt = &mesh->tetra[ie_];
+    if( !MG_EOK(*pt) ) continue;
+
+    /* Stay on boundary tetra */
+    if( !(*pt)->xt ) continue;
+    *pxt = &mesh->xtetra[(*pt)->xt];
+
+    /* Loop on faces */
+    for( int ifac_ = (*ifac); ifac_ < 4 && !found; ifac_++ ) {
+      /* Get face tag */
+      tag = (*pxt)->ftag[ifac_];
+
+      /* Skip face with reversed orientation (it will be analyzed by another
+       * tetra, on this or on another process) */
+      if( !MG_GET((*pxt)->ori,ifac_) ) continue;
+
+      /* Skip internal faces */
+      if( !(tag & MG_BDY) ||
+          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
+        continue;
+
+      /* Loop on face vertices */
+      for( int iloc_ = (*iloc); iloc_ < 3 && !found; iloc_++ ) {
+        *ip = (*pt)->v[MMG5_idir[ifac_][iloc_]];
+        *ppt = &mesh->point[*ip];
+        if( ((*ppt)->tag & MG_PARBDY) && !((*ppt)->tag & MG_NOM) ) {
+          /* Get extremities of the recv and send edges of the point */
+          *ip1 = (*pt)->v[MMG5_idir[ifac_][MMG5_inxt2[iloc_]]];
+          *ip2 = (*pt)->v[MMG5_idir[ifac_][MMG5_iprv2[iloc_]]];
+          found = 1;
+        }
+      }
+    }
+  }
+
+  return found;
+}
+
+int PMMG_hashNorver_get( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_pTetra pt,
+                         int ifac,int iloc,int ip,int ip1,int8_t *updated ) {
+  int dummyref;
+  int16_t color;
+
+  /* Get edge color */
+  if( !MMG5_hGet( hash,ip,mesh->np+ip1,&dummyref,&color ) ) return 0;
+
+  /* If new color, color tria of point ip and flag update */
+  if( color && !( pt->mark & (1 << 3*ifac+iloc) ) ) {
+    pt->mark |= 1 << 3*ifac+iloc;
+    *updated = 1;
+  }
+
+  return 1;
+}
+
+int PMMG_hashNorver_set( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_pTetra pt,
+                         int ifac,int iloc,int ip,int ip2 ) {
+  int dummyref = 0;
+  int16_t color = pt->mark & (1 << 3*ifac+iloc);
+
+  if( !MMG5_hTag( hash,ip,mesh->np+ip2,dummyref,color ) ) return 0;
+
+  return 1;
+}
+
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_pGrp      grp;
-  PMMG_pInt_comm int_face_comm;
+  PMMG_pInt_comm int_node_comm,int_face_comm;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
   MMG5_HGeom     hash;
-  int            ie,ifac,ia,i,ip0,ip1,ip2,nf,isface;
+  int            ie,ifac,ia,i,ip,ip1,ip2,iter;
+  int            *intvalues;
   int16_t        tag;
+  int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
+
 
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   assert( mesh = grp->mesh );
 
+  int_node_comm = parmesh->int_node_comm;
   int_face_comm = parmesh->int_face_comm;
+
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip = grp->node2int_node_comm_index1[i];
+    ppt = &mesh->point[ip];
+    ppt->tmp = i;
+  }
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
@@ -58,50 +171,88 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
 
   /* Loop on edges touching an old parallel point and insert them in the hash
    * table. */
-  nf = 0;
+  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+    /* Store recv edge ip->ip1 */
+    if( pxt->tag[indedg[ip][ip1]] & MG_GEO ) {
+      /* try to store extremity; if no space, switch on tag */
+      tag = 0;
+      if( !intvalues[2*ppt->tmp] )
+        intvalues[2*ppt->tmp] = ip1;
+      else {
+        intvalues[2*ppt->tmp+1] = ip1;
+        tag = 1;
+      }
+    }
+    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip1,0,tag ) ) return 0;
+    /* Store send edge ip2->ip0 */
+    if( !MMG5_hEdge( mesh,&hash,ip2,mesh->np+ip,0,0 ) ) return 0;
+
+    /* Get next counter iteration */
+    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+  }
+
+  /* TODO extremity communication here */
+
+
+  /* Reset tetra mark */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_EOK(pt) ) continue;
+    pt->mark = 0;
+  }
 
-    /* Stay on boundary tetra */
-    if( !pt->xt ) continue;
-    pxt = &mesh->xtetra[pt->xt];
+  /** Local update iterations */
+  int8_t updated;
 
-    for( ifac = 0; ifac < 4; ifac++ ) {
-      /* Get face tag */
-      tag = pxt->ftag[ifac];
+  /* Get color loop */
+  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
 
-      /* Skip face with reversed orientation (it will be analyzed by another
-       * tetra, on this or on another process) */
-      if( !MG_GET(pxt->ori,ifac) ) continue;
+    /* Get color from the recv edge */
+    if( !PMMG_hashNorver_get( mesh,&hash,pt,ifac,i,ip,ip1,&updated ) )
+      return 0;
 
-      /* Skip internal faces */
-      if( !(tag & MG_BDY) ||
-          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
-        continue;
+    /* Get next counter iteration */
+    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+  }
 
-      isface = 0;
-      for( i = 0; i < 3; i ++ ) {
-        ip0 = pt->v[MMG5_idir[ifac][i]];
-        ppt = &mesh->point[ip0];
-        if( ppt->tag & MG_PARBDY ) {
-          isface = 1;
-          ip1 = pt->v[MMG5_idir[ifac][MMG5_inxt2[i]]];
-          ip2 = pt->v[MMG5_idir[ifac][MMG5_iprv2[i]]];
-          /* Store recv edge ip0->ip1 */
-          if( !MMG5_hEdge( mesh,&hash,ip0,mesh->np+ip1,0,0 ) ) return 0;
-          /* Store send edge ip2->ip0 */
-          if( !MMG5_hEdge( mesh,&hash,ip2,mesh->np+ip0,0,0 ) ) return 0;
-        }
-      }
-      if( isface ) nf++;
+  while( updated ) {
+    /* Set color loop */
+    PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+    while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                                 &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+
+      /* Set color to the send edge */
+      if( !PMMG_hashNorver_set( mesh,&hash,pt,ifac,i,ip,ip2 ) )
+        return 0;
+
+      /* Get next counter iteration */
+      PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+    }
+
+    /* Get color loop */
+    PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+    while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                                 &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+      /* Get color from the recv edge */
+      if( !PMMG_hashNorver_get( mesh,&hash,pt,ifac,i,ip,ip1,&updated ) )
+        return 0;
+
+      /* Get next counter iteration */
+      PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
     }
   }
 
 
-
   /* Free memory */
   MMG5_DEL_MEM(mesh,hash.geom);
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
 
   return 1;
 }
