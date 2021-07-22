@@ -157,16 +157,24 @@ int PMMG_hashNorver_set( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,MMG5_
 static inline
 int PMMG_hashNorver_get_par( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,
                              MMG5_pTetra pt,int ifac,int iloc,int ip,int ip1,int8_t *updated ) {
-  int dummyref;
+  MMG5_pEdge pa;
+  int edg,j;
   int16_t color_old,color_new;
 
-  /* Get edge */
-  if( !MMG5_hGet( hpar,ip,ip1,&dummyref,&color_old ) ) return 1;
+  /* Get edge and node position on edge */
+  if( !MMG5_hGet( hpar,ip,ip1,&edg,&color_new ) ) return 1;
+  pa = &mesh->edge[edg];
+  if( pa->a == ip )
+    j = 0;
+  else {
+    assert( pa->b == ip );
+    j = 1;
+  }
 
   /* Color edge */
-  color_new = pt->mark & (1 << 3*ifac+iloc);
+  color_old = pt->mark & (1 << 3*ifac+iloc);
   if( color_new && !color_old ) {
-    if( !MMG5_hTag( hpar,ip,ip1,dummyref,color_new ) ) return 0;
+    pt->mark |= color_new;
     *updated = 1;
   }
 
