@@ -991,7 +991,7 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
-static int PMMG_countEntities(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities, hsize_t *nentitiesl, hsize_t* nentitiesg) {
+static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t *nentitiesl, hsize_t* nentitiesg) {
   /* MMG variables */
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
@@ -1145,47 +1145,47 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t 
   }
 
   /* Count global entities */
-  nentities[ntyp_entities * rank + PMMG_saveVertex]  = np;
-  nentities[ntyp_entities * rank + PMMG_saveEdge]    = na;
-  nentities[ntyp_entities * rank + PMMG_saveTria]    = nt;
-  nentities[ntyp_entities * rank + PMMG_saveQuad]    = nquad;
-  nentities[ntyp_entities * rank + PMMG_saveTetra]   = ne;
-  nentities[ntyp_entities * rank + PMMG_savePrism]   = nprism;
-  nentities[ntyp_entities * rank + PMMG_saveCorner]  = nc;
-  nentities[ntyp_entities * rank + PMMG_saveReq]     = npreq;
-  nentities[ntyp_entities * rank + PMMG_savePar]     = nppar;
-  nentities[ntyp_entities * rank + PMMG_saveRidge]   = nr;
-  nentities[ntyp_entities * rank + PMMG_saveEdReq]   = nedreq;
-  nentities[ntyp_entities * rank + PMMG_saveEdPar]   = nedpar;
-  nentities[ntyp_entities * rank + PMMG_saveTriaReq] = ntreq;
-  nentities[ntyp_entities * rank + PMMG_saveTriaPar] = ntpar;
-  nentities[ntyp_entities * rank + PMMG_saveQuadReq] = nqreq;
-  nentities[ntyp_entities * rank + PMMG_saveQuadPar] = nqpar;
-  nentities[ntyp_entities * rank + PMMG_saveTetReq]  = nereq;
-  nentities[ntyp_entities * rank + PMMG_saveTetPar]  = nepar;
-  nentities[ntyp_entities * rank + PMMG_saveNormal]  = nnor;
-  nentities[ntyp_entities * rank + PMMG_saveTangent] = ntan;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveVertex]  = np;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveEdge]    = na;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTria]    = nt;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveQuad]    = nquad;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTetra]   = ne;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_savePrism]   = nprism;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveCorner]  = nc;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveReq]     = npreq;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_savePar]     = nppar;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveRidge]   = nr;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveEdReq]   = nedreq;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveEdPar]   = nedpar;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTriaReq] = ntreq;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTriaPar] = ntpar;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveQuadReq] = nqreq;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveQuadPar] = nqpar;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTetReq]  = nereq;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTetPar]  = nepar;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveNormal]  = nnor;
+  nentities[PMMG_NTYPENTITIES * rank + PMMG_saveTangent] = ntan;
 
-  for (int typent = 0 ; typent < ntyp_entities ; typent++) {
-    nentitiesl[typent] = nentities[ntyp_entities * rank + typent];
+  for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
+    nentitiesl[typent] = nentities[PMMG_NTYPENTITIES * rank + typent];
   }
 
-  MPI_Allgather(&nentities[ntyp_entities * rank], ntyp_entities, MPI_UNSIGNED_LONG_LONG,
-                nentities                       , ntyp_entities, MPI_UNSIGNED_LONG_LONG, comm);
+  MPI_Allgather(&nentities[PMMG_NTYPENTITIES * rank], PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG,
+                nentities                           , PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG, comm);
 
   for (int k = 0 ; k < nprocs ; k++) {
-    for (int typent = 0 ; typent < ntyp_entities ; typent++) {
-      nentitiesg[typent] += nentities[ntyp_entities * k + typent];
+    for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
+      nentitiesg[typent] += nentities[PMMG_NTYPENTITIES * k + typent];
     }
   }
 
   return 1;
 }
 
-static inline int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, int ntyp_entities, hsize_t *nentities, hsize_t *offset) {
+static inline int PMMG_computeHDFoffset(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t *offset) {
   for (int k = 0 ; k < parmesh->myrank ; k++) {
-    for (int typent = 0 ; typent < ntyp_entities ; typent++) {
-      offset[2 * typent] += nentities[ntyp_entities * k + typent];
+    for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
+      offset[2 * typent] += nentities[PMMG_NTYPENTITIES * k + typent];
     }
   }
   return 1;
@@ -2129,17 +2129,20 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   return 1;
 }
 
+int PMMG_setDefaultSaveOptions(int *save_options) {
+
+}
+
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname) {
-  int ier = 1;
-  int ntyp_entities = 20;
-  hsize_t *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
-  hsize_t *offset;                              /* Offset for the parallel writing with HDF5 */
-  hid_t file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
-  hid_t fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
-  herr_t status;
+  int      ier = 1;
+  hsize_t  *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
+  hsize_t  *offset;                              /* Offset for the parallel writing with HDF5 */
+  hid_t    file_id, grp_mesh_id, grp_comm_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
+  hid_t    fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
+  herr_t   status;
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
-  int nprocs;
+  int      nprocs;
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -2161,16 +2164,16 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const cha
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
 
-  PMMG_CALLOC(parmesh, nentities, ntyp_entities * nprocs, hsize_t, "nentities", return 0);
-  PMMG_CALLOC(parmesh, nentitiesg, ntyp_entities, hsize_t, "nentitiesg", return 0);
-  PMMG_CALLOC(parmesh, nentitiesl, ntyp_entities, hsize_t, "nentitiesl", return 0);
+  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * nprocs, hsize_t, "nentities", return 0);
+  PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg", return 0);
+  PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl", return 0);
 
   /* Count the number of entities on each proc and globally */
-  PMMG_countEntities(parmesh, ntyp_entities, nentities, nentitiesl, nentitiesg);
+  PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg);
 
   /* Compute the offset for parallel writing */
-  PMMG_CALLOC(parmesh, offset, 2 * ntyp_entities, hsize_t, "offset", return 0);
-  PMMG_computeHDFoffset(parmesh, ntyp_entities, nentities, offset);
+  PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset", return 0);
+  PMMG_computeHDFoffset(parmesh, nentities, offset);
 
   /* Now that we have computed the offsets, each proc only needs to know its
      local number of entities and the global number of entities */
@@ -2366,7 +2369,6 @@ static int PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
   /* MMG variables */
   int ier = 1;
-  int ntyp_entities = 20;
   hsize_t *nentities, *nentitiesl, *nentitiesg;
 
   /* Offset for parallel reading */
@@ -2405,6 +2407,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
   ncomm = NULL;
   color = NULL;
   nface = NULL;
+
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;

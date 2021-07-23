@@ -244,6 +244,13 @@
 #define PMMG_GAP     0.2
 
 /**
+ * \def PMMG_NTYPENTITIES
+ *
+ * Number of types of mesh entities
+*/
+#define PMMG_NTYPENTITIES 20
+
+/**
  * \enum PMMG_hdf5_entities
  * \brief Type of mesh entities that are saved in HDF5 files.
  */
