@@ -271,17 +271,36 @@ int PMMG_hashNorver_locIter( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,i
   return 1;
 }
 
-int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh ) {
+int PMMG_hashNorver_compExt( const void *a,const void *b ) {
+  return ( *(int*)a - *(int*)b );
+}
+
+int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
+  PMMG_pGrp      grp;
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
-  int            *itosend,*itorecv,*intvalues;
-  int            k,nitem,color,i,idx,j,pos,d;
+  int            *itosend,*itorecv,*intvalues,*npshift,myshift;
+  int            k,nitem,color,i,idx,j,pos,d,ip;
   MPI_Comm       comm;
   MPI_Status     status;
+
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  assert( grp->mesh == mesh );
 
   comm = parmesh->comm;
   intvalues = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
+
+  PMMG_CALLOC(parmesh,npshift,parmesh->nprocs+1,int,"npshift", return 0);
+  MPI_CHECK( MPI_Allgather(&mesh->np,1,MPI_INT,&npshift[1],1,MPI_INT,comm),
+             return 0 );
+
+  for( k = 1; k <= parmesh->nprocs; ++k )
+    npshift[k] += npshift[k-1];
+  myshift = npshift[parmesh->myrank];
+
+
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -289,9 +308,9 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh ) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_MALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
                 return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
                 return 0);
     PMMG_MALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
                 return 0);
@@ -303,16 +322,14 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh ) {
     rtorecv = ext_node_comm->rtorecv;
 
     /* Fill buffers */
-    for ( i=0; i<nitem; ++i ) {
+    for( i = 0; i < nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
-      /* copy valid entries */
-      j = 0;
-      while( intvalues[2*idx+j] != PMMG_UNSET && j < 2 ) {
-        itosend[2*i+j] = intvalues[2*idx+j];
+      /* send all entries (their meaningfullness will be checked at receiving) */
+      for( j = 0; j < 2; j++ ) {
+        itosend[2*i+j] = intvalues[2*idx+j]+myshift;
         for( d = 0; d < 3; d++ )
           rtosend[6*i+3*j+d] = doublevalues[6*idx+3*j+d];
-        j++;
-       }
+      }
     }
 
     /* Communication */
@@ -338,13 +355,14 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh ) {
       idx  = ext_node_comm->int_comm_index[i];
       /* find first free position */
       pos = 0;
-      while( intvalues[2*idx+pos] != PMMG_UNSET && pos < 2 ) {
+      while( intvalues[2*idx+pos] && pos < 2 ) {
         pos++;
       }
       /* copy valid entries into free positions */
       j = 0;
-      while( itorecv[2*i+j] != PMMG_UNSET && j < 2 ) {
-        intvalues[2*idx+pos] = color;
+      while( itorecv[2*i+j] && j < 2 ) {
+        assert( pos < 3 );
+        intvalues[2*idx+pos] = itorecv[2*i+j]-myshift;
         for( d = 0; d < 3; d++ ) {
           doublevalues[6*idx+3*pos+d] = rtorecv[6*i+3*j+d];
         }
@@ -354,9 +372,21 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh ) {
     }
   }
 
+  /* At this point all parallel manifold points should have both ridge
+   * extremities */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+
+    qsort( &intvalues[2*idx], 2, sizeof(int),PMMG_hashNorver_compExt );
+    mesh->point[ip].tmp = intvalues[2*idx];
+  }
+
+
   return 1;
 
 }
+
 
 int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   PMMG_pExt_comm ext_edge_comm;
@@ -479,9 +509,21 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* Parallel exchange of ridge extremities */
-  if( !PMMG_hashNorver_communication_ext( parmesh ) ) return 0;
+  if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
 
-  /* TODO update colors using ridge extremities */
+  /* Update colors using ridge extremities */
+  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+    /* Switch edge color if its extremity is found */
+    if( ip1 == ppt->tmp )
+      if( !MMG5_hTag( &hash,ip,mesh->np+ip1,0,1 ) ) return 0;
+
+    /* Get next counter iteration */
+    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+  }
+
 
   /* Reset tetra mark */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
