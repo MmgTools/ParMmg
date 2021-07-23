@@ -1985,6 +1985,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param save_entities array of size PMMG_NTYPENTITIES (at least).
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the default entities to save into an hdf5 file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)           :: save_entities\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_setDefaultSaveEntities_hdf5(PMMG_pParMesh parmesh, int *save_entities);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param save_entities array of size PMMG_NTYPENTITIES (at least).
  * \param filename name of the HDF5 file.
  * \param xdmfname name of the XDMF file.
  * \return 0 if failed, 1 otherwise.
@@ -1994,15 +2012,16 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
- * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
- * >     CHARACTER(LEN=*), INTENT(IN)   :: xdmfname\n
- * >     INTEGER, INTENT(IN)            :: strlen\n
- * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER         , INTENT(IN)    :: save_entities\n
+ * >     CHARACTER(LEN=*), INTENT(IN)    :: filename\n
+ * >     CHARACTER(LEN=*), INTENT(IN)    :: xdmfname\n
+ * >     INTEGER, INTENT(IN)             :: strlen\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname);
+  int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname);
 
  /**
  * \param parmesh pointer toward the parmesh structure.
