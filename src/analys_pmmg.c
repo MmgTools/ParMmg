@@ -292,6 +292,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   intvalues = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
+  /* Compute nodes global offset */
   PMMG_CALLOC(parmesh,npshift,parmesh->nprocs+1,int,"npshift", return 0);
   MPI_CHECK( MPI_Allgather(&mesh->np,1,MPI_INT,&npshift[1],1,MPI_INT,comm),
              return 0 );
@@ -299,7 +300,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   for( k = 1; k <= parmesh->nprocs; ++k )
     npshift[k] += npshift[k-1];
   myshift = npshift[parmesh->myrank];
-
+  PMMG_DEL_MEM(parmesh,npshift,int,"npshift");
 
 
   /** Exchange values on the interfaces among procs */
@@ -383,10 +384,49 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   }
 
 
+  /* Free memory */
+  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
+  }
+
   return 1;
 
 }
 
+int PMMG_hashNorver_communication_init( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_edge_comm;
+  int k,nitem,color;
+
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+  }
+
+  return 1;
+}
+
+int PMMG_hashNorver_communication_free( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_edge_comm;
+  int k;
+
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
+  }
+
+  return 1;
+}
 
 int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   PMMG_pExt_comm ext_edge_comm;
@@ -404,10 +444,6 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
     nitem         = ext_edge_comm->nitem;
     color         = ext_edge_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
     itosend = ext_edge_comm->itosend;
     itorecv = ext_edge_comm->itorecv;
 
@@ -455,7 +491,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   int16_t        tag;
   int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
 
-
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   assert( mesh = grp->mesh );
@@ -464,18 +499,19 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   int_edge_comm = parmesh->int_edge_comm;
   int_face_comm = parmesh->int_face_comm;
 
+  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
   PMMG_CALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
 
 
+  /* Store internal communicator index on the point itself */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip = grp->node2int_node_comm_index1[i];
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tmp = i;
+    ppt->tmp = idx;
   }
 
-
-  intvalues = int_node_comm->intvalues;
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
@@ -483,35 +519,36 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   if ( !MMG5_hNew(mesh,&hash,3*int_face_comm->nitem,5*int_face_comm->nitem) )
     return 0;
 
-  /* Loop on edges touching an old parallel point and insert them in the hash
-   * table. */
+  /** 1) Loop on edges touching an old parallel point and insert them in the
+   *     hash table. Find local ridge extremities. */
+  intvalues = int_node_comm->intvalues;
   PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
   while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
 
-    /* Store recv edge ip->ip1 */
+    /* Store upstream edge ip->ip1 */
     if( pxt->tag[indedg[ip][ip1]] & MG_GEO ) {
-      /* try to store extremity; if no space, switch on tag */
-      tag = 0;
+      /* store extremity in the first free position */
       if( !intvalues[2*ppt->tmp] )
         intvalues[2*ppt->tmp] = ip1;
       else {
         intvalues[2*ppt->tmp+1] = ip1;
-        tag = 1;
       }
     }
-    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip1,0,tag ) ) return 0;
-    /* Store send edge ip2->ip0 */
+    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip1,0,0 ) ) return 0;
+
+    /* Store downstream edge ip2->ip0 */
     if( !MMG5_hEdge( mesh,&hash,ip2,mesh->np+ip,0,0 ) ) return 0;
+
 
     /* Get next counter iteration */
     PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
   }
 
-  /* Parallel exchange of ridge extremities */
+  /** 2) Parallel exchange of ridge extremities, and update color on second
+   *     extremity. */
   if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
 
-  /* Update colors using ridge extremities */
   PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
   while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
@@ -525,6 +562,16 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
 
+  /** 3) Propagate surface colors:
+   *     - Do local iterations to converge on local colors.
+   *     - Do parallel iterations to:
+   *       - set colors on parallel edges,
+   *       - communicate colors,
+   *       - get colors from parallel edges, and
+   *       - propagate colors through local iterations.
+   */
+  int8_t updated_par;
+
   /* Reset tetra mark */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
@@ -532,41 +579,48 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     pt->mark = 0;
   }
 
-  /** Local update iterations */
-  int8_t updated_par;
-  /* Local update iterations */
+  /* 3.1) Local update iterations */
   if( !PMMG_hashNorver_locIter( mesh,&hash,hpar,&updated_par ) ) return 0;
 
+  /* 3.2) Parallel update iterations */
+  if( !PMMG_hashNorver_communication_init( parmesh ) ) return 0;
   while( updated_par ) {
 
-    /* Set parallel */
+    /* 3.2.1) Set color on parallel edges */
     PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
     while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                  &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
       if( !PMMG_hashNorver_tria2edge_par( mesh,&hash,hpar,pt,ifac,i,ip,ip2,
             int_edge_comm->intvalues ) ) return 0;
+
       /* Get next counter iteration */
       PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
     }
 
-    /* Parallel communication */
+
+    /* 3.2.2) Parallel communication */
     if( !PMMG_hashNorver_communication( parmesh ) ) return 0;
 
-    /* Get parallel */
+
+    /* 3.2.3) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
       if( !PMMG_hashNorver_edge2edge_par( mesh,&hash,int_edge_comm->intvalues,
             idx,&updated_par ) ) return 0;
     }
 
-    /* Local update iterations */
+    /* 3.2.4) Local update iterations */
     if( !PMMG_hashNorver_locIter( mesh,&hash,hpar,&updated_par ) ) return 0;
   }
+  if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
+
 
   /* Free memory */
   MMG5_DEL_MEM(mesh,hash.geom);
   PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"nonde intvalues");
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
+  PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"node doublevalues");
 
   return 1;
 }
