@@ -510,19 +510,20 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh ){
       for( d = 0; d < 3; d++ )
         pxp->n1[d] *= dd;
 
-    dd = 0.0;
-    for( d = 0; d < 3; d++ )
-      dd += pxp->n2[d];
-    dd = 1.0 / sqrt(dd);
-    if( dd > MMG5_EPSD2 )
+    if( ppt->tag & MG_GEO ) {
+      dd = 0.0;
       for( d = 0; d < 3; d++ )
-        pxp->n2[d] *= dd;
+        dd += pxp->n2[d];
+      dd = 1.0 / sqrt(dd);
+      if( dd > MMG5_EPSD2 )
+        for( d = 0; d < 3; d++ )
+          pxp->n2[d] *= dd;
+      }
 
 
     /* Get next counter iteration */
     PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
   }
-
 
   return 1;
 }
@@ -572,6 +573,17 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
   while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+    /* Create xpoint */
+    if( !ppt->xp ) {
+      ++mesh->xp;
+      if(mesh->xp > mesh->xpmax){
+        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
+                           "larger xpoint table",
+                           mesh->xp--;return 0;);
+      }
+      ppt->xp = mesh->xp;
+    }
 
     /* Store extremity of the upstream edge ip->ip1 if it is a ridge */
     if( pxt->tag[MMG5_iarf[ifac][MMG5_iprv2[i]]] & MG_GEO ) {
