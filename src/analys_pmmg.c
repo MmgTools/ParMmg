@@ -35,6 +35,11 @@
 #include "parmmg.h"
 
 static inline
+int16_t PMMG_hashNorver_code(int ifac,int iloc){
+  return 1 << 3*ifac+iloc;
+}
+
+static inline
 void PMMG_hashNorver_loopVariable_init( int *ie,int *ifac,int *iloc ) {
   *ie   = 1;
   *ifac = 0;
@@ -139,7 +144,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   int16_t    color_old,color_new;
 
   /* Get old triangle color */
-  color_old = pt->mark & (1 << 3*ifac+iloc);
+  color_old = pt->mark & PMMG_hashNorver_code(ifac,iloc);
 
   /* Get upstream edge color */
   if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_new ) ) return 0;
@@ -148,7 +153,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
    * downstream edge, and flag update if the edge color has been changed */
   if( color_new && !color_old ) {
     /* Set tria color */
-    pt->mark |= 1 << 3*ifac+iloc;
+    pt->mark |= PMMG_hashNorver_code(ifac,iloc);
     /* Set downstream edge color, without crossing ridge */
     if( !pxt->tag[MMG5_iarf[ifac][MMG5_inxt2[iloc]]] & MG_GEO ) {
       if( !MMG5_hTag( hash,ip,mesh->np+ip2,edg,color_new ) ) return 0;
@@ -456,6 +461,72 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   return 1;
 }
 
+int PMMG_hashNorver_norver( PMMG_pParMesh parmesh ){
+  MMG5_pMesh   mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  MMG5_pxPoint pxp;
+  int          ie,ifac,i,ip,ip1,ip2,d;
+  double       n[3],dd;
+
+  assert( parmesh->ngrp == 1 );
+  mesh = &parmesh->listgrp[0].mesh;
+
+  /* Accumulate normal vector contributions */
+  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+    pxp = &mesh->xpoint[ppt->xp];
+    /* Compute triangle normal vector when seing a new triangle */
+    if( !i )
+      MMG5_norface(mesh,ie,ifac,n);
+
+    if( pt->mark & PMMG_hashNorver_code(ifac,i) )
+      for( d = 0; d < 3; d++ )
+        pxp->n2[d] += n[d];
+    else
+      for( d = 0; d < 3; d++ )
+        pxp->n1[d] += n[d];
+
+
+    /* Get next counter iteration */
+    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+  }
+
+  /* Normalize vectors */
+  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
+  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
+                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+
+    pxp = &mesh->xpoint[ppt->xp];
+
+    dd = 0.0;
+    for( d = 0; d < 3; d++ )
+      dd += pxp->n1[d];
+    dd = 1.0 / sqrt(dd);
+    if( dd > MMG5_EPSD2 )
+      for( d = 0; d < 3; d++ )
+        pxp->n1[d] *= dd;
+
+    dd = 0.0;
+    for( d = 0; d < 3; d++ )
+      dd += pxp->n2[d];
+    dd = 1.0 / sqrt(dd);
+    if( dd > MMG5_EPSD2 )
+      for( d = 0; d < 3; d++ )
+        pxp->n2[d] *= dd;
+
+
+    /* Get next counter iteration */
+    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+  }
+
+
+  return 1;
+}
+
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
@@ -579,6 +650,10 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     if( !PMMG_hashNorver_locIter( parmesh,mesh,&hash,hpar,&updated_par ) ) return 0;
   }
   if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
+
+
+  /** 4) Compute normal vectors */
+  if( !PMMG_hashNorver_norver( parmesh ) ) return 0;
 
 
   /* Free memory */
