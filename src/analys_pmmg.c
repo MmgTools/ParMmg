@@ -56,6 +56,17 @@ void PMMG_hashNorver_loopVariable_next( int *ie,int *ifac,int *iloc ) {
   return;
 }
 
+/*
+ *                ip       ip       ip      ip          (...)
+ *               *        *        *       * < . . . . *
+ *              /        / ^        \       .         ^
+ *             /     p  /   \ d      \       . (adj) .
+ *            / =>  u  /     \ o   => \  =>   .     .
+ *           /        / (ie)  \ w      \       .   .
+ *          v        v         \ n      v       v .
+ *         *        * --------> *        *       *
+ *       np+ip1   ip1            ip2    np+ip2   ip2
+ */
 static inline
 int PMMG_hashNorver_loop( MMG5_pMesh mesh,
                           MMG5_pTetra *pt,MMG5_pxTetra *pxt,MMG5_pPoint *ppt,
@@ -111,52 +122,56 @@ int PMMG_hashNorver_loop( MMG5_pMesh mesh,
 }
 
 static inline
-int PMMG_hashNorver_edge2tria( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_pTetra pt,
-                               int ifac,int iloc,int ip,int ip1,int8_t *updated ) {
-  int dummyref;
-  int16_t color;
+int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+                           MMG5_HGeom *hash,MMG5_HGeom *hpar,
+                           MMG5_pTetra pt,MMG5_pxTetra pxt,
+                           int ifac,int iloc,int ip,int ip1,int ip2,
+                           int8_t *updated,int8_t *updated_par ) {
+  MMG5_pEdge pa;
+  int        edg,j;
+  int16_t    color_old,color_new;
+
+  /* Get old triangle color */
+  color_old = pt->mark & (1 << 3*ifac+iloc);
 
   /* Get upstream edge color */
-  if( !MMG5_hGet( hash,ip,mesh->np+ip1,&dummyref,&color ) ) return 0;
+  if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_new ) ) return 0;
 
-  /* If new color, color tria of point ip and flag update */
-  if( color && !( pt->mark & (1 << 3*ifac+iloc) ) ) {
-    pt->mark |= 1 << 3*ifac+iloc;
-    *updated = 1;
-  }
-
-  return 1;
-}
-
-static inline
-int PMMG_hashNorver_tria2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,MMG5_pTetra pt,
-                               int ifac,int iloc,int ip,int ip2,int8_t *updated_par ) {
-  int dummyref;
-  int16_t dummytag,color_old,color_new;
-
-  /* Get tria node color */
-  color_new = pt->mark & (1 << 3*ifac+iloc);
-
-  /* Get downstream edge color */
-  if( !MMG5_hGet( hash,ip,mesh->np+ip2,&dummyref,&color_old ) ) return 0;
-
-  /* If they differ, update downstream edge color */
+  /* If new color differs from the old one, color tria of point ip and
+   * downstream edge, and flag update if the edge color has been changed */
   if( color_new && !color_old ) {
-
-    /* Color edge */
-    if( !MMG5_hTag( hash,ip,mesh->np+ip2,dummyref,color_new ) ) return 0;
-
-    /* Check if the updated edge is parallel */
-    if( MMG5_hGet( hash,ip,mesh->np+ip2,&dummyref,&dummytag ) )
-      *updated_par = 1;
+    /* Set tria color */
+    pt->mark |= 1 << 3*ifac+iloc;
+    /* Set downstream edge color, without crossing ridge */
+    if( !pxt->tag[MMG5_iarf[ifac][MMG5_inxt2[iloc]]] & MG_GEO ) {
+      if( !MMG5_hTag( hash,ip,mesh->np+ip2,edg,color_new ) ) return 0;
+      /* Mark update */
+      *updated = 1;
+      /* Check if the edge is parallel */
+      if( MMG5_hGet(hash,ip,ip2,&edg,&color_old) ) {
+        assert( !color_old );
+        /* Get node position on the edge */
+        pa = &mesh->edge[edg];
+        if( pa->a == ip )
+          j = 0;
+        else {
+          assert( pa->b == ip );
+          j = 1;
+        }
+        /* Set edge color in the internal communicator */
+        parmesh->int_edge_comm->intvalues[2*(edg-1)+j] = (int)color_new;
+        /* Mark update */
+        *updated_par = 1;
+      }
+    }
   }
 
   return 1;
 }
 
 static inline
-int PMMG_hashNorver_edge2edge_par( MMG5_pMesh mesh,MMG5_HGeom *hash,
-                                   int *intvalues,int idx,int8_t *updated ) {
+int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
+                                  int *intvalues,int idx ) {
   MMG5_pEdge pa;
   int edg,j,i[2],ip,ip1;
   int16_t color_old,color_new;
@@ -174,94 +189,49 @@ int PMMG_hashNorver_edge2edge_par( MMG5_pMesh mesh,MMG5_HGeom *hash,
     ip1 = i[(j+1)%2];
 
     /* Get old color (if edge exists locally) */
-    if( !MMG5_hGet( hash,ip,ip1,&edg,&color_old ) ) return 1;
+    if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_old ) ) return 1;
 
     /* Update local upstream color */
     if( color_new && !color_old) {
       if( !MMG5_hTag( hash,ip,mesh->np+ip1,edg,color_new ) ) return 0;
-      *updated = 1;
     }
   }
 
   return 1;
 }
 
-static inline
-int PMMG_hashNorver_tria2edge_par( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,
-                                   MMG5_pTetra pt,int ifac,int iloc,int ip,int ip2,
-                                   int *intvalues ) {
-  MMG5_pEdge pa;
-  int        dummyref,edg,j;
-  int16_t    dummytag,color;
-
-  /* Check if the updated edge is parallel */
-  if( !MMG5_hGet( hash,ip,mesh->np+ip2,&edg,&dummytag ) ) return 1;
-
-  /* Get node position on the edge */
-  pa = &mesh->edge[edg];
-  if( pa->a == ip )
-    j = 0;
-  else {
-    assert( pa->b == ip );
-    j = 1;
-  }
-
-  /* Get tria node color */
-  color = pt->mark & (1 << 3*ifac+iloc);
-
-  /* Get edge color */
-  if( !MMG5_hGet( hash,ip,mesh->np+ip2,&dummyref,&color ) ) return 0;
-
-
-  /* Set edge color in the internal communicator */
-  intvalues[2*(edg-1)+j] = (int)color;
-
-  return 1;
-}
-
-int PMMG_hashNorver_locIter( MMG5_pMesh mesh,MMG5_HGeom *hash,MMG5_HGeom *hpar,int8_t *updated_par ){
+int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+                             MMG5_HGeom *hash,MMG5_HGeom *hpar,
+                             int8_t *updated_par ){
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   int          ie,ifac,i,ip,ip1,ip2;
   int8_t       updated;
 
-  /* Get color loop */
+  /* First sweep loop */
   PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
   while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
 
-    /* Get color from the recv edge */
-    if( !PMMG_hashNorver_edge2tria( mesh,hash,pt,ifac,i,ip,ip1,&updated ) )
-      return 0;
+    /* Swipe upstream edge -> triangle -> downstream edge */
+    if( !PMMG_hashNorver_sweep( parmesh,mesh,hash,hpar,pt,pxt,ifac,i,ip,ip1,ip2,
+                                &updated,updated_par ) ) return 0;
 
     /* Get next counter iteration */
     PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
   }
 
+  /* Iterate while an edge color has been updated */
   while( updated ) {
-    /* Set color loop, from tria to edges */
+    /* Sweep loop */
     PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
     while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                  &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
 
-
-      /* Set color to the send edge */
-      if( !PMMG_hashNorver_tria2edge( mesh,hash,hpar,pt,ifac,i,ip,ip2,updated_par ) )
-        return 0;
-
-      /* Get next counter iteration */
-      PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-    }
-
-    /* Get color loop, from edges to tria */
-    PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-    while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                                 &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-      /* Get color from the recv edge */
-      if( !PMMG_hashNorver_edge2tria( mesh,hash,pt,ifac,i,ip,ip1,&updated ) )
-        return 0;
+      /* Swipe upstream edge -> triangle -> downstream edge */
+      if( !PMMG_hashNorver_sweep( parmesh,mesh,hash,hpar,pt,pxt,ifac,i,ip,ip1,ip2,
+                                  &updated,updated_par ) ) return 0;
 
       /* Get next counter iteration */
       PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
@@ -489,7 +459,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   int            ie,ifac,ia,i,ip,ip1,ip2,iter,idx;
   int            *intvalues;
   int16_t        tag;
-  int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
 
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
@@ -526,19 +495,22 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
                                &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
 
-    /* Store upstream edge ip->ip1 */
-    if( pxt->tag[indedg[ip][ip1]] & MG_GEO ) {
-      /* store extremity in the first free position */
+    /* Store extremity of the upstream edge ip->ip1 if it is a ridge */
+    if( pxt->tag[MMG5_iarf[ifac][MMG5_iprv2[i]]] & MG_GEO ) {
+      /* store extremity in the first free position in the internal node
+       * communicator */
       if( !intvalues[2*ppt->tmp] )
         intvalues[2*ppt->tmp] = ip1;
       else {
         intvalues[2*ppt->tmp+1] = ip1;
       }
     }
+
+    /* Store upstream edge ip0->ip1 */
     if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip1,0,0 ) ) return 0;
 
-    /* Store downstream edge ip2->ip0 */
-    if( !MMG5_hEdge( mesh,&hash,ip2,mesh->np+ip,0,0 ) ) return 0;
+    /* Store downstream edge ip0->ip2 */
+    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip2,0,0 ) ) return 0;
 
 
     /* Get next counter iteration */
@@ -565,7 +537,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   /** 3) Propagate surface colors:
    *     - Do local iterations to converge on local colors.
    *     - Do parallel iterations to:
-   *       - set colors on parallel edges,
    *       - communicate colors,
    *       - get colors from parallel edges, and
    *       - propagate colors through local iterations.
@@ -580,38 +551,25 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( mesh,&hash,hpar,&updated_par ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,mesh,&hash,hpar,&updated_par ) ) return 0;
 
   /* 3.2) Parallel update iterations */
   if( !PMMG_hashNorver_communication_init( parmesh ) ) return 0;
   while( updated_par ) {
 
-    /* 3.2.1) Set color on parallel edges */
-    PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-    while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                                 &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-      if( !PMMG_hashNorver_tria2edge_par( mesh,&hash,hpar,pt,ifac,i,ip,ip2,
-            int_edge_comm->intvalues ) ) return 0;
-
-      /* Get next counter iteration */
-      PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-    }
-
-
-    /* 3.2.2) Parallel communication */
+    /* 3.2.1) Parallel communication */
     if( !PMMG_hashNorver_communication( parmesh ) ) return 0;
 
 
-    /* 3.2.3) Get color from parallel edges */
+    /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
-      if( !PMMG_hashNorver_edge2edge_par( mesh,&hash,int_edge_comm->intvalues,
-            idx,&updated_par ) ) return 0;
+      if( !PMMG_hashNorver_paredge2edge( mesh,&hash,int_edge_comm->intvalues,
+            idx ) ) return 0;
     }
 
-    /* 3.2.4) Local update iterations */
-    if( !PMMG_hashNorver_locIter( mesh,&hash,hpar,&updated_par ) ) return 0;
+    /* 3.2.3) Local update iterations */
+    if( !PMMG_hashNorver_locIter( parmesh,mesh,&hash,hpar,&updated_par ) ) return 0;
   }
   if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
 
