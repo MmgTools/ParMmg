@@ -148,7 +148,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
       /* Mark update */
       *updated = 1;
       /* Check if the edge is parallel */
-      if( MMG5_hGet(hash,ip,ip2,&edg,&color_old) ) {
+      if( MMG5_hGet(hpar,ip,ip2,&edg,&color_old) ) {
         assert( !color_old );
         /* Get node position on the edge */
         pa = &mesh->edge[edg];
