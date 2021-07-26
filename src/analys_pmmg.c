@@ -71,6 +71,7 @@ static inline
 int PMMG_hashNorver_loop( MMG5_pMesh mesh,
                           MMG5_pTetra *pt,MMG5_pxTetra *pxt,MMG5_pPoint *ppt,
                           int *ie,int *ifac,int *iloc,int *ip,int *ip1,int *ip2 ) {
+  int     *adja;
   int16_t tag;
 
   /*
@@ -90,6 +91,8 @@ int PMMG_hashNorver_loop( MMG5_pMesh mesh,
     if( !(*pt)->xt ) continue;
     *pxt = &mesh->xtetra[(*pt)->xt];
 
+    adja = &mesh->adja[4*(ie_-1)+1];
+
     /* Loop on faces */
     for( int ifac_ = (*ifac); ifac_ < 4 && !found; ifac_++ ) {
       /* Get face tag */
@@ -108,11 +111,15 @@ int PMMG_hashNorver_loop( MMG5_pMesh mesh,
       for( int iloc_ = (*iloc); iloc_ < 3 && !found; iloc_++ ) {
         *ip = (*pt)->v[MMG5_idir[ifac_][iloc_]];
         *ppt = &mesh->point[*ip];
-        if( ((*ppt)->tag & MG_PARBDY) && !((*ppt)->tag & MG_NOM) ) {
-          /* Get extremities of the upstream and downstream edges of the point */
-          *ip1 = (*pt)->v[MMG5_idir[ifac_][MMG5_inxt2[iloc_]]];
-          *ip2 = (*pt)->v[MMG5_idir[ifac_][MMG5_iprv2[iloc_]]];
-          found = 1;
+        /* Get non-corner parallel point */
+        if( ((*ppt)->tag & MG_PARBDY) && !((*ppt)->tag & MG_CRN) ) {
+          /* Get manifold point, or non-manifold point on exterior boundary */
+          if( !((*ppt)->tag & MG_NOM) || !adja[ifac_] ) {
+            /* Get extremities of the upstream and downstream edges of the point */
+            *ip1 = (*pt)->v[MMG5_idir[ifac_][MMG5_inxt2[iloc_]]];
+            *ip2 = (*pt)->v[MMG5_idir[ifac_][MMG5_iprv2[iloc_]]];
+            found = 1;
+          }
         }
       }
     }
