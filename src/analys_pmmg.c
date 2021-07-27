@@ -34,31 +34,22 @@
 
 #include "parmmg.h"
 
+typedef struct {
+  MMG5_pMesh   mesh;
+  MMG5_HGeom   *hash,*hpar;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  MMG5_pPoint  ppt;
+  double       n[3];
+  int          ie,ifac,iloc;
+  int          ip,ip1,ip2;
+  int          updloc,updpar;
+} PMMG_hn_loopvar;
+
+
 static inline
 int16_t PMMG_hashNorver_code(int ifac,int iloc){
   return 1 << 3*ifac+iloc;
-}
-
-static inline
-void PMMG_hashNorver_loopVariable_init( int *ie,int *ifac,int *iloc ) {
-  *ie   = 1;
-  *ifac = 0;
-  *iloc = 0;
-  return;
-}
-
-static inline
-void PMMG_hashNorver_loopVariable_next( int *ie,int *ifac,int *iloc ) {
-  *iloc += 1;
-  if( *iloc == 3 ) {
-    *iloc  = 0;
-    *ifac += 1;
-    if( *ifac == 4 ) {
-      *ifac = 0;
-      *ie  += 1;
-    }
-  }
-  return;
 }
 
 /*
@@ -73,9 +64,8 @@ void PMMG_hashNorver_loopVariable_next( int *ie,int *ifac,int *iloc ) {
  *       np+ip1   ip1            ip2    np+ip2   ip2
  */
 static inline
-int PMMG_hashNorver_loop( MMG5_pMesh mesh,
-                          MMG5_pTetra *pt,MMG5_pxTetra *pxt,MMG5_pPoint *ppt,
-                          int *ie,int *ifac,int *iloc,int *ip,int *ip1,int *ip2 ) {
+int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
+    int (*PMMG_hn_funcpointer)( PMMG_pParMesh,PMMG_hn_loopvar* ) ) {
   int     *adja;
   int16_t tag;
 
@@ -87,25 +77,24 @@ int PMMG_hashNorver_loop( MMG5_pMesh mesh,
    *
    * Exit as soon as a valid entity is found.
    */
-  int8_t found = 0;
-  for( int ie_ = (*ie); ie_ <= mesh->ne && !found; ie_++ ) {
-    *pt = &mesh->tetra[ie_];
-    if( !MG_EOK(*pt) ) continue;
+  for( var->ie = 1; var->ie <= var->mesh->ne; var->ie++ ) {
+    var->pt = &var->mesh->tetra[var->ie];
+    if( !MG_EOK(var->pt) ) continue;
 
     /* Stay on boundary tetra */
-    if( !(*pt)->xt ) continue;
-    *pxt = &mesh->xtetra[(*pt)->xt];
+    if( !var->pt->xt ) continue;
+    var->pxt = &var->mesh->xtetra[var->pt->xt];
 
-    adja = &mesh->adja[4*(ie_-1)+1];
+    adja = &var->mesh->adja[4*(var->ie-1)+1];
 
     /* Loop on faces */
-    for( int ifac_ = (*ifac); ifac_ < 4 && !found; ifac_++ ) {
+    for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
       /* Get face tag */
-      tag = (*pxt)->ftag[ifac_];
+      tag = var->pxt->ftag[var->ifac];
 
       /* Skip face with reversed orientation (it will be analyzed by another
        * tetra, on this or on another process) */
-      if( !MG_GET((*pxt)->ori,ifac_) ) continue;
+      if( !MG_GET(var->pxt->ori,var->ifac) ) continue;
 
       /* Skip internal faces */
       if( !(tag & MG_BDY) ||
@@ -113,67 +102,123 @@ int PMMG_hashNorver_loop( MMG5_pMesh mesh,
         continue;
 
       /* Loop on face vertices */
-      for( int iloc_ = (*iloc); iloc_ < 3 && !found; iloc_++ ) {
-        *ip = (*pt)->v[MMG5_idir[ifac_][iloc_]];
-        *ppt = &mesh->point[*ip];
+      for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
+        var->ip  = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
+        var->ppt = &var->mesh->point[var->ip];
         /* Get non-corner parallel point */
-        if( ((*ppt)->tag & MG_PARBDY) && !((*ppt)->tag & MG_CRN) ) {
+        if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
           /* Get manifold point, or non-manifold point on exterior boundary */
-          if( !((*ppt)->tag & MG_NOM) || !adja[ifac_] ) {
+          if( !(var->ppt->tag & MG_NOM) || !adja[var->ifac] ) {
             /* Get extremities of the upstream and downstream edges of the point */
-            *ip1 = (*pt)->v[MMG5_idir[ifac_][MMG5_inxt2[iloc_]]];
-            *ip2 = (*pt)->v[MMG5_idir[ifac_][MMG5_iprv2[iloc_]]];
-            found = 1;
+            var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
+            var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
+
+            /* Iteration function */
+            if( !(*PMMG_hn_funcpointer)(parmesh,var) ) return 0;
           }
         }
       }
     }
   }
 
-  return found;
+  return 1;
 }
 
 static inline
-int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-                           MMG5_HGeom *hash,MMG5_HGeom *hpar,
-                           MMG5_pTetra pt,MMG5_pxTetra pxt,
-                           int ifac,int iloc,int ip,int ip1,int ip2,
-                           int8_t *updated,int8_t *updated_par ) {
+int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  int *intvalues;
+
+  intvalues = parmesh->int_node_comm->intvalues;
+
+  assert( var->ip == var->pt->v[MMG5_idir[var->ifac][var->iloc]] );
+
+  /* Create xpoint */
+  if( !var->ppt->xp ) {
+    ++var->mesh->xp;
+    if(var->mesh->xp > var->mesh->xpmax){
+      MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                        MMG5_GAP,MMG5_xPoint,
+                        "larger xpoint table",
+                        var->mesh->xp--;return 0;);
+    }
+    var->ppt->xp = var->mesh->xp;
+  }
+
+  /* Store extremity of the upstream edge ip->ip1 if it is a ridge */
+  if( var->pxt->tag[MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]]] & MG_GEO ) {
+    /* store extremity in the first free position in the internal node
+     * communicator */
+    if( !intvalues[2*var->ppt->tmp] ) {
+      intvalues[2*var->ppt->tmp] = var->ip1;
+    } else {
+      assert( !intvalues[2*var->ppt->tmp+1] );
+      intvalues[2*var->ppt->tmp+1] = var->ip1;
+    }
+  }
+
+  /* Store upstream edge ip0->ip1 */
+  if( !MMG5_hEdge( var->mesh,var->hash,var->ip,var->mesh->np+var->ip1,0,0 ) )
+    return 0;
+
+  /* Store downstream edge ip0->ip2 */
+  if( !MMG5_hEdge( var->mesh,var->hash,var->ip,var->mesh->np+var->ip2,0,0 ) )
+    return 0;
+
+  return 1;
+}
+
+static inline
+int PMMG_hashNorver_switch( PMMG_pParMesh parlesh,PMMG_hn_loopvar *var ) {
+  /* Switch edge color if its extremity is found */
+  if( var->ip1 == var->ppt->tmp )
+    if( !MMG5_hTag( var->hash,var->ip,var->mesh->np+var->ip1,0,1 ) ) return 0;
+
+  return 1;
+}
+
+static inline
+int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pEdge pa;
   int        edg,j;
   int16_t    color_old,color_new;
 
   /* Get old triangle color */
-  color_old = pt->mark & PMMG_hashNorver_code(ifac,iloc);
+  color_old = var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc);
 
   /* Get upstream edge color */
-  if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_new ) ) return 0;
+  if( !MMG5_hGet( var->hash,
+                  var->ip,var->mesh->np+var->ip1,
+                  &edg,&color_new ) ) return 0;
 
   /* If new color differs from the old one, color tria of point ip and
    * downstream edge, and flag update if the edge color has been changed */
   if( color_new && !color_old ) {
     /* Set tria color */
-    pt->mark |= PMMG_hashNorver_code(ifac,iloc);
+    var->pt->mark |= PMMG_hashNorver_code(var->ifac,var->iloc);
     /* Set downstream edge color, without crossing ridge */
-    if( !pxt->tag[MMG5_iarf[ifac][MMG5_inxt2[iloc]]] & MG_GEO ) {
-      if( !MMG5_hTag( hash,ip,mesh->np+ip2,edg,color_new ) ) return 0;
+    if( !var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO ) {
+      if( !MMG5_hTag( var->hash,
+                      var->ip,var->mesh->np+var->ip2,
+                      edg,color_new ) ) return 0;
       /* Mark update */
-      *updated = 1;
+      var->updloc = 1;
       /* Check if the edge is parallel */
-      if( MMG5_hGet(hpar,ip,ip2,&edg,&color_old) ) {
+      if( MMG5_hGet( var->hpar,
+                     var->ip,var->ip2,
+                     &edg,&color_old) ) {
         assert( !color_old );
         /* Get node position on the edge */
-        pa = &mesh->edge[edg];
-        if( pa->a == ip )
+        pa = &var->mesh->edge[edg];
+        if( pa->a == var->ip )
           j = 0;
         else {
-          assert( pa->b == ip );
+          assert( pa->b == var->ip );
           j = 1;
         }
         /* Set edge color in the internal communicator */
         parmesh->int_edge_comm->intvalues[2*(edg-1)+j] = (int)color_new;
         /* Mark update */
-        *updated_par = 1;
+        var->updpar = 1;
       }
     }
   }
@@ -212,42 +257,15 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
   return 1;
 }
 
-int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-                             MMG5_HGeom *hash,MMG5_HGeom *hpar,
-                             int8_t *updated_par ){
-  MMG5_pTetra  pt;
-  MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt;
-  int          ie,ifac,i,ip,ip1,ip2;
-  int8_t       updated;
+int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
 
-  /* First sweep loop */
-  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-    /* Swipe upstream edge -> triangle -> downstream edge */
-    if( !PMMG_hashNorver_sweep( parmesh,mesh,hash,hpar,pt,pxt,ifac,i,ip,ip1,ip2,
-                                &updated,updated_par ) ) return 0;
-
-    /* Get next counter iteration */
-    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-  }
+  /* Do at least one iteration */
+  var->updloc = 1;
 
   /* Iterate while an edge color has been updated */
-  while( updated ) {
-    /* Sweep loop */
-    PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-    while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                                 &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-      /* Swipe upstream edge -> triangle -> downstream edge */
-      if( !PMMG_hashNorver_sweep( parmesh,mesh,hash,hpar,pt,pxt,ifac,i,ip,ip1,ip2,
-                                  &updated,updated_par ) ) return 0;
-
-      /* Get next counter iteration */
-      PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-    }
+  while( var->updloc ) {
+    /* Sweep loop upstream edge -> triangle -> downstream edge */
+    if( !PMMG_hashNorver_loop( parmesh,var,&PMMG_hashNorver_sweep ) ) return 0;
   }
 
   return 1;
@@ -461,69 +479,59 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   return 1;
 }
 
-int PMMG_hashNorver_norver( PMMG_pParMesh parmesh ){
-  MMG5_pMesh   mesh;
-  MMG5_pTetra  pt;
-  MMG5_pxTetra pxt;
-  MMG5_pPoint  ppt;
-  MMG5_pxPoint pxp;
-  int          ie,ifac,i,ip,ip1,ip2,d;
-  double       n[3],dd;
+int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
+  int d;
 
-  assert( parmesh->ngrp == 1 );
-  mesh = &parmesh->listgrp[0].mesh;
+  /* Compute triangle normal vector when seing a new triangle */
+  if( !var->iloc )
+    MMG5_norface(var->mesh,var->ie,var->ifac,var->n);
 
-  /* Accumulate normal vector contributions */
-  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
+  if( var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc) )
+    for( d = 0; d < 3; d++ )
+      pxp->n2[d] += var->n[d];
+  else
+    for( d = 0; d < 3; d++ )
+      pxp->n1[d] += var->n[d];
 
-    pxp = &mesh->xpoint[ppt->xp];
-    /* Compute triangle normal vector when seing a new triangle */
-    if( !i )
-      MMG5_norface(mesh,ie,ifac,n);
+  return 1;
+}
 
-    if( pt->mark & PMMG_hashNorver_code(ifac,i) )
-      for( d = 0; d < 3; d++ )
-        pxp->n2[d] += n[d];
-    else
-      for( d = 0; d < 3; d++ )
-        pxp->n1[d] += n[d];
+int PMMG_hn_normalize( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
+  double dd;
+  int d;
 
+  dd = 0.0;
+  for( d = 0; d < 3; d++ )
+    dd += pxp->n1[d];
+  dd = 1.0 / sqrt(dd);
+  if( dd > MMG5_EPSD2 )
+    for( d = 0; d < 3; d++ )
+      pxp->n1[d] *= dd;
 
-    /* Get next counter iteration */
-    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-  }
-
-  /* Normalize vectors */
-  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-    pxp = &mesh->xpoint[ppt->xp];
-
+  if( var->ppt->tag & MG_GEO ) {
     dd = 0.0;
     for( d = 0; d < 3; d++ )
-      dd += pxp->n1[d];
+      dd += pxp->n2[d];
     dd = 1.0 / sqrt(dd);
     if( dd > MMG5_EPSD2 )
       for( d = 0; d < 3; d++ )
-        pxp->n1[d] *= dd;
-
-    if( ppt->tag & MG_GEO ) {
-      dd = 0.0;
-      for( d = 0; d < 3; d++ )
-        dd += pxp->n2[d];
-      dd = 1.0 / sqrt(dd);
-      if( dd > MMG5_EPSD2 )
-        for( d = 0; d < 3; d++ )
-          pxp->n2[d] *= dd;
-      }
-
-
-    /* Get next counter iteration */
-    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
+        pxp->n2[d] *= dd;
   }
+
+  return 1;
+}
+
+int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
+
+  /* Accumulate normal vector contributions */
+  if( !PMMG_hashNorver_loop( parmesh, var, &PMMG_hn_sumnor ) )
+    return 0;
+
+  /* Normalize vectors */
+  if( !PMMG_hashNorver_loop( parmesh, var, &PMMG_hn_normalize ) )
+    return 0;
 
   return 1;
 }
@@ -531,6 +539,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh ){
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
+  PMMG_hn_loopvar var;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
@@ -542,6 +551,11 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   assert( mesh = grp->mesh );
+
+  var.mesh = mesh;
+  var.hash = &hash;
+  var.hpar = hpar;
+  var.updloc = var.updpar = 0;
 
   int_node_comm = parmesh->int_node_comm;
   int_edge_comm = parmesh->int_edge_comm;
@@ -569,59 +583,16 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
 
   /** 1) Loop on edges touching an old parallel point and insert them in the
    *     hash table. Find local ridge extremities. */
-  intvalues = int_node_comm->intvalues;
-  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-    /* Create xpoint */
-    if( !ppt->xp ) {
-      ++mesh->xp;
-      if(mesh->xp > mesh->xpmax){
-        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                           "larger xpoint table",
-                           mesh->xp--;return 0;);
-      }
-      ppt->xp = mesh->xp;
-    }
-
-    /* Store extremity of the upstream edge ip->ip1 if it is a ridge */
-    if( pxt->tag[MMG5_iarf[ifac][MMG5_iprv2[i]]] & MG_GEO ) {
-      /* store extremity in the first free position in the internal node
-       * communicator */
-      if( !intvalues[2*ppt->tmp] )
-        intvalues[2*ppt->tmp] = ip1;
-      else {
-        intvalues[2*ppt->tmp+1] = ip1;
-      }
-    }
-
-    /* Store upstream edge ip0->ip1 */
-    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip1,0,0 ) ) return 0;
-
-    /* Store downstream edge ip0->ip2 */
-    if( !MMG5_hEdge( mesh,&hash,ip,mesh->np+ip2,0,0 ) ) return 0;
-
-
-    /* Get next counter iteration */
-    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-  }
+  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_edges ) )
+    return 0;
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
    *     extremity. */
   if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
 
-  PMMG_hashNorver_loopVariable_init( &ie, &ifac, &i );
-  while( PMMG_hashNorver_loop( mesh, &pt, &pxt, &ppt,
-                               &ie, &ifac, &i, &ip, &ip1, &ip2 ) ) {
-
-    /* Switch edge color if its extremity is found */
-    if( ip1 == ppt->tmp )
-      if( !MMG5_hTag( &hash,ip,mesh->np+ip1,0,1 ) ) return 0;
-
-    /* Get next counter iteration */
-    PMMG_hashNorver_loopVariable_next( &ie, &ifac, &i );
-  }
+  /* Switch edge color if its extremity is found */
+  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_switch ) )
+    return 0;
 
 
   /** 3) Propagate surface colors:
@@ -631,7 +602,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
    *       - get colors from parallel edges, and
    *       - propagate colors through local iterations.
    */
-  int8_t updated_par;
 
   /* Reset tetra mark */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
@@ -641,11 +611,11 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( parmesh,mesh,&hash,hpar,&updated_par ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,&var ) ) return 0;
 
   /* 3.2) Parallel update iterations */
   if( !PMMG_hashNorver_communication_init( parmesh ) ) return 0;
-  while( updated_par ) {
+  while( var.updpar ) {
 
     /* 3.2.1) Parallel communication */
     if( !PMMG_hashNorver_communication( parmesh ) ) return 0;
@@ -659,13 +629,13 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     }
 
     /* 3.2.3) Local update iterations */
-    if( !PMMG_hashNorver_locIter( parmesh,mesh,&hash,hpar,&updated_par ) ) return 0;
+    if( !PMMG_hashNorver_locIter( parmesh,&var ) ) return 0;
   }
   if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
 
 
   /** 4) Compute normal vectors */
-  if( !PMMG_hashNorver_norver( parmesh ) ) return 0;
+  if( !PMMG_hashNorver_norver( parmesh,&var ) ) return 0;
 
 
   /* Free memory */
