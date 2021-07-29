@@ -126,9 +126,12 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
 
 static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
-  int *intvalues;
+  MMG5_pPoint ppt1;
+  double *doublevalues;
+  int    *intvalues,idx,d;
 
-  intvalues = parmesh->int_node_comm->intvalues;
+  doublevalues = parmesh->int_node_comm->doublevalues;
+  intvalues    = parmesh->int_node_comm->intvalues;
 
   assert( var->ip == var->pt->v[MMG5_idir[var->ifac][var->iloc]] );
 
@@ -148,11 +151,17 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( var->pxt->tag[MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]]] & MG_GEO ) {
     /* store extremity in the first free position in the internal node
      * communicator */
-    if( !intvalues[2*var->ppt->tmp] ) {
-      intvalues[2*var->ppt->tmp] = var->ip1;
+    idx = var->ppt->tmp;
+    ppt1 = &var->mesh->point[var->ip1];
+    if( !intvalues[2*idx] ) {
+      intvalues[2*idx] = var->ip1;
+      for( d = 0; d < 3; d++ )
+        doublevalues[6*idx+d] = ppt1->c[d];
     } else {
-      assert( !intvalues[2*var->ppt->tmp+1] );
-      intvalues[2*var->ppt->tmp+1] = var->ip1;
+      assert( !intvalues[2*idx+1] );
+      intvalues[2*idx+1] = var->ip1;
+      for( d = 0; d < 3; d++ )
+        doublevalues[6*idx+3+d] = ppt1->c[d];
     }
   }
 
@@ -168,9 +177,14 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 }
 
 static inline
-int PMMG_hashNorver_switch( PMMG_pParMesh parlesh,PMMG_hn_loopvar *var ) {
+int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  int idx;
+
+  /* Get internal communicator index */
+  idx = var->ppt->tmp;
+
   /* Switch edge color if its extremity is found */
-  if( var->ip1 == var->ppt->tmp )
+  if( var->ip1 == parmesh->int_node_comm->intvalues[2*idx] )
     if( !MMG5_hTag( var->hash,var->ip,var->mesh->np+var->ip1,0,1 ) ) return 0;
 
   return 1;
@@ -180,7 +194,7 @@ static inline
 int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pEdge pa;
   int        edg,j;
-  int16_t    color_old,color_new;
+  int16_t    color_old,color_new,dummy;
 
   /* Get old triangle color */
   color_old = var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc);
@@ -193,32 +207,41 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   /* If new color differs from the old one, color tria of point ip and
    * downstream edge, and flag update if the edge color has been changed */
   if( color_new && !color_old ) {
+    assert( color_new == 1 );
     /* Set tria color */
     var->pt->mark |= PMMG_hashNorver_code(var->ifac,var->iloc);
-    /* Set downstream edge color, without crossing ridge */
-    if( !var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO ) {
-      if( !MMG5_hTag( var->hash,
+    /* Check downstream edge color, without crossing ridge */
+    if( !(var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO) ) {
+
+      /* Get upstream edge color */
+      if( !MMG5_hGet( var->hash,
                       var->ip,var->mesh->np+var->ip2,
-                      edg,color_new ) ) return 0;
-      /* Mark update */
-      var->updloc = 1;
-      /* Check if the edge is parallel */
-      if( MMG5_hGet( var->hpar,
-                     var->ip,var->ip2,
-                     &edg,&color_old) ) {
-        assert( !color_old );
-        /* Get node position on the edge */
-        pa = &var->mesh->edge[edg];
-        if( pa->a == var->ip )
-          j = 0;
-        else {
-          assert( pa->b == var->ip );
-          j = 1;
-        }
-        /* Set edge color in the internal communicator */
-        parmesh->int_edge_comm->intvalues[2*(edg-1)+j] = (int)color_new;
+                      &edg,&color_old ) ) return 0;
+
+      /* Set downstream edge color */
+      if( !color_old ) {
+        if( !MMG5_hTag( var->hash,
+                        var->ip,var->mesh->np+var->ip2,
+                        edg,color_new ) ) return 0;
         /* Mark update */
-        var->updpar = 1;
+        var->updloc = 1;
+        /* Check if the edge is parallel */
+        if( MMG5_hGet( var->hpar,
+                       var->ip,var->ip2,
+                       &edg,&dummy) ) {
+          /* Get node position on the edge */
+          pa = &var->mesh->edge[edg];
+          if( pa->a == var->ip )
+            j = 0;
+          else {
+            assert( pa->b == var->ip );
+            j = 1;
+          }
+          /* Set edge color in the internal communicator */
+          parmesh->int_edge_comm->intvalues[2*(edg-1)+j] = (int)color_new;
+          /* Mark update */
+          var->updpar = 1;
+        }
       }
     }
   }
@@ -386,7 +409,6 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
     idx = grp->node2int_node_comm_index2[i];
 
     qsort( &intvalues[2*idx], 2, sizeof(int),PMMG_hashNorver_compExt );
-    mesh->point[ip].tmp = intvalues[2*idx];
   }
 
 
@@ -500,6 +522,10 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     for( d = 0; d < 3; d++ )
       pxp->n1[d] += var->n[d];
 
+
+  /* Flag point as visited */
+  var->ppt->flag = 1;
+
   return 1;
 }
 
@@ -517,14 +543,16 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 
   /* Normalize vectors */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
-    if( (var->ppt->tag & MG_PARBDY) && (var->ppt->tag & MG_PARBDYBDY ) ) {
+    var->ppt = &var->mesh->point[var->ip];
+
+    if( var->ppt->flag ) {
 
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Normalize first normal */
       dd = 0.0;
       for( d = 0; d < 3; d++ )
-        dd += pxp->n1[d];
+        dd += pxp->n1[d]*pxp->n1[d];
       dd = 1.0 / sqrt(dd);
       if( dd > MMG5_EPSD2 )
         for( d = 0; d < 3; d++ )
@@ -534,7 +562,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
         /* Normalize second normal */
         dd = 0.0;
         for( d = 0; d < 3; d++ )
-          dd += pxp->n2[d];
+          dd += pxp->n2[d]*pxp->n2[d];
         dd = 1.0 / sqrt(dd);
         if( dd > MMG5_EPSD2 )
           for( d = 0; d < 3; d++ )
@@ -548,12 +576,13 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
         /* Normalize tangent */
         dd = 0.0;
         for( d = 0; d < 3; d++ )
-          dd += var->ppt->n[d];
+          dd += var->ppt->n[d]*var->ppt->n[d];
         dd = 1.0 / sqrt(dd);
         if( dd > MMG5_EPSD2 )
           for( d = 0; d < 3; d++ )
             var->ppt->n[d] *= dd;
       }
+
     }
   }
 
@@ -590,14 +619,21 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_CALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
 
 
+
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = 0;
+    ppt->tmp = -1;
+  }
+
   /* Store internal communicator index on the point itself */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
     ppt->tmp = idx;
+    ppt->flag = 0;
   }
-
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
