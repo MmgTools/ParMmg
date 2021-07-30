@@ -213,7 +213,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     /* Check downstream edge color, without crossing ridge */
     if( !(var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO) ) {
 
-      /* Get upstream edge color */
+      /* Get downstream edge color */
       if( !MMG5_hGet( var->hash,
                       var->ip,var->mesh->np+var->ip2,
                       &edg,&color_old ) ) return 0;
@@ -294,6 +294,10 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
     /* Sweep loop upstream edge -> triangle -> downstream edge */
     if( !PMMG_hashNorver_loop( parmesh,var,&PMMG_hashNorver_sweep ) ) return 0;
   }
+
+  /* Check if any process has marked the need for a parallel update */
+  MPI_CHECK( MPI_Allreduce( MPI_IN_PLACE,&var->updpar,1,MPI_INT16_T,MPI_MAX,
+                            parmesh->comm ),return 0 );
 
   return 1;
 }
