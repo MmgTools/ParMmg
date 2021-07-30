@@ -595,8 +595,8 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 
 int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   MMG5_pxPoint pxp;
-  double *doublevalues,dd;
-  int    idx,d;
+  double *doublevalues,dd,l[2],*c[2];
+  int    idx,d,j;
 
   doublevalues = parmesh->int_node_comm->doublevalues;
 
@@ -613,11 +613,38 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       idx = var->ppt->tmp;
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
-      /* Store tangent */
+      /* Compute tangent (as in MMG3D_boulenm) */
       if( var->ppt->tag & MG_GEO ) {
+
+        c[0] = &doublevalues[6*idx];
+        c[1] = &doublevalues[6*idx+3];
+
         /* Compute tangent */
-        for( d = 0; d < 3; d++ )
-          var->ppt->n[d] = doublevalues[6*idx+3+d] - doublevalues[6*idx+d];
+        for( j = 0; j < 2; j++ ) {
+          l[j] = 0.0;
+          for( d = 0; d < 3; d++ ) {
+            var->ppt->n[d] = c[j][d]-var->ppt->c[d];
+            l[j] += var->ppt->n[d]*var->ppt->n[d];
+          }
+          l[j] = sqrt(l[j]);
+        }
+
+        if ( (l[0] < MMG5_EPSD2) || (l[1] < MMG5_EPSD2) ) {
+          for( d = 0; d < 3; d++ )
+            var->ppt->n[d] = c[1][d] - c[0][d];
+        }
+        else if ( l[0] < l[1] ) {
+          dd = l[0] / l[1];
+          for( d = 0; d < 3; d++ )
+            var->ppt->n[d] = dd*(c[1][d] - var->ppt->c[d]) +
+                             var->ppt->c[d] - c[0][d];
+        }
+        else {
+          dd = l[1] / l[0];
+          for( d = 0; d < 3; d++ )
+            var->ppt->n[d] = dd*(c[0][d] - var->ppt->c[d]) +
+                             var->ppt->c[d] - c[1][d];
+        }
 
         /* Normalize tangent */
         dd = 0.0;
@@ -686,6 +713,19 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             pxp->n2[d] *= dd;
 
+        if( !var->ppt->tag & MG_NOM ) {
+          /* compute tangent as intersection of n1 + n2 */
+          var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+          var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+          var->ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+          dd = 0.0;
+          for( d = 0; d < 3; d++ )
+            dd += var->ppt->n[d]*var->ppt->n[d];
+          dd = 1.0 / sqrt(dd);
+          if( dd > MMG5_EPSD2 )
+            for( d = 0; d < 3; d++ )
+              var->ppt->n[d] *= dd;
+        }
       }
     }
   }
