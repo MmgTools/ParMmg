@@ -511,6 +511,65 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   return 1;
 }
 
+int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
+  PMMG_pExt_comm ext_node_comm;
+  double         *rtosend,*rtorecv,*doublevalues;
+  int            k,nitem,color,i,idx,j;
+  MPI_Comm       comm;
+  MPI_Status     status;
+
+  comm = parmesh->comm;
+  doublevalues = parmesh->int_node_comm->doublevalues;
+
+  /** Exchange values on the interfaces among procs */
+  for( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem         = ext_node_comm->nitem;
+    color         = ext_node_comm->color_out;
+
+    PMMG_MALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
+                return 0);
+    PMMG_MALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
+                return 0);
+    rtosend = ext_node_comm->rtosend;
+    rtorecv = ext_node_comm->rtorecv;
+
+    /* Fill buffers */
+    for( i = 0; i < nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+      for( j = 0; j < 6; j++ ) {
+        rtosend[6*i+j] = doublevalues[6*idx+j];
+       }
+    }
+
+    /* Communication */
+    MPI_CHECK(
+      MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
+                   rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+  }
+
+  /* Fill internal communicator */
+  for( k = 0; k < parmesh->next_node_comm; ++k ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+
+    rtorecv = ext_node_comm->rtorecv;
+
+    for( i = 0; i < ext_node_comm->nitem; ++i ) {
+      idx  = ext_node_comm->int_comm_index[i];
+
+      for( j = 0; j < 6; j++ )
+        doublevalues[6*idx+j] += rtorecv[6*i+j];
+    }
+
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
+  }
+
+
+  return 1;
+}
+
 int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
   int d;
@@ -545,6 +604,61 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   if( !PMMG_hashNorver_loop( parmesh, var, &PMMG_hn_sumnor ) )
     return 0;
 
+  /* Load communicator */
+  for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
+    var->ppt = &var->mesh->point[var->ip];
+
+    if( var->ppt->flag ) {
+
+      idx = var->ppt->tmp;
+      pxp = &var->mesh->xpoint[var->ppt->xp];
+
+      /* Store tangent */
+      if( var->ppt->tag & MG_GEO ) {
+        /* Compute tangent */
+        for( d = 0; d < 3; d++ )
+          var->ppt->n[d] = doublevalues[6*idx+3+d] - doublevalues[6*idx+d];
+
+        /* Normalize tangent */
+        dd = 0.0;
+        for( d = 0; d < 3; d++ )
+          dd += var->ppt->n[d]*var->ppt->n[d];
+        dd = 1.0 / sqrt(dd);
+        if( dd > MMG5_EPSD2 )
+          for( d = 0; d < 3; d++ )
+            var->ppt->n[d] *= dd;
+      }
+
+      /* Store normals in communicator */
+     for( d = 0; d < 3; d++ )
+        doublevalues[6*idx+d] = pxp->n1[d];
+      for( d = 0; d < 3; d++ )
+        doublevalues[6*idx+3+d] = pxp->n2[d];
+
+    }
+  }
+
+  /* Parallel reduction on normal vectors */
+  if( !PMMG_hashNorver_communication_nor( parmesh ) )
+    return 0;
+
+  /* Unload communicator */
+  for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
+    var->ppt = &var->mesh->point[var->ip];
+
+    if( var->ppt->flag ) {
+
+      idx = var->ppt->tmp;
+      pxp = &var->mesh->xpoint[var->ppt->xp];
+
+      for( d = 0; d < 3; d++ )
+        pxp->n1[d] = doublevalues[6*idx+d];
+      for( d = 0; d < 3; d++ )
+        pxp->n2[d] = doublevalues[6*idx+3+d];
+
+    }
+  }
+
   /* Normalize vectors */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
@@ -572,21 +686,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             pxp->n2[d] *= dd;
 
-      /* Compute tangent */
-      idx = var->ppt->tmp;
-      for( d = 0; d < 3; d++ )
-        var->ppt->n[d] = doublevalues[6*idx+3+d] - doublevalues[6*idx+d];
-
-        /* Normalize tangent */
-        dd = 0.0;
-        for( d = 0; d < 3; d++ )
-          dd += var->ppt->n[d]*var->ppt->n[d];
-        dd = 1.0 / sqrt(dd);
-        if( dd > MMG5_EPSD2 )
-          for( d = 0; d < 3; d++ )
-            var->ppt->n[d] *= dd;
       }
-
     }
   }
 
