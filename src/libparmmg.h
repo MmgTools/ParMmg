@@ -1985,20 +1985,20 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param save_entities array of size PMMG_NTYPENTITIES (at least).
+ * \param io_entities array of size PMMG_NTYPENTITIES (at least).
  * \return 0 if failed, 1 otherwise.
  *
  * Set the default entities to save into an hdf5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES_HDF5(parmesh,filename,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)           :: save_entities\n
+ * >     INTEGER, INTENT(OUT)           :: io_entities\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_setDefaultSaveEntities_hdf5(PMMG_pParMesh parmesh, int *save_entities);
+  int PMMG_Set_defaultIOEntities_hdf5(PMMG_pParMesh parmesh, int *io_entities);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -2040,7 +2040,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, const char *filename);
+  int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename);
 
 int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 

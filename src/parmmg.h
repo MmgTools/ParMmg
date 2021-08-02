@@ -202,6 +202,7 @@ enum PMMG_Format {
   PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
   PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
   PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
+  PMMG_FMT_HDF5,                              /*!< HDF5 format */
   PMMG_FMT_Unknown,                           /*!< Unrecognized */
 };
 

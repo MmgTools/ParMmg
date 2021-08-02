@@ -1149,6 +1149,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
   case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+  case ( PMMG_FMT_HDF5 ):
 
     /* Distributed Output */
     tim = 1;

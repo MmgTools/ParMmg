@@ -252,29 +252,29 @@
 
 /**
  * \enum PMMG_hdf5_entities
- * \brief Type of mesh entities that are saved in HDF5 files.
+ * \brief Type of mesh entities that are saved in/loaded from HDF5 files.
  */
 enum PMMG_hdf5_entities {
-  PMMG_saveVertex,
-  PMMG_saveEdge,
-  PMMG_saveTria,
-  PMMG_saveQuad,
-  PMMG_saveTetra,
-  PMMG_savePrism,
-  PMMG_saveCorner,
-  PMMG_saveReq,
-  PMMG_savePar,
-  PMMG_saveRidge,
-  PMMG_saveEdReq,
-  PMMG_saveEdPar,
-  PMMG_saveTriaReq,
-  PMMG_saveTriaPar,
-  PMMG_saveQuadReq,
-  PMMG_saveQuadPar,
-  PMMG_saveTetReq,
-  PMMG_saveTetPar,
-  PMMG_saveNormal,
-  PMMG_saveTangent,
+  PMMG_IO_Vertex,
+  PMMG_IO_Edge,
+  PMMG_IO_Tria,
+  PMMG_IO_Quad,
+  PMMG_IO_Tetra,
+  PMMG_IO_Prism,
+  PMMG_IO_Corner,
+  PMMG_IO_Req,
+  PMMG_IO_Par,
+  PMMG_IO_Ridge,
+  PMMG_IO_EdReq,
+  PMMG_IO_EdPar,
+  PMMG_IO_TriaReq,
+  PMMG_IO_TriaPar,
+  PMMG_IO_QuadReq,
+  PMMG_IO_QuadPar,
+  PMMG_IO_TetReq,
+  PMMG_IO_TetPar,
+  PMMG_IO_Normal,
+  PMMG_IO_Tangent,
 };
 
 /**
