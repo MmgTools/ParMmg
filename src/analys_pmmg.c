@@ -104,6 +104,7 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
       /* Loop on face vertices */
       for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
         var->ip  = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
+        assert( var->ip > 0);
         var->ppt = &var->mesh->point[var->ip];
         /* Get non-corner parallel point */
         if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
@@ -112,6 +113,8 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
             /* Get extremities of the upstream and downstream edges of the point */
             var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
             var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
+            assert( var->ip1 > 0 );
+            assert( var->ip2 > 0);
 
             /* Iteration function */
             if( !(*PMMG_hn_funcpointer)(parmesh,var) ) return 0;
@@ -153,15 +156,18 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
      * communicator */
     idx = var->ppt->tmp;
     ppt1 = &var->mesh->point[var->ip1];
-    if( !intvalues[2*idx] ) {
-      intvalues[2*idx] = var->ip1;
-      for( d = 0; d < 3; d++ )
-        doublevalues[6*idx+d] = ppt1->c[d];
-    } else {
-      assert( !intvalues[2*idx+1] );
-      intvalues[2*idx+1] = var->ip1;
-      for( d = 0; d < 3; d++ )
-        doublevalues[6*idx+3+d] = ppt1->c[d];
+    /* Store extremity if not done by another process */
+    if( ppt1->flag != PMMG_UNSET ) {
+      if( !intvalues[2*idx] ) {
+        intvalues[2*idx] = var->ip1;
+        for( d = 0; d < 3; d++ )
+          doublevalues[6*idx+d] = ppt1->c[d];
+      } else {
+        assert( !intvalues[2*idx+1] );
+        intvalues[2*idx+1] = var->ip1;
+        for( d = 0; d < 3; d++ )
+          doublevalues[6*idx+3+d] = ppt1->c[d];
+      }
     }
   }
 
@@ -608,7 +614,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag ) {
+    if( var->ppt->flag > 0 ) {
 
       idx = var->ppt->tmp;
       pxp = &var->mesh->xpoint[var->ppt->xp];
@@ -673,7 +679,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag ) {
+    if( var->ppt->flag > 0 ) {
 
       idx = var->ppt->tmp;
       pxp = &var->mesh->xpoint[var->ppt->xp];
@@ -690,7 +696,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag ) {
+    if( var->ppt->flag > 0 ) {
 
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
@@ -736,13 +742,14 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
+  PMMG_pExt_comm ext_node_comm;
   PMMG_hn_loopvar var;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
   MMG5_HGeom     hash;
   int            ie,ifac,ia,i,ip,ip1,ip2,iter,idx;
-  int            *intvalues;
+  int            *intvalues,k,color,nitem;
   int16_t        tag;
 
   assert( parmesh->ngrp == 1 );
@@ -767,16 +774,31 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
-    ppt->tmp = -1;
+    ppt->tmp = PMMG_UNSET;
   }
 
-  /* Store internal communicator index on the point itself */
+  /* Unset extremities owned by other processes */
+  for( k = 0; k < parmesh->next_node_comm; k++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem = ext_node_comm->nitem;
+    color = ext_node_comm->color_out;
+    if( color < parmesh->myrank ) {
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        parmesh->int_node_comm->intvalues[2*idx] = PMMG_UNSET;
+      }
+    }
+  }
+
+  /* Store internal communicator index on the point itself, flag as unset if
+   * the extremity belongs to another process */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
     ppt->tmp = idx;
-    ppt->flag = 0;
+    ppt->flag = parmesh->int_node_comm->intvalues[2*idx];
+    parmesh->int_node_comm->intvalues[2*idx] = 0;
   }
 
   /* Hash table used to store edges touching a parallel point.
