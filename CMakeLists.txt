@@ -460,6 +460,8 @@ ELSE ( )
   # add HDF5 library?
   SET(HDF5_DIR "" CACHE PATH "Installation directory for HDF5")
 
+  SET(HDF5_PREFER_PARALLEL TRUE)
+
   FIND_PACKAGE(HDF5)
 
   IF( HDF5_FOUND)
