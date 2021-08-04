@@ -2682,7 +2682,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   if (load_entities == NULL) {
     nullf = 1;
     PMMG_CALLOC(parmesh, load_entities, PMMG_NTYPENTITIES, int, "load_entities", return 0);
-    PMMG_Set_defaultIOEntities_hdf5(parmesh, load_entities);
+    PMMG_Set_defaultIOEntities_hdf5(load_entities);
   }
 
   if (rank < npartitions) {
@@ -2751,7 +2751,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     PMMG_Set_meshSize(parmesh, np, ne, nprism, nt, nquad, na);
 
     /* Vertices, Normals and Tangents */
-    if (load_entities[PMMG_IO_Vertex]) {
+    if (load_entities[PMMG_IO_Vertex] && npg) {
 
       PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", return 0);
       PMMG_MALLOC(parmesh, pref, np, int, "pref", return 0);
@@ -2779,7 +2779,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, ppoint, double, "ppoint");
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-      if (load_entities[PMMG_IO_Corner]) {
+      if (load_entities[PMMG_IO_Corner] && ncg) {
 
         PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", return 0);
 
@@ -2800,7 +2800,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_Req]) {
+      if (load_entities[PMMG_IO_Req] && npreqg) {
 
         PMMG_MALLOC(parmesh, preq, npreq, int, "preq", return 0);
 
@@ -2821,7 +2821,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_Par]) {
+      if (load_entities[PMMG_IO_Par] && npparg) {
 
         PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", return 0);
 
@@ -2843,7 +2843,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_Normal]) {
+      if (load_entities[PMMG_IO_Normal] && nnorg) {
 
         PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", return 0);
         PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", return 0);
@@ -2875,7 +2875,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_Tangent]) {
+      if (load_entities[PMMG_IO_Tangent] && ntang) {
 
         PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", return 0);
         PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", return 0);
@@ -2906,7 +2906,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     }
 
     /* Edges */
-    if (load_entities[PMMG_IO_Edge]) {
+    if (load_entities[PMMG_IO_Edge] && nag) {
 
       PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", return 0);
       PMMG_MALLOC(parmesh, pref, na, int, "pref", return 0);
@@ -2936,7 +2936,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, pent, int, "pent");
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-      if (load_entities[PMMG_IO_Ridge]) {
+      if (load_entities[PMMG_IO_Ridge] && nrg) {
 
         PMMG_MALLOC(parmesh, pcr, nr, int, "pcr", return 0);
 
@@ -2957,7 +2957,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_EdReq]) {
+      if (load_entities[PMMG_IO_EdReq] && nedreqg) {
 
         PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", return 0);
 
@@ -2978,7 +2978,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_EdPar]) {
+      if (load_entities[PMMG_IO_EdPar] && nedparg) {
 
         PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", return 0);
 
@@ -3002,7 +3002,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     }
 
     /* Triangles */
-    if (load_entities[PMMG_IO_Tria]) {
+    if (load_entities[PMMG_IO_Tria] && ntg) {
 
       PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", return 0);
       PMMG_MALLOC(parmesh, pref, nt, int, "pref", return 0);
@@ -3035,7 +3035,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, pent, int, "pent");
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-      if (load_entities[PMMG_IO_TriaReq]) {
+      if (load_entities[PMMG_IO_TriaReq] && ntreqg) {
 
         PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", return 0);
 
@@ -3056,7 +3056,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_TriaPar]) {
+      if (load_entities[PMMG_IO_TriaPar] && ntparg) {
 
         PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", return 0);
 
@@ -3083,7 +3083,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
 
     /* Quadrilaterals */
-    if (load_entities[PMMG_IO_Quad]) {
+    if (load_entities[PMMG_IO_Quad] && nquadg) {
 
       PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", return 0);
       PMMG_MALLOC(parmesh, pref, nquad, int, "pref", return 0);
@@ -3117,7 +3117,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, pent, int, "pent");
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-      if (load_entities[PMMG_IO_QuadReq]) {
+      if (load_entities[PMMG_IO_QuadReq] && nqreqg) {
 
         PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", return 0);
 
@@ -3141,7 +3141,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_QuadReq]) {
+      if (load_entities[PMMG_IO_QuadPar] && nqparg) {
 
         PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", return 0);
 
@@ -3167,7 +3167,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     }
 
     /* Tetrahedra */
-    if (load_entities[PMMG_IO_Tetra]) {
+    if (load_entities[PMMG_IO_Tetra] && neg) {
 
       PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", return 0);
       PMMG_MALLOC(parmesh, pref, ne, int, "pref", return 0);
@@ -3201,7 +3201,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, pent, int, "pent");
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
-      if (load_entities[PMMG_IO_TetReq]) {
+      if (load_entities[PMMG_IO_TetReq] && nereqg) {
 
         PMMG_MALLOC(parmesh, preq, nereq, int, "preq", return 0);
 
@@ -3222,7 +3222,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       }
 
-      if (load_entities[PMMG_IO_TetPar]) {
+      if (load_entities[PMMG_IO_TetPar] && neparg) {
 
         PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", return 0);
 
@@ -3246,7 +3246,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     }
 
     /* Prisms */
-    if (load_entities[PMMG_IO_Prism]) {
+    if (load_entities[PMMG_IO_Prism] && nprismg) {
       PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", return 0);
       PMMG_MALLOC(parmesh, pref, nprism, int, "pref", return 0);
 
