@@ -317,12 +317,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /* Tag parallel faces on material interfaces as boundary */
-  if( !PMMG_parbdySet( parmesh ) ) {
-    fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
-    return 0;
-  }
-
   if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0) ) {
     return PMMG_STRONGFAILURE;
   }

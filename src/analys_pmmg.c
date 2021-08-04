@@ -2478,6 +2478,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
+  /* Tag parallel faces on material interfaces as boundary */
+  if( !PMMG_parbdySet( parmesh ) ) {
+    fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
+    return 0;
+  }
+
   /* set non-manifold edges sharing non-intersecting multidomains as required */
   if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
     fprintf(stdout,"  ** UPDATING TOPOLOGY AT NON-MANIFOLD POINTS\n");
