@@ -991,6 +991,32 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+int PMMG_Set_defaultIOEntities_hdf5(int *io_entities) {
+  /* Default: save/load everything */
+  for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) io_entities[i] = 1;
+  return 1;
+}
+
+int PMMG_Set_requiredEntitiesIO_hdf5(int *io_entities, int val) {
+  io_entities[PMMG_IO_Req] = val;
+  io_entities[PMMG_IO_EdReq] = val;
+  io_entities[PMMG_IO_TriaReq] = val;
+  io_entities[PMMG_IO_QuadReq] = val;
+  io_entities[PMMG_IO_TetReq] = val;
+
+  return 1;
+}
+
+int PMMG_Set_parallelEntitiesIO_hdf5(int *io_entities, int val) {
+  io_entities[PMMG_IO_Par] = val;
+  io_entities[PMMG_IO_EdPar] = val;
+  io_entities[PMMG_IO_TriaPar] = val;
+  io_entities[PMMG_IO_QuadPar] = val;
+  io_entities[PMMG_IO_TetPar] = val;
+
+  return 1;
+}
+
 static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t *nentitiesl, hsize_t* nentitiesg) {
   /* MMG variables */
   PMMG_pGrp   grp;
@@ -1309,7 +1335,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   if (save_entities == NULL) {
     nullf = 1;
     PMMG_CALLOC(parmesh, save_entities, PMMG_NTYPENTITIES, int, "save_entities", return 0);
-    PMMG_Set_defaultIOEntities_hdf5(parmesh, save_entities);
+    PMMG_Set_defaultIOEntities_hdf5(save_entities);
   }
 
   /* Get the number of entities */

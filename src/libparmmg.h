@@ -1984,7 +1984,6 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
 
 /**
- * \param parmesh pointer toward the parmesh structure.
  * \param io_entities array of size PMMG_NTYPENTITIES (at least).
  * \return 0 if failed, 1 otherwise.
  *
@@ -1992,13 +1991,46 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES_HDF5(parmesh,filename,strlen,retval)\n
- * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(OUT)           :: io_entities\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_defaultIOEntities_hdf5(PMMG_pParMesh parmesh, int *io_entities);
+  int PMMG_Set_defaultIOEntities_hdf5(int *io_entities);
+
+/**
+ * \param io_entities array of size PMMG_NTYPENTITIES (at least).
+ * \param val flag to tell if parallel entities are to be saved or not
+ * \return 0 if failed, 1 otherwise.
+ *
+ * If \a val is set to 0, parallel entities won't be saved into the HDF5 file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO_HDF5(parmesh,filename,strlen,retval)\n
+ * >     INTEGER, INTENT(OUT)           :: io_entities\n
+ * >     INTEGER, INTENT(IN)            :: val\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Set_parallelEntitiesIO_hdf5(int *io_entities, int val);
+
+/**
+ * \param io_entities array of size PMMG_NTYPENTITIES (at least).
+ * \param val flag to tell if required entities are to be saved or not
+ * \return 0 if failed, 1 otherwise.
+ *
+ * If \a val is set to 0, required entities won't be saved into the HDF5 file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO_HDF5(parmesh,filename,strlen,retval)\n
+ * >     INTEGER, INTENT(OUT)           :: io_entities\n
+ * >     INTEGER, INTENT(IN)            :: val\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Set_requiredEntitiesIO_hdf5(int *io_entities, int val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
