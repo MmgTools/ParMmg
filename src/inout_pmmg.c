@@ -2308,12 +2308,6 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   return 1;
 }
 
-int PMMG_Set_defaultIOEntities_hdf5(PMMG_pParMesh parmesh, int *save_entities) {
-  /* Default: save/load everything */
-  for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) save_entities[i] = 1;
-  return 1;
-}
-
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname) {
   int      ier = 1;
   hsize_t  *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
@@ -2471,13 +2465,14 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id, int *npart
   return 1;
 }
 
-static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dxpl_id, int npartitions, hsize_t *nentities, hsize_t *nentitiesl, hsize_t *nentitiesg) {
+static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, MPI_Comm read_comm, hid_t grp_part_id, hid_t dxpl_id,
+                                       int npartitions, hsize_t *nentities, hsize_t *nentitiesl, hsize_t *nentitiesg) {
+  hsize_t        *nentities_read;
   hsize_t        *ncomms, *nface, *nface_part;
   hsize_t        ncommg, comm_offset;
   hsize_t        nfaceg, face_loc_offset, face_glob_offset;
   int            *colors;
   int            **idx_loc, **idx_glob;
-  MPI_Comm       comm;
   int            nprocs, rank;
   hid_t          attr_id;
   hid_t          dspace_file_id, dspace_mem_id;
@@ -2491,24 +2486,32 @@ static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
   /* Init */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;
-  comm = parmesh->comm;
 
   ncommg = nfaceg = comm_offset = face_loc_offset = face_glob_offset = 0;
 
-  if (nprocs < npartitions) {
+  /* Read the number of entities per partition */
+  PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", return 0);
+  attr_id = H5Aopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
+  H5Aread(attr_id, H5T_NATIVE_HSIZE, nentities_read);
+  H5Aclose(attr_id);
+
+  if (nprocs >= npartitions) {
+    for (int i = 0 ; i < npartitions ; i++) {
+      for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++) {
+        nentities[PMMG_NTYPENTITIES * i + j] = nentities_read[PMMG_NTYPENTITIES * i + j];
+      }
+    }
+  } else {
     fprintf(stderr, "\n ## Error : cannot read %d partitions with %d procs. \n",
             npartitions, nprocs);
     return 0;
   }
 
+  PMMG_DEL_MEM(parmesh, nentities_read, hsize_t, return 0);
+
   PMMG_Set_iparameter(parmesh, PMMG_IPARAM_APImode, PMMG_APIDISTRIB_faces);
 
   if (rank < npartitions) {
-
-    /* Read the number of entities per partition */
-    attr_id = H5Aopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
-    H5Aread(attr_id, H5T_NATIVE_HSIZE, nentities);
-    H5Aclose(attr_id);
 
     /* Get the local and the global number of entities */
     for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++)
@@ -2559,7 +2562,7 @@ static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
     for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
       nface_part[rank] += nface[icomm];
     }
-    MPI_Allgather(&nface_part[rank], 1, MPI_LONG_LONG, nface_part, 1, MPI_LONG_LONG, comm);
+    MPI_Allgather(&nface_part[rank], 1, MPI_LONG_LONG, nface_part, 1, MPI_LONG_LONG, read_comm);
     for (int i = 0 ; i < npartitions ; i++) {
       nfaceg += nface_part[i];
     }
@@ -3389,7 +3392,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* MPI variables */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
-  int rank, root, nprocs;
+  MPI_Group group, read_group;
+  MPI_Comm read_comm;
+  int rank, root, nprocs, *ranks;
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -3404,12 +3409,11 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   }
 
   /* Set all buffers to NULL */
-  nentities = NULL;
-  nentitiesl = NULL;
-  nentitiesg = NULL;
+  nentities = nentitiesl = nentitiesg = NULL;
   ncomm = NULL;
   color = NULL;
   nface = NULL;
+  ranks = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
@@ -3445,6 +3449,28 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
     return 0;
   }
 
+  /* Close the file and create a new communicator if there are less partitions
+     than MPI processes */
+  H5Fclose(file_id);
+  H5Pclose(fapl_id);
+
+  if (npartitions > nprocs) return 0;
+
+  MPI_Comm_group(comm, &group);
+  PMMG_CALLOC(parmesh, ranks, nprocs, int, "ranks", return 0);
+  for (int i = 0 ; i < nprocs ; i++) ranks[i] = i;
+  MPI_Group_incl(group, npartitions, ranks, &read_group);
+  MPI_Comm_create_group(comm, read_group, 0, &read_comm);
+  PMMG_DEL_MEM(parmesh, ranks, int, "ranks");
+
+  /* Set the file access property list with the new communicator */
+  fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+  status = H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
+  status = H5Pset_all_coll_metadata_ops(fapl_id, 1);      /* Collective metadata read */
+
+  /* Reopen the file and */
+  file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
+
   /* Open the mesh group */
   grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT);
   if (grp_mesh_id < 0) {
@@ -3462,11 +3488,11 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   }
 
   /* Load the old partitioning of the mesh */
-  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * npartitions, hsize_t, "nentities", return 0);
+  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * nprocs, hsize_t, "nentities", return 0);
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl", return 0);
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg", return 0);
 
-  ier = PMMG_loadPartitionning_hdf5(parmesh, grp_part_id, dxpl_id, npartitions, nentities, nentitiesl, nentitiesg);
+  ier = PMMG_loadPartitionning_hdf5(parmesh, read_comm, grp_part_id, dxpl_id, npartitions, nentities, nentitiesl, nentitiesg);
   MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
   if (ier == 0) {
     if (rank == root) {
