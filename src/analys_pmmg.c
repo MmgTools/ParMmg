@@ -41,7 +41,7 @@ typedef struct {
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   double       n[3];
-  int          ie,ifac,iloc;
+  int          ie,ifac,iloc,iadj;
   int          ip,ip1,ip2;
   int          updloc,updpar;
 } PMMG_hn_loopvar;
@@ -104,21 +104,20 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
       /* Loop on face vertices */
       for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
         var->ip  = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
-        assert( var->ip > 0);
+        assert( var->ip );
         var->ppt = &var->mesh->point[var->ip];
+        /* Get adjacent index (to distinguish interior from exterior points) */
+        var->iadj = adja[var->ifac];
         /* Get non-corner parallel point */
         if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
-          /* Get manifold point, or non-manifold point on exterior boundary */
-          if( !(var->ppt->tag & MG_NOM) || !adja[var->ifac] ) {
-            /* Get extremities of the upstream and downstream edges of the point */
-            var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
-            var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
-            assert( var->ip1 > 0 );
-            assert( var->ip2 > 0);
+          /* Get extremities of the upstream and downstream edges of the point */
+          var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
+          var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
+          assert( var->ip1 > 0 );
+          assert( var->ip2 > 0);
 
-            /* Iteration function */
-            if( !(*PMMG_hn_funcpointer)(parmesh,var) ) return 0;
-          }
+          /* Iteration function */
+          if( !(*PMMG_hn_funcpointer)(parmesh,var) ) return 0;
         }
       }
     }
@@ -214,6 +213,9 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pEdge pa;
   int        edg,j;
   int16_t    color_old,color_new,dummy;
+
+  /* If non-manifold, only process exterior points */
+  if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get old triangle color */
   color_old = var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc);
@@ -594,6 +596,12 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
   int d;
 
+  /* Flag point as visited (parallel, non-corner) */
+  var->ppt->flag = 1;
+
+  /* If non-manifold, only process exterior points */
+  if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
+
   /* Compute triangle normal vector
    * (several times onn the same triangle, it can be optimized) */
   MMG5_norface(var->mesh,var->ie,var->ifac,var->n);
@@ -605,9 +613,6 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     for( d = 0; d < 3; d++ )
       pxp->n1[d] += var->n[d];
 
-
-  /* Flag point as visited */
-  var->ppt->flag = 1;
 
   return 1;
 }
@@ -628,7 +633,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag > 0 ) {
+    /* Loop on parallel, non-corner points */
+    if( var->ppt->flag ) {
 
       idx = var->ppt->tmp;
       pxp = &var->mesh->xpoint[var->ppt->xp];
@@ -676,12 +682,14 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             var->ppt->n[d] *= dd;
       }
 
-      /* Store normals in communicator */
-     for( d = 0; d < 3; d++ )
-        doublevalues[6*idx+d] = pxp->n1[d];
-      for( d = 0; d < 3; d++ )
-        doublevalues[6*idx+3+d] = pxp->n2[d];
-
+      /* Store normals in communicator if manifold or non-manifold exterior
+       * point */
+      if( !pxp->nnor ) {
+        for( d = 0; d < 3; d++ )
+          doublevalues[6*idx+d] = pxp->n1[d];
+        for( d = 0; d < 3; d++ )
+          doublevalues[6*idx+3+d] = pxp->n2[d];
+      }
     }
   }
 
@@ -693,16 +701,20 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag > 0 ) {
+    /* Loop on parallel, non-corner points */
+    if( var->ppt->flag ) {
 
       idx = var->ppt->tmp;
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
-      for( d = 0; d < 3; d++ )
-        pxp->n1[d] = doublevalues[6*idx+d];
-      for( d = 0; d < 3; d++ )
-        pxp->n2[d] = doublevalues[6*idx+3+d];
-
+      /* Get normals from communicator if manifold or non-manifold exterior
+       * point */
+      if( !pxp->nnor ) {
+        for( d = 0; d < 3; d++ )
+          pxp->n1[d] = doublevalues[6*idx+d];
+        for( d = 0; d < 3; d++ )
+          pxp->n2[d] = doublevalues[6*idx+3+d];
+      }
     }
   }
 
@@ -710,41 +722,45 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    if( var->ppt->flag > 0 ) {
+    /* Loop on parallel, non-corner points */
+    if( var->ppt->flag ) {
 
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
-      /* Normalize first normal */
-      dd = 0.0;
-      for( d = 0; d < 3; d++ )
-        dd += pxp->n1[d]*pxp->n1[d];
-      dd = 1.0 / sqrt(dd);
-      if( dd > MMG5_EPSD2 )
-        for( d = 0; d < 3; d++ )
-          pxp->n1[d] *= dd;
-
-      if( var->ppt->tag & MG_GEO ) {
-        /* Normalize second normal */
+      /* Loop on manifold or non-manifold exterior points */
+      if( !pxp->nnor ) {
+        /* Normalize first normal */
         dd = 0.0;
         for( d = 0; d < 3; d++ )
-          dd += pxp->n2[d]*pxp->n2[d];
+          dd += pxp->n1[d]*pxp->n1[d];
         dd = 1.0 / sqrt(dd);
         if( dd > MMG5_EPSD2 )
           for( d = 0; d < 3; d++ )
-            pxp->n2[d] *= dd;
+            pxp->n1[d] *= dd;
 
-        if( !(var->ppt->tag & MG_NOM) ) {
-          /* compute tangent as intersection of n1 + n2 */
-          var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
-          var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
-          var->ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+        if( var->ppt->tag & MG_GEO ) {
+          /* Normalize second normal */
           dd = 0.0;
           for( d = 0; d < 3; d++ )
-            dd += var->ppt->n[d]*var->ppt->n[d];
+            dd += pxp->n2[d]*pxp->n2[d];
           dd = 1.0 / sqrt(dd);
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
-              var->ppt->n[d] *= dd;
+              pxp->n2[d] *= dd;
+
+          if( !(var->ppt->tag & MG_NOM) ) {
+            /* compute tangent as intersection of n1 + n2 */
+            var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+            var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+            var->ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+            dd = 0.0;
+            for( d = 0; d < 3; d++ )
+              dd += var->ppt->n[d]*var->ppt->n[d];
+            dd = 1.0 / sqrt(dd);
+            if( dd > MMG5_EPSD2 )
+              for( d = 0; d < 3; d++ )
+                var->ppt->n[d] *= dd;
+          }
         }
       }
     }
@@ -756,64 +772,23 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 static inline
 int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp;
-  int     *adja;
-  int16_t tag;
 
-  /*
-   * Triple loop on:
-   * - boundary tetra,
-   *   - well-oriented true boundary face,
-   *     - manifold parallel face vertices.
-   *
-   * Exit as soon as a valid entity is found.
-   */
-  for( var->ie = 1; var->ie <= var->mesh->ne; var->ie++ ) {
-    var->pt = &var->mesh->tetra[var->ie];
-    if( !MG_EOK(var->pt) ) continue;
-
-    /* Stay on boundary tetra */
-    if( !var->pt->xt ) continue;
-    var->pxt = &var->mesh->xtetra[var->pt->xt];
-
-    adja = &var->mesh->adja[4*(var->ie-1)+1];
-
-    /* Loop on faces */
-    for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
-      /* Get face tag */
-      tag = var->pxt->ftag[var->ifac];
-
-      /* Skip internal faces */
-      if( !(tag & MG_BDY) ||
-          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
-        continue;
-
-      /* Loop on face vertices */
-      for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
-        var->ip  = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
-        assert( var->ip > 0);
-
-        var->ppt = &var->mesh->point[var->ip];
-        /* Get non-corner parallel point */
-        if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
-          /* Create xpoint */
-          if( !var->ppt->xp ) {
-            ++var->mesh->xp;
-            if(var->mesh->xp > var->mesh->xpmax){
-              MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
-                                MMG5_GAP,MMG5_xPoint,
-                                "larger xpoint table",
-                                var->mesh->xp--;return 0;);
-            }
-            var->ppt->xp = var->mesh->xp;
-          }
-          /* Get non-manifold point on interior boundary */
-          if( (var->ppt->tag & MG_NOM) && adja[var->ifac] ) {
-            pxp = &var->mesh->xpoint[var->ppt->xp];
-            pxp->nnor = 1;
-          }
-        }
-      }
+  /* Create xpoint */
+  if( !var->ppt->xp ) {
+    ++var->mesh->xp;
+    if(var->mesh->xp > var->mesh->xpmax){
+      MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                        MMG5_GAP,MMG5_xPoint,
+                        "larger xpoint table",
+                        var->mesh->xp--;return 0;);
     }
+    var->ppt->xp = var->mesh->xp;
+  }
+  /* Get non-manifold point on interior boundary and set it does not have
+   * a normal vector. */
+  if( (var->ppt->tag & MG_NOM) && var->iadj ) {
+    pxp = &var->mesh->xpoint[var->ppt->xp];
+    pxp->nnor = 1;
   }
 
   return 1;
@@ -879,32 +854,17 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     ppt->tmp = PMMG_UNSET;
   }
 
-  /* Unset extremities owned by other processes */
-  for( k = 0; k < parmesh->next_node_comm; k++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem = ext_node_comm->nitem;
-    color = ext_node_comm->color_out;
-    if( color < parmesh->myrank ) {
-      for( i = 0; i < nitem; i++ ) {
-        idx = ext_node_comm->int_comm_index[i];
-        parmesh->int_node_comm->intvalues[2*idx] = PMMG_UNSET;
-      }
-    }
-  }
-
-  /* Store internal communicator index on the point itself, flag as unset if
-   * the extremity belongs to another process */
+  /* Store internal communicator index on the point itself */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
     ppt->tmp = idx;
-    ppt->flag = parmesh->int_node_comm->intvalues[2*idx];
-    parmesh->int_node_comm->intvalues[2*idx] = 0;
   }
 
   /* Create xpoints */
-  if( !PMMG_hashNorver_xp_init( parmesh, &var) ) return 0;
+  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_xp_init ) )
+    return 0;
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
