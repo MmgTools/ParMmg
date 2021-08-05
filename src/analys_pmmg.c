@@ -194,16 +194,31 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int idx;
+  int ip[2],j;
 
   /* Only process ridge points */
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
 
+  /* If non-manifold, only process exterior points */
+  if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
+
   /* Get internal communicator index */
   idx = var->ppt->tmp;
 
-  /* Switch edge color if its extremity is found */
-  if( var->ip1 == parmesh->int_node_comm->intvalues[2*idx] )
-    if( !MMG5_hTag( var->hash,var->ip,var->mesh->np+var->ip1,0,1 ) ) return 0;
+  ip[0] = var->ip1;
+  ip[1] = var->ip2;
+
+  /* Switch edge color if its extremity is found.
+   * Analyze both upstream and downstream edge, as also the downstream
+   * extremity could be visible only on the current partition. */
+  for( j = 0; j < 2; j++ ) {
+    if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] )
+      if( !MMG5_hTag( var->hash,
+                      var->ip,var->mesh->np+ip[j], /* pair (ip,np+ip[j]) */
+                      1,                           /* still MG_GEO */
+                      1 ) )                        /* switch color on */
+        return 0;
+  }
 
   return 1;
 }
@@ -246,24 +261,42 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
                         edg,color_new ) ) return 0;
         /* Mark update */
         var->updloc = 1;
-        /* Check if the edge is parallel */
-        if( MMG5_hGet( var->hpar,
-                       var->ip,var->ip2,
-                       &edg,&dummy) ) {
-          /* Get node position on the edge */
-          pa = &var->mesh->edge[edg];
-          if( pa->a == var->ip )
-            j = 0;
-          else {
-            assert( pa->b == var->ip );
-            j = 1;
-          }
-          /* Set edge color in the internal communicator */
-          parmesh->int_edge_comm->intvalues[2*(edg-1)+j] = (int)color_new;
-          /* Mark update */
-          var->updpar = 1;
-        }
       }
+    }
+  }
+
+  return 1;
+}
+
+static inline
+int PMMG_hashNorver_edge2paredge( PMMG_hn_loopvar *var,
+                                  int *intvalues,int idx ) {
+  MMG5_pEdge pa;
+  int edg,j,i[2],ip,ip1;
+  int16_t color_old,color_new;
+
+  /* Get edge and node position on edge */
+  pa = &var->mesh->edge[idx+1];
+  i[0] = pa->a;
+  i[1] = pa->b;
+
+  /* Loop on the two oriented edges */
+  for( j = 0; j < 2; j++ ) {
+    ip  = i[j];
+    ip1 = i[(j+1)%2];
+
+    /* Get new color (if edge exists locally) */
+    if( !MMG5_hGet( var->hash,ip,var->mesh->np+ip1,&edg,&color_new ) ) return 1;
+
+    /* Get old color from internal communicator */
+    color_old = (int16_t)intvalues[2*idx+j];
+
+    /* Update local upstream color */
+    if( color_new && !color_old) {
+      assert( color_new == 1 );
+      intvalues[2*idx+j] = (int)color_new;
+      /* Mark update */
+      var->updpar = 1;
     }
   }
 
@@ -284,10 +317,11 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
 
   /* Loop on the two oriented edges */
   for( j = 0; j < 2; j++ ) {
-    /* Get new color from internal communicator */
-    color_new = (int16_t)intvalues[2*idx+j];
     ip  = i[j];
     ip1 = i[(j+1)%2];
+
+    /* Get new color from internal communicator */
+    color_new = (int16_t)intvalues[2*idx+j];
 
     /* Get old color (if edge exists locally) */
     if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_old ) ) return 1;
@@ -303,6 +337,10 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
 }
 
 int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
+  PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
+  PMMG_pGrp      grp = &parmesh->listgrp[0];
+  MMG5_pMesh     mesh = grp->mesh;
+  int            i,idx;
 
   /* Do at least one iteration */
   var->updloc = 1;
@@ -315,6 +353,13 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
 
     /* Sweep loop upstream edge -> triangle -> downstream edge */
     if( !PMMG_hashNorver_loop( parmesh,var,&PMMG_hashNorver_sweep ) ) return 0;
+  }
+
+  /* Set color on parallel edges */
+  for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
+    idx = grp->edge2int_edge_comm_index2[i];
+    if( !PMMG_hashNorver_edge2paredge( var,int_edge_comm->intvalues,idx ) )
+      return 0;
   }
 
   /* Check if any process has marked the need for a parallel update */
