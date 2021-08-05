@@ -129,55 +129,65 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
 
 static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
-  MMG5_pPoint ppt1;
+  MMG5_pPoint ppt[2];
   double *doublevalues;
-  int    *intvalues,idx,d;
+  int    ia[2],ip[2];
+  int    *intvalues,idx,d,edg,j,pos;
+  int16_t tag,isGeo;
+  int8_t  found;
 
   doublevalues = parmesh->int_node_comm->doublevalues;
   intvalues    = parmesh->int_node_comm->intvalues;
 
+  idx = var->ppt->tmp;
+  assert( idx >= 0 );
+
   assert( var->ip == var->pt->v[MMG5_idir[var->ifac][var->iloc]] );
 
-  /* Create xpoint */
-  if( !var->ppt->xp ) {
-    ++var->mesh->xp;
-    if(var->mesh->xp > var->mesh->xpmax){
-      MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
-                        MMG5_GAP,MMG5_xPoint,
-                        "larger xpoint table",
-                        var->mesh->xp--;return 0;);
-    }
-    var->ppt->xp = var->mesh->xp;
-  }
+  ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
+  ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
+  ip[0] = var->ip1;
+  ip[1] = var->ip2;
+  for( j = 0; j < 2; j++ )
+    ppt[j] = &var->mesh->point[ip[j]];
 
-  /* Store extremity of the upstream edge ip->ip1 if it is a ridge */
-  if( var->pxt->tag[MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]]] & MG_GEO ) {
-    /* store extremity in the first free position in the internal node
-     * communicator */
-    idx = var->ppt->tmp;
-    ppt1 = &var->mesh->point[var->ip1];
-    /* Store extremity if not done by another process */
-    if( ppt1->flag != PMMG_UNSET ) {
-      if( !intvalues[2*idx] ) {
-        intvalues[2*idx] = var->ip1;
-        for( d = 0; d < 3; d++ )
-          doublevalues[6*idx+d] = ppt1->c[d];
-      } else {
-        assert( !intvalues[2*idx+1] );
-        intvalues[2*idx+1] = var->ip1;
-        for( d = 0; d < 3; d++ )
-          doublevalues[6*idx+3+d] = ppt1->c[d];
+
+  /* Loop on both incident edges */
+  for( j = 0; j < 2; j++ ) {
+    /* Check if the edge is a ridge */
+    isGeo = var->pxt->tag[ia[j]] & MG_GEO;
+    /* Store edge ip0->ip[j+1] */
+    if( !MMG5_hEdge( var->mesh,var->hash,
+                   var->ip,var->mesh->np+ip[j], /* the pair (ip,np+ip[j]) */
+                   isGeo,                       /* 1 if is MG_GEO */
+                   0 ) )                        /* the initial surface color */
+    return 0;
+    /* Try to store ridge extremity */
+    if( isGeo ) {
+      /* Internal edge or parallel owned edge */
+      if( !MMG5_hGet( var->hpar,
+                      var->ip,ip[j],
+                      &edg,&tag) ||
+          var->mesh->edge[edg].base == parmesh->myrank ) {
+        /* Store extremity if you are the edge owner */
+        pos = 0;
+        found = 0;
+        while( pos < 2 && intvalues[2*idx+pos] && !found ) {
+          if( intvalues[2*idx+pos] == ip[j] )
+            found++;
+          pos++;
+        }
+        assert(found < 2);
+        if( pos == 2 ) assert(found);
+        if( !found ) {
+          assert( pos < 2 );
+          intvalues[2*idx+pos] = ip[j];
+          for( d = 0; d < 3; d++ )
+            doublevalues[6*idx+3*pos+d] = ppt[j]->c[d];
+        }
       }
     }
   }
-
-  /* Store upstream edge ip0->ip1 */
-  if( !MMG5_hEdge( var->mesh,var->hash,var->ip,var->mesh->np+var->ip1,0,0 ) )
-    return 0;
-
-  /* Store downstream edge ip0->ip2 */
-  if( !MMG5_hEdge( var->mesh,var->hash,var->ip,var->mesh->np+var->ip2,0,0 ) )
-    return 0;
 
   return 1;
 }
@@ -185,6 +195,9 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int idx;
+
+  /* Only process ridge points */
+  if( !(var->ppt->tag & MG_GEO ) ) return 1;
 
   /* Get internal communicator index */
   idx = var->ppt->tmp;
@@ -270,7 +283,7 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
   /* Loop on the two oriented edges */
   for( j = 0; j < 2; j++ ) {
     /* Get new color from internal communicator */
-    color_new = (int8_t)intvalues[2*idx+j];
+    color_new = (int16_t)intvalues[2*idx+j];
     ip  = i[j];
     ip1 = i[(j+1)%2];
 
@@ -279,6 +292,7 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
 
     /* Update local upstream color */
     if( color_new && !color_old) {
+      assert( color_new == 1 );
       if( !MMG5_hTag( hash,ip,mesh->np+ip1,edg,color_new ) ) return 0;
     }
   }
@@ -719,7 +733,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             pxp->n2[d] *= dd;
 
-        if( !var->ppt->tag & MG_NOM ) {
+        if( !(var->ppt->tag & MG_NOM) ) {
           /* compute tangent as intersection of n1 + n2 */
           var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
           var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
@@ -739,14 +753,81 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   return 1;
 }
 
+static inline
+int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  MMG5_pxPoint pxp;
+  int     *adja;
+  int16_t tag;
+
+  /*
+   * Triple loop on:
+   * - boundary tetra,
+   *   - well-oriented true boundary face,
+   *     - manifold parallel face vertices.
+   *
+   * Exit as soon as a valid entity is found.
+   */
+  for( var->ie = 1; var->ie <= var->mesh->ne; var->ie++ ) {
+    var->pt = &var->mesh->tetra[var->ie];
+    if( !MG_EOK(var->pt) ) continue;
+
+    /* Stay on boundary tetra */
+    if( !var->pt->xt ) continue;
+    var->pxt = &var->mesh->xtetra[var->pt->xt];
+
+    adja = &var->mesh->adja[4*(var->ie-1)+1];
+
+    /* Loop on faces */
+    for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
+      /* Get face tag */
+      tag = var->pxt->ftag[var->ifac];
+
+      /* Skip internal faces */
+      if( !(tag & MG_BDY) ||
+          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
+        continue;
+
+      /* Loop on face vertices */
+      for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
+        var->ip  = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
+        assert( var->ip > 0);
+
+        var->ppt = &var->mesh->point[var->ip];
+        /* Get non-corner parallel point */
+        if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
+          /* Create xpoint */
+          if( !var->ppt->xp ) {
+            ++var->mesh->xp;
+            if(var->mesh->xp > var->mesh->xpmax){
+              MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                                MMG5_GAP,MMG5_xPoint,
+                                "larger xpoint table",
+                                var->mesh->xp--;return 0;);
+            }
+            var->ppt->xp = var->mesh->xp;
+          }
+          /* Get non-manifold point on interior boundary */
+          if( (var->ppt->tag & MG_NOM) && adja[var->ifac] ) {
+            pxp = &var->mesh->xpoint[var->ppt->xp];
+            pxp->nnor = 1;
+          }
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
-  PMMG_pExt_comm ext_node_comm;
+  PMMG_pExt_comm ext_node_comm,ext_edge_comm;
   PMMG_hn_loopvar var;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
+  MMG5_pEdge     pa;
   MMG5_HGeom     hash;
   int            ie,ifac,ia,i,ip,ip1,ip2,iter,idx;
   int            *intvalues,k,color,nitem;
@@ -767,8 +848,29 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
 
   PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
+  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
 
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
+    int_edge_comm->intvalues[idx] = parmesh->myrank;
+
+  for( k = 0; k < parmesh->next_edge_comm; k++ ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    color = ext_edge_comm->color_out;
+    nitem = ext_edge_comm->nitem;
+
+    if( color < parmesh->myrank ) {
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_edge_comm->int_comm_index[i];
+        int_edge_comm->intvalues[idx] = MG_MIN(int_edge_comm->intvalues[idx],color);
+      }
+    }
+  }
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ ) {
+    pa = &mesh->edge[idx+1];
+    pa->base = int_edge_comm->intvalues[idx];
+  }
+  /* Reset intvalues to zero, as it will be used to store the edge colors */
+  memset(int_edge_comm->intvalues,0,2*int_edge_comm->nitem*sizeof(int));
 
 
   for( ip = 1; ip <= mesh->np; ip++ ) {
@@ -800,6 +902,9 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     ppt->flag = parmesh->int_node_comm->intvalues[2*idx];
     parmesh->int_node_comm->intvalues[2*idx] = 0;
   }
+
+  /* Create xpoints */
+  if( !PMMG_hashNorver_xp_init( parmesh, &var) ) return 0;
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
