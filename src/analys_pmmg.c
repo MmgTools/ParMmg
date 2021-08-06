@@ -107,7 +107,7 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
         assert( var->ip );
         var->ppt = &var->mesh->point[var->ip];
         /* Get adjacent index (to distinguish interior from exterior points) */
-        var->iadj = adja[var->ifac];
+        var->iadj = adja[var->ifac] || (tag & MG_PARBDY);
         /* Get non-corner parallel point */
         if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
           /* Get extremities of the upstream and downstream edges of the point */
@@ -745,14 +745,13 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 
       /* Store normals in communicator if manifold or non-manifold exterior
        * point */
-      intvalues[idx] |= 1 << 0;
+      intvalues[idx] |= 1 << 0;  /* has xpoint */
       if( !pxp->nnor ) {
+        intvalues[idx] |= 1 << 1;  /* has normal */
         for( d = 0; d < 3; d++ )
           doublevalues[6*idx+d] = pxp->n1[d];
         for( d = 0; d < 3; d++ )
           doublevalues[6*idx+3+d] = pxp->n2[d];
-      } else {
-        intvalues[idx] |= 1 << 1;
       }
     }
   }
@@ -767,7 +766,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 
     /* Loop on parallel, non-corner points */
     idx = var->ppt->tmp;
-    if( intvalues[idx] ) {
+    if( intvalues[idx] ) { /* has xpoint */
       /* Create xpoint if needed */
       if( !var->ppt->xp ) {
         ++var->mesh->xp;
@@ -780,8 +779,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
         var->ppt->xp = var->mesh->xp;
       }
       pxp = &var->mesh->xpoint[var->ppt->xp];
-      if( intvalues[idx] & (1 << 1) )
-        pxp->nnor = 1;
+      if( intvalues[idx] & (1 << 1) ) /* has normal */
+        pxp->nnor = 0;
 
       /* Get normals from communicator if manifold or non-manifold exterior
        * point */
@@ -875,7 +874,7 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         if( !(var->ppt->tag & MG_PARBDY) || (var->ppt->tag & MG_CRN) ) continue;
 
         /* Flag point */
-        var->ppt->flag = 1;
+        var->ppt->flag = 1;  /* has xpoint */
 
         /* Create xpoint */
         if( !var->ppt->xp ) {
@@ -887,12 +886,18 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
                               var->mesh->xp--;return 0;);
           }
           var->ppt->xp = var->mesh->xp;
+          /* Get non-manifold point on interior boundary and set it does not have
+           * a normal vector. */
+          if( (var->ppt->tag & MG_NOM) && var->iadj ) {
+            pxp = &var->mesh->xpoint[var->ppt->xp];
+            pxp->nnor = 1;  /* no normal */
+          }
         }
-        /* Get non-manifold point on interior boundary and set it does not have
-         * a normal vector. */
-        if( (var->ppt->tag & MG_NOM) && var->iadj ) {
+
+        /* Update nnor if an external surface is found */
+        if( (var->ppt->tag & MG_NOM) && !var->iadj ) {
           pxp = &var->mesh->xpoint[var->ppt->xp];
-          pxp->nnor = 1;
+          pxp->nnor = 0;  /* has normal */
         }
       }
     }
