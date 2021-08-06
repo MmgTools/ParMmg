@@ -641,9 +641,6 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
   int d;
 
-  /* Flag point as visited (parallel, non-corner) */
-  var->ppt->flag = 1;
-
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
@@ -817,23 +814,54 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 static inline
 int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp;
+  int16_t      tag;
 
-  /* Create xpoint */
-  if( !var->ppt->xp ) {
-    ++var->mesh->xp;
-    if(var->mesh->xp > var->mesh->xpmax){
-      MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
-                        MMG5_GAP,MMG5_xPoint,
-                        "larger xpoint table",
-                        var->mesh->xp--;return 0;);
+  for( var->ie = 1; var->ie <= var->mesh->ne; var->ie++ ) {
+    var->pt = &var->mesh->tetra[var->ie];
+    if( !MG_EOK(var->pt) ) continue;
+
+    /* Stay on boundary tetra */
+    if( !var->pt->xt ) continue;
+    var->pxt = &var->mesh->xtetra[var->pt->xt];
+
+    /* Loop on faces */
+    for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
+      /* Get face tag */
+      tag = var->pxt->ftag[var->ifac];
+
+      /* Skip internal faces */
+      if( !(tag & MG_BDY) ||
+          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
+        continue;
+
+      /* Loop on face vertices */
+      for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
+        var->ip = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
+        var->ppt = &var->mesh->point[var->ip];
+        if( !(var->ppt->tag & MG_PARBDY) || (var->ppt->tag & MG_CRN) ) continue;
+
+        /* Flag point */
+        var->ppt->flag = 1;
+
+        /* Create xpoint */
+        if( !var->ppt->xp ) {
+          ++var->mesh->xp;
+          if(var->mesh->xp > var->mesh->xpmax){
+            MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                              MMG5_GAP,MMG5_xPoint,
+                              "larger xpoint table",
+                              var->mesh->xp--;return 0;);
+          }
+          var->ppt->xp = var->mesh->xp;
+        }
+        /* Get non-manifold point on interior boundary and set it does not have
+         * a normal vector. */
+        if( (var->ppt->tag & MG_NOM) && var->iadj ) {
+          pxp = &var->mesh->xpoint[var->ppt->xp];
+          pxp->nnor = 1;
+        }
+      }
     }
-    var->ppt->xp = var->mesh->xp;
-  }
-  /* Get non-manifold point on interior boundary and set it does not have
-   * a normal vector. */
-  if( (var->ppt->tag & MG_NOM) && var->iadj ) {
-    pxp = &var->mesh->xpoint[var->ppt->xp];
-    pxp->nnor = 1;
   }
 
   return 1;
@@ -908,7 +936,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* Create xpoints */
-  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_xp_init ) )
+  if( !PMMG_hashNorver_xp_init( parmesh,&var ) )
     return 0;
 
   /* Hash table used to store edges touching a parallel point.
