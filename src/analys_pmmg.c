@@ -638,7 +638,7 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
     for( i = 0; i < ext_node_comm->nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
 
-      intvalues[idx] += itorecv[i];
+      intvalues[idx] |= itorecv[i];
       for( j = 0; j < 6; j++ )
         doublevalues[6*idx+j] += rtorecv[6*i+j];
     }
@@ -745,12 +745,14 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 
       /* Store normals in communicator if manifold or non-manifold exterior
        * point */
+      intvalues[idx] |= 1 << 0;
       if( !pxp->nnor ) {
-        intvalues[idx] = 1;
         for( d = 0; d < 3; d++ )
           doublevalues[6*idx+d] = pxp->n1[d];
         for( d = 0; d < 3; d++ )
           doublevalues[6*idx+3+d] = pxp->n2[d];
+      } else {
+        intvalues[idx] |= 1 << 1;
       }
     }
   }
@@ -778,6 +780,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
         var->ppt->xp = var->mesh->xp;
       }
       pxp = &var->mesh->xpoint[var->ppt->xp];
+      if( intvalues[idx] & (1 << 1) )
+        pxp->nnor = 1;
 
       /* Get normals from communicator if manifold or non-manifold exterior
        * point */
