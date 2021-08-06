@@ -581,11 +581,12 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
 int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
-  int            k,nitem,color,i,idx,j;
+  int            *itosend,*itorecv,*intvalues,k,nitem,color,i,idx,j;
   MPI_Comm       comm;
   MPI_Status     status;
 
   comm = parmesh->comm;
+  intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
   /** Exchange values on the interfaces among procs */
@@ -594,16 +595,23 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
+    PMMG_MALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    PMMG_MALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
     PMMG_MALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
                 return 0);
     PMMG_MALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
                 return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
     rtorecv = ext_node_comm->rtorecv;
 
     /* Fill buffers */
     for( i = 0; i < nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
       for( j = 0; j < 6; j++ ) {
         rtosend[6*i+j] = doublevalues[6*idx+j];
        }
@@ -611,6 +619,10 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
 
     /* Communication */
     MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
+                   comm,&status),return 0 );
+     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
                    comm,&status),return 0 );
@@ -620,15 +632,19 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
   for( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
 
+    itorecv = ext_node_comm->itorecv;
     rtorecv = ext_node_comm->rtorecv;
 
     for( i = 0; i < ext_node_comm->nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
 
+      intvalues[idx] += itorecv[i];
       for( j = 0; j < 6; j++ )
         doublevalues[6*idx+j] += rtorecv[6*i+j];
     }
 
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
     PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
     PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
   }
@@ -663,9 +679,12 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   MMG5_pxPoint pxp;
   double *doublevalues,dd,l[2],*c[2];
-  int    idx,d,j;
+  int    *intvalues,idx,d,j;
 
+  intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
+
+  memset(intvalues,0,parmesh->int_node_comm->nitem*sizeof(int));
 
   /* Accumulate normal vector contributions */
   if( !PMMG_hashNorver_loop( parmesh, var, &PMMG_hn_sumnor ) )
@@ -727,6 +746,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       /* Store normals in communicator if manifold or non-manifold exterior
        * point */
       if( !pxp->nnor ) {
+        intvalues[idx] = 1;
         for( d = 0; d < 3; d++ )
           doublevalues[6*idx+d] = pxp->n1[d];
         for( d = 0; d < 3; d++ )
@@ -744,9 +764,19 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
     var->ppt = &var->mesh->point[var->ip];
 
     /* Loop on parallel, non-corner points */
-    if( var->ppt->flag ) {
-
-      idx = var->ppt->tmp;
+    idx = var->ppt->tmp;
+    if( intvalues[idx] ) {
+      /* Create xpoint if needed */
+      if( !var->ppt->xp ) {
+        ++var->mesh->xp;
+        if(var->mesh->xp > var->mesh->xpmax){
+          MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                            MMG5_GAP,MMG5_xPoint,
+                            "larger xpoint table",
+                            var->mesh->xp--;return 0;);
+        }
+        var->ppt->xp = var->mesh->xp;
+      }
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Get normals from communicator if manifold or non-manifold exterior
@@ -765,9 +795,9 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
     var->ppt = &var->mesh->point[var->ip];
 
     /* Loop on parallel, non-corner points */
-    if( var->ppt->flag ) {
-
-      pxp = &var->mesh->xpoint[var->ppt->xp];
+    idx = var->ppt->tmp;
+    pxp = &var->mesh->xpoint[var->ppt->xp];
+    if( intvalues[idx] ) {
 
       /* Loop on manifold or non-manifold exterior points */
       if( !pxp->nnor ) {
