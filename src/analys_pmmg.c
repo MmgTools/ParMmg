@@ -46,6 +46,36 @@ typedef struct {
   int          updloc,updpar;
 } PMMG_hn_loopvar;
 
+static inline
+int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
+  int16_t tag;
+
+  /* Get edge from hash table */
+  if( !MMG5_hGet( hash,
+                  ip0,ip1,
+                  ref,&tag ) ) return 0;
+
+  /* Get color (0/1) from bitwise tag */
+  *color = (tag & (1 << (ip0 > ip1))) > 0;
+
+  return 1;
+}
+
+static inline
+int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
+  int16_t tag;
+
+  /* Set bitwise tag from color */
+  if( color ) {
+    assert( color == 1 );
+    tag = 1 << (ip0 > ip1);
+  }
+
+  /* Set edge tag in hash table */
+  if( !MMG5_hTag( hash,ip0,ip1,ref,tag ) ) return 0;
+
+  return 1;
+}
 
 static inline
 int16_t PMMG_hashNorver_code(int ifac,int iloc){
@@ -132,7 +162,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   double *doublevalues;
   int    ia[2],ip[2];
   int    *intvalues,idx,d,edg,j,pos;
-  int16_t tag,isGeo;
+  int16_t tag;
   int8_t  found;
 
   doublevalues = parmesh->int_node_comm->doublevalues;
@@ -154,15 +184,15 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   /* Loop on both incident edges */
   for( j = 0; j < 2; j++ ) {
     /* Check if the edge is a ridge */
-    isGeo = var->pxt->tag[ia[j]] & MG_GEO;
+    tag = var->pxt->tag[ia[j]];
     /* Store edge ip0->ip[j+1] */
     if( !MMG5_hEdge( var->mesh,var->hash,
-                   var->ip,var->mesh->np+ip[j], /* the pair (ip,np+ip[j]) */
-                   isGeo,                       /* 1 if is MG_GEO */
-                   0 ) )                        /* the initial surface color */
+                     var->ip,ip[j],       /* the pair (ip,ip[j]) */
+                     (int)tag,            /* store edge tag */
+                     0 ) )                /* the initial surface color */
     return 0;
     /* Try to store ridge extremity */
-    if( isGeo ) {
+    if( tag & MG_GEO ) {
       /* Internal edge or parallel owned edge */
       if( !MMG5_hGet( var->hpar,
                       var->ip,ip[j],
@@ -194,7 +224,8 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int idx;
-  int ip[2],j;
+  int ia[2],ip[2],j;
+  int16_t tag;
 
   /* Only process ridge points */
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
@@ -205,6 +236,8 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   /* Get internal communicator index */
   idx = var->ppt->tmp;
 
+  ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
+  ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
   ip[0] = var->ip1;
   ip[1] = var->ip2;
 
@@ -212,11 +245,12 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
    * Analyze both upstream and downstream edge, as also the downstream
    * extremity could be visible only on the current partition. */
   for( j = 0; j < 2; j++ ) {
+    tag = var->pxt->tag[ia[j]];
     if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] )
-      if( !MMG5_hTag( var->hash,
-                      var->ip,var->mesh->np+ip[j], /* pair (ip,np+ip[j]) */
-                      1,                           /* still MG_GEO */
-                      1 ) )                        /* switch color on */
+      if( !PMMG_hTagOri( var->hash,
+                         var->ip,ip[j], /* pair (ip,np+ip[j]) */
+                         (int)tag,      /* still the same tag */
+                         1 ) )          /* switch color on */
         return 0;
   }
 
@@ -236,9 +270,9 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   color_old = var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc);
 
   /* Get upstream edge color */
-  if( !MMG5_hGet( var->hash,
-                  var->ip,var->mesh->np+var->ip1,
-                  &edg,&color_new ) ) return 0;
+  if( !PMMG_hGetOri( var->hash,
+                     var->ip,var->ip1,
+                     &edg,&color_new ) ) return 0;
 
   /* If new color differs from the old one, color tria of point ip and
    * downstream edge, and flag update if the edge color has been changed */
@@ -250,15 +284,15 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     if( !(var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO) ) {
 
       /* Get downstream edge color */
-      if( !MMG5_hGet( var->hash,
-                      var->ip,var->mesh->np+var->ip2,
-                      &edg,&color_old ) ) return 0;
+      if( !PMMG_hGetOri( var->hash,
+                         var->ip,var->ip2,
+                         &edg,&color_old ) ) return 0;
 
       /* Set downstream edge color */
       if( !color_old ) {
-        if( !MMG5_hTag( var->hash,
-                        var->ip,var->mesh->np+var->ip2,
-                        edg,color_new ) ) return 0;
+        if( !PMMG_hTagOri( var->hash,
+                           var->ip,var->ip2,
+                           edg,color_new ) ) return 0;
         /* Mark update */
         var->updloc = 1;
       }
@@ -286,7 +320,8 @@ int PMMG_hashNorver_edge2paredge( PMMG_hn_loopvar *var,
     ip1 = i[(j+1)%2];
 
     /* Get new color (if edge exists locally) */
-    if( !MMG5_hGet( var->hash,ip,var->mesh->np+ip1,&edg,&color_new ) ) return 1;
+    if( !PMMG_hGetOri( var->hash,ip,ip1,&edg,&color_new ) )
+      return 1;
 
     /* Get old color from internal communicator */
     color_old = (int16_t)intvalues[2*idx+j];
@@ -324,12 +359,12 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
     color_new = (int16_t)intvalues[2*idx+j];
 
     /* Get old color (if edge exists locally) */
-    if( !MMG5_hGet( hash,ip,mesh->np+ip1,&edg,&color_old ) ) return 1;
+    if( !PMMG_hGetOri( hash,ip,ip1,&edg,&color_old ) ) return 1;
 
     /* Update local upstream color */
     if( color_new && !color_old) {
       assert( color_new == 1 );
-      if( !MMG5_hTag( hash,ip,mesh->np+ip1,edg,color_new ) ) return 0;
+      if( !PMMG_hTagOri( hash,ip,ip1,edg,color_new ) ) return 0;
     }
   }
 
