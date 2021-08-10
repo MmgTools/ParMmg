@@ -159,6 +159,36 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
 }
 
 static inline
+int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  MMG5_pPoint ppt[2];
+  int         ia[2],ip[2],j;
+  int16_t     tag;
+
+  /* Get points */
+  ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
+  ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
+  ip[0] = var->ip1;
+  ip[1] = var->ip2;
+  for( j = 0; j < 2; j++ )
+    ppt[j] = &var->mesh->point[ip[j]];
+
+  /* Loop on both incident edges */
+  for( j = 0; j < 2; j++ ) {
+    /* Get edge tag */
+    tag = var->pxt->tag[ia[j]];
+    /* Store edge ip0->ip[j+1] */
+    if( !MMG5_hEdge( var->mesh,var->hash,
+                     var->ip,ip[j],       /* the pair (ip,ip[j]) */
+                     (int)tag,            /* store edge tag */
+                     0 ) )                /* the initial surface color */
+      return 0;
+  }
+
+  return 1;
+
+}
+
+static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
   double *doublevalues;
@@ -185,14 +215,9 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 
   /* Loop on both incident edges */
   for( j = 0; j < 2; j++ ) {
-    /* Check if the edge is a ridge */
+    /* Get edge tag */
     tag = var->pxt->tag[ia[j]];
-    /* Store edge ip0->ip[j+1] */
-    if( !MMG5_hEdge( var->mesh,var->hash,
-                     var->ip,ip[j],       /* the pair (ip,ip[j]) */
-                     (int)tag,            /* store edge tag */
-                     0 ) )                /* the initial surface color */
-    return 0;
+
     /* Try to store ridge extremity */
     if( tag & MG_GEO ) {
       /* Internal edge or parallel owned edge */
@@ -944,16 +969,15 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
-int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
+int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
+                     MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
   PMMG_pExt_comm ext_node_comm,ext_edge_comm;
-  PMMG_hn_loopvar var;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
   MMG5_pEdge     pa;
-  MMG5_HGeom     hash;
   int            ie,ifac,ia,i,ip,ip1,ip2,iter,idx;
   int            *intvalues,k,color,nitem;
   int16_t        tag;
@@ -961,11 +985,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   assert( mesh = grp->mesh );
-
-  var.mesh = mesh;
-  var.hash = &hash;
-  var.hpar = hpar;
-  var.updloc = var.updpar = 0;
 
   int_node_comm = parmesh->int_node_comm;
   int_edge_comm = parmesh->int_edge_comm;
@@ -1013,18 +1032,12 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* Create xpoints */
-  if( !PMMG_hashNorver_xp_init( parmesh,&var ) )
+  if( !PMMG_hashNorver_xp_init( parmesh,var ) )
     return 0;
 
-  /* Hash table used to store edges touching a parallel point.
-   * Assume that in the worst case each parallel faces has the three edges in
-   * the table, plus two other internal edges. */
-  if ( !MMG5_hNew(mesh,&hash,3*int_face_comm->nitem,5*int_face_comm->nitem) )
-    return 0;
 
-  /** 1) Loop on edges touching an old parallel point and insert them in the
-   *     hash table. Find local ridge extremities. */
-  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hashNorver_edges ) )
+  /** 1) Find local ridge extremities. */
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_edges ) )
     return 0;
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
@@ -1032,7 +1045,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
 
   /* Switch edge color if its extremity is found */
-  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hashNorver_switch ) )
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) )
     return 0;
 
 
@@ -1052,14 +1065,14 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( parmesh,&var ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
 
   /* 3.2) Parallel update iterations */
   if( !PMMG_hashNorver_communication_init( parmesh ) ) return 0;
-  while( var.updpar ) {
+  while( var->updpar ) {
 
     /* Reset update variable */
-    var.updpar = 0;
+    var->updpar = 0;
 
     /* 3.2.1) Parallel communication */
     if( !PMMG_hashNorver_communication( parmesh ) ) return 0;
@@ -1067,23 +1080,22 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
     /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
-      if( !PMMG_hashNorver_paredge2edge( mesh,&hash,int_edge_comm->intvalues,
+      if( !PMMG_hashNorver_paredge2edge( mesh,hash,int_edge_comm->intvalues,
             idx ) ) return 0;
     }
 
     /* 3.2.3) Local update iterations */
-    if( !PMMG_hashNorver_locIter( parmesh,&var ) ) return 0;
+    if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
 
   }
   if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
 
 
   /** 4) Compute normal vectors */
-  if( !PMMG_hashNorver_norver( parmesh,&var ) ) return 0;
+  if( !PMMG_hashNorver_norver( parmesh,var ) ) return 0;
 
 
   /* Free memory */
-  MMG5_DEL_MEM(mesh,hash.geom);
   PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"node doublevalues");
@@ -2601,9 +2613,9 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * tria structure in order to be able to build communicators.
  */
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  MMG5_Hash      hash;
-  MMG5_HGeom     hpar;
-  size_t         myavailable,oldMemMax;
+  MMG5_Hash       hash;
+  MMG5_HGeom      hpar,hnear;
+  PMMG_hn_loopvar var;
 
   /* Tag parallel triangles on material interfaces as boundary */
   if( !PMMG_parbdyTria( parmesh ) ) {
@@ -2703,6 +2715,22 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
+  /* Hash table used to store edges touching a parallel point.
+   * Assume that in the worst case each parallel faces has the three edges in
+   * the table, plus two other internal edges. */
+  if ( !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) )
+    return 0;
+  var.mesh = mesh;
+  var.hash = &hnear;
+  var.hpar = &hpar;
+  var.updloc = var.updpar = 0;
+
+  /** 0) Loop on edges touching an old parallel point and insert them in the
+   *     hash table. */
+  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) )
+    return 0;
+
+
   /* identify singularities on parallel points */
   if ( !PMMG_singul(parmesh,mesh) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
@@ -2752,6 +2780,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* release memory */
   PMMG_edge_comm_free( parmesh );
   MMG5_DEL_MEM(mesh,hpar.geom);
+  MMG5_DEL_MEM(mesh,hnear.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
   MMG5_DEL_MEM(mesh,mesh->edge);
