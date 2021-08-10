@@ -94,7 +94,7 @@ int16_t PMMG_hashNorver_code(int ifac,int iloc){
  *       np+ip1   ip1            ip2    np+ip2   ip2
  */
 static inline
-int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
+int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t skip,
     int (*PMMG_hn_funcpointer)( PMMG_pParMesh,PMMG_hn_loopvar* ) ) {
   int     *adja;
   int16_t tag;
@@ -138,8 +138,10 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
         var->ppt = &var->mesh->point[var->ip];
         /* Get adjacent index (to distinguish interior from exterior points) */
         var->iadj = adja[var->ifac] || (tag & MG_PARBDY);
-        /* Get non-corner parallel point */
-        if( (var->ppt->tag & MG_PARBDY) && !(var->ppt->tag & MG_CRN) ) {
+        /* Get parallel point */
+        if( var->ppt->tag & MG_PARBDY ) {
+          /* Skip point with a given tag */
+          if( skip && (var->ppt->tag & skip) ) continue;
           /* Get extremities of the upstream and downstream edges of the point */
           var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
           var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
@@ -387,7 +389,8 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
     var->updloc = 0;
 
     /* Sweep loop upstream edge -> triangle -> downstream edge */
-    if( !PMMG_hashNorver_loop( parmesh,var,&PMMG_hashNorver_sweep ) ) return 0;
+    if( !PMMG_hashNorver_loop( parmesh,var,MG_CRN,&PMMG_hashNorver_sweep ) )
+      return 0;
   }
 
   /* Set color on parallel edges */
@@ -722,7 +725,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   memset(intvalues,0,parmesh->int_node_comm->nitem*sizeof(int));
 
   /* Accumulate normal vector contributions */
-  if( !PMMG_hashNorver_loop( parmesh, var, &PMMG_hn_sumnor ) )
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hn_sumnor ) )
     return 0;
 
   /* Load communicator */
@@ -1021,7 +1024,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
 
   /** 1) Loop on edges touching an old parallel point and insert them in the
    *     hash table. Find local ridge extremities. */
-  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_edges ) )
+  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hashNorver_edges ) )
     return 0;
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
@@ -1029,7 +1032,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ){
   if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
 
   /* Switch edge color if its extremity is found */
-  if( !PMMG_hashNorver_loop( parmesh,&var,&PMMG_hashNorver_switch ) )
+  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hashNorver_switch ) )
     return 0;
 
 
@@ -2282,7 +2285,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  *
  * Check dihedral angle to detect ridges on parallel edges.
  *
- * The integer Communicator is dimensioned to store the number of triangles seen
+ * The integer communicator is dimensioned to store the number of triangles seen
  * by a parallel edge on each partition, and a "flag" to check the references of
  * the seen triangles. This "flag" is initialized with the first seen triangle,
  * and it is switched to PMMG_UNSET if the second reference differs.
@@ -2666,13 +2669,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
 
-  /* identify singularities on parallel points */
-  if ( !PMMG_singul(parmesh,mesh) ) {
-    fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
-    MMG5_DEL_MEM(mesh,hash.item);
-    return 0;
-  }
-
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
@@ -2706,6 +2702,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     return 0;
   }
+
+  /* identify singularities on parallel points */
+  if ( !PMMG_singul(parmesh,mesh) ) {
+    fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
+
 
   if ( !PMMG_setNmTag(parmesh,mesh,&hash) ) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
