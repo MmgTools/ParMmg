@@ -1932,6 +1932,58 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
   return ns;
 }
 
+/* assumes intvalues is allocated with size 2*nitem and that idx is stored in
+ * ppt->tmp */
+int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
+  MMG5_hgeom  *ph;
+  MMG5_pPoint ppt[2];
+  double      *doublevalues;
+  int         *intvalues,ip[2],k,j,idx,ns0;
+  int8_t      isEdg;
+
+  /* Get node communicator */
+  intvalues    = parmesh->int_node_comm->intvalues;
+  doublevalues = parmesh->int_node_comm->doublevalues;
+
+  /* Loop on near-parallel edges */
+  for( k = 1; k <= var->hash->max; k++ ) {
+    ph = &var->hash->geom[k];
+    if( !ph->a ) continue;
+
+    /* Get points indices*/
+    ip[0] = ph->a;
+    ip[1] = ph->b;
+
+    /* Look if it is a special edge */
+    isEdg = (ph->ref & MG_GEO) || (ph->ref & MG_REF);
+    if( !isEdg ) continue;
+
+    /* Analyze both points */
+    for( j = 0; j < 2; j++) {
+      /* Get current point and other extremity */
+      ppt[0] = &var->mesh->point[ip[j]];
+      ppt[1] = &var->mesh->point[ip[(j+1)%2]];
+      /* Get internal communicator index and current number of singularities */
+      idx = ppt[0]->tmp;
+      ns0 = intvalues[2*idx]+intvalues[2*idx+1];
+      /* Analyze parallel point only */
+      if( ppt[0]->tag & MG_PARBDY ) {
+        if( ph->ref & MG_GEO ) {
+          intvalues[2*idx] += 1;
+        }
+        if( ph->ref & MG_REF ) {
+          intvalues[2*idx+1] += 1;
+        }
+        /* If here, there is a special edge extremity to store in the first
+         * free position. XXX skip non-owned edges */
+        memcpy(&doublevalues[6*idx+3*ns0],ppt[1]->c,3*sizeof(double));
+      }
+    }
+  }
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
