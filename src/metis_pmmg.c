@@ -1284,6 +1284,8 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 
   xadj = adjncy = vwgt = adjwgt = NULL;
 
+  if (!nelt) return 1;
+
   /* Set contiguity of partitions if using Metis also for graph partitioning */
   METIS_SetDefaultOptions(options);
   options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
