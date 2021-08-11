@@ -2407,14 +2407,13 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     return 0;
   }
   if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
-    fprintf(stderr, "\n  ## Error: %s: io_entities: you must at least save the vertices and the tetra.\n", __func__);
+    fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least save the vertices and the tetra.\n",
+            __func__);
     return 0;
   }
 
-  /* Set all buffers to NULL */
-  nentities = NULL;
-  nentitiesl = NULL;
-  nentitiesg = NULL;
+  /* Set all pointers to NULL */
+  nentities = nentitiesl = nentitiesg = offset = NULL;
 
   PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * parmesh->nprocs, hsize_t, "nentities", return 0);
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg",
@@ -2459,11 +2458,14 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   HDF_CHECK( file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id),
              fprintf(stderr,"\n  ## Error: %s: Could not create the hdf5 file.\n",
                      __func__);
-             return 0 );
+             goto error_free_all );
 
   /* Save the attributes (Version and Dimension, and number of entities per proc) */
   ier = PMMG_saveHeader_hdf5(parmesh, file_id);
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0; );
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Fclose(file_id);
+             goto error_free_all );
 
   /* Open the mesh group */
   HDF_CHECK( grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
@@ -2480,7 +2482,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   ier = PMMG_savePartitioning_hdf5(parmesh, grp_part_id, dcpl_id, dxpl_id, nentities);
 
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_part_id);
+             H5Gclose(grp_mesh_id);
+             H5Fclose(file_id);
+             goto error_free_all );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2508,7 +2514,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   ier = PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset, save_entities);
 
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_entities_id);
+             H5Gclose(grp_mesh_id);
+             H5Fclose(file_id);
+             goto error_free_all );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2533,7 +2543,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   ier = PMMG_saveMetric_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
 
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_sols_id);
+             H5Fclose(file_id);
+             goto error_free_all );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2546,7 +2559,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   ier = PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
 
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_sols_id);
+             H5Fclose(file_id);
+             goto error_free_all );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2559,14 +2575,15 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   H5Gclose(grp_sols_id);
 
-  /* We no longer need the offset */
-  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
-
   /* Release all HDF5 IDs */
   H5Fclose(file_id);
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
+
+  /* We no longer need the offset nor the local nuumber of entities */
+  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
+  PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
 
   /* Write light data in XDMF file */
   if (!xdmfname || !*xdmfname)
@@ -2574,14 +2591,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   else
     ier = PMMG_writeXDMF(parmesh, filename, xdmfname, nentitiesg);
 
-  /* We no longer need the number of entities */
-  PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
+  /* We no longer need the global number of entities */
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
 
   return ier;
 
  error_free_all:
-
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
@@ -2589,8 +2604,8 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
-
   return 0;
+
 }
 
 static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id, int *npartitions) {
@@ -3591,9 +3606,14 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
             __func__);
     return 0;
   }
+  if (!load_entities[PMMG_IO_Vertex] || !load_entities[PMMG_IO_Tetra]) {
+    fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least load the vertices and the tetra.\n",
+            __func__);
+    return 0;
+  }
 
-  /* Set all buffers to NULL */
-  nentities = nentitiesl = nentitiesg = NULL;
+  /* Set all pointers to NULL */
+  nentities = nentitiesl = nentitiesg = offset = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
@@ -3614,16 +3634,16 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE); /* Collective dataset xfer operations */
 
   /* Open the HDF5 file */
-  file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
-  if (file_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the hdf5 file %s.\n",
-            __func__, rank, filename);
-    return 0;
-  }
+  HDF_CHECK( file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id),
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the hdf5 file %s.\n",
+                     __func__, rank, filename);
+             goto error_free_all );
 
   /* Load the header (version, dimension and number of partitions) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id, &npartitions);
-  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+
   if (ier == 0) {
     if (rank == root) {
       fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n",
@@ -3735,4 +3755,16 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
 
   return 1;
+
+ error_free_all:
+
+  PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
+  PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
+  PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
+  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
+  H5Pclose(fapl_id);
+  H5Pclose(dxpl_id);
+
+  return 0;
+
 }
