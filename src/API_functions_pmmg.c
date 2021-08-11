@@ -432,6 +432,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
 
   /* Init MPI data */
+  MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
   parmesh->comm   = comm;
 
   MPI_Initialized(&flag);
