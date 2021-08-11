@@ -834,7 +834,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   /* Only one group */
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
- 
+
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
@@ -921,7 +921,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
       nitem_int_node_comm++;
     }
   }
- 
+
   /* Allocate group communicators */
   int_node_comm = parmesh->int_node_comm;
   int_node_comm->nitem = nitem_int_node_comm;
@@ -978,7 +978,7 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
     nitem_int_face_comm += ext_face_comm->nitem;
   }
- 
+
   /* Allocate group communicators */
   int_face_comm = parmesh->int_face_comm;
   int_face_comm->nitem = nitem_int_face_comm;
