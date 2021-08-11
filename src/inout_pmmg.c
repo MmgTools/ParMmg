@@ -3570,26 +3570,13 @@ static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_
 }
 
 int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
-  /* MMG variables */
   int ier = 1;
   hsize_t *nentities, *nentitiesl, *nentitiesg;
-  int npartitions;
-
-  /* Offset for parallel reading */
   hsize_t *offset;
-
-  /* Communicators info */
-  hsize_t *ncomm;
-  int *color, *nface;
-
-  /* HDF5 variables */
+  int npartitions;
   hid_t file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* Objects */
   hid_t fapl_id, dxpl_id;                                                /* Property lists */
-  herr_t status;
-
-  /* MPI variables */
   MPI_Info info = MPI_INFO_NULL;
-  MPI_Comm comm = parmesh->comm;
   MPI_Comm read_comm;
   int rank, root, nprocs, mpi_color;
 
@@ -3607,9 +3594,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Set all buffers to NULL */
   nentities = nentitiesl = nentitiesg = NULL;
-  ncomm = NULL;
-  color = NULL;
-  nface = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
@@ -3619,18 +3603,15 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* Store the input format in the parmesh->info.fmtout field */
   parmesh->info.fmtout = PMMG_FMT_HDF5;
 
-  /* Set MPI error handling */
-  MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
-
   /* Shut HDF5 error stack */
   H5Eset_auto(H5E_DEFAULT, NULL, NULL);
 
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-  status = H5Pset_fapl_mpio(fapl_id, comm, info);    /* Parallel access to the file */
-  status = H5Pset_all_coll_metadata_ops(fapl_id, 1); /* Collective metadata read */
+  H5Pset_fapl_mpio(fapl_id, parmesh->comm, info);    /* Parallel access to the file */
+  H5Pset_all_coll_metadata_ops(fapl_id, 1); /* Collective metadata read */
   dxpl_id = H5Pcreate(H5P_DATASET_XFER);
-  status = H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE); /* Collective dataset xfer operations */
+  H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE); /* Collective dataset xfer operations */
 
   /* Open the HDF5 file */
   file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
@@ -3642,7 +3623,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Load the header (version, dimension and number of partitions) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id, &npartitions);
-  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
+  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm);
   if (ier == 0) {
     if (rank == root) {
       fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n",
@@ -3664,7 +3645,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   if (rank < npartitions) mpi_color = 1;
   else mpi_color = 0;
 
-  MPI_CHECK( MPI_Comm_split(comm, mpi_color, rank, &read_comm), return 0 );
+  MPI_CHECK( MPI_Comm_split(parmesh->comm, mpi_color, rank, &read_comm), return 0 );
 
   parmesh->comm = read_comm;
 
@@ -3673,8 +3654,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Set the file access property list with the new communicator */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-  status = H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
-  status = H5Pset_all_coll_metadata_ops(fapl_id, 1);      /* Collective metadata read */
+  H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
+  H5Pset_all_coll_metadata_ops(fapl_id, 1);      /* Collective metadata read */
 
   /* Reopen the file and */
   file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
@@ -3745,9 +3726,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
 
-  status = H5Fclose(file_id);
-  status = H5Pclose(fapl_id);
-  status = H5Pclose(dxpl_id);
+  H5Fclose(file_id);
+  H5Pclose(fapl_id);
+  H5Pclose(dxpl_id);
 
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
