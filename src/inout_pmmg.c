@@ -1017,7 +1017,7 @@ int PMMG_Set_parallelEntitiesIO_hdf5(int *io_entities, int val) {
   return 1;
 }
 
-static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t *nentitiesl, hsize_t* nentitiesg) {
+static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t *nentitiesl, hsize_t* nentitiesg, int *io_entities) {
   /* MMG variables */
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
@@ -1170,7 +1170,7 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
     }
   }
 
-  /* Count global entities */
+  /* nentities array */
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Vertex]  = np;
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Edge]    = na;
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Tria]    = nt;
@@ -1192,6 +1192,14 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Normal]  = nnor;
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Tangent] = ntan;
 
+  /* Set the number of all entities that are not saved to zero */
+  for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
+    if (!io_entities[typent]) {
+      nentities[PMMG_NTYPENTITIES * rank + typent] = 0;
+    }
+  }
+
+  /* Count local entities */
   for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
     nentitiesl[typent] = nentities[PMMG_NTYPENTITIES * rank + typent];
   }
@@ -1199,6 +1207,7 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
   MPI_Allgather(&nentities[PMMG_NTYPENTITIES * rank], PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG,
                 nentities                           , PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG, comm);
 
+  /* Count global entities */
   for (int k = 0 ; k < nprocs ; k++) {
     for (int typent = 0 ; typent < PMMG_NTYPENTITIES ; typent++) {
       nentitiesg[typent] += nentities[PMMG_NTYPENTITIES * k + typent];
@@ -1913,11 +1922,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
 static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dcpl_id, hid_t dxpl_id, hsize_t *nentities) {
   PMMG_pExt_comm comms;
-  hsize_t        *ncomms, *nface, *nface_proc;
-  hsize_t        ncommg, comm_offset;
-  hsize_t        nfaceg, face_loc_offset, face_glob_offset;
+  hsize_t        *ncomms, *nitem, *nitem_proc;
+  hsize_t        ncommg, comm_offset, nitemg, item_loc_offset, item_glob_offset;
   int            *colors;
   int            **idx_loc, **idx_glob;
+  int            ier;
   MPI_Comm       comm;
   int            rank, nprocs, root;
   hid_t          attr_id;
@@ -1926,7 +1935,7 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
   herr_t         status;
 
   /* Set pointers to NULL */
-  ncomms = nface = nface_proc = NULL;
+  ncomms = nitem = nitem_proc = NULL;
   colors = NULL;
   idx_loc = idx_glob = NULL;
 
@@ -1937,7 +1946,7 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
   comm = parmesh->comm;
   comms = parmesh->ext_face_comm;
 
-  ncommg = nfaceg = comm_offset = face_loc_offset = face_glob_offset = 0;
+  ncommg = nitemg = comm_offset = item_loc_offset = item_glob_offset = 0;
 
   /* Write the number of entities per proc */
   hsize_t hn[2] = {nprocs, PMMG_NTYPENTITIES};
@@ -1948,9 +1957,16 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
   H5Aclose(attr_id);
   H5Sclose(dspace_file_id);
 
+  /* Don't save the communicators outside the adaptation loop */
+  if (parmesh->iter == PMMG_UNSET) return 1;
+
   /* Count the number of communicators */
   PMMG_MALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", return 0);
-  ncomms[rank] = parmesh->next_face_comm;
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
+    ncomms[rank] = parmesh->next_face_comm;
+  else
+    ncomms[rank] = parmesh->next_node_comm;
+
   MPI_Allgather(&ncomms[rank], 1, MPI_LONG_LONG, ncomms, 1, MPI_LONG_LONG, comm);
 
   for (int i = 0 ; i < nprocs ; i++) {
@@ -1959,35 +1975,38 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
 
   /* Create the buffers */
   PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", return 0);
-  PMMG_MALLOC(parmesh, nface, ncomms[rank], hsize_t, "nface", return 0);
-  PMMG_CALLOC(parmesh, nface_proc, nprocs, hsize_t, "nface_proc", return 0);
+  PMMG_MALLOC(parmesh, nitem, ncomms[rank], hsize_t, "nitem", return 0);
+  PMMG_CALLOC(parmesh, nitem_proc, nprocs, hsize_t, "nitem_proc", return 0);
 
   for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
     colors[icomm] = comms[icomm].color_out;
-    nface[icomm] = comms[icomm].nitem;
-    nface_proc[rank] += nface[icomm];
+    nitem[icomm] = comms[icomm].nitem;
+    nitem_proc[rank] += nitem[icomm];
   }
-  MPI_Allgather(&nface_proc[rank], 1, MPI_LONG_LONG, nface_proc, 1, MPI_LONG_LONG, comm);
+  MPI_Allgather(&nitem_proc[rank], 1, MPI_LONG_LONG, nitem_proc, 1, MPI_LONG_LONG, comm);
 
   /* Count the total number of faces */
   for (int i = 0 ; i < nprocs ; i++) {
-    nfaceg += nface_proc[i];
+    nitemg += nitem_proc[i];
   }
 
   /* Count the offsets for parallel writing */
   for (int i = 0 ; i < rank ; i++) {
     comm_offset += ncomms[i];
-    face_loc_offset += nface_proc[i];
+    item_loc_offset += nitem_proc[i];
   }
-  face_glob_offset = face_loc_offset;
+  item_glob_offset = item_loc_offset;
 
-  PMMG_DEL_MEM(parmesh, nface_proc, hsize_t, "nface_proc");
+  PMMG_DEL_MEM(parmesh, nitem_proc, hsize_t, "nitem_proc");
 
   /* Write the things */
   /* Number of communicators */
   hsize_t hnprocs = nprocs;
   dspace_file_id = H5Screate_simple(1, &hnprocs, NULL);
-  dset_id = H5Dcreate(grp_part_id, "NumberOfFaceCommunicators", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
+    dset_id = H5Dcreate(grp_part_id, "NumberOfFaceCommunicators", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  else
+    dset_id = H5Dcreate(grp_part_id, "NumberOfNodeCommunicators", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   if (rank == root)
     status = H5Dwrite(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ncomms);
   H5Dclose(dset_id);
@@ -2002,42 +2021,75 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
   status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, colors);
   H5Dclose(dset_id);
 
-  dset_id = H5Dcreate(grp_part_id, "NumberOfCommunicatorFaces", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, nface);
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
+    dset_id = H5Dcreate(grp_part_id, "NumberOfCommunicatorFaces", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  else
+    dset_id = H5Dcreate(grp_part_id, "NumberOfCommunicatorNodes", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+
+  status = H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, nitem);
   H5Dclose(dset_id);
 
   status = H5Sclose(dspace_mem_id);
   status = H5Sclose(dspace_file_id);
 
-  /* Get the communicator faces */
+  /* Get the communicator items */
   PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", return 0);
   PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", return 0);
   for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    PMMG_CALLOC(parmesh, idx_loc[icomm], nface[icomm], int, "idx_loc[icomm]", return 0);
-    PMMG_CALLOC(parmesh, idx_glob[icomm], nface[icomm], int, "idx_glob[icomm]", return 0);
+    PMMG_CALLOC(parmesh, idx_loc[icomm], nitem[icomm], int, "idx_loc[icomm]", return 0);
+    PMMG_CALLOC(parmesh, idx_glob[icomm], nitem[icomm], int, "idx_glob[icomm]", return 0);
   }
-  PMMG_Get_FaceCommunicator_faces(parmesh, idx_loc);
-  PMMG_Get_FaceCommunicator_owners(parmesh, NULL, idx_glob, NULL, NULL);
 
-  /* Write the local and global indices */
-  dspace_file_id = H5Screate_simple(1, &nfaceg, NULL);
-  dset_id = H5Dcreate(grp_part_id, "LocalFaceIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces) {
+    ier = PMMG_Get_FaceCommunicator_faces(parmesh, idx_loc);
+    MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier != 1 ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to compute face communicators.\n",
+              __func__);
+      return ier;
+    }
+    ier = PMMG_Get_FaceCommunicator_owners(parmesh, NULL, idx_glob, NULL, NULL);
+  }
+  else {
+    ier = PMMG_Get_NodeCommunicator_nodes(parmesh, idx_loc);
+    MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    if ( ier != 1 ) {
+      fprintf(stderr,"\n  ## Error: %s: unable to compute node communicators.\n",
+              __func__);
+      return ier;
+    }
+    ier = PMMG_Get_NodeCommunicator_owners(parmesh, NULL, idx_glob, NULL, NULL);
+  }
+
+  /* Write the local indices */
+  dspace_file_id = H5Screate_simple(1, &nitemg, NULL);
+
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
+    dset_id = H5Dcreate(grp_part_id, "LocalFaceIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  else
+    dset_id = H5Dcreate(grp_part_id, "LocalNodeIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+
   for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
-    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_loc_offset, NULL, &nface[icomm], NULL);
+    dspace_mem_id = H5Screate_simple(1, &nitem[icomm], NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &item_loc_offset, NULL, &nitem[icomm], NULL);
     H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_loc[icomm]);
     H5Sclose(dspace_mem_id);
-    face_loc_offset += nface[icomm];
+    item_loc_offset += nitem[icomm];
   }
   H5Dclose(dset_id);
 
-  dset_id = H5Dcreate(grp_part_id, "GlobalFaceIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  /* Write the global indices */
+  if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
+    dset_id = H5Dcreate(grp_part_id, "GlobalFaceIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  else
+    dset_id = H5Dcreate(grp_part_id, "GlobalNodeIndices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+
   for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
-    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_glob_offset, NULL, &nface[icomm], NULL);
+    dspace_mem_id = H5Screate_simple(1, &nitem[icomm], NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &item_glob_offset, NULL, &nitem[icomm], NULL);
     H5Dwrite(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_glob[icomm]);
     H5Sclose(dspace_mem_id);
-    face_glob_offset += nface[icomm];
+    item_glob_offset += nitem[icomm];
   }
   H5Dclose(dset_id);
 
@@ -2053,7 +2105,7 @@ static int PMMG_savePartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id,
 
   PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
   PMMG_DEL_MEM(parmesh, colors, int, "colors");
-  PMMG_DEL_MEM(parmesh, nface, int, "nface");
+  PMMG_DEL_MEM(parmesh, nitem, int, "nitem");
 
   return 1;
 }
@@ -2330,6 +2382,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
             __func__);
     return 0;
   }
+  if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
+    fprintf(stderr, "\n  ## Error: %s: io_entities: you must at least save the vertices and the tetra.\n", __func__);
+    return 0;
+  }
 
   /* Set all buffers to NULL */
   nentities = NULL;
@@ -2344,7 +2400,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl", return 0);
 
   /* Count the number of entities on each proc and globally */
-  PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg);
+  PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg, save_entities);
 
   /* Compute the offset for parallel writing */
   PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset", return 0);
@@ -2465,7 +2521,7 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id, int *npart
   return 1;
 }
 
-static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, MPI_Comm read_comm, hid_t grp_part_id, hid_t dxpl_id,
+static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dxpl_id,
                                        int npartitions, hsize_t *nentities, hsize_t *nentitiesl, hsize_t *nentitiesg) {
   hsize_t        *nentities_read;
   hsize_t        *ncomms, *nface, *nface_part;
@@ -2489,141 +2545,150 @@ static int PMMG_loadPartitionning_hdf5(PMMG_pParMesh parmesh, MPI_Comm read_comm
 
   ncommg = nfaceg = comm_offset = face_loc_offset = face_glob_offset = 0;
 
-  /* Read the number of entities per partition */
-  PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", return 0);
-  attr_id = H5Aopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
-  H5Aread(attr_id, H5T_NATIVE_HSIZE, nentities_read);
-  H5Aclose(attr_id);
-
-  if (nprocs >= npartitions) {
-    for (int i = 0 ; i < npartitions ; i++) {
-      for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++) {
-        nentities[PMMG_NTYPENTITIES * i + j] = nentities_read[PMMG_NTYPENTITIES * i + j];
-      }
-    }
-  } else {
+  if (nprocs < npartitions) {
     fprintf(stderr, "\n ## Error : cannot read %d partitions with %d procs. \n",
             npartitions, nprocs);
     return 0;
   }
 
+  /* Read the number of entities per partition */
+  PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", return 0);
+  attr_id = H5Aopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
+  H5Aread(attr_id, H5T_NATIVE_HSIZE, nentities_read);
+  H5Aclose(attr_id);
+  for (int i = 0 ; i < npartitions ; i++) {
+    for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++) {
+      nentities[PMMG_NTYPENTITIES * i + j] = nentities_read[PMMG_NTYPENTITIES * i + j];
+    }
+  }
   PMMG_DEL_MEM(parmesh, nentities_read, hsize_t, return 0);
 
   PMMG_Set_iparameter(parmesh, PMMG_IPARAM_APImode, PMMG_APIDISTRIB_faces);
 
-  if (rank < npartitions) {
+  /* Set at least 1 communicator for each proc (even the ones that wont read the mesh) */
+  PMMG_Set_numberOfFaceCommunicators(parmesh, 1);
 
-    /* Get the local and the global number of entities */
+  if (rank < npartitions) {
+    /* Get the local number of entities */
     for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++)
       nentitiesl[i] = nentities[PMMG_NTYPENTITIES * rank + i];
+  }
 
-    for (int i = 0 ; i < npartitions ; i++)
-      for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++)
-        nentitiesg[j] += nentities[PMMG_NTYPENTITIES * i + j];
+  /* Get the global number of entities */
+  for (int i = 0 ; i < npartitions ; i++)
+    for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++)
+      nentitiesg[j] += nentities[PMMG_NTYPENTITIES * i + j];
 
-    /* Read the number of comms */
-    PMMG_CALLOC(parmesh, ncomms, npartitions, hsize_t, "ncomms", return 0);
-    dset_id = H5Dopen(grp_part_id, "NumberOfFaceCommunicators", H5P_DEFAULT);
-    H5Dread(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ncomms);
-    H5Dclose(dset_id);
+  /* Read the number of comms */
+  PMMG_CALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", return 0);
+  dset_id = H5Dopen(grp_part_id, "NumberOfFaceCommunicators", H5P_DEFAULT);
+  H5Dread(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ncomms);
+  H5Dclose(dset_id);
 
-    /* Compute the total number of comms */
-    for (int i = 0 ; i < npartitions ; i++) {
-      ncommg += ncomms[i];
-    }
-    for (int i = 0 ; i < rank ; i++) {
-      comm_offset += ncomms[i];
-    }
+  /* Compute the total number of comms */
+  for (int i = 0 ; i < npartitions ; i++) {
+    ncommg += ncomms[i];
+  }
+  for (int i = 0 ; i < rank ; i++) {
+    comm_offset += ncomms[i];
+  }
 
-    /* Read the colors and the number of faces */
-    PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", return 0);
-    PMMG_MALLOC(parmesh, nface, ncomms[rank], hsize_t, "nface", return 0);
+  /* Read the colors and the number of faces */
+  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", return 0);
+  PMMG_MALLOC(parmesh, nface, ncomms[rank], hsize_t, "nface", return 0);
 
-    dset_id = H5Dopen(grp_part_id, "ColorsOut", H5P_DEFAULT);
-    dspace_file_id = H5Dget_space(dset_id);
-    dspace_mem_id = H5Screate_simple(1, &ncomms[rank], NULL);
-    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
-    H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, colors);
-    H5Dclose(dset_id);
-    H5Sclose(dspace_file_id);
-    H5Sclose(dspace_mem_id);
+  dset_id = H5Dopen(grp_part_id, "ColorsOut", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  dspace_mem_id = H5Screate_simple(1, &ncomms[rank], NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
+  H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, colors);
+  H5Dclose(dset_id);
+  H5Sclose(dspace_file_id);
+  H5Sclose(dspace_mem_id);
 
-    dset_id = H5Dopen(grp_part_id, "NumberOfCommunicatorFaces", H5P_DEFAULT);
-    dspace_file_id = H5Dget_space(dset_id);
-    dspace_mem_id = H5Screate_simple(1, &ncomms[rank], NULL);
-    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
-    H5Dread(dset_id, H5T_NATIVE_HSIZE, dspace_mem_id, dspace_file_id, dxpl_id, nface);
-    H5Dclose(dset_id);
-    H5Sclose(dspace_file_id);
-    H5Sclose(dspace_mem_id);
+  dset_id = H5Dopen(grp_part_id, "NumberOfCommunicatorFaces", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  dspace_mem_id = H5Screate_simple(1, &ncomms[rank], NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &comm_offset, NULL, &ncomms[rank], NULL);
+  H5Dread(dset_id, H5T_NATIVE_HSIZE, dspace_mem_id, dspace_file_id, dxpl_id, nface);
+  H5Dclose(dset_id);
+  H5Sclose(dspace_file_id);
+  H5Sclose(dspace_mem_id);
 
-    /* Compute the total number of faces and the face offset for the parallel reading */
-    PMMG_CALLOC(parmesh, nface_part, npartitions, hsize_t, "nface_part", return 0);
+  /* Compute the total number of faces and the face offset for the parallel reading */
+  if (rank < npartitions) {
+
+    PMMG_CALLOC(parmesh, nface_part, nprocs, hsize_t, "nface_part", return 0);
+
     for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
       nface_part[rank] += nface[icomm];
     }
-    MPI_Allgather(&nface_part[rank], 1, MPI_LONG_LONG, nface_part, 1, MPI_LONG_LONG, read_comm);
+
+    MPI_Allgather(&nface_part[rank], 1, MPI_LONG_LONG, nface_part, 1, MPI_LONG_LONG, parmesh->comm);
+
     for (int i = 0 ; i < npartitions ; i++) {
       nfaceg += nface_part[i];
     }
+
     for (int i = 0 ; i < rank ; i++) {
       face_loc_offset += nface_part[i];
     }
+
     face_glob_offset = face_loc_offset;
 
     PMMG_DEL_MEM(parmesh, nface_part, hsize_t, "nface_part");
 
-    /* Read the communicator faces */
-    PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", return 0;);
-    PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", return 0;);
-    for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-      PMMG_CALLOC(parmesh, idx_loc[icomm], nface[icomm], int, "idx_loc[icomm]", return 0);
-      PMMG_CALLOC(parmesh, idx_glob[icomm], nface[icomm], int, "idx_glob[icomm]", return 0);
-    }
-
-    dset_id = H5Dopen(grp_part_id, "LocalFaceIndices", H5P_DEFAULT);
-    dspace_file_id = H5Dget_space(dset_id);
-    for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-      dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
-      H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_loc_offset, NULL, &nface[icomm], NULL);
-      H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_loc[icomm]);
-      H5Sclose(dspace_mem_id);
-      face_loc_offset += nface[icomm];
-    }
-    H5Dclose(dset_id);
-    H5Sclose(dspace_file_id);
-
-    dset_id = H5Dopen(grp_part_id, "GlobalFaceIndices", H5P_DEFAULT);
-    dspace_file_id = H5Dget_space(dset_id);
-    for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-      dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
-      H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_glob_offset, NULL, &nface[icomm], NULL);
-      H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_glob[icomm]);
-      H5Sclose(dspace_mem_id);
-      face_glob_offset += nface[icomm];
-    }
-    H5Dclose(dset_id);
-    H5Sclose(dspace_file_id);
-
-    /* Set the communicators */
-    PMMG_Set_numberOfFaceCommunicators(parmesh, ncomms[rank]);
-    for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-      PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm, colors[icomm], nface[icomm]);
-      PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm, idx_loc[icomm], idx_glob[icomm], 1);
-    }
-
-    for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-      PMMG_DEL_MEM(parmesh, idx_loc[icomm], int, "idx_loc[icomm]");
-      PMMG_DEL_MEM(parmesh, idx_glob[icomm], int, "idx_glob[icomm]");
-    }
-    PMMG_DEL_MEM(parmesh, idx_loc, int*, "idx_loc");
-    PMMG_DEL_MEM(parmesh, idx_glob, int*, "idx_glob");
-
-    PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
-    PMMG_DEL_MEM(parmesh, colors, int, "colors");
-    PMMG_DEL_MEM(parmesh, nface, int, "nface");
-
   }
+
+  /* Read the communicator faces */
+  PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", return 0;);
+  PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", return 0;);
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    PMMG_CALLOC(parmesh, idx_loc[icomm], nface[icomm], int, "idx_loc[icomm]", return 0);
+    PMMG_CALLOC(parmesh, idx_glob[icomm], nface[icomm], int, "idx_glob[icomm]", return 0);
+  }
+
+  dset_id = H5Dopen(grp_part_id, "LocalFaceIndices", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_loc_offset, NULL, &nface[icomm], NULL);
+    H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_loc[icomm]);
+    H5Sclose(dspace_mem_id);
+    face_loc_offset += nface[icomm];
+  }
+  H5Dclose(dset_id);
+  H5Sclose(dspace_file_id);
+
+  dset_id = H5Dopen(grp_part_id, "GlobalFaceIndices", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    dspace_mem_id = H5Screate_simple(1, &nface[icomm], NULL);
+    H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, &face_glob_offset, NULL, &nface[icomm], NULL);
+    H5Dread(dset_id, H5T_NATIVE_INT, dspace_mem_id, dspace_file_id, dxpl_id, idx_glob[icomm]);
+    H5Sclose(dspace_mem_id);
+    face_glob_offset += nface[icomm];
+  }
+  H5Dclose(dset_id);
+  H5Sclose(dspace_file_id);
+
+  /* Set the communicators */
+  PMMG_Set_numberOfFaceCommunicators(parmesh, ncomms[rank]);
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm, colors[icomm], nface[icomm]);
+    PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm, idx_loc[icomm], idx_glob[icomm], 1);
+  }
+
+  for (int icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
+    PMMG_DEL_MEM(parmesh, idx_loc[icomm], int, "idx_loc[icomm]");
+    PMMG_DEL_MEM(parmesh, idx_glob[icomm], int, "idx_glob[icomm]");
+  }
+  PMMG_DEL_MEM(parmesh, idx_loc, int*, "idx_loc");
+  PMMG_DEL_MEM(parmesh, idx_glob, int*, "idx_glob");
+
+  PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
+  PMMG_DEL_MEM(parmesh, colors, int, "colors");
+  PMMG_DEL_MEM(parmesh, nface, int, "nface");
 
   return 1;
 }
@@ -3392,9 +3457,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* MPI variables */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm comm = parmesh->comm;
-  MPI_Group group, read_group;
   MPI_Comm read_comm;
-  int rank, root, nprocs, *ranks;
+  int rank, root, nprocs, mpi_color;
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -3413,12 +3477,17 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   ncomm = NULL;
   color = NULL;
   nface = NULL;
-  ranks = NULL;
 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;
   root = parmesh->info.root;
+
+  /* Store the input format in the parmesh->info.fmtout field */
+  parmesh->info.fmtout = PMMG_FMT_HDF5;
+
+  /* Set MPI error handling */
+  MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
 
   /* Shut HDF5 error stack */
   H5Eset_auto(H5E_DEFAULT, NULL, NULL);
@@ -3456,12 +3525,18 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   if (npartitions > nprocs) return 0;
 
-  MPI_Comm_group(comm, &group);
-  PMMG_CALLOC(parmesh, ranks, nprocs, int, "ranks", return 0);
-  for (int i = 0 ; i < nprocs ; i++) ranks[i] = i;
-  MPI_Group_incl(group, npartitions, ranks, &read_group);
-  MPI_Comm_create_group(comm, read_group, 0, &read_comm);
-  PMMG_DEL_MEM(parmesh, ranks, int, "ranks");
+  if (npartitions == nprocs) parmesh->info.flag = 1;
+
+  /* Set the new communicator containing the procs reading the mesh */
+  if (rank < npartitions) mpi_color = 1;
+  else mpi_color = 0;
+
+  MPI_CHECK( MPI_Comm_split(comm, mpi_color, rank, &read_comm), return 0 );
+
+  parmesh->comm = read_comm;
+
+  /* Set MPI error handling */
+  MPI_CHECK( MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN), return 0 );
 
   /* Set the file access property list with the new communicator */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
@@ -3492,8 +3567,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl", return 0);
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg", return 0);
 
-  ier = PMMG_loadPartitionning_hdf5(parmesh, read_comm, grp_part_id, dxpl_id, npartitions, nentities, nentitiesl, nentitiesg);
-  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, comm);
+  ier = PMMG_loadPartitionning_hdf5(parmesh, grp_part_id, dxpl_id, npartitions, nentities, nentitiesl, nentitiesg);
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+
   if (ier == 0) {
     if (rank == root) {
       fprintf(stderr,"\n  ## Error: %s: Could not read mesh partitioning %s.\n",
