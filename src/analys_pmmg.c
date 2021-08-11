@@ -2357,6 +2357,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * per edge. If the dihedral angle check detects a ridge, the edge "flag" is
  * switched to 2*PMMG_UNSET if the edge is not a reference edge, or to
  * 3*PMMG_UNSET if the edge is also a reference edge.
+ * Boundary triangles shared between two processes have been tagged as
+ * MG_PARBDYBDY only on the process who has them with the right orientation
+ * (by PMMG_parbdyTria), so they will be processed only once.
  */
 int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp      grp;
@@ -2399,7 +2402,9 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     ptr = &mesh->tria[k];
     if( !MG_EOK(ptr) )  continue;
 
-    /* Skip faces that are just parallel or analyzed by another process */
+    /* Skip faces that are just parallel or analyzed by another process.
+     * We are checking the dihedral angle between triangles, so we need to loop
+     * only on true boundary triangles. */
     tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
     if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) ) continue;
 
@@ -2540,16 +2545,14 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     }
   }
 
-  /** Third pass: Loop on triangles to tag edges and points */
+  /** Third pass: Loop on triangles to tag edges and points.
+   *  Now we loop on all triangles because there could be parallel boundary
+   *  edges not touched by triangles on the local process, but we want to add
+   *  tags on them. */
   ne = nr = nm = 0;
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
     if( !MG_EOK(ptr) )  continue;
-
-    /* Skip faces that are just parallel */
-    tag = ptr->tag[0] & ptr->tag[1] & ptr->tag[2];
-    if( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY || tag & MG_BDY) )
-      continue;
 
     /* Get parallel edge touched by a MG_BDY face and store normal vectors */
     for (i=0; i<3; i++) {
