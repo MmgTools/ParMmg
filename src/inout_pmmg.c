@@ -3691,7 +3691,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   hid_t fapl_id, dxpl_id;                                                /* Property lists */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm read_comm;
-  int rank, root, nprocs, mpi_color;
+  int rank, nprocs, mpi_color;
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -3716,7 +3716,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;
-  root = parmesh->info.root;
 
   /* Store the input format in the parmesh->info.fmtout field */
   parmesh->info.fmtout = PMMG_FMT_HDF5;
@@ -3726,8 +3725,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-  H5Pset_fapl_mpio(fapl_id, parmesh->comm, info);    /* Parallel access to the file */
-  H5Pset_all_coll_metadata_ops(fapl_id, 1); /* Collective metadata read */
+  H5Pset_fapl_mpio(fapl_id, parmesh->comm, info);  /* Parallel access to the file */
+  H5Pset_all_coll_metadata_ops(fapl_id, 1);        /* Collective metadata read */
   dxpl_id = H5Pcreate(H5P_DATASET_XFER);
   H5Pset_dxpl_mpio(dxpl_id, H5FD_MPIO_COLLECTIVE); /* Collective dataset xfer operations */
 
@@ -3739,15 +3738,12 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Load the header (version, dimension and number of partitions) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id, &npartitions);
-
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
-
   if (ier == 0) {
-    if (rank == root) {
+    if (rank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n",
               __func__, filename);
     }
-    return 0;
+    goto error_free_all;
   }
 
   /* Close the file and create a new communicator if there are less partitions
@@ -3763,68 +3759,94 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   if (rank < npartitions) mpi_color = 1;
   else mpi_color = 0;
 
-  MPI_CHECK( MPI_Comm_split(parmesh->comm, mpi_color, rank, &read_comm), return 0 );
+  MPI_CHECK( MPI_Comm_split(parmesh->comm, mpi_color, rank, &read_comm),
+             goto error_free_all);
 
   parmesh->comm = read_comm;
 
   /* Set MPI error handling */
-  MPI_CHECK( MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN), return 0 );
+  MPI_CHECK( MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN),
+             goto error_free_all);
 
   /* Set the file access property list with the new communicator */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
   H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
   H5Pset_all_coll_metadata_ops(fapl_id, 1);      /* Collective metadata read */
 
-  /* Reopen the file and */
-  file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id);
+  /* Reopen the file with the new communicator */
+  HDF_CHECK( file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id),
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the hdf5 file %s.\n",
+                     __func__, rank, filename);
+             goto error_free_all );
 
   /* Open the mesh group */
-  grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT);
-  if (grp_mesh_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh group in file %s.\n",
-            __func__, filename);
-    return 0;
-  }
+  HDF_CHECK( grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the /Mesh group in file %s.\n",
+                     __func__, rank, filename);
+             goto error_free_all );
 
   /* Open the partitionning group */
-  grp_part_id = H5Gopen(grp_mesh_id, "Partitioning", H5P_DEFAULT);
-  if (grp_part_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh/Partitioning group in file %s.\n",
-            __func__, filename);
-    return 0;
-  }
+  HDF_CHECK( grp_part_id = H5Gopen(grp_mesh_id, "Partitioning", H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the /Mesh/Partitioning group in file %s.\n",
+                     __func__, rank, filename);
+             H5Gclose(grp_mesh_id);
+             goto error_free_all );
 
   /* Load the old partitioning of the mesh */
-  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * nprocs, hsize_t, "nentities", return 0);
-  PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl", return 0);
-  PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg", return 0);
+  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * nprocs, hsize_t, "nentities",
+              goto error_free_all );
+  PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl",
+              goto error_free_all );
+  PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg",
+              goto error_free_all );
 
   ier = PMMG_loadPartitioning_hdf5(parmesh, grp_part_id, dxpl_id, npartitions, nentities, nentitiesl, nentitiesg);
-  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm), return 0 );
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_part_id);
+             H5Gclose(grp_mesh_id);
+             goto error_free_all );
 
   if (ier == 0) {
-    if (rank == root) {
-      fprintf(stderr,"\n  ## Error: %s: Could not read mesh partitioning %s.\n",
-              __func__, filename);
+    if (rank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not read mesh partitioning.\n", __func__);
     }
-    return 0;
+    H5Gclose(grp_part_id);
+    H5Gclose(grp_mesh_id);
+    goto error_free_all;
   }
+
   H5Gclose(grp_part_id);
 
-  PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset", return 0);
-  PMMG_computeHDFoffset(parmesh, nentities, offset);
+  PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset",
+              goto error_free_all );
+
+  ier = PMMG_computeHDFoffset(parmesh, nentities, offset);
 
   /* We do not need the number of entities anymore */
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
 
   /* Each proc reads the part of the mesh that is assigned to him */
-  grp_entities_id = H5Gopen(grp_mesh_id, "MeshEntities", H5P_DEFAULT);
-  if (grp_entities_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Mesh/MeshEntities group in file %s.\n",
-            __func__, filename);
-    return 0;
+  HDF_CHECK( grp_entities_id = H5Gopen(grp_mesh_id, "MeshEntities", H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the /Mesh/MeshEntities group in file %s.\n",
+                     __func__, parmesh->myrank, filename);
+             H5Gclose(grp_mesh_id);
+             goto error_free_all );
+
+  ier = PMMG_loadMeshEntities_hdf5(parmesh, grp_entities_id, dxpl_id, npartitions, nentitiesl, nentitiesg, offset, load_entities);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_entities_id);
+             H5Gclose(grp_mesh_id);
+             goto error_free_all );
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not read the mesh entities.\n", __func__);
+    }
+    H5Gclose(grp_entities_id);
+    H5Gclose(grp_mesh_id);
+    goto error_free_all;
   }
-  PMMG_loadMeshEntities_hdf5(parmesh, grp_entities_id, dxpl_id, npartitions, nentitiesl, nentitiesg, offset, load_entities);
 
   H5Gclose(grp_entities_id);
 
@@ -3832,14 +3854,39 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Gclose(grp_mesh_id);
 
   /* Each proc reads the part of the solutions/metric that is assigned to him */
-  grp_sols_id = H5Gopen(file_id, "Solutions", H5P_DEFAULT);
-  if (grp_sols_id < 0) {
-    fprintf(stderr,"\n  ## Error: %s: Could not open the /Solutions group in file %s.\n",
-            __func__, filename);
-    return 0;
+  HDF_CHECK( grp_sols_id = H5Gopen(file_id, "Solutions", H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Could not open the /Solutions group in file %s.\n",
+                     __func__, filename);
+             goto error_free_all );
+
+  ier = PMMG_loadMetric_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_sols_id);
+             goto error_free_all );
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not load the metric.\n",__func__);
+    }
+    H5Gclose(grp_sols_id);
+    goto error_free_all;
   }
-  PMMG_loadMetric_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
-  PMMG_loadAllSols_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
+
+  ier = PMMG_loadAllSols_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_sols_id);
+             goto error_free_all );
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not load the solutions.\n",__func__);
+    }
+    H5Gclose(grp_sols_id);
+    goto error_free_all;
+  }
+
   H5Gclose(grp_sols_id);
 
   /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
@@ -3855,14 +3902,13 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   return 1;
 
  error_free_all:
-
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
+  H5Fclose(file_id);
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
-
   return 0;
 
 }
