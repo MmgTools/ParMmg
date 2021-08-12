@@ -2013,7 +2013,8 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_hgeom  *ph;
   MMG5_pPoint ppt[2];
   double      *doublevalues;
-  int         *intvalues,ip[2],k,j,idx,ns0;
+  int         *intvalues,ip[2],k,j,idx,ns0,edg,d;
+  int16_t     tag;
   int8_t      isEdg;
 
   /* Get node communicator */
@@ -2029,9 +2030,13 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     ip[0] = ph->a;
     ip[1] = ph->b;
 
-    /* Look if it is a special edge */
+    /* Skip non-special edge */
     isEdg = (ph->ref & MG_GEO) || (ph->ref & MG_REF);
     if( !isEdg ) continue;
+
+    /* Skip non-owned parallel edge */
+    if( MMG5_hGet( var->hpar,ip[0],ip[1],&edg,&tag) &&
+        var->mesh->edge[edg].base != parmesh->myrank ) continue;
 
     /* Analyze both points */
     for( j = 0; j < 2; j++) {
@@ -2050,8 +2055,10 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
           intvalues[2*idx+1] += 1;
         }
         /* If here, there is a special edge extremity to store in the first
-         * free position. XXX skip non-owned edges */
-        memcpy(&doublevalues[6*idx+3*ns0],ppt[1]->c,3*sizeof(double));
+         * free position (if any). */
+        if( ns0 < 2 )
+          for( d = 0; d < 3; d++ )
+            doublevalues[6*idx+3*ns0+d] = ppt[1]->c[d]-ppt[0]->c[d];
       }
     }
   }
@@ -2066,7 +2073,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  * Check for singularities.
  * \remark Modeled after the MMG5_singul function.
  */
-int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
@@ -2092,6 +2099,19 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"doublevalues",return 0);
   intvalues    = int_node_comm->intvalues;
   doublevalues = int_node_comm->doublevalues;
+
+  /* Store internal communicator index on the point itself */
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    ppt->flag = 0;
+    ppt->tmp = PMMG_UNSET;
+  }
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    ppt->tmp = idx;
+  }
 
   /* Store source triangle for every boundary point */
   for( ip = 1; ip <= mesh->np; ip++ ) {
@@ -2223,39 +2243,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
 
   /** Local singularity analysis */
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip  = grp->node2int_node_comm_index1[i];
-    idx = grp->node2int_node_comm_index2[i];
-    ppt = &mesh->point[ip];
+  if( !PMMG_loopr( parmesh, var ) )
+    return 0;
 
-    /* skip points that do not belong to a true boundary triangle on this proc */
-    if( !ppt->s ) continue;
-
-    if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) || ( ppt->tag & MG_NOM ) )
-      continue;
-    else if ( MG_EDG(ppt->tag) ) {
-      /* Count the number of ridges passing through the point (xp) and the
-       * number of ref edges (nr).
-       * Edges on communicators only once as they are flagged with their
-       * lowest seen rank. */
-      ns0 = PMMG_bouler(parmesh,mesh,mesh->adjt,ppt->s/3,ppt->s%3,list,listref,&xp,&nr,MMG3D_LMAX);
-      assert( ns0 == xp+nr );
-
-      /* Add nb of ridges/refs to intvalues */
-      intvalues[2*idx]   = xp;
-      intvalues[2*idx+1] = nr;
-
-      /* Go to next point if too many singularities */
-      if ( ns0 > 2 ) continue;
-
-      /* Add edge vectors to doublevalues */
-      for( j = 0; j < ns0; j++ ) {
-        p1 = &mesh->point[list[j+1]];
-        for( d = 0; d < 3; d++ )
-          doublevalues[6*idx+3*j+d] = p1->c[d]-ppt->c[d];
-      }
-    }
-  }
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -2868,7 +2858,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
 
   /* identify singularities on parallel points */
-  if ( !PMMG_singul(parmesh,mesh) ) {
+  if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
