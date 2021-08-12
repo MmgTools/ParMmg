@@ -1613,13 +1613,6 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
       return 0;
     }
 
-    /* build normal and tangent vectors on previously parallel points */
-    if( !PMMG_update_norver(parmesh,mesh) ) {
-      fprintf(stderr,"  ## Error: rank %d, function %s: cannot update normal vectors on surface.\n",
-              parmesh->myrank,__func__);
-      return 0;
-    }
-
     /* repristinate singularity tags on points that were previously parallel
      * (so, their required tags have been erased) */
     if( !PMMG_update_singul(parmesh,mesh) ) {
@@ -1632,13 +1625,6 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
      * required */
 #warning Luca: add a function like MMG5_setEdgeNmTag(mesh,hash)
 
-
-    /* define geometry for non manifold points */
-    if( !PMMG_update_nmgeom(parmesh,mesh) ) {
-      fprintf(stderr,"  ## Error: rank %d, function %s: cannot update geometric support on non-manifold edges.\n",
-              parmesh->myrank,__func__);
-      return 0;
-    }
   }
 
   return 1;
@@ -2869,6 +2855,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
+  if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
+    fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    return 0;
+  }
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
 #warning Luca: check that parbdy are skipped
