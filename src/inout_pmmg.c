@@ -2508,12 +2508,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   /* Set all pointers to NULL */
   nentities = nentitiesl = nentitiesg = offset = NULL;
 
-  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * parmesh->nprocs, hsize_t, "nentities", return 0);
+  PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * parmesh->nprocs, hsize_t, "nentities",
+              goto error_free_all);
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg",
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities"); return 0);
+              goto error_free_all );
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl",
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentitiesg"); return 0);
+              goto error_free_all );
 
   /* Count the number of entities on each proc and globally */
   ier = PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg, save_entities);
@@ -2527,16 +2527,15 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Compute the offset for parallel writing */
   PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset",
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentitiesg");
-              PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentitiesl"); return 0);
+              goto error_free_all );
 
   ier = PMMG_computeHDFoffset(parmesh, nentities, offset);
 
   /*------------------------- HDF5 IOs START HERE -------------------------*/
 
   /* Shut HDF5 error stack */
-  HDF_CHECK( H5Eset_auto(H5E_DEFAULT, NULL, NULL), return 0 );
+  HDF_CHECK( H5Eset_auto(H5E_DEFAULT, NULL, NULL),
+             goto error_free_all );
 
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
@@ -2549,28 +2548,32 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Create the file */
   HDF_CHECK( file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id),
-             fprintf(stderr,"\n  ## Error: %s: Could not create the hdf5 file.\n",
-                     __func__);
+             fprintf(stderr,"\n  ## Error: %s: Rank %d could not create the hdf5 file %s.\n",
+                     __func__, parmesh->myrank, filename);
              goto error_free_all );
 
   /* Save the attributes (Version and Dimension, and number of entities per proc) */
   ier = PMMG_saveHeader_hdf5(parmesh, file_id);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
-             H5Fclose(file_id);
              goto error_free_all );
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not write the mesh attributes.\n",__func__);
+    }
+    goto error_free_all;
+  }
 
   /* Open the mesh group */
   HDF_CHECK( grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh group.\n",__func__);
-             H5Fclose(file_id);
              goto error_free_all );
 
   /* Write the partitionning information */
   HDF_CHECK( grp_part_id = H5Gcreate(grp_mesh_id, "Partitioning", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/Partitioning group.\n",__func__);
              H5Gclose(grp_mesh_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   ier = PMMG_savePartitioning_hdf5(parmesh, grp_part_id, dcpl_id, dxpl_id, nentities);
@@ -2578,7 +2581,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_part_id);
              H5Gclose(grp_mesh_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   if (!ier) {
@@ -2587,7 +2589,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     }
     H5Gclose(grp_part_id);
     H5Gclose(grp_mesh_id);
-    H5Fclose(file_id);
     goto error_free_all;
   }
 
@@ -2602,7 +2603,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   HDF_CHECK( grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/MeshEntities group.\n",__func__);
              H5Gclose(grp_mesh_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   ier = PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset, save_entities);
@@ -2610,7 +2610,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_entities_id);
              H5Gclose(grp_mesh_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   if (!ier) {
@@ -2619,7 +2618,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     }
     H5Gclose(grp_entities_id);
     H5Gclose(grp_mesh_id);
-    H5Fclose(file_id);
     goto error_free_all;
   }
 
@@ -2631,14 +2629,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   /* Write the metric and the solutions */
   HDF_CHECK( grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions group.\n",__func__);
-             H5Fclose(file_id);
              goto error_free_all );
 
   ier = PMMG_saveMetric_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_sols_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   if (!ier) {
@@ -2646,7 +2642,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
       fprintf(stderr,"\n  ## Error: %s: Could not write the metric.\n",__func__);
     }
     H5Gclose(grp_sols_id);
-    H5Fclose(file_id);
     goto error_free_all;
   }
 
@@ -2654,7 +2649,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_sols_id);
-             H5Fclose(file_id);
              goto error_free_all );
 
   if (!ier) {
@@ -2662,7 +2656,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
       fprintf(stderr,"\n  ## Error: %s: Could not write the solutions.\n",__func__);
     }
     H5Gclose(grp_sols_id);
-    H5Fclose(file_id);
     goto error_free_all;
   }
 
@@ -2681,19 +2674,31 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   /* Write light data in XDMF file */
   if (!xdmfname || !*xdmfname)
     fprintf(stderr,"  ## Warning: %s: no XDMF file name provided.", __func__);
-  else
+  else {
     ier = PMMG_writeXDMF(parmesh, filename, xdmfname, nentitiesg);
+
+    MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+              goto error_free_all );
+    if (!ier) {
+      if (parmesh->myrank == parmesh->info.root) {
+        fprintf(stderr,"\n  ## Error: %s: Could not write the xdmf file %s.\n",
+                __func__, xdmfname);
+      }
+      goto error_free_all;
+    }
+  }
 
   /* We no longer need the global number of entities */
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
 
-  return ier;
+  return 1;
 
  error_free_all:
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
+  H5Fclose(file_id);
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
