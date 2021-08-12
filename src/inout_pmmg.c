@@ -1338,6 +1338,8 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   /*------------------------- INIT -------------------------*/
 
+  assert ( parmesh->ngrp == 1 );
+
   /* Set all buffers to NULL */
   ppoint = NULL;
   pent = NULL;
@@ -1433,18 +1435,24 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Vertices, Normals and Tangents */
   if (save_entities[PMMG_IO_Vertex] && npg) {
 
-    PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", return 0);
-    PMMG_MALLOC(parmesh, pref, np, int, "pref", return 0);
-    if (save_entities[PMMG_IO_Corner]) PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", return 0);
-    if (save_entities[PMMG_IO_Req]) PMMG_MALLOC(parmesh, preq, npreq, int, "preq", return 0);
-    if (save_entities[PMMG_IO_Par]) PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", return 0);
+    PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto error_free_all );
+    PMMG_MALLOC(parmesh, pref, np, int, "pref", goto error_free_all );
+
+    if (save_entities[PMMG_IO_Corner]) PMMG_MALLOC(parmesh, pcr, nc, int, "pcr",
+                                                   goto error_free_all );
+    if (save_entities[PMMG_IO_Req])    PMMG_MALLOC(parmesh, preq, npreq, int, "preq",
+                                                   goto error_free_all );
+    if (save_entities[PMMG_IO_Par])    PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar",
+                                                   goto error_free_all );
+
     if (save_entities[PMMG_IO_Normal]) {
-      PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", return 0);
-      PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", return 0);
+      PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto error_free_all );
+      PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto error_free_all );
     }
+
     if (save_entities[PMMG_IO_Tangent]) {
-      PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", return 0);
-      PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", return 0);
+      PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto error_free_all );
+      PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto error_free_all );
     }
 
     crcount = reqcount = parcount = ncount = tcount = 0;
@@ -1594,11 +1602,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Edges */
   if (save_entities[PMMG_IO_Edge] && nag) {
 
-    PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", return 0);
-    PMMG_MALLOC(parmesh, pref, na, int, "pref", return 0);
-    if (save_entities[PMMG_IO_Ridge]) PMMG_MALLOC(parmesh, pcr , nr    , int, "pcr" , return 0);
-    if (save_entities[PMMG_IO_EdReq]) PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", return 0);
-    if (save_entities[PMMG_IO_EdPar]) PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", return 0);
+    PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto error_free_all);
+    PMMG_MALLOC(parmesh, pref, na, int, "pref", goto error_free_all);
+    if (save_entities[PMMG_IO_Ridge]) PMMG_MALLOC(parmesh, pcr , nr    , int, "pcr" , goto error_free_all);
+    if (save_entities[PMMG_IO_EdReq]) PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto error_free_all);
+    if (save_entities[PMMG_IO_EdPar]) PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto error_free_all);
 
     crcount = reqcount = parcount = 0;
 
@@ -1676,10 +1684,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Triangles */
   if (save_entities[PMMG_IO_Tria] && nt) {
 
-    PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", return 0);
-    PMMG_MALLOC(parmesh, pref, nt, int, "pref", return 0);
-    if (save_entities[PMMG_IO_TriaReq]) PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", return 0);
-    if (save_entities[PMMG_IO_TriaPar]) PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", return 0);
+    PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto error_free_all);
+    PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto error_free_all);
+    if (save_entities[PMMG_IO_TriaReq]) PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto error_free_all);
+    if (save_entities[PMMG_IO_TriaPar]) PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto error_free_all);
 
     reqcount = parcount = 0;
 
@@ -1754,10 +1762,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Quadrilaterals */
   if (save_entities[PMMG_IO_Quad] && nquadg) {
 
-    PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", return 0);
-    PMMG_MALLOC(parmesh, pref, nquad, int, "pref", return 0);
-    if (save_entities[PMMG_IO_QuadReq]) PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", return 0);
-    if (save_entities[PMMG_IO_QuadPar]) PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", return 0);
+    PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto error_free_all);
+    PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto error_free_all);
+    if (save_entities[PMMG_IO_QuadReq]) PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto error_free_all);
+    if (save_entities[PMMG_IO_QuadPar]) PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto error_free_all);
 
     reqcount = parcount = 0;
 
@@ -1833,10 +1841,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Tetrahedra */
   if (save_entities[PMMG_IO_Tetra] && neg) {
 
-    PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", return 0);
-    PMMG_MALLOC(parmesh, pref, ne, int, "pref", return 0);
-    if (save_entities[PMMG_IO_TetReq]) PMMG_MALLOC(parmesh, preq, nereq, int, "preq", return 0);
-    if (save_entities[PMMG_IO_TetPar]) PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", return 0);
+    PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto error_free_all);
+    PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto error_free_all);
+    if (save_entities[PMMG_IO_TetReq]) PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto error_free_all);
+    if (save_entities[PMMG_IO_TetPar]) PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto error_free_all);
 
     reqcount = parcount = 0;
 
@@ -1903,8 +1911,8 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   /* Prisms */
   if (save_entities[PMMG_IO_Prism] && nprismg) {
-    PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", return 0);
-    PMMG_MALLOC(parmesh, pref, nprism, int, "pref", return 0);
+    PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto error_free_all);
+    PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto error_free_all);
 
     if (nprism){
       for (int i = 0 ; i < mesh->nprism ; i++) {
@@ -1940,8 +1948,36 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
 
   return 1;
+
+ error_free_all:
+  PMMG_DEL_MEM(parmesh, ppoint, double, "ppoint");
+  PMMG_DEL_MEM(parmesh, pent, int, "pent");
+  PMMG_DEL_MEM(parmesh, pref, int, "pref");
+  PMMG_DEL_MEM(parmesh, pcr, int, "pcr");
+  PMMG_DEL_MEM(parmesh, preq, int, "preq");
+  PMMG_DEL_MEM(parmesh, ppar, int, "ppar");
+  PMMG_DEL_MEM(parmesh, pnor, double, "pnor");
+  PMMG_DEL_MEM(parmesh, pnorat, int, "pnorat");
+  PMMG_DEL_MEM(parmesh, ptan, double, "ptan");
+  PMMG_DEL_MEM(parmesh, ptanat, int, "ptanat");
+  if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
+  return 0;
+
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_part_id identifier of the HDF5 group in which to write the mesh partitioning.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentities array of size nprocs * PMMG_NTYP_ENTITIES containing the number of entities on every proc.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save the mesh partitioning in the \a grp_part_id group of an HDF5 file (only
+ * one group per process is allowed).
+ *
+ */
 static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dcpl_id, hid_t dxpl_id, hsize_t *nentities) {
   PMMG_pExt_comm comms;
   hsize_t        *ncomms, *nitem, *nitem_proc;
