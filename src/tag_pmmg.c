@@ -422,6 +422,18 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
+    /* Remove PARBDYBDY tag from faces that are not parallel (it could have
+     * been put by MMG5_bdrySet if all edges on face have been tagged as
+     * MG_PARBDYBDY by MMG5_mmgHashTria) */
+    for( ie = 1; ie <= mesh->ne; ie++ ) {
+      pt = &mesh->tetra[ie];
+      if( !MG_EOK(pt) || !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      for( ifac = 0; ifac < 4; ifac++ )
+        if( pxt->ftag[ifac] & MG_PARBDYBDY && !(pxt->ftag[ifac] & MG_PARBDY) )
+          pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+    }
+
     for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
       ie   =  face2int_face_comm_index1[k]/12;
       ifac = (face2int_face_comm_index1[k]%12)/3;
