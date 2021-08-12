@@ -97,6 +97,8 @@ void PMMG_tag_par_tria(MMG5_pTria ptt){
  * \param pxt pointer to the point.
  *
  * Untag a parallel node.
+ * Also delete the MG_PARBDYBDY tag, as it will be put only on nodes which are
+ * visible from parallel faces.
  */
 void PMMG_untag_par_node(MMG5_pPoint ppt){
 
@@ -105,6 +107,7 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
     ppt->tag &= ~MG_BDY;
     ppt->tag &= ~MG_REQ;
     ppt->tag &= ~MG_NOSURF;
+    ppt->tag &= ~MG_PARBDYBDY;
   }
 }
 
@@ -113,6 +116,8 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
  * \param j local index of the edge on the tetra.
  *
  * Untag a parallel edge.
+ * Also delete the MG_PARBDYBDY tag, as it will be put only on edges which are
+ * visible from parallel faces.
  */
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
 
@@ -121,6 +126,7 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
     pxt->tag[j] &= ~MG_BDY;
     pxt->tag[j] &= ~MG_REQ;
     pxt->tag[j] &= ~MG_NOSURF;
+    pxt->tag[j] &= ~MG_PARBDYBDY;
   }
 }
 
@@ -129,6 +135,8 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
  * \param j local index of the face on the tetra.
  *
  * Untag a parallel face.
+ * Do not delete the MG_PARBDYBDY tag, as it will be used to recognize boundary
+ * faces.
  */
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
 
