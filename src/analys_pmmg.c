@@ -827,9 +827,11 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    /* Loop on parallel, non-corner points */
-    idx = var->ppt->tmp;
-    if( intvalues[idx] ) { /* has xpoint */
+    /* Loop on parallel, non-corner points (check flag and not intvalues value,
+     * as it could be not allocated if using 1 proc) */
+    if( var->ppt->flag ) {
+      idx = var->ppt->tmp;
+
       /* Create xpoint if needed */
       if( !var->ppt->xp ) {
         ++var->mesh->xp;
@@ -860,10 +862,11 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    /* Loop on parallel, non-corner points */
-    idx = var->ppt->tmp;
-    pxp = &var->mesh->xpoint[var->ppt->xp];
-    if( intvalues[idx] ) {
+    /* Loop on parallel, non-corner points (check flag and not intvalues value,
+     * as it could be not allocated if using 1 proc) */
+    if( var->ppt->flag ) {
+      idx = var->ppt->tmp;
+      pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Loop on manifold or non-manifold exterior points */
       if( !pxp->nnor ) {
