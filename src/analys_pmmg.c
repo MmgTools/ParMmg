@@ -2050,8 +2050,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
       if( ppt[0]->tag & MG_PARBDY ) {
         if( ph->ref & MG_GEO ) {
           intvalues[2*idx] += 1;
-        }
-        if( ph->ref & MG_REF ) {
+        } else if( ph->ref & MG_REF ) {
           intvalues[2*idx+1] += 1;
         }
         /* If here, there is a special edge extremity to store in the first
