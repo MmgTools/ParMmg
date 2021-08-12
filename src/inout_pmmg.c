@@ -1246,7 +1246,6 @@ static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
   hid_t      dspace_id;
   hid_t      attr_id;
   int        rank, root;
-  herr_t     status;
 
   mesh = parmesh->listgrp[0].mesh;
   rank = parmesh->myrank;
@@ -1256,22 +1255,22 @@ static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
 
   attr_id = H5Acreate(file_id, "MeshVersionFormatted", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
   if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->ver);
+    H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->ver);
   H5Aclose(attr_id);
 
   attr_id = H5Acreate(file_id, "Dimension", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
   if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->dim);
+    H5Awrite(attr_id, H5T_NATIVE_INT, &mesh->dim);
   H5Aclose(attr_id);
 
   attr_id = H5Acreate(file_id, "NumberOfPartitions", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
   if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &parmesh->nprocs);
+    H5Awrite(attr_id, H5T_NATIVE_INT, &parmesh->nprocs);
   H5Aclose(attr_id);
 
   attr_id = H5Acreate(file_id, "API_mode", H5T_NATIVE_INT, dspace_id, H5P_DEFAULT, H5P_DEFAULT);
   if (rank == root)
-    status = H5Awrite(attr_id, H5T_NATIVE_INT, &parmesh->info.API_mode);
+    H5Awrite(attr_id, H5T_NATIVE_INT, &parmesh->info.API_mode);
   H5Aclose(attr_id);
 
   H5Sclose(dspace_id);
