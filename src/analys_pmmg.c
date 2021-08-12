@@ -1628,6 +1628,11 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
       return 0;
     }
 
+    /* First: seek edges at the interface of two distinct domains and mark it as
+     * required */
+#warning Luca: add a function like MMG5_setEdgeNmTag(mesh,hash)
+
+
     /* define geometry for non manifold points */
     if( !PMMG_update_nmgeom(parmesh,mesh) ) {
       fprintf(stderr,"  ## Error: rank %d, function %s: cannot update geometric support on non-manifold edges.\n",
@@ -2855,19 +2860,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
   if( !PMMG_set_edge_owners( parmesh,&hpar ) ) return 0;
 
-
-  /* identify singularities on parallel points */
+  /* identify singularities on parallel points.
+   * No need to call a *_setVertexNmTag function, as it already takes into
+   * account non-manifold configurations. */
   if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    return 0;
-  }
-
-
-  if ( !PMMG_setNmTag(parmesh,mesh,&hash) ) {
-    fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
-    MMG5_DEL_MEM(mesh,hash.item);
-    MMG5_DEL_MEM(mesh,mesh->xpoint);
     return 0;
   }
 
