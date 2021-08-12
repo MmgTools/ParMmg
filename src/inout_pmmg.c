@@ -2204,7 +2204,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
  */
 static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                 hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
-  int         np, npg, mcount;
+  int         np, npg, mcount, isMet;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
   MMG5_pPoint ppt;
@@ -2219,16 +2219,22 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   npg = nentitiesg[PMMG_IO_Vertex];
 
   /* Check the metric */
+  isMet = met->m && 1;
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &isMet, 1, MPI_INT, MPI_MAX, parmesh->comm), return 0);
+
+  if (!isMet) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr, "\n  ## Warning: %s: No metric data to save \n", __func__);
+    }
+    return 1;
+  }
   if (met->size != 1 && met->size != 6) {
     fprintf(stderr, "\n  ## Error: %s: Wrong metric size\n", __func__);
     return 0;
   }
   if (mesh->np != met->np) {
     fprintf(stderr, "\n  ## Error: %s: The metric vertices do not match with the mesh vertices \n", __func__);
-    return 0;
-  }
-  if (!met->m) {
-    fprintf(stderr, "\n  ## Warning: %s: No metric data to save \n", __func__);
     return 0;
   }
 
@@ -2322,14 +2328,16 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       PMMG_MALLOC(parmesh, sol_buf, size * np, double, "sol_buf", return 0);
       for (int k = 0 ; k < mesh->np ; k++) {
         ppt = &mesh->point[k + 1];
-        if ( !MG_VOK(ppt)) continue;
+        if ( !MG_VOK(ppt) ) continue;
         for (int j = 0 ; j < size ; j++) {
           sol_buf[count++] = sols[i]->m[1 + k * size + j];
         }
       }
       hns[0] = np; hns[1] = size;
       hnsg[0] = npg; hnsg[1] = size;
-      PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset", return 0);
+      PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset",
+                  PMMG_DEL_MEM(parmesh, sol_buf, double, "sol_buf");
+                  return 0);
       sol_offset[0] = offset[2 * PMMG_IO_Vertex];
 
       solname = (char*) malloc((strlen("SolAtVertices") + ndigits) * sizeof(char));
@@ -2342,14 +2350,16 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       PMMG_MALLOC(parmesh, sol_buf, size * ne, double, "sol_buf", return 0);
       for (int k = 0 ; k < mesh->ne ; k++) {
         pt = &mesh->tetra[k + 1];
-        if ( !MG_EOK(pt)) continue;
+        if ( !MG_EOK(pt) ) continue;
         for (int j = 0 ; j < size ; j++) {
           sol_buf[count++] = sols[i]->m[1 + k * size + j];
         }
       }
       hns[0] = ne; hns[1] = size;
       hnsg[0] = neg; hnsg[1] = size;
-      PMMG_CALLOC(parmesh, sol_offset, ne * size, hsize_t, "sol_offset", return 0);
+      PMMG_CALLOC(parmesh, sol_offset, ne * size, hsize_t, "sol_offset",
+                  PMMG_DEL_MEM(parmesh, sol_buf, double, "sol_buf");
+                  return 0);
       sol_offset[0] = offset[2 * PMMG_IO_Tetra];
 
       solname = (char*) malloc((strlen("SolAtTetrahedra") + ndigits) * sizeof(char));
