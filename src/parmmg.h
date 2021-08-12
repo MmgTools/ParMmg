@@ -44,6 +44,7 @@
 #include <float.h>
 #include <math.h>
 #include <mpi_pmmg.h>
+#include "hdf_pmmg.h"
 
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
