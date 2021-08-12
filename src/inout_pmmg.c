@@ -2409,12 +2409,10 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   met  = grp->met;
   sols = &grp->field;
   nsols = grp->mesh->nsols;
-  rank = parmesh->myrank;
-  root = parmesh->info.root;
 
-  if (rank == root) {
-    FILE *xdmf_file = NULL;
+  if (parmesh->myrank == parmesh->info.root) {
     xdmf_file = fopen(xdmfname, "w");
+    if ( !xdmf_file ) return 0;
     fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
     fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
     fprintf(xdmf_file, "<Domain>\n");
