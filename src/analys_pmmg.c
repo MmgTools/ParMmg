@@ -969,6 +969,102 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
+  PMMG_pInt_comm int_edge_comm;
+  PMMG_pExt_comm ext_edge_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pEdge     pa;
+  int            *intvalues,*itosend,*itorecv;
+  int            idx,k,nitem,color,edg,ia,ie,ifac,ip[2],i;
+  int16_t        tag;
+  MPI_Comm       comm;
+  MPI_Status     status;
+
+  comm   = parmesh->comm;
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  int_edge_comm = parmesh->int_edge_comm;
+  intvalues = int_edge_comm->intvalues;
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
+    intvalues[idx] = parmesh->nprocs;
+
+  /* Loop on xtetra and flag parallel edges seen by local boundary faces */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) || !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      tag = pxt->ftag[ifac];
+      /* Skip non-boundary faces */
+      if( !(tag & MG_BDY) || ( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) ) )
+        continue;
+      /* Loop on face edges */
+      for( i = 0; i < 3; i++ ) {
+        ip[0] = pt->v[MMG5_idir[ifac][MMG5_iprv2[i]]];
+        ip[1] = pt->v[MMG5_idir[ifac][MMG5_inxt2[i]]];
+        /* Skip non-parallel edges */
+        if( !MMG5_hGet( hpar,ip[0],ip[1],&edg,&tag) )
+          continue;
+        /* Flag edge as seen by a face on the local partition */
+        idx = edg-1;
+        intvalues[idx] = parmesh->myrank;
+      }
+    }
+  }
+
+  /** Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    PMMG_MALLOC(parmesh,ext_edge_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    PMMG_MALLOC(parmesh,ext_edge_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    /* Communication */
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+  }
+
+  /* Fill internal communicator */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    itorecv = ext_edge_comm->itorecv;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      intvalues[idx] = MG_MIN(intvalues[idx],itorecv[i]);
+    }
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
+  }
+
+  /* Store owner in edge */
+  for( ia = 1; ia <= mesh->na; ia++ ) {
+    pa = &mesh->edge[ia];
+    idx = ia-1;
+    pa->base = intvalues[idx];
+  }
+
+  return 1;
+}
+
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
                      MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
   PMMG_pGrp      grp;
@@ -992,38 +1088,17 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 
   PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
-  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
+//  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
 
-  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
-    int_edge_comm->intvalues[idx] = parmesh->myrank;
-
-  for( k = 0; k < parmesh->next_edge_comm; k++ ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
-    color = ext_edge_comm->color_out;
-    nitem = ext_edge_comm->nitem;
-
-    if( color < parmesh->myrank ) {
-      for( i = 0; i < nitem; i++ ) {
-        idx = ext_edge_comm->int_comm_index[i];
-        int_edge_comm->intvalues[idx] = MG_MIN(int_edge_comm->intvalues[idx],color);
-      }
-    }
-  }
-  for( idx = 0; idx < int_edge_comm->nitem; idx++ ) {
-    pa = &mesh->edge[idx+1];
-    pa->base = int_edge_comm->intvalues[idx];
-  }
   /* Reset intvalues to zero, as it will be used to store the edge colors */
   memset(int_edge_comm->intvalues,0,2*int_edge_comm->nitem*sizeof(int));
 
-
+  /* Store internal communicator index on the point itself */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
     ppt->tmp = PMMG_UNSET;
   }
-
-  /* Store internal communicator index on the point itself */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
@@ -2780,10 +2855,16 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   var.hpar = &hpar;
   var.updloc = var.updpar = 0;
 
-  /** 0) Loop on edges touching an old parallel point and insert them in the
+  /** 0) Loop on edges touching a parallel point and insert them in the
    *     hash table. */
   if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) )
     return 0;
+
+
+  PMMG_pInt_comm int_edge_comm;
+  int_edge_comm = parmesh->int_edge_comm;
+  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
+  if( !PMMG_set_edge_owners( parmesh,&hpar ) ) return 0;
 
 
   /* identify singularities on parallel points */
