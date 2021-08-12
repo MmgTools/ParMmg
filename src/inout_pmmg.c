@@ -1278,6 +1278,22 @@ static int PMMG_saveHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_entities_id identifier of the HDF5 group in which to write the mesh entities.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of size PMMG_NTYP_ENTITIES containing the local number of entities.
+ * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
+ * \param offset array of size PMMG_NTYP_ENTITIES containing the offset for parallel writing.
+ * \param save_entities array of size PMMG_NTYP_ENTITIES to tell which entities are to be saved.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save the mesh entities in the \a grp_entities_id group of an HDF5 file (only
+ * one group per process is allowed).
+ *
+ */
 static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dcpl_id, hid_t dxpl_id,
                                       hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset, int *save_entities) {
   /* MMG variables */
@@ -2172,6 +2188,20 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which to write the metric.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of size PMMG_NTYP_ENTITIES containing the local number of entities.
+ * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
+ * \param offset array of size PMMG_NTYP_ENTITIES containing the offset for parallel writing.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save the metric in the \a grp_sols_id group of an HDF5 file (only one group per process is allowed).
+ *
+ */
 static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                 hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
   int         np, npg, mcount;
@@ -2236,6 +2266,20 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which to write the solutions.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of size PMMG_NTYP_ENTITIES containing the local number of entities.
+ * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
+ * \param offset array of size PMMG_NTYP_ENTITIES containing the offset for parallel writing.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save the solutions in the \a grp_sols_id group of an HDF5 file (only one group per process is allowed).
+ *
+ */
 static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                  hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
   MMG5_pMesh  mesh;
@@ -2337,11 +2381,27 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   return 1;
 }
 
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename identifier of the HDF5 group in which to write the metric.
+ * \param xdmfname identifier of the dataset creation property list (no fill value).
+ * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Create the XDMF file \a xdmfname and write light data describing the mesh that was saved in
+ * the HDF5 file \a filename (only one group per process is allowed).
+ *
+ */
 static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
   hsize_t neg, npg;
   PMMG_pGrp grp;
   MMG5_pSol met, *sols;
-  int nsols, rank, root, entities;
+  int nsols, entities;
+  FILE *xdmf_file = NULL;
+
+  assert ( parmesh->ngrp == 1 );
 
   npg  = nentitiesg[PMMG_IO_Vertex];
   neg  = nentitiesg[PMMG_IO_Tetra];
