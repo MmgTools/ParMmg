@@ -878,7 +878,6 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             dd += pxp->n1[d]*pxp->n1[d];
           dd = 1.0 / sqrt(dd);
-          assert(isfinite(dd));
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
               pxp->n1[d] *= dd;
@@ -889,7 +888,6 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               dd += pxp->n2[d]*pxp->n2[d];
             dd = 1.0 / sqrt(dd);
-            assert(isfinite(dd));
             if( dd > MMG5_EPSD2 )
               for( d = 0; d < 3; d++ )
                 pxp->n2[d] *= dd;
