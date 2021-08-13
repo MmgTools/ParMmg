@@ -738,7 +738,7 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
-
+#warning Luca: fix opnbdy treatment
 int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   MMG5_pxPoint pxp;
   double *doublevalues,dd,l[2],*c[2];
@@ -903,7 +903,6 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
               for( d = 0; d < 3; d++ )
                 dd += var->ppt->n[d]*var->ppt->n[d];
               dd = 1.0 / sqrt(dd);
-              assert(isfinite(dd));
               if( dd > MMG5_EPSD2 )
                 for( d = 0; d < 3; d++ )
                   var->ppt->n[d] *= dd;
