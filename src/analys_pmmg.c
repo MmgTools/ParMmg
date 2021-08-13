@@ -2459,6 +2459,12 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
               "intvalues",return 0);
   intvalues = int_edge_comm->intvalues;
 
+  /* Set edge references to empty value (4*PMMG_UNSET) in order to avoid
+   * comparing null references with non-null one on parallel edges not touched
+   * by boundary triangles on the local proc. */
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
+    intvalues[2*idx+1] = 4*PMMG_UNSET;
+
   /* Allocate edge doublevalues to store triangles normals */
   PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,6*int_edge_comm->nitem,double,
               "doublevalues",return 0);
@@ -2500,7 +2506,10 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       /* Check for ref edge if the edge is visited for the second time, and
        * unset the reference if a ref edge is found */
       if( intvalues[2*idx] == 2 )
-        if( intvalues[2*idx+1] != ptr->ref )
+        /* Check for change in reference, but don't check new reference against
+         * an empty (4*PMMG_UNSET) reference */
+        if( (intvalues[2*idx+1] != 4*PMMG_UNSET)
+            && (intvalues[2*idx+1] != ptr->ref) )
           intvalues[2*idx+1] = PMMG_UNSET;
       /* Store the normal in the free position */
       for( d = 0; d < 3; d++ )
@@ -2574,8 +2583,13 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
 
       /* Check new ref */
       if( (nt1 == 2) && (nt0 == 1) ) {
-        if( intvalues[2*idx+1] != itorecv[2*i+1] )
+        /* Check for change in reference, but don't check new reference against
+         * an empty (4*PMMG_UNSET) reference */
+        if( (itorecv[2*i+1] != 4*PMMG_UNSET) &&
+            (intvalues[2*idx+1] != 4*PMMG_UNSET) &&
+            (intvalues[2*idx+1] != itorecv[2*i+1]) ) {
           intvalues[2*idx+1] = PMMG_UNSET;
+        }
       }
 
       if( nt0 < 2 ) { /* If there is room for another normal vector */
