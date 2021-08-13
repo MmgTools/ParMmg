@@ -827,33 +827,35 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    /* Loop on parallel, non-corner points (check flag and not intvalues value,
-     * as it could be not allocated if using 1 proc) */
-    if( var->ppt->flag ) {
+    /* Loop on parallel, non-corner points (check for valid index before
+     * accessing the internal communicator, not allocated on 1 proc) */
+    if( var->ppt->tmp != PMMG_UNSET ) {
       idx = var->ppt->tmp;
+      if( intvalues[idx] ) {
 
-      /* Create xpoint if needed */
-      if( !var->ppt->xp ) {
-        ++var->mesh->xp;
-        if(var->mesh->xp > var->mesh->xpmax){
-          MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
-                            MMG5_GAP,MMG5_xPoint,
-                            "larger xpoint table",
-                            var->mesh->xp--;return 0;);
+        /* Create xpoint if needed */
+        if( !var->ppt->xp ) {
+          ++var->mesh->xp;
+          if(var->mesh->xp > var->mesh->xpmax){
+            MMG5_TAB_RECALLOC(var->mesh,var->mesh->xpoint,var->mesh->xpmax,
+                              MMG5_GAP,MMG5_xPoint,
+                              "larger xpoint table",
+                              var->mesh->xp--;return 0;);
+          }
+          var->ppt->xp = var->mesh->xp;
         }
-        var->ppt->xp = var->mesh->xp;
-      }
-      pxp = &var->mesh->xpoint[var->ppt->xp];
-      if( intvalues[idx] & (1 << 1) ) /* has normal */
-        pxp->nnor = 0;
+        pxp = &var->mesh->xpoint[var->ppt->xp];
+        if( intvalues[idx] & (1 << 1) ) /* has normal */
+          pxp->nnor = 0;
 
-      /* Get normals from communicator if manifold or non-manifold exterior
-       * point */
-      if( !pxp->nnor ) {
-        for( d = 0; d < 3; d++ )
-          pxp->n1[d] = doublevalues[6*idx+d];
-        for( d = 0; d < 3; d++ )
-          pxp->n2[d] = doublevalues[6*idx+3+d];
+        /* Get normals from communicator if manifold or non-manifold exterior
+         * point */
+        if( !pxp->nnor ) {
+          for( d = 0; d < 3; d++ )
+            pxp->n1[d] = doublevalues[6*idx+d];
+          for( d = 0; d < 3; d++ )
+            pxp->n2[d] = doublevalues[6*idx+3+d];
+        }
       }
     }
   }
@@ -862,45 +864,50 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    /* Loop on parallel, non-corner points (check flag and not intvalues value,
-     * as it could be not allocated if using 1 proc) */
-    if( var->ppt->flag ) {
+    /* Loop on parallel, non-corner points (check for valid index before
+     * accessing the internal communicator, not allocated on 1 proc) */
+    if( var->ppt->tmp != PMMG_UNSET ) {
       idx = var->ppt->tmp;
-      pxp = &var->mesh->xpoint[var->ppt->xp];
+      if( intvalues[idx] ) {
+        pxp = &var->mesh->xpoint[var->ppt->xp];
 
-      /* Loop on manifold or non-manifold exterior points */
-      if( !pxp->nnor ) {
-        /* Normalize first normal */
-        dd = 0.0;
-        for( d = 0; d < 3; d++ )
-          dd += pxp->n1[d]*pxp->n1[d];
-        dd = 1.0 / sqrt(dd);
-        if( dd > MMG5_EPSD2 )
-          for( d = 0; d < 3; d++ )
-            pxp->n1[d] *= dd;
-
-        if( var->ppt->tag & MG_GEO ) {
-          /* Normalize second normal */
+        /* Loop on manifold or non-manifold exterior points */
+        if( !pxp->nnor ) {
+          /* Normalize first normal */
           dd = 0.0;
           for( d = 0; d < 3; d++ )
-            dd += pxp->n2[d]*pxp->n2[d];
+            dd += pxp->n1[d]*pxp->n1[d];
           dd = 1.0 / sqrt(dd);
+          assert(isfinite(dd));
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
-              pxp->n2[d] *= dd;
+              pxp->n1[d] *= dd;
 
-          if( !(var->ppt->tag & MG_NOM) ) {
-            /* compute tangent as intersection of n1 + n2 */
-            var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
-            var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
-            var->ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+          if( var->ppt->tag & MG_GEO ) {
+            /* Normalize second normal */
             dd = 0.0;
             for( d = 0; d < 3; d++ )
-              dd += var->ppt->n[d]*var->ppt->n[d];
+              dd += pxp->n2[d]*pxp->n2[d];
             dd = 1.0 / sqrt(dd);
+            assert(isfinite(dd));
             if( dd > MMG5_EPSD2 )
               for( d = 0; d < 3; d++ )
-                var->ppt->n[d] *= dd;
+                pxp->n2[d] *= dd;
+
+            if( !(var->ppt->tag & MG_NOM) ) {
+              /* compute tangent as intersection of n1 + n2 */
+              var->ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
+              var->ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
+              var->ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
+              dd = 0.0;
+              for( d = 0; d < 3; d++ )
+                dd += var->ppt->n[d]*var->ppt->n[d];
+              dd = 1.0 / sqrt(dd);
+              assert(isfinite(dd));
+              if( dd > MMG5_EPSD2 )
+                for( d = 0; d < 3; d++ )
+                  var->ppt->n[d] *= dd;
+            }
           }
         }
       }
