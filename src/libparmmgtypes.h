@@ -367,7 +367,7 @@ typedef struct {
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
-  int8_t flag; /*!< 1 if nprocs == npart when loading the mesh from an HDF5 file, 0 otherwise */
+  int npartin; /*!< nb of partitions of the mesh in the input HDF5 file */
 } PMMG_Info;
 
 
