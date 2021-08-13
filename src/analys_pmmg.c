@@ -2171,18 +2171,19 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
 
   /** Exchange point tags that could have been changed by PMMG_setdhd
    *  (expecially for PARBDYBDY points that don't belong to any PARBDYBDY
-   *  triangle on the current proc) */
+   *  triangle on the current proc), and set point reference to the maximum
+   *  seen on the communicator which could be wrong on those same points. */
 
   /* Fill communicator */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    intvalues[idx] = ppt->tag;
+    intvalues[2*idx]   = ppt->tag;
+    intvalues[2*idx+1] = ppt->ref;
   }
 
-  /* Allocate buffers with the size needed by the singularity analysis, but only
-   * use part of theme here to exchange tags */
+  /* Allocate buffers with the size needed by the singularity analysis */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     nitem         = ext_node_comm->nitem;
@@ -2204,12 +2205,13 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     /* Fill buffers */
     for ( i=0; i<nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
-      itosend[i] = intvalues[idx];
+      for( j = 0; j < 2; j++ )
+        itosend[2*i+j] = intvalues[2*idx+j];
     }
 
     MPI_CHECK(
-      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG,
+      MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
+                   itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    comm,&status),return 0 );
   }
 
@@ -2227,9 +2229,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     /* Fill buffers */
     for ( i=0; i<nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
-      intvalues[idx] |= itorecv[i];
-      itosend[i] = 0;
-      itorecv[i] = 0;
+      intvalues[2*idx] |= itorecv[2*i];
+      intvalues[2*idx+1] = MG_MAX(intvalues[2*idx+1],itorecv[2*i+1]);
+      itosend[2*i] = itosend[2*i+1] = 0;
+      itorecv[2*i] = itorecv[2*i+1] = 0;
     }
   }
 
@@ -2237,8 +2240,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tag |= intvalues[idx];
-    intvalues[idx] = 0;
+    ppt->tag |= intvalues[2*idx];
+    ppt->ref  = intvalues[2*idx+1];
+    intvalues[2*idx] = intvalues[2*idx+1] = 0;
   }
 
 
