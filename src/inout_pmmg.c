@@ -2025,8 +2025,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   hsize_t hn[2] = {nprocs, PMMG_NTYPENTITIES};
   dspace_file_id = H5Screate_simple(2, hn, NULL);
   attr_id = H5Acreate(grp_part_id, "NumberOfEntities", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  if (rank == root)
-    H5Awrite(attr_id, H5T_NATIVE_HSIZE, nentities);
+  H5Awrite(attr_id, H5T_NATIVE_HSIZE, nentities);
   H5Aclose(attr_id);
   H5Sclose(dspace_file_id);
 
