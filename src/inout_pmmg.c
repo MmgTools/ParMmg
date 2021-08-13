@@ -1998,7 +1998,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   int            **idx_loc, **idx_glob, *loc_buf, *glob_buf;
   int            ier;
   MPI_Comm       comm;
-  int            rank, nprocs, root;
+  int            rank, nprocs;
   hid_t          attr_id;
   hid_t          dspace_mem_id, dspace_file_id;
   hid_t          dset_id;
@@ -2012,7 +2012,6 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   /* Init variables */
   rank = parmesh->myrank;
   nprocs = parmesh->nprocs;
-  root = parmesh->info.root;
   comm = parmesh->comm;
   if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
     comms = parmesh->ext_face_comm;
@@ -2083,7 +2082,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
     dset_id = H5Dcreate(grp_part_id, "NumberOfFaceCommunicators", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
   else
     dset_id = H5Dcreate(grp_part_id, "NumberOfNodeCommunicators", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  if (rank == root)
+  if (rank == parmesh->info.root)
     H5Dwrite(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ncomms);
   H5Dclose(dset_id);
   H5Sclose(dspace_file_id);
