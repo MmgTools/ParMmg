@@ -3055,10 +3055,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Flag to remember if the save_entities was NULL or not */
   int nullf = 0;
 
-  /* MPI variables */
-  hsize_t rank, root;
-  hsize_t nprocs;
-
   /* HDF5 variables */
   hid_t dspace_mem_id, dspace_file_id;
   hid_t dset_id;
@@ -3073,11 +3069,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   pref = NULL;
   pnor = NULL; ptan = NULL;
   pnorat = NULL; ptanat = NULL;
-
-  /* Set MPI variables */
-  nprocs = parmesh->nprocs;
-  rank = parmesh->myrank;
-  root = parmesh->info.root;
 
   /* Set ParMmg variables */
   grp = &parmesh->listgrp[0];
@@ -3164,8 +3155,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Vertices, Normals and Tangents */
     if (load_entities[PMMG_IO_Vertex] && npg) {
 
-      PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", return 0);
-      PMMG_MALLOC(parmesh, pref, np, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, np, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hnp, NULL);
       dspace_file_id = H5Screate_simple(2, hnpg, NULL);
@@ -3192,7 +3183,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Corner] && ncg) {
 
-        PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", return 0);
+        PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nc, NULL);
         dspace_file_id = H5Screate_simple(1, &ncg, NULL);
@@ -3213,7 +3204,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Req] && npreqg) {
 
-        PMMG_MALLOC(parmesh, preq, npreq, int, "preq", return 0);
+        PMMG_MALLOC(parmesh, preq, npreq, int, "preq", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &npreq, NULL);
         dspace_file_id = H5Screate_simple(1, &npreqg, NULL);
@@ -3234,7 +3225,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Par] && npparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", return 0);
+        PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nppar, NULL);
         dspace_file_id = H5Screate_simple(1, &npparg, NULL);
@@ -3256,8 +3247,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Normal] && nnorg) {
 
-        PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", return 0);
-        PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", return 0);
+        PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto error_free_all);
+        PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(2, hnnor, NULL);
         dspace_file_id = H5Screate_simple(2, hnnorg, NULL);
@@ -3288,8 +3279,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Tangent] && ntang) {
 
-        PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", return 0);
-        PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", return 0);
+        PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto error_free_all);
+        PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(2, hntan, NULL);
         dspace_file_id = H5Screate_simple(2, hntang, NULL);
@@ -3319,8 +3310,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Edges */
     if (load_entities[PMMG_IO_Edge] && nag) {
 
-      PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", return 0);
-      PMMG_MALLOC(parmesh, pref, na, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, na, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hna, NULL);
       dspace_file_id = H5Screate_simple(2, hnag, NULL);
@@ -3349,7 +3340,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Ridge] && nrg) {
 
-        PMMG_MALLOC(parmesh, pcr, nr, int, "pcr", return 0);
+        PMMG_MALLOC(parmesh, pcr, nr, int, "pcr", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nr, NULL);
         dspace_file_id = H5Screate_simple(1, &nrg, NULL);
@@ -3370,7 +3361,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_EdReq] && nedreqg) {
 
-        PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", return 0);
+        PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nedreq, NULL);
         dspace_file_id = H5Screate_simple(1, &nedreqg, NULL);
@@ -3391,7 +3382,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_EdPar] && nedparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", return 0);
+        PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nedpar, NULL);
         dspace_file_id = H5Screate_simple(1, &nedparg, NULL);
@@ -3415,8 +3406,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Triangles */
     if (load_entities[PMMG_IO_Tria] && ntg) {
 
-      PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", return 0);
-      PMMG_MALLOC(parmesh, pref, nt, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hnt, NULL);
       dspace_file_id = H5Screate_simple(2, hntg, NULL);
@@ -3448,7 +3439,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TriaReq] && ntreqg) {
 
-        PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", return 0);
+        PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &ntreq, NULL);
         dspace_file_id = H5Screate_simple(1, &ntreqg, NULL);
@@ -3469,7 +3460,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TriaPar] && ntparg) {
 
-        PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", return 0);
+        PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &ntpar, NULL);
         dspace_file_id = H5Screate_simple(1, &ntparg, NULL);
@@ -3496,8 +3487,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Quadrilaterals */
     if (load_entities[PMMG_IO_Quad] && nquadg) {
 
-      PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", return 0);
-      PMMG_MALLOC(parmesh, pref, nquad, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hnquad, NULL);
       dspace_file_id = H5Screate_simple(2, hnquadg, NULL);
@@ -3530,7 +3521,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_QuadReq] && nqreqg) {
 
-        PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", return 0);
+        PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nqreq, NULL);
         dspace_file_id = H5Screate_simple(1, &nqreqg, NULL);
@@ -3554,7 +3545,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_QuadPar] && nqparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", return 0);
+        PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nqpar, NULL);
         dspace_file_id = H5Screate_simple(1, &nqparg, NULL);
@@ -3580,8 +3571,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Tetrahedra */
     if (load_entities[PMMG_IO_Tetra] && neg) {
 
-      PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", return 0);
-      PMMG_MALLOC(parmesh, pref, ne, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hne, NULL);
       dspace_file_id = H5Screate_simple(2, hneg, NULL);
@@ -3614,7 +3605,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TetReq] && nereqg) {
 
-        PMMG_MALLOC(parmesh, preq, nereq, int, "preq", return 0);
+        PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nereq, NULL);
         dspace_file_id = H5Screate_simple(1, &nereqg, NULL);
@@ -3635,7 +3626,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TetPar] && neparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", return 0);
+        PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto error_free_all);
 
         dspace_mem_id  = H5Screate_simple(1, &nepar, NULL);
         dspace_file_id = H5Screate_simple(1, &neparg, NULL);
@@ -3658,8 +3649,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
     /* Prisms */
     if (load_entities[PMMG_IO_Prism] && nprismg) {
-      PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", return 0);
-      PMMG_MALLOC(parmesh, pref, nprism, int, "pref", return 0);
+      PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto error_free_all);
+      PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto error_free_all);
 
       dspace_mem_id  = H5Screate_simple(2, hnprism, NULL);
       dspace_file_id = H5Screate_simple(2, hnprismg, NULL);
@@ -3698,53 +3689,85 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "load_entities");
 
   return 1;
+
+ error_free_all:
+  PMMG_DEL_MEM(parmesh, ppoint, double, "ppoint");
+  PMMG_DEL_MEM(parmesh, pent, int, "pent");
+  PMMG_DEL_MEM(parmesh, pref, int, "pref");
+  PMMG_DEL_MEM(parmesh, pcr, int, "pcr");
+  PMMG_DEL_MEM(parmesh, preq, int, "preq");
+  PMMG_DEL_MEM(parmesh, ppar, int, "ppar");
+  PMMG_DEL_MEM(parmesh, pnor, double, "pnor");
+  PMMG_DEL_MEM(parmesh, pnorat, int, "pnorat");
+  PMMG_DEL_MEM(parmesh, ptan, double, "ptan");
+  PMMG_DEL_MEM(parmesh, ptanat, int, "ptanat");
+  if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "save_entities");
+
+  return 0;
+
 }
 
 static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dxpl_id,
-                                hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
-  /* int np, npg, mcount; */
-  /* MMG5_pMesh mesh; */
-  /* MMG5_pSol met; */
-  /* MMG5_pPoint ppt; */
-  /* double *met_buf; */
-  /* hsize_t met_offset[2] = {0, 0}; */
-  /* hsize_t hnsg[2] = {0, 0}; */
-  /* hid_t dspace_mem_id, dspace_file_id; */
-  /* hid_t dset_id; */
+                                hsize_t *nentitiesl, hsize_t *offset) {
+  int np;
+  MMG5_pMesh mesh;
+  MMG5_pSol met;
+  MMG5_pPoint ppt;
+  double *met_buf;
+  hsize_t met_offset[2] = {0, 0};
+  hsize_t hnsg[2] = {0, 0};
+  hid_t dspace_mem_id, dspace_file_id;
+  hid_t dset_id;
 
-  /* /\* Init mmg variables*\/ */
-  /* mesh = parmesh->listgrp[0].mesh; */
-  /* met = parmesh->listgrp[0].met; */
-  /* np = nentitiesl[PMMG_IO_Vertex]; */
-  /* npg = nentitiesg[PMMG_IO_Vertex]; */
+  assert ( parmesh->ngrp == 1 );
 
-  /* /\* Get the metric size and compute the offset *\/ */
-  /* dset_id = H5Dopen2(grp_sols_id, "MetricAtVertices", H5P_DEFAULT); */
-  /* dspace_file_id = H5Dget_space(dset_id); */
-  /* H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL); */
-  /* H5Sclose(dspace_file_id); */
-  /* H5Dclose(dset_id); */
+  /* Init mmg variables*/
+  mesh = parmesh->listgrp[0].mesh;
+  met = parmesh->listgrp[0].met;
+  np = nentitiesl[PMMG_IO_Vertex];
 
-  /* met->size = hnsg[1]; */
-  /* met->entities = MMG5_Vertex; */
+  /* Get the metric size */
+  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL);
+  H5Sclose(dspace_file_id);
+  H5Dclose(dset_id);
 
-  /* if (met->size == 1) met->type = MMG5_Scalar; */
-  /* else if (met->size == 6) met->type = MMG5_Tensor; */
+  /* Set the metric size */
+  if (hnsg[1] == 1)
+    PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Scalar);
+  else if (hnsg[1] == 6)
+    PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Tensor);
+  else {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr, "\n  ## Error: %s: Wrong metric size/type \n", __func__);
+    }
+    return 0;
+  }
 
-  /* hsize_t hns[2] = {np, met->size}; */
-  /* met_offset[0] = offset[2 * PMMG_IO_Vertex]; */
+  /* Compute the offset for parallel reading */
+  hsize_t hns[2] = {np, met->size};
+  met_offset[0] = offset[2 * PMMG_IO_Vertex];
 
-  /* /\* Read the metric buffer *\/ */
-  /* PMMG_MALLOC(parmesh, met_buf, np * met->size, double, "met_buf", return 0); */
-  /* dset_id = H5Dopen2(grp_sols_id, "MetricAtVertices", H5P_DEFAULT); */
-  /* dspace_file_id = H5Dget_space(dset_id); */
-  /* dspace_mem_id = H5Screate_simple(2, hns, NULL); */
-  /* H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, met_offset, NULL, hns, NULL); */
-  /* H5Dread(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, met_buf); */
-  /* H5Sclose(dspace_mem_id); */
-  /* H5Sclose(dspace_file_id); */
-  /* H5Dclose(dset_id); */
+  /* Read the metric buffer */
+  PMMG_MALLOC(parmesh, met_buf, np * met->size, double, "met_buf", return 0);
+  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
+  dspace_file_id = H5Dget_space(dset_id);
+  dspace_mem_id = H5Screate_simple(2, hns, NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, met_offset, NULL, hns, NULL);
+  H5Dread(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, met_buf);
+  H5Sclose(dspace_mem_id);
+  H5Sclose(dspace_file_id);
+  H5Dclose(dset_id);
 
+  /* Set the metric */
+  for (int k = 0 ; k < mesh->np ; k++) {
+    ppt = &mesh->point[k + 1];
+    if (!MG_VOK(ppt)) continue;
+    for (int j = 0 ; j < met->size ; j++) {
+      met->m[1 + k * met->size + j] = met_buf[k * met->size + j];
+    }
+  }
 
   return 1;
 }
@@ -3928,7 +3951,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
                      __func__, filename);
              goto error_free_all );
 
-  ier = PMMG_loadMetric_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
+  ier = PMMG_loadMetric_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, offset);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
              H5Gclose(grp_sols_id);
