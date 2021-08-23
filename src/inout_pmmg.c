@@ -2523,6 +2523,13 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   hid_t      fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
   MPI_Info   info = MPI_INFO_NULL;
 
+#ifndef USE_HDF5
+
+  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
+  return -1;
+
+#else
+
   /* Check arguments */
   if (parmesh->ngrp != 1) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
@@ -2743,6 +2750,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dcpl_id);
   return 0;
 
+#endif
 }
 
 /**
@@ -2833,7 +2841,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   hid_t          dspace_file_id, dspace_mem_id;
   hid_t          dset_id;
 
-  assert(parmesh->ngrp == 1);
+  assert ( parmesh->ngrp == 1 ) ;
 
   /* Set pointers to NULL */
   ncomms = nitem = nitem_part = NULL;
@@ -3858,6 +3866,13 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   MPI_Comm read_comm;
   int rank, nprocs, mpi_color;
 
+#ifndef USE_HDF5
+
+  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
+  return -1;
+
+#else
+
   /* Check arguments */
   if (parmesh->ngrp != 1) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
@@ -4082,5 +4097,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
   return 0;
+
+#endif
 
 }
