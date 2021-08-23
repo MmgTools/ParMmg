@@ -293,12 +293,11 @@ int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
 
   PMMG_RECALLOC(mesh,mesh->point,mesh->npmax+1,npmax_old+1,MMG5_Point,
                 "vertices array", return 0);
-
   PMMG_RECALLOC(mesh,mesh->xpoint,mesh->xpmax+1,xpmax_old+1,MMG5_xPoint,
-              "boundary vertices array", return 0);
+                "boundary vertices array", return 0);
 
   PMMG_RECALLOC(mesh,mesh->tetra,mesh->nemax+1,nemax_old+1,MMG5_Tetra,
-              "tetra array", return 0);
+                "tetra array", return 0);
 
   if ( mesh->adja ) {
     PMMG_RECALLOC(mesh,mesh->adja,4*mesh->nemax+5,4*nemax_old+5,int,
@@ -306,7 +305,7 @@ int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
   }
 
   PMMG_RECALLOC(mesh,mesh->xtetra,mesh->xtmax+1,xtmax_old+1,MMG5_xTetra,
-              "boundary tetra array", return 0);
+                "boundary tetra array", return 0);
 
   return ( PMMG_link_mesh( mesh ) );
 }
