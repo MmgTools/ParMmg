@@ -214,12 +214,14 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
   /** Check distributed API mode. Interface faces OR nodes need to be set by the
-   * user through the API interface at this point, meening that the
+   * user through the API interface at this point, meaning that the
    * corresponding external comm is set to the correct size, and filled with
    * local entity indices (for node comms, also itosend and itorecv arrays are
    * filled with local/global node IDs).
   */
-  if( parmesh->nprocs >1 ) {
+  if( parmesh->nprocs > 1 &&
+      ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+       (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) ) {
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
       return PMMG_STRONGFAILURE;
@@ -233,8 +235,11 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
-    return PMMG_LOWFAILURE;
+  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+      (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+    if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+      return PMMG_LOWFAILURE;
+    }
   }
 #warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
   /* Don't reset the hmin value computed when unscaling the mesh */
@@ -281,19 +286,21 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /** Mesh analysis, face/node communicators indices construction (depending
    * from the API mode), build face comms from node ones */
-  if ( !PMMG_analys_tria(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
+  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+       (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+    if ( !PMMG_analys_tria(parmesh,mesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
+      /* Convert tria index into iel face index (it needs a valid cc field in
+       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+       * to edges and nodes */
+      PMMG_tria2elmFace_coords( parmesh );
+    }
+    if ( !PMMG_analys(parmesh,mesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
   }
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
-    /* Convert tria index into iel face index (it needs a valid cc field in
-     * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-     * to edges and nodes */
-    PMMG_tria2elmFace_coords( parmesh );
-  }
-  if ( !PMMG_analys(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
 #warning Luca: check this function
     MMG3D_prilen(mesh,met,0);
@@ -305,7 +312,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
-  switch( parmesh->info.API_mode ) {
+  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+      (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+    switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
       /* Build node communicators from face ones (here because the (mesh needs
        * to be unscaled) */
@@ -324,6 +333,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
       if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
       break;
+    }
   }
 
   /* Tag parallel faces on material interfaces as boundary */
@@ -1393,11 +1403,14 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( parmesh->ngrp ) {
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
-    ier  = PMMG_preprocessMesh_distributed( parmesh );
-    mesh = parmesh->listgrp[0].mesh;
-    met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-      ier = PMMG_LOWFAILURE;
+    if ( ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+          (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) ) {
+      ier  = PMMG_preprocessMesh_distributed( parmesh );
+      mesh = parmesh->listgrp[0].mesh;
+      met  = parmesh->listgrp[0].met;
+      if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+        ier = PMMG_LOWFAILURE;
+      }
     }
   }
   else { ier = PMMG_SUCCESS; }
@@ -1405,6 +1418,13 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
+  }
+
+  /* I/O check: if the mesh was loaded from an hdf5 file with nprocs != npartin,
+     call loadBalancing before the remeshing loop to make sure no proc has an
+     empty mesh (nprocs > npartin) and the load is well balanced (nprocs < npartin). */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->nprocs != parmesh->info.npartin) {
+    ier = PMMG_loadBalancing(parmesh);
   }
 
   chrono(OFF,&(ctim[tim]));
