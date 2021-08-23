@@ -3938,6 +3938,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   MPI_CHECK( MPI_Comm_set_errhandler(read_comm, MPI_ERRORS_RETURN),
              goto error_free_all);
 
+  parmesh->info.read_comm = read_comm;
+
   /* Set the file access property list with the new communicator */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
   H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
@@ -4068,8 +4070,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
-
-  MPI_Comm_free(&read_comm);
 
   return 1;
 

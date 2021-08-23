@@ -368,6 +368,7 @@ typedef struct {
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
   int npartin; /*!< nb of partitions of the mesh in the input HDF5 file */
+  MPI_Comm read_comm; /*!< MPI comm containing the procs that read the mesh (HDF5 input) */
 } PMMG_Info;
 
 
