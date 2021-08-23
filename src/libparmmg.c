@@ -1403,14 +1403,11 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   if ( parmesh->ngrp ) {
     /** Mesh preprocessing: set function pointers, scale mesh, perform mesh
      * analysis and display length and quality histos. */
-    if ( ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
-          (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) ) {
-      ier  = PMMG_preprocessMesh_distributed( parmesh );
-      mesh = parmesh->listgrp[0].mesh;
-      met  = parmesh->listgrp[0].met;
-      if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
-        ier = PMMG_LOWFAILURE;
-      }
+    ier  = PMMG_preprocessMesh_distributed( parmesh );
+    mesh = parmesh->listgrp[0].mesh;
+    met  = parmesh->listgrp[0].met;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+      ier = PMMG_LOWFAILURE;
     }
   }
   else { ier = PMMG_SUCCESS; }
