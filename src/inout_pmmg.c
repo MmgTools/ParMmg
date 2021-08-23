@@ -2783,13 +2783,13 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
 
   if (mesh->dim != 3) {
     if (parmesh->myrank == parmesh->info.root)
-      fprintf(stderr,"\n  ## Error: Wrong mesh dimension: %d (expected 3)!\n", mesh->dim);
+      fprintf(stderr,"\n  ## Error: %s: Wrong mesh dimension: %d (expected 3)!\n", __func__, mesh->dim);
     return 0;
   }
 
   if (parmesh->info.API_mode == PMMG_UNSET) {
     if (parmesh->myrank == parmesh->info.root)
-      fprintf(stderr,"\n  ## Error: No APIDISTRIB mode provided!\n");
+      fprintf(stderr,"\n  ## Error: %s: No APIDISTRIB mode provided!\n", __func__);
     return 0;
   }
 
@@ -3871,7 +3871,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
     return 0;
   }
   if (!load_entities[PMMG_IO_Vertex] || !load_entities[PMMG_IO_Tetra]) {
-    fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least load the vertices and the tetra.\n",
+    fprintf(stderr, "\n  ## Error: %s: load_entities: you must at least load the vertices and the tetra.\n",
             __func__);
     return 0;
   }
@@ -3902,7 +3902,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
                      __func__, rank, filename);
              goto error_free_all );
 
-  /* Load the header (version, dimension and number of partitions) */
+  /* Load the header (version, dimension, number of partitions and API mode) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id);
   if (ier == 0) {
     if (rank == parmesh->info.root) {
@@ -3919,7 +3919,14 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   npartitions = parmesh->info.npartin;
 
-  if (npartitions > nprocs) return 0;
+  /* Reading more partitions than there are procs available is not supported yet */
+  if (npartitions > nprocs) {
+    if (rank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Can't read %d partitions with %d procs yet.\n",
+              __func__, npartitions, nprocs);
+    }
+    return 0;
+  }
 
   /* Set the new communicator containing the procs reading the mesh */
   if (rank < npartitions) mpi_color = 1;
@@ -4053,7 +4060,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   H5Gclose(grp_sols_id);
 
-  /*------------------------- RELEASE ALL HDF5 IDs -------------------------*/
+  /*------------------------- RELEASE ALL HDF5 IDs AND MEMORY -------------------------*/
 
   H5Fclose(file_id);
   H5Pclose(fapl_id);
