@@ -52,13 +52,13 @@ int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 #ifndef USE_VTK
 
-  fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
+  fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
   return -1;
 
 #else
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
             __func__);
     return 0;
   }
@@ -85,7 +85,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
 
 #ifndef USE_VTK
   if ( parmesh->myrank == parmesh->info.root ) {
-    fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
+    fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
   }
   return -1;
 
