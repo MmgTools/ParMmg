@@ -1048,7 +1048,6 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
   hsize_t nereq, nepar;                        /* Required and parallel tetra */
   hsize_t nnor, ntan;                          /* Normals and Tangents */
   /* MPI variables */
-  MPI_Comm comm = parmesh->comm;
   int rank, root, nprocs;
 
   /* Only one group is allowed */
@@ -1196,7 +1195,7 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
   }
 
   MPI_Allgather(&nentities[PMMG_NTYPENTITIES * rank], PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG,
-                nentities                           , PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG, comm);
+                nentities                           , PMMG_NTYPENTITIES, MPI_UNSIGNED_LONG_LONG, parmesh->comm);
 
   /* Count global entities */
   for (int k = 0 ; k < nprocs ; k++) {
