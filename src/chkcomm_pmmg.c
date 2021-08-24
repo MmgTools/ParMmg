@@ -426,7 +426,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
   int            *intvalues;
   int            k,i,j,l,iel,ifac,iploc,ip,idx,idx_ori,nitem,ier;
 
-  if ( !parmesh->int_node_comm ) return 1;
+  if ( !parmesh->int_face_comm ) return 1;
 
   if ( !parmesh->int_face_comm->nitem ) return 1;
 
