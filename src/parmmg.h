@@ -401,10 +401,7 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 #define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do {                \
     int my_stat = PMMG_SUCCESS;                                                         \
                                                                                         \
-    if (ptr == NULL && oldsize == 0)                                                    \
-      PMMG_MALLOC(mesh, ptr, newsize, type, msg, my_stat=PMMG_FAILURE;on_failure;);     \
-    else                                                                                \
-      PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;); \
+    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;);   \
     if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {                      \
       memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));        \
     }                                                                                   \
