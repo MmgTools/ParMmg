@@ -1210,9 +1210,9 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param nentities array of size PMMG_NTYPENTITIES * nprocs that contains the number of entities of every proc.
- * \param offset array of size 2 * PMMG_NTYP_ENTITIES that will contain the offsets for each type of entity.
+ * \param offset array of size 2 * PMMG_NTYPENTITIES that will contain the offsets for each type of entity.
  *
- * \return 1, there is no reason for this function to fail.
+ * \return 1
  *
  * Compute the offset for parallel writing/reading in an HDF5 file.
  *
@@ -2808,13 +2808,13 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
  * \param grp_part_id identifier of the HDF5 group from which to read the mesh partitioning.
  * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
  * \param npartitions number of partitions of the mesh contained in the HDF5 file.
- * \param nentities array of size nprocs * PMMG_NTYP_ENTITIES containing the number of entities on every proc.
- * \param nentitiesl array of size PMMG_NTYP_ENTITIES containing the local number of entities.
- * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
+ * \param nentities array of size nprocs * PMMG_NTYPENTITIES that will contain the number of entities on each proc.
+ * \param nentitiesl array of size PMMG_NTYPENTITIES that will contain the local number of entities.
+ * \param nentitiesg array of size PMMG_NTYPENTITIES that will contain the global number of entities.
  *
  * \return 0 if fail, 1 otherwise
  *
- * Load the mesh partitioning and the communicators in the \a grp_part_id group
+ * Load the mesh partitioning and the communicators from the \a grp_part_id group
  * of the HDF5 file (only one group per process is allowed).
  * Three situations can occur:
  *   1/ nprocs = npartitions - Each proc just loads its corresponding partition
@@ -2841,7 +2841,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   hid_t          dspace_file_id, dspace_mem_id;
   hid_t          dset_id;
 
-  assert ( parmesh->ngrp == 1 ) ;
+  assert ( parmesh->ngrp == 1 );
 
   /* Set pointers to NULL */
   ncomms = nitem = nitem_part = NULL;
@@ -3918,6 +3918,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Load the header (version, dimension, number of partitions and API mode) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id);
+
   if (ier == 0) {
     if (rank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Wrong mesh attributes in hdf5 file %s.\n",
@@ -3943,15 +3944,14 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   }
 
   /* Set the new communicator containing the procs reading the mesh */
-  if (rank < npartitions) mpi_color = 1;
-  else mpi_color = 0;
+  mpi_color = (rank < npartitions) ? 1 : 0;
 
   MPI_CHECK( MPI_Comm_split(parmesh->comm, mpi_color, rank, &read_comm),
-             goto error_free_all);
+             goto error_free_all );
 
   /* Set MPI error handling */
   MPI_CHECK( MPI_Comm_set_errhandler(read_comm, MPI_ERRORS_RETURN),
-             goto error_free_all);
+             goto error_free_all );
 
   parmesh->info.read_comm = read_comm;
 
@@ -3988,6 +3988,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
               goto error_free_all );
 
   ier = PMMG_loadPartitioning_hdf5(parmesh, grp_part_id, dxpl_id, read_comm, npartitions, nentities, nentitiesl, nentitiesg);
+
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
              H5Gclose(grp_part_id);
              H5Gclose(grp_mesh_id);
