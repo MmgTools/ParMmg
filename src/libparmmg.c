@@ -312,28 +312,25 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
-  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
-      (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
-    switch( parmesh->info.API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      /* Build node communicators from face ones (here because the (mesh needs
-       * to be unscaled) */
-      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
-      PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
-      parmesh->next_node_comm = 0;
-      PMMG_DEL_MEM(parmesh, parmesh->int_node_comm,PMMG_Int_comm,"int node comm");
-      PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
-      if ( !PMMG_build_nodeCommFromFaces(parmesh) ) return PMMG_STRONGFAILURE;
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      /* Build face comms from node ones and set xtetra tags */
-      PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
-      PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
-      parmesh->next_face_comm = 0;
-      PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
-      if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
-      break;
-    }
+  switch( parmesh->info.API_mode ) {
+  case PMMG_APIDISTRIB_faces :
+    /* Build node communicators from face ones (here because the (mesh needs
+     * to be unscaled) */
+    PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
+    PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
+    parmesh->next_node_comm = 0;
+    PMMG_DEL_MEM(parmesh, parmesh->int_node_comm,PMMG_Int_comm,"int node comm");
+    PMMG_CALLOC(parmesh,parmesh->int_node_comm,1,PMMG_Int_comm,"int node comm",return 0);
+    if ( !PMMG_build_nodeCommFromFaces(parmesh) ) return PMMG_STRONGFAILURE;
+    break;
+  case PMMG_APIDISTRIB_nodes :
+    /* Build face comms from node ones and set xtetra tags */
+    PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
+    PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
+    parmesh->next_face_comm = 0;
+    PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
+    if ( !PMMG_build_faceCommFromNodes(parmesh) ) return PMMG_STRONGFAILURE;
+    break;
   }
 
   /* Tag parallel faces on material interfaces as boundary */
