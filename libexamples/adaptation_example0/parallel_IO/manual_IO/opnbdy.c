@@ -469,12 +469,6 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  /* Switch off surface adaptation until ready on opnbdy */
-  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 1 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
-  }
-
   /* try to generate mesh of edge sizes of size 0.1 */
   if( !PMMG_Set_dparameter( parmesh, PMMG_DPARAM_hsiz, 0.1 ) ) {
     MPI_Finalize();

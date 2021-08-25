@@ -152,14 +152,14 @@ IF( BUILD_TESTING )
     ### test openbdy mode on 6 procs
     add_test( NAME opnbdy_peninsula-6
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -nosurf
+      -opnbdy
       ${CI_DIR}/OpnBdy_peninsula/peninsula.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-peninsula.o.mesh
       )
 
     add_test( NAME opnbdy_island-6
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -nosurf
+      -opnbdy
       ${CI_DIR}/OpnBdy_island/island.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-island.o.mesh
       )
@@ -172,13 +172,13 @@ IF( BUILD_TESTING )
 
     add_test( NAME opnbdy_island-8
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -distributed-output -nosurf
+      -opnbdy -distributed-output
       ${CI_DIR}/OpnBdy_island/island.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
       )
     add_test( NAME opnbdy_island-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -opnbdy -centralized-output -nosurf
+      -opnbdy -centralized-output
       ${CI_DIR_RESULTS}/opnbdy-island-distrib.o.mesh
       )
     set_tests_properties(opnbdy_island-8-rerun PROPERTIES DEPENDS opnbdy_island-8 )

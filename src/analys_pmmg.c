@@ -257,6 +257,9 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   /* Only process ridge points */
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
 
+#warning do not switch colors on opnbdy until ready
+  if( var->ppt->tag & MG_OPNBDY ) return 1;
+
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
@@ -882,7 +885,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               pxp->n1[d] *= dd;
 
-          if( var->ppt->tag & MG_GEO ) {
+#warning skip n2 on ridge opnbdy until ready
+          if( (var->ppt->tag & MG_GEO) && !(var->ppt->tag & MG_OPNBDY) ) {
             /* Normalize second normal */
             dd = 0.0;
             for( d = 0; d < 3; d++ )
