@@ -41,6 +41,7 @@ typedef struct {
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   double       n[3];
+  int16_t      tag;
   int          ie,ifac,iloc,iadj;
   int          ip,ip1,ip2;
   int          updloc,updpar;
@@ -97,7 +98,6 @@ static inline
 int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t skip,
     int (*PMMG_hn_funcpointer)( PMMG_pParMesh,PMMG_hn_loopvar* ) ) {
   int     *adja;
-  int16_t tag;
 
   /*
    * Triple loop on:
@@ -120,15 +120,15 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
     /* Loop on faces */
     for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
       /* Get face tag */
-      tag = var->pxt->ftag[var->ifac];
+      var->tag = var->pxt->ftag[var->ifac];
 
       /* Skip face with reversed orientation (it will be analyzed by another
        * tetra, on this or on another process) */
       if( !MG_GET(var->pxt->ori,var->ifac) ) continue;
 
       /* Skip internal faces */
-      if( !(tag & MG_BDY) ||
-          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
+      if( !(var->tag & MG_BDY) ||
+          ((var->tag & MG_PARBDY) && !(var->tag & MG_PARBDYBDY)) )
         continue;
 
       /* Loop on face vertices */
@@ -137,7 +137,7 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
         assert( var->ip );
         var->ppt = &var->mesh->point[var->ip];
         /* Get adjacent index (to distinguish interior from exterior points) */
-        var->iadj = adja[var->ifac] || (tag & MG_PARBDY);
+        var->iadj = adja[var->ifac] || (var->tag & MG_PARBDY);
         /* Get parallel point */
         if( var->ppt->tag & MG_PARBDY ) {
           /* Skip point with a given tag */
@@ -257,11 +257,9 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   /* Only process ridge points */
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
 
-#warning do not switch colors on opnbdy until ready
-  if( var->ppt->tag & MG_OPNBDY ) return 1;
-
   /* If non-manifold, only process exterior points */
-  if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
+#warning this should also work on the border of a OPNBDY surface
+  if( (var->ppt->tag & MG_NOM) && (var->iadj || (var->tag & MG_PARBDYBDY)) ) return 1;
 
   /* Get internal communicator index */
   idx = var->ppt->tmp;
