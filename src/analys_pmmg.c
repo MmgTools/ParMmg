@@ -874,6 +874,9 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       if( intvalues[idx] ) {
         pxp = &var->mesh->xpoint[var->ppt->xp];
 
+#warning skip opnbdy until ready, as wrong orientation can mess up normals
+        if( var->ppt->tag & MG_OPNBDY ) continue;
+
         /* Loop on manifold or non-manifold exterior points */
         if( !pxp->nnor ) {
           /* Normalize first normal */
@@ -885,8 +888,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               pxp->n1[d] *= dd;
 
-#warning skip n2 on ridge opnbdy until ready
-          if( (var->ppt->tag & MG_GEO) && !(var->ppt->tag & MG_OPNBDY) ) {
+          if( (var->ppt->tag & MG_GEO) ) {
             /* Normalize second normal */
             dd = 0.0;
             for( d = 0; d < 3; d++ )
