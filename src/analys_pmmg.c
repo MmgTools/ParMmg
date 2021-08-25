@@ -2647,13 +2647,12 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
       i2 = MMG5_inxt2[i1];
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
-
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
-        ptr->tag[i] |= MG_GEO;
+        ptr->tag[i] |= MG_GEO + MG_NOM;
         i1 = MMG5_inxt2[i];
         i2 = MMG5_inxt2[i1];
-        mesh->point[ptr->v[i1]].tag |= MG_GEO;
-        mesh->point[ptr->v[i2]].tag |= MG_GEO;
+        mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
+        mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
