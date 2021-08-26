@@ -1875,10 +1875,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
 
   /** Step 1: Merge all the groups that must be sent to a given proc into 1
    * group */
-  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
-      (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
-    ier = PMMG_merge_grps2send(parmesh,&part);
-  }
+  ier = PMMG_merge_grps2send(parmesh,&part);
 
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
