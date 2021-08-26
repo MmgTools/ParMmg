@@ -234,7 +234,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /* Next functions involve MPI communications so we need to check now
      that every proc suceeded in order to avoid deadlock */
-  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MAX, parmesh->comm);
+  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MAX, parmesh->info.read_comm);
 
   if (ier == PMMG_STRONGFAILURE) return ier;
 
