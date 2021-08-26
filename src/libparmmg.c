@@ -207,6 +207,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
+  int ier = PMMG_SUCCESS;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -224,12 +225,18 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
        (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) ) {
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
-      return PMMG_STRONGFAILURE;
+      ier = PMMG_STRONGFAILURE;
     } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
-      return PMMG_STRONGFAILURE;
+      ier = PMMG_STRONGFAILURE;
     }
   }
+
+  /* Next functions involve MPI communications so we need to check now
+     that every proc suceeded in order to avoid deadlock */
+  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MAX, parmesh->comm);
+
+  if (ier == PMMG_STRONGFAILURE) return ier;
 
   /** Function setters (must be assigned before quality computation) */
   MMG3D_Set_commonFunc();
