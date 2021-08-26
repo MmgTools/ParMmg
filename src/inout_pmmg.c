@@ -2765,7 +2765,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param file_id identifier of the HDF5 file.
- * \param npartitions number of partitions of the mesh contained in the HDF5 file.
  *
  * \return 0 if fail, 1 otherwise
  *
