@@ -2021,9 +2021,10 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   /* Write the number of entities per proc */
   hsize_t hn[2] = {nprocs, PMMG_NTYPENTITIES};
   dspace_file_id = H5Screate_simple(2, hn, NULL);
-  attr_id = H5Acreate(grp_part_id, "NumberOfEntities", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
-  H5Awrite(attr_id, H5T_NATIVE_HSIZE, nentities);
-  H5Aclose(attr_id);
+  dset_id = H5Dcreate(grp_part_id, "NumberOfEntities", H5T_NATIVE_HSIZE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  if (rank == parmesh->info.root)
+    H5Dwrite(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, H5P_DEFAULT, nentities);
+  H5Dclose(dset_id);
   H5Sclose(dspace_file_id);
 
   /* Don't save the communicators outside the adaptation loop */
@@ -2523,12 +2524,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   hid_t      fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
   MPI_Info   info = MPI_INFO_NULL;
 
-#ifndef USE_HDF5
+/* #ifndef USE_HDF5 */
 
-  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
-  return -1;
+  /* fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n"); */
+  /* return -1; */
 
-#else
+/* #else */
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -2597,6 +2598,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not create the hdf5 file %s.\n",
                      __func__, parmesh->myrank, filename);
              goto error_free_all );
+
+  if (parmesh->info.imprim >= 0) {
+    fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
+  }
 
   /* Save the attributes (Version and Dimension, and number of entities per proc) */
   ier = PMMG_saveHeader_hdf5(parmesh, file_id);
@@ -2713,6 +2718,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
 
+  if (parmesh->info.imprim >= 0) {
+    fprintf(stdout, "  %%%% %s CLOSED \n", filename);
+  }
+
   /* We no longer need the offset nor the local nuumber of entities */
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
@@ -2750,7 +2759,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dcpl_id);
   return 0;
 
-#endif
+/* #endif */
 }
 
 /**
@@ -2807,7 +2816,6 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
  * \param parmesh pointer toward the parmesh structure.
  * \param grp_part_id identifier of the HDF5 group from which to read the mesh partitioning.
  * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
- * \param npartitions number of partitions of the mesh contained in the HDF5 file.
  * \param nentities array of size nprocs * PMMG_NTYPENTITIES that will contain the number of entities on each proc.
  * \param nentitiesl array of size PMMG_NTYPENTITIES that will contain the local number of entities.
  * \param nentitiesg array of size PMMG_NTYPENTITIES that will contain the global number of entities.
@@ -2827,8 +2835,8 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
  * \warning Only the case 1/ is actually implemented yet.
  *
  */
-static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dxpl_id, MPI_Comm read_comm,
-                                       int npartitions, hsize_t *nentities, hsize_t *nentitiesl, hsize_t *nentitiesg) {
+static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dxpl_id,
+                                      hsize_t *nentities, hsize_t *nentitiesl, hsize_t *nentitiesg) {
   hsize_t        *nentities_read;
   hsize_t        *ncomms, *nitem, *nitem_part;
   hsize_t        ncommg, comm_offset, nitemg, item_offset, rank_offset;
@@ -2836,8 +2844,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   int            *colors;
   int            **idx_loc, **idx_glob, *loc_buf, *glob_buf;
   int            ier;
-  int            nprocs, rank;
-  hid_t          attr_id;
+  int            npartitions, nprocs, rank;
   hid_t          dspace_file_id, dspace_mem_id;
   hid_t          dset_id;
 
@@ -2852,6 +2859,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   /* Init */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;
+  npartitions = parmesh->info.npartin;
 
   ncommg = nitemg = comm_offset = item_offset = rank_offset = 0;
 
@@ -2863,9 +2871,9 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
   /* Read the number of entities per partition */
   PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", goto error_free_all);
-  attr_id = H5Aopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
-  H5Aread(attr_id, H5T_NATIVE_HSIZE, nentities_read);
-  H5Aclose(attr_id);
+  dset_id = H5Dopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
+  H5Dread(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, dxpl_id, nentities_read);
+  H5Dclose(dset_id);
   for (int i = 0 ; i < npartitions ; i++) {
     for (int j = 0 ; j < PMMG_NTYPENTITIES ; j++) {
       nentities[PMMG_NTYPENTITIES * i + j] = nentities_read[PMMG_NTYPENTITIES * i + j];
@@ -3090,7 +3098,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
 }
 
-static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dxpl_id, int npartitions, hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset, int *load_entities) {
+static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_id, hid_t dxpl_id, hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset, int *load_entities) {
   /* MMG variables */
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
@@ -3166,7 +3174,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     PMMG_Set_defaultIOEntities_hdf5(load_entities);
   }
 
-  if (parmesh->myrank < npartitions) {
+  if (parmesh->myrank < parmesh->info.npartin) {
 
     /* Get the number of entities */
     np     = nentitiesl[PMMG_IO_Vertex];
@@ -3866,12 +3874,12 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   MPI_Comm read_comm;
   int rank, nprocs, mpi_color;
 
-#ifndef USE_HDF5
+/* #ifndef USE_HDF5 */
 
-  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
-  return -1;
+  /* fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n"); */
+  /* return -1; */
 
-#else
+/* #else */
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -3966,6 +3974,10 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
                      __func__, rank, filename);
              goto error_free_all );
 
+  if (parmesh->info.imprim >= 0) {
+    fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
+  }
+
   /* Open the mesh group */
   HDF_CHECK( grp_mesh_id = H5Gopen(file_id, "Mesh", H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the /Mesh group in file %s.\n",
@@ -3987,7 +3999,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg",
               goto error_free_all );
 
-  ier = PMMG_loadPartitioning_hdf5(parmesh, grp_part_id, dxpl_id, read_comm, npartitions, nentities, nentitiesl, nentitiesg);
+  ier = PMMG_loadPartitioning_hdf5(parmesh, grp_part_id, dxpl_id, nentities, nentitiesl, nentitiesg);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
              H5Gclose(grp_part_id);
@@ -4020,7 +4032,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
              H5Gclose(grp_mesh_id);
              goto error_free_all );
 
-  ier = PMMG_loadMeshEntities_hdf5(parmesh, grp_entities_id, dxpl_id, npartitions, nentitiesl, nentitiesg, offset, load_entities);
+  ier = PMMG_loadMeshEntities_hdf5(parmesh, grp_entities_id, dxpl_id, nentitiesl, nentitiesg, offset, load_entities);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
              H5Gclose(grp_entities_id);
@@ -4083,6 +4095,10 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
 
+  if (parmesh->info.imprim >= 0) {
+    fprintf(stdout, "  %%%% %s CLOSED \n\n", filename);
+  }
+
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
@@ -4099,6 +4115,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Pclose(dxpl_id);
   return 0;
 
-#endif
+/* #endif */
 
 }
