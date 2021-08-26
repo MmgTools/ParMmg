@@ -2843,7 +2843,6 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   hsize_t        icomm;
   int            *colors;
   int            **idx_loc, **idx_glob, *loc_buf, *glob_buf;
-  int            ier;
   int            npartitions, nprocs, rank;
   hid_t          dspace_file_id, dspace_mem_id;
   hid_t          dset_id;
