@@ -2533,18 +2533,23 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.\n",
             __func__);
-    return 0;
+    ier = 0;
   }
   if (!filename || !*filename) {
-    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
+    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.\n",
             __func__);
-    return 0;
+    ier = 0;
   }
   if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
     fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least save the vertices and the tetra.\n",
             __func__);
+    ier = 0;
+  }
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm ), return 0);
+  if ( !ier ) {
     return 0;
   }
 
