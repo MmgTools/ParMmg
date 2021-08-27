@@ -181,7 +181,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
                                               offsetof( min_iel_t, cpu ) };
   int lens[ PMMG_QUAL_MPISIZE ]           = { 1, 1, 1, 1 };
 
-  /* When preprocessing the mesh, set the MPI comm to the read comm */
+  /* When preprocessing a mesh that was loaded from an HDF5 file, set the MPI comm to the read comm */
   if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
     comm = parmesh->info.read_comm;
   else
