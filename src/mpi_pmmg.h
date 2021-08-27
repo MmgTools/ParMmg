@@ -56,37 +56,37 @@
     case ( MPI_SUCCESS ):                                               \
       break;                                                            \
     case ( MPI_ERR_COMM ):                                              \
-      fprintf(stderr," ## Error: %s:%d: Invalid MPI communicator\n.",   \
+      fprintf(stderr," ## Error: %s:%d: Invalid MPI communicator.\n",   \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     case ( MPI_ERR_TYPE ):                                              \
-      fprintf(stderr," ## Error: %s:%d: Invalid MPI datatype\n.",       \
+      fprintf(stderr," ## Error: %s:%d: Invalid MPI datatype.\n",       \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     case ( MPI_ERR_COUNT ):                                             \
-      fprintf(stderr," ## Error: %s:%d: Invalid MPI count argument\n.", \
+      fprintf(stderr," ## Error: %s:%d: Invalid MPI count argument.\n", \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     case ( MPI_ERR_TAG ):                                               \
-      fprintf(stderr," ## Error: %s:%d: Invalid MPI tag\n.",            \
+      fprintf(stderr," ## Error: %s:%d: Invalid MPI tag.\n",            \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     case ( MPI_ERR_RANK ):                                              \
-      fprintf(stderr," ## Error: %s:%d: Invalid MPI rank\n.",           \
+      fprintf(stderr," ## Error: %s:%d: Invalid MPI rank.\n",           \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     case ( MPI_ERR_OTHER ):                                             \
-      fprintf(stderr," ## Error: %s:%d: MPI error.\n.",                 \
+      fprintf(stderr," ## Error: %s:%d: MPI error.\n",                  \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
     default:                                                            \
-      fprintf(stderr," ## Error: %s:%d: Unexpected MPI error\n.",       \
+      fprintf(stderr," ## Error: %s:%d: Unexpected MPI error.\n",       \
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
       break;                                                            \
