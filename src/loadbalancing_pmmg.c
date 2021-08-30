@@ -109,6 +109,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   }
 
   ier = PMMG_distribute_grps(parmesh);
+
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
