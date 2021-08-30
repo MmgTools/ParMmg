@@ -1406,22 +1406,34 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
       ier = PMMG_LOWFAILURE;
     }
   }
   else { ier = PMMG_SUCCESS; }
 
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
   }
 
-  /* I/O check: if the mesh was loaded from an hdf5 file with nprocs != npartin,
+  /* I/O check: if the mesh was loaded from an HDF5 file with nprocs != npartin,
      call loadBalancing before the remeshing loop to make sure no proc has an
      empty mesh (nprocs > npartin) and the load is well balanced (nprocs < npartin). */
   if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->nprocs != parmesh->info.npartin) {
     ier = PMMG_loadBalancing(parmesh);
+  }
+
+  /* I.O check: if the mesh was loaded from an HDF5 file with nprocs > npartin,
+     the ranks [npart, nprocs - 1] have parmesh->ngrp == 0, so they did not enter
+     in PMMG_preprocessMesh_distributed and their function pointers were not set.
+     Set them now and reset parmesh->ngrp = 1. */
+  if ( parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank >= parmesh->info.npartin ) {
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(parmesh->listgrp[0].mesh, parmesh->listgrp[0].met);
+    PMMG_setfunc(parmesh);
+    parmesh->ngrp = 1;
   }
 
   chrono(OFF,&(ctim[tim]));
@@ -1435,7 +1447,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[tim]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-             met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
   ier = PMMG_parmmglib1(parmesh);
