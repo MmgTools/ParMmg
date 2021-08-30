@@ -1563,58 +1563,65 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   int noldgrps_all[parmesh->nprocs];
   int npmax,nemax,xpmax,xtmax;
 
-  if ( !parmesh->ngrp ) {
-    /* Check the communicators and return failure */
-    return PMMG_check_allComm(parmesh,ret_val);
-  }
-
   /* We are splitting group 0 */
   grpIdOld = 0;
-  grpOld = &parmesh->listgrp[grpIdOld];
-  meshOld = parmesh->listgrp[grpIdOld].mesh;
 
-  assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
+  if ( !parmesh->ngrp ) {
+    /* Check the communicators */
+    PMMG_check_allComm(parmesh,ret_val);
+    grpOld = NULL;
+    meshOld = NULL;
+  } else {
+    assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
+    grpOld = &parmesh->listgrp[grpIdOld];
+    meshOld = parmesh->listgrp[grpIdOld].mesh;
+  }
 
   if ( !meshOld ) {
-    /* Check the communicators and return failure */
-    return PMMG_check_allComm(parmesh,ret_val);
+    /* Check the communicators */
+    PMMG_check_allComm(parmesh,ret_val);
   }
 
   /* Count how many groups to split into */
-  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
-      (target == PMMG_GRPSPL_DISTR_TARGET) ) {
-    /* Set to a value higher than 1 just to continue until the true
-     * computation (which is after a jump on ngrp==1) */
+  if ( parmesh->ngrp ) {
+
+    if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
+        (target == PMMG_GRPSPL_DISTR_TARGET) ) {
+      /* Set to a value higher than 1 just to continue until the true
+       * computation (which is after a jump on ngrp==1) */
 #warning: fix this conditional jump
-    ngrp = 2;
-  } else {
+      ngrp = 2;
+    } else {
 
-    ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
-    if ( parmesh->info.target_mesh_size < 0 ) {
-      /* default value : do not authorize large number of groups */
-      ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
-    }
-
-    if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
-      /* Compute the number of metis nodes from the number of groups */
-      ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_REDISTR_NELEM_MIN+1 );
-      if ( parmesh->info.metis_ratio < 0 ) {
+      ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
+      if ( parmesh->info.target_mesh_size < 0 ) {
         /* default value : do not authorize large number of groups */
-        if ( ngrp > PMMG_REDISTR_NGRPS_MAX ) {
-          printf("  ## Warning: %s: too much metis nodes needed...\n"
-                 "     Partitions may remains freezed. Try to use more processors.\n",
-                 __func__);
-          ngrp = PMMG_REDISTR_NGRPS_MAX;
+        ngrp = MG_MIN ( PMMG_REMESHER_NGRPS_MAX, ngrp );
+      }
+
+      if ( target == PMMG_GRPSPL_DISTR_TARGET ) {
+        /* Compute the number of metis nodes from the number of groups */
+        ngrp = MG_MIN( ngrp*abs(parmesh->info.metis_ratio), meshOld->ne/PMMG_REDISTR_NELEM_MIN+1 );
+        if ( parmesh->info.metis_ratio < 0 ) {
+          /* default value : do not authorize large number of groups */
+          if ( ngrp > PMMG_REDISTR_NGRPS_MAX ) {
+            printf("  ## Warning: %s: too much metis nodes needed...\n"
+                   "     Partitions may remains freezed. Try to use more processors.\n",
+                   __func__);
+            ngrp = PMMG_REDISTR_NGRPS_MAX;
+          }
+        }
+        if ( ngrp > meshOld->ne ) {
+          /* Correction if it leads to more groups than elements */
+          printf("  ## Warning: %s: %d: too much metis nodes needed...\n"
+                 "     Partitions may remains freezed. Try to reduce the number of processors.\n",
+                 __func__, parmesh->myrank);
+          ngrp = MG_MIN ( meshOld->ne, ngrp );
         }
       }
-      if ( ngrp > meshOld->ne ) {
-        /* Correction if it leads to more groups than elements */
-        printf("  ## Warning: %s: too much metis nodes needed...\n"
-               "     Partitions may remains freezed. Try to reduce the number of processors.\n",
-               __func__);
-        ngrp = MG_MIN ( meshOld->ne, ngrp );
-      }
     }
+
+    if (!meshOld->ne) ngrp = 1;
   }
 
   /* Share old number of groups with all procs: must be done here to ensure that
@@ -1631,84 +1638,87 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
                PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
   }
-  if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
-    int i;
-    for( i=0; i<parmesh->nprocs; i++ ) {
-      fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
-              i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
+
+  if ( parmesh->ngrp ) {
+    if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+      int i;
+      for( i=0; i<parmesh->nprocs; i++ ) {
+        fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
+                i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
+      }
     }
-  }
 
-  /* Does the group need to be further subdivided to subgroups or not? */
-  if ( ngrp == 1 )  {
-    if ( parmesh->ddebug ) {
-      fprintf( stdout,
-               "[%d-%d]: %d group is enough, no need to create sub groups.\n",
-               parmesh->myrank+1, parmesh->nprocs, ngrp );
-    }
-    return PMMG_check_allComm(parmesh,ret_val);
-  } else {
-    if ( parmesh->ddebug )
-      fprintf( stdout,
-               "[%d-%d]: %d groups required, splitting into sub groups...\n",
-               parmesh->myrank+1, parmesh->nprocs, ngrp );
-  }
-
-  /* Crude check whether there is enough free memory to allocate the new group */
-  if ( parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
-    npmax = meshOld->npmax;
-    nemax = meshOld->nemax;
-    xpmax = meshOld->xpmax;
-    xtmax = meshOld->xtmax;
-    meshOld->npmax = meshOld->np;
-    meshOld->nemax = meshOld->ne;
-    meshOld->xpmax = meshOld->xp;
-    meshOld->xtmax = meshOld->xt;
-    if ( (!PMMG_setMeshSize_realloc( meshOld, npmax, xpmax, nemax, xtmax )) ||
-         parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
-      fprintf( stderr, "Not enough memory to create listgrp struct\n" );
-      return 0;
-    }
-  }
-
-  /* use metis to partition the mesh into the computed number of groups needed
-     part array contains the groupID computed by metis for each tetra */
-  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
-  meshOld_ne = meshOld->ne;
-
-  /* Get interfaces layers or call metis. Use interface displacement if:
-   * - This is the required method, and
-   * - you are before group distribution or there are not too many groups.
-   */
-  if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
-      ((target == PMMG_GRPSPL_DISTR_TARGET) ||
-       ((target == PMMG_GRPSPL_MMG_TARGET) &&
-        (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
-
-    ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
+    /* Does the group need to be further subdivided to subgroups or not? */
     if ( ngrp == 1 )  {
-      if ( parmesh->ddebug )
+      if ( parmesh->ddebug ) {
         fprintf( stdout,
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
-      goto fail_part;
-    }
-  }
-  else {
-    if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
-         (parmesh->info.imprim > PMMG_VERB_ITWAVES) )
-      fprintf(stdout,"\n         calling Metis on proc%d\n\n",parmesh->myrank);
-    if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
-      ret_val = 0;
-      goto fail_part;
+      }
+      return PMMG_check_allComm(parmesh,ret_val);
+    } else {
+      if ( parmesh->ddebug )
+        fprintf( stdout,
+                 "[%d-%d]: %d groups required, splitting into sub groups...\n",
+                 parmesh->myrank+1, parmesh->nprocs, ngrp );
     }
 
-    /* If this is the first split of the input mesh, and interface displacement
-     * will be performed, check that the groups are contiguous. */
-    if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
-      if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
-  }
+    /* Crude check whether there is enough free memory to allocate the new group */
+    if ( parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
+      npmax = meshOld->npmax;
+      nemax = meshOld->nemax;
+      xpmax = meshOld->xpmax;
+      xtmax = meshOld->xtmax;
+      meshOld->npmax = meshOld->np;
+      meshOld->nemax = meshOld->ne;
+      meshOld->xpmax = meshOld->xp;
+      meshOld->xtmax = meshOld->xt;
+      if ( (!PMMG_setMeshSize_realloc( meshOld, npmax, xpmax, nemax, xtmax )) ||
+           parmesh->memCur+2*meshOld->memCur>parmesh->memGloMax ) {
+        fprintf( stderr, "Not enough memory to create listgrp struct\n" );
+        return 0;
+      }
+    }
 
+    /* use metis to partition the mesh into the computed number of groups needed
+       part array contains the groupID computed by metis for each tetra */
+
+    PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
+    meshOld_ne = meshOld->ne;
+
+    /* Get interfaces layers or call metis. Use interface displacement if:
+     * - This is the required method, and
+     * - you are before group distribution or there are not too many groups.
+     */
+    if( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
+        ((target == PMMG_GRPSPL_DISTR_TARGET) ||
+         ((target == PMMG_GRPSPL_MMG_TARGET) &&
+          (ngrp <= parmesh->info.grps_ratio*parmesh->nold_grp))) ) {
+
+      ngrp = PMMG_part_getInterfaces( parmesh, part, noldgrps_all, target );
+      if ( ngrp == 1 )  {
+        if ( parmesh->ddebug )
+          fprintf( stdout,
+                   "[%d-%d]: %d group is enough, no need to create sub groups.\n",
+                   parmesh->myrank+1, parmesh->nprocs, ngrp );
+        goto fail_part;
+      }
+    }
+    else {
+      if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
+           (parmesh->info.imprim > PMMG_VERB_ITWAVES) )
+        fprintf(stdout,"\n         calling Metis on proc%d\n\n",parmesh->myrank);
+      if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
+        ret_val = 0;
+        goto fail_part;
+      }
+
+      /* If this is the first split of the input mesh, and interface displacement
+       * will be performed, check that the groups are contiguous. */
+      if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
+        if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
+    }
+  }
 
   /* Split the mesh */
   ret_val = PMMG_split_grps( parmesh,grpIdOld,ngrp,part,fitMesh );
