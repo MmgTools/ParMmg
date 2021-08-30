@@ -1014,7 +1014,12 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   int            kt,ia,ib,ic,i,icomm,iproc,iloc,iglob,myrank,next_face_comm,ier;
   MPI_Comm       comm;
 
-  comm   = parmesh->comm;
+  /* When preprocessing the mesh, set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
+
   myrank = parmesh->myrank;
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
