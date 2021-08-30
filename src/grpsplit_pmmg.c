@@ -1752,6 +1752,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 #ifndef NDEBUG
   int     ier_glob;
 #endif
+  int     repartitioning;
   int     tim;
   mytime  ctim[3];
   char    stim[32];
@@ -1767,8 +1768,14 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
       chrono(ON,&(ctim[tim]));
   }
 
+  /* First iteration -> we are repartitioning the mesh after loading it from an HDF5 file. */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+  else
+    repartitioning = parmesh->info.repartitioning;
+
   /* Store the nb of tetra per group bbefore merging */
-  if( (parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement) &&
+  if( (repartitioning == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
   }
@@ -1823,7 +1830,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  if( repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
     if ( !mesh->adja ) {
@@ -1843,7 +1850,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,parmesh->info.repartitioning);
+    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
