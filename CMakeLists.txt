@@ -490,11 +490,6 @@ ELSE ( )
       "to your hdf5 directory.")
   ENDIF ( )
 
-  IF ( NOT ${HDF5_INTSIZE} EQUAL 4 )
-    MESSAGE ( WARNING "HDF5 integer uses ${HDF5_INTSIZE} bytes."
-      " Only int32 are supported." )
-  ENDIF ( )
-
 ENDIF ( )
 
 ############################################################################
