@@ -2517,19 +2517,20 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
 }
 
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname) {
+
+#ifndef USE_HDF5
+
+  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
+  return -1;
+
+#else
+
   int        ier = 1;
   hsize_t    *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
   hsize_t    *offset;                              /* Offset for the parallel writing with HDF5 */
   hid_t      file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
   hid_t      fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
   MPI_Info   info = MPI_INFO_NULL;
-
-/* #ifndef USE_HDF5 */
-
-  /* fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n"); */
-  /* return -1; */
-
-/* #else */
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -2764,7 +2765,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dcpl_id);
   return 0;
 
-/* #endif */
+#endif
 }
 
 /**
@@ -3867,6 +3868,14 @@ static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_
 }
 
 int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
+
+#ifndef USE_HDF5
+
+  fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n");
+  return -1;
+
+#else
+
   int ier = 1;
   hsize_t *nentities, *nentitiesl, *nentitiesg;
   hsize_t *offset;
@@ -3876,13 +3885,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm read_comm;
   int rank, nprocs, mpi_color;
-
-/* #ifndef USE_HDF5 */
-
-  /* fprintf(stderr,"  ** HDF5 library not found. Unavailable file format.\n"); */
-  /* return -1; */
-
-/* #else */
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -4126,6 +4128,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   H5Pclose(dxpl_id);
   return 0;
 
-/* #endif */
+#endif
 
 }
