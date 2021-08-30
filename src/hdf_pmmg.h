@@ -43,6 +43,6 @@
               __func__,__LINE__ );                                      \
       on_failure;                                                       \
     }                                                                   \
-  } while(0)                                                            \
+  } while(0)
 
 #endif
