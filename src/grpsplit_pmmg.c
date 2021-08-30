@@ -1468,6 +1468,8 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   int *countPerGrp = NULL;
   int ret_val = 1;
 
+  if (!part) return 1;
+
   /* Get mesh to split */
   grpOld = &parmesh->listgrp[grpIdOld];
   meshOld = parmesh->listgrp[grpIdOld].mesh;
