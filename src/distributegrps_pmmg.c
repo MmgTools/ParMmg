@@ -1580,9 +1580,13 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
                     ier0 = 0;ier = 0 );
   }
   else {
-    assert ( !parmesh->listgrp );
-    PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
-                  ier0 = 0;ier = 0 );
+    /* assert ( !parmesh->listgrp ); */
+    if ( !parmesh->listgrp )
+      PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
+                    ier0 = 0;ier = 0 );
+    else
+      PMMG_RECALLOC( parmesh,parmesh->listgrp,grpscount,1,PMMG_Grp,"listgrp",
+                     ier0 = 0;ier = 0 );
   }
 
   if ( ier0 )
