@@ -143,7 +143,7 @@ void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * Deallocate the nodal communicatorsof the parmesh
+ * Deallocate the nodal communicators of the parmesh
  *
  */
 void PMMG_node_comm_free( PMMG_pParMesh parmesh )
@@ -1871,6 +1871,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,parmesh->nprocs,
                parmesh->next_node_comm,PMMG_Ext_comm,
                "list of external communicators",goto end);
+
   next_comm = parmesh->next_node_comm;
   parmesh->next_node_comm = parmesh->nprocs;
 
