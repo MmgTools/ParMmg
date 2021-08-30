@@ -978,6 +978,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem         = ext_face_comm->nitem;
     color         = ext_face_comm->color_out;
 
+    /* If the communicator is empty, dont try to communicate. This case happens when
+       the mesh was loaded from an HDF5 file with more procs than partitions. */
+    if ( !nitem ) continue;
+
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
                 goto fail_6);
     itosend = ext_face_comm->itosend;
