@@ -220,9 +220,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
    * local entity indices (for node comms, also itosend and itorecv arrays are
    * filled with local/global node IDs).
   */
-  if( parmesh->nprocs > 1 &&
-      ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
-       (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) ) {
+  if( parmesh->nprocs > 1 ) {
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
       ier = PMMG_STRONGFAILURE;
@@ -242,12 +240,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
-      (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
-    if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
-      return PMMG_LOWFAILURE;
-    }
+  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+    return PMMG_LOWFAILURE;
   }
+
 #warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
   /* Don't reset the hmin value computed when unscaling the mesh */
   if ( !parmesh->info.sethmin ) {
