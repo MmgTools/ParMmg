@@ -1990,9 +1990,9 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * Set the default entities to save into an hdf5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES_HDF5(parmesh,filename,strlen,retval)\n
- * >     INTEGER, INTENT(OUT)           :: io_entities\n
- * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES_HDF5(io_entities,retval)\n
+ * >     INTEGER, POINTER, INTENT(OUT) :: io_entities\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
@@ -2006,10 +2006,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * If \a val is set to 0, parallel entities won't be saved into the HDF5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO_HDF5(parmesh,filename,strlen,retval)\n
- * >     INTEGER, INTENT(OUT)           :: io_entities\n
- * >     INTEGER, INTENT(IN)            :: val\n
- * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO_HDF5(io_entities,val,retval)\n
+ * >     INTEGER, POINTER, INTENT(OUT) :: io_entities\n
+ * >     INTEGER, INTENT(IN)                 :: val\n
+ * >     INTEGER, INTENT(OUT)                :: retval\n
  * >   END SUBROUTINE\n
  *
  */
@@ -2023,10 +2023,10 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * If \a val is set to 0, required entities won't be saved into the HDF5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO_HDF5(parmesh,filename,strlen,retval)\n
- * >     INTEGER, INTENT(OUT)           :: io_entities\n
- * >     INTEGER, INTENT(IN)            :: val\n
- * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO_HDF5(io_entities,val,retval)\n
+ * >     INTEGER, POINTER, INTENT(OUT) :: io_entities\n
+ * >     INTEGER, INTENT(IN)                :: val\n
+ * >     INTEGER, INTENT(OUT)               :: retval\n
  * >   END SUBROUTINE\n
  *
  */
@@ -2043,19 +2043,19 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * an XDMF file for visualisation. This function is to be used for distributed meshes.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
- * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
- * >     INTEGER         , INTENT(IN)    :: save_entities\n
- * >     CHARACTER(LEN=*), INTENT(IN)    :: filename\n
- * >     CHARACTER(LEN=*), INTENT(IN)    :: xdmfname\n
- * >     INTEGER, INTENT(IN)             :: strlen\n
- * >     INTEGER, INTENT(OUT)            :: retval\n
+ * >   SUBROUTINE PMMG_SAVEPARMESH_HDF5(parmesh,save_entities,filename,xdmfname,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT)      :: parmesh\n
+ * >     INTEGER, POINTER, INTENT(IN)         :: save_entities\n
+ * >     CHARACTER(LEN=*), INTENT(IN)         :: filename\n
+ * >     CHARACTER(LEN=*), INTENT(IN)         :: xdmfname\n
+ * >     INTEGER, INTENT(IN)                  :: strlen\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
  */
   int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname);
 
- /**
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of the HDF5 file.
  * \return 0 if failed, 1 otherwise.
@@ -2064,11 +2064,12 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * a distributed parmesh.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
- * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
- * >     INTEGER, INTENT(IN)            :: strlen\n
- * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   SUBROUTINE PMMG_LOADPARMESH_HDF5(parmesh,load_entities,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, POINTER, INTENT(IN)    :: load_entities\n
+ * >     CHARACTER(LEN=*), INTENT(IN)         :: filename\n
+ * >     INTEGER, INTENT(IN)                  :: strlen\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
  * >   END SUBROUTINE\n
  *
  */
