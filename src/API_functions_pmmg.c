@@ -432,12 +432,12 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
 
   /* Init MPI data */
-  MPI_Comm_set_errhandler(comm, MPI_ERRORS_RETURN);
   parmesh->comm   = comm;
 
   MPI_Initialized(&flag);
   parmesh->size_shm = 1;
   if ( flag ) {
+    MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN);
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
   }
