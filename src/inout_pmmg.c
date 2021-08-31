@@ -1445,24 +1445,24 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Vertices, Normals and Tangents */
   if (save_entities[PMMG_IO_Vertex] && npg) {
 
-    PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto error_free_all );
-    PMMG_MALLOC(parmesh, pref, np, int, "pref", goto error_free_all );
+    PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto free_and_return );
+    PMMG_MALLOC(parmesh, pref, np, int, "pref", goto free_and_return );
 
     if (save_entities[PMMG_IO_Corner]) PMMG_MALLOC(parmesh, pcr, nc, int, "pcr",
-                                                   goto error_free_all );
+                                                   goto free_and_return );
     if (save_entities[PMMG_IO_Req])    PMMG_MALLOC(parmesh, preq, npreq, int, "preq",
-                                                   goto error_free_all );
+                                                   goto free_and_return );
     if (save_entities[PMMG_IO_Par])    PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar",
-                                                   goto error_free_all );
+                                                   goto free_and_return );
 
     if (save_entities[PMMG_IO_Normal]) {
-      PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto error_free_all );
-      PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto error_free_all );
+      PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto free_and_return );
+      PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto free_and_return );
     }
 
     if (save_entities[PMMG_IO_Tangent]) {
-      PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto error_free_all );
-      PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto error_free_all );
+      PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto free_and_return );
+      PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto free_and_return );
     }
 
     crcount = reqcount = parcount = ncount = tcount = 0;
@@ -1612,11 +1612,11 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Edges */
   if (save_entities[PMMG_IO_Edge] && nag) {
 
-    PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto error_free_all);
-    PMMG_MALLOC(parmesh, pref, na, int, "pref", goto error_free_all);
-    if (save_entities[PMMG_IO_Ridge]) PMMG_MALLOC(parmesh, pcr , nr    , int, "pcr" , goto error_free_all);
-    if (save_entities[PMMG_IO_EdReq]) PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto error_free_all);
-    if (save_entities[PMMG_IO_EdPar]) PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto error_free_all);
+    PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto free_and_return);
+    PMMG_MALLOC(parmesh, pref, na, int, "pref", goto free_and_return);
+    if (save_entities[PMMG_IO_Ridge]) PMMG_MALLOC(parmesh, pcr , nr    , int, "pcr" , goto free_and_return);
+    if (save_entities[PMMG_IO_EdReq]) PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto free_and_return);
+    if (save_entities[PMMG_IO_EdPar]) PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto free_and_return);
 
     crcount = reqcount = parcount = 0;
 
@@ -1694,10 +1694,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Triangles */
   if (save_entities[PMMG_IO_Tria] && nt) {
 
-    PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto error_free_all);
-    PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto error_free_all);
-    if (save_entities[PMMG_IO_TriaReq]) PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto error_free_all);
-    if (save_entities[PMMG_IO_TriaPar]) PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto error_free_all);
+    PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto free_and_return);
+    PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto free_and_return);
+    if (save_entities[PMMG_IO_TriaReq]) PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto free_and_return);
+    if (save_entities[PMMG_IO_TriaPar]) PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto free_and_return);
 
     reqcount = parcount = 0;
 
@@ -1772,10 +1772,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Quadrilaterals */
   if (save_entities[PMMG_IO_Quad] && nquadg) {
 
-    PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto error_free_all);
-    PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto error_free_all);
-    if (save_entities[PMMG_IO_QuadReq]) PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto error_free_all);
-    if (save_entities[PMMG_IO_QuadPar]) PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto error_free_all);
+    PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto free_and_return);
+    PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto free_and_return);
+    if (save_entities[PMMG_IO_QuadReq]) PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto free_and_return);
+    if (save_entities[PMMG_IO_QuadPar]) PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto free_and_return);
 
     reqcount = parcount = 0;
 
@@ -1851,10 +1851,10 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Tetrahedra */
   if (save_entities[PMMG_IO_Tetra] && neg) {
 
-    PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto error_free_all);
-    PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto error_free_all);
-    if (save_entities[PMMG_IO_TetReq]) PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto error_free_all);
-    if (save_entities[PMMG_IO_TetPar]) PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto error_free_all);
+    PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto free_and_return);
+    PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto free_and_return);
+    if (save_entities[PMMG_IO_TetReq]) PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto free_and_return);
+    if (save_entities[PMMG_IO_TetPar]) PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto free_and_return);
 
     reqcount = parcount = 0;
 
@@ -1921,8 +1921,8 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   /* Prisms */
   if (save_entities[PMMG_IO_Prism] && nprismg) {
-    PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto error_free_all);
-    PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto error_free_all);
+    PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto free_and_return);
+    PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto free_and_return);
 
     if (nprism){
       for (int i = 0 ; i < mesh->nprism ; i++) {
@@ -1959,7 +1959,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   return 1;
 
- error_free_all:
+ free_and_return:
   PMMG_DEL_MEM(parmesh, ppoint, double, "ppoint");
   PMMG_DEL_MEM(parmesh, pent, int, "pent");
   PMMG_DEL_MEM(parmesh, pref, int, "pref");
@@ -2034,7 +2034,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   if (nprocs == 1) return 1;
 
   /* Count the number of communicators */
-  PMMG_MALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", goto error_free_all);
+  PMMG_MALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", goto free_and_return);
 
   if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
     ncomms[rank] = parmesh->next_face_comm;
@@ -2042,16 +2042,16 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
     ncomms[rank] = parmesh->next_node_comm;
 
   MPI_CHECK( MPI_Allgather(&ncomms[rank], 1, MPI_LONG_LONG, ncomms, 1, MPI_LONG_LONG, parmesh->comm),
-             goto error_free_all );
+             goto free_and_return );
 
   for (int i = 0 ; i < nprocs ; i++) {
     ncommg += ncomms[i];
   }
 
   /* Create the buffers */
-  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", goto error_free_all);
-  PMMG_MALLOC(parmesh, nitem, ncomms[rank], hsize_t, "nitem", goto error_free_all);
-  PMMG_CALLOC(parmesh, nitem_proc, nprocs, hsize_t, "nitem_proc", goto error_free_all);
+  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", goto free_and_return);
+  PMMG_MALLOC(parmesh, nitem, ncomms[rank], hsize_t, "nitem", goto free_and_return);
+  PMMG_CALLOC(parmesh, nitem_proc, nprocs, hsize_t, "nitem_proc", goto free_and_return);
 
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
     colors[icomm] = comms[icomm].color_out;
@@ -2060,7 +2060,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   }
 
   MPI_CHECK( MPI_Allgather(&nitem_proc[rank], 1, MPI_LONG_LONG, nitem_proc, 1, MPI_LONG_LONG, parmesh->comm),
-             goto error_free_all );
+             goto free_and_return );
 
   /* Count the total number of items */
   for (int i = 0 ; i < nprocs ; i++) {
@@ -2107,11 +2107,11 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   H5Sclose(dspace_file_id);
 
   /* Get the communicator items */
-  PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", goto error_free_all);
-  PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", goto error_free_all);
+  PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", goto free_and_return);
+  PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", goto free_and_return);
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    PMMG_CALLOC(parmesh, idx_loc[icomm], nitem[icomm], int, "idx_loc[icomm]", goto error_free_all);
-    PMMG_CALLOC(parmesh, idx_glob[icomm], nitem[icomm], int, "idx_glob[icomm]", goto error_free_all);
+    PMMG_CALLOC(parmesh, idx_loc[icomm], nitem[icomm], int, "idx_loc[icomm]", goto free_and_return);
+    PMMG_CALLOC(parmesh, idx_glob[icomm], nitem[icomm], int, "idx_glob[icomm]", goto free_and_return);
   }
 
   if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces) {
@@ -2136,8 +2136,8 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   }
 
   /* Make a unique buffer for each proc */
-  PMMG_CALLOC(parmesh, loc_buf, nitem_proc[rank], int, "loc_buf", goto error_free_all);
-  PMMG_CALLOC(parmesh, glob_buf, nitem_proc[rank], int, "glob_buf", goto error_free_all);
+  PMMG_CALLOC(parmesh, loc_buf, nitem_proc[rank], int, "loc_buf", goto free_and_return);
+  PMMG_CALLOC(parmesh, glob_buf, nitem_proc[rank], int, "glob_buf", goto free_and_return);
 
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
     for (int k = 0 ; k < nitem[icomm] ; k++) {
@@ -2191,7 +2191,7 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
   return 1;
 
- error_free_all:
+ free_and_return:
   PMMG_DEL_MEM(parmesh, loc_buf, int, "loc_buf");
   PMMG_DEL_MEM(parmesh, glob_buf, int, "glob_buf");
   PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
@@ -2558,11 +2558,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   nentities = nentitiesl = nentitiesg = offset = NULL;
 
   PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * parmesh->nprocs, hsize_t, "nentities",
-              goto error_free_all);
+              goto free_and_return);
   PMMG_CALLOC(parmesh, nentitiesg, PMMG_NTYPENTITIES, hsize_t, "nentitiesg",
-              goto error_free_all );
+              goto free_and_return );
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl",
-              goto error_free_all );
+              goto free_and_return );
 
   /* Count the number of entities on each proc and globally */
   ier = PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg, save_entities);
@@ -2580,7 +2580,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Compute the offset for parallel writing */
   PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset",
-              goto error_free_all );
+              goto free_and_return );
 
   ier = PMMG_computeHDFoffset(parmesh, nentities, offset);
 
@@ -2588,7 +2588,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Shut HDF5 error stack */
   HDF_CHECK( H5Eset_auto(H5E_DEFAULT, NULL, NULL),
-             goto error_free_all );
+             goto free_and_return );
+
+  /* Pass MPI hints via the info struct */
+  MPI_Info_create(&info);
+  /* Set the stripe_count to the maximum value. */
+  MPI_Info_set(info, "striping_factor", "-1");
 
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
@@ -2603,7 +2608,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   HDF_CHECK( file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id),
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not create the hdf5 file %s.\n",
                      __func__, parmesh->myrank, filename);
-             goto error_free_all );
+             goto free_and_return );
 
   if (parmesh->info.imprim >= 0) {
     fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
@@ -2613,32 +2618,32 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   ier = PMMG_saveHeader_hdf5(parmesh, file_id);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
-             goto error_free_all );
+             goto free_and_return );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not write the mesh attributes.\n",__func__);
     }
-    goto error_free_all;
+    goto free_and_return;
   }
 
   /* Open the mesh group */
   HDF_CHECK( grp_mesh_id = H5Gcreate(file_id, "Mesh", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh group.\n",__func__);
-             goto error_free_all );
+             goto free_and_return );
 
   /* Write the partitionning information */
   HDF_CHECK( grp_part_id = H5Gcreate(grp_mesh_id, "Partitioning", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/Partitioning group.\n",__func__);
              H5Gclose(grp_mesh_id);
-             goto error_free_all );
+             goto free_and_return );
 
   ier = PMMG_savePartitioning_hdf5(parmesh, grp_part_id, dcpl_id, dxpl_id, nentities);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_part_id);
              H5Gclose(grp_mesh_id);
-             goto error_free_all );
+             goto free_and_return );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2646,7 +2651,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     }
     H5Gclose(grp_part_id);
     H5Gclose(grp_mesh_id);
-    goto error_free_all;
+    goto free_and_return;
   }
 
   H5Gclose(grp_part_id);
@@ -2660,14 +2665,14 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   HDF_CHECK( grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/MeshEntities group.\n",__func__);
              H5Gclose(grp_mesh_id);
-             goto error_free_all );
+             goto free_and_return );
 
   ier = PMMG_saveMeshEntities_hdf5(parmesh, grp_entities_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset, save_entities);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_entities_id);
              H5Gclose(grp_mesh_id);
-             goto error_free_all );
+             goto free_and_return );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
@@ -2675,7 +2680,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     }
     H5Gclose(grp_entities_id);
     H5Gclose(grp_mesh_id);
-    goto error_free_all;
+    goto free_and_return;
   }
 
   H5Gclose(grp_entities_id);
@@ -2686,34 +2691,34 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   /* Write the metric and the solutions */
   HDF_CHECK( grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions group.\n",__func__);
-             goto error_free_all );
+             goto free_and_return );
 
   ier = PMMG_saveMetric_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_sols_id);
-             goto error_free_all );
+             goto free_and_return );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not write the metric.\n",__func__);
     }
     H5Gclose(grp_sols_id);
-    goto error_free_all;
+    goto free_and_return;
   }
 
   ier = PMMG_saveAllSols_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
              H5Gclose(grp_sols_id);
-             goto error_free_all );
+             goto free_and_return );
 
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not write the solutions.\n",__func__);
     }
     H5Gclose(grp_sols_id);
-    goto error_free_all;
+    goto free_and_return;
   }
 
   H5Gclose(grp_sols_id);
@@ -2739,13 +2744,13 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     ier = PMMG_writeXDMF(parmesh, filename, xdmfname, nentitiesg);
 
     MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
-              goto error_free_all );
+              goto free_and_return );
     if (!ier) {
       if (parmesh->myrank == parmesh->info.root) {
         fprintf(stderr,"\n  ## Error: %s: Could not write the xdmf file %s.\n",
                 __func__, xdmfname);
       }
-      goto error_free_all;
+      goto free_and_return;
     }
   }
 
@@ -2754,7 +2759,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   return 1;
 
- error_free_all:
+ free_and_return:
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
@@ -2874,7 +2879,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   }
 
   /* Read the number of entities per partition */
-  PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", goto error_free_all);
+  PMMG_CALLOC(parmesh, nentities_read, npartitions * PMMG_NTYPENTITIES, hsize_t, "nentities_read", goto free_and_return);
   dset_id = H5Dopen(grp_part_id, "NumberOfEntities", H5P_DEFAULT);
   H5Dread(dset_id, H5T_NATIVE_HSIZE, H5S_ALL, H5S_ALL, dxpl_id, nentities_read);
   H5Dclose(dset_id);
@@ -2903,7 +2908,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
       nentitiesg[j] += nentities[PMMG_NTYPENTITIES * i + j];
 
   /* Read the number of comms */
-  PMMG_CALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", goto error_free_all);
+  PMMG_CALLOC(parmesh, ncomms, nprocs, hsize_t, "ncomms", goto free_and_return);
   if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
     dset_id = H5Dopen(grp_part_id, "NumberOfFaceCommunicators", H5P_DEFAULT);
   else
@@ -2920,8 +2925,8 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   }
 
   /* Read the colors and the number of items */
-  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", goto error_free_all);
-  PMMG_MALLOC(parmesh, nitem, ncomms[rank], hsize_t, "nitem", goto error_free_all);
+  PMMG_MALLOC(parmesh, colors, ncomms[rank], int, "colors", goto free_and_return);
+  PMMG_MALLOC(parmesh, nitem, ncomms[rank], hsize_t, "nitem", goto free_and_return);
 
   dset_id = H5Dopen(grp_part_id, "ColorsOut", H5P_DEFAULT);
   dspace_file_id = H5Dget_space(dset_id);
@@ -2946,7 +2951,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
   /* Compute the total number of items and the item offset for the parallel reading */
 
-  PMMG_CALLOC(parmesh, nitem_part, nprocs, hsize_t, "nitem_part", goto error_free_all);
+  PMMG_CALLOC(parmesh, nitem_part, nprocs, hsize_t, "nitem_part", goto free_and_return);
 
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
     nitem_part[rank] += nitem[icomm];
@@ -2964,8 +2969,8 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
   /* Read the communicator items in one buffer */
 
-  PMMG_MALLOC(parmesh, loc_buf, nitem_part[rank], int, "loc_buf", goto error_free_all);
-  PMMG_MALLOC(parmesh, glob_buf, nitem_part[rank], int, "glob_buf", goto error_free_all);
+  PMMG_MALLOC(parmesh, loc_buf, nitem_part[rank], int, "loc_buf", goto free_and_return);
+  PMMG_MALLOC(parmesh, glob_buf, nitem_part[rank], int, "glob_buf", goto free_and_return);
 
   dspace_file_id = H5Screate_simple(1, &nitemg, NULL);
 
@@ -2997,11 +3002,11 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   PMMG_DEL_MEM(parmesh, nitem_part, hsize_t, "nitem_part");
 
   /* Set the communicator items */
-  PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", goto error_free_all);
-  PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", goto error_free_all);
+  PMMG_CALLOC(parmesh, idx_loc, ncomms[rank], int*, "idx_loc", goto free_and_return);
+  PMMG_CALLOC(parmesh, idx_glob, ncomms[rank], int*, "idx_glob", goto free_and_return);
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
-    PMMG_CALLOC(parmesh, idx_loc[icomm], nitem[icomm], int, "idx_loc[icomm]", goto error_free_all);
-    PMMG_CALLOC(parmesh, idx_glob[icomm], nitem[icomm], int, "idx_glob[icomm]", goto error_free_all);
+    PMMG_CALLOC(parmesh, idx_loc[icomm], nitem[icomm], int, "idx_loc[icomm]", goto free_and_return);
+    PMMG_CALLOC(parmesh, idx_glob[icomm], nitem[icomm], int, "idx_glob[icomm]", goto free_and_return);
   }
 
   for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
@@ -3023,7 +3028,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
       if ( !PMMG_Set_numberOfFaceCommunicators(parmesh, ncomms[rank]) ) {
         fprintf(stderr,"\n  ## Error: %s: unable to set number of face communicators on rank %d.\n",
                 __func__, rank);
-        goto error_free_all;
+        goto free_and_return;
       }
 
       for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
@@ -3031,13 +3036,13 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
         if ( !PMMG_Set_ithFaceCommunicatorSize(parmesh, icomm, colors[icomm], nitem[icomm]) ) {
           fprintf(stderr,"\n  ## Error: %s: unable to set %lld th face communicator size on rank %d.\n",
                   __func__, icomm, rank);
-          goto error_free_all;
+          goto free_and_return;
         }
 
         if ( !PMMG_Set_ithFaceCommunicator_faces(parmesh, icomm, idx_loc[icomm], idx_glob[icomm], 1) ) {
           fprintf(stderr,"\n  ## Error: %s: unable to set %lld th face communicator faces on rank %d.\n",
                   __func__, icomm, rank);
-          goto error_free_all;
+          goto free_and_return;
         }
 
       }
@@ -3047,7 +3052,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
       if ( !PMMG_Set_numberOfNodeCommunicators(parmesh, ncomms[rank]) ) {
         fprintf(stderr,"\n  ## Error: %s: unable to set number of node communicators on rank %d.\n",
                 __func__, rank);
-        goto error_free_all;
+        goto free_and_return;
       }
 
       for (icomm = 0 ; icomm < ncomms[rank] ; icomm++) {
@@ -3055,13 +3060,13 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
         if ( !PMMG_Set_ithNodeCommunicatorSize(parmesh, icomm, colors[icomm], nitem[icomm]) ) {
           fprintf(stderr,"\n  ## Error: %s: unable to set %lld th node communicator size on rank %d.\n",
                   __func__, icomm, rank);
-          goto error_free_all;
+          goto free_and_return;
         }
 
         if ( !PMMG_Set_ithNodeCommunicator_nodes(parmesh, icomm, idx_loc[icomm], idx_glob[icomm], 1) ) {
           fprintf(stderr,"\n  ## Error: %s: unable to set %lld th node communicator faces on rank %d.\n",
                   __func__, icomm, rank);
-          goto error_free_all;
+          goto free_and_return;
         }
 
       }
@@ -3082,7 +3087,7 @@ static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 
   return 1;
 
- error_free_all:
+ free_and_return:
   PMMG_DEL_MEM(parmesh, loc_buf, int, "loc_buf");
   PMMG_DEL_MEM(parmesh, glob_buf, int, "glob_buf");
   PMMG_DEL_MEM(parmesh, ncomms, hsize_t, "ncomms");
@@ -3246,8 +3251,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Vertices, Normals and Tangents */
     if (load_entities[PMMG_IO_Vertex] && npg) {
 
-      PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, np, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, ppoint, 3 * np, double, "ppoint", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, np, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hnp, NULL);
       dspace_file_id = H5Screate_simple(2, hnpg, NULL);
@@ -3274,7 +3279,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Corner] && ncg) {
 
-        PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", goto error_free_all);
+        PMMG_MALLOC(parmesh, pcr, nc, int, "pcr", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nc, NULL);
         dspace_file_id = H5Screate_simple(1, &ncg, NULL);
@@ -3295,7 +3300,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Req] && npreqg) {
 
-        PMMG_MALLOC(parmesh, preq, npreq, int, "preq", goto error_free_all);
+        PMMG_MALLOC(parmesh, preq, npreq, int, "preq", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &npreq, NULL);
         dspace_file_id = H5Screate_simple(1, &npreqg, NULL);
@@ -3316,7 +3321,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Par] && npparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", goto error_free_all);
+        PMMG_MALLOC(parmesh, ppar, nppar, int, "ppar", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nppar, NULL);
         dspace_file_id = H5Screate_simple(1, &npparg, NULL);
@@ -3338,8 +3343,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Normal] && nnorg) {
 
-        PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto error_free_all);
-        PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto error_free_all);
+        PMMG_MALLOC(parmesh, pnor, 3 * nnor, double, "pnor", goto free_and_return);
+        PMMG_MALLOC(parmesh, pnorat, nnor, int, "pnorat", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(2, hnnor, NULL);
         dspace_file_id = H5Screate_simple(2, hnnorg, NULL);
@@ -3370,8 +3375,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Tangent] && ntang) {
 
-        PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto error_free_all);
-        PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto error_free_all);
+        PMMG_MALLOC(parmesh, ptan, 3 * ntan, double, "ptan", goto free_and_return);
+        PMMG_MALLOC(parmesh, ptanat, ntan, int, "ptanat", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(2, hntan, NULL);
         dspace_file_id = H5Screate_simple(2, hntang, NULL);
@@ -3401,8 +3406,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Edges */
     if (load_entities[PMMG_IO_Edge] && nag) {
 
-      PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, na, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, pent, 2 * na, int, "pent", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, na, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hna, NULL);
       dspace_file_id = H5Screate_simple(2, hnag, NULL);
@@ -3431,7 +3436,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_Ridge] && nrg) {
 
-        PMMG_MALLOC(parmesh, pcr, nr, int, "pcr", goto error_free_all);
+        PMMG_MALLOC(parmesh, pcr, nr, int, "pcr", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nr, NULL);
         dspace_file_id = H5Screate_simple(1, &nrg, NULL);
@@ -3452,7 +3457,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_EdReq] && nedreqg) {
 
-        PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto error_free_all);
+        PMMG_MALLOC(parmesh, preq, nedreq, int, "preq", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nedreq, NULL);
         dspace_file_id = H5Screate_simple(1, &nedreqg, NULL);
@@ -3473,7 +3478,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_EdPar] && nedparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto error_free_all);
+        PMMG_MALLOC(parmesh, ppar, nedpar, int, "ppar", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nedpar, NULL);
         dspace_file_id = H5Screate_simple(1, &nedparg, NULL);
@@ -3497,8 +3502,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Triangles */
     if (load_entities[PMMG_IO_Tria] && ntg) {
 
-      PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hnt, NULL);
       dspace_file_id = H5Screate_simple(2, hntg, NULL);
@@ -3530,7 +3535,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TriaReq] && ntreqg) {
 
-        PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto error_free_all);
+        PMMG_MALLOC(parmesh, preq, ntreq, int, "preq", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &ntreq, NULL);
         dspace_file_id = H5Screate_simple(1, &ntreqg, NULL);
@@ -3551,7 +3556,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TriaPar] && ntparg) {
 
-        PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto error_free_all);
+        PMMG_MALLOC(parmesh, ppar, ntpar, int, "ppar", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &ntpar, NULL);
         dspace_file_id = H5Screate_simple(1, &ntparg, NULL);
@@ -3578,8 +3583,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Quadrilaterals */
     if (load_entities[PMMG_IO_Quad] && nquadg) {
 
-      PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, pent, 4 * nquad, int, "pent", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, nquad, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hnquad, NULL);
       dspace_file_id = H5Screate_simple(2, hnquadg, NULL);
@@ -3612,7 +3617,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_QuadReq] && nqreqg) {
 
-        PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto error_free_all);
+        PMMG_MALLOC(parmesh, preq, nqreq, int, "preq", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nqreq, NULL);
         dspace_file_id = H5Screate_simple(1, &nqreqg, NULL);
@@ -3636,7 +3641,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_QuadPar] && nqparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto error_free_all);
+        PMMG_MALLOC(parmesh, ppar, nqpar, int, "ppar", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nqpar, NULL);
         dspace_file_id = H5Screate_simple(1, &nqparg, NULL);
@@ -3662,8 +3667,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     /* Tetrahedra */
     if (load_entities[PMMG_IO_Tetra] && neg) {
 
-      PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, pent, 4 * ne, int, "pent", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, ne, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hne, NULL);
       dspace_file_id = H5Screate_simple(2, hneg, NULL);
@@ -3696,7 +3701,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TetReq] && nereqg) {
 
-        PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto error_free_all);
+        PMMG_MALLOC(parmesh, preq, nereq, int, "preq", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nereq, NULL);
         dspace_file_id = H5Screate_simple(1, &nereqg, NULL);
@@ -3717,7 +3722,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
       if (load_entities[PMMG_IO_TetPar] && neparg) {
 
-        PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto error_free_all);
+        PMMG_MALLOC(parmesh, ppar, nepar, int, "ppar", goto free_and_return);
 
         dspace_mem_id  = H5Screate_simple(1, &nepar, NULL);
         dspace_file_id = H5Screate_simple(1, &neparg, NULL);
@@ -3740,8 +3745,8 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
     /* Prisms */
     if (load_entities[PMMG_IO_Prism] && nprismg) {
-      PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto error_free_all);
-      PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto error_free_all);
+      PMMG_MALLOC(parmesh, pent, 6 * nprism, int, "pent", goto free_and_return);
+      PMMG_MALLOC(parmesh, pref, nprism, int, "pref", goto free_and_return);
 
       dspace_mem_id  = H5Screate_simple(2, hnprism, NULL);
       dspace_file_id = H5Screate_simple(2, hnprismg, NULL);
@@ -3781,7 +3786,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   return 1;
 
- error_free_all:
+ free_and_return:
   PMMG_DEL_MEM(parmesh, ppoint, double, "ppoint");
   PMMG_DEL_MEM(parmesh, pent, int, "pent");
   PMMG_DEL_MEM(parmesh, pref, int, "pref");
