@@ -2842,7 +2842,7 @@ static int PMMG_loadHeader_hdf5(PMMG_pParMesh parmesh, hid_t file_id) {
  *   3/ nprocs < npartitions - Some partitions are merged into the same proc, and load
  *                             balancing is performed before the remeshing loop.
  *
- * \warning Only the case 1/ is actually implemented yet.
+ * \warning Only the cases 1/ and 2/ are actually implemented yet.
  *
  */
 static int PMMG_loadPartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, hid_t dxpl_id,
