@@ -2025,8 +2025,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO_HDF5(io_entities,val,retval)\n
  * >     INTEGER, POINTER, INTENT(OUT) :: io_entities\n
- * >     INTEGER, INTENT(IN)                :: val\n
- * >     INTEGER, INTENT(OUT)               :: retval\n
+ * >     INTEGER, INTENT(IN)           :: val\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
@@ -2034,7 +2034,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param save_entities array of size PMMG_NTYPENTITIES (at least).
+ * \param save_entities array of 0s and 1s of size PMMG_NTYPENTITIES (at least) to tell which entities to save and which not to.
  * \param filename name of the HDF5 file.
  * \param xdmfname name of the XDMF file.
  * \return 0 if failed, 1 otherwise.
@@ -2044,12 +2044,12 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SAVEPARMESH_HDF5(parmesh,save_entities,filename,xdmfname,strlen,retval)\n
- * >     MMG5_DATA_PTR_T , INTENT(INOUT)      :: parmesh\n
- * >     INTEGER, POINTER, INTENT(IN)         :: save_entities\n
- * >     CHARACTER(LEN=*), INTENT(IN)         :: filename\n
- * >     CHARACTER(LEN=*), INTENT(IN)         :: xdmfname\n
- * >     INTEGER, INTENT(IN)                  :: strlen\n
- * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, POINTER, INTENT(IN)    :: save_entities\n
+ * >     CHARACTER(LEN=*), INTENT(IN)    :: filename\n
+ * >     CHARACTER(LEN=*), INTENT(IN)    :: xdmfname\n
+ * >     INTEGER, INTENT(IN)             :: strlen\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
@@ -2057,6 +2057,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param load_entities array of 0s and 1s of size PMMG_NTYPENTITIES (at least) to tell which entities to load and which not to.
  * \param filename name of the HDF5 file.
  * \return 0 if failed, 1 otherwise.
  *
@@ -2065,11 +2066,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_LOADPARMESH_HDF5(parmesh,load_entities,filename,strlen,retval)\n
- * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
- * >     INTEGER, POINTER, INTENT(IN)    :: load_entities\n
- * >     CHARACTER(LEN=*), INTENT(IN)         :: filename\n
- * >     INTEGER, INTENT(IN)                  :: strlen\n
- * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, POINTER, INTENT(IN)   :: load_entities\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
  * >   END SUBROUTINE\n
  *
  */
