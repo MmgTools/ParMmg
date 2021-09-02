@@ -238,6 +238,13 @@ IF ( USE_HDF5 )
     MESSAGE ( WARNING "HDF5 library not found: HDF5 I/O will not be available.")
   ENDIF ( )
 
+  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
+
+  IF ( NOT HDF5_IS_PARALLEL )
+    MESSAGE ( ERROR "HDF5 parallel library not found: "
+      "Please enable parallel support for HDF5.")
+  ENDIF( )
+
 ENDIF ( )
 
 ###############################################################################
