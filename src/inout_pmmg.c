@@ -2318,12 +2318,12 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   MMG5_pSol   *sols;
   MMG5_pPoint ppt;
   MMG5_pTetra pt;
-  int         nsols, ndigits, np, npg, ne, neg, size, count, vcount, tcount;
-  char        *solname;
+  int         nsols, ndigits, np, npg, ne, neg, size, count, vcount, tcount, iwar = 1;
+  char        *solname, *tmp;
   hsize_t     *sol_offset;
   double      *sol_buf;
   hid_t       dspace_mem_id, dspace_file_id;
-  hid_t       dset_id;
+  hid_t       dset_id, attr_id;
 
   /* Set ParMmg variables */
   mesh = parmesh->listgrp[0].mesh;
@@ -2350,8 +2350,19 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
     size = sols[i]->size;
     count = 0;
 
+    if ( !sols[i]->m ) {
+      iwar = 0;
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &iwar, 1, MPI_INT, MPI_MIN, parmesh->comm);
+
+    if ( !iwar ) {
+      fprintf(stderr, "\n  ## Warning: %s: Skipping empty solution %d.\n", __func__, i);
+      continue;
+    }
+
     if (sols[i]->entities == MMG5_Noentity || sols[i]->entities == MMG5_Vertex) {
-      PMMG_MALLOC(parmesh, sol_buf, size * np, double, "sol_buf", return 0);
+      PMMG_MALLOC(parmesh, sol_buf, size * np, double, "sol_buf", goto free_buf);
       for (int k = 0 ; k < mesh->np ; k++) {
         ppt = &mesh->point[k + 1];
         if ( !MG_VOK(ppt) ) continue;
@@ -2361,19 +2372,19 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       }
       hns[0] = np; hns[1] = size;
       hnsg[0] = npg; hnsg[1] = size;
-      PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset",
-                  PMMG_DEL_MEM(parmesh, sol_buf, double, "sol_buf");
-                  return 0);
+      PMMG_CALLOC(parmesh, sol_offset, np * size, hsize_t, "sol_offset", goto free_buf);
       sol_offset[0] = offset[2 * PMMG_IO_Vertex];
 
-      solname = (char*) malloc((strlen("SolAtVertices") + ndigits) * sizeof(char));
+      PMMG_CALLOC(parmesh, solname, strlen("SolAtVertices") + ndigits + 1, char, "solname", goto free_buf);
+      PMMG_CALLOC(parmesh, tmp, ndigits + 1, char, "tmp", goto free_buf);
       strcpy(solname, "SolAtVertices");
-      strcat(solname, (char*)&vcount);
+      sprintf(tmp, "%d", vcount);
+      strcat(solname, tmp);
       vcount++;
     }
 
     else if (sols[i]->entities == MMG5_Tetrahedron) {
-      PMMG_MALLOC(parmesh, sol_buf, size * ne, double, "sol_buf", return 0);
+      PMMG_MALLOC(parmesh, sol_buf, size * ne, double, "sol_buf", goto free_buf);
       for (int k = 0 ; k < mesh->ne ; k++) {
         pt = &mesh->tetra[k + 1];
         if ( !MG_EOK(pt) ) continue;
@@ -2383,14 +2394,14 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       }
       hns[0] = ne; hns[1] = size;
       hnsg[0] = neg; hnsg[1] = size;
-      PMMG_CALLOC(parmesh, sol_offset, ne * size, hsize_t, "sol_offset",
-                  PMMG_DEL_MEM(parmesh, sol_buf, double, "sol_buf");
-                  return 0);
+      PMMG_CALLOC(parmesh, sol_offset, ne * size, hsize_t, "sol_offset", goto free_buf);
       sol_offset[0] = offset[2 * PMMG_IO_Tetra];
 
-      solname = (char*) malloc((strlen("SolAtTetrahedra") + ndigits) * sizeof(char));
+      PMMG_CALLOC(parmesh, solname, strlen("SolAtTetrahedra") + ndigits + 1, char, "solname", goto free_buf);
+      PMMG_CALLOC(parmesh, tmp, ndigits + 1, char, "tmp", goto free_buf);
       strcpy(solname, "SolAtTetrahedra");
-      strcat(solname, (char*)&tcount);
+      sprintf(tmp, "%d", vcount);
+      strcat(solname, tmp);
       tcount++;
     }
 
@@ -2410,9 +2421,25 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
     H5Sclose(dspace_mem_id);
     H5Sclose(dspace_file_id);
 
+  free_buf:
     PMMG_DEL_MEM(parmesh, sol_offset, hsize_t, "sol_offset");
     PMMG_DEL_MEM(parmesh, sol_buf, double, "sol_buf");
+    PMMG_DEL_MEM(parmesh, solname, char, "solname");
+    PMMG_DEL_MEM(parmesh, tmp, char, "tmp");
   }
+
+  /* Save the actual number of solutions as group attributes */
+  dspace_file_id = H5Screate(H5S_SCALAR);
+
+  attr_id = H5Acreate(grp_sols_id, "NSolsAtVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
+  H5Awrite(attr_id, H5T_NATIVE_INT, &vcount);
+  H5Aclose(attr_id);
+
+  attr_id = H5Acreate(grp_sols_id, "NSolsAtTetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
+  H5Awrite(attr_id, H5T_NATIVE_INT, &tcount);
+  H5Aclose(attr_id);
+
+  H5Sclose(dspace_file_id);
 
   return 1;
 }
