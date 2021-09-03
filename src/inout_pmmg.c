@@ -2245,7 +2245,7 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   npg = nentitiesg[PMMG_IO_Vertex];
 
   /* Check the metric */
-  isMet = met->m && 1;
+  isMet = (met && met->m);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &isMet, 1, MPI_INT, MPI_MAX, parmesh->comm), return 0);
 
@@ -2495,7 +2495,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
     fprintf(xdmf_file, "        </DataItem>\n");
     fprintf(xdmf_file, "      </Geometry>\n");
-    if (met) {
+    if (met && met->m) {
       if (met->size == 6)
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
       else if (met->size == 1)
