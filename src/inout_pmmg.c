@@ -2347,19 +2347,18 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   vcount = tcount = 0;
 
   for (int i = 0 ; i < nsols ; i++) {
-    size = sols[i]->size;
-    count = 0;
 
-    if ( !sols[i]->m ) {
+    if ( !sols[i] || !sols[i]->m ) {
       iwar = 0;
     }
-
     MPI_Allreduce(MPI_IN_PLACE, &iwar, 1, MPI_INT, MPI_MIN, parmesh->comm);
-
     if ( !iwar ) {
       fprintf(stderr, "\n  ## Warning: %s: Skipping empty solution %d.\n", __func__, i);
       continue;
     }
+
+    size = sols[i]->size;
+    count = 0;
 
     if (sols[i]->entities == MMG5_Noentity || sols[i]->entities == MMG5_Vertex) {
       PMMG_MALLOC(parmesh, sol_buf, size * np, double, "sol_buf", goto free_buf);
@@ -2474,12 +2473,18 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   nsols = grp->mesh->nsols;
 
   if (parmesh->myrank == parmesh->info.root) {
+
     xdmf_file = fopen(xdmfname, "w");
+
     if ( !xdmf_file ) return 0;
+
+    /* XDMF header */
     fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
     fprintf(xdmf_file, "<Xdmf Version=\"3.0\">\n");
     fprintf(xdmf_file, "<Domain>\n");
     fprintf(xdmf_file, "    <Grid Name=\"3D Unstructured Mesh\" GridType=\"Uniform\">\n");
+
+    /* Tetrahedra */
     fprintf(xdmf_file, "      <Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%llu\">\n", neg);
     fprintf(xdmf_file, "        <DataItem DataType=\"Int\"\n");
     fprintf(xdmf_file, "                  Format=\"HDF\"\n");
@@ -2487,6 +2492,8 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Tetrahedra\n", filename);
     fprintf(xdmf_file, "        </DataItem>\n");
     fprintf(xdmf_file, "      </Topology>\n");
+
+    /* Vertices */
     fprintf(xdmf_file, "      <Geometry GeometryType=\"XYZ\">\n");
     fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
     fprintf(xdmf_file, "                  Precision=\"8\"\n");
@@ -2495,6 +2502,8 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     fprintf(xdmf_file, "          %s:/Mesh/MeshEntities/Vertices\n", filename);
     fprintf(xdmf_file, "        </DataItem>\n");
     fprintf(xdmf_file, "      </Geometry>\n");
+
+    /* Metric */
     if (met && met->m) {
       if (met->size == 6)
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Metric\" AttributeType=\"Tensor6\">\n");
@@ -2508,8 +2517,14 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
       fprintf(xdmf_file, "        </DataItem>\n");
       fprintf(xdmf_file, "      </Attribute>\n");
     }
+
+    /* Solutions */
     for (int i = 0 ; i < nsols ; i++) {
+
+      if ( !sols[i] || !sols[i]->m ) continue;
+
       entities = sols[i]->entities;
+
       if (entities != MMG5_Noentity && entities != MMG5_Vertex && entities != MMG5_Tetrahedron) continue;
       if (sols[i]->type == MMG5_Scalar) {
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
@@ -2534,6 +2549,8 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
       fprintf(xdmf_file, "        </DataItem>\n");
       fprintf(xdmf_file, "      </Attribute>\n");
     }
+
+    /* End */
     fprintf(xdmf_file, "    </Grid>\n");
     fprintf(xdmf_file, "  </Domain>\n");
     fprintf(xdmf_file, "</Xdmf>\n");
