@@ -425,7 +425,7 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
+int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam, double val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
