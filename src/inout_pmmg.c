@@ -3867,7 +3867,7 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   np = nentitiesl[PMMG_IO_Vertex];
 
   /* Get the metric size */
-  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
+  HDF_CHECK( dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT), return -1; );
   dspace_file_id = H5Dget_space(dset_id);
   H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL);
   H5Sclose(dspace_file_id);
@@ -4119,7 +4119,12 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
              H5Gclose(grp_sols_id);
              goto free_and_return );
 
-  if (!ier) {
+  if ( ier == -1 ) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Warning: %s: Metric not found, using default metric.\n",__func__);
+    }
+  }
+  if ( ier == 0 ) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not load the metric.\n",__func__);
     }
@@ -4153,6 +4158,10 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
     fprintf(stdout, "  %%%% %s CLOSED \n\n", filename);
   }
 
+  /* Very ugly : if the rank is above the number of partitions of the input mesh,
+     allocate an internal communicator of opposite type of API_mode. This is necessary
+     because all those processes wont enter the PMMG_preprocessMesh_distributed function.
+     Also set ngrp to 0 for loadBalancing to work. */
   if ( rank >= parmesh->info.npartin ) {
     parmesh->ngrp = 0;
     if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
