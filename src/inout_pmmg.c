@@ -2557,6 +2557,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     fprintf(xdmf_file, "    </Grid>\n");
     fprintf(xdmf_file, "  </Domain>\n");
     fprintf(xdmf_file, "</Xdmf>\n");
+
     fclose(xdmf_file);
   }
 
@@ -2578,6 +2579,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   hid_t      file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
   hid_t      fapl_id, dxpl_id, dcpl_id;                                       /* HDF5 property lists */
   MPI_Info   info = MPI_INFO_NULL;
+  mytime     ctim[TIMEMAX];
+  int8_t     tim;
+  char       stim[32];
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -2601,8 +2605,15 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     return 0;
   }
 
+  tminit(ctim, TIMEMAX);
+  chrono(ON, &ctim[0]);
+
   /* Set all pointers to NULL */
   nentities = nentitiesl = nentitiesg = offset = NULL;
+
+  /** Count the number of entities on each proc and globally */
+  tim = 1;
+  chrono(ON, &ctim[tim]);
 
   PMMG_CALLOC(parmesh, nentities, PMMG_NTYPENTITIES * parmesh->nprocs, hsize_t, "nentities",
               goto free_and_return);
@@ -2611,7 +2622,6 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   PMMG_CALLOC(parmesh, nentitiesl, PMMG_NTYPENTITIES, hsize_t, "nentitiesl",
               goto free_and_return );
 
-  /* Count the number of entities on each proc and globally */
   ier = PMMG_countEntities(parmesh, nentities, nentitiesl, nentitiesg, save_entities);
 
   /* Check that the global mesh is not empty */
@@ -2625,11 +2635,26 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
       fprintf(stderr, "\n  ## Warning: %s: there is no tetra in your mesh.\n", __func__);
   }
 
-  /* Compute the offset for parallel writing */
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Count entities.     %s\n",stim);
+  }
+
+  /** Compute the offset for parallel writing */
+  tim = 2;
+  chrono(ON, &ctim[tim]);
+
   PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset",
               goto free_and_return );
 
   ier = PMMG_computeHDFoffset(parmesh, nentities, offset);
+
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Compute HDF5 write offsets.     %s\n",stim);
+  }
 
   /*------------------------- HDF5 IOs START HERE -------------------------*/
 
@@ -2679,7 +2704,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh group.\n",__func__);
              goto free_and_return );
 
-  /* Write the partitionning information */
+  /** Write the partitionning information */
+  tim = 3;
+  chrono(ON, &ctim[tim]);
+
   HDF_CHECK( grp_part_id = H5Gcreate(grp_mesh_id, "Partitioning", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/Partitioning group.\n",__func__);
              H5Gclose(grp_mesh_id);
@@ -2703,12 +2731,21 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   H5Gclose(grp_part_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Save partitioning info.     %s\n",stim);
+  }
+
   /* Now that we have computed the offsets and written the number of entities,
      each proc only needs to know its local number of entities and the
      global number of entities */
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
 
-  /* Write the mesh entities */
+  /** Write the mesh entities */
+  tim = 4;
+  chrono(ON, &ctim[tim]);
+
   HDF_CHECK( grp_entities_id = H5Gcreate(grp_mesh_id, "MeshEntities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Mesh/MeshEntities group.\n",__func__);
              H5Gclose(grp_mesh_id);
@@ -2732,10 +2769,19 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   H5Gclose(grp_entities_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Save mesh entities.     %s\n",stim);
+  }
+
   /* Close the mesh group */
   H5Gclose(grp_mesh_id);
 
-  /* Write the metric and the solutions */
+  /** Write the metric and the solutions */
+  tim = 5;
+  chrono(ON, &ctim[tim]);
+
   HDF_CHECK( grp_sols_id = H5Gcreate(file_id, "Solutions", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
              fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions group.\n",__func__);
              goto free_and_return );
@@ -2770,6 +2816,12 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   H5Gclose(grp_sols_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Save metric and solutions.     %s\n",stim);
+  }
+
   /* Release all HDF5 IDs */
   H5Fclose(file_id);
   H5Pclose(fapl_id);
@@ -2784,7 +2836,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
 
-  /* Write light data in XDMF file */
+  /** Write light data in XDMF file */
   if (!xdmfname || !*xdmfname)
     fprintf(stderr,"  ## Warning: %s: no XDMF file name provided.", __func__);
   else {
@@ -2804,6 +2856,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   /* We no longer need the global number of entities */
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
 
+  chrono(OFF, &ctim[0]);
+  printim(ctim[0].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"\n   SAVE_PARMESH_HDF5: ELAPSED TIME  %s\n",stim);
+  }
   return 1;
 
  free_and_return:
@@ -3938,6 +3995,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm read_comm;
   int rank, nprocs, mpi_color;
+  mytime ctim[TIMEMAX];
+  int8_t tim;
+  char   stim[32];
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
@@ -3956,6 +4016,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
     return 0;
   }
 
+  tminit(ctim, TIMEMAX);
+  chrono(ON, &ctim[0]);
+
   /* Set all pointers to NULL */
   nentities = nentitiesl = nentitiesg = offset = NULL;
 
@@ -3969,6 +4032,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* Shut HDF5 error stack */
   H5Eset_auto(H5E_DEFAULT, NULL, NULL);
 
+  /** Open the file a first time to read npartin */
+
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
   H5Pset_fapl_mpio(fapl_id, parmesh->comm, info);  /* Parallel access to the file */
@@ -3980,10 +4045,13 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   HDF_CHECK( file_id = H5Fopen(filename, H5F_ACC_RDONLY, fapl_id),
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the hdf5 file %s.\n",
                      __func__, rank, filename);
-             ier = 0; goto free_and_return );
+             goto free_and_return );
 
   /* Load the header (version, dimension, number of partitions and API mode) */
   ier = PMMG_loadHeader_hdf5(parmesh, file_id);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             goto free_and_return );
 
   if (ier == 0) {
     if (rank == parmesh->info.root) {
@@ -4021,6 +4089,8 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   parmesh->info.read_comm = read_comm;
 
+  /** Open the file a second (and final) time to actually read the mesh */
+
   /* Set the file access property list with the new communicator */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
   H5Pset_fapl_mpio(fapl_id, read_comm, info);    /* Parallel access to the file */
@@ -4041,6 +4111,10 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not open the /Mesh group in file %s.\n",
                      __func__, rank, filename);
              goto free_and_return );
+
+  /** Load the partitioning information*/
+  tim = 1;
+  chrono(ON, &ctim[tim]);
 
   /* Open the partitionning group */
   HDF_CHECK( grp_part_id = H5Gopen(grp_mesh_id, "Partitioning", H5P_DEFAULT),
@@ -4075,6 +4149,16 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   H5Gclose(grp_part_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Read mesh partitioning.     %s\n",stim);
+  }
+
+  /** Compute the offset for parallel reading */
+  tim = 2;
+  chrono(ON, &ctim[tim]);
+
   PMMG_CALLOC(parmesh, offset, 2 * PMMG_NTYPENTITIES, hsize_t, "offset",
               goto free_and_return );
 
@@ -4082,6 +4166,16 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* We do not need the number of entities anymore */
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
+
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Compute HDF5 read offsets.     %s\n",stim);
+  }
+
+  /** Load the mesh entities */
+  tim = 3;
+  chrono(ON, &ctim[tim]);
 
   /* Each proc reads the part of the mesh that is assigned to him */
   HDF_CHECK( grp_entities_id = H5Gopen(grp_mesh_id, "MeshEntities", H5P_DEFAULT),
@@ -4108,8 +4202,18 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   H5Gclose(grp_entities_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Read mesh entites.     %s\n",stim);
+  }
+
   /* Close the mesh group */
   H5Gclose(grp_mesh_id);
+
+  /** Load the metric and the solutions */
+  tim = 4;
+  chrono(ON, &ctim[tim]);
 
   /* Each proc reads the part of the solutions/metric that is assigned to him */
   HDF_CHECK( grp_sols_id = H5Gopen(file_id, "Solutions", H5P_DEFAULT),
@@ -4152,13 +4256,22 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   H5Gclose(grp_sols_id);
 
+  chrono(OFF, &ctim[tim]);
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- Read metric and solutions.     %s\n",stim);
+  }
+
   /*------------------------- RELEASE ALL HDF5 IDs AND MEMORY -------------------------*/
 
   H5Fclose(file_id);
   H5Pclose(fapl_id);
   H5Pclose(dxpl_id);
+  PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
+  PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
+  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
 
-  if (parmesh->info.imprim >= 0) {
+  if (parmesh->info.imprim >= PMMG_VERB_VERSION) {
     fprintf(stdout, "  %%%% %s CLOSED \n\n", filename);
   }
 
@@ -4174,9 +4287,11 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
       PMMG_CALLOC(parmesh, parmesh->int_face_comm, 1, PMMG_Int_comm, "int_face_comm", goto free_and_return);
   }
 
-  PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
-  PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
-  PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
+  chrono(OFF,&ctim[0]);
+  printim(ctim[0].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"\n   LOAD_PARMESH_HDF5: ELAPSED TIME  %s\n",stim);
+  }
 
   return 1;
 
