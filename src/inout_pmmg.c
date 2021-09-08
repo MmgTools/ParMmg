@@ -360,7 +360,9 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   }
 
   /* Close the file */
-  fclose(inm);
+  if( filename ) {
+    fclose(inm);
+  }
 
   /* Release memory and return */
   PMMG_DEL_MEM(parmesh,nitem_comm,int,"nitem_comm");
