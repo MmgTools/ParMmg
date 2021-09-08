@@ -2639,7 +2639,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Count entities.     %s\n",stim);
   }
 
@@ -2654,7 +2654,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Compute HDF5 write offsets.     %s\n",stim);
   }
 
@@ -2684,7 +2684,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
                      __func__, parmesh->myrank, filename);
              goto free_and_return );
 
-  if (parmesh->info.imprim >= 0) {
+  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
     fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
   }
 
@@ -2735,7 +2735,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Save partitioning info.     %s\n",stim);
   }
 
@@ -2773,7 +2773,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Save mesh entities.     %s\n",stim);
   }
 
@@ -2820,7 +2820,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Save metric and solutions.     %s\n",stim);
   }
 
@@ -2830,7 +2830,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
 
-  if (parmesh->info.imprim >= 0) {
+  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
     fprintf(stdout, "  %%%% %s CLOSED \n", filename);
   }
 
@@ -2860,7 +2860,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   chrono(OFF, &ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"\n   SAVE_PARMESH_HDF5: ELAPSED TIME  %s\n",stim);
   }
   return 1;
@@ -4104,7 +4104,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
                      __func__, rank, filename);
              goto free_and_return );
 
-  if (parmesh->info.imprim >= 0) {
+  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
     fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
   }
 
@@ -4153,7 +4153,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Read mesh partitioning.     %s\n",stim);
   }
 
@@ -4171,7 +4171,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Compute HDF5 read offsets.     %s\n",stim);
   }
 
@@ -4206,7 +4206,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Read mesh entites.     %s\n",stim);
   }
 
@@ -4260,7 +4260,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   chrono(OFF, &ctim[tim]);
   printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"  -- Read metric and solutions.     %s\n",stim);
   }
 
@@ -4273,7 +4273,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
 
-  if (parmesh->info.imprim >= PMMG_VERB_VERSION) {
+  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
     fprintf(stdout, "  %%%% %s CLOSED \n\n", filename);
   }
 
@@ -4291,7 +4291,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
     fprintf(stdout,"\n   LOAD_PARMESH_HDF5: ELAPSED TIME  %s\n",stim);
   }
 
