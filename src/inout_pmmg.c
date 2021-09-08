@@ -3867,7 +3867,8 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   np = nentitiesl[PMMG_IO_Vertex];
 
   /* Get the metric size */
-  HDF_CHECK( dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT), return -1; );
+  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
+  if (dset_id < 0) return -1;
   dspace_file_id = H5Dget_space(dset_id);
   H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL);
   H5Sclose(dspace_file_id);
