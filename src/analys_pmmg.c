@@ -142,6 +142,10 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
         if( var->ppt->tag & MG_PARBDY ) {
           /* Skip point with a given tag */
           if( skip && (var->ppt->tag & skip) ) continue;
+          /* Skip parallel required points (parallel points should have a
+           * MG_NOSURF tag, but it has been erased if they have been recognized
+           * as required) */
+          if( !(var->ppt->tag & MG_NOSURF ) ) continue;
           /* Get extremities of the upstream and downstream edges of the point */
           var->ip1 = var->pt->v[MMG5_idir[var->ifac][MMG5_inxt2[var->iloc]]];
           var->ip2 = var->pt->v[MMG5_idir[var->ifac][MMG5_iprv2[var->iloc]]];
@@ -759,7 +763,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
 
-    /* Loop on parallel, non-corner points */
+    /* Loop on parallel, non-singular points (they have been flagged in
+     * PMMG_hashNorver_xp_init()) */
     if( var->ppt->flag ) {
 
       idx = var->ppt->tmp;
@@ -950,9 +955,12 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
       for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
         var->ip = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
         var->ppt = &var->mesh->point[var->ip];
-        if( !(var->ppt->tag & MG_PARBDY) || (var->ppt->tag & MG_CRN) ) continue;
+        if( !(var->ppt->tag & MG_PARBDY) || /* skip non-parallel points */
+            (var->ppt->tag & MG_CRN) ||     /* skip parallel corner points */
+            !(var->ppt->tag & MG_NOSURF) )  /* skip parallel required points */
+          continue;
 
-        /* Flag point */
+        /* Flag parallel, non-singular (non-corner, non-required) point */
         var->ppt->flag = 1;  /* has xpoint */
 
         /* Create xpoint */

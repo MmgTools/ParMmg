@@ -38,7 +38,11 @@
  */
 void PMMG_tag_par_node(MMG5_pPoint ppt){
 
-  ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  ppt->tag |= (MG_PARBDY + MG_BDY);
+  if( !(ppt->tag & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    ppt->tag |= (MG_REQ + MG_NOSURF);
+  }
 }
 
 /**
@@ -49,7 +53,11 @@ void PMMG_tag_par_node(MMG5_pPoint ppt){
  */
 void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j){
 
-  pxt->tag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  pxt->tag[j] |= (MG_PARBDY + MG_BDY);
+  if( !(pxt->tag[j] & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    pxt->tag[j] |= (MG_REQ + MG_NOSURF);
+  }
 }
 
 /**
@@ -60,12 +68,18 @@ void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j){
  * Tag an edge as parallel.
  */
 int PMMG_tag_par_edge_hash(MMG5_pTetra pt,MMG5_HGeom hash,int ia){
-  int ip0,ip1;
+  int     ip0,ip1,getref;
+  int16_t gettag;
 
   ip0 = pt->v[MMG5_iare[ia][0]];
   ip1 = pt->v[MMG5_iare[ia][1]];
-  if( !MMG5_hTag( &hash, ip0, ip1, 0,
-                  MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
+  if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_PARBDY + MG_BDY ) ) return 0;
+
+  if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+  if( !(gettag & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+  }
 
   return 1;
 }
@@ -78,7 +92,11 @@ int PMMG_tag_par_edge_hash(MMG5_pTetra pt,MMG5_HGeom hash,int ia){
  */
 void PMMG_tag_par_face(MMG5_pxTetra pxt,int j){
 
-  pxt->ftag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  pxt->ftag[j] |= (MG_PARBDY + MG_BDY );
+  if( !(pxt->ftag[j] & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    pxt->ftag[j] |= (MG_REQ + MG_NOSURF);
+  }
 }
 
 /**
@@ -89,8 +107,13 @@ void PMMG_tag_par_face(MMG5_pxTetra pxt,int j){
 void PMMG_tag_par_tria(MMG5_pTria ptt){
   int j;
 
-  for( j = 0; j < 3; j++ )
-    ptt->tag[j] |= (MG_PARBDY + MG_REQ + MG_NOSURF);
+  for( j = 0; j < 3; j++ ) {
+    ptt->tag[j] |= MG_PARBDY;
+    if( !(ptt->tag[j] & MG_REQ) ) {
+      /* do not add the MG_NOSURF tag on a required entity */
+      ptt->tag[j] |= (MG_REQ + MG_NOSURF);
+    }
+  }
 }
 
 /**
@@ -102,11 +125,19 @@ void PMMG_tag_par_tria(MMG5_pTria ptt){
  */
 void PMMG_untag_par_node(MMG5_pPoint ppt){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( ppt->tag & MG_PARBDY ) {
     ppt->tag &= ~MG_PARBDY;
     ppt->tag &= ~MG_BDY;
     ppt->tag &= ~MG_REQ;
-    ppt->tag &= ~MG_NOSURF;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( ppt->tag & MG_NOSURF ) {
+      ppt->tag &= ~MG_NOSURF;
+    } else {
+      ppt->tag |= MG_REQ;
+    }
     ppt->tag &= ~MG_PARBDYBDY;
   }
 }
@@ -121,11 +152,19 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
  */
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( pxt->tag[j] & MG_PARBDY ) {
     pxt->tag[j] &= ~MG_PARBDY;
     pxt->tag[j] &= ~MG_BDY;
     pxt->tag[j] &= ~MG_REQ;
-    pxt->tag[j] &= ~MG_NOSURF;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( pxt->tag[j] & MG_NOSURF ) {
+      pxt->tag[j] &= ~MG_NOSURF;
+    } else {
+      pxt->tag[j] |= MG_REQ;
+    }
     pxt->tag[j] &= ~MG_PARBDYBDY;
   }
 }
@@ -140,11 +179,21 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
  */
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( pxt->ftag[j] & MG_PARBDY ) {
     pxt->ftag[j] &= ~MG_PARBDY;
     pxt->ftag[j] &= ~MG_BDY;
     pxt->ftag[j] &= ~MG_REQ;
-    pxt->ftag[j] &= ~MG_NOSURF;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( pxt->ftag[j] & MG_NOSURF ) {
+      pxt->ftag[j] &= ~MG_NOSURF;
+    } else {
+      pxt->ftag[j] |= MG_REQ;
+    }
+    /* do not delete the MG_PARBDYBDY tag, as it will be used to recognize
+     * boundary faces */
   }
 }
 
@@ -285,7 +334,12 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
         /* Only a "true" boundary after this line */
         if ( pxt->ftag[ifac] & MG_BDY ) {
           /* Constrain boundary if -nosurf option */
-          if( mesh->info.nosurf ) pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
+          if( mesh->info.nosurf ) {
+            if( !(pxt->ftag[ifac] & MG_REQ) ) {
+              /* do not add the MG_NOSURF tag on a required entity */
+              pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
+            }
+          }
           /* Tag face edges */
           for ( j=0; j<3; j++ ) {
             ia = MMG5_iarf[ifac][j];
@@ -293,15 +347,25 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
             /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf )
-              if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+            if( mesh->info.nosurf ) {
+              if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+              if( !(gettag & MG_REQ) ) {
+                /* do not add the MG_NOSURF tag on a required entity */
+                if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+              }
+            }
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
             ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
             ppt->tag |= MG_BDY;
             /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf ) ppt->tag |= MG_REQ + MG_NOSURF;
+            if( mesh->info.nosurf ) {
+              if( !(ppt->tag & MG_REQ) ) {
+                /* do not add the MG_NOSURF tag on a required entity */
+                ppt->tag |= MG_REQ + MG_NOSURF;
+              }
+            }
           }
         }
       }
