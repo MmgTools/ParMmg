@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout c2a716a
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 056d1beca1fcfbbfaf90896708be4be4bae2eb72
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
@@ -230,6 +230,18 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
       -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
+
+    ###############################################################################
+    #####
+    #####        Tests distributed surface adaptation
+    #####
+    ###############################################################################
+    add_test( NAME DistribSurf-A319-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/A319_gmsh/A319_in_a_box.o.mesh
+      -out ${CI_DIR_RESULTS}/DistribSurf-A319-4-out.mesh
+      -optim -v 6 -hmin 20 -hausd 5 -centralized-output
+      ${myargs} )
 
   ENDIF()
 
