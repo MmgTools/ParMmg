@@ -274,12 +274,13 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
    * extremity could be visible only on the current partition. */
   for( j = 0; j < 2; j++ ) {
     tag = var->pxt->tag[ia[j]];
-    if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] )
+    if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] ){
       if( !PMMG_hTagOri( var->hash,
                          var->ip,ip[j], /* pair (ip,np+ip[j]) */
                          (int)tag,      /* still the same tag */
                          1 ) )          /* switch color on */
         return 0;
+    }
   }
 
   return 1;
@@ -802,6 +803,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
         for( d = 0; d < 3; d++ )
           dd += var->ppt->n[d]*var->ppt->n[d];
         dd = 1.0 / sqrt(dd);
+        assert(isfinite(dd));
         if( dd > MMG5_EPSD2 )
           for( d = 0; d < 3; d++ )
             var->ppt->n[d] *= dd;
@@ -882,6 +884,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             dd += pxp->n1[d]*pxp->n1[d];
           dd = 1.0 / sqrt(dd);
+          assert(isfinite(dd));
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
               pxp->n1[d] *= dd;
@@ -892,6 +895,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               dd += pxp->n2[d]*pxp->n2[d];
             dd = 1.0 / sqrt(dd);
+            assert(isfinite(dd));
             if( dd > MMG5_EPSD2 )
               for( d = 0; d < 3; d++ )
                 pxp->n2[d] *= dd;
@@ -905,6 +909,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
               for( d = 0; d < 3; d++ )
                 dd += var->ppt->n[d]*var->ppt->n[d];
               dd = 1.0 / sqrt(dd);
+              assert(isfinite(dd));
               if( dd > MMG5_EPSD2 )
                 for( d = 0; d < 3; d++ )
                   var->ppt->n[d] *= dd;
