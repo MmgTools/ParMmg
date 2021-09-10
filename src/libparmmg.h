@@ -2069,8 +2069,11 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the nodes on a parallel interface. Nodes ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the nodes on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and ParMmg assumes this ordering is valid, but global indices
+ * are still needed by ParMmg to internally match interface faces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,&\n
@@ -2094,8 +2097,10 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the faces on a parallel interface. Faces ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the faces on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and global indices are not read.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHFACECOMMUNICATOR_FACES(parmesh,ext_comm_index,&\n

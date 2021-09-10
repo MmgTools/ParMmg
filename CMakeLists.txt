@@ -2,6 +2,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
 
 INCLUDE(CMakeDependentOption)
 INCLUDE(cmake/modules/macros.cmake)
+INCLUDE(CheckCSourceCompiles)
 
 PROJECT (parmmg)
 
@@ -108,6 +109,12 @@ ENDIF()
 OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
 OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
 
+# Explicitly set the DNDEBUG flag in case the user or a parent project overrides
+# it.
+if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
+    add_definitions(-DNDEBUG)
+endif()
+
 ############################################################################
 #####
 #####         MPI
@@ -149,6 +156,26 @@ STRING(REGEX REPLACE "\"" " " CMD_OUT "${CMD_OUTPUT}")
 IF ( "${CMD_OUT}" MATCHES "oversubscribe" )
   SET ( MPI_ARGS "-oversubscribe" )
 ENDIF()
+
+# Check the minimum MPI version
+SET ( CMAKE_REQUIRED_INCLUDES "${MPI_INCLUDE_PATH}" )
+SET ( CMAKE_REQUIRED_LIBRARIES "${MPI_C_LIBRARIES}" )
+CHECK_C_SOURCE_COMPILES( "
+#include <stdio.h>
+#include <stdint.h>
+#include <mpi.h>
+int main(int argc, char **argv) {
+MPI_Comm comm_shm = 0;
+MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+  &comm_shm );
+}
+"
+MPI3_TEST_COMPILES )
+IF( NOT MPI3_TEST_COMPILES )
+  MESSAGE( FATAL_ERROR "ERROR: impossible to compile a simple MPI test program."
+    " Check your MPI library version:"
+    " ParMmg requires an MPI version >= 3.0.0.")
+ENDIF ( )
 
 ############################################################################
 #####
