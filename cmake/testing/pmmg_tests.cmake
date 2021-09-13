@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 056d1beca1fcfbbfaf90896708be4be4bae2eb72
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5d8b29b68b70cb673cb234d97a86c45215aa7c8e
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
@@ -242,6 +242,13 @@ IF( BUILD_TESTING )
       -out ${CI_DIR_RESULTS}/DistribSurf-A319-4-out.mesh
       -optim -v 6 -hmin 20 -hausd 5 -centralized-output
       ${myargs} )
+
+    add_test( NAME DistribSphere_NOM-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Sphere_NOM/sphere_nom.par.mesh
+      -out ${CI_DIR_RESULTS}/DistribSphere_NOM-4-out.mesh
+      -optim -v 6 -hmin 0.5 -hausd 2 -centralized-output
+      ${myargs} -niter 3 ) #override previous value of -niter
 
   ENDIF()
 
