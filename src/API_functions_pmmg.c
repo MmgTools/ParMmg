@@ -2423,6 +2423,9 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     }
   }
 
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv");
