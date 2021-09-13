@@ -222,8 +222,8 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     /* Get edge tag */
     tag = var->pxt->tag[ia[j]];
 
-    /* Try to store ridge extremity */
-    if( tag & MG_GEO ) {
+    /* Try to store an edge extremity */
+    if( MG_EDG(tag) ) {
       /* Internal edge or parallel owned edge */
       if( !MMG5_hGet( var->hpar,
                       var->ip,ip[j],
@@ -771,7 +771,8 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Compute tangent (as in MMG3D_boulenm) */
-      if( var->ppt->tag & MG_GEO ) {
+#warning Luca: why not like in MMG5_boulec?
+      if( MG_EDG(var->ppt->tag) ) {
 
         c[0] = &doublevalues[6*idx];
         c[1] = &doublevalues[6*idx+3];
