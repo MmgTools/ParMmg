@@ -947,18 +947,17 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
       /* Get face tag */
       tag = var->pxt->ftag[var->ifac];
 
-      /* Skip internal faces */
-      if( !(tag & MG_BDY) ||
-          ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )
-        continue;
+      /* Skip internal faces (but loop on all parallel faces */
+      if( !(tag & MG_BDY) ) continue;
 
       /* Loop on face vertices */
       for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
         var->ip = var->pt->v[MMG5_idir[var->ifac][var->iloc]];
         var->ppt = &var->mesh->point[var->ip];
-        if( !(var->ppt->tag & MG_PARBDY) || /* skip non-parallel points */
-            (var->ppt->tag & MG_CRN) ||     /* skip parallel corner points */
-            !(var->ppt->tag & MG_NOSURF) )  /* skip parallel required points */
+        if( !(var->ppt->tag & MG_PARBDY) ||   /* skip non-parallel points */
+            !(var->ppt->tag & MG_PARBDYBDY) ||/* skip non-boundary points */
+            (var->ppt->tag & MG_CRN) ||       /* skip parallel corner points */
+            !(var->ppt->tag & MG_NOSURF) )    /* skip parallel required points */
           continue;
 
         /* Flag parallel, non-singular (non-corner, non-required) point */
@@ -976,14 +975,16 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
           var->ppt->xp = var->mesh->xp;
           /* Get non-manifold point on interior boundary and set it does not have
            * a normal vector. */
-          if( (var->ppt->tag & MG_NOM) && var->iadj ) {
+          if( (var->ppt->tag & MG_NOM) &&
+              (var->iadj || (var->ppt->tag & MG_PARBDYBDY)) ) {
             pxp = &var->mesh->xpoint[var->ppt->xp];
             pxp->nnor = 1;  /* no normal */
           }
         }
 
         /* Update nnor if an external surface is found */
-        if( (var->ppt->tag & MG_NOM) && !var->iadj ) {
+        if( (var->ppt->tag & MG_NOM) &&
+            !var->iadj && (var->ppt->tag & MG_PARBDYBDY) ) {
           pxp = &var->mesh->xpoint[var->ppt->xp];
           pxp->nnor = 0;  /* has normal */
         }
