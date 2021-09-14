@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5d8b29b68b70cb673cb234d97a86c45215aa7c8e
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 6710941eb761f90df5356715d1fe693f95666a4a
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
@@ -236,19 +236,46 @@ IF( BUILD_TESTING )
     #####        Tests distributed surface adaptation
     #####
     ###############################################################################
-    add_test( NAME DistribSurf-A319-4
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/A319_gmsh/A319_in_a_box.o.mesh
-      -out ${CI_DIR_RESULTS}/DistribSurf-A319-4-out.mesh
-      -optim -v 6 -hmin 20 -hausd 5 -centralized-output
-      ${myargs} )
 
-    add_test( NAME DistribSphere_NOM-4
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Sphere_NOM/sphere_nom.par.mesh
-      -out ${CI_DIR_RESULTS}/DistribSphere_NOM-4-out.mesh
-      -optim -v 6 -hmin 0.5 -hausd 2 -centralized-output
-      ${myargs} -niter 3 ) #override previous value of -niter
+    # Run the test only if the mesh distribution has succeed
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 4 8 )
+
+        ADD_TEST( NAME DistribSurf-A319-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/A319_gmsh/A319_in_a_box.mesh
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSurf-A319-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSurf-A319-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 20 -hausd 5 -centralized-output
+          ${myargs} )
+
+        SET_TESTS_PROPERTIES(DistribSurf-A319-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSurf-A319-gen-${API_mode}-${NP})
+
+
+        ADD_TEST( NAME DistribSphere_NOM-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Sphere_NOM/sphere_nom.mesh
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSphere_NOM-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSphere_NOM-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 0.5 -hausd 2 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribSphere_NOM-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSphere_NOM-gen-${API_mode}-${NP})
+
+      ENDFOREACH()
+    ENDFOREACH()
 
   ENDIF()
 
