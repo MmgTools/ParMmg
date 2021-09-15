@@ -263,7 +263,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 
   /* If non-manifold, only process exterior points */
 #warning this should also work on the border of a OPNBDY surface
-  if( (var->ppt->tag & MG_NOM) && (var->iadj || (var->tag & MG_PARBDYBDY)) ) return 1;
+  if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get internal communicator index */
   idx = var->ppt->tmp;
@@ -932,7 +932,7 @@ int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
 static inline
 int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp;
-  int16_t      tag;
+  int          *adja;
 
   for( var->ie = 1; var->ie <= var->mesh->ne; var->ie++ ) {
     var->pt = &var->mesh->tetra[var->ie];
@@ -945,10 +945,14 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     /* Loop on faces */
     for( var->ifac = 0; var->ifac < 4; var->ifac++ ) {
       /* Get face tag */
-      tag = var->pxt->ftag[var->ifac];
+      var->tag = var->pxt->ftag[var->ifac];
 
       /* Skip internal faces (but loop on all parallel faces */
-      if( !(tag & MG_BDY) ) continue;
+      if( !(var->tag & MG_BDY) ) continue;
+
+      /* has adjacent or not */
+      adja = &var->mesh->adja[4*(var->ie-1)+1];
+      var->iadj = adja[var->ifac] || (var->tag & MG_PARBDY);
 
       /* Loop on face vertices */
       for( var->iloc = 0; var->iloc < 3; var->iloc++ ) {
@@ -975,16 +979,14 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
           var->ppt->xp = var->mesh->xp;
           /* Get non-manifold point on interior boundary and set it does not have
            * a normal vector. */
-          if( (var->ppt->tag & MG_NOM) &&
-              (var->iadj || (var->ppt->tag & MG_PARBDYBDY)) ) {
+          if( (var->ppt->tag & MG_NOM) && var->iadj ) {
             pxp = &var->mesh->xpoint[var->ppt->xp];
             pxp->nnor = 1;  /* no normal */
           }
         }
 
         /* Update nnor if an external surface is found */
-        if( (var->ppt->tag & MG_NOM) &&
-            !var->iadj && (var->ppt->tag & MG_PARBDYBDY) ) {
+        if( (var->ppt->tag & MG_NOM) && !var->iadj ) {
           pxp = &var->mesh->xpoint[var->ppt->xp];
           pxp->nnor = 0;  /* has normal */
         }
