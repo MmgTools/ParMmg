@@ -459,6 +459,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
+  MMG5_pPoint    ppt;
   MPI_Comm       comm;
   MPI_Status     status;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
@@ -598,6 +599,24 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     }
   }
 
+
+  /* Tag parallel points touched by simple MG_BDY faces as MG_PARBDYBDY
+   * (a parallel surface can pinch a regular surface in just one point).
+   * The same problem on edges is handled by MMG5_mmgHashTria. */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) || !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      /* Loop on simple boundary faces */
+      if( !(pxt->ftag[ifac] & MG_BDY) || (pxt->ftag[ifac] & MG_PARBDY ) ) continue;
+      for( i = 0; i < 3; i++ ) {
+        ppt = &mesh->point[pt->v[MMG5_idir[ifac][i]]];
+        if( ppt->tag & MG_PARBDY )
+          ppt->tag |= MG_PARBDYBDY;
+      }
+    }
+  }
 
 
   /* Deallocate and return */
