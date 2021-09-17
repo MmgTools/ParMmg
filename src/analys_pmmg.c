@@ -558,6 +558,12 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
 
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate buffers for integer communication on parallel points.
+ */
 int PMMG_hashNorver_communication_init( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_edge_comm;
   int k,nitem;
@@ -575,6 +581,12 @@ int PMMG_hashNorver_communication_init( PMMG_pParMesh parmesh ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Free buffers for integer communication on parallel points.
+ */
 int PMMG_hashNorver_communication_free( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_edge_comm;
   int k;
@@ -588,6 +600,13 @@ int PMMG_hashNorver_communication_free( PMMG_pParMesh parmesh ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Communicate bitwise integer flags on parallel points, and reduce them on the
+ * internal point communicator.
+ */
 int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   PMMG_pExt_comm ext_edge_comm;
   int            *itosend,*itorecv,*intvalues;
@@ -639,6 +658,13 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Communicate contributions to normal and tangent vectors on triangles touching
+ * parallel points, and add them to the point vectors.
+ */
 int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
@@ -710,10 +736,17 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
     PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
   }
 
-
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Compute contributions to normal and tangent vectors on triangles touching
+ * parallel points, and add them to the point vectors.
+ */
 int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
   int d;
@@ -731,7 +764,6 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   else
     for( d = 0; d < 3; d++ )
       pxp->n1[d] += var->n[d];
-
 
   return 1;
 }
@@ -930,6 +962,14 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate missing xpoints for parallel points on manifold surfaces and on
+ * non-manifold exterior surfaces.
+ */
 static inline
 int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp;
@@ -1102,7 +1142,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
  * \param var pointer toward the structure for local loop variables
  * \return 0 if fail, 1 if success.
  *
- * Compute normal and tangent vectors on parallel points, using a hash tables
+ * Compute normal and tangent vectors on parallel points, using hash tables
  * for edges. This is necessary as it is not convenient to travel the surface
  * ball of a parallel point (it could be fragmented among many partitions).
  * Hashing is necessarily used to color the C1 portions of a surface touching
@@ -1111,14 +1151,13 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
  */
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
                      MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
-  PMMG_pGrp      grp;
+  PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pInt_comm int_node_comm,int_edge_comm;
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
   int            ie,i,ip,idx;
 
   assert( parmesh->ngrp == 1 );
-  grp = &parmesh->listgrp[0];
   assert( mesh = grp->mesh );
 
   int_node_comm = parmesh->int_node_comm;
@@ -1126,7 +1165,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 
   PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
-//  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
 
   /* Reset intvalues to zero, as it will be used to store the edge colors */
   memset(int_edge_comm->intvalues,0,2*int_edge_comm->nitem*sizeof(int));
