@@ -736,11 +736,20 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
-#warning Luca: fix opnbdy treatment
-int PMMG_hashNorver_norver( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Compute normal and tangent vectors on parallel points, using a hash tables
+ * for edges. once C1 portions of a surface touching a parallel ridge point have
+ * been consistently colored.
+ */
+int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   MMG5_pxPoint pxp;
   double *doublevalues,dd,l[2],*c[2];
   int    *intvalues,idx,d,j;
+#warning Luca: fix opnbdy treatment
 
   intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
@@ -1085,6 +1094,21 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the mesh structure
+ * \param hash pointer toward the hash table for geometric edges
+ * \param hpar pointer toward the hash table for parallel edges
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Compute normal and tangent vectors on parallel points, using a hash tables
+ * for edges. This is necessary as it is not convenient to travel the surface
+ * ball of a parallel point (it could be fragmented among many partitions).
+ * Hashing is necessarily used to color the C1 portions of a surface touching
+ * a parallel ridge point, in order to correctly sum contributions to its two
+ * normal vectors.
+ */
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
                      MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
   PMMG_pGrp      grp;
@@ -1179,10 +1203,8 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
   if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
 
-
   /** 4) Compute normal vectors */
-  if( !PMMG_hashNorver_norver( parmesh,var ) ) return 0;
-
+  if( !PMMG_hashNorver_normals( parmesh,var ) ) return 0;
 
   /* Free memory */
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
