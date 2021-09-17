@@ -34,6 +34,10 @@
 
 #include "parmmg.h"
 
+/**
+ * Structure for all variables in the scope of the triple nested loop of
+ * \fn PMMG_hashNorver_loop.
+ */
 typedef struct {
   MMG5_pMesh   mesh;
   MMG5_HGeom   *hash,*hpar;
@@ -47,6 +51,18 @@ typedef struct {
   int          updloc,updpar;
 } PMMG_hn_loopvar;
 
+/**
+ * \param hash hash table for edges touching a parallel point
+ * \param ip0 index of the first edge node
+ * \param ip1 index of the second edge node
+ * \param ref reference of the edge
+ * \param color surface color to store
+ * \return 0 if failure, 1 if success.
+ *
+ * Get a surface color from the edge touched by a face. It is stored in the
+ * \var tag of the hash table entry in a bitwise fashion so that a color is
+ * stored for each of the two edge orientations.
+ */
 static inline
 int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
   int16_t tag;
@@ -62,6 +78,18 @@ int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
   return 1;
 }
 
+/**
+ * \param hash hash table for edges touching a parallel point
+ * \param ip0 index of the first edge node
+ * \param ip1 index of the second edge node
+ * \param ref reference of the edge
+ * \param color surface color to store
+ * \return 0 if failure, 1 if success.
+ *
+ * Set a surface color on the edge touched by a face. Store it in the \var tag
+ * of the hash table entry in a bitwise fashion so that a color is stored for
+ * each of the two edge orientations.
+ */
 static inline
 int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
   int16_t tag;
@@ -78,8 +106,21 @@ int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
   return 1;
 }
 
+/**
+ * \param ifac local face index
+ * \param iloc local face vertex index
+ * \return the bitwise color.
+ *
+ * Switch on the bitwise color (0/1) corresponding to the surface on face
+ * \var ifac touching the local face vertex \var iloc on a tetrahedron.
+ * The color is used to associate the surface to the first or second normal
+ * vector (for a parallel ridge point).
+ * This color will be stored in the \var mark field of the tetrahedron structure,
+ * so the encoding needs to allow the storage of one color for each local vertex
+ * on each local face, thus 3x4 = 12 colors (0 or 1) on each tetrahedron.
+ */
 static inline
-int16_t PMMG_hashNorver_code(int ifac,int iloc){
+int16_t PMMG_hashNorver_color(int ifac,int iloc){
   return 1 << (3*ifac+iloc);
 }
 
@@ -357,7 +398,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get old triangle color */
-  color_old = var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc);
+  color_old = var->pt->mark & PMMG_hashNorver_color(var->ifac,var->iloc);
 
   /* Get upstream edge color */
   if( !PMMG_hGetOri( var->hash,
@@ -369,7 +410,7 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( color_new && !color_old ) {
     assert( color_new == 1 );
     /* Set tria color */
-    var->pt->mark |= PMMG_hashNorver_code(var->ifac,var->iloc);
+    var->pt->mark |= PMMG_hashNorver_color(var->ifac,var->iloc);
     /* Check downstream edge color, without crossing ridge */
     if( !(var->pxt->tag[MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]]] & MG_GEO) ) {
 
@@ -868,7 +909,9 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
    * (several times onn the same triangle, it can be optimized) */
   MMG5_norface(var->mesh,var->ie,var->ifac,var->n);
 
-  if( var->pt->mark & PMMG_hashNorver_code(var->ifac,var->iloc) )
+  /* Accumulate normal contribution on the correct vector, depending on the
+   * surface color */
+  if( var->pt->mark & PMMG_hashNorver_color(var->ifac,var->iloc) )
     for( d = 0; d < 3; d++ )
       pxp->n2[d] += var->n[d];
   else
@@ -1148,6 +1191,14 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param hpar hash table parallel edges
+ * \return 0 if failure, 1 if success.
+ *
+ * Set the owner rank of each parallel edge, and store it the \var base field
+ * of the edge structure.
+ */
 int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
