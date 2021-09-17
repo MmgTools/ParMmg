@@ -83,7 +83,23 @@ int16_t PMMG_hashNorver_code(int ifac,int iloc){
   return 1 << (3*ifac+iloc);
 }
 
-/*
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \param skip point tag to be skipped in the loop
+ * \param PMMG_hn_funcpointer pointer to the function to be executed
+ * \return 0 if fail, 1 if success.
+ *
+ * Perform a triple nested loop -- on boundary tetrahedra, on boundary faces
+ * (either external boundary faces or parallel boundary faces) and parallel
+ * face vertices -- in order to execute the function passed as argument at each
+ * iteration of the nested loop.
+ * The rationale is to simplify the multiple executions of sweeps on boundary
+ * faces by pivoting counter-clockwise around a parallel point, in order to
+ * color contiguous C1 surfaces by adjacency in parallel (without using surface
+ * ball travels) and to compute normal vectors on regular and ridge parallel
+ * points.
+ *
  *                ip       ip       ip      ip          (...)
  *               *        *        *       * < . . . . *
  *              /        / ^        \       .         ^
@@ -92,7 +108,7 @@ int16_t PMMG_hashNorver_code(int ifac,int iloc){
  *           /        / (ie)  \ w      \       .   .
  *          v        v         \ n      v       v .
  *         *        * --------> *        *       *
- *       np+ip1   ip1            ip2    np+ip2   ip2
+ *       ip1      ip1           ip2      ip2    ip2
  */
 static inline
 int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t skip,
@@ -162,6 +178,13 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Hash edges connected to parallel points.
+ */
 static inline
 int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int     ia[2],ip[2],j;
@@ -188,6 +211,15 @@ int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Look for the two extremities of ridges passing through a parallel point
+ * \var ip by checking the two edges connected to \var ip on a boundary face,
+ * and try to store them in the internal node communicator.
+ */
 static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
@@ -248,6 +280,16 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Analyze the two edges connected to the parallel point (\var ip) on a boundary
+ * face,  and switch the surface color (from 0 to 1) if the second edge point
+ * (\var ip1 or \var ip2) is the first of the two extremities of a ridge passing
+ * through \var ip (stored in the internal node communicator).
+ */
 static inline
 int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int idx;
@@ -286,6 +328,26 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Do a sweep on a triangular face:
+ *
+ *                          ip       ip       ip
+ *                         *        *        *
+ *                        /        / ^        \
+ *                       /     p  /   \ d      \
+ *                      / =>  u  /     \ o   => \
+ *                     /        / (ie)  \ w      \
+ *                    v        v         \ n      v
+ *                   *        * --------> *        *
+ *                 ip1      ip1           ip2      ip2
+ *
+ * in order to transfer the color of a surface portion (0/1) from one face edge
+ * to another by pivoting counter-clockwise around a parallel point.
+ */
 static inline
 int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int        edg;
@@ -330,12 +392,23 @@ int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param hash pointer toward the hash table for edges touching a parallel point
+ * \param idx position in the edge internal communicator
+ * \return 0 if fail, 1 if success.
+ *
+ * Transfer surface color from face edge to parallel edge.
+ */
 static inline
-int PMMG_hashNorver_edge2paredge( PMMG_hn_loopvar *var,
-                                  int *intvalues,int idx ) {
+int PMMG_hashNorver_edge2paredge( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
+                                  int idx ) {
   MMG5_pEdge pa;
-  int edg,j,i[2],ip,ip1;
-  int16_t color_old,color_new;
+  int       *intvalues,edg,j,i[2],ip,ip1;
+  int16_t    color_old,color_new;
+
+  /* Get internal communicator */
+  intvalues = parmesh->int_edge_comm->intvalues;
 
   /* Get edge and node position on edge */
   pa = &var->mesh->edge[idx+1];
@@ -366,12 +439,26 @@ int PMMG_hashNorver_edge2paredge( PMMG_hn_loopvar *var,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param hash pointer toward the hash table for edges touching a parallel point
+ * \param idx position in the edge internal communicator
+ * \return 0 if fail, 1 if success.
+ *
+ * Transfer surface color from parallel edge to face edge.
+ */
 static inline
-int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
-                                  int *intvalues,int idx ) {
+int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
+                                  int idx ) {
+  MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
   MMG5_pEdge pa;
-  int edg,j,i[2],ip,ip1;
-  int16_t color_old,color_new;
+  int       *intvalues,edg,j,i[2],ip,ip1;
+  int16_t    color_old,color_new;
+
+  assert( parmesh->ngrp == 1 );
+
+  /* Get internal communicator */
+  intvalues = parmesh->int_edge_comm->intvalues;
 
   /* Get edge and node position on edge */
   pa = &mesh->edge[idx+1];
@@ -429,7 +516,7 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
   /* Set color on parallel edges */
   for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
     idx = grp->edge2int_edge_comm_index2[i];
-    if( !PMMG_hashNorver_edge2paredge( var,int_edge_comm->intvalues,idx ) )
+    if( !PMMG_hashNorver_edge2paredge( parmesh,var,idx ) )
       return 0;
   }
 
@@ -1160,7 +1247,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
- * \param hash pointer toward the hash table for geometric edges
+ * \param hash pointer toward the hash table for edges touching a parallel point
  * \param hpar pointer toward the hash table for parallel edges
  * \param var pointer toward the structure for local loop variables
  * \return 0 if fail, 1 if success.
@@ -1254,8 +1341,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
-      if( !PMMG_hashNorver_paredge2edge( mesh,hash,int_edge_comm->intvalues,
-            idx ) ) return 0;
+      if( !PMMG_hashNorver_paredge2edge( parmesh,hash,idx ) ) return 0;
     }
 
     /* 3.2.3) Local update iterations */
