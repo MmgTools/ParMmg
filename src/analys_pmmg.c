@@ -80,7 +80,7 @@ int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
 
 static inline
 int16_t PMMG_hashNorver_code(int ifac,int iloc){
-  return 1 << 3*ifac+iloc;
+  return 1 << (3*ifac+iloc);
 }
 
 /*
@@ -164,17 +164,14 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
 
 static inline
 int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
-  MMG5_pPoint ppt[2];
-  int         ia[2],ip[2],j;
-  int16_t     tag;
+  int     ia[2],ip[2],j;
+  int16_t tag;
 
   /* Get points */
   ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
   ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
   ip[0] = var->ip1;
   ip[1] = var->ip2;
-  for( j = 0; j < 2; j++ )
-    ppt[j] = &var->mesh->point[ip[j]];
 
   /* Loop on both incident edges */
   for( j = 0; j < 2; j++ ) {
@@ -189,7 +186,6 @@ int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   }
 
   return 1;
-
 }
 
 static inline
@@ -292,9 +288,8 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 
 static inline
 int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
-  MMG5_pEdge pa;
-  int        edg,j;
-  int16_t    color_old,color_new,dummy;
+  int        edg;
+  int16_t    color_old,color_new;
 
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
@@ -407,7 +402,6 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
 int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
   PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
   PMMG_pGrp      grp = &parmesh->listgrp[0];
-  MMG5_pMesh     mesh = grp->mesh;
   int            i,idx;
 
   /* Do at least one iteration */
@@ -447,7 +441,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
   int            *itosend,*itorecv,*intvalues,*npshift,myshift;
-  int            k,nitem,color,i,idx,j,pos,d,ip;
+  int            k,nitem,color,i,idx,j,pos,d;
   MPI_Comm       comm;
   MPI_Status     status;
 
@@ -545,7 +539,6 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   /* At this point all parallel manifold points should have both ridge
    * extremities */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
 
     qsort( &intvalues[2*idx], 2, sizeof(int),PMMG_hashNorver_compExt );
@@ -567,12 +560,11 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
 
 int PMMG_hashNorver_communication_init( PMMG_pParMesh parmesh ) {
   PMMG_pExt_comm ext_edge_comm;
-  int k,nitem,color;
+  int k,nitem;
 
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
     nitem         = ext_edge_comm->nitem;
-    color         = ext_edge_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
                 return 0);
@@ -1096,15 +1088,10 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
                      MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
   PMMG_pGrp      grp;
-  PMMG_pInt_comm int_node_comm,int_edge_comm,int_face_comm;
-  PMMG_pExt_comm ext_node_comm,ext_edge_comm;
+  PMMG_pInt_comm int_node_comm,int_edge_comm;
   MMG5_pTetra    pt;
-  MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
-  MMG5_pEdge     pa;
-  int            ie,ifac,ia,i,ip,ip1,ip2,iter,idx;
-  int            *intvalues,k,color,nitem;
-  int16_t        tag;
+  int            ie,i,ip,idx;
 
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
@@ -1112,7 +1099,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 
   int_node_comm = parmesh->int_node_comm;
   int_edge_comm = parmesh->int_edge_comm;
-  int_face_comm = parmesh->int_face_comm;
 
   PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
@@ -1199,7 +1185,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 
 
   /* Free memory */
-  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
   PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"node doublevalues");
 
@@ -1421,7 +1406,7 @@ int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   MMG5_pxTetra   pxt;
   MMG5_pxPoint   pxp;
   double         n[3],dd;
-  int            *adja,ip,ie,ifac,i,iloc,d,base,k1;
+  int            ip,ie,ifac,i,iloc,d,base;
 
   base = ++mesh->base;
 
@@ -1681,23 +1666,19 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
   MMG5_Hash      hash;
-  int            nc,xp,nr,ns0,ns1,nre;
-  int            ip,idx,iproc,k,i,j,d;
-  int            nitem,color,tag;
+  int            nc,xp,nr,ns0,nre;
+  int            ip,idx,iproc,k,i,j;
+  int            nitem,color;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
-  double         *doublevalues,*rtosend,*rtorecv;
 
   comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   int_node_comm = parmesh->int_node_comm;
 
-  /* Allocate intvalues to accomodate xp and nr for each point, doublevalues to
-   * accomodate two edge vectors at most. */
+  /* Allocate intvalues to accomodate xp and nr for each point. */
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"intvalues",return 0);
-  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"doublevalues",return 0);
   intvalues    = int_node_comm->intvalues;
-  doublevalues = int_node_comm->doublevalues;
 
   /* Store source tetra for every boundary point */
   for( ip = 1; ip <= mesh->np; ip++ ) {
@@ -1804,13 +1785,11 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   }
 
-  /** First pass: Sum nb. of singularities, Store received edge vectors in
-   *  doublevalues if there is room for them.
+  /** First pass: Sum nb. of singularities,
    */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     itorecv = ext_node_comm->itorecv;
-    rtorecv = ext_node_comm->rtorecv;
 
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
@@ -1821,7 +1800,6 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       /* Increment nb. of singularities */
       intvalues[2*idx]   += itorecv[2*i];
       intvalues[2*idx+1] += itorecv[2*i+1];
-
     }
   }
 
@@ -1833,8 +1811,6 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
-    rtosend = ext_node_comm->rtosend;
-    rtorecv = ext_node_comm->rtorecv;
 
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
       idx  = ext_node_comm->int_comm_index[i];
@@ -1891,13 +1867,10 @@ int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
-  PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"doublevalues");
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
   }
 
   return 1;
@@ -2098,9 +2071,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   MPI_Comm       comm;
   MPI_Status     status;
   MMG5_pTria     pt;
-  MMG5_pPoint    ppt,p1;
+  MMG5_pPoint    ppt;
   double         ux,uy,uz,vx,vy,vz,dd;
-  int            list[MMG3D_LMAX+2],listref[MMG3D_LMAX+2],nc,xp,nr,ns0,ns1,nre;
+  int            nc,xp,nr,ns0,ns1,nre;
   int            ip,idx,iproc,k,i,j,d;
   int            nitem,color,tag;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
@@ -2267,7 +2240,6 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   /** Local singularity analysis */
   if( !PMMG_loopr( parmesh, var ) )
     return 0;
-
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -2452,14 +2424,13 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
-  MMG5_pTetra    pt;
   MMG5_pTria     ptr;
   int            *intvalues,*itorecv,*itosend;
   double         *doublevalues,*rtorecv,*rtosend;
   int            nitem,color,nt0,nt1;
   double         n1[3],n2[3],dhd;
-  int            *adja,k,kk,ne,nr,nm,j;
-  int            i,ii,i1,i2;
+  int            k,ne,nr,nm,j;
+  int            i,i1,i2;
   int            idx,edg,d;
   int16_t        tag;
   MPI_Comm       comm;
@@ -2702,6 +2673,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     }
   }
 
+#warning Luca: should we exchange tags on the edge communicator to update MG_PARBDYBDY?
 
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
     fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
@@ -2886,9 +2858,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
 
 
-  PMMG_pInt_comm int_edge_comm;
-  int_edge_comm = parmesh->int_edge_comm;
-  PMMG_MALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,"edge intvalues",return 0);
+  PMMG_MALLOC(parmesh,parmesh->int_edge_comm->intvalues,2*parmesh->int_edge_comm->nitem,int,"edge intvalues",return 0);
   if( !PMMG_set_edge_owners( parmesh,&hpar ) ) return 0;
 
   /* identify singularities on parallel points.
@@ -2897,14 +2867,18 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
     return 0;
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
     fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
     return 0;
   }
+  PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
+
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
 #warning Luca: check that parbdy are skipped
@@ -2927,7 +2901,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* define geometry for non manifold points */
   if ( !MMG3D_nmgeom(mesh) ) return 0;
-
 
 #ifdef USE_POINTMAP
   /* Initialize source point with input index */
