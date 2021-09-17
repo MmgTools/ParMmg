@@ -399,6 +399,14 @@ int PMMG_hashNorver_paredge2edge( MMG5_pMesh mesh,MMG5_HGeom *hash,
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ * \return 0 if fail, 1 if success.
+ *
+ * Local iterations of surface coloring to assign normal vectors on parallel
+ * ridge points.
+ */
 int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
   PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
   PMMG_pGrp      grp = &parmesh->listgrp[0];
@@ -432,12 +440,27 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
   return 1;
 }
 
+/**
+ * \param a pointer toward the first extremity label
+ * \param b pointer toward the second extremity label
+ * \return A positive integer if a > b, 0 if a == b, a negative integer if
+ * a < b.
+ *
+ * Compare the labels of ridge extremities (in order to sort them).
+ */
 int PMMG_hashNorver_compExt( const void *a,const void *b ) {
   return ( *(int*)a - *(int*)b );
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param mesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Communicate ridge extremities on parallel ridge points.
+ */
 int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
-  PMMG_pGrp      grp;
+  PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
   int            *itosend,*itorecv,*intvalues,*npshift,myshift;
@@ -446,7 +469,6 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );
-  grp = &parmesh->listgrp[0];
   assert( grp->mesh == mesh );
 
   comm = parmesh->comm;
@@ -541,6 +563,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     idx = grp->node2int_node_comm_index2[i];
 
+    /* Sort ridge extremities based on their labels */
     qsort( &intvalues[2*idx], 2, sizeof(int),PMMG_hashNorver_compExt );
   }
 
