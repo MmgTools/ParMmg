@@ -274,6 +274,23 @@ IF( BUILD_TESTING )
         SET_TESTS_PROPERTIES(DistribSphere_NOM-adp-${API_mode}-${NP}
           PROPERTIES DEPENDS DistribSphere_NOM-gen-${API_mode}-${NP})
 
+
+        ADD_TEST( NAME DistribTorus-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Torus/torusholes.mesh
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribTorus-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/torusholes-${API_mode}-${NP}-out.mesh
+          -v 6 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribTorus-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribTorus-gen-${API_mode}-${NP})
+
       ENDFOREACH()
     ENDFOREACH()
 
