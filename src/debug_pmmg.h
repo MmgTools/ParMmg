@@ -32,6 +32,7 @@ void PMMG_grplst_meshes_to_txt( char *name, PMMG_pGrp grp, int ngrp );
 void PMMG_tetras_of_mesh_to_txt( char *name, MMG5_pMesh mesh, int num );
 void PMMG_find_tetras_referencing_null_points_to_txt( char *name, PMMG_pGrp grp, int nmsh );
 void PMMG_listgrp_meshes_adja_of_tetras_to_txt( char *name, PMMG_pGrp grp, int ngrp );
+int PMMG_grp_to_saveEdges( PMMG_pParMesh parmesh,int grpId,int16_t tag,char *basename );
 int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename );
 int PMMG_listgrp_to_saveMesh( PMMG_pParMesh parmesh, char *basename );
 int PMMG_listgrp_quality_to_saveMesh( PMMG_pParMesh parmesh, char *basename );

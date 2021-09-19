@@ -17,13 +17,13 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 6710941eb761f90df5356715d1fe693f95666a4a
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
 
     set ( mesh_size 16384 )
-    set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -58,7 +58,7 @@ IF( BUILD_TESTING )
           ${CI_DIR}/Torus/torusholes.mesh
           -sol ${CI_DIR}/Torus/torusholes.sol
           -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
-          -mesh-size ${mesh_size} ${myargs} -nosurf )
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -78,7 +78,7 @@ IF( BUILD_TESTING )
     endforeach()
 
     # Option without arguments
-    foreach( OPTION "optim" "optimLES" "nosurf" "noinsert" "noswap"  )
+    foreach( OPTION "optim" "optimLES" "noinsert" "noswap"  )
       foreach( NP 1 6 8 )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -185,14 +185,14 @@ IF( BUILD_TESTING )
 
     add_test( NAME multidom_wave-8
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -distributed-output
+      -distributed-output -ar 89 -nobalance
       ${CI_DIR}/WaveSurface/wave.mesh
       -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -centralized-output
+      -centralized-output -ar 89
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
@@ -230,6 +230,69 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
       -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
+
+    ###############################################################################
+    #####
+    #####        Tests distributed surface adaptation
+    #####
+    ###############################################################################
+
+    # Run the test only if the mesh distribution has succeed
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 4 8 )
+
+        ADD_TEST( NAME DistribSurf-A319-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/A319_gmsh/A319_in_a_box.mesh
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSurf-A319-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSurf-A319-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 20 -hausd 5 -centralized-output
+          ${myargs} )
+
+        SET_TESTS_PROPERTIES(DistribSurf-A319-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSurf-A319-gen-${API_mode}-${NP})
+
+
+        ADD_TEST( NAME DistribSphere_NOM-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Sphere_NOM/sphere_nom.mesh
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSphere_NOM-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSphere_NOM-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 0.5 -hausd 2 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribSphere_NOM-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSphere_NOM-gen-${API_mode}-${NP})
+
+
+        ADD_TEST( NAME DistribTorus-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Torus/torusholes.mesh
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribTorus-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/torusholes-${API_mode}-${NP}-out.mesh
+          -v 6 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribTorus-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribTorus-gen-${API_mode}-${NP})
+
+      ENDFOREACH()
+    ENDFOREACH()
 
   ENDIF()
 
@@ -491,6 +554,33 @@ IF( BUILD_TESTING )
           PROPERTIES DEPENDS libparmmg_distributed_external_gen_mesh_API_${API_mode}-${NP})
       ENDFOREACH()
     ENDFOREACH()
+
+    # Distributed analysis
+    SET( test_name libparmmg_distributed_example1 )
+    ADD_LIBRARY_TEST ( ${test_name}
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/main.c
+      "copy_pmmg_headers" "${lib_name}" )
+
+    FOREACH( API_mode 0 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_example1_wave${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/wave
+          ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
+      ENDFOREACH()
+    ENDFOREACH()
+
+    FOREACH( API_mode 0 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_example1_brickLS${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/brickLS
+          ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
+      ENDFOREACH()
+    ENDFOREACH()
+
 
     #----------------- Tests using the library in the testparmmg repos
     IF ( NOT ONLY_LIBRARY_TESTS )
