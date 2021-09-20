@@ -4019,6 +4019,8 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   /* Set the metric size */
   if (hnsg[1] == 1)
     PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Scalar);
+  else if (hnsg[1] == 3 && mesh->info.lag != -1)
+    PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Vector);
   else if (hnsg[1] == 6)
     PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Tensor);
   else {
