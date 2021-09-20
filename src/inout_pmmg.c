@@ -1165,7 +1165,7 @@ static int PMMG_countEntities(PMMG_pParMesh parmesh, hsize_t *nentities, hsize_t
     }
   }
 
-  /* nentities array */
+  /* Gather the number of entities in the nentities array */
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Vertex]  = np;
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Edge]    = na;
   nentities[PMMG_NTYPENTITIES * rank + PMMG_IO_Tria]    = nt;
@@ -2525,6 +2525,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     /* Solutions */
     for (int i = 0 ; i < nsols ; i++) {
 
+      /* Ignore invalid solutions */
       if ( !sols[i] || !sols[i]->m ) continue;
 
       entities = sols[i]->entities;
@@ -2663,10 +2664,8 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   HDF_CHECK( H5Eset_auto(H5E_DEFAULT, NULL, NULL),
              goto free_and_return );
 
-  /* Pass MPI hints via the info struct */
+  /* TODO ? Pass MPI hints via the info struct */
   MPI_Info_create(&info);
-  /* Set the stripe_count to the maximum value. */
-  MPI_Info_set(info, "striping_factor", "-1");
 
   /* Create the property lists */
   fapl_id = H5Pcreate(H5P_FILE_ACCESS);
