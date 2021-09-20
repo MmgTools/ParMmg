@@ -2493,11 +2493,11 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
  *
  */
 static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
-  hsize_t neg, npg;
+  hsize_t   neg, npg;
   PMMG_pGrp grp;
   MMG5_pSol met, *sols;
-  int nsols, entities;
-  FILE *xdmf_file = NULL;
+  int       nsols, entities;
+  FILE      *xdmf_file = NULL;
 
   assert ( parmesh->ngrp == 1 );
 
@@ -3991,15 +3991,15 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
 static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dxpl_id,
                                 hsize_t *nentitiesl, hsize_t *offset) {
-  int np;
-  MMG5_pMesh mesh;
-  MMG5_pSol met;
+  int         np;
+  MMG5_pMesh  mesh;
+  MMG5_pSol   met;
   MMG5_pPoint ppt;
-  double *met_buf;
-  hsize_t met_offset[2] = {0, 0};
-  hsize_t hnsg[2] = {0, 0};
-  hid_t dspace_mem_id, dspace_file_id;
-  hid_t dset_id;
+  double      *met_buf;
+  hsize_t     met_offset[2] = {0, 0};
+  hsize_t     hnsg[2] = {0, 0};
+  hid_t       dspace_mem_id, dspace_file_id;
+  hid_t       dset_id;
 
   assert ( parmesh->ngrp == 1 );
 
@@ -4082,18 +4082,18 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
 #else
 
-  int ier = 1;
-  hsize_t *nentities, *nentitiesl, *nentitiesg;
-  hsize_t *offset;
-  int npartitions;
-  hid_t file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* Objects */
-  hid_t fapl_id, dxpl_id;                                                /* Property lists */
+  int      ier = 1;
+  hsize_t  *nentities, *nentitiesl, *nentitiesg;
+  hsize_t  *offset;
+  int      npartitions;
+  hid_t    file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* Objects */
+  hid_t    fapl_id, dxpl_id;                                                /* Property lists */
   MPI_Info info = MPI_INFO_NULL;
   MPI_Comm read_comm;
-  int rank, nprocs, mpi_color;
-  mytime ctim[TIMEMAX];
-  int8_t tim;
-  char   stim[32];
+  int      rank, nprocs, mpi_color;
+  mytime   ctim[TIMEMAX];
+  int8_t   tim;
+  char     stim[32];
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
