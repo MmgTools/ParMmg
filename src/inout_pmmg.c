@@ -1962,6 +1962,40 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
 
+  /* Print the number of mesh entities */
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    fprintf(stdout,"     NUMBER OF VERTICES       %lld   CORNERS %lld"
+            "   REQUIRED %lld\n",npg,ncg,npreqg);
+    fprintf(stdout,"     NUMBER OF TETRAHEDRA     %lld   REQUIRED  %lld\n",
+            neg,nereqg);
+    if ( nprismg )
+      fprintf(stdout,"     NUMBER OF PRISMS         %lld\n",nprismg);
+
+    if ( nag )
+      fprintf(stdout,"     NUMBER OF EDGES          %lld   RIDGES  %lld"
+              "   REQUIRED  %lld\n",nag,nrg,nedreqg);
+    if ( ntg )
+      fprintf(stdout,"     NUMBER OF TRIANGLES      %lld   REQUIRED  %lld\n",
+              ntg, ntreqg);
+    if ( nquadg )
+      fprintf(stdout,"     NUMBER OF QUADRILATERALS %lld   REQUIRED  %lld\n",
+              nquadg,nqreqg);
+
+    if ( npparg || nedparg || ntparg || neparg || nqparg ) {
+      fprintf(stdout,"     NUMBER OF PARALLEL ENTITIES: \n");
+      if ( npparg )
+        fprintf(stdout,"                  VERTICES       %lld \n",npparg);
+      if ( nedparg )
+        fprintf(stdout,"                  EDGES          %lld \n",nedparg);
+      if ( ntparg )
+        fprintf(stdout,"                  TRIANGLES      %lld \n",ntparg);
+      if ( nqparg )
+        fprintf(stdout,"                  QUADRILATERALS %lld \n",nqparg);
+      if ( neparg )
+        fprintf(stdout,"                  TETRAHEDRA    %lld \n",neparg);
+    }
+  }
+
   return 1;
 
  free_and_return:
@@ -3884,6 +3918,56 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       PMMG_DEL_MEM(parmesh, pref, int, "pref");
 
     }
+
+    /* Print the number of entities */
+    if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
+      fprintf(stdout,"     NUMBER OF VERTICES       %lld\n", npg);
+      fprintf(stdout,"     NUMBER OF TETRAHEDRA     %lld\n", neg);
+      if ( nprismg )
+        fprintf(stdout,"     NUMBER OF PRISMS         %lld\n",nprismg);
+
+      if ( nag ) {
+        fprintf(stdout,"     NUMBER OF EDGES          %lld\n",nag);
+        if ( nrg )
+          fprintf(stdout,"     NUMBER OF RIDGES         %lld\n",nrg);
+      }
+      if ( ntg )
+        fprintf(stdout,"     NUMBER OF TRIANGLES      %lld\n",ntg);
+      if ( nquadg )
+        fprintf(stdout,"     NUMBER OF QUADRILATERALS %lld\n",nquadg);
+
+
+      if ( npreqg || nedreqg || ntreqg || nereqg || nqreqg ) {
+        fprintf(stdout,"     NUMBER OF REQUIRED ENTITIES: \n");
+        if ( npreqg )
+          fprintf(stdout,"                  VERTICES       %lld \n",npreqg);
+        if ( nedreqg )
+          fprintf(stdout,"                  EDGES          %lld \n",nedreqg);
+        if ( ntreqg )
+          fprintf(stdout,"                  TRIANGLES      %lld \n",ntreqg);
+        if ( nqreqg )
+          fprintf(stdout,"                  QUADRILATERALS %lld \n",nqreqg);
+        if ( nereqg )
+          fprintf(stdout,"                  TETRAHEDRA    %lld \n",nereqg);
+      }
+      if( ncg )
+        fprintf(stdout,"     NUMBER OF CORNERS        %lld \n",ncg);
+
+      if ( npparg || nedparg || ntparg || neparg || nqparg ) {
+        fprintf(stdout,"     NUMBER OF PARALLEL ENTITIES: \n");
+        if ( npparg )
+          fprintf(stdout,"                  VERTICES       %lld \n",npparg);
+        if ( nedparg )
+          fprintf(stdout,"                  EDGES          %lld \n",nedparg);
+        if ( neparg )
+          fprintf(stdout,"                  TRIANGLES      %lld \n",ntparg);
+        if ( nqparg )
+          fprintf(stdout,"                  QUADRILATERALS %lld \n",nqparg);
+        if ( neparg )
+          fprintf(stdout,"                  TETRAHEDRA     %lld \n",neparg);
+      }
+    }
+
   }
 
   if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "load_entities");
@@ -4296,13 +4380,13 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   return 1;
 
  free_and_return:
+  H5Fclose(file_id);
+  H5Pclose(fapl_id);
+  H5Pclose(dxpl_id);
   PMMG_DEL_MEM(parmesh, nentities, hsize_t, "nentities");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
-  H5Fclose(file_id);
-  H5Pclose(fapl_id);
-  H5Pclose(dxpl_id);
   return 0;
 
 #endif
