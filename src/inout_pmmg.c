@@ -2002,7 +2002,6 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
   int            **idx_loc, **idx_glob, *loc_buf, *glob_buf;
   int            ier;
   int            rank, nprocs;
-  hid_t          attr_id;
   hid_t          dspace_mem_id, dspace_file_id;
   hid_t          dset_id;
 
