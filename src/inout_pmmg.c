@@ -3284,7 +3284,7 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   int    *pnorat, *ptanat; /* Normals and Tangents at vertices */
   double *pnor, *ptan;     /* Normals and Tangents */
 
-  /* Flag to remember if the save_entities was NULL or not */
+  /* Flag to remember if the save_entities array was NULL or not */
   int nullf = 0;
 
   /* HDF5 variables */
@@ -4360,7 +4360,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   /* Very ugly : if the rank is above the number of partitions of the input mesh,
      allocate an internal communicator of opposite type of API_mode. This is necessary
      because all those processes wont enter the PMMG_preprocessMesh_distributed function.
-     Also set ngrp to 0 for loadBalancing to work. */
+     Also set ngrp to 0 for loadBalancing to work properly. */
   if ( rank >= parmesh->info.npartin ) {
     parmesh->ngrp = 0;
     if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
