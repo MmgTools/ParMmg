@@ -1474,42 +1474,41 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
     for (int i = 0 ; i < mesh->np ; i++) {
       ppt = &mesh->point[i + 1];
-      if (MG_VOK(ppt)) {
-        for (int j = 0 ; j < 3 ; j++) {
-          ppoint[3 * (ppt->tmp - 1) + j] = ppt->c[j];
-        }
-        if (save_entities[PMMG_IO_Corner] && (ppt->tag & MG_CRN)) {
-          pcr[crcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
-        }
-        if (save_entities[PMMG_IO_Req] && (ppt->tag & MG_REQ)) {
-          preq[reqcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
-        }
-        if (save_entities[PMMG_IO_Par] && (ppt->tag & MG_PARBDY)) {
-          ppar[parcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
-        }
-        if (!MG_SIN(ppt->tag)) {
-          /* Normals */
-          if (save_entities[PMMG_IO_Normal]) {
-            if ((ppt->tag & MG_BDY) && (!(ppt->tag & MG_GEO) || (ppt->tag & MG_NOM))) {
-              pxp = &mesh->xpoint[ppt->xp];
-              for (int j = 0 ; j < 3 ; j++) {
-                pnor[3 * ncount + j] = pxp->n1[j];
-              }
-              pnorat[ncount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
-            }
-          }
-          /* Tangents */
-          if (save_entities[PMMG_IO_Tangent]) {
-            if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) {
-              for (int j = 0 ; j < 3 ; j++) {
-                ptan[3 * tcount + j] = ppt->n[j];
-              }
-              ptanat[tcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
-            }
-          }
-        }
-        pref[ppt->tmp - 1] = abs(ppt->ref);
+      if (!MG_VOK(ppt))  continue;
+      for (int j = 0 ; j < 3 ; j++) {
+        ppoint[3 * (ppt->tmp - 1) + j] = ppt->c[j];
       }
+      if (save_entities[PMMG_IO_Corner] && (ppt->tag & MG_CRN)) {
+        pcr[crcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
+      }
+      if (save_entities[PMMG_IO_Req] && (ppt->tag & MG_REQ)) {
+        preq[reqcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
+      }
+      if (save_entities[PMMG_IO_Par] && (ppt->tag & MG_PARBDY)) {
+        ppar[parcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
+      }
+      if (!MG_SIN(ppt->tag)) {
+        /* Normals */
+        if (save_entities[PMMG_IO_Normal]) {
+          if ((ppt->tag & MG_BDY) && (!(ppt->tag & MG_GEO) || (ppt->tag & MG_NOM))) {
+            pxp = &mesh->xpoint[ppt->xp];
+            for (int j = 0 ; j < 3 ; j++) {
+              pnor[3 * ncount + j] = pxp->n1[j];
+            }
+            pnorat[ncount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
+          }
+        }
+        /* Tangents */
+        if (save_entities[PMMG_IO_Tangent]) {
+          if (MG_EDG(ppt->tag) || (ppt->tag & MG_NOM)) {
+            for (int j = 0 ; j < 3 ; j++) {
+              ptan[3 * tcount + j] = ppt->n[j];
+            }
+            ptanat[tcount++] = ppt->tmp + offset[2 * PMMG_IO_Vertex] - 1;
+          }
+        }
+      }
+      pref[ppt->tmp - 1] = abs(ppt->ref);
     }
 
     dspace_mem_id  = H5Screate_simple(2, hnp, NULL);
@@ -1867,10 +1866,9 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
       ne = 0;
       for (int i = 0 ; i < mesh->ne ; i++) {
         pe = &mesh->tetra[i + 1];
-        if (MG_EOK(pe)) {
-          for (int j = 0 ; j < 4 ; j++) {
-            pent[4 * ne + j] = mesh->point[pe->v[j]].tmp + offset[2 * PMMG_IO_Vertex] - 1;
-          }
+        if (!MG_EOK(pe)) continue;
+        for (int j = 0 ; j < 4 ; j++) {
+          pent[4 * ne + j] = mesh->point[pe->v[j]].tmp + offset[2 * PMMG_IO_Vertex] - 1;
         }
         pref[i] = pe->ref;
         if (save_entities[PMMG_IO_TetReq] && (pe->tag & MG_REQ))    preq[reqcount++] = ne + offset[2 * PMMG_IO_Tetra];
