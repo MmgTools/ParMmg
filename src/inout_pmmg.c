@@ -2287,16 +2287,16 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
 
   if (!isMet) {
     if (parmesh->myrank == parmesh->info.root) {
-      fprintf(stderr, "\n  ## Warning: %s: No metric data to save \n", __func__);
+      fprintf(stderr, "\n  ## Warning: %s: No metric data to save. \n", __func__);
     }
     return 1;
   }
-  if (met->size != 1 && met->size != 6) {
-    fprintf(stderr, "\n  ## Error: %s: Wrong metric size\n", __func__);
+  if (met->size != 1 && met->size != 6 && !(met->size == 3 && mesh->info.lag != -1)) {
+    fprintf(stderr, "\n  ## Error: %s: Wrong metric size/type.\n", __func__);
     return 0;
   }
   if (mesh->np != met->np) {
-    fprintf(stderr, "\n  ## Error: %s: The metric vertices do not match with the mesh vertices \n", __func__);
+    fprintf(stderr, "\n  ## Error: %s: The metric vertices do not match with the mesh vertices. \n", __func__);
     return 0;
   }
 
