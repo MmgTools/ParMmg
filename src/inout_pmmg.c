@@ -4054,10 +4054,22 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
     }
   }
 
+  /* Print the metric stats */
+  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
+    if ( met->size == 1 )
+      fprintf(stdout,"     NUMBER OF SCALAR VALUES %8d\n",met->np);
+    else if ( met->size == 3 )
+      fprintf(stdout,"     NUMBER OF VECTOR VALUES %8d\n",met->np);
+    else
+      fprintf(stdout,"     NUMBER OF TENSOR VALUES %8d\n",met->np);
+  }
+
   return 1;
 }
 
 static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
+
+
   return 1;
 }
 
