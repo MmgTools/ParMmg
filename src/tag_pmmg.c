@@ -422,12 +422,17 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
         pt->xt = 0;
         continue;
       }
-      /* get edge tags */
+      /* update edge tags */
       for ( j=0; j<6; j++ ) {
         ip0 = pt->v[MMG5_iare[j][0]];
         ip1 = pt->v[MMG5_iare[j][1]];
-        /* Add the tag stored in the hash table to the xtetra edge */
+        /* get the tag stored in the hash table to the xtetra edge */
         if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+        /* the hash table should only contain boundary/parallel related tags,
+         * so remove the MG_NOSURF tag if the edge is truly required */
+        if( pxt->tag[j] & MG_REQ )
+          gettag &= ~MG_NOSURF;
+        /* set edge tag */
         pxt->tag[j] |= gettag;
       }
     }
