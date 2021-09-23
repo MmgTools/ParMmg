@@ -1738,7 +1738,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   }
 
   /* Triangles */
-  if (save_entities[PMMG_IO_Tria] && nt) {
+  if (save_entities[PMMG_IO_Tria] && ntg) {
 
     PMMG_MALLOC(parmesh, pent, 3 * nt, int, "pent", goto free_and_return);
     PMMG_MALLOC(parmesh, pref, nt, int, "pref", goto free_and_return);
