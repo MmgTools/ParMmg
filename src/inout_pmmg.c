@@ -2712,7 +2712,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
             __func__);
     ier = 0;
   }
-  if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
+  if (save_entities && (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra])) {
     fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least save the vertices and the tetra.\n",
             __func__);
     ier = 0;
