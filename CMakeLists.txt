@@ -458,75 +458,6 @@ ELSE ( )
 
 ENDIF ( )
 
-# ############################################################################
-# #####
-# #####        HDF5
-# #####
-# ############################################################################
-# OPTION ( DOWNLOAD_HDF5 "Download and build automatically Hdf5." OFF )
-
-# IF ( DOWNLOAD_HDF5 )
-#   UNSET ( HDF5_DIR CACHE )
-
-#   # HDF5
-#   EXTERNALPROJECT_ADD ( HDF5
-#     GIT_REPOSITORY https://github.com/HDFGroup/hdf5.git
-#     GIT_TAG db30c2da68ece4a155e9e50c28ec16d6057509b2
-#     UPDATE_COMMAND ""
-#     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=. -DHDF5_ENABLE_PARALLEL=ON
-#     -DHDF5_BUILD_CPP_LIB=OFF -DHDF5_BUILD_JAVA=OFF -DHDF5_BUILD_FORTRAN=OFF
-#     BUILD_COMMAND unset MFLAGS && unset MAKEFLAGS && unset MAKELEVEL && ${CMAKE_MAKE_PROGRAM}
-#     INSTALL_COMMAND unset MFLAGS && unset MAKEFLAGS && unset MAKELEVEL && ${CMAKE_MAKE_PROGRAM} install
-#     )
-
-#   EXTERNALPROJECT_GET_PROPERTY(HDF5 SOURCE_DIR)
-#   SET ( HDF5_INSTALL_DIR ${SOURCE_DIR}/../HDF5-build)
-
-#   INCLUDE_DIRECTORIES(${HDF5_INSTALL_DIR}/include)
-#   SET ( HDF5_LIBRARIES ${HDF5_INSTALL_DIR}/lib/libhdf5.a )
-
-#   SET(CMAKE_C_FLAGS "-DUSE_HDF5 ${CMAKE_C_FLAGS}")
-
-#   MESSAGE(STATUS
-#     "Compilation with HDF5: ${HDF5_LIBRARIES}")
-#   SET( LIBRARIES ${HDF5_LIBRARIES} ${LIBRARIES})
-
-# ELSE ( )
-#   # add HDF5 library?
-#   SET(HDF5_DIR "" CACHE PATH "Installation directory for HDF5")
-
-#   SET(HDF5_PREFER_PARALLEL TRUE)
-
-#   FIND_PACKAGE(HDF5)
-
-#   IF( HDF5_FOUND)
-#     OPTION ( USE_HDF5 "Detected HDF5 Tool" ON)
-#     IF( USE_HDF5 )
-#       # Set flags for building test program
-#       INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
-
-#       SET(CMAKE_C_FLAGS "-DUSE_HDF5 ${CMAKE_C_FLAGS}")
-
-#       MESSAGE(STATUS
-#         "Compilation with hdf5: ${HDF5_LIBRARIES}")
-#       SET( LIBRARIES ${HDF5_LIBRARIES} ${LIBRARIES})
-
-#       IF (NOT ${HDF5_IS_PARALLEL})
-#         MESSAGE ( ERROR " HDF5 parallel library not found: "
-#           "Please enable parallel support for HDF5.")
-#       ENDIF ( )
-#     ENDIF ( )
-#   ELSE ( )
-#     MESSAGE(STATUS ${HDF5_INCLUDE_DIR} ${HDF5_LIBRARIES} )
-
-#     MESSAGE ( ERROR " HDF5 library not found: "
-#       "If you have already installed HDF5 and want to use it, "
-#       "please set the CMake variable or environment variable HDF5_DIR "
-#       "to your hdf5 directory.")
-#   ENDIF ( )
-
-# ENDIF ( )
-
 ############################################################################
 #####
 #####        ParMetis
@@ -634,10 +565,6 @@ IF ( LIBPARMMG_STATIC )
     Add_Dependencies(lib${PROJECT_NAME}_a Metis)
   ENDIF ( )
 
-  # IF ( DOWNLOAD_HDF5 )
-    # Add_Dependencies(lib${PROJECT_NAME}_a HDF5)
-  # ENDIF ( )
-
 ENDIF()
 
 # Compile shared library
@@ -652,10 +579,6 @@ IF ( LIBPARMMG_SHARED )
   IF ( DOWNLOAD_METIS )
     Add_Dependencies(lib${PROJECT_NAME}_so Metis)
   ENDIF ( )
-
-  # IF ( DOWNLOAD_HDF5 )
-    # Add_Dependencies(lib${PROJECT_NAME}_so HDF5)
-  # ENDIF ( )
 
 ENDIF()
 
@@ -708,10 +631,6 @@ ENDIF ( )
 IF ( DOWNLOAD_METIS )
   Add_Dependencies(parmmg Metis)
 ENDIF ( )
-
-# IF ( DOWNLOAD_HDF5 )
-  # Add_Dependencies(parmmg HDF5)
-# ENDIF ( )
 
 ############################################################################
 #####
