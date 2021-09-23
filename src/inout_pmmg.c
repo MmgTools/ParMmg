@@ -1340,9 +1340,6 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   /* Counters for the corners/ridges, the required and parallel entities, the normals and the tangents */
   int crcount, reqcount, parcount, ncount, tcount;
 
-  /* Flag to remember if the save_entities was NULL or not */
-  int nullf = 0;
-
   /* MPI variables */
   hsize_t rank, root;
   hsize_t nprocs;
@@ -1378,13 +1375,6 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   pq = NULL;
   pe = NULL;
   pp = NULL;
-
-  /* Check the save_entities argument */
-  if (save_entities == NULL) {
-    nullf = 1;
-    PMMG_CALLOC(parmesh, save_entities, PMMG_NTYPENTITIES, int, "save_entities", return 0);
-    PMMG_Set_defaultIOEntities_hdf5(save_entities);
-  }
 
   /* Get the number of entities */
   np     = nentitiesl[PMMG_IO_Vertex];
@@ -2042,8 +2032,6 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
     PMMG_DEL_MEM(parmesh, pref, int, "pref");
   }
 
-  if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
-
   /* Print the number of mesh entities */
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     fprintf(stdout,"     NUMBER OF VERTICES       %lld   CORNERS %lld"
@@ -2692,6 +2680,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 #else
 
   int        ier = 1;
+  int        nullf = 0; /* Flag to remember if save_entities was NULL */
   hsize_t    *nentities, *nentitiesl, *nentitiesg; /* Number of entities (on each proc/on the current proc/global) */
   hsize_t    *offset;                              /* Offset for the parallel writing with HDF5 */
   hid_t      file_id, grp_mesh_id, grp_part_id, grp_entities_id, grp_sols_id; /* HDF5 objects */
@@ -2712,8 +2701,11 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
             __func__);
     ier = 0;
   }
-  if (!save_entities) {
-    PMMG_MALLOC(parmesh, save_entities, PMMG_NTYPENTITIES, int, "save_entities", ier = 0);
+
+  /* Check the save_entities argument */
+  if (save_entities == NULL) {
+    nullf = 1;
+    PMMG_MALLOC(parmesh, save_entities, PMMG_NTYPENTITIES, int, "save_entities", return 0);
     PMMG_Set_defaultIOEntities_hdf5(save_entities);
   }
   if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
@@ -2897,6 +2889,9 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 
   /* Close the mesh group */
   H5Gclose(grp_mesh_id);
+
+  /* Deallocate the save_entities array if it was allocated in this function */
+  if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
 
   /** Write the metric and the solutions */
   tim = 5;
