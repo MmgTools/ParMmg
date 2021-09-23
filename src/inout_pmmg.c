@@ -2079,7 +2079,7 @@ static int PMMG_saveMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   PMMG_DEL_MEM(parmesh, pnorat, int, "pnorat");
   PMMG_DEL_MEM(parmesh, ptan, double, "ptan");
   PMMG_DEL_MEM(parmesh, ptanat, int, "ptanat");
-  if (nullf) PMMG_DEL_MEM(parmesh, save_entities, int, "save_entities");
+
   return 0;
 
 }
@@ -3367,9 +3367,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   int    *pnorat, *ptanat; /* Normals and Tangents at vertices */
   double *pnor, *ptan;     /* Normals and Tangents */
 
-  /* Flag to remember if the save_entities array was NULL or not */
-  int nullf = 0;
-
   /* HDF5 variables */
   hid_t dspace_mem_id, dspace_file_id;
   hid_t dset_id;
@@ -3394,13 +3391,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   pq = NULL;
   pe = NULL;
   pp = NULL;
-
-  /* Check the load_entities argument */
-  if (load_entities == NULL) {
-    nullf = 1;
-    PMMG_CALLOC(parmesh, load_entities, PMMG_NTYPENTITIES, int, "load_entities", return 0);
-    PMMG_Set_defaultIOEntities_hdf5(load_entities);
-  }
 
   if (parmesh->myrank < parmesh->info.npartin) {
 
@@ -4051,8 +4041,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
   }
 
-  if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "load_entities");
-
   return 1;
 
  free_and_return:
@@ -4066,7 +4054,6 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
   PMMG_DEL_MEM(parmesh, pnorat, int, "pnorat");
   PMMG_DEL_MEM(parmesh, ptan, double, "ptan");
   PMMG_DEL_MEM(parmesh, ptanat, int, "ptanat");
-  if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "save_entities");
 
   return 0;
 
@@ -4166,6 +4153,7 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 #else
 
   int      ier = 1;
+  int      nullf = 0; /* Flag to remember if load_entities was NULL or not */
   hsize_t  *nentities, *nentitiesl, *nentitiesg;
   hsize_t  *offset;
   int      npartitions;
@@ -4188,6 +4176,13 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
     fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
             __func__);
     return 0;
+  }
+
+  /* Check the load_entities argument */
+  if (load_entities == NULL) {
+    nullf = 1;
+    PMMG_MALLOC(parmesh, load_entities, PMMG_NTYPENTITIES, int, "load_entities", ier = 0);
+    PMMG_Set_defaultIOEntities_hdf5(load_entities);
   }
   if (!load_entities[PMMG_IO_Vertex] || !load_entities[PMMG_IO_Tetra]) {
     fprintf(stderr, "\n  ## Error: %s: load_entities: you must at least load the vertices and the tetra.\n",
@@ -4389,6 +4384,9 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
 
   /* Close the mesh group */
   H5Gclose(grp_mesh_id);
+
+  /* Deallocate the load_entities array if it was allocated in this function */
+  if (nullf) PMMG_DEL_MEM(parmesh, load_entities, int, "load_entities");
 
   /** Load the metric and the solutions */
   tim = 4;
