@@ -123,7 +123,7 @@ int main(int argc,char *argv[]) {
   /** remesh step */
 
   /* Set the number of remeshing iterations */
-  niter = 1;
+  niter = 3;
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
@@ -139,6 +139,26 @@ int main(int argc,char *argv[]) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
+
+  if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_numberOfLocalParam, 2 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  if( !PMMG_Set_localParameter( parmesh, NULL, MMG5_Triangle, 4,
+                                0.01, 0.5, 0.1 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+  if( !PMMG_Set_localParameter( parmesh, NULL, MMG5_Triangle, 5,
+                                3.0, 5.0, 1.0 ) ) {
+    MPI_Finalize();
+    exit(EXIT_FAILURE);
+  };
+
+
+
 
   if( !PMMG_Set_dparameter( parmesh, PMMG_DPARAM_hsiz, 1.0 ) ) {
     MPI_Finalize();

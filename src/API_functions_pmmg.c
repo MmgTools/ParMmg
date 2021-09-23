@@ -823,6 +823,13 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
   return 1;
 }
 
+int PMMG_Set_localParameter(PMMG_pParMesh parmesh,MMG5_pSol sol, int typ, int ref,
+                             double hmin,double hmax,double hausd){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_localParameter(parmesh->listgrp[0].mesh, sol, typ, ref,
+                                  hmin, hmax, hausd));
+}
+
 int PMMG_Set_vertex(PMMG_pParMesh parmesh, double c0, double c1, double c2,
                     int ref, int pos){
   assert ( parmesh->ngrp == 1 );
