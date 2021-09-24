@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 6710941eb761f90df5356715d1fe693f95666a4a
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 31a48498a537edc64149da013748b0b0aa498554
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
@@ -196,7 +196,16 @@ IF( BUILD_TESTING )
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
       ${myargs}
       )
+
     set_tests_properties(multidom_wave-8-rerun PROPERTIES DEPENDS multidom_wave-8 )
+
+    add_test( NAME multidom_wave-8-distrib_parRidge
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -centralized-output -ar 89
+      ${CI_DIR}/WaveSurface_distrib/multidom-wave-distrib.o.mesh
+      -out ${CI_DIR_RESULTS}/multidom-wave-distrib_parRidge-out.mesh
+      ${myargs}
+      )
 
     ###############################################################################
     #####
