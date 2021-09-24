@@ -35,6 +35,40 @@
 #include "parmmg.h"
 
 /**
+ * \param ppt pointer toward the point structure
+ *
+ * Reset the point field temporary used for storing the corresponding position
+ * in the internal communicator.
+ */
+static inline
+void PMMG_point2int_comm_index_reset( MMG5_pPoint ppt ) {
+  ppt->tmp = PMMG_UNSET;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ * \param idx position in the internal node communicator
+ *
+ * Set the point field to temporarily store the corresponding position in the
+ * internal communicator.
+ */
+static inline
+void PMMG_point2int_comm_index_set( MMG5_pPoint ppt, int idx ) {
+  ppt->tmp = idx;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ *
+ * Get the position in the internal communicator from the corrisponding point
+ * field temporarily storing it.
+ */
+static inline
+int PMMG_point2int_comm_index_get( MMG5_pPoint ppt ) {
+  return ppt->tmp;
+}
+
+/**
  * Structure for all variables in the scope of the triple nested loop of
  * \fn PMMG_hashNorver_loop.
  */
@@ -273,7 +307,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   doublevalues = parmesh->int_node_comm->doublevalues;
   intvalues    = parmesh->int_node_comm->intvalues;
 
-  idx = var->ppt->tmp;
+  idx = PMMG_point2int_comm_index_get( var->ppt );
   assert( idx >= 0 );
 
   assert( var->ip == var->pt->v[MMG5_idir[var->ifac][var->iloc]] );
@@ -345,7 +379,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get internal communicator index */
-  idx = var->ppt->tmp;
+  idx = PMMG_point2int_comm_index_get( var->ppt );
 
   ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
   ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
@@ -956,7 +990,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
      * PMMG_hashNorver_xp_init()) */
     if( var->ppt->flag ) {
 
-      idx = var->ppt->tmp;
+      idx = PMMG_point2int_comm_index_get( var->ppt );
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Compute tangent (as in MMG3D_boulenm) */
@@ -1024,11 +1058,11 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   /* Unload communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
+    idx = PMMG_point2int_comm_index_get( var->ppt );
 
     /* Loop on parallel, non-corner points (check for valid index before
      * accessing the internal communicator, not allocated on 1 proc) */
-    if( var->ppt->tmp != PMMG_UNSET ) {
-      idx = var->ppt->tmp;
+    if( idx != PMMG_UNSET ) {
       if( intvalues[idx] ) {
 
         /* Create xpoint if needed */
@@ -1061,11 +1095,11 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   /* Normalize vectors */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
+    idx = PMMG_point2int_comm_index_get( var->ppt );
 
     /* Loop on parallel, non-corner points (check for valid index before
      * accessing the internal communicator, not allocated on 1 proc) */
-    if( var->ppt->tmp != PMMG_UNSET ) {
-      idx = var->ppt->tmp;
+    if( idx != PMMG_UNSET ) {
       if( intvalues[idx] ) {
         pxp = &var->mesh->xpoint[var->ppt->xp];
 
@@ -1339,13 +1373,13 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
-    ppt->tmp = PMMG_UNSET;
+    PMMG_point2int_comm_index_reset( ppt );
   }
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tmp = idx;
+    PMMG_point2int_comm_index_set( ppt,idx );
   }
 
   /* Create xpoints */
@@ -2230,7 +2264,8 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
  *
  * \remark Analogous to MMG5_bouler, but without using ball travel.
  * It assumes intvalues is allocated with size 2*nitem and that idx is stored in
- * ppt->tmp.
+ * a field of ppt accessible with the functions
+ * PMMG_point2int_comm_index_reset/set/get.
  */
 int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_hgeom  *ph;
@@ -2267,7 +2302,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
       ppt[0] = &var->mesh->point[ip[j]];
       ppt[1] = &var->mesh->point[ip[(j+1)%2]];
       /* Get internal communicator index and current number of singularities */
-      idx = ppt[0]->tmp;
+      idx = PMMG_point2int_comm_index_get( ppt[0] );
       ns0 = intvalues[2*idx]+intvalues[2*idx+1];
       /* Analyze parallel point only */
       if( ppt[0]->tag & MG_PARBDY ) {
@@ -2327,13 +2362,13 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
-    ppt->tmp = PMMG_UNSET;
+    PMMG_point2int_comm_index_reset( ppt );
   }
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tmp = idx;
+    PMMG_point2int_comm_index_set( ppt,idx );
   }
 
 
