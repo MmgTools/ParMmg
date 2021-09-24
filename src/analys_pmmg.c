@@ -2224,8 +2224,14 @@ int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip
   return ns;
 }
 
-/* assumes intvalues is allocated with size 2*nitem and that idx is stored in
- * ppt->tmp */
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
+ *
+ * \remark Analogous to MMG5_bouler, but without using ball travel.
+ * It assumes intvalues is allocated with size 2*nitem and that idx is stored in
+ * ppt->tmp.
+ */
 int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_hgeom  *ph;
   MMG5_pPoint ppt[2];
@@ -2285,6 +2291,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
+ * \param var pointer toward the structure for local loop variables
  *
  * Check for singularities.
  * \remark Modeled after the MMG5_singul function.
@@ -2329,26 +2336,6 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     ppt->tmp = idx;
   }
 
-  /* Store source triangle for every boundary point */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    if( !MG_VOK(ppt) || !(ppt->tag & MG_PARBDY ) ) continue;
-    ppt->flag = 0;
-    ppt->s = 0;
-  }
-  for( k = 1; k <= mesh->nt; k++ ) {
-    pt = &mesh->tria[k];
-    /* give a valid source triangle (not a PARBDY where no adjacency is
-     * provided) */
-    tag = pt->tag[0] & pt->tag[1] & pt->tag[2];
-    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )  continue;
-    for( i = 0; i < 3; i++ ) {
-      ppt = &mesh->point[pt->v[i]];
-      if( ppt->flag ) continue;
-      ppt->s = 3*k+i;
-      ppt->flag++;
-    }
-  }
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
