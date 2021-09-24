@@ -37,12 +37,22 @@
 /**
  * \param ppt pointer toward the point structure
  *
+ * Faster version of PMMG_Get_vertexGloNum.
+ */
+static inline
+int PMMG_Get_vertexGloNum_fast( MMG5_pPoint ppt ) {
+  return ppt->tmp;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ *
  * Reset the point field temporary used for storing the corresponding position
  * in the internal communicator.
  */
 static inline
 void PMMG_point2int_comm_index_reset( MMG5_pPoint ppt ) {
-  ppt->tmp = PMMG_UNSET;
+  ppt->s = PMMG_UNSET;
 }
 
 /**
@@ -54,7 +64,7 @@ void PMMG_point2int_comm_index_reset( MMG5_pPoint ppt ) {
  */
 static inline
 void PMMG_point2int_comm_index_set( MMG5_pPoint ppt, int idx ) {
-  ppt->tmp = idx;
+  ppt->s = idx;
 }
 
 /**
@@ -65,7 +75,7 @@ void PMMG_point2int_comm_index_set( MMG5_pPoint ppt, int idx ) {
  */
 static inline
 int PMMG_point2int_comm_index_get( MMG5_pPoint ppt ) {
-  return ppt->tmp;
+  return ppt->s;
 }
 
 /**
@@ -299,7 +309,7 @@ static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
   double *doublevalues;
-  int    ia[2],ip[2];
+  int    ia[2],ip[2],gip;
   int    *intvalues,idx,d,edg,j,pos;
   int16_t tag;
   int8_t  found;
@@ -325,6 +335,9 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     /* Get edge tag */
     tag = var->pxt->tag[ia[j]];
 
+    /* Get global index of the edge extremity */
+    gip = PMMG_Get_vertexGloNum_fast( ppt[j] );
+
     /* Try to store an edge extremity */
     if( MG_EDG(tag) ) {
       /* Internal edge or parallel owned edge */
@@ -336,7 +349,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         pos = 0;
         found = 0;
         while( pos < 2 && intvalues[2*idx+pos] && !found ) {
-          if( intvalues[2*idx+pos] == ip[j] )
+          if( intvalues[2*idx+pos] == gip )
             found++;
           pos++;
         }
@@ -344,7 +357,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         if( pos == 2 ) assert(found);
         if( !found ) {
           assert( pos < 2 );
-          intvalues[2*idx+pos] = ip[j];
+          intvalues[2*idx+pos] = gip;
           for( d = 0; d < 3; d++ )
             doublevalues[6*idx+3*pos+d] = ppt[j]->c[d];
         }
@@ -391,7 +404,8 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
    * extremity could be visible only on the current partition. */
   for( j = 0; j < 2; j++ ) {
     tag = var->pxt->tag[ia[j]];
-    if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] ){
+    if( PMMG_Get_vertexGloNum_fast( &var->mesh->point[ip[j]] ) ==
+        parmesh->int_node_comm->intvalues[2*idx] ){
       if( !PMMG_hTagOri( var->hash,
                          var->ip,ip[j], /* pair (ip,np+ip[j]) */
                          (int)tag,      /* still the same tag */
@@ -625,7 +639,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
-  int            *itosend,*itorecv,*intvalues,*npshift,myshift;
+  int            *itosend,*itorecv,*intvalues;
   int            k,nitem,color,i,idx,j,pos,d;
   MPI_Comm       comm;
   MPI_Status     status;
@@ -636,16 +650,6 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   comm = parmesh->comm;
   intvalues = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
-
-  /* Compute nodes global offset */
-  PMMG_CALLOC(parmesh,npshift,parmesh->nprocs+1,int,"npshift", return 0);
-  MPI_CHECK( MPI_Allgather(&mesh->np,1,MPI_INT,&npshift[1],1,MPI_INT,comm),
-             return 0 );
-
-  for( k = 1; k <= parmesh->nprocs; ++k )
-    npshift[k] += npshift[k-1];
-  myshift = npshift[parmesh->myrank];
-  PMMG_DEL_MEM(parmesh,npshift,int,"npshift");
 
 
   /** Exchange values on the interfaces among procs */
@@ -673,7 +677,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       /* only send positive entries */
       for( j = 0; j < 2; j++ ) {
         if( intvalues[2*idx+j] ) {
-          itosend[2*i+j] = intvalues[2*idx+j]+myshift;
+          itosend[2*i+j] = intvalues[2*idx+j];
           for( d = 0; d < 3; d++ )
             rtosend[6*i+3*j+d] = doublevalues[6*idx+3*j+d];
         }
@@ -710,7 +714,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       j = 0;
       while( j < 2 && itorecv[2*i+j] ) {
         assert( pos < 2 );
-        intvalues[2*idx+pos] = itorecv[2*i+j]-myshift;
+        intvalues[2*idx+pos] = itorecv[2*i+j];
         for( d = 0; d < 3; d++ ) {
           doublevalues[6*idx+3*pos+d] = rtorecv[6*i+3*j+d];
         }
@@ -1360,6 +1364,10 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   assert( parmesh->ngrp == 1 );
   assert( mesh = grp->mesh );
 
+  /* Compute global node numbering and store it in ppt->src */
+  if( !PMMG_Compute_verticesGloNum( parmesh ) ) return 0;
+
+  /* Allocate communicators */
   int_node_comm = parmesh->int_node_comm;
   int_edge_comm = parmesh->int_edge_comm;
 
