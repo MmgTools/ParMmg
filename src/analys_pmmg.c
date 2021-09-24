@@ -900,7 +900,7 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
  */
 int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
-  int d;
+  int d,color;
 
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
@@ -910,8 +910,11 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_norface(var->mesh,var->ie,var->ifac,var->n);
 
   /* Accumulate normal contribution on the correct vector, depending on the
-   * surface color */
-  if( var->pt->mark & PMMG_hashNorver_color(var->ifac,var->iloc) )
+   * surface color.
+   * When debugging surface colors, here you can print/watch the color of every
+   * face touching point var->ip. */
+  color = PMMG_hashNorver_color(var->ifac,var->iloc);
+  if( var->pt->mark & color )
     for( d = 0; d < 3; d++ )
       pxp->n2[d] += var->n[d];
   else
@@ -1076,6 +1079,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             dd += pxp->n1[d]*pxp->n1[d];
           dd = 1.0 / sqrt(dd);
+          /* if this fail, check surface color in PMMG_hn_sumnor */
           assert(isfinite(dd));
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
@@ -1087,6 +1091,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               dd += pxp->n2[d]*pxp->n2[d];
             dd = 1.0 / sqrt(dd);
+            /* if this fail, check surface color in PMMG_hn_sumnor */
             assert(isfinite(dd));
             if( dd > MMG5_EPSD2 )
               for( d = 0; d < 3; d++ )
