@@ -2703,16 +2703,112 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
               "intvalues",return 0);
   intvalues = int_edge_comm->intvalues;
 
-  /* Set edge references to empty value (4*PMMG_UNSET) in order to avoid
-   * comparing null references with non-null one on parallel edges not touched
-   * by boundary triangles on the local proc. */
-  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
-    intvalues[2*idx+1] = 4*PMMG_UNSET;
-
   /* Allocate edge doublevalues to store triangles normals */
   PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,6*int_edge_comm->nitem,double,
               "doublevalues",return 0);
   doublevalues = int_edge_comm->doublevalues;
+
+
+  /** Loop on boundary triangles and store a MG_REQ tag in the edge internal
+   *  communicator where the triangle touches a parallel edge.
+   *  (Loop on all triangles, as the tags on corresponding edges are not
+   *  required to match yet) */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(ptr) )  continue;
+
+    /* Get parallel edge touched by a boundary face and store normal vectors */
+    for (i=0; i<3; i++) {
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+      idx = edg-1;
+
+      /* Store edge tag in the internal communicator */
+      if( (ptr->tag[i] & MG_REQ) && !(ptr->tag[i] & MG_NOSURF) ) {
+        intvalues[idx] |= MG_REQ;
+      }
+    }
+  }
+
+  /** Exchange initial edge tags */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,6*nitem,double,"rtosend array",
+                return 0);
+    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,6*nitem,double,"rtorecv array",
+                return 0);
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+  }
+
+  /* Update edge tags in the internal communicator */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    itorecv = ext_edge_comm->itorecv;
+    rtorecv = ext_edge_comm->rtorecv;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      if( (itorecv[i] & MG_REQ) && !(itorecv[i] & MG_NOSURF) ) {
+        /* edge is truly required */
+        intvalues[idx] |= MG_REQ;
+        intvalues[idx] &= ~MG_NOSURF;
+      }
+    }
+  }
+
+  /* Update edge tags on triangles.
+   *  (Loop on all triangles, as the tags on corresponding edges are not
+   *  required to match yet) */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(ptr) )  continue;
+
+    /* Get parallel edge touched by a boundary face and store normal vectors */
+    for (i=0; i<3; i++) {
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+      idx = edg-1;
+
+      if( (intvalues[idx] & MG_REQ) && !(intvalues[idx] & MG_NOSURF) ) {
+        /* edge is truly required */
+        ptr->tag[i] |= MG_REQ;
+        ptr->tag[i] &= ~MG_NOSURF;
+      }
+    }
+  }
+
+
+  /* Set edge references to empty value (4*PMMG_UNSET) in order to avoid
+   * comparing null references with non-null one on parallel edges not touched
+   * by boundary triangles on the local proc. */
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ ){
+    intvalues[2*idx]   = 0;
+    intvalues[2*idx+1] = 4*PMMG_UNSET;
+  }
 
 
   /** Loop on true boundary triangles and store the normal in the edge internal
@@ -2768,14 +2864,6 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     nitem         = ext_edge_comm->nitem;
     color         = ext_edge_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_edge_comm->itosend;
     itorecv = ext_edge_comm->itorecv;
     rtosend = ext_edge_comm->rtosend;
