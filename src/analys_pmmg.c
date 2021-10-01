@@ -2854,12 +2854,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
-    fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
+    fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -2867,6 +2869,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_singul(mesh) ) {
     fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -2879,18 +2882,23 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_norver( mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   /* set bdry entities to tetra: create xtetra and set references */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   /* Tag parallel faces on material interfaces as boundary */
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -2902,6 +2910,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -2928,14 +2937,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
     fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
