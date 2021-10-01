@@ -3077,6 +3077,193 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator
+ * \param ext_comm pointer toward the external communicator
+ * \param next_comm number of external communicators
+ * \param depth deallocation depth
+ * \return 0 if fail, 1 if success.
+ *
+ * Deallocate internal and external communicator buffers for parallel mesh
+ * analysis, only for a given communicator.
+ * Deallocation is performed until a certain "depth", encoding an index for the
+ * first buffer that does not need to be deallocated.
+ * Intvalues and doublevalues are encoded as 2 and 3. External communicator
+ * codes start from 1 and are multiplied by 4, since there are 4 buffers for
+ * each communicator (itosend,itorecv,rtosend,rtorecv - codes 0,1,2,3), whose
+ * code is added to that of the communicator.
+ * Examples: asking to deallocate all buffers until buffer "itorecv" on
+ * communicator "icomm" will give a depth 4*(icomm+1)+2. Asking to deallocate
+ * all buffers previous to communicator icomm will give 4*(icomm+2).
+ * Asking to deallocate all buffers will give 4*(next_comm+1).
+ */
+void PMMG_analys_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm int_comm,
+                            PMMG_pExt_comm ext_comm,int next_comm,int depth) {
+  PMMG_pExt_comm pext_comm;
+  int kmax = depth / 4 - 1;
+  int imax = depth % 4;
+
+  /* check that the maximum number of communicator matches */
+  assert( kmax <= next_comm );
+
+  /* always deallocate intvalues if the function is called */
+  PMMG_DEL_MEM(parmesh,int_comm->intvalues,int,"intvalues");
+
+  if( kmax > -1 ) {
+
+    /* always deallocate doublevalues if on a valid external communicator */
+    PMMG_DEL_MEM(parmesh,int_comm->doublevalues,double,"doublevalues");
+
+    /* deallocate all buffers of previous communicators */
+    for( int k = 0; k < kmax; k++ ){
+      pext_comm = &ext_comm[k];
+      PMMG_DEL_MEM(parmesh,pext_comm->itosend,int,"itosend array");
+      PMMG_DEL_MEM(parmesh,pext_comm->itorecv,int,"itorecv array");
+      PMMG_DEL_MEM(parmesh,pext_comm->rtosend,double,"rtosend array");
+      PMMG_DEL_MEM(parmesh,pext_comm->rtorecv,double,"rtorecv array");
+    }
+
+    /* on the last communicator, only deallocate allocated buffers */
+    if( kmax < next_comm ) {
+      pext_comm = &ext_comm[kmax-1];
+      if( imax ) {
+        PMMG_DEL_MEM(parmesh,pext_comm->itosend,int,"itosend array");
+        if( imax > 1 ) {
+          PMMG_DEL_MEM(parmesh,pext_comm->itorecv,int,"itorecv array");
+          if( imax > 2 ) {
+            PMMG_DEL_MEM(parmesh,pext_comm->rtosend,double,"rtosend array");
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Deallocate all node and edge communicator buffers for parallel mesh analysis.
+ */
+void PMMG_analys_comms_free( PMMG_pParMesh parmesh ) {
+  /* Ask for deallocation till a depth 4*(next_comm+1), since there are 4
+   * buffers for each communicator, and all communicators before (next_comm+1)
+   * need to be deallocated. */
+  PMMG_analys_comm_free( parmesh,parmesh->int_node_comm,parmesh->ext_node_comm,
+                         parmesh->next_node_comm,4*(parmesh->next_node_comm+1) );
+  PMMG_analys_comm_free( parmesh,parmesh->int_edge_comm,parmesh->ext_edge_comm,
+                         parmesh->next_edge_comm,4*(parmesh->next_edge_comm+1) );
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator
+ * \param ext_comm pointer toward the external communicator
+ * \param next_comm number of external communicators
+ * \param nint number of integer slots to be allocated for each communicator.
+ * \param ndouble number of double slots to be allocated for each communicator.
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate internal and external communicator buffers for parallel mesh
+ * analysis, only for a given communicator.
+ */
+int PMMG_analys_comm_init( PMMG_pParMesh parmesh,PMMG_pInt_comm int_comm,
+                           PMMG_pExt_comm ext_comm, int next_comm,
+                           int nint, int ndouble ) {
+  PMMG_pExt_comm pext_comm;
+  int nitem;
+  int ier = 1; /* initialize error */
+  int depth; /* depth of deallocation,consistenty with PMMG_analys_comm_free*/
+
+  /* allocate intvalues */
+  PMMG_CALLOC(parmesh,int_comm->intvalues,nint*int_comm->nitem,int,
+              "intvalues",return 0);
+  depth = 3;
+
+  /* allocate doublevalues */
+  PMMG_CALLOC(parmesh,int_comm->doublevalues,ndouble*int_comm->nitem,double,
+              "doublevalues",ier = 0);
+  if( !ier ) {
+    PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+    return 0;
+  } else depth++;
+
+  /* allocate buffers for each external communicator */
+  for( int k = 0; k < next_comm; ++k ) {
+    pext_comm = &ext_comm[k];
+    nitem     = pext_comm->nitem;
+
+    PMMG_CALLOC(parmesh,pext_comm->itosend,nint*nitem,int,"itosend array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->itorecv,nint*nitem,int,"itorecv array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->rtosend,ndouble*nitem,double,"rtosend array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->rtorecv,ndouble*nitem,double,"rtorecv array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate all node and edge communicator buffers for parallel mesh analysis.
+ */
+int PMMG_analys_comms_init( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_node_comm = parmesh->int_node_comm;
+  PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
+  PMMG_pExt_comm ext_node_comm = parmesh->ext_node_comm;
+  PMMG_pExt_comm ext_edge_comm = parmesh->ext_edge_comm;
+  int nint = 2;
+  int ndouble = 6;
+
+  /* Allocate node communicators to accomodate 2 integers per node (the number
+   * of ridge and reference edges connected to the node, or the label of their
+   * extremities), and 6 doubles per node (the coordinates of two position
+   * vectors for the extremities of the edges passing through the node). */
+  if( !PMMG_analys_comm_init( parmesh,int_node_comm,ext_node_comm,
+                              parmesh->next_node_comm,nint,ndouble ) )
+    return 0;
+
+  /* Allocate edge communicators to accomodate 2 integers per node (the number
+   * of non-manifold and reference edges connected to the node, or the label of
+   * their extremities), and 6 doubles per node (the normal vectors of the two
+   * triangles sharing the edge). */
+  if( !PMMG_analys_comm_init( parmesh,int_edge_comm,ext_edge_comm,
+                              parmesh->next_edge_comm,nint,ndouble ) ) {
+    /* deallocate the node communicator on failure */
+    PMMG_analys_comm_free( parmesh,int_node_comm,ext_node_comm,
+                           parmesh->next_node_comm,
+                           4*(parmesh->next_node_comm+1) );
+    return 0;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  *
  * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
