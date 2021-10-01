@@ -401,16 +401,16 @@ void PMMG_insert_rankIndex(PMMG_pParMesh parmesh,char **endname,const char *init
 
   strcpy(*endname,initname);
 
-  ptr = strstr(*endname,binext);
+  ptr = strstr(*endname,".meshb");
 
   fmt = 0; /* noext */
-  if ( ptr ) {
+  if( ptr ) {
     *ptr = '\0';
     fmt = 1; /* binary */
   }
   else {
-    ptr = strstr(*endname,ASCIIext);
-    if ( ptr ) {
+    ptr = strstr(*endname,".mesh");
+    if( ptr ) {
       *ptr = '\0';
       fmt = 2; /* ASCII */
     }

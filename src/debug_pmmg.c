@@ -449,6 +449,80 @@ int PMMG_saveQual(MMG5_pMesh mesh, const char *filename) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param grpId index of the group
+ * \param tag edge tag to save
+ * \param basename filename prefix
+ *
+ * Write group surface mesh and edges with given tag in medit format.
+ *
+ */
+int PMMG_grp_to_saveEdges( PMMG_pParMesh parmesh,int grpId,int16_t tag,char *basename ) {
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTria  ptr;
+  MMG5_pPoint ppt;
+  MMG5_HGeom  hash;
+  MMG5_hgeom  *ph;
+  FILE        *fid;
+  char        name[ 2048 ];
+  int         ip,k,i,i1,i2,na,ier;
+
+  grp  = &parmesh->listgrp[grpId];
+  mesh = grp->mesh;
+
+  /** Allocation of hash table to store parallel edges */
+  na = (int)(mesh->np*0.2); // Euler-Poincare
+
+  if ( 1 != MMG5_hNew( mesh, &hash, na, 3 * na ) ) return PMMG_FAILURE;
+
+  /** Store edges with given tag */
+  for (k=1; k<=mesh->nt; ++k) {
+    ptr = &mesh->tria[k];
+    for( i = 0; i < 3; i++ ) {
+      if( !(ptr->tag[i] & tag) ) continue;
+      /* Get edge vertices and hash it */
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_iprv2[i];
+      MMG5_hEdge( mesh,&hash,ptr->v[i1],ptr->v[i2],0,ptr->tag[i]);
+    }
+  }
+  na = 0;
+  for( k = 0; k <= hash.max; k++ ) {
+    ph = &hash.geom[k];
+    if( !(ph->a) ) continue;
+    na++;
+  }
+
+  assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
+  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+
+  fid = fopen(name,"w");
+  fprintf(fid,"MeshVersionFormatted 2\n");
+  fprintf(fid,"\nDimension 3\n");
+  fprintf(fid,"\nVertices\n%d\n",mesh->np);
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    fprintf(fid,"%f %f %f %d\n",ppt->c[0],ppt->c[1],ppt->c[2],ppt->ref);
+  }
+  fprintf(fid,"\nTriangles\n%d\n",mesh->nt);
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    fprintf(fid,"%d %d %d %d\n",ptr->v[0],ptr->v[1],ptr->v[2],ptr->ref);
+  }
+  fprintf(fid,"\nEdges\n%d\n",na);
+  for( k = 0; k <= hash.max; k++ ) {
+    ph = &hash.geom[k];
+    if( !(ph->a) ) continue;
+    fprintf(fid,"%d %d %d\n",ph->a,ph->b,0);
+  }
+  fclose(fid);
+
+  MMG5_DEL_MEM(mesh,hash.geom);
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param grpId index of the group
  * \param basename filename prefix
  *
  * Write group mesh and metrics in medit format.
@@ -468,8 +542,6 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
-
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   /* Rebuild boundary */
   if ( !mesh->adja ) {
@@ -497,8 +569,6 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
     MMG3D_saveAllSols( mesh, &field, name );
   }
 
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
-
   return ier;
 }
 
@@ -522,8 +592,7 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
- 
+
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   /* Destroy boundary */
@@ -531,12 +600,10 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   mesh->nt = 0;
 
   MMG3D_saveMesh( mesh, name );
- 
+
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
   PMMG_saveMark( mesh, name );
 
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
@@ -561,8 +628,6 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
   sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
 
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
-
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
   /* Destroy boundary */
@@ -574,8 +639,6 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
   PMMG_saveQual( mesh, name );
 
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   return ier;
 }
