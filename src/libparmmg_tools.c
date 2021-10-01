@@ -527,7 +527,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     goto fail_proc;
   }
 
-#warning opnbdy not supported with surface adaptation
   if( parmesh->listgrp[0].mesh->info.opnbdy ) {
     fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
         "\nSetting nosurf on.\n");
