@@ -37,8 +37,8 @@
 #include "parmmg.h"
 
 /* numerical accuracy for coordinate checks */
-#define PMMG_EPSCOOR  1.e-14
-#define PMMG_EPSCOOR2 3.e-28
+#define PMMG_EPSCOOR  1.e-10
+#define PMMG_EPSCOOR2 3.e-20
 
 /**
  * \struct PMMG_coorCell

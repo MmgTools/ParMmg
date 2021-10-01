@@ -111,7 +111,7 @@ int main( int argc, char *argv[] )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   /* Init memMax sizes. Only one mesh for now => pmmg structs do not need much */
-  if ( !PMMG_parmesh_SetMemMax(parmesh, 20) )
+  if ( !PMMG_parmesh_SetMemMax(parmesh) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
@@ -395,8 +395,6 @@ check_mesh_loading:
     case ( PMMG_FMT_DistributedMeditASCII):
       ptr = MMG5_Get_filenameExt( parmesh->meshout );
       if ( (!ptr) || strcmp(ptr,".mesh") ) {
-        PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
         /* Add .mesh extension to avoid saving at binary format */
         PMMG_REALLOC(parmesh,parmesh->meshout,strlen(parmesh->meshout)+6,
                      strlen(parmesh->meshout)+1,char,"",);

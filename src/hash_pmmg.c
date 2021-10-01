@@ -35,43 +35,189 @@
 #include "mmg3d.h"
 #include "parmmg.h"
 
+int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash ) {
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pPoint    ppt;
+  MMG5_hedge    *ph;
+  int            k,kk,hmax,ia,ib;
+  int8_t         i,i1,i2,j,l;
+  unsigned int   key;
+
+  /* adjust hash table params */
+  hmax =(int)(3.71*6*mesh->xt);
+  hash->siz  = 6*mesh->xt;
+  hash->max  = hmax + 1;
+  hash->nxt  = hash->siz;
+  MMG5_ADD_MEM(mesh,(hash->max+1)*sizeof(MMG5_hedge),"hash table",return 0);
+  MMG5_SAFE_CALLOC(hash->item,hash->max+1,MMG5_hedge,return 0);
+
+  for (k=hash->siz; k<hash->max; k++)
+    hash->item[k].nxt = k+1;
+
+  /* loop on tetrahedra */
+  for( k = 1; k <= mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    if( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+
+    /* loop on vertices */
+    for( i = 0; i < 4; i++ ) {
+      ppt = &mesh->point[pt->v[i]];
+      if( !(ppt->tag & MG_BDY) || !(ppt->tag & MG_OLDPARBDY) ) continue;
+
+      /* loop on edges touching the vertex */
+      for( j = 0; j < 3; j++ ) {
+        l = MMG5_arpt[i][j];
+        if( !(pxt->tag[l] & MG_NOM ) ) continue;
+
+        i1 = MMG5_iare[l][0];
+        i2 = MMG5_iare[l][1];
+
+        /* compute key */
+        ia  = MG_MIN(pt->v[i1],pt->v[i2]);
+        ib  = MG_MAX(pt->v[i1],pt->v[i2]);
+        key = (MMG5_KA*ia + MMG5_KB*ib) % hash->siz;
+        ph  = &hash->item[key];
+
+        /* store edge */
+        if ( ph->a == 0 ) {
+          ph->a = ia;
+          ph->b = ib;
+          ph->k = 6*k + l;
+          ph->nxt = 0;
+          ++ph->s;
+          continue;
+        }
+        while ( ph->a ) {
+          if ( ph->a == ia && ph->b == ib ) {
+            ++ph->s;
+            break;
+          }
+          else if ( !ph->nxt ) {
+            ph->nxt = hash->nxt;
+            ph = &hash->item[ph->nxt];
+            assert(ph);
+
+            if ( hash->nxt >= hash->max-1 ) {
+              if ( mesh->info.ddebug ) {
+                fprintf(stderr,"\n  ## Warning: %s: memory alloc problem (edge):"
+                        " %d\n",__func__,hash->max);
+              }
+              MMG5_TAB_RECALLOC(mesh,hash->item,hash->max,MMG5_GAP,MMG5_hedge,
+                                 "MMG5_edge",
+                                 MMG5_DEL_MEM(mesh,hash->item);
+                                 return 0);
+
+              ph = &hash->item[hash->nxt];
+
+              for (kk=ph->nxt; kk<hash->max; kk++)
+                hash->item[kk].nxt = kk+1;
+            }
+
+            hash->nxt = ph->nxt;
+            ph->a = ia;
+            ph->b = ib;
+            ph->k = 6*k + l;
+            ph->nxt = 0;
+            ++ph->s;
+            break;
+          }
+          else
+            ph = &hash->item[ph->nxt];
+        }
+      }
+    }
+  }
+
+  return 1;
+}
+
 /**
- * \param parmesh pointer toward a parmesh structure.
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Hash the MG_PARBDY edges.
+ * Hash the parallel edges. Only use face communicators to this purpose.
+ *
+ */
+int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
+  PMMG_pGrp    grp = &parmesh->listgrp[0];
+  MMG5_pMesh   mesh = grp->mesh;
+  MMG5_pTetra  pt;
+  MMG5_pxTetra pxt;
+  PMMG_pInt_comm int_face_comm;
+  int          k,na;
+  int          i,ie,ifac,j,ia,i1,i2;
+
+  assert( parmesh->ngrp == 1 );
+
+  /** Allocation of hash table to store parallel edges */
+  na = (int)(mesh->np*0.2); // Euler-Poincare
+
+  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
+
+  /** Store parallel edges */
+  for( i = 0; i < grp->nitem_int_face_comm; i++ ) {
+    ie   =  grp->face2int_face_comm_index1[i]/12;
+    ifac = (grp->face2int_face_comm_index1[i]%12)/3;
+    pt = &mesh->tetra[ie];
+    for ( j=0; j<3; j++ ) {
+      ia = MMG5_iarf[ifac][j];
+      /* Get edge vertices and hash it */
+      i1 = MMG5_iare[ia][0];
+      i2 = MMG5_iare[ia][1];
+      MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],0,MG_PARBDY);
+    }
+  }
+
+  return PMMG_SUCCESS;
+}
+
+
+/**
+ * \param mesh pointer toward a MMG5 mesh structure.
+ * \param pHash pointer to the edge hash table.
+ * \return PMMG_FAILURE
+ *         PMMG_SUCCESS
+ *
+ * Hash the edges. Use the assumption that all paralle edges are seen by a
+ * MG_PARBDY face on an xtetra.
  *
  */
 int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,na;
-  int8_t       i,i1,i2;
+  int          ifac,j,ia,i1,i2;
 
   /** Allocation of hash table to store parallel edges */
   na = (int)(mesh->np*0.2); // Euler-Poincare
 
-  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) )
-    return PMMG_FAILURE;
+  if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
 
   /** Store parallel edges */
   for (k=1; k<=mesh->ne; ++k) {
-
     pt = &mesh->tetra[k];
-    if ( !pt->xt )
-      continue;
-
+    if ( !pt->xt ) continue;
     pxt = &mesh->xtetra[pt->xt];
-    for ( i=0; i<6; ++i ) {
-      if ( !(pxt->tag[i] & MG_PARBDY) )
-        continue;
-
-      i1 = MMG5_iare[i][0];
-      i2 = MMG5_iare[i][1];
-      MMG5_hEdge( mesh, pHash, pt->v[i1], pt->v[i2], pxt->edg[i], pxt->tag[i] );
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      if ( !(pxt->ftag[ifac] & MG_PARBDY) ) continue;
+      for ( j=0; j<3; j++ ) {
+        ia = MMG5_iarf[ifac][j];
+        /* Get edge vertices and hash it */
+        i1 = MMG5_iare[ia][0];
+        i2 = MMG5_iare[ia][1];
+        MMG5_hEdge( mesh,pHash,pt->v[i1],pt->v[i2],0,MG_NOTAG);
+        /* Tag edge and nodes as parallel */
+        pxt->tag[ia] |= MG_PARBDY;
+        mesh->point[pt->v[i1]].tag |= MG_PARBDY;
+        mesh->point[pt->v[i2]].tag |= MG_PARBDY;
+        MMG5_hTag( pHash,pt->v[i1],pt->v[i2],pxt->edg[ia],pxt->tag[ia] );
+      }
     }
   }
 
@@ -111,9 +257,6 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
 
     pxt = &mesh->xtetra[pt->xt];
     for ( i=0; i<6; ++i ) {
-      if ( pxt->tag[i] & MG_PARBDY )
-        continue;
-
       i1 = MMG5_iare[i][0];
       i2 = MMG5_iare[i][1];
       if ( !MMG5_hGet( &hash, pt->v[i1], pt->v[i2], &edg, &tag ) )

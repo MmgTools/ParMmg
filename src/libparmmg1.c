@@ -441,9 +441,7 @@ hash:
   MMG5_DEL_MEM(mesh,hash.item);
 
 facesData:
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
   PMMG_DEL_MEM(parmesh,facesData,int,"facesData");
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   return ier;
 }
@@ -478,8 +476,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   met   = parmesh->listgrp[igrp].met;
   field = parmesh->listgrp[igrp].field;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-
   /* Allocation of the array that will store the node permutation */
   PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
               PMMG_scotch_message(&warnScotch) );
@@ -494,8 +490,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
             " Exit program.\n");
     return 0;
   }
-
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
 
   if ( !mesh->adja ) {
     if ( !MMG3D_hashTetra(mesh,0) ) {
@@ -534,8 +528,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
 
   /* Scotch may have change the np value: update mesh->npi */
   mesh->npi = mesh->np;
-
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
 
@@ -656,9 +648,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
 
+
     /** Update old groups for metrics and solution interpolation */
-    PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
     PMMG_update_oldGrps( parmesh );
+
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -671,7 +664,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
 
-#warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
       for( k = 1; k <= mesh->np; k++ )
         mesh->point[k].src = k;
@@ -684,8 +676,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         /* Empty mesh */
         continue;
       }
-
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
 
       /** Store the vertices of interface faces in the internal communicator */
       if ( !(ier = PMMG_store_faceVerticesInIntComm(parmesh,i,&facesData) ) ) {
@@ -713,9 +703,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         }
 
-        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,
-                                                 parmesh->listgrp[i].mesh);
-
         /* renumerotation if available: no need to renum the field here (they
          * will be interpolated) */
         assert ( mesh->npi==mesh->np );
@@ -725,9 +712,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
             PMMG_scotch_message(&warnScotch);
           }
         }
-#else
-        PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,
-                                                 parmesh->listgrp[i].mesh);
 #endif
 
         /* Mark reinitialisation in order to be able to remesh all the mesh */
@@ -805,9 +789,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         if ( !MMG5_unscaleMesh(mesh,met,NULL) ) { goto strong_failed; }
 
-        PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,
-                                                 parmesh->listgrp[i].mesh);
-
         if ( !PMMG_copyMetricsAndFields_point( parmesh->listgrp[i].mesh,
                                                parmesh->old_listgrp[i].mesh,
                                                parmesh->listgrp[i].met,
@@ -861,7 +842,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /* Compute quality in the interpolated metrics */
-    ier = PMMG_tetraQual( parmesh,0 );
+    ier = PMMG_tetraQual( parmesh,1 );
 
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
@@ -908,6 +889,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
+
+    /** update geometric analysis */
+    if( !PMMG_update_analys(parmesh) )
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
@@ -974,12 +959,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 #endif
 
-  /* Give memory to Mmg for the edge length computation */
-  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
-
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso && parmesh->iter>0 ) {
     assert ( parmesh->listgrp[0].met->m );
-    PMMG_prilen(parmesh,0,0);
+    PMMG_prilen(parmesh,1,0);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);

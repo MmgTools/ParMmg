@@ -686,7 +686,6 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
       itosend[i]     = intvalues[idx] ;
     }
 
-#warning Luca: change this tag
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
@@ -1387,7 +1386,6 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
         itosend[i]     = intvalues[idx] ;
       }
 
-#warning Luca: change this tag
       MPI_CHECK(
         MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
                      itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,

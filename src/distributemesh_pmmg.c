@@ -1048,7 +1048,7 @@ int PMMG_partBcast_mesh( PMMG_pParMesh parmesh )
              ier = 3 );
 
   /* Memory repartition */
-  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+  if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   /** Mark the mesh to detect entities that will stay on the proc as well as
    * shared entites with the other procs */
@@ -1112,7 +1112,6 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   MMG5_pMesh mesh;
   idx_t      *part;
   int        igrp,ier,ieresult;
-  size_t     available,oldMemMax;
 
   ier = 1;
 
@@ -1183,14 +1182,11 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   grp = &parmesh->listgrp[0];
   mesh = grp->mesh;
 
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh);
-  PMMG_TRANSFER_AVMEM_FROM_PARMESH_TO_MESH(parmesh,mesh);
   if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
             __func__);
     return 0;
   }
-  PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PARMESH(parmesh,mesh);
 
   /* At this point all communicators have been created and all tags are OK */
 
