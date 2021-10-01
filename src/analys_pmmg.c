@@ -584,7 +584,6 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
  * ridge points.
  */
 int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
-  PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   int            i,idx;
 
@@ -1905,12 +1904,11 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Status     status;
-  MMG5_pTria     pt;
   MMG5_pPoint    ppt;
   double         ux,uy,uz,vx,vy,vz,dd;
   int            nc,xp,nr,ns0,ns1,nre;
   int            ip,idx,iproc,k,i,j,d;
-  int            nitem,color,tag;
+  int            nitem,color;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   double         *doublevalues,*rtosend,*rtorecv;
 
