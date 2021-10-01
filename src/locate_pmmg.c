@@ -536,6 +536,7 @@ int PMMG_locatePoint_foundConvex( MMG5_pMesh mesh,MMG5_pPoint ppt,int *kfound,
   int    *adjt,l,i,k,kmin,updated;
   double hmin;
 
+#warning Luca: check distance computation
   adjt = &mesh->adjt[3*(*kfound-1)+1];
   hmin = *h;
 

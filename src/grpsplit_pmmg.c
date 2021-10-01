@@ -1583,6 +1583,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     /* Set to a value higher than 1 just to continue until the true
      * computation (which is after a jump on ngrp==1) */
+#warning: fix this conditional jump
     ngrp = 2;
   } else {
 

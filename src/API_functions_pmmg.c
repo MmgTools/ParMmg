@@ -663,6 +663,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
     }
     if( val ) {
+#warning opnbdy not supported with surface adaptation
       fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
           "\nSetting nosurf on.\n");
       for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -704,6 +705,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
+#warning opnbdy not supported with surface adaptation
       if( !val && mesh->info.opnbdy )
         fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
           "\nCannot set nosurf off.\n");

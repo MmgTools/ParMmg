@@ -388,6 +388,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
 
   /* If non-manifold, only process exterior points */
+#warning this should also work on the border of a OPNBDY surface
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get internal communicator index */
@@ -905,6 +906,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   MMG5_pxPoint pxp;
   double *doublevalues,dd,l[2],*c[2];
   int    *intvalues,idx,d,j;
+#warning Luca: fix opnbdy treatment
 
   intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
@@ -927,6 +929,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Compute tangent (as in MMG3D_boulenm) */
+#warning Luca: why not like in MMG5_boulec?
       if( MG_EDG(var->ppt->tag) ) {
 
         c[0] = &doublevalues[6*idx];
@@ -1035,6 +1038,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
       if( intvalues[idx] ) {
         pxp = &var->mesh->xpoint[var->ppt->xp];
 
+#warning skip opnbdy until ready, as wrong orientation can mess up normals
         if( var->ppt->tag & MG_OPNBDY ) continue;
 
         /* Loop on manifold or non-manifold exterior points */
@@ -1597,6 +1601,7 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
 
     /* First: seek edges at the interface of two distinct domains and mark it as
      * required */
+#warning Luca: add a function like MMG5_setEdgeNmTag(mesh,hash)
 
   }
 
@@ -2329,6 +2334,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     }
   }
 
+#warning Luca: should we exchange tags on the edge communicator to update MG_PARBDYBDY?
 
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
     fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
@@ -2729,6 +2735,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   PMMG_analys_comms_free( parmesh );
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
+#warning Luca: check that parbdy are skipped
   MMG5_chkVertexConnectedDomains(mesh);
 
   /* build hash table for geometric edges */

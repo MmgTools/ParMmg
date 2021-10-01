@@ -1588,6 +1588,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
   /** Step 1: Allocate internal communicator buffer and fill it: the
    *  intvalues array contains the indices of the matching nodes on the proc. */
 
+#warning MEMORY: small inconsistency
 
   /* Internal comm allocation */
   int_node_comm = parmesh->int_node_comm;

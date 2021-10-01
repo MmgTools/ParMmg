@@ -316,6 +316,7 @@ int PMMG_copySol_point( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
 
   nsize   = sol->size;
 
+#warning Luca: when surface adapt will be ready, distinguish BDY from PARBDY
 
   /** Freezed points: Copy the data stored in solution structure  */
   if ( (!oldMesh->info.renum) || !permNodGlob ) {
@@ -573,6 +574,7 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
           }
         }
 
+#warning Luca: make this part consistent with metrics interpolation
         /** Field interpolation */
         if ( mesh->nsols ) {
           for ( j=0; j<mesh->nsols; ++j ) {
