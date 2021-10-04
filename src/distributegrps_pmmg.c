@@ -1580,9 +1580,13 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
                     ier0 = 0;ier = 0 );
   }
   else {
-    assert ( !parmesh->listgrp );
-    PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
-                  ier0 = 0;ier = 0 );
+    /* assert ( !parmesh->listgrp ); */
+    if ( !parmesh->listgrp )
+      PMMG_CALLOC ( parmesh,parmesh->listgrp,grpscount,PMMG_Grp,"listgrp",
+                    ier0 = 0;ier = 0 );
+    else
+      PMMG_RECALLOC( parmesh,parmesh->listgrp,grpscount,1,PMMG_Grp,"listgrp",
+                     ier0 = 0;ier = 0 );
   }
 
   if ( ier0 )
@@ -1856,6 +1860,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
   nprocs    = parmesh->nprocs;
   comm      = parmesh->comm;
   max_ngrp  = 0;
+  ier = 1;
 
   send_grps                 = NULL;
   recv_grps                 = NULL;
@@ -1872,7 +1877,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
   interaction_map           = NULL;
   interactions              = NULL;
 
-  /** Step 1: Merge all the groups that must be sended to a given proc into 1
+  /** Step 1: Merge all the groups that must be sent to a given proc into 1
    * group */
   ier = PMMG_merge_grps2send(parmesh,&part);
 
@@ -2052,7 +2057,14 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  /* First iteration -> we are repartitioning the mesh after loading it from an HDF5 file. */
+  int repartitioning;
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
+  else
+    repartitioning = parmesh->info.repartitioning;
+
+  if( repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
 
     ier = PMMG_part_getProcs( parmesh, part );
 

@@ -220,6 +220,33 @@ IF ( USE_VTK )
   ENDIF ( )
 ENDIF ( )
 
+
+############################################################################
+#####
+#####         HDF5
+#####
+############################################################################
+OPTION ( USE_HDF5 "Use HDF5 I/O" ON )
+
+IF ( USE_HDF5 )
+
+  SET(HDF5_PREFER_PARALLEL TRUE)
+
+  FIND_PACKAGE(HDF5)
+
+  IF ( NOT HDF5_FOUND )
+    MESSAGE ( WARNING "HDF5 library not found: HDF5 I/O will not be available.")
+  ENDIF ( )
+
+  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
+
+  IF ( NOT HDF5_IS_PARALLEL )
+    MESSAGE ( ERROR "HDF5 parallel library not found: "
+      "Please enable parallel support for HDF5.")
+  ENDIF( )
+
+ENDIF ( )
+
 ###############################################################################
 #####
 #####         Add dependent options
@@ -241,6 +268,14 @@ IF ( VTK_FOUND )
   INCLUDE ( ${VTK_USE_FILE} )
   SET( LIBRARIES  ${LIBRARIES} "-lstdc++" ${VTK_LIBRARIES} )
 ENDIF ( )
+
+
+IF ( HDF5_FOUND )
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_HDF5")
+  MESSAGE ( STATUS "Compilation with HDF5: add HDF5 I/O." )
+  SET( LIBRARIES  ${LIBRARIES} ${HDF5_LIBRARIES} )
+ENDIF ( )
+
 
 ############################################################################
 #####
@@ -584,6 +619,8 @@ ENDIF()
 #####         Compile PMMG executable
 #####
 ###############################################################################
+SET(LIBRARIES ${LIBRARIES} ${CMAKE_DL_LIBS})
+
 ADD_AND_INSTALL_EXECUTABLE ( ${PROJECT_NAME}
   "${pmmg_library_files}" ${pmmg_main_file} )
 

@@ -170,6 +170,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   int          med, med_cur, med_result;
   int          his[PMMG_QUAL_HISSIZE],his_cur[PMMG_QUAL_HISSIZE],his_result[PMMG_QUAL_HISSIZE];
   int          nrid, nrid_cur, nrid_result,ier;
+  MPI_Comm     comm;
   MPI_Op       iel_min_op;
   MPI_Datatype mpi_iel_min_t;
   MPI_Datatype types[ PMMG_QUAL_MPISIZE ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
@@ -179,6 +180,12 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
                                               offsetof( min_iel_t, iel_grp ),
                                               offsetof( min_iel_t, cpu ) };
   int lens[ PMMG_QUAL_MPISIZE ]           = { 1, 1, 1, 1 };
+
+  /* When preprocessing a mesh that was loaded from an HDF5 file, set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
 
   /* Calculate the quality values for local process */
   iel_grp = 0;
@@ -272,13 +279,13 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     max_result = max;
     optimLES_result = optimLES;
   } else {
-    MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
-    MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
+    MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, comm );
+    MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, comm );
+    MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, comm );
+    MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, comm );
+    MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,comm );
   }
 
   min_iel.min = min;
@@ -299,9 +306,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     MPI_Type_commit( &mpi_iel_min_t );
 
     MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
-    MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
-    MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, comm );
+    MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, comm );
     MPI_Type_free( &mpi_iel_min_t );
     MPI_Op_free( &iel_min_op );
   }

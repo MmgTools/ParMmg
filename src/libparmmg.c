@@ -207,6 +207,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
+  int ier = PMMG_SUCCESS;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -214,20 +215,26 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
   /** Check distributed API mode. Interface faces OR nodes need to be set by the
-   * user through the API interface at this point, meening that the
+   * user through the API interface at this point, meaning that the
    * corresponding external comm is set to the correct size, and filled with
    * local entity indices (for node comms, also itosend and itorecv arrays are
    * filled with local/global node IDs).
   */
-  if( parmesh->nprocs >1 ) {
+  if( parmesh->nprocs > 1 ) {
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces && !parmesh->next_face_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface faces must be set through the API interface\n",__func__);
-      return PMMG_STRONGFAILURE;
+      ier = PMMG_STRONGFAILURE;
     } else if( parmesh->info.API_mode == PMMG_APIDISTRIB_nodes && !parmesh->next_node_comm ) {
       fprintf(stderr," ## Error: %s: parallel interface nodes must be set through the API interface\n",__func__);
-      return PMMG_STRONGFAILURE;
+      ier = PMMG_STRONGFAILURE;
     }
   }
+
+  /* Next functions involve MPI communications so we need to check now
+     that every proc suceeded in order to avoid deadlock */
+  MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MAX, parmesh->info.read_comm);
+
+  if (ier == PMMG_STRONGFAILURE) return ier;
 
   /** Function setters (must be assigned before quality computation) */
   MMG3D_Set_commonFunc();
@@ -236,6 +243,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
+
 #warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
   /* Don't reset the hmin value computed when unscaling the mesh */
   if ( !parmesh->info.sethmin ) {
@@ -278,8 +286,11 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /** Mesh analysis I: check triangles, create xtetras */
-  if ( !PMMG_analys_tria(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
+  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+       (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+    if ( !PMMG_analys_tria(parmesh,mesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
   }
 
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
@@ -290,7 +301,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
        * to edges and nodes */
-      PMMG_tria2elmFace_coords( parmesh );
+      if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+           (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+        PMMG_tria2elmFace_coords( parmesh );
+      }
       /* 2) Build node communicators from face ones (here because the mesh needs
        *    to be unscaled) */
       PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
@@ -313,8 +327,11 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /** Mesh analysis II: geometrical analysis*/
-  if ( !PMMG_analys(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
+  if ((parmesh->info.fmtout != PMMG_FMT_HDF5) ||
+       (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank < parmesh->info.npartin)) {
+    if ( !PMMG_analys(parmesh,mesh) ) {
+      return PMMG_STRONGFAILURE;
+    }
   }
 
   if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0) ) {
@@ -1336,6 +1353,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
   case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+  case ( PMMG_FMT_HDF5 ):
 
     /* Distributed Output */
     tim = 1;
@@ -1582,15 +1600,34 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
       ier = PMMG_LOWFAILURE;
     }
   }
   else { ier = PMMG_SUCCESS; }
 
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+
   if ( iresult!=PMMG_SUCCESS ) {
     return iresult;
+  }
+
+  /* I/O check: if the mesh was loaded from an HDF5 file with nprocs != npartin,
+     call loadBalancing before the remeshing loop to make sure no proc has an
+     empty mesh (nprocs > npartin) and the load is well balanced (nprocs < npartin). */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->nprocs != parmesh->info.npartin) {
+    ier = PMMG_loadBalancing(parmesh);
+  }
+
+  /* I.O check: if the mesh was loaded from an HDF5 file with nprocs > npartin,
+     the ranks [npart, nprocs - 1] have parmesh->ngrp == 0, so they did not enter
+     in PMMG_preprocessMesh_distributed and their function pointers were not set.
+     Set them now and reset parmesh->ngrp = 1. */
+  if ( parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->myrank >= parmesh->info.npartin ) {
+    MMG3D_Set_commonFunc();
+    MMG3D_setfunc(parmesh->listgrp[0].mesh, parmesh->listgrp[0].met);
+    PMMG_setfunc(parmesh);
+    parmesh->ngrp = 1;
   }
 
   chrono(OFF,&(ctim[tim]));
@@ -1604,7 +1641,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[tim]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-             met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
   ier = PMMG_parmmglib1(parmesh);

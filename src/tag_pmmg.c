@@ -471,7 +471,13 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   int            *seenFace,*intvalues,*itosend,*itorecv;
   int            ngrp,myrank,color,nitem,k,igrp,i,idx,ie,ifac;
 
-  comm   = parmesh->comm;
+
+  /* When preprocessing the mesh, set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
+
   grp    = parmesh->listgrp;
   myrank = parmesh->myrank;
   ngrp   = parmesh->ngrp;

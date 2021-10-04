@@ -44,6 +44,7 @@
 #include <float.h>
 #include <math.h>
 #include <mpi_pmmg.h>
+#include "hdf_pmmg.h"
 
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
@@ -202,6 +203,7 @@ enum PMMG_Format {
   PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
   PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
   PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
+  PMMG_FMT_HDF5,                              /*!< HDF5 format */
   PMMG_FMT_Unknown,                           /*!< Unrecognized */
 };
 
@@ -396,13 +398,13 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
   }                                                                     \
   } while(0)
 
-#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
-    int my_stat = PMMG_SUCCESS;                                         \
-                                                                        \
-    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;); \
-    if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {      \
-      memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type)); \
-    }                                                                   \
+#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do {                \
+    int my_stat = PMMG_SUCCESS;                                                         \
+                                                                                        \
+    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;);   \
+    if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {                      \
+      memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));        \
+    }                                                                                   \
   } while(0)
 
 

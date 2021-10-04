@@ -244,6 +244,40 @@
 #define PMMG_GAP     0.2
 
 /**
+ * \def PMMG_NTYPENTITIES
+ *
+ * Number of types of mesh entities
+*/
+#define PMMG_NTYPENTITIES 20
+
+/**
+ * \enum PMMG_hdf5_entities
+ * \brief Type of mesh entities that are saved in/loaded from HDF5 files.
+ */
+enum PMMG_hdf5_entities {
+  PMMG_IO_Vertex,
+  PMMG_IO_Edge,
+  PMMG_IO_Tria,
+  PMMG_IO_Quad,
+  PMMG_IO_Tetra,
+  PMMG_IO_Prism,
+  PMMG_IO_Corner,
+  PMMG_IO_Req,
+  PMMG_IO_Par,
+  PMMG_IO_Ridge,
+  PMMG_IO_EdReq,
+  PMMG_IO_EdPar,
+  PMMG_IO_TriaReq,
+  PMMG_IO_TriaPar,
+  PMMG_IO_QuadReq,
+  PMMG_IO_QuadPar,
+  PMMG_IO_TetReq,
+  PMMG_IO_TetPar,
+  PMMG_IO_Normal,
+  PMMG_IO_Tangent,
+};
+
+/**
  * Types
  */
 /**
@@ -332,7 +366,9 @@ typedef struct {
   int fmtout; /*!< store the output format asked */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
-  uint8_t inputMet; /* 1 if User prescribe a metric or a size law */
+  uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
+  int npartin; /*!< nb of partitions of the mesh in the input HDF5 file */
+  MPI_Comm read_comm; /*!< MPI comm containing the procs that read the mesh (HDF5 input) */
 } PMMG_Info;
 
 

@@ -143,7 +143,7 @@ void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * Deallocate the nodal communicatorsof the parmesh
+ * Deallocate the nodal communicators of the parmesh
  *
  */
 void PMMG_node_comm_free( PMMG_pParMesh parmesh )
@@ -931,7 +931,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
       nitem_int_node_comm++;
     }
   }
- 
+
   /* Allocate group communicators */
   int_node_comm = parmesh->int_node_comm;
   int_node_comm->nitem = nitem_int_node_comm;
@@ -988,7 +988,7 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
     nitem_int_face_comm += ext_face_comm->nitem;
   }
- 
+
   /* Allocate group communicators */
   int_face_comm = parmesh->int_face_comm;
   int_face_comm->nitem = nitem_int_face_comm;
@@ -1024,7 +1024,12 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   int            kt,ia,ib,ic,i,icomm,iproc,iloc,iglob,myrank,next_face_comm,ier;
   MPI_Comm       comm;
 
-  comm   = parmesh->comm;
+  /* When preprocessing the mesh, set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
+
   myrank = parmesh->myrank;
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
@@ -1202,9 +1207,16 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
  */
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
   int ier, ier_glob;
+  MPI_Comm comm;
 
   assert ( PMMG_check_extFaceComm ( parmesh ) );
   assert ( PMMG_check_intFaceComm ( parmesh ) );
+
+  /* When preprocessing the mesh, set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
 
   /** Build the internal node communicator from the faces ones */
   ier = PMMG_build_intNodeComm(parmesh);
@@ -1230,12 +1242,12 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
 
   /* Check that all steps have successed until here (because the next function
    * involves MPI comms) */
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
   if ( !ier_glob ) return 0;
 
   /** Fill the external node communicator */
   ier = PMMG_build_completeExtNodeComm(parmesh);
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: unable to complete the external node"
             " communicators.\n",__func__);
@@ -1834,12 +1846,20 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   int8_t            glob_update,loc_update;
   MPI_Request       *request;
   MPI_Status        *status;
+  MPI_Comm          comm;
 
   ier = 0;
 
   rank          = parmesh->myrank;
   int_node_comm = parmesh->int_node_comm;
   nitem         = int_node_comm->nitem;
+
+  /* When preprocessing a mesh that was loaded in HDF5 format,
+     set the MPI comm to the read comm */
+  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
+    comm = parmesh->info.read_comm;
+  else
+    comm = parmesh->comm;
 
   proclists       = NULL;
   comm_ptr        = NULL;
@@ -1866,6 +1886,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,parmesh->nprocs,
                parmesh->next_node_comm,PMMG_Ext_comm,
                "list of external communicators",goto end);
+
   next_comm = parmesh->next_node_comm;
   parmesh->next_node_comm = parmesh->nprocs;
 
@@ -2020,7 +2041,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
     MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status), goto end );
     MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
-                             parmesh->comm),goto end);
+                             comm),goto end);
 
   } while ( glob_update );
 

@@ -978,6 +978,10 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
     nitem         = ext_face_comm->nitem;
     color         = ext_face_comm->color_out;
 
+    /* If the communicator is empty, dont try to communicate. This case happens when
+       the mesh was loaded from an HDF5 file with more procs than partitions. */
+    if ( !nitem ) continue;
+
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
                 goto fail_6);
     itosend = ext_face_comm->itosend;
@@ -1283,6 +1287,8 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   int        status = 1;
 
   xadj = adjncy = vwgt = adjwgt = NULL;
+
+  if (!nelt) return 1;
 
   /* Set contiguity of partitions if using Metis also for graph partitioning */
   METIS_SetDefaultOptions(options);

@@ -229,13 +229,17 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
   double        dd,bb_min[3],bb_max[3],delta,dist[3],dist_norm;
   int ier;
   int ngrp = parmesh->ngrp;
-  int nitem = parmesh->int_node_comm->nitem;
+  int nitem;
   int commIdx2 = 0;
   int commIdx1 = 0;
   int commSizeLoc = 0;
   int commIdx,k,j;
 
+  if ( !parmesh->int_node_comm ) return 1;
+
   if ( !parmesh->int_node_comm->nitem ) return 1;
+
+  nitem = parmesh->int_node_comm->nitem;
 
   ier = 0;
 
@@ -421,6 +425,8 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
   double         delta,dd,*doublevalues,dist[3],dist_norm,bb_min[3],bb_max[3];
   int            *intvalues;
   int            k,i,j,l,iel,ifac,iploc,ip,idx,idx_ori,nitem,ier;
+
+  if ( !parmesh->int_face_comm ) return 1;
 
   if ( !parmesh->int_face_comm->nitem ) return 1;
 
@@ -830,8 +836,10 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   request     = NULL;
   status      = NULL;
 
+  if (parmesh->iter == PMMG_UNSET) return 1;
+
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
- 
+
   /** Step 1: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
     ier = 1;
@@ -1043,6 +1051,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   r2recv_size = NULL;
   request     = NULL;
   status      = NULL;
+
+  if (parmesh->iter == PMMG_UNSET) return 1;
 
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
 
