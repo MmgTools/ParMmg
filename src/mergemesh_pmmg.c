@@ -368,6 +368,9 @@ int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh parmesh,
       pptJ->tmp = ip;
       intvalues[ poi_id_glo ] = ip;
       pptI = &meshI->point[ip];
+      pptI->n[0] = pptJ->n[0];
+      pptI->n[1] = pptJ->n[1];
+      pptI->n[2] = pptJ->n[2];
       pptI->ref = pptJ->ref;
 
       /* Add xpoint if needed */
@@ -522,6 +525,9 @@ int PMMG_mergeGrpJinI_internalPoints( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
     }
     pptJ->tmp = ip;
     pptI = &meshI->point[ip];
+    pptI->n[0] = pptJ->n[0];
+    pptI->n[1] = pptJ->n[1];
+    pptI->n[2] = pptJ->n[2];
     pptI->ref = pptJ->ref;
 
     /* Add xpoint if needed */

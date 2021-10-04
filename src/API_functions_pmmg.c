@@ -425,12 +425,6 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
-  for( k = 0; k < parmesh->ngrp; k++ ) {
-    mesh = parmesh->listgrp[k].mesh;
-#warning Option -nosurf imposed by default
-    mesh->info.nosurf = 1;
-  }
-
   /* Init MPI data */
   parmesh->comm   = comm;
 
@@ -668,6 +662,15 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
     }
+    if( val ) {
+#warning opnbdy not supported with surface adaptation
+      fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
+          "\nSetting nosurf on.\n");
+      for ( k=0; k<parmesh->ngrp; ++k ) {
+        mesh = parmesh->listgrp[k].mesh;
+        if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
+      }
+    }
     break;
   case PMMG_IPARAM_optim :
     for ( k=0; k<parmesh->ngrp; ++k ) {
@@ -702,8 +705,11 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-      if( !val ) fprintf(stderr,"  ## Warning: Surfacic adaptation not implemented! Switching it off by default.\n");
-      if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
+#warning opnbdy not supported with surface adaptation
+      if( !val && mesh->info.opnbdy )
+        fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
+          "\nCannot set nosurf off.\n");
+      else if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
     }
     break;
   case PMMG_IPARAM_numberOfLocalParam :
@@ -815,6 +821,13 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
   }
 
   return 1;
+}
+
+int PMMG_Set_localParameter(PMMG_pParMesh parmesh, int typ, int ref,
+                             double hmin,double hmax,double hausd){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Set_localParameter(parmesh->listgrp[0].mesh, NULL, typ, ref,
+                                  hmin, hmax, hausd));
 }
 
 int PMMG_Set_vertex(PMMG_pParMesh parmesh, double c0, double c1, double c2,
@@ -1267,7 +1280,8 @@ int PMMG_Set_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index
     PMMG_DEL_MEM(parmesh,oldId,int,"oldId");
   }
 
-  /* Save local and global node indices */
+  /* Save local and global node indices (they will be used by
+   * PMMG_build_faceCommFromNodes). */
   if( ier ) {
     for( i = 0; i < nitem; i++ ) {
       pext_node_comm->int_comm_index[i] = local_index[i];
@@ -2415,6 +2429,9 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
         assert( idx_glob[icomm][i] == ext_face_comm->itorecv[i] );
     }
   }
+
+  /* Don't free buffers before they have been received */
+  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
 
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];

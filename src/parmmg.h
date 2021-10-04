@@ -434,9 +434,16 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh );
 void PMMG_setfunc( PMMG_pParMesh parmesh );
 
 /* Mesh analysis */
+void PMMG_Analys_Init_SurfNormIndex( MMG5_pTetra pt );
+int PMMG_Analys_Get_SurfNormalIndex( MMG5_pTetra pt,int ifac,int i );
+int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int start,int ip,int *ng,int *nr);
+int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface,double t[3]);
 int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_update_analys(PMMG_pParMesh parmesh);
 int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash );
+int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
+int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
 
 /* Internal library */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
@@ -471,7 +478,8 @@ void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);
 void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
 void PMMG_node_comm_free( PMMG_pParMesh );
 void PMMG_edge_comm_free( PMMG_pParMesh );
-
+int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh );
+int PMMG_color_commNodes( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
 int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh );
@@ -497,12 +505,14 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
 void PMMG_tag_par_node(MMG5_pPoint ppt);
 void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_tag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_tag_par_tria(MMG5_pTria ptt);
 void PMMG_untag_par_node(MMG5_pPoint ppt);
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
 int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
 int  PMMG_parbdySet( PMMG_pParMesh parmesh );
+int  PMMG_parbdyTria( PMMG_pParMesh parmesh );
 
 /* Mesh merge */
 int PMMG_mergeGrpJinI_interfacePoints_addGrpJ( PMMG_pParMesh,PMMG_pGrp,PMMG_pGrp);

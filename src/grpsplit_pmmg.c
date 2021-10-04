@@ -327,7 +327,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
 
   /* Copy the info structure of the initial mesh: it contains the remeshing
    * options */
-  memcpy(&(mesh->info),&(meshOld->info),sizeof(MMG5_Info) );
+  if ( !PMMG_copy_mmgInfo ( &meshOld->info,&mesh->info ) ) return 0;
 
   /* Loop on tetras */
   for ( ie = 1; ie < meshOld->ne+1; ++ie ) {
