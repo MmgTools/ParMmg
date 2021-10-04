@@ -35,6 +35,50 @@
 #include "parmmg.h"
 
 /**
+ * \param ppt pointer toward the point structure
+ *
+ * Faster version of PMMG_Get_vertexGloNum.
+ */
+static inline
+int PMMG_Get_vertexGloNum_fast( MMG5_pPoint ppt ) {
+  return ppt->tmp;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ *
+ * Reset the point field temporary used for storing the corresponding position
+ * in the internal communicator.
+ */
+static inline
+void PMMG_point2int_comm_index_reset( MMG5_pPoint ppt ) {
+  ppt->s = PMMG_UNSET;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ * \param idx position in the internal node communicator
+ *
+ * Set the point field to temporarily store the corresponding position in the
+ * internal communicator.
+ */
+static inline
+void PMMG_point2int_comm_index_set( MMG5_pPoint ppt, int idx ) {
+  ppt->s = idx;
+}
+
+/**
+ * \param ppt pointer toward the point structure
+ *
+ * Get the position in the internal communicator from the corrisponding point
+ * field temporarily storing it.
+ */
+static inline
+int PMMG_point2int_comm_index_get( MMG5_pPoint ppt ) {
+  return ppt->s;
+}
+
+/**
  * Structure for all variables in the scope of the triple nested loop of
  * \fn PMMG_hashNorver_loop.
  */
@@ -265,7 +309,7 @@ static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
   double *doublevalues;
-  int    ia[2],ip[2];
+  int    ia[2],ip[2],gip;
   int    *intvalues,idx,d,edg,j,pos;
   int16_t tag;
   int8_t  found;
@@ -273,7 +317,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   doublevalues = parmesh->int_node_comm->doublevalues;
   intvalues    = parmesh->int_node_comm->intvalues;
 
-  idx = var->ppt->tmp;
+  idx = PMMG_point2int_comm_index_get( var->ppt );
   assert( idx >= 0 );
 
   assert( var->ip == var->pt->v[MMG5_idir[var->ifac][var->iloc]] );
@@ -291,6 +335,9 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
     /* Get edge tag */
     tag = var->pxt->tag[ia[j]];
 
+    /* Get global index of the edge extremity */
+    gip = PMMG_Get_vertexGloNum_fast( ppt[j] );
+
     /* Try to store an edge extremity */
     if( MG_EDG(tag) ) {
       /* Internal edge or parallel owned edge */
@@ -302,7 +349,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         pos = 0;
         found = 0;
         while( pos < 2 && intvalues[2*idx+pos] && !found ) {
-          if( intvalues[2*idx+pos] == ip[j] )
+          if( intvalues[2*idx+pos] == gip )
             found++;
           pos++;
         }
@@ -310,7 +357,7 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         if( pos == 2 ) assert(found);
         if( !found ) {
           assert( pos < 2 );
-          intvalues[2*idx+pos] = ip[j];
+          intvalues[2*idx+pos] = gip;
           for( d = 0; d < 3; d++ )
             doublevalues[6*idx+3*pos+d] = ppt[j]->c[d];
         }
@@ -345,7 +392,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
 
   /* Get internal communicator index */
-  idx = var->ppt->tmp;
+  idx = PMMG_point2int_comm_index_get( var->ppt );
 
   ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
   ia[1] = MMG5_iarf[var->ifac][MMG5_inxt2[var->iloc]];
@@ -357,7 +404,8 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
    * extremity could be visible only on the current partition. */
   for( j = 0; j < 2; j++ ) {
     tag = var->pxt->tag[ia[j]];
-    if( ip[j] == parmesh->int_node_comm->intvalues[2*idx] ){
+    if( PMMG_Get_vertexGloNum_fast( &var->mesh->point[ip[j]] ) ==
+        parmesh->int_node_comm->intvalues[2*idx] ){
       if( !PMMG_hTagOri( var->hash,
                          var->ip,ip[j], /* pair (ip,np+ip[j]) */
                          (int)tag,      /* still the same tag */
@@ -536,7 +584,6 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
  * ridge points.
  */
 int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
-  PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   int            i,idx;
 
@@ -591,7 +638,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
-  int            *itosend,*itorecv,*intvalues,*npshift,myshift;
+  int            *itosend,*itorecv,*intvalues;
   int            k,nitem,color,i,idx,j,pos,d;
   MPI_Comm       comm;
   MPI_Status     status;
@@ -603,16 +650,6 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   intvalues = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
-  /* Compute nodes global offset */
-  PMMG_CALLOC(parmesh,npshift,parmesh->nprocs+1,int,"npshift", return 0);
-  MPI_CHECK( MPI_Allgather(&mesh->np,1,MPI_INT,&npshift[1],1,MPI_INT,comm),
-             return 0 );
-
-  for( k = 1; k <= parmesh->nprocs; ++k )
-    npshift[k] += npshift[k-1];
-  myshift = npshift[parmesh->myrank];
-  PMMG_DEL_MEM(parmesh,npshift,int,"npshift");
-
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -620,18 +657,12 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
     rtorecv = ext_node_comm->rtorecv;
+    memset(itosend,0x00,2*nitem*sizeof(int));
+    memset(rtosend,0x00,2*nitem*sizeof(double));
 
     /* Fill buffers */
     for( i = 0; i < nitem; ++i ) {
@@ -639,7 +670,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       /* only send positive entries */
       for( j = 0; j < 2; j++ ) {
         if( intvalues[2*idx+j] ) {
-          itosend[2*i+j] = intvalues[2*idx+j]+myshift;
+          itosend[2*i+j] = intvalues[2*idx+j];
           for( d = 0; d < 3; d++ )
             rtosend[6*i+3*j+d] = doublevalues[6*idx+3*j+d];
         }
@@ -676,7 +707,7 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
       j = 0;
       while( j < 2 && itorecv[2*i+j] ) {
         assert( pos < 2 );
-        intvalues[2*idx+pos] = itorecv[2*i+j]-myshift;
+        intvalues[2*idx+pos] = itorecv[2*i+j];
         for( d = 0; d < 3; d++ ) {
           doublevalues[6*idx+3*pos+d] = rtorecv[6*i+3*j+d];
         }
@@ -696,59 +727,9 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
   }
 
 
-  /* Free memory */
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
-  }
 
   return 1;
 
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure
- * \return 0 if fail, 1 if success.
- *
- * Allocate buffers for integer communication on parallel points.
- */
-int PMMG_hashNorver_communication_init( PMMG_pParMesh parmesh ) {
-  PMMG_pExt_comm ext_edge_comm;
-  int k,nitem;
-
-  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
-    nitem         = ext_edge_comm->nitem;
-
-    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-  }
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure
- * \return 0 if fail, 1 if success.
- *
- * Free buffers for integer communication on parallel points.
- */
-int PMMG_hashNorver_communication_free( PMMG_pParMesh parmesh ) {
-  PMMG_pExt_comm ext_edge_comm;
-  int k;
-
-  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
-  }
-
-  return 1;
 }
 
 /**
@@ -833,14 +814,6 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_MALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
@@ -881,10 +854,6 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
         doublevalues[6*idx+j] += rtorecv[6*i+j];
     }
 
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
   }
 
   return 1;
@@ -900,7 +869,7 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
  */
 int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pxPoint pxp = &var->mesh->xpoint[var->ppt->xp];
-  int d;
+  int d,color;
 
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
@@ -910,8 +879,11 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_norface(var->mesh,var->ie,var->ifac,var->n);
 
   /* Accumulate normal contribution on the correct vector, depending on the
-   * surface color */
-  if( var->pt->mark & PMMG_hashNorver_color(var->ifac,var->iloc) )
+   * surface color.
+   * When debugging surface colors, here you can print/watch the color of every
+   * face touching point var->ip. */
+  color = PMMG_hashNorver_color(var->ifac,var->iloc);
+  if( var->pt->mark & color )
     for( d = 0; d < 3; d++ )
       pxp->n2[d] += var->n[d];
   else
@@ -953,7 +925,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
      * PMMG_hashNorver_xp_init()) */
     if( var->ppt->flag ) {
 
-      idx = var->ppt->tmp;
+      idx = PMMG_point2int_comm_index_get( var->ppt );
       pxp = &var->mesh->xpoint[var->ppt->xp];
 
       /* Compute tangent (as in MMG3D_boulenm) */
@@ -1021,11 +993,11 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   /* Unload communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
+    idx = PMMG_point2int_comm_index_get( var->ppt );
 
     /* Loop on parallel, non-corner points (check for valid index before
      * accessing the internal communicator, not allocated on 1 proc) */
-    if( var->ppt->tmp != PMMG_UNSET ) {
-      idx = var->ppt->tmp;
+    if( idx != PMMG_UNSET ) {
       if( intvalues[idx] ) {
 
         /* Create xpoint if needed */
@@ -1058,11 +1030,11 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   /* Normalize vectors */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
     var->ppt = &var->mesh->point[var->ip];
+    idx = PMMG_point2int_comm_index_get( var->ppt );
 
     /* Loop on parallel, non-corner points (check for valid index before
      * accessing the internal communicator, not allocated on 1 proc) */
-    if( var->ppt->tmp != PMMG_UNSET ) {
-      idx = var->ppt->tmp;
+    if( idx != PMMG_UNSET ) {
       if( intvalues[idx] ) {
         pxp = &var->mesh->xpoint[var->ppt->xp];
 
@@ -1076,6 +1048,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
           for( d = 0; d < 3; d++ )
             dd += pxp->n1[d]*pxp->n1[d];
           dd = 1.0 / sqrt(dd);
+          /* if this fail, check surface color in PMMG_hn_sumnor */
           assert(isfinite(dd));
           if( dd > MMG5_EPSD2 )
             for( d = 0; d < 3; d++ )
@@ -1087,6 +1060,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
             for( d = 0; d < 3; d++ )
               dd += pxp->n2[d]*pxp->n2[d];
             dd = 1.0 / sqrt(dd);
+            /* if this fail, check surface color in PMMG_hn_sumnor */
             assert(isfinite(dd));
             if( dd > MMG5_EPSD2 )
               for( d = 0; d < 3; d++ )
@@ -1251,10 +1225,6 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
     nitem         = ext_edge_comm->nitem;
     color         = ext_edge_comm->color_out;
 
-    PMMG_MALLOC(parmesh,ext_edge_comm->itosend,nitem,int,"itosend array",
-                return 0);
-    PMMG_MALLOC(parmesh,ext_edge_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
     itosend = ext_edge_comm->itosend;
     itorecv = ext_edge_comm->itorecv;
 
@@ -1281,8 +1251,6 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
       idx  = ext_edge_comm->int_comm_index[i];
       intvalues[idx] = MG_MIN(intvalues[idx],itorecv[i]);
     }
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
   }
 
   /* Store owner in edge */
@@ -1321,26 +1289,26 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   assert( parmesh->ngrp == 1 );
   assert( mesh = grp->mesh );
 
+  /* Communicators already allocated 2*int, 6*double*/
   int_node_comm = parmesh->int_node_comm;
   int_edge_comm = parmesh->int_edge_comm;
 
-  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"node doublevalues",return 0);
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"node intvalues",return 0);
-
-  /* Reset intvalues to zero, as it will be used to store the edge colors */
-  memset(int_edge_comm->intvalues,0,2*int_edge_comm->nitem*sizeof(int));
+  /* Reset intvalues to zero */
+  memset(int_node_comm->doublevalues,0x00,6*int_node_comm->nitem*sizeof(int));
+  memset(int_node_comm->intvalues,0x00,2*int_node_comm->nitem*sizeof(int));
+  memset(int_edge_comm->intvalues,0x00,2*int_edge_comm->nitem*sizeof(int));
 
   /* Store internal communicator index on the point itself */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
-    ppt->tmp = PMMG_UNSET;
+    PMMG_point2int_comm_index_reset( ppt );
   }
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tmp = idx;
+    PMMG_point2int_comm_index_set( ppt,idx );
   }
 
   /* Create xpoints */
@@ -1380,7 +1348,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
 
   /* 3.2) Parallel update iterations */
-  if( !PMMG_hashNorver_communication_init( parmesh ) ) return 0;
   while( var->updpar ) {
 
     /* Reset update variable */
@@ -1399,14 +1366,9 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
 
   }
-  if( !PMMG_hashNorver_communication_free( parmesh ) ) return 0;
 
   /** 4) Compute normal vectors */
   if( !PMMG_hashNorver_normals( parmesh,var ) ) return 0;
-
-  /* Free memory */
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"node intvalues");
-  PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"node doublevalues");
 
   return 1;
 }
@@ -1607,223 +1569,6 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
  * Update continuous geometry information (normal and tangent vectors) on
  * previouly parallel points, as this infomation has not been built during
  * initial analysis.
- *
- * The algorithm analyzes manifold surfaces and gives colors for each of the
- * vertices seen by a triangles, depending whether a special edge has been
- * crossed when travelling the surface ball of the vertex (color 1)  or not
- * (color 0).
- * This color is used to know whether the triangle normal vector should
- * contribute to the first (0) average normal vector of the point, or the second
- * (1) if the point is a special edge.
- *
- * \remark Normal and tangent vectors are overzritten on these points.
- *
- */
-int PMMG_update_norver( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
-  MMG5_pTetra    pt;
-  MMG5_Tria      tt;
-  MMG5_pPoint    ppt;
-  MMG5_pxTetra   pxt;
-  MMG5_pxPoint   pxp;
-  double         n[3],dd;
-  int            ip,ie,ifac,i,iloc,d,base;
-
-  base = ++mesh->base;
-
-  /* Reset points flag and source element fields */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    ppt->flag = 0;
-    ppt->s = 0;
-  }
-
-  /* Reset tetra mark: it will be used by PMMG_boulen to bitwise flag the
-   * element vertices depending on the portion of surface near a MG_EDG edge.
-   * Initialize point source element field with tetra, face, and local index
-   * on tetra */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-    if( !MG_EOK(pt) || !pt->xt ) continue;
-    PMMG_Analys_Init_SurfNormIndex( pt );
-
-    pxt = &mesh->xtetra[pt->xt];
-
-    for( ifac = 0; ifac < 4; ifac++ ) {
-
-      /* skip faces not on boundary or already seen depending on orientation */
-      if( !(pxt->ftag[ifac] & MG_BDY) || !MG_GET(pxt->ori,ifac) ) continue;
-
-      for( i = 0; i < 3; i++ ) {
-        iloc = MMG5_idir[ifac][i];
-        ip = pt->v[iloc];
-        ppt = &mesh->point[ip];
-        ppt->s = 16*ie+4*ifac+iloc;
-      }
-    }
-  }
-
-  /* Initialize flags on non-parallel, non-singular, manifold, old interface
-   * points.
-   * Reset xpoint or reference/allocate it if needed.
-   * Flag tetra vertices based on the portion of surface they see near a
-   * NG_EDG edge. */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-
-    if( !MG_VOK(ppt) || !(ppt->tag & MG_BDY) ) continue;
-
-    /* Flag points to analyze */
-    if( !(ppt->tag & MG_OLDPARBDY) || ppt->tag & MG_PARBDY ||
-        MG_SIN(ppt->tag) || ppt->tag & MG_NOM ) continue;
-
-    ppt->flag = base;
-
-    /* Reset normal vector or allocate/reference new xpoint */
-    if( ppt->xp ) {
-      pxp = &mesh->xpoint[ppt->xp];
-      memset(pxp->n1,0x00,3*sizeof(double));
-      memset(pxp->n2,0x00,3*sizeof(double));
-    } else {
-      ++mesh->xp;
-      if(mesh->xp > mesh->xpmax){
-        MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                          "larger xpoint table",
-                          mesh->xp--;return 0;);
-      }
-      ppt->xp = mesh->xp;
-    }
-
-    /* color portion of surface touching the special point */
-    if( MG_EDG(ppt->tag) ) {
-      ie   =  ppt->s / 16;
-      ifac = (ppt->s % 16) / 4;
-      iloc = (ppt->s % 16) % 4;
-      assert( ie );
-      if( !PMMG_boulen(parmesh,mesh,ie,iloc,ifac,ppt->n) ) {
-        fprintf(stderr,"  ## Error: rank %d, function %s: failed boulen.\n",parmesh->myrank,__func__);
-        return 0;
-      }
-    }
-  }
-
-
-  /* compute and attribute normal vectors */
-  for( ie = 1; ie <= mesh->ne; ie++ ) {
-    pt = &mesh->tetra[ie];
-
-    if( !MG_EOK(pt) || !pt->xt ) continue;
-    pxt = &mesh->xtetra[pt->xt];
-
-    for( ifac = 0; ifac < 4; ifac++ ) {
-
-      /* skip faces not on boundary or already seen depending on orientation */
-      if( !(pxt->ftag[ifac] & MG_BDY) || !MG_GET(pxt->ori,ifac) ) continue;
-
-
-      /* get virtual triangle and compute normal */
-      MMG5_tet2tri(mesh,ie,ifac,&tt);
-      MMG5_nortri(mesh,&tt,n);
-      assert( n[0]*n[0]+n[1]*n[1]+n[2]*n[2] > MMG5_EPSD2 );
-
-      /* loop on face vertices and set contribution if the vertex is flagged */
-      for( i = 0; i < 3; i++ ) {
-        iloc = MMG5_idir[ifac][i];
-        ip = pt->v[iloc];
-        ppt = &mesh->point[ip];
-
-        if( ppt->flag != base ) continue;
-        assert( !(pxt->ftag[ifac] & MG_PARBDY ) );
-
-        assert( ppt->xp );
-        pxp = &mesh->xpoint[ppt->xp];
-
-        if( PMMG_Analys_Get_SurfNormalIndex( pt,ifac,i ) ) {
-          for( d = 0; d < 3; d++ )
-            pxp->n2[d] += n[d];
-        } else {
-          for( d = 0; d < 3; d++ )
-            pxp->n1[d] += n[d];
-        }
-      }
-    }
-  }
-
-  /* normalize normals */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    if( ppt->flag != base ) continue;
-
-    pxp = &mesh->xpoint[ppt->xp];
-
-    /* normalize first normal vector */
-    dd = 0.0;
-    for( d = 0; d < 3; d++ )
-      dd += pxp->n1[d]*pxp->n1[d];
-    if ( dd <= MMG5_EPSD2 ) {
-      fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector for first surface.\n",parmesh->myrank,__func__);
-      return 0;
-    }
-    dd = 1.0 / sqrt(dd);
-    for( d = 0; d < 3; d++ )
-      pxp->n1[d] *= dd;
-
-    /* normalize second normal vector if present */
-    if( MG_EDG(ppt->tag) ) {
-      dd = 0.0;
-      for( d = 0; d < 3; d++ )
-        dd += pxp->n2[d]*pxp->n2[d];
-      if ( dd <= MMG5_EPSD2 ) {
-        fprintf(stderr,"  ## Error: rank %d, function %s: computed null normal vector for second surface.\n",parmesh->myrank,__func__);
-        return 0;
-      }
-      dd = 1.0 / sqrt(dd);
-      for( d = 0; d < 3; d++ )
-        pxp->n2[d] *= dd;
-
-      if( ppt->tag & MG_GEO ) {
-        /* update tangent as cross product of normal vectors if geometric edge
-         * (this cannot be done on a reference edge, as it can lie on a C1
-         * surface) */
-        ppt->n[0] = pxp->n1[1]*pxp->n2[2] - pxp->n1[2]*pxp->n2[1];
-        ppt->n[1] = pxp->n1[2]*pxp->n2[0] - pxp->n1[0]*pxp->n2[2];
-        ppt->n[2] = pxp->n1[0]*pxp->n2[1] - pxp->n1[1]*pxp->n2[0];
-        dd = ppt->n[0]*ppt->n[0] + ppt->n[1]*ppt->n[1] + ppt->n[2]*ppt->n[2];
-        if ( dd > MMG5_EPSD2 ) {
-          dd = 1.0 / sqrt(dd);
-          ppt->n[0] *= dd;
-          ppt->n[1] *= dd;
-          ppt->n[2] *= dd;
-        }
-      }
-    }
-  }
-
-#ifndef NDEBUG
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    if( !MG_VOK(ppt) || !(ppt->tag & MG_BDY) ) continue;
-    if( ppt->tag & MG_OLDPARBDY && !(ppt->tag & MG_PARBDY) &&
-        !MG_SIN(ppt->tag) && !(ppt->tag & MG_NOM) ) {
-      assert(ppt->xp);
-      pxp = &mesh->xpoint[ppt->xp];
-      assert( pxp->n1[0]*pxp->n1[0]+pxp->n1[1]*pxp->n1[1]+pxp->n1[2]*pxp->n1[2] > 0.0 );
-      if( MG_EDG(ppt->tag) )
-        assert( pxp->n2[0]*pxp->n2[0]+pxp->n2[1]*pxp->n2[1]+pxp->n2[2]*pxp->n2[2] > 0.0 );
-    }
-  }
-#endif
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- *
- * \return 1 if success, 0 if fail.
- *
- * Update continuous geometry information (normal and tangent vectors) on
- * previouly parallel points, as this infomation has not been built during
- * initial analysis.
  * Also update singular tags as they were erased on parallel points.
  *
  */
@@ -1864,363 +1609,14 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
 }
 
 /**
- * \param mesh pointer toward the mesh structure.
+ * \param parmesh pointer toward the parmesh structure
+ * \param var pointer toward the structure for local loop variables
  *
- * \return 1 if success, 0 if fail.
- * Seek the non-required non-manifold points and try to analyse whether they are
- * corner or required.
- *
- * \remark We don't know how to travel through the shell of a non-manifold point
- * by triangle adjacency. Thus the work done here can't be performed in the \ref
- * MMG5_singul function.
- * \remark Modeled after the sequential MMG5_setVertexNmTag function.
- *
+ * \remark Analogous to MMG5_bouler, but without using ball travel.
+ * It assumes intvalues is allocated with size 2*nitem and that idx is stored in
+ * a field of ppt accessible with the functions
+ * PMMG_point2int_comm_index_reset/set/get.
  */
-static inline
-int PMMG_setVertexNmTag(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  PMMG_pGrp      grp;
-  PMMG_pInt_comm int_node_comm;
-  PMMG_pExt_comm ext_node_comm;
-  MPI_Comm       comm;
-  MPI_Status     status;
-  MMG5_pTetra    pt;
-  MMG5_pPoint    ppt;
-  MMG5_Hash      hash;
-  int            nc,xp,nr,ns0,nre;
-  int            ip,idx,iproc,k,i,j;
-  int            nitem,color;
-  int            *intvalues,*itosend,*itorecv,*iproc2comm;
-
-  comm   = parmesh->comm;
-  assert( parmesh->ngrp == 1 );
-  grp = &parmesh->listgrp[0];
-  int_node_comm = parmesh->int_node_comm;
-
-  /* Allocate intvalues to accomodate xp and nr for each point. */
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"intvalues",return 0);
-  intvalues    = int_node_comm->intvalues;
-
-  /* Store source tetra for every boundary point */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    if( !MG_VOK(ppt) ) continue;
-    ppt->flag = 0;
-  }
-  for( k = 1; k <= mesh->ne; k++ ) {
-    pt = &mesh->tetra[k];
-    for( i = 0; i < 4; i++ ) {
-      ppt = &mesh->point[pt->v[i]];
-      if( ppt->flag ) continue;
-      ppt->s = 4*k+i;
-      ppt->flag++;
-    }
-  }
-
-  /* Array to reorder communicators */
-  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
-
-  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
-    iproc2comm[iproc] = PMMG_UNSET;
-
-  for( k = 0; k < parmesh->next_node_comm; k++ ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    iproc = ext_node_comm->color_out;
-    iproc2comm[iproc] = k;
-  }
-
-  /* Flag parallel points with the lowest rank they see in order to analyse
-   * them only once. */
-  for( iproc = parmesh->nprocs-1; iproc >= 0; iproc-- ) {
-    k = iproc2comm[iproc];
-    if( k == PMMG_UNSET ) continue;
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    for( i = 0; i < ext_node_comm->nitem; i++ ) {
-      idx = ext_node_comm->int_comm_index[i];
-      intvalues[idx] = iproc;
-    }
-  }
-
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip  = grp->node2int_node_comm_index1[i];
-    idx = grp->node2int_node_comm_index2[i];
-    ppt = &mesh->point[ip];
-    if( !MG_VOK(ppt) ) continue;
-    ppt->flag = intvalues[idx];
-    /* Reset intvalues in order to reuse it to count special edges */
-    intvalues[idx] = 0;
-  }
-
-  /* Hash table used by boulernm to store the special edges passing through
-   * a given point */
-  if ( ! MMG5_hashNew(mesh,&hash,mesh->np,(int)(3.71*mesh->np)) ) return 0;
-
-
-  /** Local singularity analysis */
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip  = grp->node2int_node_comm_index1[i];
-    idx = grp->node2int_node_comm_index2[i];
-    ppt = &mesh->point[ip];
-    if ( !MG_VOK(ppt) || ( ppt->tag & MG_CRN ) )
-      continue;
-    else if ( MG_EDG(ppt->tag) ) {
-      /* Count the number of ridges passing through the point (xp) and the
-       * number of ref edges (nr).
-       * Edges on communicators only once as they are flagged with their
-       * lowest seen rank. */
-      ns0 = PMMG_boulernm(parmesh, mesh, &hash, ppt->s/4, ppt->s%4, &xp, &nr);
-      assert( ns0 == xp+nr );
-
-      /* Add nb of ridges/refs to intvalues */
-      intvalues[2*idx]   = xp;
-      intvalues[2*idx+1] = nr;
-
-    }
-  }
-
-  /** Exchange values on the interfaces among procs */
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    nitem         = ext_node_comm->nitem;
-    color         = ext_node_comm->color_out;
-
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    itosend = ext_node_comm->itosend;
-    itorecv = ext_node_comm->itorecv;
-
-    /* Fill buffers */
-    for ( i=0; i<nitem; ++i ) {
-      idx  = ext_node_comm->int_comm_index[i];
-      for( j = 0; j < 2; j++ ) {
-        itosend[2*i+j] = intvalues[2*idx+j];
-      }
-    }
-
-    MPI_CHECK(
-      MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   comm,&status),return 0 );
-
-  }
-
-  /** First pass: Sum nb. of singularities,
-   */
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    itorecv = ext_node_comm->itorecv;
-
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx  = ext_node_comm->int_comm_index[i];
-
-      /* Current nb. of singularities == current nb. of stored edge vectors */
-      ns0 = intvalues[2*idx]+intvalues[2*idx+1];
-
-      /* Increment nb. of singularities */
-      intvalues[2*idx]   += itorecv[2*i];
-      intvalues[2*idx+1] += itorecv[2*i+1];
-    }
-  }
-
-  /** Second pass: Analysis.
-   *  Flag intvalues[2*idx]   as PMMG_UNSET if the point is required.
-   *  Flag intvalues[2*idx+1] as PMMG_UNSET if the point is corner.
-   */
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    itosend = ext_node_comm->itosend;
-    itorecv = ext_node_comm->itorecv;
-
-    for ( i=0; i<ext_node_comm->nitem; ++i ) {
-      idx  = ext_node_comm->int_comm_index[i];
-
-      xp = intvalues[2*idx];
-      nr = intvalues[2*idx+1];
-      if ( (xp == PMMG_UNSET) || (nr == PMMG_UNSET) )  continue;
-
-      if ( !(xp+nr) )  continue;
-      if ( (xp+nr) > 2 ) {
-        intvalues[2*idx]   = PMMG_UNSET;
-        intvalues[2*idx+1] = PMMG_UNSET;
-        nre++;
-        nc++;
-      }
-      else if ( (xp == 1) && (nr == 1) ) {
-        intvalues[2*idx]   = PMMG_UNSET;
-        nre++;
-      }
-      else if ( xp == 1 && !nr ){
-        intvalues[2*idx]   = PMMG_UNSET;
-        intvalues[2*idx+1] = PMMG_UNSET;
-        nre++;
-        nc++;
-      }
-      else if ( nr == 1 && !xp ){
-        intvalues[2*idx]   = PMMG_UNSET;
-        intvalues[2*idx+1] = PMMG_UNSET;
-        nre++;
-        nc++;
-      }
-    }
-  }
-
-  /** Third pass: Tag points */
-  for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
-    ip  = grp->node2int_node_comm_index1[i];
-    idx = grp->node2int_node_comm_index2[i];
-    ppt = &mesh->point[ip];
-    if( intvalues[2*idx]   == PMMG_UNSET ) { /* is required */
-      ppt->tag |= MG_REQ;
-      ppt->tag &= ~MG_NOSURF;
-    }
-    if( intvalues[2*idx+1] == PMMG_UNSET ) { /* is corner */
-      ppt->tag |= MG_CRN;
-    }
-  }
-
-  /* Free the edge hash table */
-  MMG5_DEL_MEM(mesh,hash.item);
-
-  if ( mesh->info.ddebug || abs(mesh->info.imprim) > 3 )
-    fprintf(stdout,"     %d corner and %d required vertices added\n",nc,nre);
-
-  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-  }
-
-  return 1;
-}
-
-/**
- * \param mesh pointer towar the mesh structure.
- * \param hash edges hash table.
- * \return 1 if success, 0 if failed.
- *
- * Set tags to non-manifold edges and vertices. Not done before because we need
- * the \ref MMG5_xTetra table.
- *
- * \warning if fail, the edge hash table \a hash is not freed.
- *
- */
-int PMMG_setNmTag(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_Hash *hash) {
-
-//  /* First: seek edges at the interface of two distinct domains and mark it as
-//   * required */
-//  if ( !MMG5_setEdgeNmTag(mesh,hash) ) return 0;
-
-  /* Second: seek the non-required non-manifold points and try to analyse
-   * whether they are corner or required. */
-  if ( !PMMG_setVertexNmTag(parmesh,mesh) ) return 0;
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param mesh pointer toward the mesh structure.
- * \param adjt pointer toward the table of triangle adjacency.
- * \param start index of triangle where we start to work.
- * \param ip index of vertex on which we work.
- * \param list pointer toward the computed list of GEO vertices incident to \a ip.
- * \param listref pointer toward the corresponding edge references
- * \param ng pointer toward the number of ridges.
- * \param nr pointer toward the number of reference edges.
- * \param lmax maxmum size for the ball of the point \a ip.
- * \return The number of edges incident to the vertex \a ip.
- *
- * Store edges and count the number of ridges and reference edges incident to
- * the vertex \a ip.
- * \remark Same as MMG5_bouler(), but skip edges whose extremity is flagged with
- * a rank lower than myrank.
- *
- */
-int PMMG_bouler(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int *adjt,int start,int ip,
-                 int *list,int *listref,int *ng,int *nr,int lmax) {
-  MMG5_pTria    pt;
-  int           *adja,k,ns;
-  int           i,i1,i2;
-
-  pt  = &mesh->tria[start];
-  if ( !MG_EOK(pt) )  return 0;
-
-  /* check other triangle vertices */
-  k  = start;
-  i  = ip;
-  *ng = *nr = ns = 0;
-
-  do {
-    i1 = MMG5_inxt2[i];
-    i2 = MMG5_iprv2[i];
-    /* Skip parallel boundaries that will be analyzed by another process. No
-     * need to skip simple parallel edges, as there is no adjacent through
-     * them. */
-    if( (pt->tag[i1] & MG_PARBDYBDY || pt->tag[i1] & MG_BDY) &&
-        (mesh->point[pt->v[i2]].flag < parmesh->myrank) ) {
-      /* do nothing */
-    } else {
-      if ( MG_EDG(pt->tag[i1]) ) {
-        if ( pt->tag[i1] & MG_GEO )
-          *ng = *ng + 1;
-        else if ( pt->tag[i1] & MG_REF )
-          *nr = *nr + 1;
-        ns++;
-        list[ns] = pt->v[i2];
-        listref[ns] = pt->edg[i1];
-        if ( ns > lmax-2 )  return -ns;
-      }
-    }
-    adja = &adjt[3*(k-1)+1];
-    k  = adja[i1] / 3;
-    i  = adja[i1] % 3;
-    i  = MMG5_inxt2[i];
-    pt = &mesh->tria[k];
-  }
-  while ( k && k != start );
-
-  /* reverse loop */
-  if ( k != start ) {
-    k = start;
-    i = ip;
-    do {
-      pt = &mesh->tria[k];
-      i2 = MMG5_iprv2[i];
-      /* Skip parallel boundaries that will be analyzed by another process. No
-       * need to skip simple parallel edges, as there is no adjacent through
-       * them. */
-      if( (pt->tag[i2] & MG_PARBDYBDY || pt->tag[i2] & MG_BDY) &&
-          (mesh->point[pt->v[i2]].flag < parmesh->myrank) ) {
-        /* do nothing */
-      } else {
-        if ( MG_EDG(pt->tag[i2]) ) {
-          i1 = MMG5_inxt2[i];
-          if ( pt->tag[i2] & MG_GEO )
-            *ng = *ng + 1;
-          else if ( pt->tag[i2] & MG_REF )
-            *nr = *nr + 1;
-          ns++;
-          list[ns] = pt->v[i1];
-          listref[ns] = pt->edg[i2];
-          if ( ns > lmax-2 )  return -ns;
-        }
-      }
-      adja = &adjt[3*(k-1)+1];
-      k = adja[i2] / 3;
-      i = adja[i2] % 3;
-      i = MMG5_iprv2[i];
-    }
-    while ( k && k != start );
-  }
-
-  return ns;
-}
-
-/* assumes intvalues is allocated with size 2*nitem and that idx is stored in
- * ppt->tmp */
 int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_hgeom  *ph;
   MMG5_pPoint ppt[2];
@@ -2256,7 +1652,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
       ppt[0] = &var->mesh->point[ip[j]];
       ppt[1] = &var->mesh->point[ip[(j+1)%2]];
       /* Get internal communicator index and current number of singularities */
-      idx = ppt[0]->tmp;
+      idx = PMMG_point2int_comm_index_get( ppt[0] );
       ns0 = intvalues[2*idx]+intvalues[2*idx+1];
       /* Analyze parallel point only */
       if( ppt[0]->tag & MG_PARBDY ) {
@@ -2280,6 +1676,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
+ * \param var pointer toward the structure for local loop variables
  *
  * Check for singularities.
  * \remark Modeled after the MMG5_singul function.
@@ -2290,12 +1687,11 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   PMMG_pExt_comm ext_node_comm;
   MPI_Comm       comm;
   MPI_Status     status;
-  MMG5_pTria     pt;
   MMG5_pPoint    ppt;
   double         ux,uy,uz,vx,vy,vz,dd;
   int            nc,xp,nr,ns0,ns1,nre;
   int            ip,idx,iproc,k,i,j,d;
-  int            nitem,color,tag;
+  int            nitem,color;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   double         *doublevalues,*rtosend,*rtorecv;
 
@@ -2304,46 +1700,27 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   grp = &parmesh->listgrp[0];
   int_node_comm = parmesh->int_node_comm;
 
-  /* Allocate intvalues to accomodate xp and nr for each point, doublevalues to
+  /* Allocated intvalues to accomodate xp and nr for each point, doublevalues to
    * accomodate two edge vectors at most. */
-  PMMG_CALLOC(parmesh,int_node_comm->intvalues,2*int_node_comm->nitem,int,"intvalues",return 0);
-  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,6*int_node_comm->nitem,double,"doublevalues",return 0);
   intvalues    = int_node_comm->intvalues;
   doublevalues = int_node_comm->doublevalues;
+  memset(intvalues,   0x00,2*parmesh->int_node_comm->nitem*sizeof(int));
+  memset(doublevalues,0x00,6*parmesh->int_node_comm->nitem*sizeof(double));
+
 
   /* Store internal communicator index on the point itself */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     ppt->flag = 0;
-    ppt->tmp = PMMG_UNSET;
+    PMMG_point2int_comm_index_reset( ppt );
   }
   for( i = 0; i < grp->nitem_int_node_comm; i++ ) {
     ip  = grp->node2int_node_comm_index1[i];
     idx = grp->node2int_node_comm_index2[i];
     ppt = &mesh->point[ip];
-    ppt->tmp = idx;
+    PMMG_point2int_comm_index_set( ppt,idx );
   }
 
-  /* Store source triangle for every boundary point */
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    ppt = &mesh->point[ip];
-    if( !MG_VOK(ppt) || !(ppt->tag & MG_PARBDY ) ) continue;
-    ppt->flag = 0;
-    ppt->s = 0;
-  }
-  for( k = 1; k <= mesh->nt; k++ ) {
-    pt = &mesh->tria[k];
-    /* give a valid source triangle (not a PARBDY where no adjacency is
-     * provided) */
-    tag = pt->tag[0] & pt->tag[1] & pt->tag[2];
-    if ( !MG_EOK(pt) || ((tag & MG_PARBDY) && !(tag & MG_PARBDYBDY)) )  continue;
-    for( i = 0; i < 3; i++ ) {
-      ppt = &mesh->point[pt->v[i]];
-      if( ppt->flag ) continue;
-      ppt->s = 3*k+i;
-      ppt->flag++;
-    }
-  }
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
@@ -2394,20 +1771,12 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     intvalues[2*idx+1] = ppt->ref;
   }
 
-  /* Allocate buffers with the size needed by the singularity analysis */
+  /* Allocated buffers with the size needed by the singularity analysis */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     nitem         = ext_node_comm->nitem;
     color         = ext_node_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
     rtosend = ext_node_comm->rtosend;
@@ -2605,16 +1974,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
     fprintf(stdout,"     %d corners, %d singular points detected\n",nc,nre);
 
 
+  /* free memory */
   PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
-  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
-  PMMG_DEL_MEM(parmesh,int_node_comm->doublevalues,double,"doublevalues");
-  for ( k = 0; k < parmesh->next_node_comm; ++k ) {
-    ext_node_comm = &parmesh->ext_node_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtosend,double,"rtosend array");
-    PMMG_DEL_MEM(parmesh,ext_node_comm->rtorecv,double,"rtorecv array");
-  }
+
+  /* do not deallocate communicator buffers, they will be reused */
 
   return 1;
 }
@@ -2663,21 +2026,107 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   comm = parmesh->comm;
   int_edge_comm = parmesh->int_edge_comm;
 
-  /* Allocate edge intvalues to tag non-manifold and reference edges */
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,2*int_edge_comm->nitem,int,
-              "intvalues",return 0);
+  /* Allocated edge intvalues to tag non-manifold and reference edges */
   intvalues = int_edge_comm->intvalues;
+  memset(intvalues,0x00,parmesh->int_edge_comm->nitem*sizeof(int));
+
+  /* Allocated edge doublevalues to store triangles normals */
+  doublevalues = int_edge_comm->doublevalues;
+  memset(doublevalues,0x00,6*parmesh->int_edge_comm->nitem*sizeof(double));
+
+
+  /** Loop on boundary triangles and store a MG_REQ tag in the edge internal
+   *  communicator where the triangle touches a parallel edge.
+   *  (Loop on all triangles, as the tags on corresponding edges are not
+   *  required to match yet) */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(ptr) )  continue;
+
+    /* Get parallel edge touched by a boundary face and store normal vectors */
+    for (i=0; i<3; i++) {
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+      idx = edg-1;
+
+      /* Store edge tag in the internal communicator */
+      if( (ptr->tag[i] & MG_REQ) && !(ptr->tag[i] & MG_NOSURF) ) {
+        intvalues[idx] |= MG_REQ;
+      }
+    }
+  }
+
+  /** Exchange initial edge tags */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+  }
+
+  /* Update edge tags in the internal communicator */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    itorecv = ext_edge_comm->itorecv;
+    rtorecv = ext_edge_comm->rtorecv;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      if( (itorecv[i] & MG_REQ) && !(itorecv[i] & MG_NOSURF) ) {
+        /* edge is truly required */
+        intvalues[idx] |= MG_REQ;
+        intvalues[idx] &= ~MG_NOSURF;
+      }
+    }
+  }
+
+  /* Update edge tags on triangles.
+   *  (Loop on all triangles, as the tags on corresponding edges are not
+   *  required to match yet) */
+  for( k = 1; k <= mesh->nt; k++ ) {
+    ptr = &mesh->tria[k];
+    if( !MG_EOK(ptr) )  continue;
+
+    /* Get parallel edge touched by a boundary face and store normal vectors */
+    for (i=0; i<3; i++) {
+
+      i1 = MMG5_inxt2[i];
+      i2 = MMG5_inxt2[i1];
+      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+      idx = edg-1;
+
+      if( (intvalues[idx] & MG_REQ) && !(intvalues[idx] & MG_NOSURF) ) {
+        /* edge is truly required */
+        ptr->tag[i] |= MG_REQ;
+        ptr->tag[i] &= ~MG_NOSURF;
+      }
+    }
+  }
+
 
   /* Set edge references to empty value (4*PMMG_UNSET) in order to avoid
    * comparing null references with non-null one on parallel edges not touched
    * by boundary triangles on the local proc. */
-  for( idx = 0; idx < int_edge_comm->nitem; idx++ )
+  for( idx = 0; idx < int_edge_comm->nitem; idx++ ){
+    intvalues[2*idx]   = 0;
     intvalues[2*idx+1] = 4*PMMG_UNSET;
-
-  /* Allocate edge doublevalues to store triangles normals */
-  PMMG_CALLOC(parmesh,int_edge_comm->doublevalues,6*int_edge_comm->nitem,double,
-              "doublevalues",return 0);
-  doublevalues = int_edge_comm->doublevalues;
+  }
 
 
   /** Loop on true boundary triangles and store the normal in the edge internal
@@ -2733,14 +2182,6 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
     nitem         = ext_edge_comm->nitem;
     color         = ext_edge_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_edge_comm->itosend,2*nitem,int,"itosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->itorecv,2*nitem,int,"itorecv array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtosend,6*nitem,double,"rtosend array",
-                return 0);
-    PMMG_CALLOC(parmesh,ext_edge_comm->rtorecv,6*nitem,double,"rtorecv array",
-                return 0);
     itosend = ext_edge_comm->itosend;
     itorecv = ext_edge_comm->itorecv;
     rtosend = ext_edge_comm->rtosend;
@@ -2898,15 +2339,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
     fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
 
-  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
-  PMMG_DEL_MEM(parmesh,int_edge_comm->doublevalues,double,"doublevalues");
-  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itosend,int,"itosend array");
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->itorecv,int,"itorecv array");
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtosend,double,"rtosend array");
-    PMMG_DEL_MEM(parmesh,ext_edge_comm->rtorecv,double,"rtorecv array");
-  }
+  /* do not deallocate communicator buffers, they will be reused */
 
   return 1;
 }
@@ -2948,6 +2381,193 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
   MMG5_freeXTets(mesh);
   MMG5_freeXPrisms(mesh);
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator
+ * \param ext_comm pointer toward the external communicator
+ * \param next_comm number of external communicators
+ * \param depth deallocation depth
+ * \return 0 if fail, 1 if success.
+ *
+ * Deallocate internal and external communicator buffers for parallel mesh
+ * analysis, only for a given communicator.
+ * Deallocation is performed until a certain "depth", encoding an index for the
+ * first buffer that does not need to be deallocated.
+ * Intvalues and doublevalues are encoded as 2 and 3. External communicator
+ * codes start from 1 and are multiplied by 4, since there are 4 buffers for
+ * each communicator (itosend,itorecv,rtosend,rtorecv - codes 0,1,2,3), whose
+ * code is added to that of the communicator.
+ * Examples: asking to deallocate all buffers until buffer "itorecv" on
+ * communicator "icomm" will give a depth 4*(icomm+1)+2. Asking to deallocate
+ * all buffers previous to communicator icomm will give 4*(icomm+2).
+ * Asking to deallocate all buffers will give 4*(next_comm+1).
+ */
+void PMMG_analys_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm int_comm,
+                            PMMG_pExt_comm ext_comm,int next_comm,int depth) {
+  PMMG_pExt_comm pext_comm;
+  int kmax = depth / 4 - 1;
+  int imax = depth % 4;
+
+  /* check that the maximum number of communicator matches */
+  assert( kmax <= next_comm );
+
+  /* always deallocate intvalues if the function is called */
+  PMMG_DEL_MEM(parmesh,int_comm->intvalues,int,"intvalues");
+
+  if( kmax > -1 ) {
+
+    /* always deallocate doublevalues if on a valid external communicator */
+    PMMG_DEL_MEM(parmesh,int_comm->doublevalues,double,"doublevalues");
+
+    /* deallocate all buffers of previous communicators */
+    for( int k = 0; k < kmax; k++ ){
+      pext_comm = &ext_comm[k];
+      PMMG_DEL_MEM(parmesh,pext_comm->itosend,int,"itosend array");
+      PMMG_DEL_MEM(parmesh,pext_comm->itorecv,int,"itorecv array");
+      PMMG_DEL_MEM(parmesh,pext_comm->rtosend,double,"rtosend array");
+      PMMG_DEL_MEM(parmesh,pext_comm->rtorecv,double,"rtorecv array");
+    }
+
+    /* on the last communicator, only deallocate allocated buffers */
+    if( kmax < next_comm ) {
+      pext_comm = &ext_comm[kmax-1];
+      if( imax ) {
+        PMMG_DEL_MEM(parmesh,pext_comm->itosend,int,"itosend array");
+        if( imax > 1 ) {
+          PMMG_DEL_MEM(parmesh,pext_comm->itorecv,int,"itorecv array");
+          if( imax > 2 ) {
+            PMMG_DEL_MEM(parmesh,pext_comm->rtosend,double,"rtosend array");
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Deallocate all node and edge communicator buffers for parallel mesh analysis.
+ */
+void PMMG_analys_comms_free( PMMG_pParMesh parmesh ) {
+  /* Ask for deallocation till a depth 4*(next_comm+1), since there are 4
+   * buffers for each communicator, and all communicators before (next_comm+1)
+   * need to be deallocated. */
+  PMMG_analys_comm_free( parmesh,parmesh->int_node_comm,parmesh->ext_node_comm,
+                         parmesh->next_node_comm,4*(parmesh->next_node_comm+1) );
+  PMMG_analys_comm_free( parmesh,parmesh->int_edge_comm,parmesh->ext_edge_comm,
+                         parmesh->next_edge_comm,4*(parmesh->next_edge_comm+1) );
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param int_comm pointer toward the internal communicator
+ * \param ext_comm pointer toward the external communicator
+ * \param next_comm number of external communicators
+ * \param nint number of integer slots to be allocated for each communicator.
+ * \param ndouble number of double slots to be allocated for each communicator.
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate internal and external communicator buffers for parallel mesh
+ * analysis, only for a given communicator.
+ */
+int PMMG_analys_comm_init( PMMG_pParMesh parmesh,PMMG_pInt_comm int_comm,
+                           PMMG_pExt_comm ext_comm, int next_comm,
+                           int nint, int ndouble ) {
+  PMMG_pExt_comm pext_comm;
+  int nitem;
+  int ier = 1; /* initialize error */
+  int depth; /* depth of deallocation,consistenty with PMMG_analys_comm_free*/
+
+  /* allocate intvalues */
+  PMMG_CALLOC(parmesh,int_comm->intvalues,nint*int_comm->nitem,int,
+              "intvalues",return 0);
+  depth = 3;
+
+  /* allocate doublevalues */
+  PMMG_CALLOC(parmesh,int_comm->doublevalues,ndouble*int_comm->nitem,double,
+              "doublevalues",ier = 0);
+  if( !ier ) {
+    PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+    return 0;
+  } else depth++;
+
+  /* allocate buffers for each external communicator */
+  for( int k = 0; k < next_comm; ++k ) {
+    pext_comm = &ext_comm[k];
+    nitem     = pext_comm->nitem;
+
+    PMMG_CALLOC(parmesh,pext_comm->itosend,nint*nitem,int,"itosend array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->itorecv,nint*nitem,int,"itorecv array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->rtosend,ndouble*nitem,double,"rtosend array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+
+    PMMG_CALLOC(parmesh,pext_comm->rtorecv,ndouble*nitem,double,"rtorecv array",
+                ier = 0);
+    if( !ier ) {
+      PMMG_analys_comm_free( parmesh,int_comm,ext_comm,next_comm,depth );
+      return 0;
+    } else depth++;
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \return 0 if fail, 1 if success.
+ *
+ * Allocate all node and edge communicator buffers for parallel mesh analysis.
+ */
+int PMMG_analys_comms_init( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_node_comm = parmesh->int_node_comm;
+  PMMG_pInt_comm int_edge_comm = parmesh->int_edge_comm;
+  PMMG_pExt_comm ext_node_comm = parmesh->ext_node_comm;
+  PMMG_pExt_comm ext_edge_comm = parmesh->ext_edge_comm;
+  int nint = 2;
+  int ndouble = 6;
+
+  /* Allocate node communicators to accomodate 2 integers per node (the number
+   * of ridge and reference edges connected to the node, or the label of their
+   * extremities), and 6 doubles per node (the coordinates of two position
+   * vectors for the extremities of the edges passing through the node). */
+  if( !PMMG_analys_comm_init( parmesh,int_node_comm,ext_node_comm,
+                              parmesh->next_node_comm,nint,ndouble ) )
+    return 0;
+
+  /* Allocate edge communicators to accomodate 2 integers per node (the number
+   * of non-manifold and reference edges connected to the node, or the label of
+   * their extremities), and 6 doubles per node (the normal vectors of the two
+   * triangles sharing the edge). */
+  if( !PMMG_analys_comm_init( parmesh,int_edge_comm,ext_edge_comm,
+                              parmesh->next_edge_comm,nint,ndouble ) ) {
+    /* deallocate the node communicator on failure */
+    PMMG_analys_comm_free( parmesh,int_node_comm,ext_node_comm,
+                           parmesh->next_node_comm,
+                           4*(parmesh->next_node_comm+1) );
+    return 0;
+  }
 
   return 1;
 }
@@ -3007,16 +2627,24 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* Build edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
 
+  /* Compute global node numbering and store it in ppt->tmp */
+  if( !PMMG_Compute_verticesGloNum( parmesh ) ) return 0;
+
+  /* Allocate communicator buffers */
+  if( !PMMG_analys_comms_init( parmesh ) ) return 0;
+
   /* check for ridges: check dihedral angle using adjacent triangle normals */
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
-    fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
+    fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -3024,6 +2652,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_singul(mesh) ) {
     fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -3036,18 +2665,23 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_norver( mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   /* set bdry entities to tetra: create xtetra and set references */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   /* Tag parallel faces on material interfaces as boundary */
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
+    MMG5_DEL_MEM(mesh,hash.item);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -3059,6 +2693,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
@@ -3077,8 +2712,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) )
     return 0;
 
-
-  PMMG_MALLOC(parmesh,parmesh->int_edge_comm->intvalues,2*parmesh->int_edge_comm->nitem,int,"edge intvalues",return 0);
   if( !PMMG_set_edge_owners( parmesh,&hpar ) ) return 0;
 
   /* identify singularities on parallel points.
@@ -3087,18 +2720,19 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
     fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
-    PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
+    PMMG_analys_comms_free( parmesh );
     return 0;
   }
-  PMMG_DEL_MEM(parmesh,parmesh->int_edge_comm->intvalues,int,"edge intvalues");
 
+  /* Deallocate communicator buffers */
+  PMMG_analys_comms_free( parmesh );
 
   /* check subdomains connected by a vertex and mark these vertex as corner and required */
 #warning Luca: check that parbdy are skipped

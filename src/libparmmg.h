@@ -429,6 +429,31 @@ int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam, double val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param typ type of entity (triangle, edge,...).
+ * \param ref reference of the entity.
+ * \param hmin minimal edge size.
+ * \param hmax maximal edge size.
+ * \param hausd value of the Hausdorff number.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set local parameters: set the hausdorff value at \a val for all
+ * elements of type \a typ and reference \a ref.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_LOCALPARAMETER(parmesh,typ,ref,& \n
+ * >                                      hmin,hmax,hausd,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: typ,ref\n
+ * >     REAL(KIND=8), INTENT(IN)      :: hmin,hmax,hausd\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_localParameter(PMMG_pParMesh parmesh, int typ,
+                             int ref,double hmin,double hmax,double hausd);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \return 0 if failed, 1 otherwise.
  *
  * Free names stored in the parmesh

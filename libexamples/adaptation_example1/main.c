@@ -145,13 +145,13 @@ int main(int argc,char *argv[]) {
     exit(EXIT_FAILURE);
   };
 
-  if( !PMMG_Set_localParameter( parmesh, NULL, MMG5_Triangle, 4,
+  if( !PMMG_Set_localParameter( parmesh, MMG5_Triangle, 4,
                                 0.01, 0.5, 0.1 ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);
   };
 
-  if( !PMMG_Set_localParameter( parmesh, NULL, MMG5_Triangle, 5,
+  if( !PMMG_Set_localParameter( parmesh, MMG5_Triangle, 5,
                                 3.0, 5.0, 1.0 ) ) {
     MPI_Finalize();
     exit(EXIT_FAILURE);

@@ -558,7 +558,8 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
                                    triaNormals, nodeTrias, barycoord,
                                    &ifoundTria,&ifoundEdge, &ifoundVertex );
 
-        PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
+        if( mesh->info.imprim > PMMG_VERB_ITWAVES )
+          PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
         /** Interpolate point metrics */
         if( ismet ) {
@@ -607,7 +608,8 @@ int PMMG_interpMetricsAndFields_mesh( MMG5_pMesh mesh,MMG5_pMesh oldMesh,
         ier = PMMG_locatePointVol( oldMesh, ppt,
                                    faceAreas, barycoord, &ifoundTetra );
 
-        PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
+        if( mesh->info.imprim > PMMG_VERB_ITWAVES )
+          PMMG_locatePoint_errorCheck( mesh,ip,ier,myrank,igrp );
 
         /** Interpolate volume point metrics */
         if( ismet ) {

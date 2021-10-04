@@ -824,10 +824,10 @@ int PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam,double val){
   return 1;
 }
 
-int PMMG_Set_localParameter(PMMG_pParMesh parmesh,MMG5_pSol sol, int typ, int ref,
+int PMMG_Set_localParameter(PMMG_pParMesh parmesh, int typ, int ref,
                              double hmin,double hmax,double hausd){
   assert ( parmesh->ngrp == 1 );
-  return(MMG3D_Set_localParameter(parmesh->listgrp[0].mesh, sol, typ, ref,
+  return(MMG3D_Set_localParameter(parmesh->listgrp[0].mesh, NULL, typ, ref,
                                   hmin, hmax, hausd));
 }
 

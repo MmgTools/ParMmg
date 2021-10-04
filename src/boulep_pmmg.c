@@ -61,7 +61,7 @@ void PMMG_Analys_Init_SurfNormIndex( MMG5_pTetra pt ) {
  * \warning It uses the tetra->mark field.
  */
 void PMMG_Analys_Set_SurfNormIndex( MMG5_pTetra pt,int ifac,int iloc ) {
-  pt->mark |= (1 << 3*ifac+iloc);
+  pt->mark |= (1 << (3*ifac+iloc));
 }
 
 /**
@@ -76,7 +76,7 @@ void PMMG_Analys_Set_SurfNormIndex( MMG5_pTetra pt,int ifac,int iloc ) {
  * \warning It uses the tetra->mark field.
  */
 int PMMG_Analys_Get_SurfNormalIndex( MMG5_pTetra pt,int ifac,int iloc ) {
-  return pt->mark & (1 << 3*ifac+iloc);
+  return pt->mark & (1 << (3*ifac+iloc));
 }
 
 /**
