@@ -663,21 +663,9 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     x = ppt0->c[0] - ppt1->c[0];
     y = ppt0->c[1] - ppt1->c[1];
     z = ppt0->c[2] - ppt1->c[2];
-    /* Point the edge vector in the direction of the highest first coordinate */
-    if( (x > PMMG_EPSCOOR) ||
-        (fabs(x) < PMMG_EPSCOOR && y > PMMG_EPSCOOR) ||
-        (fabs(x) < PMMG_EPSCOOR && fabs(y) < PMMG_EPSCOOR && z > PMMG_EPSCOOR) ) {
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
-    } else if( fabs(x) <= PMMG_EPSCOOR && fabs(y) <= PMMG_EPSCOOR && fabs(z) <= PMMG_EPSCOOR ) {
-      fprintf(stderr,"  ## Error: %s: rank %d: nearly coincident vertices for"
-              " edge %d, distance: (%e,%e,%e)",__func__,parmesh->myrank,ia,
-              x,y,z);
-      ier = 0;
-    } else {
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt1->c[j] - bb_min_all[j]);
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt0->c[j] - bb_min_all[j]);
-    }
+    /* The edge vector has already been oriented, just scale the coordinates */
+    for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
+    for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
   }
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
   if ( !ieresult ) return 0;

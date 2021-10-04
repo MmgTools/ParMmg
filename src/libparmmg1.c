@@ -648,8 +648,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
 
+
     /** Update old groups for metrics and solution interpolation */
     PMMG_update_oldGrps( parmesh );
+
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -841,7 +843,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     /* Compute quality in the interpolated metrics */
-    ier = PMMG_tetraQual( parmesh,0 );
+    ier = PMMG_tetraQual( parmesh,1 );
 
     /** load Balancing at group scale and communicators reconstruction */
     tim = 3;
@@ -888,6 +890,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
     }
+
+    /** update geometric analysis */
+    if( !PMMG_update_analys(parmesh) )
+      PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
@@ -956,7 +962,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso && parmesh->iter>0 ) {
     assert ( parmesh->listgrp[0].met->m );
-    PMMG_prilen(parmesh,0,0);
+    PMMG_prilen(parmesh,1,0);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);

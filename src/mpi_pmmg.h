@@ -46,6 +46,8 @@
 #define MPI_SENDEXTFACECOMM_TAG         7000
 #define MPI_TRANSFER_GRP_TAG            8000
 #define MPI_COMMUNICATORS_REF_TAG       9000
+#define MPI_ANALYS_TAG                 10000
+
 
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \

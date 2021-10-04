@@ -527,6 +527,13 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     goto fail_proc;
   }
 
+#warning opnbdy not supported with surface adaptation
+  if( parmesh->listgrp[0].mesh->info.opnbdy ) {
+    fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
+        "\nSetting nosurf on.\n");
+    if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
+  }
+
   /* Store mesh names into the parmesh if needed */
   if ( !parmesh->meshin ) {
     assert ( parmesh->listgrp[0].mesh->namein );

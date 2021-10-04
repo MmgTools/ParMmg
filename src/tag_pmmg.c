@@ -38,7 +38,11 @@
  */
 void PMMG_tag_par_node(MMG5_pPoint ppt){
 
-  ppt->tag |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  ppt->tag |= (MG_PARBDY + MG_BDY);
+  if( !(ppt->tag & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    ppt->tag |= (MG_REQ + MG_NOSURF);
+  }
 }
 
 /**
@@ -49,7 +53,11 @@ void PMMG_tag_par_node(MMG5_pPoint ppt){
  */
 void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j){
 
-  pxt->tag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  pxt->tag[j] |= (MG_PARBDY + MG_BDY);
+  if( !(pxt->tag[j] & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    pxt->tag[j] |= (MG_REQ + MG_NOSURF);
+  }
 }
 
 /**
@@ -60,12 +68,18 @@ void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j){
  * Tag an edge as parallel.
  */
 int PMMG_tag_par_edge_hash(MMG5_pTetra pt,MMG5_HGeom hash,int ia){
-  int ip0,ip1;
+  int     ip0,ip1,getref;
+  int16_t gettag;
 
   ip0 = pt->v[MMG5_iare[ia][0]];
   ip1 = pt->v[MMG5_iare[ia][1]];
-  if( !MMG5_hTag( &hash, ip0, ip1, 0,
-                  MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF ) ) return 0;
+  if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_PARBDY + MG_BDY ) ) return 0;
+
+  if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+  if( !(gettag & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+  }
 
   return 1;
 }
@@ -78,26 +92,53 @@ int PMMG_tag_par_edge_hash(MMG5_pTetra pt,MMG5_HGeom hash,int ia){
  */
 void PMMG_tag_par_face(MMG5_pxTetra pxt,int j){
 
-  pxt->ftag[j] |= (MG_PARBDY + MG_BDY + MG_REQ + MG_NOSURF);
+  pxt->ftag[j] |= (MG_PARBDY + MG_BDY );
+  if( !(pxt->ftag[j] & MG_REQ) ) {
+    /* do not add the MG_NOSURF tag on a required entity */
+    pxt->ftag[j] |= (MG_REQ + MG_NOSURF);
+  }
 }
 
+/**
+ * \param ptt pointer to the tria.
+ *
+ * Tag the edges on a triangle as parallel.
+ */
+void PMMG_tag_par_tria(MMG5_pTria ptt){
+  int j;
+
+  for( j = 0; j < 3; j++ ) {
+    ptt->tag[j] |= MG_PARBDY;
+    if( !(ptt->tag[j] & MG_REQ) ) {
+      /* do not add the MG_NOSURF tag on a required entity */
+      ptt->tag[j] |= (MG_REQ + MG_NOSURF);
+    }
+  }
+}
 
 /**
  * \param pxt pointer to the point.
  *
  * Untag a parallel node.
+ * Also delete the MG_PARBDYBDY tag, as it will be put only on nodes which are
+ * visible from parallel faces.
  */
 void PMMG_untag_par_node(MMG5_pPoint ppt){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( ppt->tag & MG_PARBDY ) {
     ppt->tag &= ~MG_PARBDY;
-    if ( ppt->tag & MG_BDY )    ppt->tag &= ~MG_BDY;
-    if ( ppt->tag & MG_REQ )    ppt->tag &= ~MG_REQ;
-    if ( ppt->tag & MG_NOSURF ) ppt->tag &= ~MG_NOSURF;
-#warning Option -nosurf overrides part of the surface analysis
-    if ( ppt->tag & MG_NOM )    ppt->tag &= ~MG_NOM;
-    if ( ppt->tag & MG_CRN )    ppt->tag &= ~MG_CRN;
-    if ( ppt->tag & MG_GEO )    ppt->tag &= ~MG_GEO;
+    ppt->tag &= ~MG_BDY;
+    ppt->tag &= ~MG_REQ;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( ppt->tag & MG_NOSURF ) {
+      ppt->tag &= ~MG_NOSURF;
+    } else {
+      ppt->tag |= MG_REQ;
+    }
+    ppt->tag &= ~MG_PARBDYBDY;
   }
 }
 
@@ -106,17 +147,25 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
  * \param j local index of the edge on the tetra.
  *
  * Untag a parallel edge.
+ * Also delete the MG_PARBDYBDY tag, as it will be put only on edges which are
+ * visible from parallel faces.
  */
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( pxt->tag[j] & MG_PARBDY ) {
     pxt->tag[j] &= ~MG_PARBDY;
-    if ( pxt->tag[j] & MG_BDY)    pxt->tag[j] &= ~MG_BDY;
-    if ( pxt->tag[j] & MG_REQ)    pxt->tag[j] &= ~MG_REQ;
-    if ( pxt->tag[j] & MG_NOSURF) pxt->tag[j] &= ~MG_NOSURF;
-#warning Option -nosurf overrides part of the surface analysis
-    if ( pxt->tag[j] & MG_NOM)    pxt->tag[j] &= ~MG_NOM;
-    if ( pxt->tag[j] & MG_GEO)    pxt->tag[j] &= ~MG_GEO;
+    pxt->tag[j] &= ~MG_BDY;
+    pxt->tag[j] &= ~MG_REQ;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( pxt->tag[j] & MG_NOSURF ) {
+      pxt->tag[j] &= ~MG_NOSURF;
+    } else {
+      pxt->tag[j] |= MG_REQ;
+    }
+    pxt->tag[j] &= ~MG_PARBDYBDY;
   }
 }
 
@@ -125,14 +174,26 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
  * \param j local index of the face on the tetra.
  *
  * Untag a parallel face.
+ * Do not delete the MG_PARBDYBDY tag, as it will be used to recognize boundary
+ * faces.
  */
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
 
+  /* Only work on a parallel entity, so that a successive application of this
+   * function on the same entity has no effect */
   if ( pxt->ftag[j] & MG_PARBDY ) {
     pxt->ftag[j] &= ~MG_PARBDY;
-    if ( pxt->ftag[j] & MG_BDY)    pxt->ftag[j] &= ~MG_BDY;
-    if ( pxt->ftag[j] & MG_REQ)    pxt->ftag[j] &= ~MG_REQ;
-    if ( pxt->ftag[j] & MG_NOSURF) pxt->ftag[j] &= ~MG_NOSURF;
+    pxt->ftag[j] &= ~MG_BDY;
+    pxt->ftag[j] &= ~MG_REQ;
+    /* a truly required entity has had the MG_NOSURF tag erased by the
+     * analysis so reapply the MG_REQ tag on it */
+    if( pxt->ftag[j] & MG_NOSURF ) {
+      pxt->ftag[j] &= ~MG_NOSURF;
+    } else {
+      pxt->ftag[j] |= MG_REQ;
+    }
+    /* do not delete the MG_PARBDYBDY tag, as it will be used to recognize
+     * boundary faces */
   }
 }
 
@@ -151,12 +212,19 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
   MMG5_pMesh   mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  int          k,i,j;
+  MMG5_pPoint  ppt;
+  int          k,i,j,l,ip;
 
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
 
     if ( !mesh ) continue;
+
+    /* Untag old parallel points */
+    for( ip = 1; ip <= mesh->np; ip++ ) {
+      ppt = &mesh->point[ip];
+      ppt->tag &= ~MG_OLDPARBDY;
+    }
 
     for ( k=1; k<=mesh->ne; ++k ) {
       pt       = &mesh->tetra[k];
@@ -171,6 +239,9 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
           ++pt->mark;
           /* Mark face as a previously parallel one */
           pxt->ftag[j] |= MG_OLDPARBDY;
+          /* Mark its points */
+          for( l = 0; l < 3; l++ )
+            mesh->point[pt->v[MMG5_idir[j][l]]].tag |= MG_OLDPARBDY;
           /* Check that there is no reference on an old parallel face that is
            * not a true boundary */
           if( !(pxt->ftag[j] & MG_PARBDYBDY) ) assert( !pxt->ref[j] );
@@ -203,6 +274,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
   int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
   int16_t         gettag;
+  int8_t          isbdy;
 
   /* Loop on groups */
   for ( grpid=0; grpid<parmesh->ngrp; grpid++ ) {
@@ -255,12 +327,19 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       for ( ifac=0 ; ifac<4 ; ifac++ ) {
         if ( pxt->ftag[ifac] & MG_PARBDYBDY ) {
           pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+          for( j = 0; j < 3; j++)
+            mesh->point[pt->v[MMG5_idir[ifac][j]]].tag &= ~MG_PARBDYBDY;
           pxt->ftag[ifac] |= MG_BDY;
         }
         /* Only a "true" boundary after this line */
         if ( pxt->ftag[ifac] & MG_BDY ) {
           /* Constrain boundary if -nosurf option */
-          if( mesh->info.nosurf ) pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
+          if( mesh->info.nosurf ) {
+            if( !(pxt->ftag[ifac] & MG_REQ) ) {
+              /* do not add the MG_NOSURF tag on a required entity */
+              pxt->ftag[ifac] |= MG_REQ + MG_NOSURF;
+            }
+          }
           /* Tag face edges */
           for ( j=0; j<3; j++ ) {
             ia = MMG5_iarf[ifac][j];
@@ -268,15 +347,25 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
             /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf )
-              if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+            if( mesh->info.nosurf ) {
+              if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+              if( !(gettag & MG_REQ) ) {
+                /* do not add the MG_NOSURF tag on a required entity */
+                if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
+              }
+            }
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
             ppt = &mesh->point[pt->v[MMG5_idir[ifac][j]]];
             ppt->tag |= MG_BDY;
             /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf ) ppt->tag |= MG_REQ + MG_NOSURF;
+            if( mesh->info.nosurf ) {
+              if( !(ppt->tag & MG_REQ) ) {
+                /* do not add the MG_NOSURF tag on a required entity */
+                ppt->tag |= MG_REQ + MG_NOSURF;
+              }
+            }
           }
         }
       }
@@ -296,7 +385,11 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       assert( pt->xt );
       pxt = &mesh->xtetra[pt->xt];
       /* If already boundary, make it recognizable as a "true" boundary */
-      if( pxt->ftag[ifac] & MG_BDY ) pxt->ftag[ifac] |= MG_PARBDYBDY;
+      if( pxt->ftag[ifac] & MG_BDY ) {
+        pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( j = 0; j < 3; j++)
+          mesh->point[pt->v[MMG5_idir[ifac][j]]].tag |= MG_PARBDYBDY;
+      }
       /* Tag face */
       PMMG_tag_par_face(pxt,ifac);
       /* Tag face edges */
@@ -317,11 +410,29 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
       pxt = &mesh->xtetra[pt->xt];
+      /* Unreference xtetra that are not on the boundary anymore */
+      isbdy = 0;
+      for( ifac = 0; ifac < 4; ifac++ ) {
+        if( pxt->ftag[ifac] & MG_BDY ) {
+          isbdy = 1;
+          break;
+        }
+      }
+      if( !isbdy ) {
+        pt->xt = 0;
+        continue;
+      }
+      /* update edge tags */
       for ( j=0; j<6; j++ ) {
         ip0 = pt->v[MMG5_iare[j][0]];
         ip1 = pt->v[MMG5_iare[j][1]];
-        /* Add the tag stored in the hash table to the xtetra edge */
+        /* get the tag stored in the hash table to the xtetra edge */
         if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
+        /* the hash table should only contain boundary/parallel related tags,
+         * so remove the MG_NOSURF tag if the edge is truly required */
+        if( pxt->tag[j] & MG_REQ )
+          gettag &= ~MG_NOSURF;
+        /* set edge tag */
         pxt->tag[j] |= gettag;
       }
     }
@@ -353,6 +464,7 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
+  MMG5_pPoint    ppt;
   MPI_Comm       comm;
   MPI_Status     status;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
@@ -386,6 +498,18 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     face2int_face_comm_index1 = grp->face2int_face_comm_index1;
     face2int_face_comm_index2 = grp->face2int_face_comm_index2;
 
+    /* Remove PARBDYBDY tag from faces that are not parallel (it could have
+     * been put by MMG5_bdrySet if all edges on face have been tagged as
+     * MG_PARBDYBDY by MMG5_mmgHashTria) */
+    for( ie = 1; ie <= mesh->ne; ie++ ) {
+      pt = &mesh->tetra[ie];
+      if( !MG_EOK(pt) || !pt->xt ) continue;
+      pxt = &mesh->xtetra[pt->xt];
+      for( ifac = 0; ifac < 4; ifac++ )
+        if( pxt->ftag[ifac] & MG_PARBDYBDY && !(pxt->ftag[ifac] & MG_PARBDY) )
+          pxt->ftag[ifac] &= ~MG_PARBDYBDY;
+    }
+
     for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
       ie   =  face2int_face_comm_index1[k]/12;
       ifac = (face2int_face_comm_index1[k]%12)/3;
@@ -401,6 +525,8 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       }
       else if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) || (intvalues[idx] != pt->ref ) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
       }
 
       /* Mark face each time that it's seen */
@@ -462,14 +588,20 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
        * parallel boundary */
       if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
       } else if ( intvalues[idx] > pt->ref ) {
         /* Tria belongs to my neighbor */
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
         MG_CLR(pxt->ori,ifac);
       }
       else if ( intvalues[idx] < pt->ref ) {
         /* Tria belongs to me */
         pxt->ftag[ifac] |= MG_PARBDYBDY;
+        for( i = 0; i < 3; i++)
+          mesh->point[pt->v[MMG5_idir[ifac][i]]].tag |= MG_PARBDYBDY;
         MG_SET(pxt->ori,ifac);
       }
       else {
@@ -478,7 +610,191 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     }
   }
 
+
+  /* Tag parallel points touched by simple MG_BDY faces as MG_PARBDYBDY
+   * (a parallel surface can pinch a regular surface in just one point).
+   * The same problem on edges is handled by MMG5_mmgHashTria. */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_EOK(pt) || !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    for( ifac = 0; ifac < 4; ifac++ ) {
+      /* Loop on simple boundary faces */
+      if( !(pxt->ftag[ifac] & MG_BDY) || (pxt->ftag[ifac] & MG_PARBDY ) ) continue;
+      for( i = 0; i < 3; i++ ) {
+        ppt = &mesh->point[pt->v[MMG5_idir[ifac][i]]];
+        if( ppt->tag & MG_PARBDY )
+          ppt->tag |= MG_PARBDYBDY;
+      }
+    }
+  }
+
+
   /* Deallocate and return */
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itosend,int,"itosend array");
+    PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv array");
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer to parmesh structure.
+ * \return 0 if fail, 1 if success.
+ *
+ * Check if faces on a parallel communicator connect elements with different
+ * references, and tag them as a "true" boundary (thus PARBDYBDY).
+ */
+int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
+  MMG5_Hash      hash;
+  PMMG_pGrp      grp = &parmesh->listgrp[0];
+  PMMG_pExt_comm ext_face_comm;
+  PMMG_pInt_comm int_face_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pxTetra   pxt;
+  MMG5_pTria     ptt;
+  MPI_Comm       comm;
+  MPI_Status     status;
+  int            *face2int_face_comm_index1,*face2int_face_comm_index2;
+  int            *seenFace,*intvalues,*itosend,*itorecv;
+  int            myrank,color,nitem,k,i,idx,ie,ifac,kt,j,ia,ib,ic;
+
+  comm   = parmesh->comm;
+  myrank = parmesh->myrank;
+  assert( parmesh->ngrp == 1 );
+  mesh = grp->mesh;
+
+  /* intvalues will be used to store tetra ref */
+  int_face_comm = parmesh->int_face_comm;
+  PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
+              "intvalues",return 0);
+  intvalues = parmesh->int_face_comm->intvalues;
+
+  /* seenFace will be used to recognize already visited faces */
+  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
+
+  /* Hash triangles */
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+
+  for (kt=1; kt<=mesh->nt; kt++) {
+    ptt = &mesh->tria[kt];
+    if ( !MMG5_hashFace(mesh,&hash,ptt->v[0],ptt->v[1],ptt->v[2],kt) ) {
+      MMG5_DEL_MEM(mesh,hash.item);
+      return 0;
+    }
+  }
+
+  /* Tag face as "true" boundary if triangle has a non-nul ref in opnbdy mode */
+  for( kt = 1; kt <= mesh->nt; kt++ ) {
+    ptt = &mesh->tria[kt];
+    if( mesh->info.opnbdy && ptt->ref > 0 ) {
+      for( j = 0; j < 3; j++)
+        ptt->tag[j] |= MG_PARBDYBDY;
+      for( j = 0; j < 3; j++)
+        mesh->point[ptt->v[j]].tag |= MG_PARBDYBDY;
+    }
+  }
+
+  /** Fill the internal communicator with the first ref found */
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    ie   =  face2int_face_comm_index1[k]/12;
+    ifac = (face2int_face_comm_index1[k]%12)/3;
+    idx  =  face2int_face_comm_index2[k];
+    pt = &mesh->tetra[ie];
+    assert( MG_EOK(pt) );
+
+    if( !seenFace[idx] ) {
+      intvalues[idx] = pt->ref;
+    }
+
+    /* Mark face each time that it's seen */
+    seenFace[idx]++;
+  }
+
+  /** Send and receive external communicators filled with the tetra ref */
+  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem         = ext_face_comm->nitem;
+    color         = ext_face_comm->color_out;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
+                return 0);
+    itosend = ext_face_comm->itosend;
+
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
+                return 0);
+    itorecv = ext_face_comm->itorecv;
+
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      itosend[i]     = intvalues[idx];
+    }
+
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
+                   comm,&status),return 0 );
+
+    /* Store the info in intvalues */
+    for ( i=0; i<nitem; ++i ) {
+      idx            = ext_face_comm->int_comm_index[i];
+      intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* Check the internal communicator */
+  face2int_face_comm_index1 = grp->face2int_face_comm_index1;
+  face2int_face_comm_index2 = grp->face2int_face_comm_index2;
+
+  for ( k=0; k<grp->nitem_int_face_comm; ++k ) {
+    ie   =  face2int_face_comm_index1[k]/12;
+    ifac = (face2int_face_comm_index1[k]%12)/3;
+    idx  =  face2int_face_comm_index2[k];
+    pt = &mesh->tetra[ie];
+    assert( MG_EOK(pt) );
+
+    /* Get triangle index from hash table */
+    ia = pt->v[MMG5_idir[ifac][0]];
+    ib = pt->v[MMG5_idir[ifac][1]];
+    ic = pt->v[MMG5_idir[ifac][2]];
+    kt = MMG5_hashGetFace(&hash,ia,ib,ic);
+    ptt = &mesh->tria[kt];
+
+    /* Faces on the external communicator have been visited only once */
+    if( seenFace[idx] != 1 ) continue;
+
+    /* Tag face as "true" boundary if its ref is different */
+    if( intvalues[idx] != pt->ref ) {
+      for( j = 0; j < 3; j++)
+        ptt->tag[j] |= MG_PARBDYBDY;
+      for( j = 0; j < 3; j++)
+        mesh->point[ptt->v[j]].tag |= MG_PARBDYBDY;
+      /* check orientation: set orientation of triangle outward w.r.t. the
+       * highest tetra reference, remove MG_PARBDYBDY from the halo triangle */
+#warning Luca: no opnbdy yet
+      if( pt->ref > intvalues[idx] ) {
+        ptt->v[0] = ia;
+        ptt->v[1] = ib;
+        ptt->v[2] = ic;
+      } else {
+        ptt->tag[0] &= ~MG_PARBDYBDY;
+        ptt->tag[1] &= ~MG_PARBDYBDY;
+        ptt->tag[2] &= ~MG_PARBDYBDY;
+      }
+    }
+  }
+
+
+  /* Deallocate and return */
+  MMG5_DEL_MEM(mesh,hash.item);
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"intvalues");
   PMMG_DEL_MEM(parmesh,seenFace,int,"seenFace");
   for ( k=0; k<parmesh->next_face_comm; ++k ) {
