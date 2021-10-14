@@ -1669,9 +1669,13 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     }
   }
 
+  /* Array for active parts (oversized) */
+  int8_t *activelist;
+  PMMG_CALLOC(parmesh,activelist,2*ngrp,int8_t,"activelist", return 0);
+
   /* use metis to partition the mesh into the computed number of groups needed
      part array contains the groupID computed by metis for each tetra */
-  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
+  PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", ret_val = 0; goto fail_active);
   meshOld_ne = meshOld->ne;
 
   /* Get interfaces layers or call metis. Use interface displacement if:
@@ -1701,10 +1705,19 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       goto fail_part;
     }
 
+    /* Double partitioning for active and inactive groups */
+    if( !PMMG_part_meshElts_graded( parmesh, part, &ngrp, activelist ) ) {
+      ret_val = 0;
+      goto fail_part;
+    }
+
     /* If this is the first split of the input mesh, and interface displacement
      * will be performed, check that the groups are contiguous. */
     if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement )
-      if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
+      if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) {
+        ret_val = 0;
+        goto fail_part;
+      }
   }
 
 
@@ -1713,6 +1726,9 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
+
+fail_active:
+  PMMG_DEL_MEM(parmesh,activelist,int8_t,"activelist");
 
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );

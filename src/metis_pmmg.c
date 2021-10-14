@@ -1328,6 +1328,7 @@ fail_1:
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the tetrahedra partitions
  * \param npart pointer to the number of partitions asked
+ * \param activelist array of flags for active/inactive parts
  *
  * \return  1 if success, 0 if fail
  *
@@ -1335,7 +1336,8 @@ fail_1:
  * subparts. Update the total number \var npart of parts.
  *
  */
-int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart ) {
+int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
+    int8_t *activelist ) {
   typedef struct {
     int head;
     idx_t id;
@@ -1380,6 +1382,10 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   for( ipart = 0; ipart < 2*(*npart); ipart++ ) {
     if( listpart[ipart].head ) {
       listpart[ipart].id = inew++;
+      /* Flag active parts */
+      if( ipart >= (*npart) ) {
+        activelist[listpart[ipart].id] = 1;
+      }
     } else {
       listpart[ipart].id = PMMG_UNSET;
     }
