@@ -1324,6 +1324,46 @@ fail_1:
   return 0;
 }
 
+int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart ) {
+  typedef struct {
+    int head;
+    idx_t id;
+  } PMMG_listpart;
+  PMMG_listpart *listpart;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+  MMG5_pPoint    ppt;
+  int            ie,i,ip,ipart;
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  PMMG_CALLOC(parmesh,listpart,*npart,PMMG_listpart,"listpart",return 0);
+
+  /* Loop on tetra, update partitioning if a graded vertex is found */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_VOK(pt) ) continue;
+    ipart = part[ie] % (*npart);
+    if( !( part[ie] / (*npart) ) ) {
+      for( i = 0; i < 4; i++ ) {
+        ip = pt->v[i];
+        ppt = &mesh->point[ip];
+        if( ppt->src < 0 ) {
+          if( !listpart[ipart].head ) {
+            listpart[ipart].head = ie;
+          }
+          part[ie] = ipart + (*npart);
+        }
+      }
+    }
+  }
+
+  PMMG_DEL_MEM(parmesh,listpart,PMMG_listpart,"listpart");
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
