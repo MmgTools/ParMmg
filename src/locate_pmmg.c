@@ -959,7 +959,7 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if( !(ppt->tag & MG_BDY) ) continue;
-    ppt->s = -meshOld->point[ppt->src].s;
+    ppt->s = -meshOld->point[abs(ppt->src)].s;
   }
 
 
@@ -979,7 +979,7 @@ void PMMG_locate_setStart( MMG5_pMesh mesh,MMG5_pMesh meshOld ) {
     ppt = &mesh->point[ip];
     if( !MG_VOK(ppt) ) continue;
     if( ppt->tag & MG_BDY ) continue;
-    ppt->s = meshOld->point[ppt->src].s;
+    ppt->s = meshOld->point[abs(ppt->src)].s;
     assert(ppt->s);
   }
 #endif
