@@ -1345,64 +1345,59 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
   idx_t          *mypart;
-  int            ie,i,ip,ipart,isActive,inew;
+  int            ie,i,ip,ipart,inew;
 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
 #ifdef USE_POINTMAP
-  PMMG_CALLOC(parmesh,listpart,*npart,PMMG_listpart,"listpart",return 0);
+  PMMG_CALLOC(parmesh,listpart,2*(*npart),PMMG_listpart,"listpart",return 0);
 
   /* Loop on tetra, update partitioning if a graded vertex is found */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_VOK(pt) ) continue;
-    mypart   = &part[ie-1];
-    ipart    = (*mypart) % (*npart);
-    isActive = (*mypart) / (*npart);
-    if( !isActive ) {
+    mypart = &part[ie-1];
+    if( (*mypart) < (*npart) ) {
       /* Look for graded vertices */
       for( i = 0; i < 4; i++ ) {
         ip = pt->v[i];
         ppt = &mesh->point[ip];
         if( ppt->src < 0 ) {
-          /* Store tetra as list head if empty */
-          if( !listpart[ipart].head ) {
-            listpart[ipart].head = ie;
-          }
           /* Update partitioning */
-          (*mypart) = ipart + (*npart);
+          (*mypart) += (*npart);
         }
       }
+    }
+    /* Store tetra as list head if empty */
+    if( !listpart[*mypart].head ) {
+      listpart[*mypart].head = ie;
     }
   }
 
   /* Pack partitioning */
   inew = 0;
-  for( ipart = 0; ipart < (*npart); ipart++ ) {
+  for( ipart = 0; ipart < 2*(*npart); ipart++ ) {
     if( listpart[ipart].head ) {
       listpart[ipart].id = inew++;
     } else {
       listpart[ipart].id = PMMG_UNSET;
     }
   }
+  assert( inew <= 2*(*npart) );
 
-  /* Loop on tetra and permute partitioning for active parts */
+  /* Loop on tetra and permute partitioning for all parts */
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_VOK(pt) ) continue;
     mypart   = &part[ie-1];
-    ipart    = (*mypart) % (*npart);
-    isActive = (*mypart) / (*npart);
-    if( isActive ) {
-      /* Permute tetra partitioning */
-      assert( listpart[ipart].id > PMMG_UNSET );
-      (*mypart) = listpart[ipart].id + (*npart);
-    }
+    /* Permute tetra partitioning */
+    assert( listpart[*mypart].id > PMMG_UNSET );
+    (*mypart) = listpart[*mypart].id;
   }
 
   /* Update number of groups */
-  (*npart) += inew;
+  (*npart) = inew;
 
   /* Free memory and return */
   PMMG_DEL_MEM(parmesh,listpart,PMMG_listpart,"listpart");
