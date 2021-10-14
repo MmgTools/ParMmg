@@ -1344,6 +1344,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
+  idx_t          *mypart;
   int            ie,i,ip,ipart,isActive,inew;
 
   assert( parmesh->ngrp == 1 );
@@ -1356,8 +1357,9 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_VOK(pt) ) continue;
-    ipart    = part[ie] % (*npart);
-    isActive = part[ie] / (*npart);
+    mypart   = &part[ie-1];
+    ipart    = (*mypart) % (*npart);
+    isActive = (*mypart) / (*npart);
     if( !isActive ) {
       /* Look for graded vertices */
       for( i = 0; i < 4; i++ ) {
@@ -1369,7 +1371,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
             listpart[ipart].head = ie;
           }
           /* Update partitioning */
-          part[ie] = ipart + (*npart);
+          (*mypart) = ipart + (*npart);
         }
       }
     }
@@ -1389,12 +1391,13 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   for( ie = 1; ie <= mesh->ne; ie++ ) {
     pt = &mesh->tetra[ie];
     if( !MG_VOK(pt) ) continue;
-    ipart    = part[ie] % (*npart);
-    isActive = part[ie] / (*npart);
+    mypart   = &part[ie-1];
+    ipart    = (*mypart) % (*npart);
+    isActive = (*mypart) / (*npart);
     if( isActive ) {
       /* Permute tetra partitioning */
       assert( listpart[ipart].id > PMMG_UNSET );
-      part[ie] = listpart[ipart].id + (*npart);
+      (*mypart) = listpart[ipart].id + (*npart);
     }
   }
 
