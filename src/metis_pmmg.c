@@ -1368,6 +1368,8 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
         if( ppt->src < 0 ) {
           /* Update partitioning */
           (*mypart) += (*npart);
+          /* Exit loop if a graded vertex is found */
+          break;
         }
       }
     }
