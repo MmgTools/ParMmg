@@ -1333,7 +1333,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
-  int            ie,i,ip,ipart;
+  int            ie,i,ip,ipart,inew;
 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
@@ -1359,6 +1359,29 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
     }
   }
 
+  /* Pack partitioning */
+  inew = 0;
+  for( ipart = 0; ipart < (*npart); ipart++ ) {
+    if( listpart[ipart].head ) {
+      listpart[ipart].id = inew++;
+    } else {
+      listpart[ipart].id = PMMG_UNSET;
+    }
+  }
+
+  /* Permute tetra partitioning */
+  for( ie = 1; ie <= mesh->ne; ie++ ) {
+    pt = &mesh->tetra[ie];
+    if( !MG_VOK(pt) ) continue;
+    if( part[ie] / (*npart) ) {
+      part[ie] = listpart[part[ie] % (*npart)].id + (*npart);
+    }
+  }
+
+  /* Update number of groups */
+  (*npart) += inew;
+
+  /* Free memory and return */
   PMMG_DEL_MEM(parmesh,listpart,PMMG_listpart,"listpart");
 
   return 1;
