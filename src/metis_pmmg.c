@@ -1338,6 +1338,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
+#ifdef USE_POINTMAP
   PMMG_CALLOC(parmesh,listpart,*npart,PMMG_listpart,"listpart",return 0);
 
   /* Loop on tetra, update partitioning if a graded vertex is found */
@@ -1383,6 +1384,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart 
 
   /* Free memory and return */
   PMMG_DEL_MEM(parmesh,listpart,PMMG_listpart,"listpart");
+#endif
 
   return 1;
 }
