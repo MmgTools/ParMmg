@@ -89,6 +89,28 @@
 #define PMMG_NBADJA_GRPS   30
 
 /**
+ * \struct PMMG_graph
+ *
+ * \brief Structure for generic graph
+ *
+ */
+typedef struct {
+  idx_t nvtxs;
+  idx_t nadjncy;
+  idx_t npart;
+  idx_t *vtxdist;
+  idx_t *xadj;
+  idx_t *adjncy;
+  idx_t *vwgt;
+  idx_t *adjwgt;
+  idx_t wgtflag;
+  idx_t numflag;
+  idx_t ncon;
+  real_t *tpwgts;
+  real_t *ubvec;
+} PMMG_graph;
+
+/**
  * \struct PMMG_hgrp
  *
  * \brief Cell of the hastable HGrp
@@ -117,9 +139,7 @@ int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,idx_t**,idx_t**
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
     int8_t *activelist );
-int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,idx_t**,idx_t**,idx_t**,idx_t*,
-                                    idx_t**,idx_t**,idx_t*,idx_t*,idx_t*,idx_t,
-                                    real_t**,real_t**);
+int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,PMMG_graph);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh, idx_t *vtxdist,
