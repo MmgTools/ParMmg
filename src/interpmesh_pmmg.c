@@ -692,6 +692,8 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
 
     grp  = &parmesh->listgrp[igrp];
+    if( grp->isNotActive ) continue;
+
     mesh = grp->mesh;
     met  = grp->met;
     field = grp->field;
@@ -732,7 +734,7 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   }
 
 #ifndef NDEBUG
-  if( ((( parmesh->info.inputMet == 1 ) && ( mesh->info.hsiz <= 0.0 )) || mesh->nsols)
+  if( ( parmesh->info.inputMet == 1 )
       && (parmesh->info.imprim0 > PMMG_VERB_DETQUAL) ) {
     PMMG_locate_print( locStats,parmesh->ngrp,parmesh->myrank );
   }
