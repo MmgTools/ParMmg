@@ -109,6 +109,7 @@ typedef struct {
   real_t *tpwgts;
   real_t *ubvec;
 } PMMG_graph;
+typedef PMMG_graph * PMMG_pGraph;
 
 /**
  * \struct PMMG_hgrp
@@ -135,11 +136,11 @@ typedef struct {
 
 int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh );
 int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh );
-int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,PMMG_graph);
+int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,PMMG_pGraph);
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
     int8_t *activelist );
-int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,PMMG_graph);
+int PMMG_graph_parmeshGrps2parmetis(PMMG_pParMesh,PMMG_pGraph);
 int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh, idx_t *vtxdist,
