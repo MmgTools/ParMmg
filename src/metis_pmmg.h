@@ -135,7 +135,7 @@ typedef struct {
 
 int PMMG_checkAndReset_grps_contiguity( PMMG_pParMesh parmesh );
 int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh );
-int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,idx_t**,idx_t**,idx_t**,idx_t*);
+int PMMG_graph_meshElts2metis(PMMG_pParMesh,MMG5_pMesh,MMG5_pSol,PMMG_graph);
 int PMMG_part_meshElts2metis( PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
     int8_t *activelist );

@@ -36,11 +36,17 @@
  * \param parmesh pointer toward the parmesh structure.
  * \param graph graph structure.
  *
- * Nullify graph arrays.
+ * Nullify graph arrays and variables.
  *
  */
 static
 void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_graph graph ) {
+  graph.nvtxs   = 0;
+  graph.nadjncy = 0;
+  graph.npart   = 0;
+  graph.wgtflag = 0;
+  graph.numflag = 0;
+  graph.ncon    = 0;
   graph.xadj    = NULL;
   graph.adjncy  = NULL;
   graph.vwgt    = NULL;
@@ -78,11 +84,16 @@ void PMMG_graph_copy( PMMG_pParMesh parmesh,PMMG_graph graph_dst,
  */
 static
 void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_graph graph ) {
-  PMMG_DEL_MEM( parmesh, graph.adjncy,  idx_t,  "deallocate adjncy" );
-  PMMG_DEL_MEM( parmesh, graph.xadj,    idx_t,  "deallocate xadj" );
-  PMMG_DEL_MEM( parmesh, graph.ubvec,   real_t, "parmetis ubvec");
-  PMMG_DEL_MEM( parmesh, graph.tpwgts,  real_t, "deallocate tpwgts" );
-  PMMG_DEL_MEM( parmesh, graph.vtxdist, idx_t,  "deallocate vtxdist" );
+  if( graph.adjncy )
+    PMMG_DEL_MEM( parmesh, graph.adjncy,  idx_t,  "deallocate adjncy" );
+  if( graph.xadj )
+    PMMG_DEL_MEM( parmesh, graph.xadj,    idx_t,  "deallocate xadj" );
+  if( graph.ubvec )
+    PMMG_DEL_MEM( parmesh, graph.ubvec,   real_t, "deallocate ubvec");
+  if( graph.tpwgts )
+    PMMG_DEL_MEM( parmesh, graph.tpwgts,  real_t, "deallocate tpwgts" );
+  if( graph.vtxdist )
+    PMMG_DEL_MEM( parmesh, graph.vtxdist, idx_t,  "deallocate vtxdist" );
   switch( graph.wgtflag ) {
     case PMMG_WGTFLAG_ADJ:
       PMMG_DEL_MEM( parmesh, graph.adjwgt, idx_t, "deallocate adjwgt" );
@@ -876,8 +887,7 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  *
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol met,
-                               idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
-                               idx_t *nadjncy ) {
+                               PMMG_graph graph ) {
   MMG5_pTetra  pt;
   int          *adja;
   int          j,k,iadr,jel,count,nbAdj,wgt,ier;
@@ -890,13 +900,13 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
   }
 
   /** Step 2: build the metis graph */
-
-  PMMG_CALLOC(parmesh, (*xadj), mesh->ne+1, idx_t, "allocate xadj",
+  graph.nvtxs = mesh->ne;
+  PMMG_CALLOC(parmesh, graph.xadj, graph.nvtxs+1, idx_t, "allocate xadj",
               return 0);
 
   /** 1) Count the number of adjacent of each elements and fill xadj */
-  (*xadj)[0] = 0;
-  (*nadjncy) = 0;
+  graph.xadj[0] = 0;
+  graph.nadjncy = 0;
   for( k = 1; k <= mesh->ne; k++ ) {
     nbAdj = 0;
     iadr = 4*(k-1) + 1;
@@ -905,25 +915,25 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
       if( adja[j] )
         nbAdj++;
 
-    (*nadjncy)+= nbAdj;
-    (*xadj)[k] = (*nadjncy);
+    graph.nadjncy += nbAdj;
+    graph.xadj[k]  = graph.nadjncy;
   }
 
   /** 2) List the adjacent of each elts in adjncy */
   ier = 1;
-  ++(*nadjncy);
-  PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
+  ++graph.nadjncy;
+  PMMG_CALLOC(parmesh, graph.adjncy, graph.nadjncy, idx_t, "allocate adjncy", ier=0;);
   if( !ier ) {
-    PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
+    PMMG_DEL_MEM(parmesh, graph.xadj, idx_t, "deallocate xadj" );
     return ier;
   }
   /* Don't compute weights at mesh distribution, or if output load balancing is required at last iter */
   if( (parmesh->iter != PMMG_UNSET) &&
       ((parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing) ) {
-    PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
+    PMMG_CALLOC(parmesh, graph.adjwgt, graph.nadjncy, idx_t, "allocate adjwgt", ier=0;);
     if( !ier ) {
-      PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
-      PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
+      PMMG_DEL_MEM(parmesh, graph.xadj,   idx_t, "deallocate xadj" );
+      PMMG_DEL_MEM(parmesh, graph.adjncy, idx_t, "deallocate adjncy" );
       return ier;
     }
   }
@@ -938,16 +948,16 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
       if ( !jel ) continue;
 
       /* Assign graph edge weights */
-      if( *adjwgt ) {
+      if( graph.adjwgt ) {
         /* Compute weight using face edge size */
         wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
 
-        (*adjwgt)[count] = MG_MAX(wgt,1);
+        graph.adjwgt[count] = MG_MAX(wgt,1);
       }
 
-      (*adjncy)[count++]   = jel-1;
+      graph.adjncy[count++] = jel-1;
     }
-    assert( count == ( (*xadj)[k] ) );
+    assert( count == ( graph.xadj[k] ) );
   }
 
   return ier;
@@ -1480,18 +1490,19 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
- * \param nproc number of partitions asked
+ * \param npart number of partitions asked
  *
  * \return  1 if success, 0 if fail
  *
  * Use metis to partition the first mesh in the list of meshes into nproc groups
  *
  */
-int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
+int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t npart )
 {
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
   MMG5_pSol  met  = grp[0].met;
+  PMMG_graph graph;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
   idx_t      adjsize;
   idx_t      nelt = mesh->ne;
@@ -1509,18 +1520,22 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
     (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize) )
+  PMMG_graph_init( parmesh,graph );
+  graph.npart = npart;
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,graph) )
     return 0;
 
 
   /** Call metis and get the partition array */
-  if( nproc >= 8 ) {
-    ier = METIS_PartGraphKway( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
-                               NULL,NULL,options,&objval, part );
+  if( npart >= 8 ) {
+    ier = METIS_PartGraphKway( &graph.nvtxs,&graph.ncon,graph.xadj,graph.adjncy,
+                               graph.vwgt,NULL,graph.adjwgt,&graph.npart,
+                               NULL,NULL,options,&objval,part );
   }
   else
-    ier = METIS_PartGraphRecursive( &nelt,&ncon,xadj,adjncy,vwgt,NULL,adjwgt,&nproc,
-                               NULL,NULL,options,&objval, part );
+    ier = METIS_PartGraphRecursive( &graph.nvtxs,&graph.ncon,graph.xadj,
+                                    graph.adjncy,graph.vwgt,NULL,graph.adjwgt,
+                                    &graph.npart,NULL,NULL,options,&objval,part );
   if ( ier != METIS_OK ) {
     switch ( ier ) {
       case METIS_ERROR_INPUT:
@@ -1540,11 +1555,10 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   }
 
   /** Correct partitioning to avoid empty partitions */
-  if( !PMMG_correct_meshElts2metis( parmesh,part,nelt,nproc ) ) return 0;
+  if( !PMMG_correct_meshElts2metis( parmesh,part,graph.nvtxs,graph.npart ) )
+    return 0;
 
-  PMMG_DEL_MEM(parmesh, adjwgt, idx_t, "deallocate adjwgt" );
-  PMMG_DEL_MEM(parmesh, adjncy, idx_t, "deallocate adjncy" );
-  PMMG_DEL_MEM(parmesh, xadj, idx_t, "deallocate xadj" );
+  PMMG_graph_free( parmesh,graph );
 
   return status;
 }
