@@ -1504,16 +1504,10 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t npart )
   MMG5_pMesh mesh = grp[0].mesh;
   MMG5_pSol  met  = grp[0].met;
   PMMG_graph graph;
-  idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
-  idx_t      adjsize;
-  idx_t      nelt = mesh->ne;
-  idx_t      ncon = 1; // number of balancing constraint
   idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
   int        ier = 0;
   int        status = 1;
-
-  xadj = adjncy = vwgt = adjwgt = NULL;
 
   /* Set contiguity of partitions if using Metis also for graph partitioning */
   METIS_SetDefaultOptions(options);
@@ -1747,15 +1741,16 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t npart )
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
- * \param nproc number of partitions asked
+ * \param npart number of partitions asked
  *
  * \return  1 if success, 0 if fail
  *
  * Use parmetis to partition the first mesh in the list of meshes into nproc
  * groups
+ * \warning Refactored, but not tested
  *
  */
-int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
+int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npart )
 {
   PMMG_graph graph;
   idx_t      edgecut,options[3];
@@ -1767,6 +1762,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
 
   /** Build the parmetis graph */
   PMMG_graph_init( parmesh,&graph );
+  graph.npart = npart;
   options[0] = 0;
 
   if ( !PMMG_graph_parmeshGrps2parmetis(parmesh,&graph) ) {
@@ -1778,8 +1774,7 @@ int PMMG_part_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t* part,idx_t npro
   if ( 2 < nprocs + ngrp ) {
     if ( ParMETIS_V3_PartKway( graph.vtxdist,graph.xadj,graph.adjncy,graph.vwgt,
                                graph.adjwgt,&graph.wgtflag,&graph.numflag,
-                               &graph.ncon,&graph.npart,graph.tpwgts,graph.ubvec
-                               ,options,&edgecut,part,
+                               &graph.ncon,&graph.npart,graph.tpwgts,graph.ubvec,options,&edgecut,part,
                                &parmesh->comm) != METIS_OK ) {
         fprintf(stderr,"\n  ## Error: Parmetis fails.\n" );
         ier = 0;
