@@ -1398,6 +1398,61 @@ fail_1:
   return 0;
 }
 
+/* work on a centralized graph */
+int PMMG_subgraph( PMMG_pParMesh parmesh,PMMG_pGraph graph,PMMG_pGraph subgraph,
+                   int *map, int *activelist ){
+  idx_t ivtx,jvtx,iadj;
+  int ier = 1;
+
+  /* Loop on active nodes */
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    if( activelist[ivtx] ) {
+      /* Count node */
+      map[ivtx] = subgraph->nvtxs++;
+      /* Loop on active adjacents */
+      for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
+        jvtx = graph->adjncy[iadj];
+        if( activelist[jvtx] ) {
+          /* Count adjacent */
+          subgraph->nadjncy++;
+          /* Hash pair TODO */
+        }
+      }
+    }
+  }
+
+  /* Allocate subgraph */
+  PMMG_CALLOC( parmesh, subgraph->xadj, subgraph->nvtxs+1, idx_t,
+               "allocate xadj", return 0);
+  PMMG_CALLOC( parmesh, subgraph->adjncy, subgraph->nadjncy, idx_t,
+               "allocate adjncy", ier=0;);
+  if( !ier ) {
+    PMMG_DEL_MEM(parmesh, subgraph->xadj, idx_t, "deallocate xadj" );
+    return ier;
+  }
+
+  /* Loop on active nodes */
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    if( !activelist[ivtx] ) continue;
+
+    /* Initialize the next free adjacency position as the last free position */
+    subgraph->xadj[map[ivtx]+1] = subgraph->xadj[map[ivtx]];
+
+    /* Loop on active adjacents */
+    for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
+      jvtx = graph->adjncy[iadj];
+      if( !activelist[jvtx] ) continue;
+
+      /* Store and count adjacent */
+      subgraph->adjncy[subgraph->xadj[map[ivtx]+1]++] = map[jvtx];
+      subgraph->nadjncy++;
+    }
+  }
+  assert( subgraph->nadjncy == subgraph->xadj[subgraph->nvtxs] );
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the tetrahedra partitions
