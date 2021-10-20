@@ -692,8 +692,6 @@ int PMMG_interpMetricsAndFields( PMMG_pParMesh parmesh,int *permNodGlob ) {
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
 
     grp  = &parmesh->listgrp[igrp];
-    if( grp->isNotActive ) continue;
-
     mesh = grp->mesh;
     met  = grp->met;
     field = grp->field;
