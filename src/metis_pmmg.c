@@ -1620,6 +1620,85 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t npart )
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param graph pointer toward the distributed graph structure
+ * \param graph_seq pointer toward the centralized graph structure
+ * \param root rank of the process to gather the graph onto.
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Gather a distributed graph on a root process.
+ *
+ */
+int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
+                           PMMG_pGraph graph_seq, int root ) {
+  idx_t sendcounts,*recvcounts,*displs;
+  int   iproc,ip;
+
+  PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
+  PMMG_CALLOC( parmesh,displs,    parmesh->nprocs,idx_t,"displs",     return 0 );
+
+  /** xadj, vwgt */
+  for( iproc = 0; iproc<parmesh->nprocs; iproc++ ) {
+    recvcounts[iproc] = graph->vtxdist[iproc+1]-graph->vtxdist[iproc];
+    displs[iproc]     = graph->vtxdist[iproc];
+  }
+
+  if(parmesh->myrank == root)
+    PMMG_CALLOC(parmesh,graph_seq->xadj,graph->vtxdist[parmesh->nprocs]+1,idx_t,"xadj_seq", return 0 );
+
+  MPI_CHECK( MPI_Gatherv(&graph->xadj[1],recvcounts[parmesh->myrank],MPI_INT,
+                         &graph_seq->xadj[1],recvcounts,displs,MPI_INT,
+                         root,parmesh->comm), return 0);
+
+  if(parmesh->myrank == root)
+    for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+      for( ip = 1; ip <= graph->vtxdist[iproc+1]-graph->vtxdist[iproc]; ip++ )
+          graph_seq->xadj[graph->vtxdist[iproc]+ip] += graph_seq->xadj[graph->vtxdist[iproc]];
+
+  if(graph->wgtflag == PMMG_WGTFLAG_VTX || graph->wgtflag == PMMG_WGTFLAG_BOTH ) {
+    if(parmesh->myrank == root)
+      PMMG_CALLOC(parmesh,graph_seq->vwgt,graph->vtxdist[graph->npart]+1,idx_t,"vwgt_seq", return 0);
+
+    MPI_CHECK( MPI_Gatherv(graph->vwgt,recvcounts[parmesh->myrank],MPI_INT,
+                           graph_seq->vwgt,recvcounts,displs,MPI_INT,
+                           root,parmesh->comm), return 0);
+  }
+
+  /** adjncy, adjwgt */
+  sendcounts = graph->xadj[recvcounts[parmesh->myrank]];
+  MPI_CHECK( MPI_Allgather(&sendcounts,1,MPI_INT,
+                           recvcounts,1,MPI_INT,parmesh->comm), return 0);
+
+  displs[0] = 0;
+  for( iproc = 0; iproc<parmesh->nprocs-1; iproc++ ) {
+    displs[iproc+1] = displs[iproc]+recvcounts[iproc];
+  }
+
+  if ( parmesh->myrank == root )
+    PMMG_CALLOC(parmesh,graph_seq->adjncy,graph_seq->xadj[graph->vtxdist[parmesh->nprocs]],idx_t,"adjncy_seq", return 0);
+
+  MPI_CHECK( MPI_Gatherv(graph->adjncy,recvcounts[parmesh->myrank],MPI_INT,
+                         graph_seq->adjncy,recvcounts,displs,MPI_INT,
+                         root,parmesh->comm), return 0);
+
+  if(graph->wgtflag == PMMG_WGTFLAG_ADJ || graph->wgtflag == PMMG_WGTFLAG_BOTH ) {
+    if(parmesh->myrank == root)
+      PMMG_CALLOC(parmesh,graph_seq->adjwgt,graph_seq->xadj[graph->vtxdist[graph->npart]],idx_t,"adjwgt_seq", return 0);
+
+    MPI_CHECK( MPI_Gatherv(graph->adjwgt,recvcounts[parmesh->myrank],MPI_INT,
+                           graph_seq->adjwgt,recvcounts,displs,MPI_INT,
+                           root,parmesh->comm), return 0);
+  }
+
+
+  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+  PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
  * \param part pointer of an array containing the partitions (at the end)
  * \param npart number of partitions asked
  *
@@ -1632,11 +1711,11 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t npart )
 {
   PMMG_graph graph,graph_seq;
   idx_t      *part_seq;
-  idx_t      sendcounts,*recvcounts,*displs;
+  idx_t      *recvcounts;
   idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
   int        ier;
-  int        iproc,root,ip,status;
+  int        iproc,root,status;
 
   ier    = 1;
 
@@ -1656,65 +1735,8 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t npart )
   PMMG_graph_init( parmesh, &graph_seq );
   PMMG_graph_copy( parmesh, &graph_seq, &graph );
 
-  PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
-  PMMG_CALLOC( parmesh,displs,    parmesh->nprocs,idx_t,"displs",     return 0 );
-
-  /** xadj, vwgt */
-  for( iproc = 0; iproc<parmesh->nprocs; iproc++ ) {
-    recvcounts[iproc] = graph.vtxdist[iproc+1]-graph.vtxdist[iproc];
-    displs[iproc]     = graph.vtxdist[iproc];
-  }
-
-  if(parmesh->myrank == root)
-    PMMG_CALLOC(parmesh,graph_seq.xadj,graph.vtxdist[parmesh->nprocs]+1,idx_t,"xadj_seq", return 0 );
-
-  MPI_CHECK( MPI_Gatherv(&graph.xadj[1],recvcounts[parmesh->myrank],MPI_INT,
-                         &graph_seq.xadj[1],recvcounts,displs,MPI_INT,
-                         root,parmesh->comm), return 0);
-
-  if(parmesh->myrank == root)
-    for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
-      for( ip = 1; ip <= graph.vtxdist[iproc+1]-graph.vtxdist[iproc]; ip++ )
-          graph_seq.xadj[graph.vtxdist[iproc]+ip] += graph_seq.xadj[graph.vtxdist[iproc]];
-
-  if(graph.wgtflag == PMMG_WGTFLAG_VTX || graph.wgtflag == PMMG_WGTFLAG_BOTH ) {
-    if(parmesh->myrank == root)
-      PMMG_CALLOC(parmesh,graph_seq.vwgt,graph.vtxdist[graph.npart]+1,idx_t,"vwgt_seq", return 0);
-
-    MPI_CHECK( MPI_Gatherv(graph.vwgt,recvcounts[parmesh->myrank],MPI_INT,
-                           graph_seq.vwgt,recvcounts,displs,MPI_INT,
-                           root,parmesh->comm), return 0);
-  }
-
-  /** adjncy, adjwgt */
-  sendcounts = graph.xadj[recvcounts[parmesh->myrank]];
-  MPI_CHECK( MPI_Allgather(&sendcounts,1,MPI_INT,
-                           recvcounts,1,MPI_INT,parmesh->comm), return 0);
-
-  displs[0] = 0;
-  for( iproc = 0; iproc<parmesh->nprocs-1; iproc++ ) {
-    displs[iproc+1] = displs[iproc]+recvcounts[iproc];
-  }
-
-  if ( parmesh->myrank == root )
-    PMMG_CALLOC(parmesh,graph_seq.adjncy,graph_seq.xadj[graph.vtxdist[parmesh->nprocs]],idx_t,"adjncy_seq", return 0);
-
-  MPI_CHECK( MPI_Gatherv(graph.adjncy,recvcounts[parmesh->myrank],MPI_INT,
-                         graph_seq.adjncy,recvcounts,displs,MPI_INT,
-                         root,parmesh->comm), return 0);
-
-  if(graph.wgtflag == PMMG_WGTFLAG_ADJ || graph.wgtflag == PMMG_WGTFLAG_BOTH ) {
-    if(parmesh->myrank == root)
-      PMMG_CALLOC(parmesh,graph_seq.adjwgt,graph_seq.xadj[graph.vtxdist[graph.npart]],idx_t,"adjwgt_seq", return 0);
-
-    MPI_CHECK( MPI_Gatherv(graph.adjwgt,recvcounts[parmesh->myrank],MPI_INT,
-                           graph_seq.adjwgt,recvcounts,displs,MPI_INT,
-                           root,parmesh->comm), return 0);
-  }
-
-
-  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
-  PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
+  if( !PMMG_graph_centralize( parmesh, &graph, &graph_seq, root ) )
+    return 0;
 
 
   /** Call metis and get the partition array */
