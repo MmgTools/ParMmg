@@ -1398,22 +1398,98 @@ fail_1:
   return 0;
 }
 
+int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                              PMMG_pGraph subgraph,int *map,int root ) {
+  uint8_t *activelist;
+  idx_t   *recvcounts,*displs;
+  idx_t    ivtx;
+  int      activesize,iproc,igrp;
+
+  PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
+  PMMG_CALLOC( parmesh,displs,    parmesh->nprocs,idx_t,"displs",     return 0 );
+  for( iproc = 0; iproc<parmesh->nprocs; iproc++ ) {
+    recvcounts[iproc] = graph->vtxdist[iproc+1]-graph->vtxdist[iproc];
+    displs[iproc]     = graph->vtxdist[iproc];
+  }
+
+  if( parmesh->myrank == root ) {
+    activesize = graph->vtxdist[parmesh->nprocs];
+  } else {
+    activesize = recvcounts[iproc];
+  }
+  PMMG_CALLOC( parmesh,activelist,activesize,uint8_t,"activelist",return 0 );
+
+  assert( recvcounts[parmesh->myrank] == parmesh->ngrp );
+  for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+    activelist[igrp] = !parmesh->listgrp[igrp].isNotActive;
+  }
+
+  MPI_CHECK( MPI_Gatherv(MPI_IN_PLACE,recvcounts[parmesh->myrank],MPI_UINT8_T,
+                         &activelist,recvcounts,displs,MPI_UINT8_T,
+                         root,parmesh->comm), return 0);
+
+  PMMG_DEL_MEM( parmesh,recvcounts,int,"recvcounts");
+  PMMG_DEL_MEM( parmesh,displs,    int,"displs");
+
+
+  if( parmesh->myrank == root ) {
+    for( ivtx = 0; ivtx < graph->vtxdist[parmesh->nprocs]; ivtx++ ) {
+      if( activelist[ivtx] ) {
+        /* Count node */
+        map[ivtx] = subgraph->nvtxs++;
+      } else {
+        map[ivtx] = PMMG_UNSET;
+      }
+    }
+  }
+
+  PMMG_DEL_MEM( parmesh,activelist,uint8_t,"activelist");
+
+  return 1;
+}
+
+int PMMG_subgraph_map_collapse( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                                PMMG_pGraph subgraph,int *map,idx_t *part,
+                                int root ) {
+  idx_t ivtx;
+  int   iinactive,ninactive;
+
+  ninactive = 0;
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    if( map[ivtx] != PMMG_UNSET )
+      map[ivtx] = part[map[ivtx]];
+    else
+      ninactive++;
+  }
+  iinactive = 0;
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    if( (map[ivtx] != PMMG_UNSET) && (map[ivtx] < ninactive) )
+      map[ivtx] += ninactive;
+    else
+      map[ivtx] = iinactive++;
+  }
+
+  /* Number of unique nodes in the collapsed graph */
+  subgraph->nvtxs = ninactive+subgraph->npart;
+
+  return 1;
+}
+
 /* work on a centralized graph */
 int PMMG_subgraph( PMMG_pParMesh parmesh,PMMG_pGraph graph,PMMG_pGraph subgraph,
-                   PMMG_HGrp *hash,int *map,int *activelist ){
+                   PMMG_HGrp *hash,int *map ){
   PMMG_hgrp *ph;
   idx_t      ivtx,jvtx,iadj;
   int        k,ier = 1;
 
-  /* Loop on active nodes */
+  /* Loop on nodes that have an image in the subgraph */
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
-    if( activelist[ivtx] ) {
-      /* Count node */
-      map[ivtx] = subgraph->nvtxs++;
+    if( map[ivtx] != PMMG_UNSET ) {
+      subgraph->nvtxs++;
       /* Loop on active adjacents */
       for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
         jvtx = graph->adjncy[iadj];
-        if( activelist[jvtx] ) {
+        if( map[jvtx] != PMMG_UNSET ) {
           /* Hash pair */
           ier = PMMG_hashGrp(parmesh,hash,map[ivtx],map[jvtx],0);
           if( !ier ) {
@@ -1696,6 +1772,113 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
 
   return 1;
 }
+
+int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
+  PMMG_graph graph,graph_seq,subgraph;
+  PMMG_HGrp  hash;
+  idx_t      *map;
+  idx_t      *recvcounts;
+  idx_t      options[METIS_NOPTIONS];
+  idx_t      objval = 0;
+  int        ier;
+  int        iproc,root,status,iinactive,ninactive,ivtx;
+
+  ier    = 1;
+
+  /** Build the distributed groups graph */
+  PMMG_graph_init( parmesh, &graph );
+
+  if ( !PMMG_graph_parmeshGrps2parmetis( parmesh,&graph ) ) {
+    fprintf(stderr,"\n  ## Error: Unable to build parmetis graph.\n");
+    return 0;
+  }
+
+  /* Store the asked number of partitions XXX */
+  graph.npart = *npart;
+
+  /** Gather the graph on proc 0 */
+  root = 0;
+  PMMG_graph_init( parmesh, &graph_seq );
+  PMMG_graph_copy( parmesh, &graph_seq, &graph );
+
+  if( !PMMG_graph_centralize( parmesh, &graph, &graph_seq, root ) )
+    return 0;
+
+  if( parmesh->myrank == root )
+    PMMG_CALLOC( parmesh,map,graph_seq.nvtxs,int,"map",return 0 );
+
+  if( !PMMG_subgraph_map_active( parmesh, &graph, &subgraph, map, root ) )
+    return 0;
+
+  if(parmesh->myrank == root) {
+    /* Extract the active subgraph */
+    PMMG_graph_init( parmesh, &subgraph );
+    /* hash is used to store the sorted list of adjacent groups to a group */
+    if ( !PMMG_hashNew( parmesh,&hash,graph_seq.nvtxs+1,
+                        PMMG_NBADJA_GRPS*graph_seq.nvtxs+1) )
+      return 0;
+
+    if( !PMMG_subgraph( parmesh, &graph_seq, &subgraph, &hash, map ) )
+      return 0;
+
+    /* Partition the active subgraph */
+    subgraph.npart = *npart; // XXX
+
+    /* Allocate the partition array, sized with the maximum number
+     * of active nodes (reuse it for the active subgraph and the collapsed graph */
+    PMMG_CALLOC(parmesh,part,graph_seq.nvtxs,idx_t,"part", return 0);
+
+    /** Call metis and get the partition array */
+    if( subgraph.npart > 1 ) {
+
+      /* Set contiguity of partitions */
+      METIS_SetDefaultOptions(options);
+      options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
+
+      /** Call metis and get the partition array */
+      if( subgraph.npart >= 8 )
+        status = METIS_PartGraphKway( &subgraph.nvtxs,&subgraph.ncon,
+                                      subgraph.xadj,subgraph.adjncy,
+                                      subgraph.vwgt,NULL,subgraph.adjwgt,
+                                      &subgraph.npart,
+                                      NULL,NULL,options,&objval, part );
+      else
+        status = METIS_PartGraphRecursive( &graph.vtxdist[parmesh->nprocs],&graph.ncon,
+                                           subgraph.xadj,subgraph.adjncy,
+                                           subgraph.vwgt,NULL,subgraph.adjwgt,
+                                           &subgraph.npart,
+                                           NULL,NULL,options,&objval, part );
+
+
+      if ( status != METIS_OK ) {
+        switch ( status ) {
+          case METIS_ERROR_INPUT:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR_INPUT: input data error\n" );
+            break;
+          case METIS_ERROR_MEMORY:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR_MEMORY: could not allocate memory error\n" );
+            break;
+          case METIS_ERROR:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR: generic error\n" );
+            break;
+          default:
+            fprintf(stderr, "Group redistribution --- METIS_ERROR: update your METIS error handling\n" );
+            break;
+        }
+        return 0;
+      }
+
+
+      /* Collapse map using the partition array, count inactive nodes */
+      if( !PMMG_subgraph_map_collapse( parmesh,&graph_seq,&subgraph,map,part,
+                                       root ) )
+        return 0;
+    }
+  } /* end of sequential part */
+
+  return 1;
+}
+
 
 /**
  * \param parmesh pointer toward the parmesh structure
