@@ -269,25 +269,14 @@ int PMMG_bandGraph_grps( PMMG_pParMesh parmesh,
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param hgrp pointer toward the hatable.
- * \param hsiz initial size of hash table.
- * \param hmax maximal size of the hash table.
+ * \param hash pointer toward the hatable.
  *
- * \return 1 if success, 0 if fail.
- *
- * Initialisation of the hash table of group adjacency.
+ * Reset the values in the hash table of group adjacency.
  *
  */
 static inline
-int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
+void PMMG_hashReset( PMMG_pParMesh parmesh,PMMG_HGrp *hash ) {
   int k;
-
-  /* adjust hash table params */
-  hash->siz  = hsiz+1;
-  hash->max  = hmax + 2;
-  hash->nxt  = hash->siz;
-
-  PMMG_CALLOC(parmesh,hash->item,hash->max+1,PMMG_hgrp,"group hash table",return 0);
 
   for (k=0; k<hash->siz; ++k ) {
     hash->item[k].adj = PMMG_UNSET;
@@ -299,6 +288,30 @@ int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
     hash->item[k].wgt = PMMG_NUL;
     hash->item[k].nxt = k+1;
   }
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param hash pointer toward the hatable.
+ * \param hsiz initial size of hash table.
+ * \param hmax maximal size of the hash table.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Initialisation of the hash table of group adjacency.
+ *
+ */
+static inline
+int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
+
+  /* adjust hash table params */
+  hash->siz  = hsiz+1;
+  hash->max  = hmax + 2;
+  hash->nxt  = hash->siz;
+
+  PMMG_CALLOC(parmesh,hash->item,hash->max+1,PMMG_hgrp,"group hash table",return 0);
+
+  PMMG_hashReset( parmesh,hash );
 
   return 1;
 }
