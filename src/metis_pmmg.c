@@ -1796,10 +1796,59 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
   return 1;
 }
 
+int PMMG_subgraph_part( PMMG_pParMesh parmesh, PMMG_pGraph graph, idx_t *part ){
+  idx_t      options[METIS_NOPTIONS];
+  idx_t      objval = 0;
+  int        status;
+
+  /** Call metis and get the partition array */
+  if( graph->npart > 1 ) {
+
+    /* Set contiguity of partitions */
+    METIS_SetDefaultOptions(options);
+    options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
+
+    /** Call metis and get the partition array */
+    if( graph->npart >= 8 )
+      status = METIS_PartGraphKway( &graph->nvtxs,&graph->ncon,
+                                    graph->xadj,graph->adjncy,
+                                    graph->vwgt,NULL,graph->adjwgt,
+                                    &graph->npart,
+                                    NULL,NULL,options,&objval, part );
+    else
+      status = METIS_PartGraphRecursive( &graph->nvtxs,&graph->ncon,
+                                         graph->xadj,graph->adjncy,
+                                         graph->vwgt,NULL,graph->adjwgt,
+                                         &graph->npart,
+                                         NULL,NULL,options,&objval, part );
+
+
+    if ( status != METIS_OK ) {
+      switch ( status ) {
+        case METIS_ERROR_INPUT:
+          fprintf(stderr, "Group redistribution --- METIS_ERROR_INPUT: input data error\n" );
+          break;
+        case METIS_ERROR_MEMORY:
+          fprintf(stderr, "Group redistribution --- METIS_ERROR_MEMORY: could not allocate memory error\n" );
+          break;
+        case METIS_ERROR:
+          fprintf(stderr, "Group redistribution --- METIS_ERROR: generic error\n" );
+          break;
+        default:
+          fprintf(stderr, "Group redistribution --- METIS_ERROR: update your METIS error handling\n" );
+          break;
+      }
+      return 0;
+    }
+  }
+
+  return 1;
+}
+
 int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
   PMMG_graph graph,graph_seq,subgraph;
   PMMG_HGrp  hash;
-  idx_t      *map;
+  idx_t      *map,*part_seq,*part_sub;
   idx_t      *recvcounts;
   idx_t      options[METIS_NOPTIONS];
   idx_t      objval = 0;
@@ -1849,55 +1898,50 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
 
     /* Allocate the partition array, sized with the maximum number
      * of active nodes (reuse it for the active subgraph and the collapsed graph */
-    PMMG_CALLOC(parmesh,part,graph_seq.nvtxs,idx_t,"part", return 0);
+    PMMG_CALLOC(parmesh,part_seq,graph_seq.nvtxs,idx_t,"part_seq", return 0);
+    PMMG_CALLOC(parmesh,part_sub,graph_seq.nvtxs,idx_t,"part_sub", return 0);
 
-    /** Call metis and get the partition array */
-    if( subgraph.npart > 1 ) {
+    /* Partition the active subgraph */
+    if( !PMMG_subgraph_part( parmesh, &subgraph, part_sub ) )
+      return 0;
 
-      /* Set contiguity of partitions */
-      METIS_SetDefaultOptions(options);
-      options[METIS_OPTION_CONTIG] = parmesh->info.contiguous_mode;
+    /* Collapse map using the partition array, count inactive nodes */
+    if( !PMMG_subgraph_map_collapse( parmesh,&graph_seq,&subgraph,map,part_sub,
+                                     root ) )
+      return 0;
 
-      /** Call metis and get the partition array */
-      if( subgraph.npart >= 8 )
-        status = METIS_PartGraphKway( &subgraph.nvtxs,&subgraph.ncon,
-                                      subgraph.xadj,subgraph.adjncy,
-                                      subgraph.vwgt,NULL,subgraph.adjwgt,
-                                      &subgraph.npart,
-                                      NULL,NULL,options,&objval, part );
-      else
-        status = METIS_PartGraphRecursive( &graph.vtxdist[parmesh->nprocs],&graph.ncon,
-                                           subgraph.xadj,subgraph.adjncy,
-                                           subgraph.vwgt,NULL,subgraph.adjwgt,
-                                           &subgraph.npart,
-                                           NULL,NULL,options,&objval, part );
+    /* reset hash */
+    PMMG_hashReset( parmesh,&hash );
 
+    /* extract collapsed graph */
+    if( !PMMG_subgraph( parmesh, &graph_seq, &subgraph, &hash, map ) )
+      return 0;
 
-      if ( status != METIS_OK ) {
-        switch ( status ) {
-          case METIS_ERROR_INPUT:
-            fprintf(stderr, "Group redistribution --- METIS_ERROR_INPUT: input data error\n" );
-            break;
-          case METIS_ERROR_MEMORY:
-            fprintf(stderr, "Group redistribution --- METIS_ERROR_MEMORY: could not allocate memory error\n" );
-            break;
-          case METIS_ERROR:
-            fprintf(stderr, "Group redistribution --- METIS_ERROR: generic error\n" );
-            break;
-          default:
-            fprintf(stderr, "Group redistribution --- METIS_ERROR: update your METIS error handling\n" );
-            break;
-        }
-        return 0;
-      }
+    /* Partition the collapsed graph */
+    if( !PMMG_subgraph_part( parmesh, &subgraph, part_sub ) )
+      return 0;
 
+    /* Update the original partition array */
+    PMMG_subgraph_map_part( parmesh, &graph_seq, map, part_seq, part_sub );
 
-      /* Collapse map using the partition array, count inactive nodes */
-      if( !PMMG_subgraph_map_collapse( parmesh,&graph_seq,&subgraph,map,part,
-                                       root ) )
-        return 0;
-    }
   } /* end of sequential part */
+
+  /** Scatter the partition array */
+  PMMG_CALLOC(parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0);
+  for( iproc = 0; iproc<parmesh->nprocs; iproc++ )
+    recvcounts[iproc] = graph.vtxdist[iproc+1]-graph.vtxdist[iproc];
+  assert(recvcounts[parmesh->myrank] == parmesh->ngrp);
+
+  MPI_CHECK( MPI_Scatterv(part_seq,recvcounts,graph.vtxdist,MPI_INT,
+                          part,recvcounts[parmesh->myrank],MPI_INT,
+                          root,parmesh->comm), return 0);
+  PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
+
+//  /** Correct partitioning to avoid empty procs */
+//  if( !PMMG_correct_parmeshGrps2parmetis(parmesh,graph.vtxdist,part,
+//      graph.npart) ) return 0;
+
+  if(parmesh->myrank == root) PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
 
   return 1;
 }
