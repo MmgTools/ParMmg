@@ -1488,6 +1488,16 @@ int PMMG_subgraph_map_collapse( PMMG_pParMesh parmesh,PMMG_pGraph graph,
   return 1;
 }
 
+void PMMG_subgraph_map_part( PMMG_pParMesh parmesh, PMMG_pGraph graph,
+    int *map, idx_t *part, idx_t *part_sub ) {
+  idx_t ivtx;
+
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+      part[ivtx] = part_sub[map[ivtx]];
+    }
+
+}
+
 /* work on a centralized graph */
 int PMMG_subgraph( PMMG_pParMesh parmesh,PMMG_pGraph graph,PMMG_pGraph subgraph,
                    PMMG_HGrp *hash,int *map ){
