@@ -303,6 +303,7 @@ typedef struct {
   int*         face2int_face_comm_index1; /*!< List of interface faces (local index)*/
   int*         face2int_face_comm_index2; /*!< List of index in internal communicator (where put the interface faces)*/
   int          flag;
+  int8_t       isNotActive;
 } PMMG_Grp;
 typedef PMMG_Grp  * PMMG_pGrp;
 
