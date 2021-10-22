@@ -44,7 +44,7 @@
  *  elements from a group of nelem elements.
  *
  */
-static int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
+int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
 {
   int ngrp = nelem / target_mesh_size;
 

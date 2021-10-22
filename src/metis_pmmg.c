@@ -1411,13 +1411,29 @@ fail_1:
   return 0;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param graph pointer toward the graph structure (centralized)
+ * \param subgraph pointer toward the subgraph structure (centralized)
+ * \param map array mapping graph nodes toward subgraph nodes
+ * \param root rank of the process centralizing the graphs
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Create the map from nodes in the centralized graph to nodes in the active
+ * subgraph, count nodes in the active subgraph and compute the number of
+ * partitions.
+ *
+ */
 int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                               PMMG_pGraph subgraph,int *map,int root ) {
-  uint8_t *activelist;
-  idx_t   *recvcounts,*displs;
-  idx_t    ivtx;
-  int      activesize,iproc,igrp;
+  int   *activeflag;
+  idx_t *recvcounts,*displs;
+  idx_t  ivtx,sumwgts;
+  int    activesize,iproc,igrp;
 
+  /* Allocate and fill recvcounts and displs (the centralized graph keeps info
+   * about vtxdist) */
   PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
   PMMG_CALLOC( parmesh,displs,    parmesh->nprocs,idx_t,"displs",     return 0 );
   for( iproc = 0; iproc<parmesh->nprocs; iproc++ ) {
@@ -1425,47 +1441,75 @@ int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
     displs[iproc]     = graph->vtxdist[iproc];
   }
 
+  /* Allocate array of active flags */
   if( parmesh->myrank == root ) {
     activesize = graph->vtxdist[parmesh->nprocs];
   } else {
     activesize = recvcounts[iproc];
   }
-  PMMG_CALLOC( parmesh,activelist,activesize,uint8_t,"activelist",return 0 );
+  PMMG_CALLOC( parmesh,activeflag,activesize,int,"activelist",return 0 );
 
+  /* Build local array of active flags */
   assert( recvcounts[parmesh->myrank] == parmesh->ngrp );
   for( igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
-    activelist[igrp] = !parmesh->listgrp[igrp].isNotActive;
+    activeflag[igrp] = !parmesh->listgrp[igrp].isNotActive;
   }
 
+  /* Gather array of active flags */
   MPI_CHECK( MPI_Gatherv(MPI_IN_PLACE,recvcounts[parmesh->myrank],MPI_UINT8_T,
-                         &activelist,recvcounts,displs,MPI_UINT8_T,
+                         &activeflag,recvcounts,displs,MPI_UINT8_T,
                          root,parmesh->comm), return 0);
 
   PMMG_DEL_MEM( parmesh,recvcounts,int,"recvcounts");
   PMMG_DEL_MEM( parmesh,displs,    int,"displs");
 
-
+  /* Create map, count subgraph nodes and sum weights */
+  sumwgts = 0;
   if( parmesh->myrank == root ) {
-    for( ivtx = 0; ivtx < graph->vtxdist[parmesh->nprocs]; ivtx++ ) {
-      if( activelist[ivtx] ) {
+    for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+      if( activeflag[ivtx] ) {
         /* Count node */
         map[ivtx] = subgraph->nvtxs++;
+        /* Sum weight */
+        sumwgts += graph->vwgt[ivtx];
       } else {
         map[ivtx] = PMMG_UNSET;
       }
     }
   }
 
-  PMMG_DEL_MEM( parmesh,activelist,uint8_t,"activelist");
+  /* Compute the number of parts for the active subgraph in order to fit on
+   * the minimum possible number of processes */
+  subgraph->npart = PMMG_howManyGroups( sumwgts,
+                                        abs(parmesh->info.target_mesh_size) );
+
+  PMMG_DEL_MEM( parmesh,activeflag,uint8_t,"activelist");
 
   return 1;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param graph pointer toward the graph structure (centralized)
+ * \param subgraph pointer toward the subgraph structure (centralized)
+ * \param map array mapping graph nodes toward subgraph nodes
+ * \param part partitioning array for the subgraph
+ * \param root rank of the process centralizing the graphs
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Create the map from nodes in the centralized graph to nodes in the collapsed
+ * subgraph, count nodes in the collapsed subgraph and set the number of
+ * partitions.
+ *
+ */
 int PMMG_subgraph_map_collapse( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                                 PMMG_pGraph subgraph,int *map,idx_t *part,
                                 int root ) {
   idx_t ivtx;
   int   iinactive,ninactive;
+
+  assert( parmesh->myrank == root );
 
   ninactive = 0;
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
@@ -1485,10 +1529,24 @@ int PMMG_subgraph_map_collapse( PMMG_pParMesh parmesh,PMMG_pGraph graph,
   /* Number of unique nodes in the collapsed graph */
   subgraph->nvtxs = ninactive+subgraph->npart;
 
+  /* Number of partitions for the collapsed graph */
+  subgraph->npart = parmesh->nprocs;
+
   return 1;
 }
 
-void PMMG_subgraph_map_part( PMMG_pParMesh parmesh, PMMG_pGraph graph,
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param graph pointer toward the graph structure (centralized)
+ * \param map array mapping graph nodes toward subgraph nodes
+ * \param part partitioning array for the centralized graph
+ * \param part_sub partitioning array for the subgraph
+ *
+ * Remap the partitioning array from the collapsed subgraph to the centralized
+ * graph.
+ *
+ */
+void PMMG_graph_map_subpart( PMMG_pParMesh parmesh, PMMG_pGraph graph,
     int *map, idx_t *part, idx_t *part_sub ) {
   idx_t ivtx;
 
@@ -1498,17 +1556,31 @@ void PMMG_subgraph_map_part( PMMG_pParMesh parmesh, PMMG_pGraph graph,
 
 }
 
-/* work on a centralized graph */
-int PMMG_subgraph( PMMG_pParMesh parmesh,PMMG_pGraph graph,PMMG_pGraph subgraph,
-                   PMMG_HGrp *hash,int *map ){
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param graph pointer toward the graph structure (centralized)
+ * \param subgraph pointer toward the subgraph structure (centralized)
+ * \param hash pointer toward the array of lists structure for nodes adjacency
+ * \param map array mapping graph nodes toward subgraph nodes
+ *
+ * \return  1 if success, 0 if fail
+ *
+ * Extract and build a subgraph from a graph (both centralized) given a map from
+ * graph nodes to subgraph nodes. Use a temporary array of lists to fill nodes
+ * adjacencies (already allocated and reset).
+ *
+ */
+int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                         PMMG_pGraph subgraph,PMMG_HGrp *hash,int *map ) {
   PMMG_hgrp *ph;
-  idx_t      ivtx,jvtx,iadj;
+  idx_t      ivtx,jvtx,iadj,nvtxs;
   int        k,ier = 1;
 
   /* Loop on nodes that have an image in the subgraph */
+  nvtxs = 0;
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
     if( map[ivtx] != PMMG_UNSET ) {
-      subgraph->nvtxs++;
+      nvtxs++;
       /* Loop on active adjacents */
       for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
         jvtx = graph->adjncy[iadj];
@@ -1525,6 +1597,7 @@ int PMMG_subgraph( PMMG_pParMesh parmesh,PMMG_pGraph graph,PMMG_pGraph subgraph,
       }
     }
   }
+  assert( nvtxs == subgraph->nvtxs );
 
   /* Allocate subgraph */
   PMMG_CALLOC( parmesh, subgraph->xadj, subgraph->nvtxs+1, idx_t,
@@ -1733,6 +1806,17 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
   idx_t sendcounts,*recvcounts,*displs;
   int   iproc,ip;
 
+  PMMG_graph_init( parmesh, graph_seq );
+  PMMG_graph_copy( parmesh, graph_seq, graph );
+
+  /** vtxdist */
+  if(parmesh->myrank == root) {
+    PMMG_CALLOC(parmesh,graph_seq->vtxdist,parmesh->nprocs+1,idx_t,"vtxdist", return 0 );
+    for( iproc = 0; iproc < parmesh->nprocs+1; iproc++ ) {
+      graph_seq->vtxdist[iproc] = graph->vtxdist[iproc];
+    }
+  }
+
   PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
   PMMG_CALLOC( parmesh,displs,    parmesh->nprocs,idx_t,"displs",     return 0 );
 
@@ -1845,7 +1929,7 @@ int PMMG_subgraph_part( PMMG_pParMesh parmesh, PMMG_pGraph graph, idx_t *part ){
   return 1;
 }
 
-int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
+int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part ) {
   PMMG_graph graph,graph_seq,subgraph;
   PMMG_HGrp  hash;
   idx_t      *map,*part_seq,*part_sub;
@@ -1857,7 +1941,7 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
 
   ier    = 1;
 
-  /** Build the distributed groups graph */
+  /** Step 0: Build the distributed graph */
   PMMG_graph_init( parmesh, &graph );
 
   if ( !PMMG_graph_parmeshGrps2parmetis( parmesh,&graph ) ) {
@@ -1865,13 +1949,8 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
     return 0;
   }
 
-  /* Store the asked number of partitions XXX */
-  graph.npart = *npart;
-
   /** Gather the graph on proc 0 */
   root = 0;
-  PMMG_graph_init( parmesh, &graph_seq );
-  PMMG_graph_copy( parmesh, &graph_seq, &graph );
 
   if( !PMMG_graph_centralize( parmesh, &graph, &graph_seq, root ) )
     return 0;
@@ -1879,7 +1958,7 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
   if( parmesh->myrank == root )
     PMMG_CALLOC( parmesh,map,graph_seq.nvtxs,int,"map",return 0 );
 
-  if( !PMMG_subgraph_map_active( parmesh, &graph, &subgraph, map, root ) )
+  if( !PMMG_subgraph_map_active( parmesh, &graph_seq, &subgraph, map, root ) )
     return 0;
 
   if(parmesh->myrank == root) {
@@ -1890,11 +1969,8 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
                         PMMG_NBADJA_GRPS*graph_seq.nvtxs+1) )
       return 0;
 
-    if( !PMMG_subgraph( parmesh, &graph_seq, &subgraph, &hash, map ) )
+    if( !PMMG_subgraph_build( parmesh, &graph_seq, &subgraph, &hash, map ) )
       return 0;
-
-    /* Partition the active subgraph */
-    subgraph.npart = *npart; // XXX
 
     /* Allocate the partition array, sized with the maximum number
      * of active nodes (reuse it for the active subgraph and the collapsed graph */
@@ -1914,7 +1990,7 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
     PMMG_hashReset( parmesh,&hash );
 
     /* extract collapsed graph */
-    if( !PMMG_subgraph( parmesh, &graph_seq, &subgraph, &hash, map ) )
+    if( !PMMG_subgraph_build( parmesh, &graph_seq, &subgraph, &hash, map ) )
       return 0;
 
     /* Partition the collapsed graph */
@@ -1922,7 +1998,7 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
       return 0;
 
     /* Update the original partition array */
-    PMMG_subgraph_map_part( parmesh, &graph_seq, map, part_seq, part_sub );
+    PMMG_graph_map_subpart( parmesh, &graph_seq, map, part_seq, part_sub );
 
   } /* end of sequential part */
 
@@ -1941,7 +2017,13 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part, idx_t *npart ) {
 //  if( !PMMG_correct_parmeshGrps2parmetis(parmesh,graph.vtxdist,part,
 //      graph.npart) ) return 0;
 
-  if(parmesh->myrank == root) PMMG_DEL_MEM(parmesh,part_seq,idx_t,"part_seq");
+  if( parmesh->myrank == root ) {
+    PMMG_DEL_MEM( parmesh,part_seq,idx_t,"part_seq" );
+    PMMG_graph_free( parmesh,&subgraph );
+    PMMG_graph_free( parmesh,&graph_seq );
+  }
+  PMMG_graph_free( parmesh,&graph );
+
 
   return 1;
 }
@@ -1982,8 +2064,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t npart )
 
   /** Gather the graph on proc 0 */
   root = 0;
-  PMMG_graph_init( parmesh, &graph_seq );
-  PMMG_graph_copy( parmesh, &graph_seq, &graph );
 
   if( !PMMG_graph_centralize( parmesh, &graph, &graph_seq, root ) )
     return 0;

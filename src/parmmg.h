@@ -457,6 +457,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh,int,int,int );
 int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh );
 
 /* Load Balancing */
+int PMMG_howManyGroups ( const int nelem, const int target_mesh_size );
 int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interaction_map);
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int);
 int PMMG_distribute_grps( PMMG_pParMesh parmesh );
