@@ -1872,10 +1872,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
   interaction_map           = NULL;
   interactions              = NULL;
 
-  /** Step 1: Merge all the groups that must be sended to a given proc into 1
-   * group */
-  ier = PMMG_merge_grps2send(parmesh,&part);
-
+  ier = 1;
   for ( k=0; k<parmesh->ngrp; ++k ) {
     grp = &parmesh->listgrp[k];
     err = PMMG_fitMeshSize( parmesh,grp );
