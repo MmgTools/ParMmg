@@ -741,6 +741,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #endif
         mesh->npi = mesh->np;
         mesh->nei = mesh->ne;
+        met->np   = mesh->np;
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
