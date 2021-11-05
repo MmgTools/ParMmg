@@ -39,7 +39,6 @@
  * Nullify graph arrays and variables.
  *
  */
-static
 void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
   graph->nvtxs   = 0;
   graph->nadjncy = 0;
@@ -64,7 +63,6 @@ void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
  * Copy graph variables (except for arrays).
  *
  */
-static
 void PMMG_graph_copy( PMMG_pParMesh parmesh,PMMG_pGraph graph_dst,
     PMMG_pGraph graph_src ) {
   graph_dst->nvtxs   = graph_src->nvtxs;
@@ -82,7 +80,6 @@ void PMMG_graph_copy( PMMG_pParMesh parmesh,PMMG_pGraph graph_dst,
  * Deallocate graph arrays.
  *
  */
-static
 void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
   if( graph->adjncy )
     PMMG_DEL_MEM( parmesh, graph->adjncy,  idx_t,  "deallocate adjncy" );
@@ -108,6 +105,107 @@ void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
     default:
       break;
   }
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param graph pointer toward the graph structure.
+ * \param map pointer toward an integer map for graph nodes.
+ * \param dim dimension for visualization (2D or 3D).
+ * \param coordinates pointer toward a table of coordinates (for visualization).
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Save graph in Medit format.
+ *
+ */
+int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim,
+                     double coords[][ndim] ) {
+  FILE *fid;
+  char name[48];
+  int d;
+  idx_t ivtx,jvtx,iadj;
+
+  /* Open file and write headers */
+  sprintf(name,"mygraph%d.mesh",parmesh->myrank);
+  fid = fopen(name,"w");
+  fprintf(fid,"MeshVersionFormatted 2\n");
+  fprintf(fid,"\nDimension %d\n",ndim);
+
+  /* Write vertices */
+  fprintf(fid,"\nVertices\n%d\n",graph->nvtxs);
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    for( d = 0; d < ndim; d++ )
+      fprintf(fid,"%f ",coords[ivtx][d],0);
+    fprintf(fid,"0 \n");
+  }
+
+  /* Write edges */
+  fprintf(fid,"\nEdges\n%d\n",graph->nadjncy);
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
+      jvtx = graph->adjncy[iadj];
+      fprintf(fid,"%d %d %d\n",ivtx+1,jvtx+1,0);
+    }
+  }
+
+  /* Close file */
+  fprintf(fid,"\n\nEnd");
+  fclose(fid);
+
+
+  /* Open files and write headers */
+  sprintf(name,"mygraph%d.sol",parmesh->myrank);
+  fid = fopen(name,"w");
+  fprintf(fid,"MeshVersionFormatted 2\n");
+  fprintf(fid,"\nDimension 3\n");
+
+  /* Write solution */
+  fprintf(fid,"\nSolAtVertices\n%d\n %d %d\n",graph->nvtxs,1,MMG5_Scalar);
+  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    fprintf(fid,"%f\n",(double)map[ivtx]);
+  }
+
+  /* Close file */
+  fprintf(fid,"\n\nEnd");
+  fclose(fid);
+
+  return 1;
+}
+
+void PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                     int nvtxs,int nadjncy,int *xadj,int *adjncy,int *vtxdist ){
+  idx_t i;
+
+  graph->nvtxs = nvtxs;
+  graph->nadjncy = nadjncy;
+
+  PMMG_CALLOC( parmesh,graph->xadj,graph->nvtxs+1,idx_t,"xadj",return 0 );
+  for( i = 0; i < graph->nvtxs+1; i++ ) {
+    graph->xadj[i] = xadj[i];
+  }
+  assert( graph->xadj[graph->nvtxs] == graph->nadjncy );
+
+  PMMG_CALLOC( parmesh,graph->adjncy,graph->nadjncy+1,idx_t,"adjncy",return 0 );
+  for( i = 0; i < graph->nadjncy+1; i++ ) {
+    graph->adjncy[i] = adjncy[i];
+  }
+  PMMG_CALLOC( parmesh,graph->vtxdist,parmesh->nprocs+1,idx_t,"vtxdist",return 0 );
+  for( i = 0; i < parmesh->nprocs+1; i++ ) {
+    graph->vtxdist[i] = vtxdist[i];
+  }
+}
+
+int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
+                     int *xadj,int *adjncy,int *vtxdist,
+                     int *color,int ndim, double coords[][ndim] ) {
+  PMMG_graph graph;
+
+  PMMG_graph_init( parmesh, &graph );
+  PMMG_graph_set( parmesh, &graph, nvtxs, nadjncy, xadj, adjncy, vtxdist );
+  PMMG_graph_save( parmesh, &graph, color, ndim, coords );
+  PMMG_graph_free( parmesh, &graph );
+  return 1;
 }
 
 /**

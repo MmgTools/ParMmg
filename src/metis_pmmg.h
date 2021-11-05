@@ -145,5 +145,16 @@ int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh, idx_t *vtxdist,
                                        idx_t* mypart,idx_t nproc );
+void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_pGraph graph );
+void PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                     int nvtxs,int nadjncy,int *xadj,int *adjncy,int *vtxdist );
+void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph );
+int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim,
+                     double coords[][ndim] );
+int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
+                           PMMG_pGraph graph_seq, int root );
+int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
+                     int *xadj,int *adjncy,int *vtxdist,
+                     int *color,int ndim, double coords[][ndim] );
 
 #endif
