@@ -1815,6 +1815,7 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
     for( iproc = 0; iproc < parmesh->nprocs+1; iproc++ ) {
       graph_seq->vtxdist[iproc] = graph->vtxdist[iproc];
     }
+    graph_seq->nvtxs = graph_seq->vtxdist[parmesh->nprocs];
   }
 
   PMMG_CALLOC( parmesh,recvcounts,parmesh->nprocs,idx_t,"recvcounts", return 0 );
@@ -1833,14 +1834,16 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
                          &graph_seq->xadj[1],recvcounts,displs,MPI_INT,
                          root,parmesh->comm), return 0);
 
-  if(parmesh->myrank == root)
+  if(parmesh->myrank == root) {
     for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
       for( ip = 1; ip <= graph->vtxdist[iproc+1]-graph->vtxdist[iproc]; ip++ )
           graph_seq->xadj[graph->vtxdist[iproc]+ip] += graph_seq->xadj[graph->vtxdist[iproc]];
+    graph_seq->nadjncy = graph_seq->xadj[graph->vtxdist[parmesh->nprocs]];
+  }
 
   if(graph->wgtflag == PMMG_WGTFLAG_VTX || graph->wgtflag == PMMG_WGTFLAG_BOTH ) {
     if(parmesh->myrank == root)
-      PMMG_CALLOC(parmesh,graph_seq->vwgt,graph->vtxdist[graph->npart]+1,idx_t,"vwgt_seq", return 0);
+      PMMG_CALLOC(parmesh,graph_seq->vwgt,graph->vtxdist[parmesh->nprocs]+1,idx_t,"vwgt_seq", return 0);
 
     MPI_CHECK( MPI_Gatherv(graph->vwgt,recvcounts[parmesh->myrank],MPI_INT,
                            graph_seq->vwgt,recvcounts,displs,MPI_INT,
@@ -1866,7 +1869,7 @@ int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
 
   if(graph->wgtflag == PMMG_WGTFLAG_ADJ || graph->wgtflag == PMMG_WGTFLAG_BOTH ) {
     if(parmesh->myrank == root)
-      PMMG_CALLOC(parmesh,graph_seq->adjwgt,graph_seq->xadj[graph->vtxdist[graph->npart]],idx_t,"adjwgt_seq", return 0);
+      PMMG_CALLOC(parmesh,graph_seq->adjwgt,graph_seq->xadj[graph->vtxdist[parmesh->nprocs]],idx_t,"adjwgt_seq", return 0);
 
     MPI_CHECK( MPI_Gatherv(graph->adjwgt,recvcounts[parmesh->myrank],MPI_INT,
                            graph_seq->adjwgt,recvcounts,displs,MPI_INT,
