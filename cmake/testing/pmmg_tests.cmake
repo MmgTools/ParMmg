@@ -17,7 +17,7 @@ IF( BUILD_TESTING )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 31a48498a537edc64149da013748b0b0aa498554
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout f64c92c4ba7855e1ce57fc56929fc8a604be7e48
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
       )
@@ -662,6 +662,15 @@ IF( BUILD_TESTING )
 
       ADD_LIBRARY_TEST ( ${test_name} ${main_path} "copy_pmmg_headers" "${lib_name}" )
       ADD_TEST ( NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}> )
+
+      # Graph test on 2 procs
+      ADD_LIBRARY_TEST ( graph_unitTest
+        ${CI_DIR}/graph_unitTest/main.c "copy_pmmg_headers"
+        "${lib_name}" )
+
+      ADD_TEST ( NAME graph_unitTest-2
+        COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2
+        $<TARGET_FILE:graph_unitTest> )
 
       # 2 procs tests
       ADD_LIBRARY_TEST ( opnbdy-along-interface
