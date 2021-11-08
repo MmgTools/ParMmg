@@ -1674,14 +1674,13 @@ void PMMG_graph_map_subpart( PMMG_pParMesh parmesh, PMMG_pGraph graph,
 int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                          PMMG_pGraph subgraph,PMMG_HGrp *hash,int *map ) {
   PMMG_hgrp *ph;
-  idx_t      ivtx,jvtx,iadj,nvtxs;
+  idx_t      ivtx,jvtx,iadj;
   int        k,ier = 1;
 
   /* Loop on nodes that have an image in the subgraph */
-  nvtxs = 0;
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
     if( map[ivtx] != PMMG_UNSET ) {
-      nvtxs++;
+      subgraph->nvtxs++;
       /* Loop on active adjacents */
       for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
         jvtx = graph->adjncy[iadj];
@@ -1698,7 +1697,6 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
       }
     }
   }
-  assert( nvtxs == subgraph->nvtxs );
 
   /* Allocate subgraph */
   PMMG_CALLOC( parmesh, subgraph->xadj, subgraph->nvtxs+1, idx_t,
@@ -1718,12 +1716,12 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
 
     /* Store and count adjacent */
     ph = &hash->item[k+1];
-    subgraph->adjncy[subgraph->xadj[k+1]++] = ph->adj;
-    subgraph->nadjncy++;
-    while( ph->nxt ) {
-      ph = &hash->item[ph->nxt];
+    if( ph->adj != PMMG_UNSET ) {
       subgraph->adjncy[subgraph->xadj[k+1]++] = ph->adj;
-      subgraph->nadjncy++;
+      while( ph->nxt ) {
+        ph = &hash->item[ph->nxt];
+        subgraph->adjncy[subgraph->xadj[k+1]++] = ph->adj;
+      }
     }
   }
   assert( subgraph->nadjncy == subgraph->xadj[subgraph->nvtxs] );
