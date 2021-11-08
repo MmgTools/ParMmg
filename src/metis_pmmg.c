@@ -1677,14 +1677,18 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
   idx_t      ivtx,jvtx,iadj;
   int        k,ier = 1;
 
+  /* Reset number of arcs in the graph (he number of nodes has already been
+   * reset) */
+  subgraph->nadjncy = 0;
+
   /* Loop on nodes that have an image in the subgraph */
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
     if( map[ivtx] != PMMG_UNSET ) {
-      subgraph->nvtxs++;
       /* Loop on active adjacents */
       for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
         jvtx = graph->adjncy[iadj];
-        if( map[jvtx] != PMMG_UNSET ) {
+        /* If the graph is collapsed, avoid edges onto the same node */
+        if( (map[jvtx] != PMMG_UNSET) && (map[jvtx] != map[ivtx]) ) {
           /* Hash pair */
           ier = PMMG_hashGrp(parmesh,hash,map[ivtx],map[jvtx],0);
           if( !ier ) {
@@ -2060,6 +2064,8 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part ) {
   if( parmesh->myrank == root )
     PMMG_CALLOC( parmesh,map,graph_seq.nvtxs,int,"map",return 0 );
 
+  /* Create map from centralized to reduced graph, compute number of nodes in
+   * the reduced graph and the target number of parts */
   if( !PMMG_subgraph_map_active( parmesh, &graph_seq, &subgraph, map, root ) )
     return 0;
 
