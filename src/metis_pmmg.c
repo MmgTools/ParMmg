@@ -109,6 +109,38 @@ void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
+ * \param subgraph pointer to the subgraph structure.
+ * \param nvtxs number of nodes in the subgraphs.
+ * \param nadjncy number of arcs in the subgraph.
+ * \param nvtxsmax maximum number of nodes in the subgraph.
+ * \param nadjncymax maximum number of arcs in the subgraph.
+ *
+ * Allocate graph arrays and initialize variables.
+ *
+ */
+void PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
+                         int nvtxsmax, int nadjncymax ) {
+  subgraph->nvtxs   = 0;
+  subgraph->nadjncy = 0;
+  subgraph->npart   = 1;
+  subgraph->wgtflag = 0;
+  subgraph->numflag = PMMG_WGTFLAG_BOTH;
+  subgraph->ncon    = 1;
+  PMMG_CALLOC( parmesh, subgraph->xadj, nvtxsmax+1, idx_t,
+               "allocate xadj", return 0);
+  PMMG_CALLOC( parmesh, subgraph->adjncy, nadjncymax+1, idx_t,
+               "allocate adjncy", return 0);
+  PMMG_CALLOC( parmesh, subgraph->vwgt, nvtxsmax+1, idx_t,
+               "allocate vwgt", return 0);
+  PMMG_CALLOC( parmesh, subgraph->adjwgt, nadjncymax+1, idx_t,
+               "allocate adjwgt", return 0);
+  subgraph->vtxdist = NULL;
+  subgraph->tpwgts  = NULL;
+  subgraph->ubvec   = NULL;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
  * \param graph pointer toward the graph structure.
  * \param map pointer toward an integer map for graph nodes.
  * \param dim dimension for visualization (2D or 3D).
@@ -1674,7 +1706,7 @@ void PMMG_graph_map_subpart( PMMG_pParMesh parmesh, PMMG_pGraph graph,
 int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                          PMMG_pGraph subgraph,PMMG_HGrp *hash,int *map ) {
   PMMG_hgrp *ph;
-  idx_t      ivtx,jvtx,iadj;
+  idx_t      ivtx,jvtx,iadj,wgt;
   int        k,ier = 1;
 
   /* Reset number of arcs in the graph (he number of nodes has already been
@@ -1684,13 +1716,17 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
   /* Loop on nodes that have an image in the subgraph */
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
     if( map[ivtx] != PMMG_UNSET ) {
+      /* Sum weights */
+      wgt = graph->vwgt ? graph->vwgt[ivtx] : 1;
+      subgraph->vwgt[map[ivtx]] += wgt;
       /* Loop on active adjacents */
       for( iadj = graph->xadj[ivtx]; iadj < graph->xadj[ivtx+1]; iadj++ ) {
         jvtx = graph->adjncy[iadj];
         /* If the graph is collapsed, avoid edges onto the same node */
         if( (map[jvtx] != PMMG_UNSET) && (map[jvtx] != map[ivtx]) ) {
-          /* Hash pair */
-          ier = PMMG_hashGrp(parmesh,hash,map[ivtx],map[jvtx],0);
+          /* Hash pair and sum dual weight */
+          wgt = graph->adjwgt ? graph->adjwgt[iadj] : 1;
+          ier = PMMG_hashGrp(parmesh,hash,map[ivtx],map[jvtx],wgt);
           if( !ier ) {
             return 0;
           } else if( ier == 1 ) {
@@ -1702,15 +1738,6 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
     }
   }
 
-  /* Allocate subgraph */
-  PMMG_CALLOC( parmesh, subgraph->xadj, subgraph->nvtxs+1, idx_t,
-               "allocate xadj", return 0);
-  PMMG_CALLOC( parmesh, subgraph->adjncy, subgraph->nadjncy, idx_t,
-               "allocate adjncy", ier=0;);
-  if( !ier ) {
-    PMMG_DEL_MEM(parmesh, subgraph->xadj, idx_t, "deallocate xadj" );
-    return ier;
-  }
 
   /* Loop on the adjacency of active nodes */
   for( k = 0; k < subgraph->nvtxs; k++ ) {
@@ -1718,13 +1745,15 @@ int PMMG_subgraph_build( PMMG_pParMesh parmesh,PMMG_pGraph graph,
     /* Initialize the next free adjacency position as the last free position */
     subgraph->xadj[k+1] = subgraph->xadj[k];
 
-    /* Store and count adjacent */
+    /* Store adjacents and dual weights */
     ph = &hash->item[k+1];
     if( ph->adj != PMMG_UNSET ) {
-      subgraph->adjncy[subgraph->xadj[k+1]++] = ph->adj;
+      subgraph->adjncy[subgraph->xadj[k+1]]   = ph->adj;
+      subgraph->adjwgt[subgraph->xadj[k+1]++] = ph->wgt;
       while( ph->nxt ) {
         ph = &hash->item[ph->nxt];
-        subgraph->adjncy[subgraph->xadj[k+1]++] = ph->adj;
+        subgraph->adjncy[subgraph->xadj[k+1]]   = ph->adj;
+        subgraph->adjwgt[subgraph->xadj[k+1]++] = ph->wgt;
       }
     }
   }
