@@ -173,8 +173,8 @@ int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim
   return 1;
 }
 
-void PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
-                     int nvtxs,int nadjncy,int *xadj,int *adjncy,int *vtxdist ){
+int PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
+                    int nvtxs,int nadjncy,int *xadj,int *adjncy,int *vtxdist ){
   idx_t i;
 
   graph->nvtxs = nvtxs;
@@ -194,6 +194,8 @@ void PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
   for( i = 0; i < parmesh->nprocs+1; i++ ) {
     graph->vtxdist[i] = vtxdist[i];
   }
+
+  return 1;
 }
 
 int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
@@ -202,7 +204,8 @@ int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
   PMMG_graph graph;
 
   PMMG_graph_init( parmesh, &graph );
-  PMMG_graph_set( parmesh, &graph, nvtxs, nadjncy, xadj, adjncy, vtxdist );
+  if( !PMMG_graph_set( parmesh, &graph, nvtxs, nadjncy, xadj, adjncy, vtxdist ) )
+    return 0;
   PMMG_graph_save( parmesh, &graph, color, ndim, coords );
   PMMG_graph_free( parmesh, &graph );
   return 1;
