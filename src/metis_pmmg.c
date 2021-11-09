@@ -1419,6 +1419,9 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
       /* Count group only if not already in the adja list */
       if ( found !=2 ) ++graph->xadj[ igrp_adj+1 ];
     }
+
+    /* Store the active/inactive flag in the graph map */
+    graph->map[igrp] = !grp->isNotActive;
   }
 #ifndef NDEBUG
   /* Check that the sum of shared faces for each grp is equal to the nb. of its
@@ -1438,9 +1441,6 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
     }
   }
 #endif
-
-  /* Store the active/inactive flag in the graph map */
-  graph->map[igrp] = !grp->isNotActive;
 
   /** Step 7: xadj array contains the number of adja per group, fill it for
    * Metis (it must contains the index of the first adja of the group in the
