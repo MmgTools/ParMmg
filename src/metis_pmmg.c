@@ -1598,7 +1598,7 @@ int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
       /* Count node */
       graph->map[ivtx] = subgraph->nvtxs++;
       /* Sum weight */
-      sumwgts += graph->vwgt[ivtx];
+      sumwgts += graph->vwgt ? graph->vwgt[ivtx] : 1;
     } else {
       graph->map[ivtx] = PMMG_UNSET;
     }
@@ -2109,17 +2109,17 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part ) {
 
   if(parmesh->myrank == root) {
 
-    /* Create map from centralized to reduced graph, compute number of nodes in
-     * the reduced graph and the target number of parts */
-    if( !PMMG_subgraph_map_active( parmesh, &graph_seq, &subgraph, root ) )
-      return 0;
-
     /* Initialize subgraph and hash table */
     if( !PMMG_subgraph_init( parmesh, &subgraph, graph_seq.nvtxs, graph_seq.nadjncy ) )
       return 0;
     /* hash is used to store the sorted list of adjacent groups to a group */
     if ( !PMMG_hashNew( parmesh,&hash,graph_seq.nvtxs+1,
                         PMMG_NBADJA_GRPS*graph_seq.nvtxs+1) )
+      return 0;
+
+    /* Create map from centralized to reduced graph, compute number of nodes in
+     * the reduced graph and the target number of parts */
+    if( !PMMG_subgraph_map_active( parmesh, &graph_seq, &subgraph, root ) )
       return 0;
 
     /* Extract the reduced subgraph */
