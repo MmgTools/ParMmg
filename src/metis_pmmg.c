@@ -151,7 +151,7 @@ int PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
  *
  */
 int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim,
-                     double coords[][ndim] ) {
+                     double coords[][ndim], int *mask ) {
   FILE *fid;
   char name[48];
   int d;
@@ -166,8 +166,12 @@ int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim
   /* Write vertices */
   fprintf(fid,"\nVertices\n%d\n",graph->nvtxs);
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
+    if( mask )
+      jvtx = mask[ivtx];
+    else
+      jvtx = ivtx;
     for( d = 0; d < ndim; d++ )
-      fprintf(fid,"%f ",coords[ivtx][d],0);
+      fprintf(fid,"%f ",coords[jvtx][d]);
     fprintf(fid,"0 \n");
   }
 

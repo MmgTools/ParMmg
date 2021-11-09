@@ -154,7 +154,7 @@ int PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                     int *vwgt,int *adjwgt,int *vtxdist,int *map );
 void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph );
 int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim,
-                     double coords[][ndim] );
+                     double coords[][ndim],int *mask );
 int PMMG_graph_centralize( PMMG_pParMesh parmesh, PMMG_pGraph graph,
                            PMMG_pGraph graph_seq, int root );
 int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
