@@ -103,6 +103,7 @@ typedef struct {
   idx_t *adjncy;
   idx_t *vwgt;
   idx_t *adjwgt;
+  idx_t *map;
   idx_t wgtflag;
   idx_t numflag;
   idx_t ncon;
@@ -149,7 +150,8 @@ void PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
                          int nvtxsmax, int nadjncymax );
 void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_pGraph graph );
 int PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
-                    int nvtxs,int nadjncy,int *xadj,int *adjncy,int *vtxdist );
+                    int nvtxs,int nadjncy,int *xadj,int *adjncy,
+                    int *vwgt,int *adjwgt,int *vtxdist,int *map );
 void PMMG_graph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph );
 int PMMG_graph_save( PMMG_pParMesh parmesh,PMMG_pGraph graph,idx_t *map,int ndim,
                      double coords[][ndim] );
