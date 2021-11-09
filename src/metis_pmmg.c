@@ -1228,7 +1228,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
    * groups to which the face belong. Use a minus sign to mark old parallel
    * faces.*/
   PMMG_CALLOC(parmesh,graph->xadj,graph->nvtxs+1,idx_t,"parmetis xadj", goto fail_4);
-  PMMG_CALLOC(parmesh,graph->xadj,graph->nvtxs,idx_t,"parmetis map", goto fail_5);
+  PMMG_CALLOC(parmesh,graph->map,graph->nvtxs,idx_t,"parmetis map", goto fail_5);
 
   int_face_comm = parmesh->int_face_comm;
 
