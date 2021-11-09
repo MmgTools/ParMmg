@@ -429,7 +429,6 @@ int PMMG_bandGraph_grps( PMMG_pParMesh parmesh,
  * Reset the values in the hash table of group adjacency.
  *
  */
-static inline
 void PMMG_hashReset( PMMG_pParMesh parmesh,PMMG_HGrp *hash ) {
   int k;
 
@@ -456,7 +455,6 @@ void PMMG_hashReset( PMMG_pParMesh parmesh,PMMG_HGrp *hash ) {
  * Initialisation of the hash table of group adjacency.
  *
  */
-static inline
 int PMMG_hashNew( PMMG_pParMesh parmesh,PMMG_HGrp *hash,int hsiz,int hmax ) {
 
   /* adjust hash table params */
