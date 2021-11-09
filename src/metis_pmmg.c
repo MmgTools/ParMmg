@@ -115,8 +115,8 @@ void PMMG_subgraph_free( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
  * Allocate graph arrays and initialize variables.
  *
  */
-void PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
-                         int nvtxsmax, int nadjncymax ) {
+int PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
+                        int nvtxsmax, int nadjncymax ) {
   subgraph->nvtxs   = 0;
   subgraph->nadjncy = 0;
   subgraph->npart   = 1;
@@ -254,9 +254,9 @@ int PMMG_graph_test( PMMG_pParMesh parmesh,int nvtxs,int nadjncy,
   PMMG_graph graph;
 
   PMMG_graph_init( parmesh, &graph );
-  if( !PMMG_graph_set( parmesh, &graph, nvtxs, nadjncy, xadj, adjncy, vtxdist ) )
-    return 0;
-  PMMG_graph_save( parmesh, &graph, color, ndim, coords );
+//  if( !PMMG_graph_set( parmesh, &graph, nvtxs, nadjncy, xadj, adjncy, vtxdist ) )
+//    return 0;
+  PMMG_graph_save( parmesh, &graph, color, ndim, coords, NULL );
   PMMG_graph_free( parmesh, &graph );
   return 1;
 }
@@ -2061,8 +2061,8 @@ int PMMG_subgraph_part( PMMG_pParMesh parmesh, PMMG_pGraph graph, idx_t *part ){
   return 1;
 }
 
-int PMMG_part_scatter( PMMG_pParMesh parmesh,PMMG_pGraph graph,int part,
-                       int part_seq,int root ) {
+int PMMG_part_scatter( PMMG_pParMesh parmesh,PMMG_pGraph graph,int *part,
+                       int *part_seq,int root ) {
   idx_t *recvcounts;
   int   iproc;
 
@@ -2113,7 +2113,8 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part ) {
       return 0;
 
     /* Initialize subgraph and hash table */
-    PMMG_subgraph_init( parmesh, &subgraph, graph_seq.nvtxs, graph_seq.nadjncy );
+    if( !PMMG_subgraph_init( parmesh, &subgraph, graph_seq.nvtxs, graph_seq.nadjncy ) )
+      return 0;
     /* hash is used to store the sorted list of adjacent groups to a group */
     if ( !PMMG_hashNew( parmesh,&hash,graph_seq.nvtxs+1,
                         PMMG_NBADJA_GRPS*graph_seq.nvtxs+1) )

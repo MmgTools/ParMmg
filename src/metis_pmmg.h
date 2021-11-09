@@ -146,8 +146,8 @@ int PMMG_part_parmeshGrps2parmetis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_part_parmeshGrps2metis(PMMG_pParMesh,idx_t*,idx_t);
 int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh, idx_t *vtxdist,
                                        idx_t* mypart,idx_t nproc );
-void PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
-                         int nvtxsmax, int nadjncymax );
+int PMMG_subgraph_init( PMMG_pParMesh parmesh,PMMG_pGraph subgraph,
+                        int nvtxsmax, int nadjncymax );
 void PMMG_graph_init( PMMG_pParMesh parmesh,PMMG_pGraph graph );
 int PMMG_graph_set( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                     int nvtxs,int nadjncy,int *xadj,int *adjncy,
