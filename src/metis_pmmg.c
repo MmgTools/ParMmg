@@ -1593,6 +1593,7 @@ int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
 
    /* Create map, count subgraph nodes and sum weights */
   sumwgts = 0;
+  assert(subgraph->nvtxs == 0);
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
     if( graph->map[ivtx] ) {
       /* Count node */
@@ -1608,6 +1609,9 @@ int PMMG_subgraph_map_active( PMMG_pParMesh parmesh,PMMG_pGraph graph,
    * the minimum possible number of processes */
   subgraph->npart = PMMG_howManyGroups( sumwgts,
                                         abs(parmesh->info.target_mesh_size) );
+
+  /* Update the number of active groups */
+  parmesh->nactive = subgraph->npart;
 
   return 1;
 }
@@ -1630,28 +1634,23 @@ int PMMG_subgraph_map_collapse( PMMG_pParMesh parmesh,PMMG_pGraph graph,
                                 PMMG_pGraph subgraph,idx_t *part,
                                 int root ) {
   idx_t ivtx;
-  int   iinactive,ninactive;
+  int   ninactive;
 
-  /* return if not on the correct rank */
+  /* Return if not on the correct rank */
   if( parmesh->myrank != root ) return 1;
 
+  /* Move inactive nodes to the end of the map */
   ninactive = 0;
   for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
-    if( graph->map[ivtx] != PMMG_UNSET )
+    if( graph->map[ivtx] == PMMG_UNSET )
+      graph->map[ivtx] = subgraph->npart+ninactive++;
+    else
       graph->map[ivtx] = part[graph->map[ivtx]];
-    else
-      ninactive++;
-  }
-  iinactive = 0;
-  for( ivtx = 0; ivtx < graph->nvtxs; ivtx++ ) {
-    if( (graph->map[ivtx] != PMMG_UNSET) && (graph->map[ivtx] < ninactive) )
-      graph->map[ivtx] += ninactive;
-    else
-      graph->map[ivtx] = iinactive++;
   }
 
   /* Number of unique nodes in the collapsed graph */
   subgraph->nvtxs = ninactive+subgraph->npart;
+  assert( subgraph->nvtxs <= graph->nvtxs );
 
   /* Number of partitions for the collapsed graph */
   subgraph->npart = parmesh->nprocs;
@@ -1773,6 +1772,7 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
     idx_t id;
   } PMMG_listpart;
   PMMG_listpart *listpart;
+  PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pTetra    pt;
   MMG5_pPoint    ppt;
@@ -1780,7 +1780,10 @@ int PMMG_part_meshElts_graded( PMMG_pParMesh parmesh, idx_t* part, idx_t *npart,
   int            ie,i,ip,ipart,inew;
 
   assert( parmesh->ngrp == 1 );
-  mesh = parmesh->listgrp[0].mesh;
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  if( grp->isNotActive ) return 1;
 
 #ifdef USE_POINTMAP
   PMMG_CALLOC(parmesh,listpart,2*(*npart),PMMG_listpart,"listpart",return 0);
@@ -1864,6 +1867,8 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t npart )
   idx_t      objval = 0;
   int        ier = 0;
   int        status = 1;
+
+  if( npart == 1 ) return 1;
 
   /* Set contiguity of partitions if using Metis also for graph partitioning */
   METIS_SetDefaultOptions(options);
@@ -2121,6 +2126,12 @@ int PMMG_part_active( PMMG_pParMesh parmesh, idx_t *part ) {
      * the reduced graph and the target number of parts */
     if( !PMMG_subgraph_map_active( parmesh, &graph_seq, &subgraph, root ) )
       return 0;
+  }
+
+  MPI_CHECK( MPI_Bcast(&parmesh->nactive,1,MPI_INT,
+                       root,parmesh->comm), return 0);
+
+  if( parmesh->myrank == root ) {
 
     /* Extract the reduced subgraph */
     if( !PMMG_subgraph_build( parmesh, &graph_seq, &subgraph, &hash ) )
