@@ -1468,6 +1468,12 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   int *countPerGrp = NULL;
   int ret_val = 1;
 
+  /* Check if working on 1 group */
+  assert( parmesh->ngrp == 1 );
+
+  /* Nothing to do if only 1 group is required */
+  if( ngrp == 1 ) return 1;
+
   /* Get mesh to split */
   grpOld = &parmesh->listgrp[grpIdOld];
   meshOld = parmesh->listgrp[grpIdOld].mesh;
@@ -1638,7 +1644,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   }
 
   /* Does the group need to be further subdivided to subgroups or not? */
-  if ( ngrp == 1 )  {
+  if ( ngrp == 1 && !(redistrMode == PMMG_REDISTRIBUTION_active) )  {
     if ( parmesh->ddebug ) {
       fprintf( stdout,
                "[%d-%d]: %d group is enough, no need to create sub groups.\n",
@@ -1700,6 +1706,11 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     if ( (redistrMode == PMMG_REDISTRIBUTION_ifc_displacement) &&
          (parmesh->info.imprim > PMMG_VERB_ITWAVES) )
       fprintf(stdout,"\n         calling Metis on proc%d\n\n",parmesh->myrank);
+
+    if( ((redistrMode == PMMG_REDISTRIBUTION_active) &&
+        (target == PMMG_GRPSPL_MMG_TARGET)) ) /* just merge */
+      ngrp = 1;
+
     if ( !PMMG_part_meshElts2metis(parmesh, part, ngrp) ) {
       ret_val = 0;
       goto fail_part;

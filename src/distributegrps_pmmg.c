@@ -2049,11 +2049,13 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  switch( parmesh->info.repartitioning ) {
+  case PMMG_REDISTRIBUTION_ifc_displacement:
 
     ier = PMMG_part_getProcs( parmesh, part );
+    break;
 
-  } else {
+  case PMMG_REDISTRIBUTION_graph_balancing:
 
     switch ( parmesh->info.loadbalancing_mode ) {
 
@@ -2069,6 +2071,10 @@ int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
       ier = PMMG_part_parmeshGrps2metis(parmesh,part,parmesh->nprocs);
       break;
     }
+    break;
+
+  case PMMG_REDISTRIBUTION_active:
+    ier = PMMG_part_active(parmesh,part);
   }
 
   if ( !ier )

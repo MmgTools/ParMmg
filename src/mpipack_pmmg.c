@@ -453,6 +453,9 @@ int PMMG_mpisizeof_grp ( PMMG_pGrp grp ) {
   /** Size of compressed internal group communicators */
   idx += PMMG_mpisizeof_grpintcomm ( grp );
 
+  /** Size of isNotActive attribute */
+  idx += sizeof(int8_t);
+
   return idx;
 }
 
@@ -1051,6 +1054,24 @@ void PMMG_mpipack_extnodecomm ( PMMG_pParMesh parmesh,char **buffer ) {
  * \param grp pointer toward a PMMG_Grp structure.
  * \param buffer pointer toward the buffer in which we pack the group
  *
+ * Pack the group flags.
+ */
+void PMMG_mpipack_grpflags( PMMG_pGrp grp,char **buffer ) {
+  char  *tmp;
+
+  tmp = *buffer;
+
+  /** Pack group flag attributes */
+  *( (int8_t *) tmp) = grp->isNotActive; tmp += sizeof(int8_t);
+
+  *buffer = tmp;
+
+}
+
+/**
+ * \param grp pointer toward a PMMG_Grp structure.
+ * \param buffer pointer toward the buffer in which we pack the group
+ *
  * \return 1 if success, 0 if fail
  *
  * \warning the mesh prisms are not treated.
@@ -1091,6 +1112,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
   PMMG_mpipack_meshArrays(grp,buffer);
 
   PMMG_mpipack_grpintcomm(grp,buffer);
+
+  PMMG_mpipack_grpflags(grp,buffer);
 
   return ier;
 }

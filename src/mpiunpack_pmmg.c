@@ -1020,6 +1020,25 @@ void PMMG_mpiunpack_extnodecomm ( PMMG_pParMesh parmesh,
 
 /**
  * \param parmesh pointer toward a parmesh structure.
+ * \param grp pointer toward a group structure.
+ * \param buffer pointer toward the buffer in which we pack the group
+ * \param ier pointer toward the error value (setted to 0 if we fail)
+ *
+ * Unpack the group flags.
+ *
+ */
+static
+void PMMG_mpiunpack_grpflags( PMMG_pParMesh parmesh,PMMG_pGrp grp,
+                              char **buffer,int *ier ) {
+
+  /** Group active flag */
+  grp->isNotActive = *( (int8_t *) *buffer); *buffer += sizeof(int8_t);
+
+}
+
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
  * \param listgrp pointer toward a PMMG_Grp structure array.
  * \param igrp index of the group to handle.
  * \param buffer pointer toward the buffer in which we unpack the group
@@ -1067,6 +1086,8 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,char *
 
 
   PMMG_mpiunpack_grpintcomm ( parmesh,grp,buffer,&ier);
+
+  PMMG_mpiunpack_grpflags( parmesh,grp,buffer,&ier );
 
   return ier;
 }
