@@ -46,6 +46,7 @@
  */
 int PMMG_howManyGroups ( const int nelem, const int target_mesh_size )
 {
+  if( !nelem ) return 0;
   int ngrp = nelem / target_mesh_size;
 
   if ( ngrp == 0 )
