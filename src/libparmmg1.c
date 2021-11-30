@@ -567,7 +567,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Set inputMet flag */
   parmesh->info.inputMet = 0;
   for ( i=0; i<parmesh->ngrp; ++i ) {
+    mesh        = parmesh->listgrp[i].mesh;
     met         = parmesh->listgrp[i].met;
+#warning Luca: until analysis is not ready
+#ifdef USE_POINTMAP
+    for( k = 1; k <= mesh->np; k++ )
+      mesh->point[k].src = k;
+#endif
     if ( met && met->m ) {
       parmesh->info.inputMet = 1;
       break;
@@ -633,6 +639,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Mesh adaptation */
   warnScotch = 0;
+
+  /* Initialize active groups */
+  parmesh->nactive = parmesh->ngrp;
+  for ( i=0; i<parmesh->ngrp; ++i )
+    parmesh->listgrp[i].isNotActive = 0;
+
+
   for ( parmesh->iter = 0; parmesh->iter < parmesh->niter; parmesh->iter++ ) {
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
@@ -660,6 +673,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     for ( i=0; i<parmesh->ngrp; ++i ) {
+
+     if( parmesh->listgrp[i].isNotActive ) continue;
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
@@ -895,6 +910,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /** update geometric analysis */
     if( !PMMG_update_analys(parmesh) )
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
+
+    if( !parmesh->nactive ) {
+      fprintf(stdout,"--- CONVERGED in %d iterations ---\n",parmesh->iter);
+      break;
+    }
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
