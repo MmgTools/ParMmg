@@ -186,12 +186,20 @@
 #define PMMG_REDISTRIBUTION_ifc_displacement 1
 
 /**
+ * \def PMMG_REDISTRIBUTION_active
+ *
+ * Use active groups to redistribute the parallel mesh
+ *
+ */
+#define PMMG_REDISTRIBUTION_active 2
+
+/**
  * \def PMMG_REDISTRIBUTION_mode
  *
  * Choose how to redistribute the parallel mesh
  *
  */
-#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_ifc_displacement
+#define PMMG_REDISTRIBUTION_mode PMMG_REDISTRIBUTION_active
 
 /**
  * \def PMMG_LOADBALANCING_metis

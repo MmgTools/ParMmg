@@ -981,6 +981,11 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
 
   if ( !mesh0 ) return 1;
 
+  /* The merged group is not active if nor grp 0 nor the merged groups are active */
+  for ( imsh=1; imsh<parmesh->ngrp; ++imsh ) {
+    listgrp[0].isNotActive = listgrp[0].isNotActive && listgrp[imsh].isNotActive;
+  }
+
   /* Use mark field to store previous grp index */
   if( target == PMMG_GRPSPL_DISTR_TARGET ) PMMG_set_color_tetra( parmesh,0 );
 
