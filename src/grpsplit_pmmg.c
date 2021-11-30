@@ -1717,10 +1717,14 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
       goto fail_part;
     }
 
-    /* Double partitioning for active and inactive groups */
-    if( !PMMG_part_meshElts_graded( parmesh, part, &ngrp, activelist ) ) {
-      ret_val = 0;
-      goto fail_part;
+    if( redistrMode == PMMG_REDISTRIBUTION_active ) {
+      /* Double partitioning for active and inactive groups */
+      if( parmesh->iter > PMMG_UNSET ) {
+        if( !PMMG_part_meshElts_graded( parmesh, part, &ngrp, activelist ) ) {
+          ret_val = 0;
+          goto fail_part;
+        }
+      }
     }
 
     /* If this is the first split of the input mesh, and interface displacement
@@ -1735,6 +1739,13 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   /* Split the mesh */
   ret_val = PMMG_split_grps( parmesh,grpIdOld,ngrp,part,fitMesh );
+
+  /* Flag active/inactive groups */
+  if( parmesh->iter > PMMG_UNSET ) {
+    for( int igrp = 0; igrp < parmesh->ngrp; igrp++ ) {
+      parmesh->listgrp[igrp].isNotActive = activelist[igrp] ? 0 : 1;
+    }
+  }
 
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
@@ -1854,6 +1865,15 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
       base_front = PMMG_mark_interfacePoints( parmesh, mesh, vtxdist, priorityMap );
       if( !PMMG_set_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
       ier = PMMG_part_moveInterfaces( parmesh, vtxdist, priorityMap, &base_front );
+    }
+  } else if( parmesh->info.repartitioning == PMMG_REDISTRIBUTION_active ) {
+    /* Rebuild tetra adjacency (mesh graph construction is skipped) */
+    MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
+    if ( !mesh->adja ) {
+      if ( !MMG3D_hashTetra(mesh,1) ) {
+        fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
+        return 0;
+      }
     }
   }
 
