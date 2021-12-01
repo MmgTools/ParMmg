@@ -1195,7 +1195,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
   for ( k=1; k<=parmesh->nprocs; ++k )
     (graph->vtxdist)[k] += (graph->vtxdist)[k-1];
 
-  /** Step 2: Fill weights array with the number of MG_PARBDY face per group */
+  /** Step 2: Fill weights array with the number of elements per group */
   PMMG_CALLOC(parmesh,graph->vwgt,graph->nvtxs,idx_t,"parmetis vwgt", goto fail_1);
 
   for ( igrp=0; igrp<ngrp; ++igrp ) {
@@ -1206,12 +1206,7 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,PMMG_pGraph graph ) {
       continue;
     }
 
-    for ( k=1; k<=mesh->ne; ++k ) {
-      pt = &mesh->tetra[k];
-      if ( !MG_EOK(pt) ) continue;
-
-      (graph->vwgt)[igrp] += pt->mark;
-    }
+    (graph->vwgt)[igrp] = mesh->ne;
   }
 
   /* Fill tpwgts */
