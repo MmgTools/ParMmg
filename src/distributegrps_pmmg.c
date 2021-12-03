@@ -73,6 +73,7 @@ PMMG_Grp PMMG_assign_grp(PMMG_pGrp group) {
   out.face2int_face_comm_index2 = group->face2int_face_comm_index2;
 
   out.flag = group->flag;
+  out.isNotActive = group->isNotActive;
 
   return out;
 }
