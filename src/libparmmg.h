@@ -420,7 +420,8 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_DPARAMETER(parmesh,dparam,val,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(IN)           :: dparam,val\n
+ * >     INTEGER, INTENT(IN)           :: dparam\n
+ * >     REAL(KIND=8), INTENT(IN)      :: val\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
