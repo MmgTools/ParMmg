@@ -833,7 +833,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     nitem         = ext_face_comm->nitem;
     color         = ext_face_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend",ier = 1);
     if( ier ) {
       for( k = 0; k < icomm; k++ ) {
         PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
@@ -846,7 +845,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     }
     itosend = ext_face_comm->itosend;
 
-    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",ier = 1);
     if( ier ) {
       for( k = 0; k < icomm; k++ ) {
         PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
