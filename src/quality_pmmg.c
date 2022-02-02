@@ -184,9 +184,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   iel_grp = 0;
   np = 0;
   ne = 0;
-  max = DBL_MIN;
+  max = max_cur = DBL_MIN;
   avg = 0.;
-  min = DBL_MAX;
+  min = min_cur = DBL_MAX;
   iel = 0;
   good = 0;
   med = 0;
