@@ -259,6 +259,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 
     nrid += nrid_cur;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+
   if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
     return 1;
 
@@ -338,9 +342,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
                                        parmesh->info.imprim );
     if ( !ier ) return 0;
   }
-
-  if( int_node_comm )
-    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
 
   return 1;
 }
