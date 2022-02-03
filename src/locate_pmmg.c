@@ -727,6 +727,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
  * \param mesh pointer to the background mesh structure
  * \param ppt pointer to the point to locate
  * \param faceAreas oriented face areas of the all tetrahedra in the mesh
+ * \param barycoord barycentric coordinate of the closest point
  * \param idxTet pointer to the index of the found tetrahedron
  * \param closestTet pointer to the index of the closest tetrahedron
  * \param closestDist pointer to the distance from the closest tetrahedron
