@@ -415,7 +415,8 @@ void PMMG_insert_rankIndex(PMMG_pParMesh parmesh,char **endname,const char *init
       fmt = 2; /* ASCII */
     }
   }
-  sprintf(*endname, "%s.%d", *endname, parmesh->myrank );
+  int len = strlen(*endname);
+  sprintf((*endname)+len, ".%d",parmesh->myrank );
   if ( fmt==1 ) {
     strcat ( *endname, binext );
   }
