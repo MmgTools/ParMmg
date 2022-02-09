@@ -400,6 +400,9 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
     for ( k=0; k<parmesh->next_edge_comm; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
       ext_edge_comm = &parmesh->ext_edge_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
@@ -1940,6 +1943,9 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     for ( k=0; k<parmesh->next_node_comm; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_node_comm; ++k ) {
       ext_node_comm = &parmesh->ext_node_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
