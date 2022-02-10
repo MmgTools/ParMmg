@@ -2584,6 +2584,10 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_HGeom      hpar,hnear;
   PMMG_hn_loopvar var;
 
+  /* Initialization to avoid memleaks when we try to deallocate memory */
+  memset(&hpar,0x0,sizeof(MMG5_HGeom));
+  memset(&hnear,0x0,sizeof(MMG5_HGeom));
+
   /* Tag parallel triangles on material interfaces as boundary */
   if( !PMMG_parbdyTria( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces. Exit program.\n");
@@ -2891,6 +2895,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* release memory */
   PMMG_edge_comm_free( parmesh );
   PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+  MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,hnear.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);

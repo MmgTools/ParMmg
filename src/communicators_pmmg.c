@@ -42,8 +42,9 @@
  */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 {
-  if ( comm == NULL )
+  if ( comm == NULL ) {
     return;
+  }
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
@@ -137,7 +138,10 @@ void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm,PMMG_Ext_comm,"ext edge comm");
 
   parmesh->next_edge_comm       = 0;
-  parmesh->int_edge_comm->nitem = 0;
+
+  if ( parmesh->int_edge_comm ) {
+    parmesh->int_edge_comm->nitem = 0;
+  }
 }
 
 /**
@@ -163,7 +167,9 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
 
   parmesh->next_node_comm       = 0;
-  parmesh->int_node_comm->nitem = 0;
+  if ( parmesh->int_node_comm ) {
+    parmesh->int_node_comm->nitem = 0;
+  }
 }
 
 /**
@@ -1462,6 +1468,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   /** Step 1: give a unique position in the internal communicator for each mesh
    * point but don't care about the unicity of the position for a point shared
    * by multiple groups */
+
   assert ( !parmesh->int_node_comm->nitem );
   nitem_node = 0;
 
