@@ -926,8 +926,8 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            *intvalues,*iproc2comm;
   int            *itosend,*itorecv,src,dst,tag;
   int            nitem,color;
@@ -946,6 +946,18 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 
 
   /** Step 0: Count nowned nodes */
+  /* register heap arrays */
+  size_t iptr,nptr = 2;
+  void** ptr_int[2];
+  ptr_int[0] = (void*)&iproc2comm;
+  ptr_int[1] = (void*)&offsets;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
+  itosend = itorecv =  NULL;
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
@@ -992,7 +1004,9 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 
   /* Compute offsets on each proc */
-  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",return 0);
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+              return 0);
   MPI_Allgather( &nowned,1,MPI_INT,
                  &offsets[1],1,MPI_INT,parmesh->comm );
   for( i = 1; i <= parmesh->nprocs; i++ )
@@ -1026,13 +1040,36 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 
   /* Send-recv */
+  PMMG_MALLOC(parmesh,request,parmesh->next_node_comm,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->next_node_comm,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+
+
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
     nitem = ext_node_comm->nitem;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
@@ -1048,14 +1085,28 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
         assert(itosend[i]);
       }
       MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
-                           parmesh->comm,&request),return 0 );
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                 return 0 );
       for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
     }
   }
+
+  MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+             return 0);
 
   /* Store recv buffer in the internal communicator */
   for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
@@ -1089,8 +1140,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 #endif
 
+  // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum"); */
+  /*            return 0 ); */
 
   /* Free arrays */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
@@ -1098,8 +1154,11 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
-  PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
-  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
