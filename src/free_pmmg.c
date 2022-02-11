@@ -158,3 +158,19 @@ int PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp ) {
 
   return 1;
 }
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param ptr list of pointers toward integers.
+ * \param nptr list size
+ * \param mess deallocation message
+ *
+ * Free a list of integer arrays.
+ *
+ */
+void PMMG_destroy_int( PMMG_pParMesh parmesh, void **ptr[], size_t nptr,char *mess ) {
+  size_t i;
+  for( i = 0; i < nptr; i++ ) {
+    PMMG_DEL_MEM(parmesh,*ptr[i],int,mess);
+  }
+}
