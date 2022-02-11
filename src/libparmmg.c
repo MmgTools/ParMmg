@@ -1040,15 +1040,15 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 
   /* Send-recv */
-  PMMG_MALLOC(parmesh,request,parmesh->next_node_comm,MPI_Request,
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
               "mpi request array",
               PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
               return 0);
-  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+  for ( i=0; i<parmesh->nprocs; ++i ) {
     request[i] = MPI_REQUEST_NULL;
   }
 
-  PMMG_MALLOC(parmesh,status,parmesh->next_node_comm,MPI_Status,
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
               "mpi status array",
               PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
               PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
@@ -1102,12 +1102,6 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     }
   }
 
-  MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status),
-             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
-             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
-             PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
-             return 0);
-
   /* Store recv buffer in the internal communicator */
   for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
     icomm = iproc2comm[iproc];
@@ -1139,6 +1133,12 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     assert(ppt->tmp <= offsets[parmesh->nprocs]);
   }
 #endif
+
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+             return 0);
 
   // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
@@ -1264,15 +1264,15 @@ int PMMG_color_commNodes( PMMG_pParMesh parmesh ) {
   /**
    * 2) Communicate global numbering to the ghost copies.
    */
-  PMMG_MALLOC(parmesh,request,parmesh->next_node_comm,MPI_Request,
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
               "mpi request array",
               PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
               return 0);
-  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+  for ( i=0; i<parmesh->nprocs; ++i ) {
     request[i] = MPI_REQUEST_NULL;
   }
 
-  PMMG_MALLOC(parmesh,status,parmesh->next_node_comm,MPI_Status,
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
               "mpi status array",
               PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
               PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
@@ -1326,7 +1326,7 @@ int PMMG_color_commNodes( PMMG_pParMesh parmesh ) {
 #endif
     }
   }
-  MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status),
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
              PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
@@ -1411,7 +1411,7 @@ int PMMG_color_commNodes( PMMG_pParMesh parmesh ) {
       assert( itorecv[i] == intvalues[idx] );
     }
   }
-  MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status),
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
              PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");

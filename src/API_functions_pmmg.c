@@ -2044,8 +2044,8 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   int            color,nitem;
   int            label,*nlabels,*displ,mydispl,unique;
@@ -2060,12 +2060,30 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   intvalues = int_node_comm->intvalues;
 
-  /* Allocate label counts and offsets */
-  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
-  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
+  /* register heap arrays */
+  size_t iptr,nptr = 3;
+  void** ptr_int[3];
+  ptr_int[0] = (void*)&iproc2comm;
+  ptr_int[1] = (void*)&nlabels;
+  ptr_int[2] = (void*)&displ;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
+  itosend = itorecv =  NULL;
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  /* Allocate label counts and offsets */
+  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     iproc2comm[iproc] = PMMG_UNSET;
@@ -2172,13 +2190,37 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   /**
    * 4) Communicate global numbering to the ghost copies.
    */
+
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
     nitem = ext_node_comm->nitem;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
@@ -2193,11 +2235,19 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
         itosend[i] = intvalues[idx];
       }
       MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
-                           parmesh->comm,&request),return 0 );
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                 return 0 );
       /* Store recv buffer in the internal communicator */
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
@@ -2207,7 +2257,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       }
     }
   }
-
 
   /**
    * 5) Store numbering results in the output array.
@@ -2223,6 +2272,11 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     }
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+             return 0);
 
 #ifndef NDEBUG
   /* Check global IDs */
@@ -2245,11 +2299,11 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),return 0 );
       for( i=0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
         assert( idx_glob[icomm][i] == intvalues[idx] );
@@ -2273,19 +2327,30 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
 #endif
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+             return 0);
+
+  // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners"); */
+  /*            return 0 ); */
 
   /* Free arrays */
-  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
-  PMMG_DEL_MEM(parmesh,displ,int,"displ");
-  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
-
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
 
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
 
@@ -2304,8 +2369,8 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
  */
 int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot) {
   PMMG_pExt_comm ext_face_comm;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            unique;
   int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
@@ -2313,9 +2378,23 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   /* Do this only if there is one group */
   assert( parmesh->ngrp == 1 );
 
-  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
-  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+  /* register heap arrays */
+  size_t iptr,nptr = 3;
+  void** ptr_int[3];
+  ptr_int[0] = (void*)&npairs;
+  ptr_int[1] = (void*)&displ_pair;
+  ptr_int[2] = (void*)&glob_pair_displ;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
 
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
 
   /**
    * 1) Compute face owners and count nb of new pair faces hosted on myrank.
@@ -2349,7 +2428,10 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
 
-  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",return 0);
+  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ )
     glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
 
@@ -2367,6 +2449,21 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem;//+1;
   }
 
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+
   /* Compute global pair faces enumeration */
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
@@ -2380,11 +2477,19 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     if( parmesh->myrank == src ) {
       sendbuffer = glob_pair_displ[icomm];
       MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
       glob_pair_displ[icomm] = recvbuffer;
     }
   }
@@ -2398,8 +2503,19 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       idx_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+             return 0);
+
+  // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners"); */
+  /*            return 0 ); */
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
@@ -2413,31 +2529,57 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     color = ext_face_comm->color_out;
     nitem = ext_face_comm->nitem;
-    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                return 0);
 
     src = MG_MIN(parmesh->myrank,color);
     dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(ext_face_comm->itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
       for( i = 0; i < nitem; i++ )
         assert( idx_glob[icomm][i] == ext_face_comm->itorecv[i] );
     }
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+             return 0);
+
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners"); */
+  /*            return 0 ); */
 
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     PMMG_DEL_MEM(parmesh,ext_face_comm->itorecv,int,"itorecv");
   }
 #endif
+
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
 
   return 1;
 }

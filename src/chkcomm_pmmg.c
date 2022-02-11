@@ -707,7 +707,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     MPI_CHECK( MPI_Isend(rtosend,6*ext_edge_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_EDGE_TAG+1,
                          parmesh->comm,&request[ireq++]),ier=0 );
-   }
+  }
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
   if ( !ieresult ) goto end;
@@ -832,7 +832,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   status      = NULL;
 
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
- 
+
   /** Step 1: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
     ier = 1;
