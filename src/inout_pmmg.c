@@ -300,20 +300,25 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   /* Set API mode */
   if( API_mode == PMMG_UNSET ) {
     fprintf(stderr,"### Error: No parallel communicators provided on rank %d!\n",parmesh->myrank);
+    fclose(inm);
     return 0;
   } else if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
+    fclose(inm);
     return 0;
   }
 
   /* memory allocation */
-  PMMG_CALLOC(parmesh,nitem_comm,ncomm,int,"nitem_comm",return 0);
-  PMMG_CALLOC(parmesh,color,ncomm,int,"color",return 0);
-  PMMG_CALLOC(parmesh,idx_loc,ncomm,int*,"idx_loc pointer",return 0);
-  PMMG_CALLOC(parmesh,idx_glo,ncomm,int*,"idx_glo pointer",return 0);
+  PMMG_CALLOC(parmesh,nitem_comm,ncomm,int,"nitem_comm",fclose(inm);return 0);
+  PMMG_CALLOC(parmesh,color,ncomm,int,"color",fclose(inm);return 0);
+  PMMG_CALLOC(parmesh,idx_loc,ncomm,int*,"idx_loc pointer",fclose(inm);return 0);
+  PMMG_CALLOC(parmesh,idx_glo,ncomm,int*,"idx_glo pointer",fclose(inm);return 0);
 
   /* Load the communicator */
   if( !PMMG_loadCommunicator( parmesh,inm,bin,iswp,pos,ncomm,nitem_comm,color,
-                              idx_loc,idx_glo ) ) return 0;
+                              idx_loc,idx_glo ) ) {
+    fclose(inm);
+    return 0;
+  }
 
   /* Set triangles or nodes interfaces depending on API mode */
   switch( API_mode ) {
@@ -369,6 +374,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   PMMG_DEL_MEM(parmesh,idx_loc,int*,"idx_loc pointer");
   PMMG_DEL_MEM(parmesh,idx_glo,int*,"idx_glo pointer");
 
+  fclose(inm);
   return 1;
 }
 
@@ -415,7 +421,8 @@ void PMMG_insert_rankIndex(PMMG_pParMesh parmesh,char **endname,const char *init
       fmt = 2; /* ASCII */
     }
   }
-  sprintf(*endname, "%s.%d", *endname, parmesh->myrank );
+  int len = strlen(*endname);
+  sprintf((*endname)+len, ".%d",parmesh->myrank );
   if ( fmt==1 ) {
     strcat ( *endname, binext );
   }
