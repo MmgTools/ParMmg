@@ -893,3 +893,13 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
 
   return 1;
 }
+
+int PMMG_Get_tetFromTria(PMMG_pParMesh parmesh, int ktri, int* ktet, int* iface ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
+}
+
+int PMMG_Get_tetsFromTria(PMMG_pParMesh parmesh, int ktri, int ktet[2], int iface[2] ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetsFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
+}

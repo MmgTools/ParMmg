@@ -2553,6 +2553,55 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
  */
 int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char *filename );
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param ktri index of the boundary triangle.
+ * \param ktet pointer toward an integer that will contains the tetra index.
+ * \param iface pointer toward the triangle in \a ktet.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Fill \a ktet by the indice of a tetra to which belong a boundary triangle
+ * and \a iface by the indice of the triangle in the tetra.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TETFROMTRIA(parmesh,ktri,ktet,iface,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(IN)              :: parmesh\n
+ * >     INTEGER, INTENT(IN)                      :: ktri\n
+ * >     INTEGER, INTENT(OUT)                     :: ktet,iface\n
+ * >     INTEGER, INTENT(OUT)                     :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_tetFromTria(PMMG_pParMesh parmesh, int ktri, int *ktet, int *iface);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param ktri index of the boundary triangle.
+ * \param ktet array of size 2 that will contain the indices of the tetra
+ * (filled by the function).
+ * \param iface pointer toward an array of size 2 that will contains the indices
+ * of the faces of the tetras \a ktet[i] that corresponds to the boundary tria
+ * \a ktri.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Fill \a ktet by the indices of the tetra to which belong a boundary triangle
+ * and \a iface by the indices of the faces of the tetras that correspond to the
+ * triangle. Fill ktet[1] and iface[1] by 0 if the triangle belongs to 1 tetra only.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TETSFROMTRIA(parmesh,ktri,ktet,iface,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(IN)              :: parmesh\n
+ * >     INTEGER, INTENT(IN)                      :: ktri\n
+ * >     INTEGER, DIMENSION(2), INTENT(OUT)       :: ktet,iface\n
+ * >     INTEGER, INTENT(OUT)                     :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_tetsFromTria(PMMG_pParMesh parmesh, int ktri, int ktet[2], int iface[2]);
+
+
 #if defined(c_plusplus) || defined(__cplusplus)
 }
 #endif
