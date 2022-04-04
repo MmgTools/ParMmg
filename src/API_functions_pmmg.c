@@ -1398,6 +1398,38 @@ int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
   return 1;
 }
 
+int PMMG_Get_NodeCommunicator_nodesf(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  int            ip,i,idx;
+
+  /* Meshes are merged in grp 0 */
+  int_node_comm = parmesh->int_node_comm;
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** 1) Store node index in intvalues */
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    parmesh->int_node_comm->intvalues[idx] = ip;
+  }
+
+  /** 2) For each external communicator, get node index from intvalues */
+  ext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
+  for( i = 0; i < ext_node_comm->nitem; i++ ){
+    idx = ext_node_comm->int_comm_index[i];
+    local_index[i] = int_node_comm->intvalues[idx];
+    }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  return 1;
+}
+
 int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   MMG5_Hash      hash;
   PMMG_pGrp      grp;

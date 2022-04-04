@@ -2236,6 +2236,24 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of specified interface entities
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the nodes on a parallel interface. For Fortran use PMMG_Get_NodeCommunicator_nodesf
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_NODESF(parmesh,ext_comm_index,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(IN)                  :: ext_comm_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_NodeCommunicator_nodesf(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index);
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
  * \param local_index array of local mesh IDs of interface entities
  * \return 0 if failed, 1 otherwise.
  *
