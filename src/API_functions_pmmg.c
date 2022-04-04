@@ -421,6 +421,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
   parmesh->info.globalNum          = PMMG_NUL;
+  parmesh->info.globalVNumGot      = PMMG_NUL;
+  parmesh->info.globalTNumGot      = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
@@ -1898,6 +1900,12 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
 int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
+  int ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangle global numbering has not been computed.\n",
@@ -1952,7 +1960,12 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
 int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
-  int        k;
+  int        k,ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangles global numbering has not been computed.\n",
@@ -1987,6 +2000,12 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
+  int ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
@@ -2040,7 +2059,12 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
-  int         ip;
+  int         ip,ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
