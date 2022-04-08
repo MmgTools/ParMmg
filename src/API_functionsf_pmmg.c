@@ -924,16 +924,13 @@ FORTRAN_NAME(PMMG_GET_NODECOMMUNICATOR_NODES, pmmg_get_nodecommunicator_nodes,
 }
 
 /**
- * See \ref PMMG_Get_NodeCommunicator_nodesf function in \ref libparmmg.h file.
- * adapted version of pmmg_get_nodecommunicator_nodes but returns only a pointer
- * to the shared nodes with the given partition int. Works with Fortran which cannot
- * assign a **int with differing allocations on each index
+ * See \ref PMMG_Get_ithNodeCommunicator_nodes function in \ref libparmmg.h file.
  */
-FORTRAN_NAME(PMMG_GET_NODECOMMUNICATOR_NODESF, pmmg_get_nodecommunicator_nodesf,
+FORTRAN_NAME(PMMG_GET_ITHNODECOMMUNICATOR_NODES, pmmg_get_ithnodecommunicator_nodes,
     (PMMG_pParMesh *parmesh, int* ext_comm_index, int* local_index,
      int* retval),
     (parmesh, ext_comm_index, local_index, retval)) {
-  *retval = PMMG_Get_NodeCommunicator_nodesf(*parmesh,*ext_comm_index,local_index);
+  *retval = PMMG_Get_ithNodeCommunicator_nodes(*parmesh,*ext_comm_index,local_index);
   return;
 }
 

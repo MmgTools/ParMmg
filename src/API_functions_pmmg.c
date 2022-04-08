@@ -1400,7 +1400,7 @@ int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
   return 1;
 }
 
-int PMMG_Get_NodeCommunicator_nodesf(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index) {
+int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
