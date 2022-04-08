@@ -2260,7 +2260,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * Get the faces on a parallel interface.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATOR_FACES(parmesh,local_index,retval)\n
+ * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_FACES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
