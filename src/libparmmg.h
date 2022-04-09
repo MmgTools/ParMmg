@@ -2189,7 +2189,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
  * >     INTEGER, INTENT(OUT)           :: color_out\n
  * >     INTEGER, INTENT(OUT)           :: nitem\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -2210,7 +2210,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
  * >     INTEGER, INTENT(OUT)           :: color_out\n
  * >     INTEGER, INTENT(OUT)           :: nitem\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -2219,14 +2219,17 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
   int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
 /**
  * \param parmesh pointer toward the parmesh structure
- * \param ext_comm_index index of the communicator
  * \param local_index array of local mesh IDs of interface entities
  * \return 0 if failed, 1 otherwise.
+ *
+ * \warning Non callable from a fortran code as Fortran cannot assign a **int
+ * with differing allocations on each index.
+ * \ref PMMG_Get_ithNodeCommunicator_nodes should be used instead.
  *
  * Get the nodes on a parallel interface.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
@@ -2237,13 +2240,32 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of specified interface entities
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the nodes on a parallel interface for a given node communicator.
+ * To be used for Fortran users in place of \ref PMMG_Get_NodeCommunicator_nodes.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(IN)                  :: ext_comm_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index);
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
  * \param local_index array of local mesh IDs of interface entities
  * \return 0 if failed, 1 otherwise.
  *
  * Get the faces on a parallel interface.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_FACES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n

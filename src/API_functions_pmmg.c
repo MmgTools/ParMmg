@@ -421,6 +421,8 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
   parmesh->info.globalNum          = PMMG_NUL;
+  parmesh->info.globalVNumGot      = PMMG_NUL;
+  parmesh->info.globalTNumGot      = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
@@ -1398,6 +1400,38 @@ int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
   return 1;
 }
 
+int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  int            ip,i,idx;
+
+  /* Meshes are merged in grp 0 */
+  int_node_comm = parmesh->int_node_comm;
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** 1) Store node index in intvalues */
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    parmesh->int_node_comm->intvalues[idx] = ip;
+  }
+
+  /** 2) For each external communicator, get node index from intvalues */
+  ext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
+  for( i = 0; i < ext_node_comm->nitem; i++ ){
+    idx = ext_node_comm->int_comm_index[i];
+    local_index[i] = int_node_comm->intvalues[idx];
+    }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  return 1;
+}
+
 int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   MMG5_Hash      hash;
   PMMG_pGrp      grp;
@@ -1866,6 +1900,12 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
 int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
+  int ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangle global numbering has not been computed.\n",
@@ -1920,7 +1960,12 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
 int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
-  int        k;
+  int        k,ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangles global numbering has not been computed.\n",
@@ -1955,6 +2000,12 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
+  int ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
@@ -2008,7 +2059,12 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
-  int         ip;
+  int         ip,ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
