@@ -825,6 +825,17 @@ FORTRAN_NAME(PMMG_SET_NUMBEROFNODECOMMUNICATORS, pmmg_set_numberofnodecommunicat
 }
 
 /**
+ * See \ref PMMG_Get_numberOfNodeCommunicators function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_NUMBEROFNODECOMMUNICATORS, pmmg_get_numberofnodecommunicators,
+    (PMMG_pParMesh *parmesh,int* next_comm,
+     int* retval),
+    (parmesh, next_comm, retval)) {
+  *retval = PMMG_Get_numberOfNodeCommunicators(*parmesh,next_comm);
+  return;
+}
+
+/**
  * See \ref PMMG_Set_numberOfFaceCommunicators function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_SET_NUMBEROFFACECOMMUNICATORS, pmmg_set_numberoffacecommunicators,
@@ -909,6 +920,17 @@ FORTRAN_NAME(PMMG_GET_NODECOMMUNICATOR_NODES, pmmg_get_nodecommunicator_nodes,
      int* retval),
     (parmesh, local_index, retval)) {
   *retval = PMMG_Get_NodeCommunicator_nodes(*parmesh,local_index);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_ithNodeCommunicator_nodes function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_ITHNODECOMMUNICATOR_NODES, pmmg_get_ithnodecommunicator_nodes,
+    (PMMG_pParMesh *parmesh, int* ext_comm_index, int* local_index,
+     int* retval),
+    (parmesh, ext_comm_index, local_index, retval)) {
+  *retval = PMMG_Get_ithNodeCommunicator_nodes(*parmesh,*ext_comm_index,local_index);
   return;
 }
 

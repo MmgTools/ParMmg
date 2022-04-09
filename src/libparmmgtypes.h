@@ -329,6 +329,8 @@ typedef struct {
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
   int globalNum; /*!< compute nodes and triangles global numbering in output */
+  int globalVNumGot; /*!< have global nodes actually been calculated */
+  int globalTNumGot; /*!< have global triangles actually been calculated */
   int fmtout; /*!< store the output format asked */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
