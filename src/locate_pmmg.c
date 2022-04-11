@@ -591,7 +591,7 @@ int PMMG_locatePointBdy( MMG5_pMesh mesh,MMG5_pPoint ppt,
   MMG5_pTria     ptr,ptr1;
   int            *adjt,j,i,k,k1,kprev,step,closestTria,stuck,backward;
   int            iloc;
-  double         vol,eps,h,closestDist;
+  double         vol,eps,h=DBL_MAX,closestDist;
   static int     mmgWarn0=0,mmgWarn1=0;
   int            ier;
 
