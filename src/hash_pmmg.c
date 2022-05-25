@@ -32,7 +32,6 @@
  * \copyright
  *
  */
-#include "mmg3d.h"
 #include "parmmg.h"
 
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash ) {

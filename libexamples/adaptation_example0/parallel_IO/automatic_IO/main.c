@@ -28,7 +28,8 @@
 
 /** Include the parmmg and libmmg3d library hader file */
 #include "libparmmg.h"
-#include "mmg3d.h" // for developpers only: to use MMG3D_bdryBuild
+#include "libmmg3d.h" // for developpers only: to use MMG3D_bdryBuild
+#include "libmmg3d_private.h" // for developpers only: to use MMG3D_bdryBuild
 
 #define MAX2(a,b)      (((a) > (b)) ? (a) : (b))
 #define MAX4(a,b,c,d)  (((MAX2(a,b)) > (MAX2(c,d))) ? (MAX2(a,b)) : (MAX2(c,d)))
