@@ -33,6 +33,7 @@
  */
 
 #include "parmmg.h"
+#include "libmmg3d.h"
 
 /**
  * \param ppt pointer toward the point structure
