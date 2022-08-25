@@ -723,6 +723,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           mesh->tetra[k].mark = mesh->mark;
           mesh->tetra[k].flag = mesh->base;
         }
+        /* Reinitialisation of point flags because mesh->base has been reseted
+         * and scalem expects point flag to be lower or equal to mesh->base */
+        for ( k=1 ; k<=mesh->npmax ; k++ ) {
+          mesh->point[k].flag = mesh->base;
+        }
 
         /** Call the remesher */
         /* Here we need to scale the mesh */
