@@ -237,15 +237,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
-#warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
-  /* Don't reset the hmin value computed when unscaling the mesh */
-  if ( !parmesh->info.sethmin ) {
-    mesh->info.sethmin = 1;
-  }
-  /* Don't reset the hmax value computed when unscaling the mesh */
-  if ( !parmesh->info.sethmax ) {
-    mesh->info.sethmax = 1;
-  }
+
+  /* Set mmg3d  function pointers here to assign dosol */
+  MMG3D_setfunc(mesh,met);
+  PMMG_setfunc(parmesh);
 
   /** specific meshing */
   if ( mesh->info.optim && !met->np ) {
@@ -260,8 +255,15 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     }
   }
 
-  MMG3D_setfunc(mesh,met);
-  PMMG_setfunc(parmesh);
+#warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
+  /* Don't reset the hmin value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmin ) {
+    mesh->info.sethmin = 1;
+  }
+  /* Don't reset the hmax value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmax ) {
+    mesh->info.sethmax = 1;
+  }
 
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
