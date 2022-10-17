@@ -1497,7 +1497,7 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pPoint         ppt;
   MMG5_Hash           hash;
   int                 k,i;
-  int                 nc, nre, ng, nrp,ier;
+  int                 nc, nre, ng, nrp, nm, ier;
 
   /* Second: seek the non-required non-manifold points and try to analyse
    * whether they are corner or required. */
@@ -1521,19 +1521,28 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       if ( (!MG_VOK(ppt)) || (ppt->flag==mesh->base)  ) continue;
       ppt->flag = mesh->base;
 
-      if ( (!MG_EDG(ppt->tag)) || MG_SIN(ppt->tag) ) continue;
+      if ( (!(ppt->tag & MG_NOM)) || (ppt->tag & MG_REQ) ) continue;
 
-      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp);
+      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp, &nm);
       if ( ier < 0 ) return 0;
       else if ( !ier ) continue;
 
-      if ( (ng+nrp) > 2 ) {
+      if ( (ng+nrp+nm) > 2 ) {
+        /* More than 2 feature edges are passing through the point: point is
+         * marked as corner */
         ppt->tag |= MG_CRN + MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
         nc++;
       }
-      else if ( (ng == 1) && (nrp == 1) ) {
+      else if ( (ng == 2) || (nrp == 2) || (nm == 2) ) {
+        /* Exactly 2 edges of same type are passing through the point: do
+         * nothing */
+        continue;
+      }
+      else if ( (ng+nrp+nm) == 2 ) {
+        /* 2 edges of different type are passing through the point: point is
+         * marked as required */
         ppt->tag |= MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
@@ -1544,11 +1553,17 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
         nre++;
         nc++;
       }
-      else if ( ng == 1 && !nrp ){
+      else if ( (ng+nrp+nm) == 1 ){
+        /* Only 1 feature edge is passing through the point: point is
+         * marked as corner */
+        assert ( (ng == 1) || (nrp==1) || (nm==1) );
         ppt->tag |= MG_CRN + MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
         nc++;
+      }
+      else {
+        assert ( 0 && "unexpected case");
       }
     }
   }
