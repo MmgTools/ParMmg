@@ -1,10 +1,14 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
 INCLUDE(CMakeDependentOption)
 INCLUDE(cmake/modules/macros.cmake)
 INCLUDE(CheckCSourceCompiles)
 
 PROJECT (parmmg)
+
+LIST(APPEND CMAKE_MODULE_PATH
+  ${PROJECT_SOURCE_DIR}/cmake/modules
+  ${PROJECT_SOURCE_DIR}/cmake/testing )
 
 # Must use GNUInstallDirs to install libraries into correct
 # locations on all platforms.
@@ -179,68 +183,10 @@ ENDIF ( )
 
 ############################################################################
 #####
-#####         Scotch
+#####         Search for optional libraries: scotch, vtk, linearelasticity
 #####
 ############################################################################
-# Find SCOTCH library?
-SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-
-# add Scotch library?
-OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON )
-
-IF ( USE_SCOTCH )
-
-  FIND_PACKAGE(SCOTCH)
-
-  IF ( NOT SCOTCH_FOUND )
-    MESSAGE ( WARNING "Scotch library not found:"
-      "Using scotch reduce the execution time of mmg3d "
-      "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-      "If you have already installed Scotch and want to use it, "
-      "please set the CMake variable or environment variable SCOTCH_DIR "
-      "to your scotch directory.")
-  ENDIF ( )
-
-ENDIF ( )
-
-
-############################################################################
-#####
-#####         VTK (to parse (p)vtp/(p)vtu files )
-#####
-############################################################################
-OPTION ( USE_VTK "Use VTK I/O" ON )
-
-IF ( USE_VTK )
-  FIND_PACKAGE(VTK QUIET)
-
-  IF ( NOT VTK_FOUND )
-    MESSAGE ( WARNING "VTK library not found: vtk I/O will not be available.")
-  ENDIF ( )
-ENDIF ( )
-
-###############################################################################
-#####
-#####         Add dependent options
-#####
-###############################################################################
-
-IF( SCOTCH_FOUND )
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
-  MESSAGE(STATUS
-    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
-  SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
-ENDIF()
-
-
-IF ( VTK_FOUND )
-  ENABLE_LANGUAGE ( CXX )
-  ADD_DEFINITIONS(-DUSE_VTK)
-  MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
-  INCLUDE ( ${VTK_USE_FILE} )
-  SET( LIBRARIES  ${LIBRARIES} "-lstdc++" ${VTK_LIBRARIES} )
-ENDIF ( )
+INCLUDE(optional-dependencies)
 
 ############################################################################
 #####
@@ -280,7 +226,7 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG e5b56c26638f202c3aef961dac837368a4c3a5a6
+    GIT_TAG ec4412d93ee0e4c31c7180fbe1990c24aa020a3a
     INSTALL_COMMAND  echo "Mmg installation DISABLED"
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -366,6 +312,11 @@ OPTION ( DOWNLOAD_METIS "Download and build automatically Metis/ParMetis." ON )
 
 IF ( DOWNLOAD_METIS )
   UNSET ( METIS_DIR CACHE )
+
+  # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+  if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
+    cmake_policy(SET CMP0135 NEW)
+  endif()
 
   # Metis
   EXTERNALPROJECT_ADD ( Metis
