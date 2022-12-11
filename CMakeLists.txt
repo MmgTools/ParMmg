@@ -110,14 +110,31 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
-OPTION ( LIBPARMMG_STATIC "Compile static library" ON)
-OPTION ( LIBPARMMG_SHARED "Compile dynamic library" OFF)
-
 # Explicitly set the DNDEBUG flag in case the user or a parent project overrides
 # it.
 if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-DNDEBUG)
 endif()
+
+#------------------------------- static or shared libs
+FUNCTION (INVERT_BOOL OUTVAR INVAR)
+  IF(${INVAR})
+    SET(${OUTVAR} OFF PARENT_SCOPE)
+  ELSE()
+    SET(${OUTVAR} ON PARENT_SCOPE)
+  ENDIF()
+ENDFUNCTION()
+
+OPTION(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+INVERT_BOOL("BUILD_STATIC_LIBS" ${BUILD_SHARED_LIBS})
+IF ( (${BUILD_STATIC_LIBS} EQUAL ON) AND NOT CMAKE_POSITION_INDEPENDENT_CODE)
+  SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ENDIF()
+
+SET ( LIBPARMMG_SHARED ${BUILD_SHARED_LIBS})
+IF( NOT DEFINED LIBPARMMG_STATIC)
+  SET ( LIBPARMMG_STATIC ${BUILD_STATIC_LIBS})
+ENDIF()
 
 ############################################################################
 #####
