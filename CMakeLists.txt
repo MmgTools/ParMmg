@@ -530,18 +530,17 @@ INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COM
 # Copy header files in project directory at every build step
 COPY_HEADERS_AND_CREATE_TARGET ( ${PMMG_SOURCE_DIR} ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 
+IF (LIBPARMMG_STATIC OR LIBPARMMG_SHARED)
+  SET(LIBPARMMG_INTERNAL ON )
+ELSE()
+  SET(LIBPARMMG_INTERNAL OFF )
+ENDIF()
 
 install(EXPORT ParMmgTargets
   FILE ParMmgTargets.cmake
   NAMESPACE ParMmg::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
   )
-
-IF (LIBPARMMG_STATIC OR LIBPARMMG_SHARED)
-  SET(LIBPARMMG_INTERNAL ON )
-ELSE()
-  SET(LIBPARMMG_INTERNAL OFF )
-ENDIF()
 
 ###############################################################################
 #####
