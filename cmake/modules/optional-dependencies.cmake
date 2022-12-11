@@ -144,10 +144,12 @@ IF ( VTK_FOUND )
     MESSAGE ( WARNING "vtkMPIController.h header file is not found."
       "VTK is disabled." )
     UNSET ( VTK_FOUND )
+    SET ( VTK_MPI_FAIL 1 )
   ENDIF()
 ENDIF ()
 
 IF ( VTK_FOUND AND NOT USE_VTK MATCHES OFF)
+
   add_definitions(-DUSE_VTK)
 
   MESSAGE ( STATUS "Compilation with VTK: add vtk, vtp and vtu I/O." )
