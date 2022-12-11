@@ -108,7 +108,7 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
     COPY_HEADER (
       ${binary_dir} git_log_pmmg.h
       ${include_dir} git_log_pmmg.h
-      GenerateGitHash copy_pmmggithash )
+      GenerateGitHashParMmg copy_pmmggithash )
 
     LIST ( APPEND tgt_list copy_pmmggithash)
   ENDIF ()

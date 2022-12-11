@@ -219,7 +219,6 @@ OPTION ( DOWNLOAD_MMG "Download and build automatically Mmg." ON )
 
 IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
-  UNSET(MMG_BUILDDIR CACHE)
 
   # Use pointmap
   OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
@@ -262,10 +261,11 @@ IF ( DOWNLOAD_MMG )
 ELSE ( )
   UNSET ( USE_POINTMAP CACHE )
 
-  SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
-  SET(MMG_BUILDDIR "" CACHE PATH "Build directory for mmg")
+  SET(MMG_DIR "" CACHE PATH "Installation or build directory for mmg")
 
-  MESSAGE ( STATUS "Manual installation of Mmg: please, specify the MMG_DIR and MMG_BUILDDIR CMake variables" )
+  MESSAGE ( STATUS "Manual installation of Mmg: please, build and install MMG"
+    " with MMG_INSTALL_PRIVATE_HEADERS option enabled and provide the path to"
+    " the install directory in the MMG_DIR variable of ParMmg." )
 
   FIND_PACKAGE(MMG)
 
@@ -273,11 +273,10 @@ ELSE ( )
 
     MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
       "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-      "If you have already installed Mmg and want to use it, "
-      "please set the CMake variable or environment variable MMG_DIR "
-      "to your mmg directory and the CMake variable or environment variable"
-      " MMG_BUILDDIR "
-      "to your mmg build directory.")
+      "If you have already installed Mmg and want to use it,"
+      "please build Mmg with MMG_INSTALL_PRIVATE_HEADERS CMake"
+      "option enabled and set the MMG_DIR CMake variable or environment variable"
+      "to the mmg install directory.")
   ELSE()
 
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
@@ -287,18 +286,19 @@ ELSE ( )
 
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
+    MESSAGE(STATUS "plop" ${MMG_DIR})
+
     # Additionnal directories to access the Mmg sources
-    INCLUDE_DIRECTORIES(${MMG_BUILDDIR_INTERNAL}/src/common)
     IF ( MMG_DIR )
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg2d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
+      INCLUDE_DIRECTORIES(${MMG_DIR}/mmg/mmg3d)
+      INCLUDE_DIRECTORIES(${MMG_DIR}/mmg/common)
     ELSE ( )
       MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
-        "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-        "If you have already installed Mmg and want to use it, "
+        "(see https://github.com/MmgTools/mmg and download the branch develop)."
+        "If you have already built and installed Mmg (with "
+        "MMG_INSTALL_PRIVATE_HEADERS CMake's flag to ON) and want to use it, "
         "please set the CMake variable or environment variable MMG_DIR "
-        "to your mmg directory.")
+        "to your mmg install directory.")
     ENDIF ( )
   ENDIF ( )
 ENDIF()
@@ -539,11 +539,11 @@ ADD_AND_INSTALL_EXECUTABLE ( ${PROJECT_NAME}
   "${pmmg_library_files}" ${pmmg_main_file} )
 
 IF ( DOWNLOAD_MMG )
-  Add_Dependencies(parmmg Mmg)
+  Add_Dependencies(${PROJECT_NAME} Mmg)
 ENDIF ( )
 
 IF ( DOWNLOAD_METIS )
-  Add_Dependencies(parmmg Metis)
+  Add_Dependencies(${PROJECT_NAME} Metis)
 ENDIF ( )
 
 ############################################################################
@@ -554,17 +554,17 @@ ENDIF ( )
 
 IF (NOT WIN32 OR MINGW)
 
-  ADD_CUSTOM_TARGET(GenerateGitHash
+  ADD_CUSTOM_TARGET(GenerateGitHashParMmg
     COMMAND ./git_log_pmmg.sh ${PROJECT_SOURCE_DIR} ${PMMG_BINARY_DIR}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/scripts/
     COMMENT "Getting git commit hash"
   )
-  ADD_DEPENDENCIES(${PROJECT_NAME} GenerateGitHash)
+  ADD_DEPENDENCIES(${PROJECT_NAME} GenerateGitHashParMmg)
   IF( LIBPARMMG_STATIC )
-    ADD_DEPENDENCIES(lib${PROJECT_NAME}_a GenerateGitHash)
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_a GenerateGitHashParMmg)
   ENDIF ()
   IF( LIBPARMMG_SHARED )
-    ADD_DEPENDENCIES(lib${PROJECT_NAME}_so GenerateGitHash)
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_so GenerateGitHashParMmg)
   ENDIF ()
 
   INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})
