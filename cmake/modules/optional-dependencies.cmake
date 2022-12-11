@@ -137,6 +137,16 @@ IF ( NOT DEFINED USE_VTK OR USE_VTK STREQUAL "" OR USE_VTK MATCHES " +" OR USE_V
   ENDIF()
 ENDIF()
 
+# Check if VTK is built with MPI support (needed for ParMmg)
+IF ( VTK_FOUND )
+  CHECK_INCLUDE_FILE( "vtkMPIController.h" VTK_MPI_IS_FOUND)
+  IF( NOT VTK_MPI_IS_FOUND )
+    MESSAGE ( WARNING "vtkMPIController.h header file is not found."
+      "VTK is disabled." )
+    UNSET ( VTK_FOUND )
+  ENDIF()
+ENDIF ()
+
 IF ( VTK_FOUND AND NOT USE_VTK MATCHES OFF)
   add_definitions(-DUSE_VTK)
 
