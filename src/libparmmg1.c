@@ -34,7 +34,7 @@
  *
  */
 #include "parmmg.h"
-#include "mmgexterns.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param grp pointer toward the group in which we want to update the list of
