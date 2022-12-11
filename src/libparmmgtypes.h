@@ -32,7 +32,7 @@
 #ifndef _LIBPARMMGTYPES_H
 #define _LIBPARMMGTYPES_H
 
-#include "mmg/common/libmmgtypes.h"
+#include "libmmgtypes.h"
 #include "pmmgversion.h"
 #include <mpi.h>
 

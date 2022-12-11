@@ -250,9 +250,7 @@ IF ( DOWNLOAD_MMG )
     DEPENDEES update
     DEPENDERS configure )
 
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include/mmg/mmg3d)
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include/mmg/common)
+  SET ( MMG_INCLUDE_DIRS ${MMG_BINARY_DIR}/include )
 
   IF( LIBPARMMG_SHARED )
     SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -277,11 +275,11 @@ ELSE ( )
 
   IF(NOT MMG_FOUND )
 
-    MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required:"
-      "(see https://github.com/MmgTools/mmg and  download the branch develop)."
-      "If you have already installed Mmg and want to use it,"
-      "please build Mmg with MMG_INSTALL_PRIVATE_HEADERS CMake"
-      "option enabled and set the MMG_DIR CMake variable or environment variable"
+    MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required: "
+      "(see https://github.com/MmgTools/mmg and  download the branch develop). "
+      "If you have already installed Mmg and want to use it, "
+      "please build Mmg with MMG_INSTALL_PRIVATE_HEADERS CMake "
+      "option enabled and set the MMG_DIR CMake variable or environment variable "
       "to the mmg install directory.")
   ELSE()
 
@@ -292,20 +290,12 @@ ELSE ( )
 
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
-    # Additionnal directories to access the Mmg sources
-    IF ( MMG_DIR )
-      INCLUDE_DIRECTORIES(${MMG_DIR}/mmg/mmg3d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/mmg/common)
-    ELSE ( )
-      MESSAGE ( FATAL_ERROR "ERROR: The source directory for mmg is required:"
-        "(see https://github.com/MmgTools/mmg and download the branch develop)."
-        "If you have already built and installed Mmg (with "
-        "MMG_INSTALL_PRIVATE_HEADERS CMake's flag to ON) and want to use it, "
-        "please set the CMake variable or environment variable MMG_DIR "
-        "to your mmg install directory.")
-    ENDIF ( )
   ENDIF ( )
 ENDIF()
+
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/mmg3d)
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/common)
 
 ############################################################################
 #####
