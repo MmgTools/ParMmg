@@ -23,7 +23,7 @@
 
 #include "parmmg.h"
 #include <stddef.h>
-#include "inlined_functions_3d.h"
+#include "inlined_functions_3d_private.h"
 
 typedef struct {
   double min;
