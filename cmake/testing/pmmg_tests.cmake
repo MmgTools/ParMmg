@@ -11,13 +11,13 @@ IF( BUILD_TESTING )
 
     IF ( NOT EXISTS ${CI_DIR} )
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
+        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git --filter=blob:none
         WORKING_DIRECTORY ${PARENT_DIR}
         )
     ENDIF()
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 2ab8c4b83e8d2cb2683ca59a9d7c126afa9eba37
+      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 445a6d014ef44eeed6936
       TIMEOUT 20
       WORKING_DIRECTORY ${CI_DIR}
       #COMMAND_ECHO STDOUT
@@ -32,7 +32,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME ${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/${MESH}.mesh
+          ${CI_DIR}/Cube/${MESH}.meshb
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
@@ -43,7 +43,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME cube-unit-coarse-${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/cube-unit-coarse.mesh
+          ${CI_DIR}/Cube/cube-unit-coarse.meshb
           -sol ${CI_DIR}/Cube/cube-unit-coarse-${MESH}.sol
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
@@ -73,7 +73,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 6 8 )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/Sphere/sphere.mesh
+        ${CI_DIR}/Sphere/sphere.meshb
         -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
         -mesh-size ${mesh_size} ${myargs} )
     endforeach()
@@ -84,7 +84,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
       endforeach()
@@ -144,7 +144,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${test_option} ${test_val}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
           -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
@@ -215,7 +215,7 @@ IF( BUILD_TESTING )
     ###############################################################################
     add_test( NAME InterpolationFields-withMet-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
       -sol field3_iso-coarse.sol
@@ -223,14 +223,14 @@ IF( BUILD_TESTING )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
       -mesh-size 60000 -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
       -mesh-size 60000 ${myargs} )
@@ -271,7 +271,7 @@ IF( BUILD_TESTING )
         ADD_TEST( NAME DistribSphere_NOM-gen-${API_mode}-${NP}
           COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
-          ${CI_DIR}/Sphere_NOM/sphere_nom.mesh
+          ${CI_DIR}/Sphere_NOM/sphere_nom.meshb
           ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh ${API_mode} )
 
         ADD_TEST( NAME DistribSphere_NOM-adp-${API_mode}-${NP}
@@ -638,7 +638,7 @@ IF( BUILD_TESTING )
           -niter 3 -nobalance -v 10 -surf )
       ENDFOREACH()
 
-      SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+      SET ( input_mesh ${CI_DIR}/Tennis/tennis.meshb )
       SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
       SET ( test_name  TennisSurf_interp )
 
