@@ -2,7 +2,7 @@ IF( BUILD_TESTING )
   include( CTest )
 
   set( CI_DIR  ${CMAKE_BINARY_DIR}/testparmmg CACHE PATH "path to test meshes repository" )
-  set( CI_DIR_RESULTS  ${CI_DIR}/TEST_OUTPUTS )
+  set( CI_DIR_RESULTS  ${CMAKE_BINARY_DIR}/TEST_OUTPUTS )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
 
