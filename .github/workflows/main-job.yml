@@ -140,7 +140,7 @@ jobs:
 
       - name: Install ParMmg
         run: |
-          cmake --build build --target install --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+          sudo cmake --build build --target install --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
