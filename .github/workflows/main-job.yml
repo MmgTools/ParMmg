@@ -46,6 +46,8 @@ jobs:
           if [ "$RUNNER_OS" == "macOS" ]; then
              echo "SCOTCH_MAKE=Make.inc/Makefile.inc.i686_mac_darwin10" >> "$GITHUB_ENV"
              echo "FORT_FLG=\"-DCMAKE_Fortran_COMPILER=gfortran-11\"" >> "$GITHUB_ENV"
+             # Exclude test cases that fail on OSX due to surface model issue in Mmg.
+             echo "EXCLUDE_TESTS=\"DistribSurf-A319-adp-0-2|DistribSurf-A319-adp-0-4|DistribSurf-A319-adp-1-2|DistribSurf-A319-adp-1-4\""  >> "$GITHUB_ENV"
 
           elif [ "$RUNNER_OS" == "Linux" ]; then
              echo "SCOTCH_MAKE=Make.inc/Makefile.inc.x86-64_pc_linux2" >> "$GITHUB_ENV"
@@ -152,7 +154,7 @@ jobs:
       - name: Test ParMmg
         run: |
           cd build
-          ctest --timeout 7200 -VV -C ${{ inputs.cmake_build_type }}
+          ctest --timeout 7200 -VV -C ${{ inputs.cmake_build_type }} -E  ${{ env.EXCLUDE_TESTS }}
 
       # - name: Archive production artifacts for tests
       #  if: success() || failure()
