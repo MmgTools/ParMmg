@@ -72,7 +72,7 @@ jobs:
 
       - name: Install OpenMPI
         if: matrix.mpich-instead-openmpi == 'off'
-        run:
+        run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
             brew install open-mpi
           elif [ "$RUNNER_OS" == "Linux" ]; then
@@ -137,6 +137,7 @@ jobs:
       - name: Build ParMmg
         run: |
           cmake --build build --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+
       - name: Install ParMmg
         run: |
           cmake --build build --target install --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
@@ -144,7 +145,7 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: Mmg-bin
+          name: ParMmg-bin
           path: |
             build/bin
 
