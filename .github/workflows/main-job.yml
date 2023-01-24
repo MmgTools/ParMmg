@@ -39,7 +39,7 @@ jobs:
             Os:      ${{ matrix.os }},
             Pointmap:${{ matrix.pointmap }},
             Scotch:  ${{ matrix.scotch }},
-            Mpich instead of openmpi: ${{ mpich-instead-openmpi }},
+            Mpich instead of openmpi: ${{ matrix.mpich-instead-openmpi }},
             Build:   ${{ inputs.cmake_build_type }}"
 
           # gfortran compiler and scotch makefile depends on the os
@@ -58,8 +58,8 @@ jobs:
         env:
           NJOBS: "1"
 
-      - name: Install MPI
-        # Download openmpi or mpich
+      - name: Install MPICH
+        # Download mpich
         if: matrix.mpich-instead-openmpi == 'on'
         run: |
           if [ "$RUNNER_OS" == "macOS" ]; then
@@ -70,6 +70,7 @@ jobs:
             sudo apt-get install -y libmpich-dev
           fi
 
+      - name: Install OpenMPI
         if: matrix.mpich-instead-openmpi == 'off'
         run:
           if [ "$RUNNER_OS" == "macOS" ]; then
