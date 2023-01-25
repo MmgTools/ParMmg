@@ -67,6 +67,8 @@ MARK_AS_ADVANCED(CMAKE_OSX_ARCHITECTURES
   CMAKE_OSX_DEPLOYMENT_TARGET
   CMAKE_OSX_SYSROOT)
 
+include(add_build_types)
+
 IF(CMAKE_COMPILER_IS_GNUCC)
   IF(APPLE)
     # Add flags to the compiler to work on old mac
