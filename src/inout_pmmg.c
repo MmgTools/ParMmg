@@ -1002,6 +1002,8 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+#ifdef USE_HDF5
+
 int PMMG_Set_defaultIOEntities_hdf5(int *io_entities) {
   /* Default: save/load everything */
   for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) io_entities[i] = 1;
@@ -2676,6 +2678,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
 
   return 1;
 }
+#endif
 
 int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname) {
 
@@ -2999,6 +3002,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
 #endif
 }
 
+#ifdef USE_HDF5
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param file_id identifier of the HDF5 file.
@@ -4149,6 +4153,7 @@ static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_
 
   return 1;
 }
+#endif
 
 int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
 

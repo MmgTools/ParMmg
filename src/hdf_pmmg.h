@@ -21,6 +21,8 @@
 ** =============================================================================
 */
 
+#ifdef USE_HDF5
+
 #ifndef HDF_PMMG_H
 #define HDF_PMMG_H
 /**
@@ -44,5 +46,7 @@
       on_failure;                                                       \
     }                                                                   \
   } while(0)
+
+#endif
 
 #endif
