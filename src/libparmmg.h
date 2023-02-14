@@ -2009,6 +2009,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  */
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
 
+#ifdef USE_HDF5
 /**
  * \param io_entities array of size PMMG_NTYPENTITIES (at least).
  * \return 0 if failed, 1 otherwise.
@@ -2057,6 +2058,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_Set_requiredEntitiesIO_hdf5(int *io_entities, int val);
+#endif
 
 /**
  * \param parmesh pointer toward the parmesh structure.
