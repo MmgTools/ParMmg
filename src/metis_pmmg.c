@@ -31,6 +31,7 @@
  */
 #include "metis_pmmg.h"
 #include "linkedlist_pmmg.h"
+#include "mmg3dexterns_private.h"
 
 /**
  * \param parmesh pointer toward the parmesh structure.

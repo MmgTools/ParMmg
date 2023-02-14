@@ -48,7 +48,8 @@
 
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
-#include "mmg3d.h"
+#include "libmmg3d.h"
+#include "libmmg3d_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -481,6 +482,7 @@ void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
 void PMMG_node_comm_free( PMMG_pParMesh );
 void PMMG_edge_comm_free( PMMG_pParMesh );
 int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh );
+int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh );
 int PMMG_color_commNodes( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
@@ -555,6 +557,7 @@ int  PMMG_updateMeshSize( PMMG_pParMesh parmesh,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
+void PMMG_destroy_int( PMMG_pParMesh,void **ptr[],size_t,char*);
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);

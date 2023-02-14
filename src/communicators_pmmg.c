@@ -42,8 +42,9 @@
  */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 {
-  if ( comm == NULL )
+  if ( comm == NULL ) {
     return;
+  }
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
@@ -137,7 +138,10 @@ void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm,PMMG_Ext_comm,"ext edge comm");
 
   parmesh->next_edge_comm       = 0;
-  parmesh->int_edge_comm->nitem = 0;
+
+  if ( parmesh->int_edge_comm ) {
+    parmesh->int_edge_comm->nitem = 0;
+  }
 }
 
 /**
@@ -163,7 +167,9 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
 
   parmesh->next_node_comm       = 0;
-  parmesh->int_node_comm->nitem = 0;
+  if ( parmesh->int_node_comm ) {
+    parmesh->int_node_comm->nitem = 0;
+  }
 }
 
 /**
@@ -385,7 +391,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
    * recieve the proc list of all the edges to/from the other processors. At the
    * end of this loop, each edge has the entire list of the proc to which it
    * belongs */
-  alloc_size = parmesh->next_edge_comm;
+  alloc_size = parmesh->nprocs;
   PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
   PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
@@ -397,9 +403,12 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
     glob_update = loc_update = 0;
 
     /** Send the list of procs to which belong each point of the communicator */
-    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    for ( k=0; k<alloc_size; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
       ext_edge_comm = &parmesh->ext_edge_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
@@ -478,7 +487,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
       }
     }
 
-    MPI_CHECK( MPI_Waitall(parmesh->next_edge_comm,request,status), goto end );
+    MPI_CHECK( MPI_Waitall(alloc_size,request,status), goto end );
     MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
                              parmesh->comm),goto end);
 
@@ -768,9 +777,10 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   /** Check the external edge communicator */
   assert( PMMG_check_extEdgeComm( parmesh ) );
 
-
   /* Free */
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
+  if ( int_face_comm ) {
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
+  }
   PMMG_DEL_MEM(parmesh,nitems_ext_comm,int,"nitem_int_face_comm");
 
   return 1;
@@ -1471,6 +1481,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   /** Step 1: give a unique position in the internal communicator for each mesh
    * point but don't care about the unicity of the position for a point shared
    * by multiple groups */
+
   assert ( !parmesh->int_node_comm->nitem );
   nitem_node = 0;
 
@@ -1946,7 +1957,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
    * recieve the proc list of all the nodes to/from the other processors. At the
    * end of this loop, each node has the entire list of the proc to which it
    * belongs */
-  alloc_size = parmesh->next_node_comm;
+  alloc_size = parmesh->nprocs;
   PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
   PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
@@ -1958,9 +1969,12 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     glob_update = loc_update = 0;
 
     /** Send the list of procs to which belong each point of the communicator */
-    for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    for ( k=0; k<alloc_size; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_node_comm; ++k ) {
       ext_node_comm = &parmesh->ext_node_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
@@ -2039,7 +2053,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
       }
     }
 
-    MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status), goto end );
+    MPI_CHECK( MPI_Waitall(alloc_size,request,status), goto end );
     MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
                              comm),goto end);
 

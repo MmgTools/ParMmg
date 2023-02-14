@@ -65,6 +65,7 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
     MPI_Comm_split_type( parmesh->comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
     MPI_Comm_size( comm_shm, &parmesh->size_shm );
+    MPI_Comm_free( &comm_shm );
   }
   else {
     parmesh->size_shm = 1;

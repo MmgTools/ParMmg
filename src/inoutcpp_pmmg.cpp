@@ -32,9 +32,8 @@
  *
  */
 
-#include "vtkparser.hpp"
-
 #ifdef USE_VTK
+#include "vtkparser.hpp"
 #include <vtkMultiProcessController.h>
 #include <vtkMPIController.h>
 #endif

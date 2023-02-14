@@ -33,6 +33,7 @@
  */
 
 #include "parmmg.h"
+#include "libmmg3d.h"
 
 /**
  * \param ppt pointer toward the point structure
@@ -1496,7 +1497,7 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_pPoint         ppt;
   MMG5_Hash           hash;
   int                 k,i;
-  int                 nc, nre, ng, nrp,ier;
+  int                 nc, nre, ng, nrp, nm, ier;
 
   /* Second: seek the non-required non-manifold points and try to analyse
    * whether they are corner or required. */
@@ -1520,19 +1521,28 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
       if ( (!MG_VOK(ppt)) || (ppt->flag==mesh->base)  ) continue;
       ppt->flag = mesh->base;
 
-      if ( (!MG_EDG(ppt->tag)) || MG_SIN(ppt->tag) ) continue;
+      if ( (!(ppt->tag & MG_NOM)) || (ppt->tag & MG_REQ) ) continue;
 
-      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp);
+      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp, &nm);
       if ( ier < 0 ) return 0;
       else if ( !ier ) continue;
 
-      if ( (ng+nrp) > 2 ) {
+      if ( (ng+nrp+nm) > 2 ) {
+        /* More than 2 feature edges are passing through the point: point is
+         * marked as corner */
         ppt->tag |= MG_CRN + MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
         nc++;
       }
-      else if ( (ng == 1) && (nrp == 1) ) {
+      else if ( (ng == 2) || (nrp == 2) || (nm == 2) ) {
+        /* Exactly 2 edges of same type are passing through the point: do
+         * nothing */
+        continue;
+      }
+      else if ( (ng+nrp+nm) == 2 ) {
+        /* 2 edges of different type are passing through the point: point is
+         * marked as required */
         ppt->tag |= MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
@@ -1543,11 +1553,17 @@ int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
         nre++;
         nc++;
       }
-      else if ( ng == 1 && !nrp ){
+      else if ( (ng+nrp+nm) == 1 ){
+        /* Only 1 feature edge is passing through the point: point is
+         * marked as corner */
+        assert ( (ng == 1) || (nrp==1) || (nm==1) );
         ppt->tag |= MG_CRN + MG_REQ;
         ppt->tag &= ~MG_NOSURF;
         nre++;
         nc++;
+      }
+      else {
+        assert ( 0 && "unexpected case");
       }
     }
   }
@@ -2584,6 +2600,10 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   MMG5_HGeom      hpar,hnear;
   PMMG_hn_loopvar var;
 
+  /* Initialization to avoid memleaks when we try to deallocate memory */
+  memset(&hpar,0x0,sizeof(MMG5_HGeom));
+  memset(&hnear,0x0,sizeof(MMG5_HGeom));
+
   /* Tag parallel triangles on material interfaces as boundary */
   if( !PMMG_parbdyTria( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces. Exit program.\n");
@@ -2593,7 +2613,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
-
 
   /* create surface adjacency */
   if ( !MMG3D_hashTria(mesh,&hash) ) {
@@ -2617,34 +2636,67 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* identify connexity */
   if ( !MMG5_setadj(mesh) ) {
     fprintf(stderr,"\n  ## Topology problem. Exit program.\n");
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     return 0;
   }
 
   /* Hash parallel edges */
-  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) return 0;
+  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    return 0;
+  }
 
   /* Build edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) {
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    return 0;
+  }
 
   /* Compute global node numbering and store it in ppt->tmp */
-  if( !PMMG_Compute_verticesGloNum( parmesh ) ) return 0;
+  if( !PMMG_Compute_verticesGloNum( parmesh ) ) {
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    return 0;
+  }
 
   /* Allocate communicator buffers */
-  if( !PMMG_analys_comms_init( parmesh ) ) return 0;
+  if( !PMMG_analys_comms_init( parmesh ) ) {
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    return 0;
+  }
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
   if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
@@ -2652,11 +2704,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_singul(mesh) ) {
     fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
-
-
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
@@ -2665,7 +2719,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_norver( mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
@@ -2673,7 +2732,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
@@ -2681,7 +2747,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
@@ -2692,16 +2763,28 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG5_setNmTag(mesh,&hash) ) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_analys_comms_free( parmesh );
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
    * the table, plus two other internal edges. */
-  if ( !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) )
+  if ( !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_analys_comms_free( parmesh );
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
+  }
   var.mesh = mesh;
   var.hash = &hnear;
   var.hpar = &hpar;
@@ -2709,10 +2792,31 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /** 0) Loop on edges touching a parallel point and insert them in the
    *     hash table. */
-  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) )
+  if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
+  }
 
-  if( !PMMG_set_edge_owners( parmesh,&hpar ) ) return 0;
+  if( !PMMG_set_edge_owners( parmesh,&hpar ) ) {
+    MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    return 0;
+  }
 
   /* identify singularities on parallel points.
    * No need to call a *_setVertexNmTag function, as it already takes into
@@ -2720,14 +2824,28 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !PMMG_singul(parmesh,mesh,&var) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
     fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_analys_comms_free( parmesh );
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
 
@@ -2741,20 +2859,47 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* build hash table for geometric edges */
   if ( !mesh->na && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->adjt);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
-    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+
+    if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
     return 0;
   }
 
   /* Update edges tags and references for xtetras */
   if ( !MMG5_bdryUpdate(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,mesh->adjt);
     MMG5_DEL_MEM(mesh,mesh->xpoint);
+    mesh->na = 0;
+
+    if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
     return 0;
   }
 
   /* define geometry for non manifold points */
-  if ( !MMG3D_nmgeom(mesh) ) return 0;
+  if ( !MMG3D_nmgeom(mesh) ) {
+    PMMG_edge_comm_free( parmesh );
+    PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+    MMG5_DEL_MEM(mesh,hpar.geom);
+    MMG5_DEL_MEM(mesh,hnear.geom);
+    MMG5_DEL_MEM(mesh,mesh->htab.geom);
+    MMG5_DEL_MEM(mesh,mesh->adjt);
+    MMG5_DEL_MEM(mesh,mesh->xpoint);
+    mesh->na = 0;
+
+    if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
+    return 0;
+  }
 
 #ifdef USE_POINTMAP
   /* Initialize source point with input index */
@@ -2765,11 +2910,12 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
 
   /* release memory */
   PMMG_edge_comm_free( parmesh );
+  PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
+  MMG5_DEL_MEM(mesh,hash.item);
   MMG5_DEL_MEM(mesh,hpar.geom);
   MMG5_DEL_MEM(mesh,hnear.geom);
   MMG5_DEL_MEM(mesh,mesh->htab.geom);
   MMG5_DEL_MEM(mesh,mesh->adjt);
-  MMG5_DEL_MEM(mesh,mesh->edge);
   mesh->na = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);

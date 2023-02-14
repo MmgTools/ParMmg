@@ -104,13 +104,13 @@ int main(int argc,char *argv[]) {
 
   /** with PMMG_loadMesh_centralized function */
   if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 ) {
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);
     exit(EXIT_FAILURE);
   }
 
   /** with PMMG_loadMet_centralized function */
   if( PMMG_loadMet_centralized(parmesh,filename) == -1 ) {
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);
     exit(EXIT_FAILURE);
   }
 

@@ -108,7 +108,7 @@ MACRO ( COPY_HEADERS_AND_CREATE_TARGET
     COPY_HEADER (
       ${binary_dir} git_log_pmmg.h
       ${include_dir} git_log_pmmg.h
-      GenerateGitHash copy_pmmggithash )
+      GenerateGitHashParMmg copy_pmmggithash )
 
     LIST ( APPEND tgt_list copy_pmmggithash)
   ENDIF ()
@@ -142,8 +142,10 @@ MACRO ( ADD_AND_INSTALL_LIBRARY
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
   ENDIF ( )
 
-  SET_TARGET_PROPERTIES ( ${target_name}
-    PROPERTIES OUTPUT_NAME ${output_name} )
+  SET_TARGET_PROPERTIES ( ${target_name} PROPERTIES
+    OUTPUT_NAME ${output_name}
+    VERSION ${CMAKE_RELEASE_VERSION_MAJOR}.${CMAKE_RELEASE_VERSION_MINOR}.${CMAKE_RELEASE_VERSION_PATCH}
+    SOVERSION ${CMAKE_RELEASE_VERSION_MAJOR} )
 
   SET_PROPERTY(TARGET ${target_name} PROPERTY C_STANDARD 99)
 

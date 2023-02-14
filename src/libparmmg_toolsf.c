@@ -58,3 +58,25 @@ FORTRAN_NAME(PMMG_PRINTCOMMUNICATOR,pmmg_printcommunicator,
 
   return;
 }
+
+/**
+ * See \ref PMMG_Get_tetFromTria function in \ref libarpmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_TETFROMTRIA,pmmg_get_tetfromtria,
+             (PMMG_pParMesh *parmesh,int *ktri, int *ktet, int *iface,int *retval),
+             (parmesh,ktri,ktet,iface,retval)) {
+
+  *retval = PMMG_Get_tetFromTria(*parmesh,*ktri,ktet,iface);
+  return;
+}
+
+/**
+ * See \ref PMMG_Get_tetsFromTria function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_GET_TETSFROMTRIA,pmmg_get_tetsfromtria,
+             (PMMG_pParMesh *parmesh,int *ktri, int ktet[2], int iface[2],int *retval),
+             (parmesh,ktri,ktet,iface,retval)) {
+
+  *retval = PMMG_Get_tetsFromTria(*parmesh,*ktri,ktet,iface);
+  return;
+}

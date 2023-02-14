@@ -114,10 +114,9 @@ int main(int argc,char *argv[]) {
   /* Load mesh and communicators */
   if ( !PMMG_loadMesh_distributed(parmesh,filename) ) {
     fprintf ( stderr, "Error: Unable to load %s distributed mesh.\n",filename);
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 100;
+    goto end;
   }
-
 
   /** ------------------------------ STEP II ---------------------------- */
   /** remesh step */
@@ -125,49 +124,49 @@ int main(int argc,char *argv[]) {
   /* Set the number of remeshing iterations */
   niter = 3;
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_niter, niter ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 101;
+    goto end;
   };
 
   /* Remesh the surface */
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_nosurf, 0 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 102;
+    goto end;
   };
 
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_angle, 45 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 103;
+    goto end;
   };
 
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_numberOfLocalParam, 2 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 104;
+    goto end;
   };
 
   if( !PMMG_Set_localParameter( parmesh, MMG5_Triangle, 4,
                                 0.01, 0.5, 0.1 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 105;
+    goto end;
   };
 
   if( !PMMG_Set_localParameter( parmesh, MMG5_Triangle, 5,
                                 3.0, 5.0, 1.0 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 106;
+    goto end;
   };
 
 
 
 
   if( !PMMG_Set_dparameter( parmesh, PMMG_DPARAM_hsiz, 1.0 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 107;
+    goto end;
   };
 
   if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_verbose, 6 ) ) {
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 108;
+    goto end;
   };
 
 
@@ -177,22 +176,7 @@ int main(int argc,char *argv[]) {
   if ( ierlib == PMMG_STRONGFAILURE ) {
     fprintf(stdout,"BAD ENDING OF PARMMGLIB: UNABLE TO SAVE MESH\n");
 
-    /* Free the PMMG5 structures */
-    PMMG_Free_all(PMMG_ARG_start,
-                  PMMG_ARG_ppParMesh,&parmesh,
-                  PMMG_ARG_end);
-
-    free(filename);
-    filename = NULL;
-
-    free(fileout);
-    fileout = NULL;
-
-    free(metout);
-    metout = NULL;
-
-
-    MPI_Finalize();
+    goto end;
   }
 
 
@@ -207,7 +191,8 @@ int main(int argc,char *argv[]) {
   sprintf(fileout,"%s_%d.mesh",fileout,rank);
   if( !(inm = fopen(fileout,"w")) ) {
     fprintf(stderr,"  ** UNABLE TO OPEN OUTPUT MESH FILE.\n");
-    exit(EXIT_FAILURE);
+    ierlib = 200;
+    goto end;
   }
   fprintf(inm,"MeshVersionFormatted 2\n");
   fprintf(inm,"\nDimension 3\n");
@@ -262,32 +247,32 @@ int main(int argc,char *argv[]) {
   int *ref = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
   if ( !ref ) {
     perror("  ## Memory problem: ref calloc");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 201;
+    goto end;
   }
 
   /* Table to know if a vertex is corner */
   int *corner = (int*)calloc(nVertices,sizeof(int));
   if ( !corner ) {
     perror("  ## Memory problem: corner calloc");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 202;
+    goto end;
   }
 
   /* Table to know if a vertex/tetra/tria/edge is required */
   int *required = (int*)calloc(MAX4(nVertices,nTetrahedra,nTriangles,nEdges),sizeof(int));
   if ( !required ) {
     perror("  ## Memory problem: required calloc");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 203;
+    goto end;
   }
 
   /* Table to know if an edge delimits a sharp angle */
   int *ridge = (int*)calloc(nEdges ,sizeof(int));
   if ( !ridge ) {
     perror("  ## Memory problem: ridge calloc");
-    MPI_Finalize();
-    exit(EXIT_FAILURE);
+    ierlib = 204;
+    goto end;
   }
 
   /** Vertex recovering */
@@ -570,7 +555,7 @@ int main(int argc,char *argv[]) {
   free(sol);
 
   /** ------------------------------ STEP  VI -------------------------- */
-
+end:
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,
                 PMMG_ARG_ppParMesh,&parmesh,

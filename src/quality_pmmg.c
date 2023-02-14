@@ -23,7 +23,7 @@
 
 #include "parmmg.h"
 #include <stddef.h>
-#include "inlined_functions_3d.h"
+#include "inlined_functions_3d_private.h"
 
 typedef struct {
   double min;
@@ -191,9 +191,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   iel_grp = 0;
   np = 0;
   ne = 0;
-  max = DBL_MIN;
+  max = max_cur = DBL_MIN;
   avg = 0.;
-  min = DBL_MAX;
+  min = min_cur = DBL_MAX;
   iel = 0;
   good = 0;
   med = 0;
@@ -266,6 +266,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 
     nrid += nrid_cur;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+
   if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
     return 1;
 
@@ -345,9 +349,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
                                        parmesh->info.imprim );
     if ( !ier ) return 0;
   }
-
-  if( int_node_comm )
-    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
 
   return 1;
 }

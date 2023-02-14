@@ -1215,10 +1215,11 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   ier0 = 1;
   PMMG_MALLOC ( parmesh,*trequest,nprocs,MPI_Request,"request_tab",
                 ier0 = 0; ier = MG_MIN(ier,ier0); );
-  if ( ier0 )
+  if ( ier0 ) {
     for ( k=0; k<nprocs; ++k ) {
       (*trequest)[k] = MPI_REQUEST_NULL;
     }
+  }
 
   nextcomm = 0;
   count    = 0;

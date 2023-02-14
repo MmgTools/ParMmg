@@ -121,6 +121,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
     fprintf(stdout,"-noout       do not write output triangulation\n");
+    fprintf(stdout,"-centralized-output centralized output (Medit format only)");
+    fprintf(stdout,"-distributed-output distributed output (Medit format only)");
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -892,4 +894,14 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
   }
 
   return 1;
+}
+
+int PMMG_Get_tetFromTria(PMMG_pParMesh parmesh, int ktri, int* ktet, int* iface ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
+}
+
+int PMMG_Get_tetsFromTria(PMMG_pParMesh parmesh, int ktri, int ktet[2], int iface[2] ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetsFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
 }

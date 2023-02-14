@@ -34,6 +34,7 @@
  *
  */
 #include "parmmg.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param grp pointer toward the group in which we want to update the list of
@@ -721,6 +722,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         for ( k=1 ; k<=mesh->nemax ; k++ ) {
           mesh->tetra[k].mark = mesh->mark;
           mesh->tetra[k].flag = mesh->base;
+        }
+        /* Reinitialisation of point flags because mesh->base has been reseted
+         * and scalem expects point flag to be lower or equal to mesh->base */
+        for ( k=1 ; k<=mesh->npmax ; k++ ) {
+          mesh->point[k].flag = mesh->base;
         }
 
         /** Call the remesher */
