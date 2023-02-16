@@ -379,7 +379,6 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   PMMG_DEL_MEM(parmesh,idx_loc,int*,"idx_loc pointer");
   PMMG_DEL_MEM(parmesh,idx_glo,int*,"idx_glo pointer");
 
-  fclose(inm);
   return 1;
 }
 
