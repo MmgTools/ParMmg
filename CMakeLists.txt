@@ -161,7 +161,15 @@ EXECUTE_PROCESS ( COMMAND grep "OMPI_MAJOR_VERSION"  "${MPI_C_INCLUDE_PATH}/mpi.
   OUTPUT_VARIABLE CMD_OUTPUT )
 
 IF ( ${CMD_ERROR} MATCHES 0 )
-  MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
+  SET ( OMPI_LIST ${CMD_OUTPUT} )
+  separate_arguments(OMPI_LIST)
+  list(LENGTH OMPI_LIST ompi_list_len)
+  MATH(EXPR ompi_list_len "${ompi_list_len}-1")
+  list ( GET OMPI_LIST ${ompi_list_len} OMPI_MAJOR_VERSION )
+  IF ( OMPI_MAJOR_VERSION VERSION_LESS 4 )
+    MESSAGE(WARNING "Possible deadlocks with version <= 3 of open-mpi
+ (see https://github.com/open-mpi/ompi/issues/6568 )...")
+  ENDIF()
 ENDIF()
 
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
@@ -246,11 +254,11 @@ IF ( DOWNLOAD_MMG )
 
   EXTERNALPROJECT_ADD ( Mmg
     GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG c6ecaabff5266b9d329fd71407192fadd633ba22
+    GIT_TAG adf56d6
     INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED} -DUSE_VTK=${USE_VTK}
+    -DBUILD=MMG3D -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED}  -DUSE_VTK=${USE_VTK}
     -DMMG_INSTALL_PRIVATE_HEADERS=ON
     -DUSE_POINTMAP=${USE_POINTMAP} -DCMAKE_INSTALL_PREFIX=../Mmg-install)
 
@@ -330,6 +338,7 @@ IF ( DOWNLOAD_METIS )
   # Metis
   EXTERNALPROJECT_ADD ( Metis
     URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/metis-5.1.0.tar.gz
+    URL_MD5 5465e67079419a69e0116de24fce58fe
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ${CMAKE_MAKE_PROGRAM} config prefix=../../../Metis-install
     BUILD_IN_SOURCE 1

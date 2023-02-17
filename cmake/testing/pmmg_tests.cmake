@@ -9,19 +9,24 @@ IF( BUILD_TESTING )
 
   IF ( NOT ONLY_LIBRARY_TESTS )
 
-    IF ( NOT EXISTS ${CI_DIR} )
+    FIND_PACKAGE ( Git )
+
+    IF ( Git_FOUND )
+
+      IF ( NOT EXISTS ${CI_DIR} )
+        EXECUTE_PROCESS(
+          COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git --filter=blob:none
+          WORKING_DIRECTORY ${PARENT_DIR}
+          )
+      ENDIF()
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git --filter=blob:none
-        WORKING_DIRECTORY ${PARENT_DIR}
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 445a6d014ef44eeed6936
+        TIMEOUT 20
+        WORKING_DIRECTORY ${CI_DIR}
+        #COMMAND_ECHO STDOUT
         )
-    ENDIF()
-    EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 445a6d014ef44eeed6936
-      TIMEOUT 20
-      WORKING_DIRECTORY ${CI_DIR}
-      #COMMAND_ECHO STDOUT
-      )
+    ENDIF ( )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )

@@ -35,8 +35,8 @@
 #
 # The user can give specific paths where to find the libraries adding cmake
 # options at configure (ex: cmake path/to/project -DMMG_DIR=path/to/mmg/install):
-#  MMG_DIR                  - Where to find the base directory of mmg
-#  MMG_INCDIR               - Path toward Mmg installation (should at least contains mmg/common filder)
+#  MMG_DIR                  - Where to find the install directory of mmg
+#  MMG_INCDIR               - Where to find the header files
 #  MMG_LIBDIR               - Where to find the library files
 # The module can also look for the following environment variables if paths
 # are not given as cmake variable: MMG_DIR, MMG_INCDIR, MMG_LIBDIR
