@@ -6,6 +6,7 @@ IF( BUILD_TESTING )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
 
+
   IF ( NOT ONLY_LIBRARY_TESTS )
 
     FIND_PACKAGE ( Git )
@@ -14,28 +15,21 @@ IF( BUILD_TESTING )
 
       IF ( NOT EXISTS ${CI_DIR} )
         EXECUTE_PROCESS(
-          COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
+          COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git --filter=blob:none
           WORKING_DIRECTORY ${PARENT_DIR}
           )
       ENDIF()
-
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5e1dbce
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 445a6d014ef44eeed6936
+        TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
         )
-    ELSE ( )
-      MESSAGE ( WARNING "Git library not founded: library tests only will be runned" )
-      SET ( ONLY_LIBRARY_TESTS ON )
     ENDIF ( )
 
-  ENDIF ( )
-
-  IF ( NOT ONLY_LIBRARY_TESTS )
-
     set ( mesh_size 16384 )
-    set ( myargs -niter 2 -metis-ratio 82 -v 5 -nosurf )
+    set ( myargs -niter 2 -metis-ratio 82 -v 5 )
 
     # remesh 2 sets of matching mesh/sol files (which are the output of mmg3d)
     # on 1,2,4,6,8 processors
@@ -43,7 +37,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME ${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/${MESH}.mesh
+          ${CI_DIR}/Cube/${MESH}.meshb
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
@@ -54,7 +48,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME cube-unit-coarse-${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/cube-unit-coarse.mesh
+          ${CI_DIR}/Cube/cube-unit-coarse.meshb
           -sol ${CI_DIR}/Cube/cube-unit-coarse-${MESH}.sol
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
@@ -70,7 +64,7 @@ IF( BUILD_TESTING )
           ${CI_DIR}/Torus/torusholes.mesh
           -sol ${CI_DIR}/Torus/torusholes.sol
           -out ${CI_DIR_RESULTS}/${TYPE}-torus-with-planar-shock-${NP}-out.mesh
-          -mesh-size ${mesh_size} ${myargs} -nosurf )
+          -mesh-size ${mesh_size} ${myargs} )
       endforeach()
     endforeach()
 
@@ -84,18 +78,18 @@ IF( BUILD_TESTING )
     foreach( NP 1 6 8 )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/Sphere/sphere.mesh
+        ${CI_DIR}/Sphere/sphere.meshb
         -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
         -mesh-size ${mesh_size} ${myargs} )
     endforeach()
 
     # Option without arguments
-    foreach( OPTION "optim" "optimLES" "nosurf" "noinsert" "noswap"  )
+    foreach( OPTION "optim" "optimLES" "noinsert" "noswap"  )
       foreach( NP 1 6 8 )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
       endforeach()
@@ -155,7 +149,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${test_option} ${test_val}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
           -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
@@ -197,16 +191,27 @@ IF( BUILD_TESTING )
 
     add_test( NAME multidom_wave-8
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -distributed-output
+      -distributed-output -ar 89 -nobalance
       ${CI_DIR}/WaveSurface/wave.mesh
       -out ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
     add_test( NAME multidom_wave-8-rerun
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -centralized-output
+      -centralized-output -ar 89
       ${CI_DIR_RESULTS}/multidom-wave-distrib.o.mesh
+      ${myargs}
       )
+
     set_tests_properties(multidom_wave-8-rerun PROPERTIES DEPENDS multidom_wave-8 )
+
+    add_test( NAME multidom_wave-8-distrib_parRidge
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -centralized-output -ar 89
+      ${CI_DIR}/WaveSurface_distrib/multidom-wave-distrib.o.mesh
+      -out ${CI_DIR_RESULTS}/multidom-wave-distrib_parRidge-out.mesh
+      ${myargs}
+      )
 
     ###############################################################################
     #####
@@ -215,29 +220,94 @@ IF( BUILD_TESTING )
     ###############################################################################
     add_test( NAME InterpolationFields-withMet-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol ${myargs} )
+      -sol field3_iso-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -hsiz 0.2 ${myargs} )
+      -mesh-size 60000 -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
-      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol ${myargs} )
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-refinement-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
       -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
+
+    ###############################################################################
+    #####
+    #####        Tests distributed surface adaptation
+    #####
+    ###############################################################################
+
+    # Run the test only if the mesh distribution has succeed
+    FOREACH( API_mode 0 1 )
+      FOREACH( NP 2 4 8 )
+
+        ADD_TEST( NAME DistribSurf-A319-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/A319_gmsh/A319_in_a_box.mesh
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSurf-A319-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/A319_in_a_box_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSurf-A319-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 20 -hausd 5 -centralized-output
+          ${myargs} )
+
+        SET_TESTS_PROPERTIES(DistribSurf-A319-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSurf-A319-gen-${API_mode}-${NP})
+
+
+        ADD_TEST( NAME DistribSphere_NOM-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Sphere_NOM/sphere_nom.meshb
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribSphere_NOM-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/DistribSphere_NOM-${API_mode}-${NP}-out.mesh
+          -optim -v 6 -hmin 0.5 -hausd 2 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribSphere_NOM-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribSphere_NOM-gen-${API_mode}-${NP})
+
+
+        ADD_TEST( NAME DistribTorus-gen-${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
+          ${CI_DIR}/Torus/torusholes.mesh
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh ${API_mode} )
+
+        ADD_TEST( NAME DistribTorus-adp-${API_mode}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR_RESULTS}/torusholes_${API_mode}-${NP}.mesh
+          -out ${CI_DIR_RESULTS}/torusholes-${API_mode}-${NP}-out.mesh
+          -v 6 -centralized-output
+          ${myargs} -niter 3 ) #override previous value of -niter
+
+        SET_TESTS_PROPERTIES(DistribTorus-adp-${API_mode}-${NP}
+          PROPERTIES DEPENDS DistribTorus-gen-${API_mode}-${NP})
+
+      ENDFOREACH()
+    ENDFOREACH()
 
   ENDIF()
 
@@ -249,10 +319,10 @@ IF( BUILD_TESTING )
   ###############################################################################
   SET ( LIB_TESTS OFF )
 
-  IF ( BUILD_STATIC_LIBS )
+  IF ( LIBPARMMG_STATIC )
     SET ( lib_name lib${PROJECT_NAME}_a )
     SET ( LIB_TESTS ON )
-  ELSEIF ( BUILD_SHARED_LIBS )
+  ELSEIF ( LIBPARMMG_SHARED )
     SET ( LIB_TESTS ON )
     SET ( lib_name lib${PROJECT_NAME}_so )
   ENDIF ( )
@@ -500,6 +570,33 @@ IF( BUILD_TESTING )
       ENDFOREACH()
     ENDFOREACH()
 
+    # Distributed analysis
+    SET( test_name libparmmg_distributed_example1 )
+    ADD_LIBRARY_TEST ( ${test_name}
+      ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/main.c
+      "copy_pmmg_headers" "${lib_name}" )
+
+    FOREACH( API_mode 0 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_example1_wave${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/wave
+          ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
+      ENDFOREACH()
+    ENDFOREACH()
+
+    FOREACH( API_mode 0 )
+      FOREACH( NP 4 )
+        ADD_TEST ( NAME  libparmmg_distributed_example1_brickLS${API_mode}-${NP}
+          COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
+          $<TARGET_FILE:${test_name}>
+          ${PROJECT_SOURCE_DIR}/libexamples/adaptation_example1/brickLS
+          ${CI_DIR_RESULTS}/io-par_wave_${API_mode}-${NP} ${API_mode} )
+      ENDFOREACH()
+    ENDFOREACH()
+
+
     #----------------- Tests using the library in the testparmmg repos
     IF ( NOT ONLY_LIBRARY_TESTS )
 
@@ -546,7 +643,7 @@ IF( BUILD_TESTING )
           -niter 3 -nobalance -v 10 -surf )
       ENDFOREACH()
 
-      SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+      SET ( input_mesh ${CI_DIR}/Tennis/tennis.meshb )
       SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
       SET ( test_name  TennisSurf_interp )
 

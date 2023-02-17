@@ -419,12 +419,38 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_DPARAMETER(parmesh,dparam,val,retval)\n
  * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(IN)           :: dparam,val\n
+ * >     INTEGER, INTENT(IN)           :: dparam\n
+ * >     REAL(KIND=8), INTENT(IN)      :: val\n
  * >     INTEGER, INTENT(OUT)          :: retval\n
  * >   END SUBROUTINE\n
  *
  */
 int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param typ type of entity (triangle, edge,...).
+ * \param ref reference of the entity.
+ * \param hmin minimal edge size.
+ * \param hmax maximal edge size.
+ * \param hausd value of the Hausdorff number.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set local parameters: set the hausdorff value at \a val for all
+ * elements of type \a typ and reference \a ref.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_LOCALPARAMETER(parmesh,typ,ref,& \n
+ * >                                      hmin,hmax,hausd,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)           :: typ,ref\n
+ * >     REAL(KIND=8), INTENT(IN)      :: hmin,hmax,hausd\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_localParameter(PMMG_pParMesh parmesh, int typ,
+                             int ref,double hmin,double hmax,double hausd);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -2068,8 +2094,11 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the nodes on a parallel interface. Nodes ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the nodes on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and ParMmg assumes this ordering is valid, but global indices
+ * are still needed by ParMmg to internally match interface faces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,&\n
@@ -2093,8 +2122,10 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the faces on a parallel interface. Faces ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the faces on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and global indices are not read.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHFACECOMMUNICATOR_FACES(parmesh,ext_comm_index,&\n
@@ -2157,7 +2188,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
  * >     INTEGER, INTENT(OUT)           :: color_out\n
  * >     INTEGER, INTENT(OUT)           :: nitem\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -2178,7 +2209,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATORSIZE(parmesh,ext_comm_index,color_out,nitem,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(OUT)           :: ext_comm_index\n
+ * >     INTEGER, INTENT(IN)            :: ext_comm_index\n
  * >     INTEGER, INTENT(OUT)           :: color_out\n
  * >     INTEGER, INTENT(OUT)           :: nitem\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
@@ -2187,14 +2218,17 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
   int PMMG_Get_ithFaceCommunicatorSize(PMMG_pParMesh parmesh, int ext_comm_index, int *color_out, int *nitem);
 /**
  * \param parmesh pointer toward the parmesh structure
- * \param ext_comm_index index of the communicator
  * \param local_index array of local mesh IDs of interface entities
  * \return 0 if failed, 1 otherwise.
+ *
+ * \warning Non callable from a fortran code as Fortran cannot assign a **int
+ * with differing allocations on each index.
+ * \ref PMMG_Get_ithNodeCommunicator_nodes should be used instead.
  *
  * Get the nodes on a parallel interface.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >   SUBROUTINE PMMG_GET_NODECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
@@ -2205,13 +2239,32 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param ext_comm_index index of the communicator
+ * \param local_index array of local mesh IDs of specified interface entities
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Get the nodes on a parallel interface for a given node communicator.
+ * To be used for Fortran users in place of \ref PMMG_Get_NodeCommunicator_nodes.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,local_index,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
+ * >     INTEGER, INTENT(IN)                  :: ext_comm_index\n
+ * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
+ * >     INTEGER, INTENT(OUT)                 :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index);
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param ext_comm_index index of the communicator
  * \param local_index array of local mesh IDs of interface entities
  * \return 0 if failed, 1 otherwise.
  *
  * Get the faces on a parallel interface.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_GET_ITHFACECOMMUNICATOR_NODES(parmesh,local_index,retval)\n
+ * >   SUBROUTINE PMMG_GET_FACECOMMUNICATOR_FACES(parmesh,local_index,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT)       :: parmesh\n
  * >     INTEGER, DIMENSION(*), INTENT(OUT)   :: local_index\n
  * >     INTEGER, INTENT(OUT)                 :: retval\n
@@ -2520,6 +2573,55 @@ void PMMG_setfunc( PMMG_pParMesh parmesh );
  * >   END SUBROUTINE\n
  */
 int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char *filename );
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param ktri index of the boundary triangle.
+ * \param ktet pointer toward an integer that will contains the tetra index.
+ * \param iface pointer toward the triangle in \a ktet.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Fill \a ktet by the indice of a tetra to which belong a boundary triangle
+ * and \a iface by the indice of the triangle in the tetra.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TETFROMTRIA(parmesh,ktri,ktet,iface,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(IN)              :: parmesh\n
+ * >     INTEGER, INTENT(IN)                      :: ktri\n
+ * >     INTEGER, INTENT(OUT)                     :: ktet,iface\n
+ * >     INTEGER, INTENT(OUT)                     :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_tetFromTria(PMMG_pParMesh parmesh, int ktri, int *ktet, int *iface);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param ktri index of the boundary triangle.
+ * \param ktet array of size 2 that will contain the indices of the tetra
+ * (filled by the function).
+ * \param iface pointer toward an array of size 2 that will contains the indices
+ * of the faces of the tetras \a ktet[i] that corresponds to the boundary tria
+ * \a ktri.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Fill \a ktet by the indices of the tetra to which belong a boundary triangle
+ * and \a iface by the indices of the faces of the tetras that correspond to the
+ * triangle. Fill ktet[1] and iface[1] by 0 if the triangle belongs to 1 tetra only.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_GET_TETSFROMTRIA(parmesh,ktri,ktet,iface,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(IN)              :: parmesh\n
+ * >     INTEGER, INTENT(IN)                      :: ktri\n
+ * >     INTEGER, DIMENSION(2), INTENT(OUT)       :: ktet,iface\n
+ * >     INTEGER, INTENT(OUT)                     :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Get_tetsFromTria(PMMG_pParMesh parmesh, int ktri, int ktet[2], int iface[2]);
+
 
 #if defined(c_plusplus) || defined(__cplusplus)
 }

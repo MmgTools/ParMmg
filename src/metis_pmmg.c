@@ -31,7 +31,99 @@
  */
 #include "metis_pmmg.h"
 #include "linkedlist_pmmg.h"
+#include "mmg3dexterns_private.h"
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param xadj array of shifts (CSR).
+ * \param adjncy array of adjacents (CSR).
+ * \param adjwgt array of weights (CSR).
+ * \param filename filename prefix.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * Save mesh graph and weight on file in Medit format.
+ *
+ */
+int PMMG_saveGraph( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
+    idx_t *adjwgt,const char *filename ) {
+  PMMG_pGrp  grp  = &parmesh->listgrp[0];
+  MMG5_pMesh mesh = grp->mesh;
+  MMG5_pTetra pt;
+  MMG5_pPoint ppt;
+  char *sname,*smesh,*ssol;
+  FILE *fmesh,*fsol;
+  double wgt = 0.0;
+  idx_t istart,istop,iadj,nadj;
+  int ip,k,j,jel;
+
+  PMMG_CALLOC(parmesh,sname,strlen(filename)+9,char,"file name prefix",return 0);
+  PMMG_CALLOC(parmesh,smesh,strlen(filename)+15,char,"mesh file name",return 0);
+  PMMG_CALLOC(parmesh,ssol,strlen(filename)+15,char,"sol file name",return 0);
+  sprintf(sname,"%s-P%02d-I%02d",filename,parmesh->myrank,parmesh->iter);
+  strcpy(smesh,sname);
+  strcat(smesh,".mesh");
+  strcpy(ssol,sname);
+  strcat(ssol,".sol");
+
+  /* Open files and write headers */
+  fmesh = fopen(smesh,"w");
+  fprintf(fmesh,"MeshVersionFormatted 2\n");
+  fprintf(fmesh,"\nDimension 3\n");
+
+  fsol  = fopen(ssol,"w");
+  fprintf(fsol,"MeshVersionFormatted 2\n");
+  fprintf(fsol,"\nDimension 3\n");
+
+  /* Write vertices */
+  fprintf(fmesh,"\nVertices\n%d\n",mesh->np);
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+    ppt = &mesh->point[ip];
+    fprintf(fmesh,"%f %f %f %d\n",
+        ppt->c[0],
+        ppt->c[1],
+        ppt->c[2],
+        ppt->ref);
+  }
+
+  /* Write triangles and solution on triangles */
+  fprintf(fmesh,"\nTriangles\n%d\n",xadj[mesh->ne]/2);
+  fprintf(fsol,"\nSolAtTriangles\n%d\n %d %d\n",xadj[mesh->ne]/2,1,MMG5_Scalar);
+  for( k = 1; k <= mesh->ne; k++ ) {
+    pt   = &mesh->tetra[k];
+    istart = xadj[k-1];
+    istop  = xadj[k];
+    nadj   = istop-istart;
+    for ( j = 0; j < nadj; j++ ) {
+      iadj = istart+j;
+      jel = adjncy[iadj]+1;
+      if ( jel < k ) continue;
+
+      /* Save triangle */
+      fprintf(fmesh,"%d %d %d %d\n",
+          pt->v[MMG5_idir[j][0]],
+          pt->v[MMG5_idir[j][1]],
+          pt->v[MMG5_idir[j][2]],
+          0);
+
+      /* Save weight */
+      if( adjwgt ) wgt = (double)adjwgt[iadj];
+      fprintf(fsol,"%f\n",wgt);
+    }
+  }
+
+  /* Close files */
+  fprintf(fmesh,"\n\nEnd");
+  fprintf(fsol,"\n\nEnd");
+  fclose(fmesh);
+  fclose(fsol);
+
+  /* Free memory */
+  PMMG_DEL_MEM(parmesh,sname,char,"file name prefix");
+  PMMG_DEL_MEM(parmesh,smesh,char,"mesh file name");
+  PMMG_DEL_MEM(parmesh,ssol,char,"sol file name");
+  return 1;
+}
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -358,7 +450,6 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
   MMG5_pTetra pt,pt1;
   int         *adja,igrp,ie,je,ifac;
   int         ncolors,maxcolors,nb_seen,mark_notseen,done,istart;
-  size_t      memAv,oldMemMax;
 
   /** Labels */
   mark_notseen = 0;
@@ -369,16 +460,12 @@ int PMMG_check_grps_contiguity( PMMG_pParMesh parmesh ) {
     grp  = &parmesh->listgrp[igrp];
     mesh = grp->mesh;
 
-    oldMemMax = parmesh->memCur;
-    memAv = parmesh->memMax-oldMemMax;
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,mesh,memAv,oldMemMax);
     if ( !mesh->adja ) {
       if ( !MMG3D_hashTetra(mesh,0) ) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         return 0;
       }
     }
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,mesh,memAv,oldMemMax);
 
     /** Reset tetra flag */
     for( ie = 1; ie < mesh->ne+1; ie++ )
@@ -649,7 +736,6 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  * \param xadj pointer toward the position of the elt adjacents in adjncy
  * \param adjncy pointer toward the list of the adjacent of each elt
  * \param nadjncy number of data in adjncy array
- * \param memAv pointer toward the available memory (to update)
  *
  * \return  1 if success, 0 if fail
  *
@@ -660,31 +746,20 @@ int PMMG_correct_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t *vtxdist,
  */
 int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol met,
                                idx_t **xadj,idx_t **adjncy,idx_t **adjwgt,
-                               idx_t *nadjncy,size_t *memAv) {
+                               idx_t *nadjncy ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
-  size_t       memMaxOld;
   int          *adja;
   int          j,k,iadr,jel,count,nbAdj,wgt,ier;
 
   /** Step 1: mesh adjacency creation */
 
-  /* Give the available memory to the mesh */
-  memMaxOld     = mesh->memMax;
-  mesh->memMax += *memAv;
   if ( (!mesh->adja) && (1 != MMG3D_hashTetra( mesh, 1 )) ) {
     fprintf( stderr,"  ## PMMG Hashing problem (1).\n" );
     return 0;
   }
-  /* Update the available memory */
-  mesh->memMax = mesh->memCur;
-  *memAv      -= (mesh->memMax - memMaxOld);
 
   /** Step 2: build the metis graph */
-
-  /* Give the available memory to the parmesh */
-  memMaxOld        = parmesh->memMax;
-  parmesh->memMax += *memAv;
 
   PMMG_CALLOC(parmesh, (*xadj), mesh->ne+1, idx_t, "allocate xadj",
               return 0);
@@ -710,18 +785,15 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
   PMMG_CALLOC(parmesh, (*adjncy), (*nadjncy), idx_t, "allocate adjncy", ier=0;);
   if( !ier ) {
     PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
-    parmesh->memMax = parmesh->memCur;
-    *memAv -= (parmesh->memMax - memMaxOld);
     return ier;
   }
-  /* Don't compute weights if output load balancing is required at last iter */
-  if( (parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing ) {
+  /* Don't compute weights at mesh distribution, or if output load balancing is required at last iter */
+  if( (parmesh->iter != PMMG_UNSET) &&
+      ((parmesh->iter < parmesh->niter-1) || parmesh->info.nobalancing) ) {
     PMMG_CALLOC(parmesh, (*adjwgt), (*nadjncy), idx_t, "allocate adjwgt", ier=0;);
     if( !ier ) {
       PMMG_DEL_MEM(parmesh, (*xadj), idx_t, "deallocate xadj" );
       PMMG_DEL_MEM(parmesh, (*adjncy), idx_t, "deallocate adjncy" );
-      parmesh->memMax = parmesh->memCur;
-      *memAv -= (parmesh->memMax - memMaxOld);
       return ier;
     }
   }
@@ -737,19 +809,8 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
 
       /* Assign graph edge weights */
       if( *adjwgt ) {
-        if ( pt->xt ) {
-          pxt = &mesh->xtetra[pt->xt];
-          if( pxt->ftag[j] & MG_OLDPARBDY ) {
-            /* Put high weight on old parallel faces */
-            wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
-          } else {
-            /* Default weight on other faces */
-            wgt = 1;
-          }
-        } else {
-          /* Default weight if no xtetra found */
-          wgt = 1;
-        }
+        /* Compute weight using face edge size */
+        wgt = (int)PMMG_computeWgt(mesh,met,pt,j);
 
         (*adjwgt)[count] = MG_MAX(wgt,1);
       }
@@ -758,9 +819,6 @@ int PMMG_graph_meshElts2metis( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol m
     }
     assert( count == ( (*xadj)[k] ) );
   }
-
-  parmesh->memMax = parmesh->memCur;
-  *memAv -= (parmesh->memMax - memMaxOld);
 
   return ier;
 }
@@ -1216,7 +1274,6 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   PMMG_pGrp  grp = parmesh->listgrp;
   MMG5_pMesh mesh = grp[0].mesh;
   MMG5_pSol  met  = grp[0].met;
-  size_t     memAv;
   idx_t      *xadj,*adjncy,*vwgt,*adjwgt;
   idx_t      adjsize;
   idx_t      nelt = mesh->ne;
@@ -1233,17 +1290,10 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
   options[METIS_OPTION_CONTIG] = ( parmesh->info.contiguous_mode &&
     (parmesh->info.loadbalancing_mode & PMMG_LOADBALANCING_metis) );
 
-  /* Fit the parmesh and the meshes in memory and compute the available memory */
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax = parmesh->listgrp[0].mesh->memCur;
-  memAv = parmesh->memGloMax-parmesh->memMax-parmesh->listgrp[0].mesh->memMax;
-
   /** Build the graph */
-  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize,&memAv) )
+  if ( !PMMG_graph_meshElts2metis(parmesh,mesh,met,&xadj,&adjncy,&adjwgt,&adjsize) )
     return 0;
 
-  /* Give the memory to the parmesh */
-  parmesh->memMax += memAv;
 
   /** Call metis and get the partition array */
   if( nproc >= 8 ) {
@@ -1303,7 +1353,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   idx_t      objval = 0;
   int        ngrp,nprocs,ier;
   int        iproc,root,ip,status;
-  size_t     memAv,oldMemMax;
 
   ngrp   = parmesh->ngrp;
   nprocs = parmesh->nprocs;
@@ -1384,9 +1433,6 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 
   PMMG_DEL_MEM(parmesh,recvcounts,idx_t,"recvcounts");
   PMMG_DEL_MEM(parmesh,displs,idx_t,"displs");
-
-  /* Give the available memory to the parmesh */
-  PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,memAv,oldMemMax);
 
 
   /** Call metis and get the partition array */

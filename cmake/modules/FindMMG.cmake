@@ -34,8 +34,8 @@
 #  MMG_LIBRARIES       - mmg component libraries to be linked
 #
 # The user can give specific paths where to find the libraries adding cmake
-# options at configure (ex: cmake path/to/project -DMMG_DIR=path/to/mmg):
-#  MMG_DIR                  - Where to find the base directory of mmg
+# options at configure (ex: cmake path/to/project -DMMG_DIR=path/to/mmg/install):
+#  MMG_DIR                  - Where to find the install directory of mmg
 #  MMG_INCDIR               - Where to find the header files
 #  MMG_LIBDIR               - Where to find the library files
 # The module can also look for the following environment variables if paths
@@ -90,27 +90,24 @@ if(MMG_INCDIR)
   find_path(MMG_libmmgtypes.h_DIRS
     NAMES libmmgtypes.h
     HINTS ${MMG_INCDIR}
-    PATH_SUFFIXES "mmg" "mmg/mmg2d" "mmg/mmgs" "mmg/mmg3d" "mmg2d"
+    PATH_SUFFIXES "mmg" "mmg/mmg2d" "mmg/mmgs" "mmg/mmg3d" "mmg/common" "mmg2d"
     "mmgs" "mmg3d")
 else()
   if(MMG_DIR)
     set(MMG_libmmgtypes.h_DIRS "MMG_libmmgtypes.h_DIRS-NOTFOUND")
     find_path(MMG_libmmgtypes.h_DIRS
       NAMES libmmgtypes.h
-      HINTS ${MMG_DIR}
-      PATH_SUFFIXES "include" "include/mmg" "include/mmg/mmg2d"
-      "include/mmg/mmgs" "include/mmg/mmg3d")
+      HINTS ${MMG_DIR}/include
+      PATH_SUFFIXES  "mmg" "mmg/common")
   else()
     set(MMG_libmmgtypes.h_DIRS "MMG_libmmgtypes.h_DIRS-NOTFOUND")
     find_path(MMG_libmmgtypes.h_DIRS
       NAMES libmmgtypes.h
       HINTS ${_inc_env}
-      PATH_SUFFIXES "mmg" "mmg/mmg2d" "mmg/mmgs" "mmg/mmg3d" "mmg2d"
-      "mmgs" "mmg3d"
-      )
+      PATH_SUFFIXES  "mmg" "mmg/common")
   endif()
 endif()
-STRING(REGEX REPLACE "(mmg/mmg2d)|(mmg/mmgs)|(mmg/mmg3d)" ""
+STRING(REGEX REPLACE "(mmg/mmg2d)|(mmg/mmgs)|(mmg/mmg3d)|(mmg/common)" ""
   MMG_libmmgtypes.h_DIRS ${MMG_libmmgtypes.h_DIRS})
 
 mark_as_advanced(MMG_libmmgtypes.h_DIRS)
@@ -170,7 +167,7 @@ else()
     find_library(MMG_mmg_LIBRARY
       NAMES mmg
       HINTS ${MMG_DIR}
-      PATH_SUFFIXES lib lib32 lib64)
+      PATH_SUFFIXES "lib" "lib32" "lib64")
   else()
     set(MMG_mmg_LIBRARY "MMG_mmg_LIBRARY-NOTFOUND")
     find_library(MMG_mmg_LIBRARY

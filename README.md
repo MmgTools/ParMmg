@@ -5,6 +5,10 @@ ParMmg is an open source software for parallel mesh adaptation of 3D volume mesh
 The parallel mesh adaptation algorithm is based on iterative remeshing and repartitioning of the distributed mesh (see [1](https://hal.inria.fr/hal-02386837)). It is inspired by the [Yales2](https://www.coria-cfd.fr/index.php/YALES2) algorithm (see [2](https://onlinelibrary.wiley.com/doi/abs/10.1002/fld.4204)).
 ParMmg uses the [Mmg](http://mmgtools.org) software to perform the sequential remeshing steps.
 
+:warning: `ParMmg` is built on `Mmg` but it is not officially patronized by the _Mmg Consortium_, thus it does not benefit from the same professional user support. Support is currently done with love by the developers and the community, on their own initiative and free time, and without related funding.
+
+Feel free to contact the maintainers if you think that an advanced usage of `ParMmg` could be useful for your project, or to discuss opportunities for collaborations on specific developments. :warning:
+
 ## Get and compile the ParMmg project
 ### Needed tools
 To get and build ParMmg, you will need:

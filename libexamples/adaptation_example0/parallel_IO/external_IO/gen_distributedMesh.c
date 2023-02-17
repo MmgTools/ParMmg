@@ -104,9 +104,16 @@ int main(int argc,char *argv[]) {
 
   /** with PMMG_loadMesh_centralized function */
   if ( PMMG_loadMesh_centralized(parmesh,filename) != 1 ) {
-    MPI_Finalize();
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);
     exit(EXIT_FAILURE);
   }
+
+  /** with PMMG_loadMet_centralized function */
+  if( PMMG_loadMet_centralized(parmesh,filename) == -1 ) {
+    MPI_Abort(MPI_COMM_WORLD,EXIT_FAILURE);
+    exit(EXIT_FAILURE);
+  }
+
 
   /** ------------------------------ STEP  II -------------------------- */
   /** Preprocess and partition the mesh.
@@ -129,6 +136,7 @@ int main(int argc,char *argv[]) {
   /** 1) Recover parallel interfaces */
   /** save mesh and interfaces **/
   PMMG_saveMesh_distributed(parmesh,fileout);
+  PMMG_saveMet_distributed(parmesh,fileout);
 
   /** 5) Free the PMMG5 structures */
   PMMG_Free_all(PMMG_ARG_start,

@@ -833,22 +833,10 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
   PMMG_pGrp     grps,listgrp,grpI,grpJ;
   PMMG_Int_comm *int_node_comm,*int_face_comm;
   MMG5_pMesh    meshI,meshJ;
-  size_t        memAv,oldMemMax;
   int           nprocs,ngrp,k,j,ier;
 
   nprocs = parmesh->nprocs;
   ngrp   = parmesh->ngrp;
-
-  /** Step 0: Set mesh sizes to their minimal size and count the available
-   * memory */
-  parmesh->memMax = parmesh->memCur;
-  assert ( parmesh->memGloMax > parmesh->memMax );
-  memAv = parmesh->memGloMax - parmesh->memMax;
-  for ( k=0; k<ngrp; ++k ) {
-    parmesh->listgrp[k].mesh->memMax = parmesh->listgrp[k].mesh->memCur;
-    assert ( memAv > parmesh->listgrp[k].mesh->memMax );
-    memAv -= parmesh->listgrp[k].mesh->memMax;
-  }
 
   /** Step 1: New groups allocation and initialization: move the groups to have
    * a group that will be send to proc k stored in grps[k]. Free the adja
@@ -856,16 +844,15 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   /* If this step is too expensive in memory, we can count the number of procs
      with which we will communicate and fill directly the pack array. */
-  oldMemMax        = parmesh->memMax;
-  parmesh->memMax += memAv;
   PMMG_CALLOC( parmesh,grps,nprocs,PMMG_Grp,"Groups to send",return 0 );
 
   j = 0;
   for ( k=0; k<ngrp; ++k ) {
     /* Free the adja array */
     meshI = parmesh->listgrp[k].mesh;
-    if ( meshI->adja )
+    if ( meshI->adja ) {
       PMMG_DEL_MEM(meshI, meshI->adja, int, "adjacency table" );
+    }
 
     /* Group initialization */
     if ( grps[(*part)[k]].mesh ) continue;
@@ -890,6 +877,7 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
 
   for ( k=0; k<ngrp; ++k ) {
 
+    /* Merge the group that have not been moved */
     if ( !listgrp[k].mesh ) continue;
 
     grpI = &grps[(*part)[k]];
@@ -898,30 +886,18 @@ int PMMG_merge_grps2send(PMMG_pParMesh parmesh,idx_t **part) {
     /* Free the adja arrays */
     meshI = grpI->mesh;
     meshJ = grpJ->mesh;
-    if ( meshI->adja )
+    if ( meshI->adja ) {
       PMMG_DEL_MEM(meshI, meshI->adja,int, "adjacency table" );
-    if ( meshJ->adja )
+    }
+    if ( meshJ->adja ) {
       PMMG_DEL_MEM(meshJ, meshJ->adja,int, "adjacency table" );
-
-    /* Update the available memory and give it to the mesh */
-    assert ( meshI->memMax >= meshI->memCur );
-    assert ( meshJ->memMax >= meshJ->memCur );
-    memAv += ( meshI->memMax-meshI->memCur );
-    memAv += ( meshJ->memMax-meshJ->memCur );
-    meshI->memMax = meshI->memCur;
-    meshJ->memMax = meshJ->memCur;
-
-    PMMG_TRANSFER_AVMEM_FROM_PMESH_TO_MESH(parmesh,meshI,memAv,oldMemMax);
+    }
 
     if ( !PMMG_merge_grpJinI(parmesh,grpI,grpJ) ) goto low_fail;
-
-    /* Update the communicators: WARNING TO IMPROVE: INEFFICIENT */
-    PMMG_TRANSFER_AVMEM_FROM_MESH_TO_PMESH(parmesh,meshI,memAv,oldMemMax);
 
     if ( !PMMG_mergeGrpJinI_communicators(parmesh,grpI,grpJ,grps,k) ) goto low_fail;
 
     /* Delete the useless group to gain memory space */
-    memAv += meshJ->memCur;
     PMMG_grp_free(parmesh,&listgrp[k]);
   }
 
@@ -961,7 +937,7 @@ end:
   /* Update tag on points, tetra */
   if ( !PMMG_updateTag(parmesh) ) return -1;
 
-  if ( !PMMG_parmesh_updateMemMax(parmesh, 5, 1) ) {
+  if ( !PMMG_updateMeshSize(parmesh, 1) ) {
     fprintf(stderr,"\n  ## Error: %s: Unable to update the memory repartition"
             " between meshes and communicators.\n",__func__);
     return -1;
@@ -1239,10 +1215,11 @@ int PMMG_transfer_grps_fromMetoJ(PMMG_pParMesh parmesh,const int recv,
   ier0 = 1;
   PMMG_MALLOC ( parmesh,*trequest,nprocs,MPI_Request,"request_tab",
                 ier0 = 0; ier = MG_MIN(ier,ier0); );
-  if ( ier0 )
+  if ( ier0 ) {
     for ( k=0; k<nprocs; ++k ) {
       (*trequest)[k] = MPI_REQUEST_NULL;
     }
+  }
 
   nextcomm = 0;
   count    = 0;
@@ -1401,7 +1378,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 
   PMMG_pExt_comm ext_face_comm;
   MPI_Status     status;
-  size_t         available;
   int            pack_size;
   int            k,ier,ier0,recv_int_nitem,offset,old_nitem;
   int            *send2recv_int_comm,nitem,nextcomm;
@@ -1617,7 +1593,6 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
 #ifndef NDEBUG
   for ( k=0; k<ngrp; ++k ) {
     mesh = parmesh->listgrp[k].mesh;
-    assert ( mesh->memCur == mesh->memMax );
     assert ( mesh->npmax == mesh->np );
     assert ( mesh->xpmax == mesh->xp );
     assert ( mesh->nemax == mesh->ne );
@@ -1625,23 +1600,14 @@ int PMMG_transfer_grps_fromItoMe(PMMG_pParMesh parmesh,const int sndr,
   }
 #endif
 
-  parmesh->memMax = parmesh->memCur;
-  available = parmesh->memGloMax - parmesh->memMax;
-  for ( k=0; k<ngrp; ++k ) {
-    available -= parmesh->listgrp[k].mesh->memMax;
-  }
-  assert ( available >= 0 );
-
   ptr = buffer;
   if ( ier0 ) {
     for ( k=0; k<grpscount; ++k ) {
-      err = PMMG_mpiunpack_grp(parmesh,&parmesh->listgrp[ngrp+k],&ptr,&available);
+      err = PMMG_mpiunpack_grp(parmesh,parmesh->listgrp,ngrp+k,&ptr);
       ier = MG_MIN(ier,err);
       parmesh->listgrp[ngrp+k].flag = PMMG_UNSET;
     }
 
-    /* Give the remaining memory to the parmesh */
-    parmesh->memMax += available;
   }
 
   PMMG_DEL_MEM ( parmesh,buffer,char,"buffer" );
@@ -1876,6 +1842,7 @@ int PMMG_transfer_grps_fromItoJ(PMMG_pParMesh parmesh,const int sndr,
  *
  */
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_distrib_mesh) {
+  PMMG_pGrp      grp;
   MPI_Comm       comm;
   int            myrank,nprocs;
   int            ninteractions,*interaction_map,*interactions;
@@ -1910,20 +1877,11 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
    * group */
   ier = PMMG_merge_grps2send(parmesh,&part);
 
-  /* Give all the available memory to the parmesh */
-  assert ( parmesh->memGloMax > parmesh->memCur );
-
-  parmesh->memMax = parmesh->memGloMax;
   for ( k=0; k<parmesh->ngrp; ++k ) {
-    err = PMMG_parmesh_fitMesh( parmesh,parmesh->listgrp+k );
+    grp = &parmesh->listgrp[k];
+    err = PMMG_fitMeshSize( parmesh,grp );
 
     ier = MG_MIN( err, ier );
-
-    if ( parmesh->memMax < parmesh->listgrp[k].mesh->memMax ) {
-      fprintf(stderr,"\n  ## Error: %s: not enough memory\n",__func__);
-      ier = MG_MIN(ier,-1);
-    }
-    parmesh->memMax -= parmesh->listgrp[k].mesh->memMax;
   }
 
   /* Store the group destination in the group flag */

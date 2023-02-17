@@ -36,8 +36,9 @@
 
 #include "parmmg.h"
 
-/* numerical accuracy for squared node distance */
-#define PMMG_EPSCOOR 1.e-28
+/* numerical accuracy for coordinate checks */
+#define PMMG_EPSCOOR  1.e-10
+#define PMMG_EPSCOOR2 3.e-20
 
 /**
  * \struct PMMG_coorCell

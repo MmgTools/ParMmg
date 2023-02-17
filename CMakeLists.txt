@@ -1,9 +1,14 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.12)
 
 INCLUDE(CMakeDependentOption)
 INCLUDE(cmake/modules/macros.cmake)
+INCLUDE(CheckCSourceCompiles)
 
 PROJECT (parmmg)
+
+LIST(APPEND CMAKE_MODULE_PATH
+  ${PROJECT_SOURCE_DIR}/cmake/modules
+  ${PROJECT_SOURCE_DIR}/cmake/testing )
 
 # Must use GNUInstallDirs to install libraries into correct
 # locations on all platforms.
@@ -15,9 +20,9 @@ include(GNUInstallDirs)
 #####
 ###############################################################################
 SET (CMAKE_RELEASE_VERSION_MAJOR "1")
-SET (CMAKE_RELEASE_VERSION_MINOR "3")
+SET (CMAKE_RELEASE_VERSION_MINOR "4")
 SET (CMAKE_RELEASE_VERSION_PATCH "0")
-SET (CMAKE_RELEASE_DATE "Nov 12, 2020")
+SET (CMAKE_RELEASE_DATE "Nov. 05, 2021")
 
 SET (CMAKE_RELEASE_VERSION
   "${CMAKE_RELEASE_VERSION_MAJOR}.${CMAKE_RELEASE_VERSION_MINOR}.${CMAKE_RELEASE_VERSION_PATCH}")
@@ -27,9 +32,6 @@ SET (CMAKE_RELEASE_VERSION
 #####         Main CMake compilation variables
 #####
 ###############################################################################
-
-OPTION(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-OPTION(BUILD_STATIC_LIBS "Build static libraries" ON)
 
 SET(PMMG_BINARY_DIR      ${PROJECT_BINARY_DIR}/src/parmmg)
 SET(PMMG_SHRT_INCLUDE    parmmg )
@@ -64,6 +66,8 @@ ENDIF()
 MARK_AS_ADVANCED(CMAKE_OSX_ARCHITECTURES
   CMAKE_OSX_DEPLOYMENT_TARGET
   CMAKE_OSX_SYSROOT)
+
+include(add_build_types)
 
 IF(CMAKE_COMPILER_IS_GNUCC)
   IF(APPLE)
@@ -108,6 +112,32 @@ IF(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   SET(CMAKE_CONFIGURATION_TYPES ${CMAKE_BUILD_TYPE} )
 ENDIF()
 
+# Explicitly set the DNDEBUG flag in case the user or a parent project overrides
+# it.
+if (NOT CMAKE_BUILD_TYPE MATCHES Debug)
+    add_definitions(-DNDEBUG)
+endif()
+
+#------------------------------- static or shared libs
+FUNCTION (INVERT_BOOL OUTVAR INVAR)
+  IF(${INVAR})
+    SET(${OUTVAR} OFF PARENT_SCOPE)
+  ELSE()
+    SET(${OUTVAR} ON PARENT_SCOPE)
+  ENDIF()
+ENDFUNCTION()
+
+OPTION(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+INVERT_BOOL("BUILD_STATIC_LIBS" ${BUILD_SHARED_LIBS})
+IF ( (${BUILD_STATIC_LIBS} EQUAL ON) AND NOT CMAKE_POSITION_INDEPENDENT_CODE)
+  SET(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ENDIF()
+
+SET ( LIBPARMMG_SHARED ${BUILD_SHARED_LIBS})
+IF( NOT DEFINED LIBPARMMG_STATIC)
+  SET ( LIBPARMMG_STATIC ${BUILD_STATIC_LIBS})
+ENDIF()
+
 ############################################################################
 #####
 #####         MPI
@@ -130,6 +160,10 @@ EXECUTE_PROCESS ( COMMAND grep "OMPI_MAJOR_VERSION"  "${MPI_C_INCLUDE_PATH}/mpi.
   RESULT_VARIABLE CMD_ERROR
   OUTPUT_VARIABLE CMD_OUTPUT )
 
+IF ( ${CMD_ERROR} MATCHES 0 )
+  MESSAGE(WARNING "Possible deadlocks with open-mpi (see https://github.com/open-mpi/ompi/issues/6568 )...")
+ENDIF()
+
 SET( CMAKE_C_FLAGS "-DUSE_MPI ${CMAKE_C_FLAGS}" )
 SET( CMAKE_CXX_FLAGS "-DUSE_MPI ${CMAKE_CXX_FLAGS}" )
 MESSAGE( STATUS "Compilation with mpi" )
@@ -146,70 +180,32 @@ IF ( "${CMD_OUT}" MATCHES "oversubscribe" )
   SET ( MPI_ARGS "-oversubscribe" )
 ENDIF()
 
-############################################################################
-#####
-#####         Scotch
-#####
-############################################################################
-# Find SCOTCH library?
-SET(SCOTCH_DIR "" CACHE PATH "Installation directory for scotch")
-LIST(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-
-# add Scotch library?
-OPTION ( USE_SCOTCH "Use SCOTCH TOOL for renumbering" ON )
-
-IF ( USE_SCOTCH )
-
-  FIND_PACKAGE(SCOTCH)
-
-  IF ( NOT SCOTCH_FOUND )
-    MESSAGE ( WARNING "Scotch library not found:"
-      "Using scotch reduce the execution time of mmg3d "
-      "(see https://gforge.inria.fr/frs/?group_id=248 to download it)."
-      "If you have already installed Scotch and want to use it, "
-      "please set the CMake variable or environment variable SCOTCH_DIR "
-      "to your scotch directory.")
-  ENDIF ( )
-
+# Check the minimum MPI version
+SET ( CMAKE_REQUIRED_INCLUDES "${MPI_INCLUDE_PATH}" )
+SET ( CMAKE_REQUIRED_LIBRARIES "${MPI_C_LIBRARIES}" )
+CHECK_C_SOURCE_COMPILES( "
+#include <stdio.h>
+#include <stdint.h>
+#include <mpi.h>
+int main(int argc, char **argv) {
+MPI_Comm comm_shm = 0;
+MPI_Comm_split_type( MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
+  &comm_shm );
+}
+"
+MPI3_TEST_COMPILES )
+IF( NOT MPI3_TEST_COMPILES )
+  MESSAGE( FATAL_ERROR "ERROR: impossible to compile a simple MPI test program."
+    " Check your MPI library version:"
+    " ParMmg requires an MPI version >= 3.0.0.")
 ENDIF ( )
 
-
 ############################################################################
 #####
-#####         VTK (to parse (p)vtp/(p)vtu files )
+#####         Search for optional libraries: scotch, vtk, linearelasticity
 #####
 ############################################################################
-OPTION ( USE_VTK "Use VTK I/O" ON )
-
-IF ( USE_VTK )
-  FIND_PACKAGE(VTK QUIET)
-
-  IF ( NOT VTK_FOUND )
-    MESSAGE ( WARNING "VTK library not found: vtk I/O will not be available.")
-  ENDIF ( )
-ENDIF ( )
-
-###############################################################################
-#####
-#####         Add dependent options
-#####
-###############################################################################
-
-IF( SCOTCH_FOUND )
-  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_SCOTCH")
-  MESSAGE(STATUS
-    "Compilation with scotch: ${SCOTCH_LIBRARIES}")
-  SET( LIBRARIES ${LIBRARIES} ${SCOTCH_LIBRARIES})
-ENDIF()
-
-
-IF ( VTK_FOUND )
-  ENABLE_LANGUAGE ( CXX )
-  ADD_DEFINITIONS(-DUSE_VTK)
-  MESSAGE ( STATUS "Compilation with VTK: add vtp and vtu I/O." )
-  INCLUDE ( ${VTK_USE_FILE} )
-  SET( LIBRARIES  ${LIBRARIES} "-lstdc++" ${VTK_LIBRARIES} )
-ENDIF ( )
+INCLUDE(optional-dependencies)
 
 ############################################################################
 #####
@@ -224,8 +220,16 @@ SET ( SCOTCH_CFG -DUSE_SCOTCH=${USE_SCOTCH} -DSCOTCH_DIR=${SCOTCH_DIR}
   -DSCOTCH_scotch_LIBRARY=${SCOTCH_scotch_LIBRARY}
   -DSCOTCH_scotcherrexit_LIBRARY=${SCOTCH_scotcherrexit_LIBRARY} )
 
-# forward VTK config
-SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
+IF ( VTK_FOUND )
+  # forward VTK config
+  SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
+ENDIF()
+
+# if vtk was found but vtkMPI is not, explicit disabling of VTK in Mmg build
+# (otherwise, Mmg will be built with VTK and we will have missing symbols)
+If ( VTK_MPI_FAIL )
+  SET ( VTK_CFG -DUSE_VTK=OFF )
+Endif()
 
 # forward compiler
 SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
@@ -244,87 +248,75 @@ IF ( DOWNLOAD_MMG )
   UNSET(MMG_DIR CACHE)
 
   # Use pointmap
-  OPTION ( USE_POINTMAP "Use map for point tracking" OFF )
+  OPTION ( USE_POINTMAP "Use map for point tracking" ON )
 
   EXTERNALPROJECT_ADD ( Mmg
-    URL ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/mmg-973feec.tgz
-    URL_MD5 7a54d0eca040f7c225fb106163b75a18
-    UPDATE_COMMAND ""
-    INSTALL_COMMAND  echo "Mmg installation DISABLED"
+    GIT_REPOSITORY https://github.com/MmgTools/mmg.git
+    GIT_TAG c6ecaabff5266b9d329fd71407192fadd633ba22
+    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    -DBUILD=MMG3D -DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
-    -DUSE_POINTMAP=${USE_POINTMAP} -DTEST_LIBMMG3D=OFF
-    BUILD_COMMAND make libmmg3d_a)
+    -DBUILD=MMG -DBUILD_SHARED_LIBS=${LIBPARMMG_SHARED}
+    -DMMG_INSTALL_PRIVATE_HEADERS=ON
+    -DUSE_POINTMAP=${USE_POINTMAP} -DCMAKE_INSTALL_PREFIX=../Mmg-install)
 
   EXTERNALPROJECT_GET_PROPERTY ( Mmg BINARY_DIR )
   SET ( MMG_BINARY_DIR ${BINARY_DIR} )
   EXTERNALPROJECT_GET_PROPERTY ( Mmg SOURCE_DIR )
   SET ( MMG_SOURCE_DIR ${SOURCE_DIR} )
 
+  SET (MMG_INSTALL_DIR ${SOURCE_DIR}/../Mmg-install)
+  SET (MMG_INCLUDE_DIRS ${MMG_INSTALL_DIR}/include )
+
   EXTERNALPROJECT_ADD_STEP ( Mmg reconfigure
     COMMAND ${CMAKE_COMMAND} -E remove ${MMG_BINARY_DIR}/CMakeCache.txt
     DEPENDEES update
     DEPENDERS configure )
 
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/include)
-
-  IF( BUILD_SHARED_LIBS )
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
+  IF( LIBPARMMG_SHARED )
+    SET(MMG3D_LIBRARY ${MMG_INSTALL_DIR}/lib/libmmg3d${CMAKE_SHARED_LIBRARY_SUFFIX})
   ELSE()
     # default behaviour is to link static libs
-    SET(MMG3D_LIBRARY ${MMG_BINARY_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
+    SET(MMG3D_LIBRARY ${MMG_INSTALL_DIR}/lib/libmmg3d${CMAKE_STATIC_LIBRARY_SUFFIX})
   ENDIF()
   MESSAGE(STATUS
     "Compilation with Mmg: ${MMG3D_LIBRARY}")
   SET( LIBRARIES ${MMG3D_LIBRARY} ${LIBRARIES})
 
-  # Additionnal directories to access the Mmg sources
-  INCLUDE_DIRECTORIES(${MMG_BINARY_DIR}/src/common)
-  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/mmg3d)
-  INCLUDE_DIRECTORIES(${MMG_SOURCE_DIR}/src/common)
-
 ELSE ( )
   UNSET ( USE_POINTMAP CACHE )
 
-  SET(MMG_DIR "" CACHE PATH "Installation directory for mmg")
+  SET(MMG_DIR "" CACHE PATH "Installation or build directory for mmg")
 
-  MESSAGE ( STATUS "Manual installation of Mmg")
+  MESSAGE ( STATUS "Manual installation of Mmg: please, build and install MMG"
+    " with MMG_INSTALL_PRIVATE_HEADERS option enabled and provide the path to"
+    " the install directory in the MMG_DIR variable of ParMmg." )
 
   FIND_PACKAGE(MMG)
 
-  IF ( NOT MMG_FOUND )
+  IF(NOT MMG_FOUND )
 
-    MESSAGE ( FATAL_ERROR "ERROR: Mmg library not found. "
-      "You can help CMake by setting the MMG_INCDIR variable to your "
-      "Mmg include directory and the MMG_LIBDIR one toward the path to the "
-      "mmg3d library.")
+    MESSAGE ( FATAL_ERROR "ERROR: The installation directory for mmg is required: "
+      "(see https://github.com/MmgTools/mmg and  download the branch develop). "
+      "If you have already installed Mmg and want to use it, "
+      "please build Mmg with MMG_INSTALL_PRIVATE_HEADERS CMake "
+      "option enabled and set the MMG_DIR CMake variable or environment variable "
+      "to the mmg install directory.")
   ELSE()
 
     INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
-    INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/mmg3d)
-
 
     MESSAGE(STATUS
       "Compilation with Mmg: ${MMG_LIBRARIES}")
 
     SET( LIBRARIES ${MMG_LIBRARIES} ${LIBRARIES})
 
-    IF ( MMG_DIR )
-      # Adds internal Mmg headers
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/mmg3d)
-      INCLUDE_DIRECTORIES(${MMG_DIR}/src/common)
-    ELSE ( )
-      MESSAGE ( FATAL_ERROR "ERROR: Mmg source directory is required to find "
-        "internal Mmg headers. "
-        "You can download Mmg on github: https://github.com/MmgTools/mmg. "
-        "If you have already downloaded Mmg and want to use it, "
-        "please set the CMake variable or environment variable MMG_DIR "
-        "to your mmg directory. Be careful to point over the Mmg sources used to "
-        "build the founded Mmg library.")
-    ENDIF ( )
   ENDIF ( )
 ENDIF()
+
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/mmg3d)
+INCLUDE_DIRECTORIES(${MMG_INCLUDE_DIRS}/mmg/common)
 
 ############################################################################
 #####
@@ -335,6 +327,11 @@ OPTION ( DOWNLOAD_METIS "Download and build automatically Metis/ParMetis." ON )
 
 IF ( DOWNLOAD_METIS )
   UNSET ( METIS_DIR CACHE )
+
+  # Avoid warning about DOWNLOAD_EXTRACT_TIMESTAMP in CMake 3.24:
+  if (CMAKE_VERSION VERSION_GREATER "3.23.4")
+    cmake_policy(SET CMP0135 NEW)
+  endif()
 
   # Metis
   EXTERNALPROJECT_ADD ( Metis
@@ -488,7 +485,7 @@ SET(CMAKE_MACOSX_RPATH 1)
 ############################################################################
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-IF ( BUILD_STATIC_LIBS )
+IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
 
@@ -503,7 +500,7 @@ IF ( BUILD_STATIC_LIBS )
 ENDIF()
 
 # Compile shared library
-IF ( BUILD_SHARED_LIBS )
+IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
 
@@ -536,18 +533,17 @@ INSTALL(FILES ${pmmg_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg COM
 # Copy header files in project directory at every build step
 COPY_HEADERS_AND_CREATE_TARGET ( ${PMMG_SOURCE_DIR} ${PMMG_BINARY_DIR} ${PMMG_INCLUDE} )
 
+IF (LIBPARMMG_STATIC OR LIBPARMMG_SHARED)
+  SET(LIBPARMMG_INTERNAL ON )
+ELSE()
+  SET(LIBPARMMG_INTERNAL OFF )
+ENDIF()
 
 install(EXPORT ParMmgTargets
   FILE ParMmgTargets.cmake
   NAMESPACE ParMmg::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
   )
-
-IF (BUILD_STATIC_LIBS OR BUILD_SHARED_LIBS)
-  SET(LIBPARMMG_INTERNAL ON )
-ELSE()
-  SET(LIBPARMMG_INTERNAL OFF )
-ENDIF()
 
 ###############################################################################
 #####
@@ -558,11 +554,11 @@ ADD_AND_INSTALL_EXECUTABLE ( ${PROJECT_NAME}
   "${pmmg_library_files}" ${pmmg_main_file} )
 
 IF ( DOWNLOAD_MMG )
-  Add_Dependencies(parmmg Mmg)
+  Add_Dependencies(${PROJECT_NAME} Mmg)
 ENDIF ( )
 
 IF ( DOWNLOAD_METIS )
-  Add_Dependencies(parmmg Metis)
+  Add_Dependencies(${PROJECT_NAME} Metis)
 ENDIF ( )
 
 ############################################################################
@@ -573,17 +569,17 @@ ENDIF ( )
 
 IF (NOT WIN32 OR MINGW)
 
-  ADD_CUSTOM_TARGET(GenerateGitHash
+  ADD_CUSTOM_TARGET(GenerateGitHashParMmg
     COMMAND ./git_log_pmmg.sh ${PROJECT_SOURCE_DIR} ${PMMG_BINARY_DIR}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/scripts/
     COMMENT "Getting git commit hash"
   )
-  ADD_DEPENDENCIES(${PROJECT_NAME} GenerateGitHash)
-  IF( BUILD_STATIC_LIBS )
-    ADD_DEPENDENCIES(lib${PROJECT_NAME}_a GenerateGitHash)
+  ADD_DEPENDENCIES(${PROJECT_NAME} GenerateGitHashParMmg)
+  IF( LIBPARMMG_STATIC )
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_a GenerateGitHashParMmg)
   ENDIF ()
-  IF( BUILD_SHARED_LIBS )
-    ADD_DEPENDENCIES(lib${PROJECT_NAME}_so GenerateGitHash)
+  IF( LIBPARMMG_SHARED )
+    ADD_DEPENDENCIES(lib${PROJECT_NAME}_so GenerateGitHashParMmg)
   ENDIF ()
 
   INCLUDE_DIRECTORIES(${PMMG_BINARY_DIR})

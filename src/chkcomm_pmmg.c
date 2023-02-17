@@ -282,7 +282,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
           dist_norm += dist[j]*dist[j];
         }
 
-        if ( dist_norm > PMMG_EPSCOOR ) {
+        if ( dist_norm > PMMG_EPSCOOR2 ) {
           fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                  "       2 different points (dist %e) in the same position (%d)"
                  " of the internal communicator:\n"
@@ -315,7 +315,7 @@ int PMMG_check_intNodeComm( PMMG_pParMesh parmesh )
         dist[j] = coor_list[ commIdx2 ].c[j]-coor_list[ commIdx1 ].c[j];
         dist_norm += dist[j]*dist[j];
       }
-      if ( dist_norm < PMMG_EPSCOOR ) {
+      if ( dist_norm < PMMG_EPSCOOR2 ) {
         int grp1_id   = coor_list[ commIdx1 ].grp;
         int grp2_id   = coor_list[ commIdx2 ].grp;
         int pos1_idx  = coor_list[ commIdx1 ].idx;
@@ -489,7 +489,7 @@ int PMMG_check_intFaceComm( PMMG_pParMesh parmesh ) {
             dist_norm += dist[j]*dist[j];
           }
 
-          if ( dist_norm > PMMG_EPSCOOR ) {
+          if ( dist_norm > PMMG_EPSCOOR2 ) {
             fprintf(stderr,"  ## Error: %s: rank %d: group %d:\n"
                     "       2 different points (dist %e) in the same position (%d)"
                     " of the internal communicator:\n"
@@ -657,21 +657,9 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     x = ppt0->c[0] - ppt1->c[0];
     y = ppt0->c[1] - ppt1->c[1];
     z = ppt0->c[2] - ppt1->c[2];
-    /* Point the edge vector in the direction of the highest first coordinate */
-    if( (x > MMG5_EPSOK) ||
-        (fabs(x) < MMG5_EPSOK && y > MMG5_EPSOK) ||
-        (fabs(x) < MMG5_EPSOK && fabs(y) < MMG5_EPSOK && z > MMG5_EPSOK) ) {
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
-    } else if( fabs(x) <= MMG5_EPSOK && fabs(y) <= MMG5_EPSOK && fabs(z) <= MMG5_EPSOK ) {
-      fprintf(stderr,"  ## Error: %s: rank %d: nearly coincident vertices for"
-              " edge %d, distance: (%e,%e,%e)",__func__,parmesh->myrank,ia,
-              x,y,z);
-      ier = 0;
-    } else {
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt1->c[j] - bb_min_all[j]);
-      for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt0->c[j] - bb_min_all[j]);
-    }
+    /* The edge vector has already been oriented, just scale the coordinates */
+    for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
+    for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
   }
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
   if ( !ieresult ) return 0;
@@ -680,6 +668,9 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
    * processor */
   PMMG_MALLOC(parmesh,request,2*parmesh->next_edge_comm,MPI_Request,
               "mpi request array",ier=0);
+  for ( j=0; j<2*parmesh->next_edge_comm; ++j ) {
+    request[j] = MPI_REQUEST_NULL;
+  }
 
   PMMG_MALLOC(parmesh,status,2*parmesh->next_edge_comm,MPI_Status,
               "mpi status array",ier=0);
@@ -709,16 +700,14 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
         rtosend[6*i+j] = doublevalues[6*idx+j];
     }
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(&ext_edge_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_EDGE_TAG,
                          parmesh->comm,&request[ireq++]),ier=0 );
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(rtosend,6*ext_edge_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_EDGE_TAG+1,
                          parmesh->comm,&request[ireq++]),ier=0 );
-   }
+  }
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
   if ( !ieresult ) goto end;
@@ -766,7 +755,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
         y   = doublevalues[6*idx+3*j+1] - rtorecv[6*i+3*j+1];
         z   = doublevalues[6*idx+3*j+2] - rtorecv[6*i+3*j+2];
 
-        if ( x*x + y*y + z*z > PMMG_EPSCOOR ) {
+        if ( x*x + y*y + z*z > PMMG_EPSCOOR2 ) {
           fprintf(stderr,"  ## Error: %s: rank %d:\n"
                   "       2 different points (dist %e:%e,%e,%e) in the same position (%d)"
                   " of the external communicator %d %d (%d th item):\n"
@@ -843,7 +832,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   status      = NULL;
 
   MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
- 
+
   /** Step 1: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
     ier = 1;
@@ -897,6 +886,9 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
    * processor */
   PMMG_MALLOC(parmesh,request,2*parmesh->next_node_comm,MPI_Request,
               "mpi request array",ier=0);
+  for ( j=0; j<2*parmesh->next_node_comm; ++j ) {
+    request[j] = MPI_REQUEST_NULL;
+  }
 
   PMMG_MALLOC(parmesh,status,2*parmesh->next_node_comm,MPI_Status,
               "mpi status array",ier=0);
@@ -926,12 +918,10 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
         rtosend[3*i+j] = doublevalues[3*idx+j];
     }
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(&ext_node_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_NODE_TAG,
                          parmesh->comm,&request[ireq++]),ier=0 );
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(rtosend,3*ext_node_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_NODE_TAG+1,
                          parmesh->comm,&request[ireq++]),ier=0 );
@@ -1131,6 +1121,9 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
    * processor */
   PMMG_MALLOC(parmesh,request,2*parmesh->next_face_comm,MPI_Request,
               "mpi request array",ier=0);
+  for ( j=0; j<2*parmesh->next_face_comm; ++j ) {
+    request[j] = MPI_REQUEST_NULL;
+  }
 
   PMMG_MALLOC(parmesh,status,2*parmesh->next_face_comm,MPI_Status,
               "mpi status array",ier=0);
@@ -1161,12 +1154,10 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
         rtosend[9*i+j] = doublevalues[9*idx+j];
     }
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(&ext_face_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_FACE_TAG,
                          parmesh->comm,&request[ireq++]),ier=0 );
 
-    request[ireq]    = MPI_REQUEST_NULL;
     MPI_CHECK( MPI_Isend(rtosend,9*ext_face_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_FACE_TAG+1,
                          parmesh->comm,&request[ireq++]),ier=0 );

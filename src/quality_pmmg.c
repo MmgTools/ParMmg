@@ -23,7 +23,7 @@
 
 #include "parmmg.h"
 #include <stddef.h>
-#include "inlined_functions_3d.h"
+#include "inlined_functions_3d_private.h"
 
 typedef struct {
   double min;
@@ -184,9 +184,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   iel_grp = 0;
   np = 0;
   ne = 0;
-  max = DBL_MIN;
+  max = max_cur = DBL_MIN;
   avg = 0.;
-  min = DBL_MAX;
+  min = min_cur = DBL_MAX;
   iel = 0;
   good = 0;
   med = 0;
@@ -196,7 +196,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   /* Reset node intvalues (in order to avoid counting parallel nodes twice) */
   int_node_comm = parmesh->int_node_comm;
   if( int_node_comm ) {
-    MMG5_SAFE_CALLOC( int_node_comm->intvalues,int_node_comm->nitem,int,return 0);
+    PMMG_CALLOC( parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
     intvalues = int_node_comm->intvalues;
 
     /* Mark nodes not to be counted if the outer rank is lower than myrank */
@@ -259,6 +259,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 
     nrid += nrid_cur;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+
   if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
     return 1;
 
@@ -339,9 +343,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     if ( !ier ) return 0;
   }
 
-  if( int_node_comm )
-    MMG5_SAFE_FREE( int_node_comm->intvalues );
-
   return 1;
 }
 
@@ -417,9 +418,6 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
         intvalues[idx] = ext_edge_comm->color_out;
     }
   }
-
-  /* Give memory to Mmg for the edge length computation */
-  PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
 
   /* Hash all edges in the mesh */
   if ( !MMG5_hashNew(mesh,&hash,mesh->np,7*mesh->np) )  return 0;

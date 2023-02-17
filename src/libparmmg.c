@@ -39,9 +39,9 @@
 #include "git_log_pmmg.h"
 
 /* Declared in the header, but defined at compile time */
-int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord *barycoord);
-int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord *barycoord);
-int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp4bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTetra pt,int,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp3bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int,PMMG_barycoord *barycoord);
+extern int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG5_pTria ptr,int ip,int l,PMMG_barycoord *barycoord);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -142,21 +142,16 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
-  /* Don't reset the hmin value computed when unscaling the mesh */
-  if ( !parmesh->info.sethmin ) {
-    mesh->info.sethmin = 1;
-  }
-  /* Don't reset the hmax value computed when unscaling the mesh */
-  if ( !parmesh->info.sethmax ) {
-    mesh->info.sethmax = 1;
-  }
+
+  /* Set mmg3d  function pointers here to assign dosol */
+  MMG3D_setfunc(mesh,met);
+  PMMG_setfunc(parmesh);
 
   /** specific meshing */
   if ( mesh->info.optim && !met->np ) {
     if ( !MMG3D_doSol(mesh,met) ) {
       return PMMG_STRONGFAILURE;
     }
-    MMG5_solTruncatureForOptim(mesh,met);
   }
 
   if ( mesh->info.hsiz > 0. ) {
@@ -165,8 +160,14 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     }
   }
 
-  MMG3D_setfunc(mesh,met);
-  PMMG_setfunc(parmesh);
+  /* Don't reset the hmin value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmin ) {
+    mesh->info.sethmin = 1;
+  }
+  /* Don't reset the hmax value computed when unscaling the mesh */
+  if ( !parmesh->info.sethmax ) {
+    mesh->info.sethmax = 1;
+  }
 
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
@@ -236,6 +237,24 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
     return PMMG_LOWFAILURE;
   }
+
+  /* Set mmg3d  function pointers here to assign dosol */
+  MMG3D_setfunc(mesh,met);
+  PMMG_setfunc(parmesh);
+
+  /** specific meshing */
+  if ( mesh->info.optim && !met->np ) {
+    if ( !MMG3D_doSol(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
+  if ( mesh->info.hsiz > 0. ) {
+    if ( !MMG3D_Set_constantSize(mesh,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
 #warning hmin/hmax computed on each proc while we want a global value from the global bounding box and/or the global metric field...
   /* Don't reset the hmin value computed when unscaling the mesh */
   if ( !parmesh->info.sethmin ) {
@@ -246,51 +265,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     mesh->info.sethmax = 1;
   }
 
-  /** specific meshing */
-  if ( mesh->info.optim && !met->np ) {
-    if ( !MMG3D_doSol(mesh,met) ) {
-      return PMMG_STRONGFAILURE;
-    }
-    MMG5_solTruncatureForOptim(mesh,met);
-  }
-
-  if ( mesh->info.hsiz > 0. ) {
-    if ( !MMG3D_Set_constantSize(mesh,met) ) {
-      return PMMG_STRONGFAILURE;
-    }
-  }
-
-  MMG3D_setfunc(mesh,met);
-  PMMG_setfunc(parmesh);
-
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
-  /* For both API modes, build communicators indices */
-  switch( parmesh->info.API_mode ) {
-    case PMMG_APIDISTRIB_faces :
-      /* Set face communicators indexing */
-      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
-      break;
-    case PMMG_APIDISTRIB_nodes :
-      /* Set node communicators indexing */
-      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
-      break;
-  }
-
-  /** Mesh analysis, face/node communicators indices construction (depending
-   * from the API mode), build face comms from node ones */
-  if ( !PMMG_analys_tria(parmesh,mesh) ) {
-    return PMMG_STRONGFAILURE;
-  }
-  if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
-    /* Convert tria index into iel face index (it needs a valid cc field in
-     * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-     * to edges and nodes */
-    PMMG_tria2elmFace_coords( parmesh );
-  }
-  if ( !PMMG_analys(parmesh,mesh) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -304,11 +279,22 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  /** Mesh analysis I: check triangles, create xtetras */
+  if ( !PMMG_analys_tria(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
-      /* Build node communicators from face ones (here because the (mesh needs
-       * to be unscaled) */
+      /* 1) Set face communicators indexing */
+      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      /* Convert tria index into iel face index (it needs a valid cc field in
+       * each tria), and tag xtetra face as PARBDY before the tag is transmitted
+       * to edges and nodes */
+      PMMG_tria2elmFace_coords( parmesh );
+      /* 2) Build node communicators from face ones (here because the mesh needs
+       *    to be unscaled) */
       PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_node_comm,parmesh->next_node_comm);
       PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
       parmesh->next_node_comm = 0;
@@ -317,7 +303,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       if ( !PMMG_build_nodeCommFromFaces(parmesh) ) return PMMG_STRONGFAILURE;
       break;
     case PMMG_APIDISTRIB_nodes :
-      /* Build face comms from node ones and set xtetra tags */
+      /* 1) Set node communicators indexing */
+      if( !PMMG_build_nodeCommIndex( parmesh ) ) return 0;
+      /* 2) Build face comms from node ones and set xtetra tags */
       PMMG_parmesh_ext_comm_free( parmesh,parmesh->ext_face_comm,parmesh->next_face_comm);
       PMMG_DEL_MEM(parmesh, parmesh->ext_face_comm,PMMG_Ext_comm,"ext face comm");
       parmesh->next_face_comm = 0;
@@ -326,17 +314,16 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  /* Tag parallel faces on material interfaces as boundary */
-  if( !PMMG_parbdySet( parmesh ) ) {
-    fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
-    return 0;
+  /** Mesh analysis II: geometrical analysis*/
+  if ( !PMMG_analys(parmesh,mesh) ) {
+    return PMMG_STRONGFAILURE;
   }
-
 
   if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0) ) {
     return PMMG_STRONGFAILURE;
   }
 
+  /* Destroy triangles */
   MMG5_DEL_MEM(mesh,mesh->tria);
   mesh->nt = 0;
 
@@ -396,7 +383,7 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -452,15 +439,10 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
 static inline
 int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   MMG5_pMesh mesh;
-  size_t     tmpmem;
   int        npmax,xpmax,nemax,xtmax;
 
-  tmpmem = parmesh->memMax - parmesh->memCur;
-  parmesh->memMax = parmesh->memCur;
-  parmesh->listgrp[0].mesh->memMax += tmpmem;
-
   mesh = parmesh->listgrp[0].mesh;
-  mesh  = parmesh->listgrp[0].mesh;
+
   npmax = mesh->npmax;
   nemax = mesh->nemax;
   xpmax = mesh->xpmax;
@@ -470,7 +452,7 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
   mesh->xpmax = mesh->xp;
   mesh->xtmax = mesh->xt;
 
-  if ( !PMMG_setMemMax_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
+  if ( !PMMG_setMeshSize_realloc( mesh, npmax, xpmax, nemax, xtmax ) ) {
     fprintf(stdout,"\n\n\n  -- LACK OF MEMORY\n\n\n");
     return 0;
   }
@@ -479,6 +461,7 @@ int PMMG_bdryBuild ( PMMG_pParMesh parmesh ) {
     /** Impossible to rebuild the triangle */
     return 0;
   }
+
   return 1;
 }
 
@@ -852,7 +835,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     nitem         = ext_face_comm->nitem;
     color         = ext_face_comm->color_out;
 
-    PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend",ier = 1);
     if( ier ) {
       for( k = 0; k < icomm; k++ ) {
         PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
@@ -865,7 +847,6 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh ) {
     }
     itosend = ext_face_comm->itosend;
 
-    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",ier = 1);
     if( ier ) {
       for( k = 0; k < icomm; k++ ) {
         PMMG_DEL_MEM(parmesh,parmesh->ext_face_comm[k].itosend,int,"itosend");
@@ -947,8 +928,8 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   MMG5_pPoint    ppt;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            *intvalues,*iproc2comm;
   int            *itosend,*itorecv,src,dst,tag;
   int            nitem,color;
@@ -967,6 +948,18 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 
 
   /** Step 0: Count nowned nodes */
+  /* register heap arrays */
+  size_t iptr,nptr = 2;
+  void** ptr_int[2];
+  ptr_int[0] = (void*)&iproc2comm;
+  ptr_int[1] = (void*)&offsets;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
+  itosend = itorecv =  NULL;
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
@@ -1013,7 +1006,9 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 
   /* Compute offsets on each proc */
-  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",return 0);
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+              return 0);
   MPI_Allgather( &nowned,1,MPI_INT,
                  &offsets[1],1,MPI_INT,parmesh->comm );
   for( i = 1; i <= parmesh->nprocs; i++ )
@@ -1047,13 +1042,36 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
   }
 
   /* Send-recv */
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+
+
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
     nitem = ext_node_comm->nitem;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
@@ -1069,11 +1087,20 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
         assert(itosend[i]);
       }
       MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
-                           parmesh->comm,&request),return 0 );
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+                 return 0 );
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
     }
   }
 
@@ -1086,6 +1113,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     itorecv = ext_node_comm->itorecv;
     for( i = 0; i < nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
+      assert(itorecv[i]);
       intvalues[idx] = itorecv[i];
     }
   }
@@ -1103,9 +1131,24 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    assert( (ppt->tmp > 0) && (ppt->tmp <= offsets[parmesh->nprocs]) );
+    assert(ppt->tmp > 0);
+    assert(ppt->tmp <= offsets[parmesh->nprocs]);
   }
 #endif
+
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+             return 0);
+
+  // Commented the 11/02/22 by Algiane: useless I think
+  /* Don't free buffers before they have been received */
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum"); */
+  /*            return 0 ); */
 
   /* Free arrays */
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
@@ -1113,11 +1156,294 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh ){
     PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
-  PMMG_DEL_MEM(parmesh,offsets,int,"offsets");
-  PMMG_DEL_MEM(parmesh,offsets,int,"iproc2comm");
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
+
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
   return 1;
 }
+
+/**
+ * \param parmesh pointer toward parmesh structure
+ * \param idx_glob global IDs of interface nodes
+ *
+ * Create non-consecutive global IDs (starting from 1) for nodes on parallel
+ * interfaces.
+ *
+ */
+int PMMG_color_commNodes( PMMG_pParMesh parmesh ) {
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pGrp      grp;
+  MMG5_pMesh     mesh;
+  MMG5_pPoint    ppt;
+  MPI_Request    *request;
+  MPI_Status     *status;
+  int            *intvalues,*itosend,*itorecv,*iproc2comm;
+  int            color,nitem;
+  int            *offsets,label;
+  int            icomm,i,idx,iproc,src,dst,tag,ip;
+
+  /* Do this only if there is one group */
+  assert( parmesh->ngrp == 1 );
+  grp = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+  /* register heap arrays */
+  size_t iptr,nptr = 3;
+  void** ptr_int[3];
+
+  ptr_int[0] = (void*)&parmesh->int_node_comm->intvalues;
+  ptr_int[1] = (void*)&iproc2comm;
+  ptr_int[2] = (void*)&offsets;
+
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
+  itosend = itorecv =  NULL;
+
+  /* Allocate internal communicator */
+  int_node_comm = parmesh->int_node_comm;
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  intvalues = int_node_comm->intvalues;
+
+  /* Array to reorder communicators */
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+  for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
+    iproc2comm[iproc] = PMMG_UNSET;
+
+
+  /* Reorder communicators and count max (theoretically) owned nodes
+   * (each rank owns nodes on the interface with lower-rank procs). */
+  nitem = 0;
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    iproc = ext_node_comm->color_out;
+    iproc2comm[iproc] = icomm;
+    if( iproc < parmesh->myrank )
+      nitem += ext_node_comm->nitem;
+  }
+
+  /* Compute offsets on each proc */
+  PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+  MPI_Allgather( &nitem,1,MPI_INT,
+                 &offsets[1],1,MPI_INT,parmesh->comm );
+
+  for( i = 1; i <= parmesh->nprocs; i++ )
+    offsets[i] += offsets[i-1];
+
+
+  /**
+   * 1) Label nodes owned by myrank (starting from 1 + the rank offset).
+   */
+  label = offsets[parmesh->myrank];
+  for( color = 0; color < parmesh->myrank; color++ ) {
+    icomm = iproc2comm[color];
+
+    /* Skip non-existent communicators */
+    if( icomm == PMMG_UNSET ) continue;
+
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem =  ext_node_comm->nitem;
+
+    /* Label owned nodes */
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      /* (Labels of nodes visited more than once are overwritten) */
+      intvalues[idx] = ++label;
+    }
+  }
+
+  /**
+   * 2) Communicate global numbering to the ghost copies.
+   */
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+              return 0);
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                return 0);
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+        assert(itosend[i]);
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                 return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                 return 0 );
+#ifndef DNDEBUG
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+#endif
+    }
+  }
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+             return 0);
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      assert(itorecv[i]);
+      if( itorecv[i] > intvalues[idx] )
+        intvalues[idx] = itorecv[i];
+    }
+  }
+
+  /* 3) Retrieve numbering from the internal communicator */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip  = grp->node2int_node_comm_index1[i];
+    idx = grp->node2int_node_comm_index2[i];
+    ppt = &mesh->point[ip];
+    assert(intvalues[idx]);
+    ppt->tmp = intvalues[idx];
+  }
+
+#ifndef DNDEBUG
+  /* Check */
+  for ( i=0; i<parmesh->next_node_comm; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    color = ext_node_comm->color_out;
+    nitem = ext_node_comm->nitem;
+
+    itosend = ext_node_comm->itosend;
+    itorecv = ext_node_comm->itorecv;
+
+    src = MG_MAX(parmesh->myrank,color);
+    dst = MG_MIN(parmesh->myrank,color);
+    tag = parmesh->nprocs*src+dst;
+
+    if( parmesh->myrank == src ) {
+      /* Fill send buffer from internal communicator */
+      for( i = 0; i < nitem; i++ ) {
+        idx = ext_node_comm->int_comm_index[i];
+        itosend[i] = intvalues[idx];
+        assert(itosend[i]);
+      }
+      MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                 return 0 );
+    }
+    if ( parmesh->myrank == dst ) {
+      MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+                 return 0 );
+      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+    }
+  }
+
+  /* Store recv buffer in the internal communicator */
+  for( iproc = parmesh->myrank+1; iproc < parmesh->nprocs; iproc++ ){
+    icomm = iproc2comm[iproc];
+    if( icomm == PMMG_UNSET ) continue;
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    nitem = ext_node_comm->nitem;
+    itorecv = ext_node_comm->itorecv;
+    for( i = 0; i < nitem; i++ ) {
+      idx = ext_node_comm->int_comm_index[i];
+      assert( itorecv[i] == intvalues[idx] );
+    }
+  }
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+             return 0);
+
+#endif
+
+  // Commented the 11/02/22 by Algiane: useless I think
+  /* Don't free buffers before they have been received */
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes"); */
+  /*            return 0 ); */
+
+  /* Free arrays */
+  for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[icomm];
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
+    PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
+  }
+
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
+
+  return 1;
+}
+
 /**
  * \param parmesh pointer toward the parmesh
  *
@@ -1146,6 +1472,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     break;
   case ( MMG5_FMT_VtkPvtu ): case ( PMMG_FMT_Distributed ):
   case ( PMMG_FMT_DistributedMeditASCII ): case ( PMMG_FMT_DistributedMeditBinary ):
+
     /* Distributed Output */
     tim = 1;
     chrono(ON,&(ctim[tim]));
@@ -1165,8 +1492,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
 
     if( parmesh->info.globalNum ) {
-      size_t myavailable,oldMemMax;
-      PMMG_TRANSFER_AVMEM_TO_PARMESH(parmesh,myavailable,oldMemMax);
 
       ier = PMMG_Compute_verticesGloNum( parmesh );
       if( !ier ) {
@@ -1182,7 +1507,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
         }
       }
 
-      PMMG_TRANSFER_AVMEM_TO_MESHES(parmesh);
     }
 
 
@@ -1473,7 +1797,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
     }
 
     /* Memory repartition */
-    if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) ier = 3;
+    if ( !PMMG_updateMeshSize( parmesh,1 ) ) ier = 3;
 
   } else {
     ier = PMMG_SUCCESS;
@@ -1504,7 +1828,7 @@ int PMMG_distributeMesh_centralized( PMMG_pParMesh parmesh ) {
   }
 
   /* Memory repartition */
-  if ( !PMMG_parmesh_updateMemMax( parmesh,50,1 ) ) return 3;
+  if ( !PMMG_updateMeshSize( parmesh,1 ) ) return 3;
 
   iresult = PMMG_SUCCESS;
   return iresult;
