@@ -225,12 +225,6 @@ IF ( VTK_FOUND )
   SET ( VTK_CFG -DUSE_VTK=${USE_VTK} -DVTK_DIR=${VTK_DIR} )
 ENDIF()
 
-# if vtk was found but vtkMPI is not, explicit disabling of VTK in Mmg build
-# (otherwise, Mmg will be built with VTK and we will have missing symbols)
-If ( VTK_MPI_FAIL )
-  SET ( VTK_CFG -DUSE_VTK=OFF )
-Endif()
-
 # forward compiler
 SET ( COMPILER_CFG -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
