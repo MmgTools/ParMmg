@@ -34,7 +34,6 @@
 #define _PMMGLIB_H
 
 #include "libparmmgtypes.h"
-#include "metis.h"
 
 #if defined(c_plusplus) || defined(__cplusplus)
 extern "C" {
