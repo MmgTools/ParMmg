@@ -4149,8 +4149,9 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
 
 static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
 
+  fprintf(stderr, "\n  ## Error: %s: Not implemented.\n", __func__);
 
-  return 1;
+  return 0;
 }
 #endif
 
