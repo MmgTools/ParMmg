@@ -31,6 +31,38 @@ jobs:
             pointmap: [on,off]
             scotch: [on,off]
             mpich-instead-openmpi: [on,off]
+            additional-IOs: [off]
+
+            include:
+              # test hdf5 IOs only without scotch and without pointmap.
+              # initial idea was to test vtk IOs too but installation of vtk
+              # with parallel support takes too much time
+              # (it would be possible with a pre-installed docker image)
+              - os: ubuntu-20.04
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: off
+                additional-IOs: on
+
+              - os: ubuntu-20.04
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: on
+                additional-IOs: on
+
+              - os: macos-12
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: off
+                additional-IOs: on
+
+              - os: macos-12
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: on
+                additional-IOs: on
+
+
 
     steps:
       - name: Print options and set environment variables
@@ -40,7 +72,8 @@ jobs:
             Pointmap:${{ matrix.pointmap }},
             Scotch:  ${{ matrix.scotch }},
             Mpich instead of openmpi: ${{ matrix.mpich-instead-openmpi }},
-            Build:   ${{ inputs.cmake_build_type }}"
+            Build:   ${{ inputs.cmake_build_type }},
+            additional-IOs: ${{matrix.additional-IOs}}"
 
           # gfortran compiler and scotch makefile depends on the os
           if [ "$RUNNER_OS" == "macOS" ]; then
@@ -95,6 +128,31 @@ jobs:
           cp ${{ env.SCOTCH_MAKE }} Makefile.inc
           make scotch -j ${{ env.NJOBS }}
           make install scotch -j ${{ env.NJOBS }}
+
+      #- name: Install VTK
+      #  # Download vtk only if used
+      #  if: matrix.additional-IOs == 'on'
+      #  run: |
+      #    if [ "$RUNNER_OS" == "Linux" ]; then
+      #      # For opengl
+      #      apt install -y libgl1-mesa-dev
+      #    fi
+      #    wget https://www.vtk.org/files/release/9.2/VTK-9.2.5.tar.gz
+      #    tar -xvzf VTK-9.2.5.tar.gz
+      #    cd VTK-9.2.5
+      #    cmake -Bbuild -S. -DVTK_USE_MPI=ON -DVTK_GROUP_ENABLE_MPI=YES
+      #    cmake --build build  --target install --config Release -j 4
+
+      - name: Install hdf5
+        # Download hdf5 only if used
+        if: matrix.additional-IOs == 'on'
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            brew install hdf5-mpi
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get install -y libhdf5-mpi-dev
+          fi
+
 
       # checkout the provided branch name if workflow is manually run
       - uses: actions/checkout@v3
@@ -156,6 +214,12 @@ jobs:
         run: |
           cd build
           ctest --timeout 7200 -VV -C ${{ inputs.cmake_build_type }} -E  ${{ env.EXCLUDE_TESTS }}
+
+      - name: Test non native I/Os (requiring install of dependencies)
+        if: matrix.additional-IOs == 'on'
+        run: |
+          cd build
+          ctest -R "hdf5" -VV -C ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
 
       # - name: Archive production artifacts for tests
       #  if: success() || failure()
