@@ -1003,14 +1003,17 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 #ifdef USE_HDF5
 
-int PMMG_Set_defaultIOEntities_hdf5(int *io_entities) {
+int PMMG_Set_defaultIOEntities_hdf5(int io_entities[PMMG_NTYPENTITIES] ) {
+
   /* Default: save/load everything */
-  for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) io_entities[i] = 1;
+  for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) {
+    io_entities[i] = 1;
+  }
 
   return 1;
 }
 
-int PMMG_Set_requiredEntitiesIO_hdf5(int *io_entities, int val) {
+int PMMG_Set_requiredEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val) {
   io_entities[PMMG_IO_Req] = val;
   io_entities[PMMG_IO_EdReq] = val;
   io_entities[PMMG_IO_TriaReq] = val;
@@ -1020,7 +1023,7 @@ int PMMG_Set_requiredEntitiesIO_hdf5(int *io_entities, int val) {
   return 1;
 }
 
-int PMMG_Set_parallelEntitiesIO_hdf5(int *io_entities, int val) {
+int PMMG_Set_parallelEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val) {
   io_entities[PMMG_IO_Par] = val;
   io_entities[PMMG_IO_EdPar] = val;
   io_entities[PMMG_IO_TriaPar] = val;
@@ -2562,8 +2565,8 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param filename name of the HDF5 file containing the heavy data.
- * \param xdmfname name of the XDMF file that will contain the light data.
+ * \param filename name of the HDF5 file (with .h5 extension) containing the heavy data.
+ * \param xdmfname name of the XDMF file (with .xdmf extension) that will contain the light data.
  * \param nentitiesg array of size PMMG_NTYP_ENTITIES containing the global number of entities.
  *
  * \return 0 if fail, 1 otherwise
@@ -2593,6 +2596,10 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     xdmf_file = fopen(xdmfname, "w");
 
     if ( !xdmf_file ) return 0;
+
+    if (parmesh->info.imprim > PMMG_VERB_VERSION) {
+      fprintf(stdout, "\n  %%%% %s OPENED \n", xdmfname);
+    }
 
     /* XDMF header */
     fprintf(xdmf_file, "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
@@ -2673,13 +2680,14 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     fprintf(xdmf_file, "</Xdmf>\n");
 
     fclose(xdmf_file);
+
   }
 
   return 1;
 }
 #endif
 
-int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename, const char *xdmfname) {
+int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename) {
 
 #ifndef USE_HDF5
 
@@ -2699,17 +2707,53 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   int8_t     tim;
   char       stim[32];
 
-  /* Check arguments */
+  /** Check arguments */
   if (parmesh->ngrp != 1) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.\n",
             __func__);
     ier = 0;
   }
   if (!filename || !*filename) {
-    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.\n",
+    fprintf(stderr,"  ## Error: %s: no file name provided.\n",
             __func__);
     ier = 0;
   }
+
+  /* Check filename extension (can be empty, .h5 or .xdmf) and store base name
+   * to save <basename>.h5 and <basename>.xdmf files */
+  char *basename;
+  MMG5_SAFE_CALLOC(basename,strlen(filename)+1,char,ier=0);
+  strncpy(basename,filename,strlen(filename));
+
+  char *ptr = MMG5_Get_filenameExt( basename );
+  assert ( ptr && "non-null filename should provide non-null pointer toward end of basename");
+
+  /* Check asked extension */
+  if ( *ptr != '\0' ) {
+    if ( strcmp(ptr,".h5") && strcmp(ptr,".xdmf") ) {
+      if ( parmesh->myrank == parmesh->info.root ) {
+        fprintf(stderr, "\n  ## Error: %s: Unexpected filename extension:"
+                " you must provide .h5 of .xdmf extension.\n",
+                __func__);
+      }
+      ier = 0;
+    }
+  }
+
+  /* Create .xdmf and .h5 file names */
+  char *xdmf_name;
+  // longest possible string
+  MMG5_SAFE_CALLOC(xdmf_name,strlen(basename)+6,char,ier=0);
+
+  char *h5_name;
+  // longest possible string
+  MMG5_SAFE_CALLOC(h5_name,strlen(basename)+4,char,ier=0);
+
+  *ptr='\0';
+  strncpy(xdmf_name,basename,strlen(filename));
+  strcat(xdmf_name,".xdmf");
+  strncpy(h5_name,basename,strlen(filename));
+  strcat(h5_name,".h5");
 
   /* Check the save_entities argument */
   if (save_entities == NULL) {
@@ -2718,8 +2762,10 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
     PMMG_Set_defaultIOEntities_hdf5(save_entities);
   }
   if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
-    fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least save the vertices and the tetra.\n",
-            __func__);
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr, "\n  ## Error: %s: save_entities: you must at least save the vertices and the tetra.\n",
+              __func__);
+    }
     ier = 0;
   }
 
@@ -2798,13 +2844,13 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pset_fill_time(dcpl_id, H5D_FILL_TIME_NEVER);
 
   /* Create the file */
-  HDF_CHECK( file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id),
+  HDF_CHECK( file_id = H5Fcreate(h5_name, H5F_ACC_TRUNC, H5P_DEFAULT, fapl_id),
              fprintf(stderr,"\n  ## Error: %s: Rank %d could not create the hdf5 file %s.\n",
-                     __func__, parmesh->myrank, filename);
+                     __func__, parmesh->myrank, h5_name);
              goto free_and_return );
 
   if (parmesh->info.imprim > PMMG_VERB_VERSION) {
-    fprintf(stdout, "\n  %%%% %s OPENED \n", filename);
+    fprintf(stdout, "\n  %%%% %s OPENED \n", h5_name);
   }
 
   /* Save the attributes (Version and Dimension, and number of entities per proc) */
@@ -2952,29 +2998,21 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   H5Pclose(dxpl_id);
   H5Pclose(dcpl_id);
 
-  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
-    fprintf(stdout, "  %%%% %s CLOSED \n", filename);
-  }
-
   /* We no longer need the offset nor the local nuumber of entities */
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
 
   /** Write light data in XDMF file */
-  if (!xdmfname || !*xdmfname)
-    fprintf(stderr,"  ## Warning: %s: no XDMF file name provided.", __func__);
-  else {
-    ier = PMMG_writeXDMF(parmesh, filename, xdmfname, nentitiesg);
+  ier = PMMG_writeXDMF(parmesh, h5_name, xdmf_name, nentitiesg);
 
-    MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
-              goto free_and_return );
-    if (!ier) {
-      if (parmesh->myrank == parmesh->info.root) {
-        fprintf(stderr,"\n  ## Error: %s: Could not write the xdmf file %s.\n",
-                __func__, xdmfname);
-      }
-      goto free_and_return;
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             goto free_and_return );
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not write the xdmf file %s.\n",
+              __func__, xdmf_name);
     }
+    goto free_and_return;
   }
 
   /* We no longer need the global number of entities */
@@ -2983,7 +3021,7 @@ int PMMG_saveParmesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char 
   chrono(OFF, &ctim[0]);
   printim(ctim[0].gdif,stim);
   if ( parmesh->info.imprim >= PMMG_VERB_STEPS ) {
-    fprintf(stdout,"\n   SAVE_PARMESH_HDF5: ELAPSED TIME  %s\n",stim);
+    fprintf(stdout,"\n   SAVE MESH AT HDF5 FORMAT: ELAPSED TIME  %s\n",stim);
   }
   return 1;
 
@@ -4155,7 +4193,7 @@ static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_
 }
 #endif
 
-int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
+int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
 
 #ifndef USE_HDF5
 
@@ -4459,10 +4497,6 @@ int PMMG_loadParmesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char 
   PMMG_DEL_MEM(parmesh, nentitiesl, hsize_t, "nentitiesl");
   PMMG_DEL_MEM(parmesh, nentitiesg, hsize_t, "nentitiesg");
   PMMG_DEL_MEM(parmesh, offset, hsize_t, "offset");
-
-  if (parmesh->info.imprim > PMMG_VERB_VERSION) {
-    fprintf(stdout, "  %%%% %s CLOSED \n\n", filename);
-  }
 
   /* Very ugly : if the rank is above the number of partitions of the input mesh,
      allocate an internal communicator of opposite type of API_mode. This is necessary
