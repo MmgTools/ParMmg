@@ -366,6 +366,7 @@ typedef struct {
   int globalVNumGot; /*!< have global nodes actually been calculated */
   int globalTNumGot; /*!< have global triangles actually been calculated */
   int fmtout; /*!< store the output format asked */
+  int io_entities[PMMG_NTYPENTITIES]; /* Array to store entities to save in some I/O formats */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */

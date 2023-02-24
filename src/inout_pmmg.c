@@ -1003,7 +1003,19 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 #ifdef USE_HDF5
 
-int PMMG_Set_defaultIOEntities_hdf5(int io_entities[PMMG_NTYPENTITIES] ) {
+int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh) {
+  return PMMG_Set_defaultIOEntities_i(parmesh->info.io_entities);
+}
+
+/**
+ * \param parmesh pointer toward parmesh steructure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the default entities to save into an hdf5 file.
+ *
+ * \remark For internal use
+ */
+int PMMG_Set_defaultIOEntities_i(int io_entities[PMMG_NTYPENTITIES] ) {
 
   /* Default: save/load everything */
   for (int i = 0 ; i < PMMG_NTYPENTITIES ; i++) {
@@ -1013,7 +1025,7 @@ int PMMG_Set_defaultIOEntities_hdf5(int io_entities[PMMG_NTYPENTITIES] ) {
   return 1;
 }
 
-int PMMG_Set_requiredEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val) {
+int PMMG_Set_requiredEntitiesIO_hdf5_i(int io_entities[PMMG_NTYPENTITIES], int val) {
   io_entities[PMMG_IO_Req] = val;
   io_entities[PMMG_IO_EdReq] = val;
   io_entities[PMMG_IO_TriaReq] = val;
@@ -1023,7 +1035,11 @@ int PMMG_Set_requiredEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val
   return 1;
 }
 
-int PMMG_Set_parallelEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val) {
+int PMMG_Set_requiredEntitiesIO_hdf5(PMMG_pParMesh parmesh, int val) {
+  return  PMMG_Set_requiredEntitiesIO_hdf5_i(parmesh->info.io_entities,val);
+}
+
+int PMMG_Set_parallelEntitiesIO_hdf5_i(int io_entities[PMMG_NTYPENTITIES], int val) {
   io_entities[PMMG_IO_Par] = val;
   io_entities[PMMG_IO_EdPar] = val;
   io_entities[PMMG_IO_TriaPar] = val;
@@ -1031,6 +1047,10 @@ int PMMG_Set_parallelEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val
   io_entities[PMMG_IO_TetPar] = val;
 
   return 1;
+}
+
+int PMMG_Set_parallelEntitiesIO_hdf5(PMMG_pParMesh parmesh, int val) {
+  return PMMG_Set_parallelEntitiesIO_hdf5_i(parmesh->info.io_entities,val);
 }
 
 /**
@@ -2687,7 +2707,24 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
 }
 #endif
 
-int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *filename) {
+int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
+  return PMMG_saveMesh_hdf5_i(parmesh,parmesh->info.io_entities,filename);
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param save_entities array of 0s and 1s of size \ref PMMG_NTYPENTITIES to tell
+ * which entities to save and which not to. This array must be setted using the
+ * \ref  PMMG_Set_defaultIOEntities and \ref  PMMG_Set_IOEntities
+ * \param filename name of the HDF5 and XDMF files.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write the mesh data, the metric, and all the solutions in an HDF5 file, aswell as
+ * an XDMF file for visualisation. This function is to be used for distributed meshes.
+ *
+ * \remark For internal use.
+ */
+int PMMG_saveMesh_hdf5_i(PMMG_pParMesh parmesh, int *save_entities, const char *filename) {
 
 #ifndef USE_HDF5
 
@@ -2759,7 +2796,7 @@ int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh, int *save_entities, const char *fi
   if (save_entities == NULL) {
     nullf = 1;
     PMMG_MALLOC(parmesh, save_entities, PMMG_NTYPENTITIES, int, "save_entities", return 0);
-    PMMG_Set_defaultIOEntities_hdf5(save_entities);
+    PMMG_Set_defaultIOEntities_i(save_entities);
   }
   if (!save_entities[PMMG_IO_Vertex] || !save_entities[PMMG_IO_Tetra]) {
     if ( parmesh->myrank == parmesh->info.root ) {
@@ -4193,7 +4230,25 @@ static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_
 }
 #endif
 
-int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
+
+int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh, const char *filename) {
+  return PMMG_loadMesh_hdf5_i(parmesh,parmesh->info.io_entities,filename);
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param load_entities array of 0s and 1s of size \ref PMMG_NTYPENTITIES
+ * to tell which entities to load and which not to. This array must be setted
+ * using the \ref  PMMG_Set_defaultIOEntities and \ref PMMG_Set_IOEntities functions
+ * \param filename name of the HDF5 file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Load the mesh data, the metric, and all the solutions from an HDF5 file in
+ * a distributed parmesh.
+ *
+ * \remark For internal use only
+ */
+int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *filename) {
 
 #ifndef USE_HDF5
 
@@ -4232,7 +4287,7 @@ int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh, int *load_entities, const char *fi
   if (load_entities == NULL) {
     nullf = 1;
     PMMG_MALLOC(parmesh, load_entities, PMMG_NTYPENTITIES, int, "load_entities", ier = 0);
-    PMMG_Set_defaultIOEntities_hdf5(load_entities);
+    PMMG_Set_defaultIOEntities_i(load_entities);
   }
   if (!load_entities[PMMG_IO_Vertex] || !load_entities[PMMG_IO_Tetra]) {
     fprintf(stderr, "\n  ## Error: %s: load_entities: you must at least load the vertices and the tetra.\n",

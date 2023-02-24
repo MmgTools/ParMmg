@@ -2009,105 +2009,100 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
 
 /**
- * \param io_entities array of size \ref PMMG_NTYPENTITIES.
+ * \param parmesh pointer toward parmesh steructure.
  * \return 0 if failed, 1 otherwise.
  *
  * Set the default entities to save into an hdf5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES_HDF5(io_entities,retval)\n
- * >     INTEGER, DIMENSION(PMMG_NTYPENTITES), INTENT(OUT) :: io_entities\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_defaultIOEntities_hdf5(int io_entities[PMMG_NTYPENTITIES]);
+  int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh);
 
 /**
- * \param io_entities array of size \ref PMMG_NTYPENTITIES.
+ * \param parmesh pointer toward parmesh steructure.
  * \param val flag to tell if parallel entities are to be saved or not
  * \return 0 if failed, 1 otherwise.
  *
  * If \a val is set to 0, parallel entities won't be saved into the HDF5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO_HDF5(io_entities,val,retval)\n
- * >     INTEGER, DIMENSION(PMMG_NTYPENTITIES), INTENT(OUT) :: io_entities\n
- * >     INTEGER, INTENT(IN)                 :: val\n
- * >     INTEGER, INTENT(OUT)                :: retval\n
+ * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO(parmesh,val,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)             :: val\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_parallelEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val);
+  int PMMG_Set_parallelEntitiesIO(PMMG_pParMesh parmesh, int val);
 
 /**
- * \param io_entities array of size \ref PMMG_NTYPENTITIES.
+ * \param parmesh pointer toward parmesh steructure.
  * \param val flag to tell if required entities are to be saved or not
  * \return 0 if failed, 1 otherwise.
  *
  * If \a val is set to 0, required entities won't be saved into the HDF5 file.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO_HDF5(io_entities,val,retval)\n
- * >     INTEGER, DIMENSION(PMMG_NTYPENTITIES), INTENT(OUT) :: io_entities\n
- * >     INTEGER, INTENT(IN)           :: val\n
- * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO(parmesh,val,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)             :: val\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_requiredEntitiesIO_hdf5(int io_entities[PMMG_NTYPENTITIES], int val);
+  int PMMG_Set_requiredEntitiesIO(PMMG_pParMesh parmesh, int val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param save_entities array of 0s and 1s of size \ref PMMG_NTYPENTITIES to tell
- * which entities to save and which not to. This array must be setted using the
- * \ref  PMMG_Set_defaultIOEntities_hdf5, \ref  PMMG_Set_requiredEntitiesIO_hdf5
- * and/or \ref PMMG_Set_parallelEntitiesIO_hdf5 functions.
- * \param filename name of the HDF5 and XDMF files.
+ * \param filename name of the HDF5 and XDMF files (can have no extention, .h5 or .xdmf extension).
  * \return 0 if failed, 1 otherwise.
  *
- * Write the mesh data, the metric, and all the solutions in an HDF5 file, aswell as
- * an XDMF file for visualisation. This function is to be used for distributed meshes.
+ * Write the mesh data, the metric, and all the solutions in an HDF5 file,
+ * aswell as an XDMF file for visualisation. This function is to be used for
+ * distributed meshes.
+ *
+ * The entities that have to be saved can be setted using the
+ * \ref PMMG_Set_defaultIOEntities and \ref PMMG_Set_IOEntities
+ * functions.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SAVEMESH_HDF5(parmesh,save_entities,filename,strlen,retval)\n
+ * >   SUBROUTINE PMMG_SAVEMESH_HDF5(parmesh,filename,strlen,retval)\n
  * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
- * >     INTEGER, DIMENSION(PMMG_NTYPENTITIES),INTENT(IN) :: save_entities\n
  * >     CHARACTER(LEN=*), INTENT(IN)    :: filename\n
  * >     INTEGER, INTENT(IN)             :: strlen\n
  * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh, int save_entities[PMMG_NTYPENTITIES],
-                         const char *filename);
+  int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh,const char *filename);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param load_entities array of 0s and 1s of size \ref PMMG_NTYPENTITIES
- * to tell which entities to load and which not to. This array must be setted
- * using the \ref  PMMG_Set_defaultIOEntities_hdf5,
- * \ref PMMG_Set_requiredEntitiesIO_hdf5 and/or
- * \ref PMMG_Set_parallelEntitiesIO_hdf5 functions.
  * \param filename name of the HDF5 file.
  * \return 0 if failed, 1 otherwise.
  *
  * Load the mesh data, the metric, and all the solutions from an HDF5 file in
  * a distributed parmesh.
  *
+ * The entities that have to be saved can be setted using the
+ * \ref PMMG_Set_defaultIOEntities and \ref PMMG_Set_IOEntities
+ * functions.
+ *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_LOADMESH_HDF5(parmesh,load_entities,filename,strlen,retval)\n
+ * >   SUBROUTINE PMMG_LOADMESH_HDF5(parmesh,filename,strlen,retval)\n
  * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
- * >     INTEGER, DIMENSION(PMMG_NTYPENTITIES), INTENT(IN) :: load_entities\n
  * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
  * >     INTEGER, INTENT(IN)            :: strlen\n
  * >     INTEGER, INTENT(OUT)           :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh,
-                         int load_entities[PMMG_NTYPENTITIES],
-                         const char *filename);
+  int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh,const char *filename);
 
 int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 

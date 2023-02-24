@@ -577,6 +577,10 @@ int PMMG_Free_all_var(va_list argptr);
 
 const char* PMMG_Get_pmmgArgName(int typArg);
 
+/* Private I/Os and APIs*/
+int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *filename);
+int PMMG_saveMesh_hdf5_i(PMMG_pParMesh parmesh, int *save_entities, const char *filename);
+int PMMG_Set_defaultIOEntities_i(int io_entities[PMMG_NTYPENTITIES] );
 
 #ifdef __cplusplus
 }
