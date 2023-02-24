@@ -2025,37 +2025,28 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
 
 /**
  * \param parmesh pointer toward parmesh steructure.
- * \param val flag to tell if parallel entities are to be saved or not
+ * \param target type of entity for which we want to enable/disable saving.
+ * target value has to be one of the PMMG_IO_entities values.
+ * \pararm enable saving if PMMG_ON is passed, disable it if PMMG_OFF is passed.
  * \return 0 if failed, 1 otherwise.
  *
- * If \a val is set to 0, parallel entities won't be saved into the HDF5 file.
+ * Enable or disable entities to save depending on the \a val value.
+ *
+ * Passing \ref PMMG_IO_Required as \a target value allows to modify behaviour
+ * for all required entites.
+ *
+ * Passing \ref PMMG_IO_Parallel as \a target value allows to modify behaviour
+ * for all parallel entites.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_PARALLELENTITIESIO(parmesh,val,retval)\n
+ * >   SUBROUTINE PMMG_SET_IOENTITIES(parmesh,val,retval)\n
  * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(IN)             :: val\n
+ * >     INTEGER, INTENT(IN)             :: target,val\n
  * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_parallelEntitiesIO(PMMG_pParMesh parmesh, int val);
-
-/**
- * \param parmesh pointer toward parmesh steructure.
- * \param val flag to tell if required entities are to be saved or not
- * \return 0 if failed, 1 otherwise.
- *
- * If \a val is set to 0, required entities won't be saved into the HDF5 file.
- *
- * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_REQUIREDENTITIESIO(parmesh,val,retval)\n
- * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
- * >     INTEGER, INTENT(IN)             :: val\n
- * >     INTEGER, INTENT(OUT)            :: retval\n
- * >   END SUBROUTINE\n
- *
- */
-  int PMMG_Set_requiredEntitiesIO(PMMG_pParMesh parmesh, int val);
+  int PMMG_Set_IOEntites(PMMG_pParMesh parmesh, int target, int val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.

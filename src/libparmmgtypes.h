@@ -236,6 +236,16 @@
 #define PMMG_UNSET     -1
 
 /**
+ * \def PMMG_ON
+ */
+#define PMMG_ON     1
+
+/**
+ * \def PMMG_OFF
+ */
+#define PMMG_OFF     0
+
+/**
  * \def PMMG_GAP
  *
  * Gap value for reallocation
@@ -244,17 +254,10 @@
 #define PMMG_GAP     0.2
 
 /**
- * \def PMMG_NTYPENTITIES
- *
- * Number of types of mesh entities
-*/
-#define PMMG_NTYPENTITIES 20
-
-/**
- * \enum PMMG_hdf5_entities
+ * \enum PMMG_IO_entities
  * \brief Type of mesh entities that are saved in/loaded from HDF5 files.
  */
-enum PMMG_hdf5_entities {
+enum PMMG_IO_entities {
   PMMG_IO_Vertex,
   PMMG_IO_Edge,
   PMMG_IO_Tria,
@@ -262,19 +265,22 @@ enum PMMG_hdf5_entities {
   PMMG_IO_Tetra,
   PMMG_IO_Prism,
   PMMG_IO_Corner,
-  PMMG_IO_Req,
-  PMMG_IO_Par,
+  PMMG_IO_RequiredVertex,
+  PMMG_IO_ParallelVertex,
   PMMG_IO_Ridge,
-  PMMG_IO_EdReq,
-  PMMG_IO_EdPar,
-  PMMG_IO_TriaReq,
-  PMMG_IO_TriaPar,
-  PMMG_IO_QuadReq,
-  PMMG_IO_QuadPar,
-  PMMG_IO_TetReq,
-  PMMG_IO_TetPar,
+  PMMG_IO_RequiredEdge,
+  PMMG_IO_ParallelEdge,
+  PMMG_IO_RequiredTria,
+  PMMG_IO_ParallelTria,
+  PMMG_IO_RequiredQuad,
+  PMMG_IO_ParallelQuad,
+  PMMG_IO_RequiredTetra,
+  PMMG_IO_ParallelTetra,
   PMMG_IO_Normal,
   PMMG_IO_Tangent,
+  PMMG_IO_ENTITIES_size, // Number of type of entities that can be saved
+  PMMG_IO_Required, // To enable/disable saving of all type of required entites
+  PMMG_IO_Parallel // To enable/disable saving of all type of parallel entites
 };
 
 /**
@@ -366,7 +372,7 @@ typedef struct {
   int globalVNumGot; /*!< have global nodes actually been calculated */
   int globalTNumGot; /*!< have global triangles actually been calculated */
   int fmtout; /*!< store the output format asked */
-  int io_entities[PMMG_NTYPENTITIES]; /* Array to store entities to save in some I/O formats */
+  int io_entities[PMMG_IO_ENTITIES_size]; /* Array to store entities to save in some I/O formats */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
