@@ -2014,6 +2014,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Set the default entities to save into an hdf5 file.
  *
+ * For now, used only by hdf5 I/Os.
+ *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES(parmesh,retval)\n
  * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
@@ -2037,6 +2039,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  * Passing \ref PMMG_IO_Parallel as \a target value allows to modify behaviour
  * for all parallel entites.
+ *
+ * For now, used only by hdf5 I/Os.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_IOENTITIES(parmesh,target,val,retval)\n
