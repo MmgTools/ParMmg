@@ -1001,8 +1001,6 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
-#ifdef USE_HDF5
-
 int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh) {
   return PMMG_Set_defaultIOEntities_i(parmesh->info.io_entities);
 }
@@ -1080,6 +1078,7 @@ int PMMG_Set_IOEntities_i(int io_entities[PMMG_IO_ENTITIES_size], int target, in
   return 1;
 }
 
+#ifdef USE_HDF5
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param nentities array of size PMMG_IO_ENTITIES_size * nprocs that will contain the number of entities of every proc.
