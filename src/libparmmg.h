@@ -2039,14 +2039,14 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * for all parallel entites.
  *
  * \remark Fortran interface:
- * >   SUBROUTINE PMMG_SET_IOENTITIES(parmesh,val,retval)\n
+ * >   SUBROUTINE PMMG_SET_IOENTITIES(parmesh,target,val,retval)\n
  * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
  * >     INTEGER, INTENT(IN)             :: target,val\n
  * >     INTEGER, INTENT(OUT)            :: retval\n
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_Set_IOEntites(PMMG_pParMesh parmesh, int target, int val);
+  int PMMG_Set_IOEntities(PMMG_pParMesh parmesh, int target, int val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.

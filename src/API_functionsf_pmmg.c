@@ -1013,6 +1013,27 @@ FORTRAN_NAME(PMMG_GET_VERTEXGLONUM, pmmg_get_vertexglonum,
 }
 
 /**
+ * See \ref PMMG_Set_defaultIOEntities function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_DEFAULTIOENTITIES, pmmg_set_defaultioentities,
+    (PMMG_pParMesh *parmesh,int* retval),
+    (parmesh,retval)) {
+  *retval = PMMG_Set_defaultIOEntities(*parmesh);
+  return;
+}
+
+/**
+ * See \ref PMMG_Set_IOEntities function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SET_IOENTITIES, pmmg_set_ioentities,
+    (PMMG_pParMesh *parmesh,int* target,int* val,int* retval),
+    (parmesh,target,val,retval)) {
+  *retval = PMMG_Set_IOEntities(*parmesh,*target,*val);
+  return;
+}
+
+
+/**
  * See \ref PMMG_Free_all function in \ref mmg3d/libmmg3d.h file.
  */
 FORTRAN_VARIADIC(PMMG_FREE_ALL,pmmg_free_all,
@@ -1295,6 +1316,45 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
 
   return;
 }
+
+/**
+ * See \ref PMMG_loadMesh_hdf5 function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADMESH_HDF5,pmmg_loadmesh_hdf5,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen, retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadMesh_hdf5(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_saveMesh_hdf5 function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SAVEMESH_HDF5,pmmg_savemesh_hdf5,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen, retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_saveMesh_hdf5(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
 
 /**
  * See \ref PMMG_Free_names function in \ref libparmmg.h file.
