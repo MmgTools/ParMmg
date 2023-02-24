@@ -50,19 +50,13 @@ jobs:
                 mpich-instead-openmpi: on
                 additional-IOs: on
 
+              # Remark: hdf5 I/Os are not tested with mpich as the hdf5-mpi
+              # homebrew package is built with open-mpi dependency
               - os: macos-12
                 pointmap: off
                 scotch: off
                 mpich-instead-openmpi: off
                 additional-IOs: on
-
-              - os: macos-12
-                pointmap: off
-                scotch: off
-                mpich-instead-openmpi: on
-                additional-IOs: on
-
-
 
     steps:
       - name: Print options and set environment variables
