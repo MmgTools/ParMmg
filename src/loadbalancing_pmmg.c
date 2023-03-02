@@ -35,13 +35,14 @@
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param partitioning_mode strategy to use for repartitioning
  *
  * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *
  * Load balancing of the mesh groups over the processors.
  *
  */
-int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
+int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
   mytime     ctim[5];
@@ -85,7 +86,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
   }
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
@@ -108,7 +109,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_distribute_grps(parmesh);
+  ier = PMMG_distribute_grps(parmesh,partitioning_mode);
 
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
@@ -133,7 +134,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
 
   if ( ier ) {
     /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,partitioning_mode);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
     }

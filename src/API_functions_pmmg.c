@@ -427,8 +427,11 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
-  /* Init MPI data */
-  parmesh->comm   = comm;
+  /** Init MPI data */
+  parmesh->comm           = comm;
+  /* Initialize the input communicator to computationnal communicator: this value
+   * will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.read_comm = comm;
 
   MPI_Initialized(&flag);
   parmesh->size_shm = 1;
@@ -441,8 +444,11 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     parmesh->nprocs = 1;
     parmesh->myrank = PMMG_NUL;
   }
+  /* Initialize the number of partitions used for inputs to the number of procs:
+   * this value will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.npartin = parmesh->nprocs;
 
-  /* ParMmg verbosity */
+  /** ParMmg verbosity */
   if ( parmesh->myrank==parmesh->info.root ) {
     parmesh->info.imprim = PMMG_IMPRIM;
   }
@@ -458,7 +464,10 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_MMG_IMPRIM );
   }
 
-  /* Default memory */
+  /** I/Os: set default entities to save */
+  PMMG_Set_defaultIOEntities( parmesh );
+
+  /** Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
   PMMG_parmesh_SetMemMax( parmesh );
 
@@ -1897,6 +1906,10 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
  * the triangle.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
@@ -1904,7 +1917,7 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   int ier;
 
   if( !parmesh->info.globalTNumGot ) {
-    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalTNumGot = 1;
   }
 
@@ -1957,6 +1970,10 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
  * each node.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations.
  */
 int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
@@ -1964,7 +1981,7 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
   int        k,ier;
 
   if( !parmesh->info.globalTNumGot ) {
-    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalTNumGot = 1;
   }
 
@@ -1997,6 +2014,9 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
  * Get global node numbering (starting from 1) and rank of the process owning
  * the node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
@@ -2004,7 +2024,7 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   int ier;
 
   if( !parmesh->info.globalVNumGot ) {
-    ier = PMMG_Compute_verticesGloNum( parmesh );
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalVNumGot = 1;
   }
 
@@ -2056,6 +2076,9 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
  * Get global nodes numbering (starting from 1) and ranks of processes owning
  * each node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
@@ -2063,7 +2086,7 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   int         ip,ier;
 
   if( !parmesh->info.globalVNumGot ) {
-    ier = PMMG_Compute_verticesGloNum( parmesh );
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalVNumGot = 1;
   }
 
@@ -2640,6 +2663,41 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
   return 1;
 }
+
+/**
+ * \param ptr pointer toward the file extension (dot included)
+ * \param fmt default file format.
+ *
+ * \return and index associated to the file format detected from the extension.
+ *
+ * Get the wanted file format from the mesh extension. If \a fmt is provided, it
+ * is used as default file format (\a ptr==NULL), otherwise, the default file
+ * format is the medit one.
+ *
+ * \remark relies on the MMG5_Get_format function and adds the formats that are
+ * specifics to ParMmg
+ */
+int PMMG_Get_format( char *ptr, int fmt ) {
+  /* Default is the format given as input */
+  int defFmt = fmt;
+
+  if ( !ptr ) return defFmt;
+
+  /* Search if Format is known by Mmg */
+  int tmp_fmt = MMG5_Get_format(ptr, MMG5_FMT_Unknown);
+
+  if ( tmp_fmt == MMG5_FMT_Unknown ) {
+    /* If format is not known by Mmg, search in ParMmg formats */
+    if ( !strncmp ( ptr,".h5",strlen(".h5") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+    else if ( !strncmp ( ptr,".xdmf",strlen(".xdmf") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+  }
+  return defFmt;
+}
+
 
 int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh) {
   return PMMG_Set_defaultIOEntities_i(parmesh->info.io_entities);

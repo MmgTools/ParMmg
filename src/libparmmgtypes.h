@@ -406,7 +406,10 @@ typedef struct {
   char     *fieldin,*fieldout;
 
   /* grp */
-  int       ngrp;       /*!< Number of grp */
+  int       ngrp;       /*!< Number of grp used inside the parmesh. It can
+                         * differ from listgrp size (for example if inputs have
+                         * been provided on a different number of processes than
+                         * the ones used for computation) */
   PMMG_pGrp listgrp;    /*!< List of grp */
   int       nold_grp;       /*!< Number of old grp */
   PMMG_pGrp old_listgrp;    /*!< List of old grp */

@@ -56,6 +56,7 @@ static void PMMG_endcod() {
  *
  * Main program for PARMMG executable: perform parallel mesh adaptation.
  *
+ * \todo refactoring to improve readibility
  */
 int main( int argc, char *argv[] )
 {
@@ -144,13 +145,13 @@ int main( int argc, char *argv[] )
 
   ptr   = MMG5_Get_filenameExt(parmesh->meshin);
 
-  fmtin = MMG5_Get_format(ptr,MMG5_FMT_MeditASCII);
+  fmtin = PMMG_Get_format(ptr,MMG5_FMT_MeditASCII);
 
   /* Compute default output format */
   ptr = MMG5_Get_filenameExt(parmesh->meshout);
 
   /* Format from output mesh name */
-  fmtout = MMG5_Get_format(ptr,fmtin);
+  fmtout = PMMG_Get_format(ptr,fmtin);
 
   distributedInput = 0;
 
@@ -307,6 +308,12 @@ int main( int argc, char *argv[] )
     }
     break;
 
+  case PMMG_FMT_HDF5:
+    ier = PMMG_loadMesh_hdf5( parmesh, parmesh->meshin );
+    distributedInput = 1;
+
+    break;
+
   default:
     if ( rank == parmesh->info.root ) {
       fprintf(stderr,"  ** I/O AT FORMAT %s NOT IMPLEMENTED.\n",MMG5_Get_formatName(fmtin) );
@@ -381,9 +388,12 @@ check_mesh_loading:
         printf("     ... SKIPPING!\n");
       }
       break;
+
     case ( MMG5_FMT_VtkPvtu ):
-      PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+      ier = PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+      MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
       break;
+
     case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
     case ( MMG5_FMT_VtkVtu ):
     case ( MMG5_FMT_VtkVtk ):
@@ -400,42 +410,47 @@ check_mesh_loading:
                      strlen(parmesh->meshout)+1,char,"",);
         strcat(parmesh->meshout,".mesh");
       }
+
     case ( PMMG_FMT_DistributedMeditBinary):
       assert ( parmesh->meshout );
 
-      ierSave = PMMG_saveMesh_distributed(parmesh,parmesh->meshout);
-      if ( ierSave ) {
+      ier = PMMG_saveMesh_distributed(parmesh,parmesh->meshout);
+      if ( ier ) {
         if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
-          ierSave = PMMG_saveMet_distributed(parmesh,parmesh->metout);
+          ier = PMMG_saveMet_distributed(parmesh,parmesh->metout);
         }
       }
-      if ( ierSave &&  grp->field ) {
+      if ( ier &&  grp->field ) {
         fprintf(stderr,"  ## Error: %s: PMMG_saveAllSols_distributed function"
                 " not yet implemented."
                 " Ignored.\n",__func__);
       }
-      MPI_Allreduce( &ierSave, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm );
-      if ( !ier ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      }
+      MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
       break;
+    case ( PMMG_FMT_HDF5 ):
+      ier = PMMG_saveMesh_hdf5(parmesh,parmesh->meshout);
+      MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+      break;
+
     default:
       ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);
-      if ( !ierSave ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      }
-      if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
-        if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
-          PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-        }
+
+      if ( ierSave && parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
+        ierSave = PMMG_saveMet_centralized(parmesh,parmesh->metout);
       }
 
-      if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout) ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+      if ( ierSave && grp->field ) {
+        ierSave = PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout);
       }
-
       break;
     }
+  }
+
+  /* Check ouput success */
+  if ( !ierSave ) {
+    PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
   }
 
   chrono(OFF,&PMMG_ctim[tim]);

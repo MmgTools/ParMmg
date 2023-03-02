@@ -601,6 +601,10 @@ end:
 
 /**
  * \param parmesh pointer to current parmesh stucture
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 (on all procs) if fail, 1 otherwise
  *
@@ -608,7 +612,7 @@ end:
  * the coordinates of the listed points.
  *
  */
-int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh, MPI_Comm comm )
 {
   PMMG_pExt_comm ext_edge_comm;
   PMMG_pGrp      grp;
@@ -641,7 +645,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
   PMMG_CALLOC(parmesh,parmesh->int_edge_comm->doublevalues,6*nitem,double,
               "edge communicator",ier = 0);
 
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) return 0;
 
   doublevalues = parmesh->int_edge_comm->doublevalues;
@@ -667,7 +671,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     for ( j=0; j<3; ++j ) doublevalues[6*idx+j]   = dd * (ppt0->c[j] - bb_min_all[j]);
     for ( j=0; j<3; ++j ) doublevalues[6*idx+3+j] = dd * (ppt1->c[j] - bb_min_all[j]);
   }
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) return 0;
 
   /** Step 3: Send the values that need to be communicate to the suitable
@@ -683,7 +687,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
 
   PMMG_CALLOC(parmesh,r2send_size,parmesh->next_edge_comm,int,
               "size of the r2send array",ier=0);
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   ireq= 0;
@@ -708,14 +712,14 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
 
     MPI_CHECK( MPI_Isend(&ext_edge_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_EDGE_TAG,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
 
     MPI_CHECK( MPI_Isend(rtosend,6*ext_edge_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_EDGE_TAG+1,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
   }
 
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   /** Step 4: Recv the values from the senders and check:
@@ -732,7 +736,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     color         = ext_edge_comm->color_out;
 
     MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
-                        MPI_CHKCOMM_EDGE_TAG,parmesh->comm,
+                        MPI_CHKCOMM_EDGE_TAG,comm,
                         &status[0]), ier=0 );
 
     /* Check the size of the communicators */
@@ -750,7 +754,7 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
     }
     rtorecv       = ext_edge_comm->rtorecv;
     MPI_CHECK( MPI_Recv(rtorecv,6*nitem_color_out,MPI_DOUBLE,color,
-                        MPI_CHKCOMM_EDGE_TAG+1,parmesh->comm,
+                        MPI_CHKCOMM_EDGE_TAG+1,comm,
                         &status[0]), ier=0 );
     /* Check the values of the edge in the communicator */
     for ( i=0; i<ext_edge_comm->nitem; ++i ) {
@@ -779,11 +783,11 @@ int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh )
       }
     }
   }
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   MPI_CHECK( MPI_Waitall(2*parmesh->next_edge_comm,request,status), ier=0 );
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
 
 end:
   for ( k=0; k<parmesh->next_edge_comm; ++k ) {
@@ -812,6 +816,10 @@ end:
 
 /**
  * \param parmesh pointer to current parmesh stucture
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 (on all procs) if fail, 1 otherwise
  *
@@ -819,7 +827,7 @@ end:
  * the coordinates of the listed points.
  *
  */
-int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
+int PMMG_check_extNodeComm( PMMG_pParMesh parmesh, MPI_Comm comm )
 {
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
@@ -839,7 +847,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
 
   if (parmesh->iter == PMMG_UNSET) return 1;
 
-  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
+  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,comm), return 0);
 
   /** Step 1: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
@@ -852,8 +860,8 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   else {
     ier = PMMG_find_intNodeCommBoundingBox(parmesh,bb_min,bb_max,&delta);
 
-    MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm), return 0);
-    MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm), return 0);
+    MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,comm), return 0);
+    MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,comm), return 0);
 
     if ( delta_all < MMG5_EPSD ) {
       if ( parmesh->myrank == parmesh->info.root )
@@ -868,7 +876,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
   PMMG_CALLOC(parmesh,parmesh->int_node_comm->doublevalues,3*nitem,double,
               "node communicator",ier = 0);
 
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) return 0;
 
   doublevalues = parmesh->int_node_comm->doublevalues;
@@ -903,7 +911,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
 
   PMMG_CALLOC(parmesh,r2send_size,parmesh->next_node_comm,int,
               "size of the r2send array",ier=0);
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   ireq= 0;
@@ -928,14 +936,14 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
 
     MPI_CHECK( MPI_Isend(&ext_node_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_NODE_TAG,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
 
     MPI_CHECK( MPI_Isend(rtosend,3*ext_node_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_NODE_TAG+1,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
    }
 
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   /** Step 4: Recv the values from the senders and check:
@@ -952,7 +960,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
     color         = ext_node_comm->color_out;
 
     MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
-                        MPI_CHKCOMM_NODE_TAG,parmesh->comm,
+                        MPI_CHKCOMM_NODE_TAG,comm,
                         &status[0]), ier=0 );
 
     /* Check the size of the communicators */
@@ -970,7 +978,7 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
     }
     rtorecv       = ext_node_comm->rtorecv;
     MPI_CHECK( MPI_Recv(rtorecv,3*nitem_color_out,MPI_DOUBLE,color,
-                        MPI_CHKCOMM_NODE_TAG+1,parmesh->comm,
+                        MPI_CHKCOMM_NODE_TAG+1,comm,
                         &status[0]), ier=0 );
     /* Check the values of the node in the communicator */
     for ( i=0; i<ext_node_comm->nitem; ++i ) {
@@ -993,11 +1001,11 @@ int PMMG_check_extNodeComm( PMMG_pParMesh parmesh )
       }
     }
   }
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   MPI_CHECK( MPI_Waitall(2*parmesh->next_node_comm,request,status), ier=0 );
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
 
 end:
   for ( k=0; k<parmesh->next_node_comm; ++k ) {
@@ -1027,6 +1035,10 @@ end:
 
 /**
  * \param parmesh pointer to current parmesh stucture
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -1034,7 +1046,7 @@ end:
  * the coordinates of the face points.
  *
  */
-int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
+int PMMG_check_extFaceComm( PMMG_pParMesh parmesh, MPI_Comm comm )
 {
   PMMG_pExt_comm ext_face_comm;
   PMMG_pGrp      grp;
@@ -1056,7 +1068,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
 
   if (parmesh->iter == PMMG_UNSET) return 1;
 
-  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,parmesh->comm), return 0);
+  MPI_CHECK ( MPI_Allreduce ( &parmesh->ngrp,&ngrp_all,1,MPI_INT,MPI_SUM,comm), return 0);
 
   /** Step 0: Find the internal communicator bounding box */
   if ( ngrp_all == 1 ) {
@@ -1069,8 +1081,8 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   else {
     ier = PMMG_find_intFaceCommBoundingBox(parmesh,bb_min,bb_max,&delta);
 
-    MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,parmesh->comm), return 0);
-    MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,parmesh->comm), return 0);
+    MPI_CHECK ( MPI_Allreduce ( &delta,&delta_all,1,MPI_DOUBLE,MPI_MAX,comm), return 0);
+    MPI_CHECK ( MPI_Allreduce ( bb_min,bb_min_all,3,MPI_DOUBLE,MPI_MIN,comm), return 0);
 
     if ( delta_all < MMG5_EPSD ) {
       if ( parmesh->myrank == parmesh->info.root )
@@ -1085,7 +1097,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
   PMMG_CALLOC(parmesh,parmesh->int_face_comm->doublevalues,9*nitem,double,
               "face communicator",ier = 0);
 
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) return 0;
 
   doublevalues = parmesh->int_face_comm->doublevalues;
@@ -1140,7 +1152,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
 
   PMMG_CALLOC(parmesh,r2send_size,parmesh->next_face_comm,int,
               "size of the r2send array",ier=0);
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   ireq = 0;
@@ -1166,13 +1178,13 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
 
     MPI_CHECK( MPI_Isend(&ext_face_comm->nitem,1,MPI_INT,color,
                          MPI_CHKCOMM_FACE_TAG,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
 
     MPI_CHECK( MPI_Isend(rtosend,9*ext_face_comm->nitem,MPI_DOUBLE,color,
                          MPI_CHKCOMM_FACE_TAG+1,
-                         parmesh->comm,&request[ireq++]),ier=0 );
+                         comm,&request[ireq++]),ier=0 );
   }
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   /** Step 3: Recv the values from the senders and check:
@@ -1189,7 +1201,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
     color         = ext_face_comm->color_out;
 
     MPI_CHECK( MPI_Recv(&nitem_color_out,1,MPI_INT,color,
-                        MPI_CHKCOMM_FACE_TAG,parmesh->comm,
+                        MPI_CHKCOMM_FACE_TAG,comm,
                         &status[0]), ier=0 );
 
     /* Check the size of the communicators */
@@ -1208,7 +1220,7 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
 
     rtorecv       = ext_face_comm->rtorecv;
     MPI_CHECK( MPI_Recv(rtorecv,9*nitem_color_out,MPI_DOUBLE,color,
-                        MPI_CHKCOMM_FACE_TAG+1,parmesh->comm,
+                        MPI_CHKCOMM_FACE_TAG+1,comm,
                         &status[0]), ier = 0 );
 
     /* Check the values of the face in the communicator */
@@ -1256,11 +1268,11 @@ int PMMG_check_extFaceComm( PMMG_pParMesh parmesh )
       }
     }
   }
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
   if ( !ieresult ) goto end;
 
   MPI_CHECK( MPI_Waitall(2*parmesh->next_face_comm,request,status), ier=0 );
-  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),ieresult=0 );
+  MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,comm ),ieresult=0 );
 
 end:
   for ( k=0; k<parmesh->next_face_comm; ++k ) {

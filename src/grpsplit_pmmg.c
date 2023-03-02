@@ -1519,17 +1519,19 @@ fail_counters:
 /**
  * \param parmesh pointer toward the parmesh
  * \param ier error value to return
+ * \param comm MPI communicator to use
+ *
  * \return \a ier
  *
  * Check communicator consistency.
  *
  */
 static inline
-int PMMG_check_allComm(PMMG_pParMesh parmesh,int ier) {
+int PMMG_check_allComm(PMMG_pParMesh parmesh,const int ier,MPI_Comm comm) {
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
-  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
-  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh,comm) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh,comm) && "Wrong external face comm" );
   return ier;
 }
 
@@ -1568,7 +1570,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   if ( !parmesh->ngrp ) {
     /* Check the communicators */
-    PMMG_check_allComm(parmesh,ret_val);
+    PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
     grpOld = NULL;
     meshOld = NULL;
   } else {
@@ -1579,7 +1581,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
   if ( !meshOld ) {
     /* Check the communicators */
-    PMMG_check_allComm(parmesh,ret_val);
+    PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
   }
 
   /* Count how many groups to split into */
@@ -1655,7 +1657,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
       }
-      return PMMG_check_allComm(parmesh,ret_val);
+      return PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
     } else {
       if ( parmesh->ddebug )
         fprintf( stdout,
@@ -1729,8 +1731,8 @@ fail_part:
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
-  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
-  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh,parmesh->comm) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh,parmesh->comm) && "Wrong external face comm" );
 
   return ret_val;
 }
@@ -1740,27 +1742,27 @@ fail_part:
  * \param target software for which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
+ * \param repartitioning_mode strategy to use for repartitioning
  *
  * \return 0 if fail, 1 if success, -1 if the mesh is not correct
  *
  * Redistribute the n groups of listgrps into \a target_mesh_size groups.
  *
  */
-int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
+int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartitioning_mode) {
   int     *vtxdist,*priorityMap;
   int     ier,ier1;
 #ifndef NDEBUG
   int     ier_glob;
 #endif
-  int     repartitioning;
   int     tim;
   mytime  ctim[3];
   char    stim[32];
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
-  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_extFaceComm ( parmesh,parmesh->comm ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
-  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh,parmesh->comm ) );
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
       tminit(ctim,3);
@@ -1768,14 +1770,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
       chrono(ON,&(ctim[tim]));
   }
 
-  /* First iteration -> we are repartitioning the mesh after loading it from an HDF5 file. */
-  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
-    repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
-  else
-    repartitioning = parmesh->info.repartitioning;
-
   /* Store the nb of tetra per group bbefore merging */
-  if( (repartitioning == PMMG_REDISTRIBUTION_ifc_displacement) &&
+  if( (repartitioning_mode == PMMG_REDISTRIBUTION_ifc_displacement) &&
       (target == PMMG_GRPSPL_DISTR_TARGET) ) {
     if( !PMMG_init_ifcDirection( parmesh, &vtxdist, &priorityMap ) ) return 0;
   }
@@ -1820,8 +1816,8 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   if ( parmesh->ddebug ) {
 
-    PMMG_qualhisto( parmesh, PMMG_INQUA, 0 );
-    PMMG_prilen( parmesh, 0, 0 );
+    PMMG_qualhisto( parmesh, PMMG_INQUA, 0, parmesh->comm );
+    PMMG_prilen( parmesh, 0, 0, parmesh->comm );
 
   }
 
@@ -1830,7 +1826,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  if( repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  if( repartitioning_mode == PMMG_REDISTRIBUTION_ifc_displacement ) {
     /* Rebuild tetra adjacency (mesh graph construction is skipped) */
     MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
     if ( !mesh->adja ) {
@@ -1850,7 +1846,7 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
 
   /** Split the group into the suitable number of groups */
   if ( ier )
-    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning);
+    ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning_mode);
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
@@ -1862,9 +1858,9 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh) {
     fprintf(stderr,"\n  ## Split group problem.\n");
 
   assert ( PMMG_check_intFaceComm ( parmesh ) );
-  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_extFaceComm ( parmesh,parmesh->comm ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
-  assert ( PMMG_check_extNodeComm ( parmesh ) );
+  assert ( PMMG_check_extNodeComm ( parmesh,parmesh->comm ) );
 
   return ier;
 }

@@ -579,12 +579,17 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param var pointer toward the structure for local loop variables
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Local iterations of surface coloring to assign normal vectors on parallel
  * ridge points.
  */
-int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
+int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,MPI_Comm comm ){
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   int            i,idx;
 
@@ -611,7 +616,7 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ){
 
   /* Check if any process has marked the need for a parallel update */
   MPI_CHECK( MPI_Allreduce( MPI_IN_PLACE,&var->updpar,1,MPI_INT16_T,MPI_MAX,
-                            parmesh->comm ),return 0 );
+                            comm ),return 0 );
 
   return 1;
 }
@@ -631,23 +636,26 @@ int PMMG_hashNorver_compExt( const void *a,const void *b ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Communicate ridge extremities on parallel ridge points.
  */
-int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
+int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm ) {
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
   int            *itosend,*itorecv,*intvalues;
   int            k,nitem,color,i,idx,j,pos,d;
-  MPI_Comm       comm;
   MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );
   assert( grp->mesh == mesh );
 
-  comm = parmesh->comm;
   intvalues = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
@@ -735,19 +743,22 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh ) {
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Communicate bitwise integer flags on parallel points, and reduce them on the
  * internal point communicator.
  */
-int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
+int PMMG_hashNorver_communication( PMMG_pParMesh parmesh,MPI_Comm comm ){
   PMMG_pExt_comm ext_edge_comm;
   int            *itosend,*itorecv,*intvalues;
   int            k,nitem,color,i,idx,j;
-  MPI_Comm       comm;
   MPI_Status     status;
 
-  comm = parmesh->comm;
   intvalues = parmesh->int_edge_comm->intvalues;
 
   /** Exchange values on the interfaces among procs */
@@ -793,19 +804,22 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh ){
 
 /**
  * \param parmesh pointer toward the parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Communicate contributions to normal and tangent vectors on triangles touching
  * parallel points, and add them to the point vectors.
  */
-int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh ) {
+int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh,MPI_Comm comm ) {
   PMMG_pExt_comm ext_node_comm;
   double         *rtosend,*rtorecv,*doublevalues;
   int            *itosend,*itorecv,*intvalues,k,nitem,color,i,idx,j;
-  MPI_Comm       comm;
   MPI_Status     status;
 
-  comm = parmesh->comm;
   intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
@@ -897,13 +911,18 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param var pointer toward the structure for local loop variables
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Compute normal and tangent vectors on parallel points, using a hash tables
  * for edges. once C1 portions of a surface touching a parallel ridge point have
  * been consistently colored.
  */
-int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
+int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Comm comm ){
   MMG5_pxPoint pxp;
   double *doublevalues,dd,l[2],*c[2];
   int    *intvalues,idx,d,j;
@@ -988,7 +1007,7 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var ){
   }
 
   /* Parallel reduction on normal vectors */
-  if( !PMMG_hashNorver_communication_nor( parmesh ) )
+  if( !PMMG_hashNorver_communication_nor( parmesh,comm ) )
     return 0;
 
   /* Unload communicator */
@@ -1169,12 +1188,17 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param hpar hash table parallel edges
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if failure, 1 if success.
  *
  * Set the owner rank of each parallel edge, and store it the \var base field
  * of the edge structure.
  */
-int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
+int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm ) {
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
   MMG5_pMesh     mesh;
@@ -1184,10 +1208,8 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
   int            *intvalues,*itosend,*itorecv;
   int            idx,k,nitem,color,edg,ia,ie,ifac,ip[2],i;
   int16_t        tag;
-  MPI_Comm       comm;
   MPI_Status     status;
 
-  comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
@@ -1270,6 +1292,11 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
  * \param hash pointer toward the hash table for edges touching a parallel point
  * \param hpar pointer toward the hash table for parallel edges
  * \param var pointer toward the structure for local loop variables
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
  * \return 0 if fail, 1 if success.
  *
  * Compute normal and tangent vectors on parallel points, using hash tables
@@ -1280,7 +1307,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar ) {
  * normal vectors.
  */
 int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
-                     MMG5_HGeom *hpar,PMMG_hn_loopvar *var ){
+                     MMG5_HGeom *hpar,PMMG_hn_loopvar *var,MPI_Comm comm ){
   PMMG_pGrp      grp = &parmesh->listgrp[0];
   PMMG_pInt_comm int_node_comm,int_edge_comm;
   MMG5_pTetra    pt;
@@ -1323,7 +1350,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
    *     extremity. */
-  if( !PMMG_hashNorver_communication_ext( parmesh,mesh ) ) return 0;
+  if( !PMMG_hashNorver_communication_ext( parmesh,mesh,comm ) ) return 0;
 
   /* Switch edge color if its extremity is found */
   if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) )
@@ -1346,7 +1373,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
 
   /* 3.2) Parallel update iterations */
   while( var->updpar ) {
@@ -1355,7 +1382,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     var->updpar = 0;
 
     /* 3.2.1) Parallel communication */
-    if( !PMMG_hashNorver_communication( parmesh ) ) return 0;
+    if( !PMMG_hashNorver_communication( parmesh,comm ) ) return 0;
 
     /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
@@ -1364,12 +1391,12 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     }
 
     /* 3.2.3) Local update iterations */
-    if( !PMMG_hashNorver_locIter( parmesh,var ) ) return 0;
+    if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
 
   }
 
   /** 4) Compute normal vectors */
-  if( !PMMG_hashNorver_normals( parmesh,var ) ) return 0;
+  if( !PMMG_hashNorver_normals( parmesh,var,comm ) ) return 0;
 
   return 1;
 }
@@ -1693,15 +1720,18 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
  * \param var pointer toward the structure for local loop variables
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * Check for singularities.
  * \remark Modeled after the MMG5_singul function.
  */
-int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
+int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_Comm comm) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  MPI_Comm       comm;
   MPI_Status     status;
   MMG5_pPoint    ppt;
   double         ux,uy,uz,vx,vy,vz,dd;
@@ -1711,7 +1741,6 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   double         *doublevalues,*rtosend,*rtorecv;
 
-  comm   = parmesh->comm;
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   int_node_comm = parmesh->int_node_comm;
@@ -2002,6 +2031,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
  * \param parmesh pointer to the parmesh structure
  * \param mesh pointer to the mesh structure
  * \param pHash pointer to the parallel edges hash table
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if failure.
  *
@@ -2019,7 +2052,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var) {
  * MG_PARBDYBDY only on the process who has them with the right orientation
  * (by PMMG_parbdyTria), so they will be processed only once.
  */
-int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
+int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
@@ -2032,14 +2065,12 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   int            i,i1,i2;
   int            idx,edg,d;
   int16_t        tag;
-  MPI_Comm       comm;
   MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );
   grp = &parmesh->listgrp[0];
   assert( mesh == grp->mesh );
 
-  comm = parmesh->comm;
   int_edge_comm = parmesh->int_edge_comm;
 
   /* Allocated edge intvalues to tag non-manifold and reference edges */
@@ -2591,11 +2622,15 @@ int PMMG_analys_comms_init( PMMG_pParMesh parmesh ) {
 /**
  * \param parmesh pointer toward the parmesh structure
  * \param mesh pointer toward the mesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
  * tria structure in order to be able to build communicators.
  */
-int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   MMG5_Hash       hash;
   MMG5_HGeom      hpar,hnear;
   PMMG_hn_loopvar var;
@@ -2650,7 +2685,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* Build edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) {
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2658,7 +2693,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* Compute global node numbering and store it in ppt->tmp */
-  if( !PMMG_Compute_verticesGloNum( parmesh ) ) {
+  if( !PMMG_Compute_verticesGloNum( parmesh,comm ) ) {
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2689,7 +2724,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar ) ) {
+  if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2805,7 +2840,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  if( !PMMG_set_edge_owners( parmesh,&hpar ) ) {
+  if( !PMMG_set_edge_owners( parmesh,&hpar,comm ) ) {
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2821,7 +2856,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   /* identify singularities on parallel points.
    * No need to call a *_setVertexNmTag function, as it already takes into
    * account non-manifold configurations. */
-  if ( !PMMG_singul(parmesh,mesh,&var) ) {
+  if ( !PMMG_singul(parmesh,mesh,&var,comm) ) {
     fprintf(stderr,"\n  ## PMMG_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2835,7 +2870,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var ) ) {
+  if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var,comm ) ) {
     fprintf(stderr,"\n  ## Normal problem on parallel points. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);

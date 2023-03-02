@@ -4171,11 +4171,10 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   return 1;
 }
 
-static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
-
-  fprintf(stderr, "\n  ## Error: %s: Not implemented.\n", __func__);
-
-  return 0;
+static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id,
+                                  hid_t dcpl_id, hsize_t *nentitiesl,
+                                  hsize_t *nentitiesg, hsize_t *offset) {
+  return 1;
 }
 #endif
 
@@ -4253,9 +4252,6 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
   /* Set MPI variables */
   nprocs = parmesh->nprocs;
   rank = parmesh->myrank;
-
-  /* Store the input format in the parmesh->info.fmtout field */
-  parmesh->info.fmtout = PMMG_FMT_HDF5;
 
   /* Shut HDF5 error stack */
   H5Eset_auto(H5E_DEFAULT, NULL, NULL);

@@ -578,7 +578,9 @@ int PMMG_parsop ( PMMG_pParMesh parmesh )
   MMG5_pMesh mesh;
   int        ier;
 
-  assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+  /* We may have ngrp=0 if distributed inputs have been provided on a different
+   * number of processes than the ones used for computation */
+  assert ( parmesh->ngrp <= 1 && "more than one group per rank not implemented");
   mesh = parmesh->listgrp[0].mesh;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */

@@ -931,8 +931,8 @@ end:
 
   if ( !PMMG_pack_faceCommunicators(parmesh) ) ier = -1;
 
-  assert ( PMMG_check_extFaceComm(parmesh) );
-  assert ( PMMG_check_extNodeComm(parmesh) );
+  assert ( PMMG_check_extFaceComm(parmesh,parmesh->comm) );
+  assert ( PMMG_check_extNodeComm(parmesh,parmesh->comm) );
 
   /* Update tag on points, tetra */
   if ( !PMMG_updateTag(parmesh) ) return -1;
@@ -1966,7 +1966,7 @@ int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int called_from_dis
   }
 
   /** Step 6: Node communicators reconstruction from the face ones */
-  if ( !PMMG_build_nodeCommFromFaces(parmesh) ) {
+  if ( !PMMG_build_nodeCommFromFaces(parmesh,parmesh->comm) ) {
     fprintf(stderr,"\n  ## Unable to build the new node communicators from"
             " the face ones.\n");
     ier = -1;
@@ -2032,6 +2032,11 @@ end:
 
 /**
  * \param parmesh pointer toward the mesh structure.
+ * \param repartitionning_mode strategy to use for repartitionning (we want to balance
+ * the graph if the function is called at preprocessing stage due to inputs from
+ * a different number of parititions than the number used during the run (before
+ * libparmmg1 call) or at the end of the iterations to return a balanced mesh
+ * but we want to perform interfaces migration during internal iterations )
  *
  * \return -1 if we fail and can not save the meshes, 0 if we fail but can save
  * the meshes, 1 otherwise
@@ -2040,31 +2045,18 @@ end:
  * processors and send and recieve the groups from the other processors.
  *
  */
-int PMMG_distribute_grps( PMMG_pParMesh parmesh ) {
+int PMMG_distribute_grps( PMMG_pParMesh parmesh, int repartitioning_mode ) {
   idx_t *part;
   int   ngrp,ier;
 
   MPI_Allreduce( &parmesh->ngrp, &ngrp, 1, MPI_INT, MPI_MIN, parmesh->comm);
-
-//  if ( !ngrp ) {
-//    fprintf(stderr,"Error:%s:%d: Empty partition. Not yet implemented\n",
-//            __func__,__LINE__);
-//    return 0;
-//  }
 
   /** Get the new partition of groups (1 group = 1 metis node) */
   part = NULL;
   PMMG_CALLOC(parmesh,part,parmesh->ngrp,idx_t,"allocate parmetis buffer",
               return 0);
 
-  /* First iteration -> we are repartitioning the mesh after loading it from an HDF5 file. */
-  int repartitioning;
-  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
-    repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
-  else
-    repartitioning = parmesh->info.repartitioning;
-
-  if( repartitioning == PMMG_REDISTRIBUTION_ifc_displacement ) {
+  if( repartitioning_mode == PMMG_REDISTRIBUTION_ifc_displacement ) {
 
     ier = PMMG_part_getProcs( parmesh, part );
 

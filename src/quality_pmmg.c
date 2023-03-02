@@ -148,12 +148,16 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
  * \param opt PMMG_INQUA if called before the Mmg call, PMMG_OUTQUA otherwise
  * \param isCentral 1 for centralized mesh (no parallel communication), 0 for
  * distributed mesh
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail;
  *
  * Print quality histogram among all group meshes and all processors
  */
-int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
+int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral, MPI_Comm comm )
 {
   PMMG_pGrp    grp;
   PMMG_pInt_comm int_node_comm;
@@ -170,7 +174,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   int          med, med_cur, med_result;
   int          his[PMMG_QUAL_HISSIZE],his_cur[PMMG_QUAL_HISSIZE],his_result[PMMG_QUAL_HISSIZE];
   int          nrid, nrid_cur, nrid_result,ier;
-  MPI_Comm     comm;
   MPI_Op       iel_min_op;
   MPI_Datatype mpi_iel_min_t;
   MPI_Datatype types[ PMMG_QUAL_MPISIZE ] = { MPI_DOUBLE, MPI_INT, MPI_INT, MPI_INT };
@@ -180,12 +183,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
                                               offsetof( min_iel_t, iel_grp ),
                                               offsetof( min_iel_t, cpu ) };
   int lens[ PMMG_QUAL_MPISIZE ]           = { 1, 1, 1, 1 };
-
-  /* When preprocessing a mesh that was loaded from an HDF5 file, set the MPI comm to the read comm */
-  if (parmesh->info.fmtout == PMMG_FMT_HDF5 && parmesh->iter == PMMG_UNSET)
-    comm = parmesh->info.read_comm;
-  else
-    comm = parmesh->comm;
 
   /* Calculate the quality values for local process */
   iel_grp = 0;
@@ -369,6 +366,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
  * \param metRidTyp (to fill).
  * \param bd_in (to fill).
  * \param hl (to fill).
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 otherwise.
  *
@@ -377,7 +378,8 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
  */
 int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, double* avlen,
                         double* lmin, double* lmax, int* ned, int* amin, int* bmin, int* amax,
-                        int* bmax, int* nullEdge,int8_t metRidTyp, double** bd_in, int hl[9] )
+                        int* bmax, int* nullEdge,int8_t metRidTyp, double** bd_in,
+                        int hl[9],MPI_Comm comm )
 {
   PMMG_pGrp       grp;
   PMMG_pInt_comm  int_edge_comm;
@@ -407,7 +409,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   if ( PMMG_hashPar(mesh,&hpar) != PMMG_SUCCESS ) return 0;
 
   /* Build parallel edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) return 0;
 
   /* Initialize internal communicator with current rank */
   int_edge_comm = parmesh->int_edge_comm;
@@ -585,6 +587,10 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
  * \param parmesh pointer to parmesh structure
  * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
  * \param isCentral 1 for centralized mesh, 0 for distributed mesh.
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail;
  *
@@ -596,7 +602,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
  * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
  *
  */
-int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
+int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral, MPI_Comm comm )
 {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -656,20 +662,22 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
                                    &lenStats.avlen, &lenStats.lmin,
                                    &lenStats.lmax, &lenStats.ned, &lenStats.amin,
                                    &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                   &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+                                   &lenStats.nullEdge, metRidTyp, &bd,
+                                   lenStats.hl );
       else
-        ier = PMMG_computePrilen( parmesh, mesh, met, 
+        ier = PMMG_computePrilen( parmesh, mesh, met,
                                   &lenStats.avlen, &lenStats.lmin,
                                   &lenStats.lmax, &lenStats.ned, &lenStats.amin,
                                   &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                  &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+                                  &lenStats.nullEdge, metRidTyp, &bd,
+                                  lenStats.hl,comm );
     }
   }
 
   if( isCentral )
     ieresult = ier;
   else
-    MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+    MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, comm );
 
   if ( !ieresult ) {
     MPI_Type_free( &mpi_lenStats_t );
@@ -680,7 +688,8 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
   if( isCentral )
     memcpy(&lenStats_result,&lenStats,sizeof(PMMG_lenStats));
   else
-    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op,
+                0, comm );
 
   MPI_Type_free( &mpi_lenStats_t );
   MPI_Op_free( &mpi_lenStats_op );
