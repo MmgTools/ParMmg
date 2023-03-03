@@ -493,7 +493,8 @@ int PMMG_grp_to_saveEdges( PMMG_pParMesh parmesh,int grpId,int16_t tag,char *bas
   }
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
-  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  snprintf( name, strlen(basename)+9+4*sizeof(int),"%s-P%02d-%02d.mesh",
+            basename, parmesh->myrank, grpId );
 
   fid = fopen(name,"w");
   fprintf(fid,"MeshVersionFormatted 2\n");
@@ -541,7 +542,8 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
   field= grp->field;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
-  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  snprintf( name, strlen(basename)+9+4*sizeof(int),"%s-P%02d-%02d.mesh",
+            basename, parmesh->myrank, grpId );
 
   /* Rebuild boundary */
   if ( !mesh->adja ) {
@@ -558,14 +560,16 @@ int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename ) {
 
   /* Save metrics */
   if ( met->m ) {
-    sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+    snprintf( name, strlen(basename)+8+4*sizeof(int),"%s-P%02d-%02d.sol",
+              basename, parmesh->myrank, grpId );
     MMG3D_saveSol( mesh, met, name );
   }
 
   /* Save field */
   if ( mesh->nsols ) {
     assert ( field );
-    sprintf( name, "%s-fields-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+    snprintf( name, strlen(basename)+8+7+4*sizeof(int),"%s-fields-P%02d-%02d.sol",
+              basename, parmesh->myrank, grpId );
     MMG3D_saveAllSols( mesh, &field, name );
   }
 
@@ -590,8 +594,8 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
   mesh = grp->mesh;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
-  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
-
+  snprintf( name, strlen(basename)+9+4*sizeof(int),"%s-P%02d-%02d.mesh",
+            basename, parmesh->myrank, grpId );
 
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
@@ -601,7 +605,8 @@ int PMMG_grp_mark_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basename 
 
   MMG3D_saveMesh( mesh, name );
 
-  sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+  snprintf( name, strlen(basename)+8+4*sizeof(int),"%s-P%02d-%02d.sol",
+            basename, parmesh->myrank, grpId );
   PMMG_saveMark( mesh, name );
 
 
@@ -626,7 +631,8 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
   mesh = grp->mesh;
 
   assert( ( strlen( basename ) < 2048 - 14 ) && "filename too big" );
-  sprintf( name, "%s-P%02d-%02d.mesh", basename, parmesh->myrank, grpId );
+  snprintf( name, strlen(basename)+9+4*sizeof(int),"%s-P%02d-%02d.mesh",
+            basename, parmesh->myrank, grpId );
 
   ier = MMG3D_hashTetra( mesh, 0 );
   MMG3D_bdryBuild( mesh ); //note: no error checking
@@ -636,7 +642,8 @@ int PMMG_grp_quality_to_saveMesh( PMMG_pParMesh parmesh, int grpId, char *basena
 
   MMG3D_saveMesh( mesh, name );
 
-  sprintf( name, "%s-P%02d-%02d.sol", basename, parmesh->myrank, grpId );
+  snprintf( name, strlen(basename)+8+4*sizeof(int),"%s-P%02d-%02d.sol",
+            basename, parmesh->myrank, grpId );
   PMMG_saveQual( mesh, name );
 
 
@@ -729,10 +736,10 @@ void PMMG_print_ext_comm( PMMG_pParMesh parmesh, PMMG_pInt_comm int_comm,
  */
 void PMMG_dump_malloc_allocator_info( char *msg, int id )
 {
-  char name[ 16 ];
+  char name[ MMG5_FILENAME_LEN_MAX ];
   FILE *fp;
 
-  sprintf(name,"mem_info-%02d.txt", id );
+  snprintf(name,14+2*sizeof(int),"mem_info-%02d.txt", id );
   fp = PMMG_my_fopen( name, "a" );
 
 #ifdef __linux__

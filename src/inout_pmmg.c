@@ -41,7 +41,6 @@
  * \return the number of digits of n.
  *
  */
-static inline
 int PMMG_count_digits(int n) {
 
   int count = 0;
@@ -426,7 +425,8 @@ void PMMG_insert_rankIndex(PMMG_pParMesh parmesh,char **endname,const char *init
     }
   }
   int len = strlen(*endname);
-  sprintf((*endname)+len, ".%d",parmesh->myrank );
+  int rank_len = PMMG_count_digits(parmesh->myrank);
+  snprintf((*endname)+len,2+rank_len*sizeof(int), ".%d",parmesh->myrank );
   if ( fmt==1 ) {
     strcat ( *endname, binext );
   }
@@ -2465,7 +2465,8 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       PMMG_CALLOC(parmesh, solname, strlen("SolAtVertices") + ndigits + 1, char, "solname", goto free_buf);
       PMMG_CALLOC(parmesh, tmp, ndigits + 1, char, "tmp", goto free_buf);
       strcpy(solname, "SolAtVertices");
-      sprintf(tmp, "%d", vcount);
+      int len = PMMG_count_digits(vcount);
+      snprintf(tmp,len*sizeof(int), "%d", vcount);
       strcat(solname, tmp);
       vcount++;
     }
@@ -2487,7 +2488,8 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       PMMG_CALLOC(parmesh, solname, strlen("SolAtTetrahedra") + ndigits + 1, char, "solname", goto free_buf);
       PMMG_CALLOC(parmesh, tmp, ndigits + 1, char, "tmp", goto free_buf);
       strcpy(solname, "SolAtTetrahedra");
-      sprintf(tmp, "%d", vcount);
+      int len = PMMG_count_digits(vcount);
+      snprintf(tmp,len*sizeof(int), "%d", vcount);
       strcat(solname, tmp);
       tcount++;
     }

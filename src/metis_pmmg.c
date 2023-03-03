@@ -57,10 +57,12 @@ int PMMG_saveGraph( PMMG_pParMesh parmesh,idx_t *xadj,idx_t *adjncy,
   idx_t istart,istop,iadj,nadj;
   int ip,k,j,jel;
 
-  PMMG_CALLOC(parmesh,sname,strlen(filename)+9,char,"file name prefix",return 0);
-  PMMG_CALLOC(parmesh,smesh,strlen(filename)+15,char,"mesh file name",return 0);
-  PMMG_CALLOC(parmesh,ssol,strlen(filename)+15,char,"sol file name",return 0);
-  sprintf(sname,"%s-P%02d-I%02d",filename,parmesh->myrank,parmesh->iter);
+  size_t snamelen = strlen(filename)+1+4*sizeof(int);
+  PMMG_CALLOC(parmesh,sname,snamelen,char,"file name prefix",return 0);
+  PMMG_CALLOC(parmesh,smesh,snamelen+5,char,"mesh file name",return 0);
+  PMMG_CALLOC(parmesh,ssol,snamelen+4,char,"sol file name",return 0);
+
+  snprintf(sname,snamelen,"%s-P%02d-I%02d",filename,parmesh->myrank,parmesh->iter);
   strcpy(smesh,sname);
   strcat(smesh,".mesh");
   strcpy(ssol,sname);
@@ -1170,7 +1172,8 @@ int PMMG_graph_parmeshGrps2parmetis( PMMG_pParMesh parmesh,idx_t **vtxdist,
   /* Print graph to file */
 /*  FILE* fid;
   char filename[48];
-  sprintf(filename,"graph_proc%d",parmesh->myrank);
+  int len = PMMG_count_digits(parmesh->myrank);
+  snprintf(filename,11+len*sizeof(int),"graph_proc%d",parmesh->myrank);
   fid = fopen(filename,"w");
   for( k = 0; k < parmesh->nprocs+1; k++ )
     fprintf(fid,"%d\n",(*vtxdist)[k]);
@@ -1484,7 +1487,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
       /* Print graph to file */
 /*      FILE* fid;
       char filename[48];
-      sprintf(filename,"part_centralized");
+      snprintf(filename,17,"part_centralized");
       fid = fopen(filename,"w");
       for( iproc = 0; iproc < vtxdist[nproc]; iproc++ )
         fprintf(fid,"%d\n",part_seq[iproc]);
