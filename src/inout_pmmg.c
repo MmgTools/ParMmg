@@ -2420,9 +2420,6 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &isMet, 1, MPI_INT, MPI_MAX, parmesh->comm), return 0);
 
   if (!isMet) {
-    if (parmesh->myrank == parmesh->info.root) {
-      fprintf(stderr, "\n  ## Warning: %s: No metric data to save. \n", __func__);
-    }
     return 1;
   }
   if (met->size != 1 && met->size != 6 && !(met->size == 3 && mesh->info.lag != -1)) {
@@ -4540,7 +4537,7 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
 
   if ( ier == -1 ) {
     if (parmesh->myrank == parmesh->info.root) {
-      fprintf(stderr,"\n  ## Warning: %s: Metric not found, using default metric.\n",__func__);
+      fprintf(stderr,"  ** %s  NOT FOUND. USE DEFAULT METRIC.\n",__func__);
     }
   }
   if ( ier == 0 ) {
