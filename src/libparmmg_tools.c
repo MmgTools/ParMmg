@@ -119,6 +119,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-in    file  input triangulation\n");
     fprintf(stdout,"-out   file  output triangulation\n");
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
+    fprintf(stdout,"-met   file  load metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
     fprintf(stdout,"-noout       do not write output triangulation\n");
     fprintf(stdout,"-centralized-output centralized output (Medit format only)");
@@ -298,7 +299,24 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
 
       case 'm':
-        if ( !strcmp(argv[i],"-mmg-v") ) {
+
+        if ( !strcmp(argv[i],"-met") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputMetName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_mmgargv;
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
+            ret_val = 0;
+            goto fail_mmgargv;
+          }
+        }
+        else if ( !strcmp(argv[i],"-mmg-v") ) {
 
           /* Mmg verbosity */
           if ( ++i < argc ) {
@@ -453,6 +471,22 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             goto fail_proc;
           }
         }
+        else if ( !strcmp(argv[i],"-disp") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputDispName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
         else if ( !strcmp(argv[i],"-d") ) {
           /* debug */
           if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
@@ -477,7 +511,23 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 #endif
 
       case 's':
-        if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
+        if ( !strcmp(argv[i],"-sol") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputLsName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
+              ret_val = 0;
+              goto fail_proc;
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+        else if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
           parmesh->listgrp[0].mesh->info.nosurf = 0;
         }
         else {
