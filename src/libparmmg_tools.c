@@ -815,6 +815,8 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
 
   /** Step 3: file saving */
   if ( !bin ) {
+    fprintf(fid,"\nNumberOfPartitions\n%d\n",parmesh->nprocs);
+
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
       ncomm = parmesh->next_face_comm;
       fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);

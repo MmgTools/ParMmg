@@ -43,6 +43,8 @@
  */
 int PMMG_count_digits(int n) {
 
+  if ( n==0 ) return 1;
+
   int count = 0;
   while (n != 0) {
     n /= 10;
@@ -207,6 +209,10 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   int         binch,bpos;
   char        chaine[MMG5_FILESTR_LGTH],strskip[MMG5_FILESTR_LGTH];
 
+  /** Open mesh file */
+  ier = MMG3D_openMesh(mesh->info.imprim,filename,&inm,&bin,"rb","rb");
+  if ( !ier ) return 0;
+
   assert( parmesh->ngrp == 1 );
   mesh = parmesh->listgrp[0].mesh;
 
@@ -223,9 +229,6 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
     }
   }
 
-  /** Open mesh file */
-  ier = MMG3D_openMesh(mesh->info.imprim,filename,&inm,&bin,"rb","rb");
-
   /** Read communicators */
   pos = 0;
   ncomm = 0;
@@ -240,8 +243,10 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         fgets(strskip,MMG5_FILESTR_LGTH,inm);
         continue;
       }
-
-      if(!strncmp(chaine,"ParallelTriangleCommunicators",strlen("ParallelTriangleCommunicators"))) {
+      if (!strncmp(chaine,"NumberOfPartitions",strlen("NumberOfPartitions"))) {
+        MMG_FSCANF(inm,"%d",&parmesh->info.npartin);
+        continue;
+      } else if(!strncmp(chaine,"ParallelTriangleCommunicators",strlen("ParallelTriangleCommunicators"))) {
         MMG_FSCANF(inm,"%d",&ncomm);
         pos = ftell(inm);
         API_mode = PMMG_APIDISTRIB_faces;
@@ -266,7 +271,14 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
     while(fread(&binch,MMG5_SW,1,inm)!=0 && endcount != 2 ) {
       if(iswp) binch=MMG5_swapbin(binch);
       if(binch==54) break;
-      if(!ncomm && binch==70) { // ParallelTriangleCommunicators
+      if( binch==74 ) { // NumberOfCommunicators
+        MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
+        if(iswp) bpos=MMG5_swapbin(bpos);
+        MMG_FREAD(&parmesh->info.npartin,MMG5_SW,1,inm);
+        if(iswp) parmesh->info.npartin=MMG5_swapbin(parmesh->info.npartin);
+        pos = ftell(inm);
+      }
+      else if(!ncomm && binch==70) { // ParallelTriangleCommunicators
         MMG_FREAD(&bpos,MMG5_SW,1,inm); //NulPos
         if(iswp) bpos=MMG5_swapbin(bpos);
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
@@ -297,8 +309,8 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
   }
 
   /* Set API mode */
-  if( API_mode == PMMG_UNSET ) {
-    fprintf(stderr,"### Error: No parallel communicators provided on rank %d!\n",parmesh->myrank);
+  if ( API_mode == PMMG_UNSET ) {
+    fprintf(stderr,"## Error: No parallel communicators provided on rank %d!\n",parmesh->myrank);
     fclose(inm);
     return 0;
   } else if( !PMMG_Set_iparameter( parmesh, PMMG_IPARAM_APImode, API_mode ) ) {
@@ -478,16 +490,82 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
 
   ier = MMG3D_loadMesh(mesh,data);
 
+  /* Check the presence of a partition on root rank (to allow the future
+   * broadcast of npartin from root rank) */
+  if ( parmesh->info.root == parmesh->myrank ) {
+    if ( !ier ) {
+      fprintf(stderr,"\n  ## Error: %s: the specified root rank expects to find a"
+              " mesh file containing a partition.\n",__func__);
+    }
+  }
+
+  /* Count the number of partitions used to write the input mesh */
+  int count_npartin;
+  int has_file = (ier > 0) ? 1 : 0 ;
+  MPI_Allreduce(&has_file,&count_npartin,1,MPI_INT,MPI_SUM,parmesh->comm);
+
+  /* Check mesh parser errors */
+  int ier_glob;
+  MPI_Allreduce(&ier,&ier_glob,1,MPI_INT,MPI_MIN,parmesh->comm);
+  if ( ier_glob < 0) {
+    /* Mesh has been opened with success but either one reader at least has
+     * failed or root rank has no mesh file */
+    MMG5_SAFE_FREE(data);
+    return 0;
+  }
+
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
 
-  if ( ier < 1 ) {
-    MMG5_SAFE_FREE(data);
-    return ier;
+  if ( ier ) {
+    /* Load parallel communicators */
+    ier = PMMG_loadCommunicators( parmesh,data );
+  }
+  else {
+    /* Very ugly : if the rank is above the number of partitions of the input mesh,
+       allocate the internal communicators.
+       Also set ngrp to 0 for loadBalancing to work properly. */
+    parmesh->ngrp = 0;
+
+    parmesh->info.API_mode = PMMG_APIDISTRIB_faces;
+    PMMG_CALLOC(parmesh, parmesh->int_node_comm, 1, PMMG_Int_comm, "int_node_comm", return 0);
+    PMMG_CALLOC(parmesh, parmesh->int_face_comm, 1, PMMG_Int_comm, "int_face_comm", return 0);
+
+    ier = 1;
   }
 
-  /* Load parallel communicators */
-  ier = PMMG_loadCommunicators( parmesh,data );
+  /* If we load mesh from an higer number of processes, some processes haven't
+   * readed npartin (which can be lower or greater than the number of procs).
+   * Broadcast this value from rank root: it means that we assume that the root
+   * process has an input file. */
+  MPI_CHECK(MPI_Bcast(&parmesh->info.npartin,1,MPI_INT,parmesh->info.root,parmesh->comm),
+            MMG5_SAFE_FREE(data);ier=0);
+
+  /* If mesh contains info about the number of partitions saved, check that it
+   * matches the number of loaded files */
+  if ( parmesh->info.npartin != count_npartin ) {
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr,"\n  ## Error: %s: Unable to load mesh, %d partition(s) "
+              "expected, %d file(s) found.\n",__func__,parmesh->info.npartin,
+              count_npartin);
+    }
+    return 0;
+  }
+
+  /* Reading more partitions than there are procs available is not supported yet */
+  if ( parmesh->info.npartin > parmesh->nprocs ) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Can't read %d partitions with %d procs yet.\n",
+              __func__, parmesh->info.npartin, parmesh->nprocs);
+    }
+    return 0;
+  }
+
+  /* Set the new communicator containing the procs reading the mesh */
+  int mpi_color = (parmesh->myrank < parmesh->info.npartin) ? 1 : 0;
+
+  MPI_CHECK( MPI_Comm_split(parmesh->comm,mpi_color,parmesh->myrank,&parmesh->info.read_comm),
+             MMG5_SAFE_FREE(data);ier=0);
 
   MMG5_SAFE_FREE(data);
 
@@ -584,7 +662,11 @@ int PMMG_loadMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
   int        ier;
   char       *data = NULL;
 
-  if ( parmesh->ngrp != 1 ) {
+  if ( parmesh->myrank >= parmesh->info.npartin ) {
+    assert ( !parmesh->ngrp );
+    return 1;
+  }
+  else if ( parmesh->ngrp != 1 ) {
     fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
             __func__);
     return 0;
@@ -4507,7 +4589,7 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
   if ( rank >= parmesh->info.npartin ) {
     parmesh->ngrp = 0;
     if (parmesh->info.API_mode == PMMG_APIDISTRIB_faces)
-      PMMG_CALLOC(parmesh, parmesh->int_node_comm, 1, PMMG_Int_comm, "int_face_comm", goto free_and_return);
+      PMMG_CALLOC(parmesh, parmesh->int_node_comm, 1, PMMG_Int_comm, "int_node_comm", goto free_and_return);
     else
       PMMG_CALLOC(parmesh, parmesh->int_face_comm, 1, PMMG_Int_comm, "int_face_comm", goto free_and_return);
   }
