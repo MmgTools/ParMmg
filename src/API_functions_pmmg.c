@@ -2695,7 +2695,7 @@ int PMMG_Get_format( char *ptr, int fmt ) {
       return PMMG_FMT_HDF5;
     }
   }
-  return defFmt;
+  return tmp_fmt;
 }
 
 

@@ -310,6 +310,7 @@ int main( int argc, char *argv[] )
 
   case PMMG_FMT_HDF5:
     ier = PMMG_loadMesh_hdf5( parmesh, parmesh->meshin );
+    parmesh->info.fmtout = fmtout;
     distributedInput = 1;
 
     break;

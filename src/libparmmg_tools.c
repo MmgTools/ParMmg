@@ -513,9 +513,29 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
       }
     } else {
-      ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                  " adding to mmgArgv for mmg: ",
-                  ret_val = 0; goto fail_proc);
+      if ( parmesh->meshin == NULL ) {
+        if ( !PMMG_Set_inputMeshName(parmesh,argv[i]) ) {
+          ret_val = 0;
+          goto fail_proc;
+        }
+        if ( parmesh->info.imprim == -99 ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_verbose,atoi(argv[i])) ) {
+            ret_val = 0;
+            goto fail_proc;
+          }
+        }
+      }
+      else if ( parmesh->meshout == NULL ) {
+        if ( !PMMG_Set_outputMeshName(parmesh,argv[i]) ) {
+           ret_val = 0;
+           goto fail_proc;
+        }
+      }
+      else {
+        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                    " adding to mmgArgv for mmg: ",
+                    ret_val = 0; goto fail_proc);
+      }
     }
     ++i;
   }
@@ -542,11 +562,26 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     PMMG_Set_name(parmesh,&parmesh->meshin,
                   parmesh->listgrp[0].mesh->namein,"mesh.mesh");
   }
+
   if ( !parmesh->meshout ) {
+    /* .h5 extension are unknown by Mmg: fix this */
+    char *data;
+    MMG5_SAFE_CALLOC(data,strlen(parmesh->meshin)+3,char,return 0);
+    strncpy(data,parmesh->meshin,strlen(parmesh->meshin)+3);
+
+    char *ext = MMG5_Get_filenameExt(data);
+    if ( ext && !strncmp ( ext,".h5",strlen(".h5") ) ) {
+      *ext = '\0';
+      strcat(data,".o.h5");
+      MMG5_Set_outputMeshName( parmesh->listgrp[0].mesh,data );
+    }
+    MMG5_SAFE_FREE(data);
+
     assert ( parmesh->listgrp[0].mesh->nameout );
     PMMG_Set_name(parmesh,&parmesh->meshout,
                   parmesh->listgrp[0].mesh->nameout,"mesh.o.mesh");
   }
+
   if ( (!parmesh->metin) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->namein ) {
     PMMG_Set_name(parmesh,&parmesh->metin,
                   parmesh->listgrp[0].met->namein,"mesh.sol");
