@@ -184,16 +184,12 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
    * and call the mmg3d parser. */
   for ( i = 1; i < argc; ++i ) {
     if ( !strcmp( argv[ i ],"-val" ) ) {
-      RUN_ON_ROOT_AND_BCAST( PMMG_defaultValues(parmesh),0,
+      RUN_ON_ROOT_AND_BCAST( (PMMG_defaultValues(parmesh) && 0),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
-      ret_val = 0;
-      goto fail_mmgargv;
     }
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
-      RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
+      RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
                              parmesh->myrank,ret_val=0; goto fail_mmgargv);
-      ret_val = 0;
-      goto fail_mmgargv;
     }
   }
 
@@ -232,17 +228,15 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         if ( !strcmp(argv[i],"-field") ) {
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
             if ( ! PMMG_Set_inputSolsName(parmesh,argv[i]) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_mmgargv;
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                      fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
             }
           }
           else {
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
-            ret_val = 0;
-            goto fail_mmgargv;
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                    fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
           }
         }
         else {
@@ -298,23 +292,38 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         break;
 
+      case 'i':
+        if ( !strcmp(argv[i],"-in") ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputMeshName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                      fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                    fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
+          }
+        }
+        break;
+
       case 'm':
 
         if ( !strcmp(argv[i],"-met") ) {
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
             if ( ! PMMG_Set_inputMetName(parmesh,argv[i]) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_mmgargv;
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                      fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
             }
           }
           else {
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
-            ret_val = 0;
-            goto fail_mmgargv;
-          }
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                    fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
+         }
         }
         else if ( !strcmp(argv[i],"-mmg-v") ) {
 
@@ -474,17 +483,15 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         else if ( !strcmp(argv[i],"-disp") ) {
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
             if ( ! PMMG_Set_inputDispName(parmesh,argv[i]) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_proc;
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                      fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
             }
           }
           else {
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
-            ret_val = 0;
-            goto fail_proc;
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                    fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
           }
         }
         else if ( !strcmp(argv[i],"-d") ) {
@@ -509,22 +516,33 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         }
         break;
 #endif
-
+      case 'o':
+        if ( (!strcmp(argv[i],"-out")) || (!strcmp(argv[i],"-o")) ) {
+          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+            if ( ! PMMG_Set_outputMeshName(parmesh,argv[i]) ) {
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                      fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
+            }
+          }
+          else {
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) &&
+                                    fprintf(stderr,"Missing filname for %s\n",argv[i-1]) && 0 ),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
+          }
+        }
+        break;
       case 's':
         if ( !strcmp(argv[i],"-sol") ) {
           if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
             if ( ! PMMG_Set_inputLsName(parmesh,argv[i]) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_proc;
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
             }
           }
           else {
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
-            ret_val = 0;
-            goto fail_proc;
+            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                   parmesh->myrank,ret_val=0; goto fail_proc);
           }
         }
         else if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
