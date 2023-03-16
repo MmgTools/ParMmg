@@ -94,6 +94,7 @@ int main( int argc, char *argv[] )
   /* Allocate the main pmmg struct and assign default values */
   if ( 1 != PMMG_Init_parMesh( PMMG_ARG_start,
                                PMMG_ARG_ppParMesh,&parmesh,
+                               PMMG_ARG_pLs,
                                PMMG_ARG_dim,3,
                                PMMG_ARG_MPIComm,MPI_COMM_WORLD,
                                PMMG_ARG_end) ) {
@@ -107,6 +108,7 @@ int main( int argc, char *argv[] )
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
+                             MMG5_ARG_ppLs,   &parmesh->listgrp[0].ls,
                              MMG5_ARG_end) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
@@ -114,6 +116,7 @@ int main( int argc, char *argv[] )
   if ( !PMMG_parmesh_SetMemMax(parmesh) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
+  /* Read command line */
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
@@ -238,10 +241,10 @@ int main( int argc, char *argv[] )
     if ( grp->mesh->info.lag >= 0 || grp->mesh->info.iso ) {
       /* displacement or isovalue are mandatory */
       if( !distributedInput ) {
-        iermesh = ( PMMG_loadSol_centralized( parmesh, NULL ) );
+        iermesh = ( PMMG_loadSol_centralized( parmesh, parmesh->lsin ) );
       }
       else {
-        printf("  ## Error: Distributed input not yet implemented for displacement.\n");
+        printf("  ## Error: Distributed input not yet implemented for displacement or isovalue.\n");
         //int ier_loc = PMMG_loadSol_distributed( parmesh, NULL );
         //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
         iermesh = 0;
@@ -340,107 +343,119 @@ check_mesh_loading:
   }
   else if ( !distributedInput ) {
     /* Parallel remeshing starting from a centralized mesh */
-    ier = PMMG_parmmglib_centralized(parmesh);
+    if ( parmesh->listgrp[0].mesh->info.iso) {
+      if ( !parmesh->myrank ) {
+        fprintf(stderr,"\n  ## Error: isovalue mode is not implemented yet.\n\n");
+      }
+      ier = 2;
+      PMMG_RETURN_AND_FREE(parmesh,PMMG_SUCCESS);
+    }
+    else {
+      ier = PMMG_parmmglib_centralized(parmesh);
+    }
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
     ier = PMMG_parmmglib_distributed(parmesh);
   }
 
-  /** Check result and save output files */
-  MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
-  if ( iresult == PMMG_STRONGFAILURE ) { PMMG_RETURN_AND_FREE( parmesh, ier ); }
+  if ( ier != PMMG_STRONGFAILURE ) {
+    /** Check result and save output files */
+    MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MAX, parmesh->comm );
+    if ( iresult == PMMG_STRONGFAILURE ) { PMMG_RETURN_AND_FREE( parmesh, ier ); }
 
-  tim = 2;
-  chrono(ON,&PMMG_ctim[tim]);
+    tim = 2;
+    chrono(ON,&PMMG_ctim[tim]);
 
-  grp = &parmesh->listgrp[0];
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditASCII ) {
-      char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
-      fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.mesh\n",basename);
-      MMG5_SAFE_FREE ( basename );
-    }
-    else if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditBinary ) {
-      char *basename = MMG5_Remove_ext ( parmesh->meshout,".meshb" );
-      fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.meshb\n",basename);
-      MMG5_SAFE_FREE ( basename );
-    }
-    else {
-      fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
-    }
-  }
-
-  if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
     grp = &parmesh->listgrp[0];
-
-    switch ( parmesh->info.fmtout ) {
-    case ( PMMG_UNSET ):
-      /* No output */
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        printf("     ... SKIPPING!\n");
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditASCII ) {
+        char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
+        fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.mesh\n",basename);
+        MMG5_SAFE_FREE ( basename );
       }
-      break;
-    case ( MMG5_FMT_VtkPvtu ):
-      PMMG_savePvtuMesh(parmesh,parmesh->meshout);
-      break;
-    case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
-    case ( MMG5_FMT_VtkVtu ):
-    case ( MMG5_FMT_VtkVtk ):
-      printf("  ## Error: Output format not yet implemented.\n");
-      PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      break;
-
-    case ( PMMG_FMT_Distributed ):
-    case ( PMMG_FMT_DistributedMeditASCII):
-      ptr = MMG5_Get_filenameExt( parmesh->meshout );
-      if ( (!ptr) || strcmp(ptr,".mesh") ) {
-        /* Add .mesh extension to avoid saving at binary format */
-        PMMG_REALLOC(parmesh,parmesh->meshout,strlen(parmesh->meshout)+6,
-                     strlen(parmesh->meshout)+1,char,"",);
-        strcat(parmesh->meshout,".mesh");
+      else if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditBinary ) {
+        char *basename = MMG5_Remove_ext ( parmesh->meshout,".meshb" );
+        fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.meshb\n",basename);
+        MMG5_SAFE_FREE ( basename );
       }
-    case ( PMMG_FMT_DistributedMeditBinary):
-      assert ( parmesh->meshout );
+      else {
+        fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
+      }
+    }
 
-      ierSave = PMMG_saveMesh_distributed(parmesh,parmesh->meshout);
-      if ( ierSave ) {
-        if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
-          ierSave = PMMG_saveMet_distributed(parmesh,parmesh->metout);
+    if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
+      grp = &parmesh->listgrp[0];
+
+      switch ( parmesh->info.fmtout ) {
+      case ( PMMG_UNSET ):
+        /* No output */
+        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          printf("     ... SKIPPING!\n");
         }
-      }
-      if ( ierSave &&  grp->field ) {
-        fprintf(stderr,"  ## Error: %s: PMMG_saveAllSols_distributed function"
-                " not yet implemented."
-                " Ignored.\n",__func__);
-      }
-      MPI_Allreduce( &ierSave, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm );
-      if ( !ier ) {
+        break;
+      case ( MMG5_FMT_VtkPvtu ):
+        PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+        break;
+      case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
+      case ( MMG5_FMT_VtkVtu ):
+      case ( MMG5_FMT_VtkVtk ):
+        printf("  ## Error: Output format not yet implemented.\n");
         PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      }
-      break;
-    default:
-      ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);
-      if ( !ierSave ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      }
-      if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
-        if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
+        break;
+
+      case ( PMMG_FMT_Distributed ):
+      case ( PMMG_FMT_DistributedMeditASCII):
+        ptr = MMG5_Get_filenameExt( parmesh->meshout );
+        if ( (!ptr) || strcmp(ptr,".mesh") ) {
+          /* Add .mesh extension to avoid saving at binary format */
+          PMMG_REALLOC(parmesh,parmesh->meshout,strlen(parmesh->meshout)+6,
+                      strlen(parmesh->meshout)+1,char,"",);
+          strcat(parmesh->meshout,".mesh");
+        }
+      case ( PMMG_FMT_DistributedMeditBinary):
+        assert ( parmesh->meshout );
+
+        ierSave = PMMG_saveMesh_distributed(parmesh,parmesh->meshout);
+        if ( ierSave ) {
+          if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
+            ierSave = PMMG_saveMet_distributed(parmesh,parmesh->metout);
+          }
+        }
+        if ( ierSave &&  grp->field ) {
+          fprintf(stderr,"  ## Error: %s: PMMG_saveAllSols_distributed function"
+                  " not yet implemented."
+                  " Ignored.\n",__func__);
+        }
+        MPI_Allreduce( &ierSave, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm );
+        if ( !ier ) {
           PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
         }
-      }
+        break;
+      default:
+        ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);
+        if ( !ierSave ) {
+          PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+        }
+        if ( parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
+          if ( !PMMG_saveMet_centralized(parmesh,parmesh->metout) ) {
+            PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+          }
+        }
 
-      if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout) ) {
-        PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-      }
+        if ( grp->field && !PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout) ) {
+          PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+        }
 
-      break;
+        break;
+      }
     }
+
+    chrono(OFF,&PMMG_ctim[tim]);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+      fprintf(stdout,"  -- WRITING COMPLETED\n");
   }
 
-  chrono(OFF,&PMMG_ctim[tim]);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"  -- WRITING COMPLETED\n");
-
   PMMG_RETURN_AND_FREE( parmesh, iresult );
+
 }
