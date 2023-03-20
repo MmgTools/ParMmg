@@ -323,7 +323,7 @@ IF( BUILD_TESTING )
       -ls 0.01
       -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
-    set(lsNotImplemented "Error: isovalue mode is not implemented yet")
+    set(lsNotImplemented "## Error: level-set discretisation unavailable")
     set_property(TEST ls-arg-option-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
   endforeach()
