@@ -343,16 +343,7 @@ check_mesh_loading:
   }
   else if ( !distributedInput ) {
     /* Parallel remeshing starting from a centralized mesh */
-    if ( parmesh->listgrp[0].mesh->info.iso) {
-      if ( !parmesh->myrank ) {
-        fprintf(stderr,"\n  ## Error: isovalue mode is not implemented yet.\n\n");
-      }
-      ier = 2;
-      PMMG_RETURN_AND_FREE(parmesh,PMMG_SUCCESS);
-    }
-    else {
-      ier = PMMG_parmmglib_centralized(parmesh);
-    }
+    ier = PMMG_parmmglib_centralized(parmesh);
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
