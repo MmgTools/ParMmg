@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 445a6d014ef44eeed6936
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b5ec8453ef3c2337855c6f2b8cc6eac672aa398b
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -310,6 +310,23 @@ IF( BUILD_TESTING )
     ENDFOREACH()
 
   ENDIF()
+
+  ###############################################################################
+  #####
+  #####        Test isovalue mode - ls discretization
+  #####
+  ###############################################################################
+  foreach( NP 1 2 4 8 )
+    add_test( NAME ls-arg-option-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls 0.01
+      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set(lsNotImplemented "## Error: level-set discretisation unavailable")
+    set_property(TEST ls-arg-option-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
+  endforeach()
 
 
   ###############################################################################
