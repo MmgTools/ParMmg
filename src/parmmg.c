@@ -340,7 +340,7 @@ check_mesh_loading:
   }
   else if ( !distributedInput ) {
     /* Parallel remeshing starting from a centralized mesh */
-    ier = PMMG_parmmglib_centralized(parmesh);
+    ier = PMMG_parmmg_centralized(parmesh);
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
