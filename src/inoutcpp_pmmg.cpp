@@ -42,7 +42,7 @@
 
 int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met, sol;
   int        ier;
 
   if ( parmesh->myrank!=parmesh->info.root ) {
@@ -51,7 +51,7 @@ int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 #ifndef USE_VTK
 
-  fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
+  fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
   return -1;
 
 #else
@@ -68,7 +68,7 @@ int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_loadVtuMesh(mesh,met,filename);
+  ier = MMG3D_loadVtuMesh(mesh,met,sol,filename);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -84,7 +84,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
 
 #ifndef USE_VTK
   if ( parmesh->myrank == parmesh->info.root ) {
-    fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
+    fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
   }
   return -1;
 
