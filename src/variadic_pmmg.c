@@ -73,6 +73,8 @@ int PMMG_Init_parMesh_var_internal(va_list argptr, int callFromC ) {
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
   MMG5_pSol      met;
+  MMG5_pSol      ls;
+
   size_t memAv;
   int    typArg,dim,nsol,comm_f;
   int    parmeshCount,meshCount,metCount,dimCount,solCount,commCount;
