@@ -68,7 +68,7 @@ int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_loadVtuMesh(mesh,sol,met,filename);
+  ier = MMG3D_loadVtuMesh(mesh,met,sol,filename);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
