@@ -92,10 +92,12 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
   ier_grp = MMG3D_Init_mesh(MMG5_ARG_start,
                             MMG5_ARG_ppMesh,&(grp->mesh),
                             MMG5_ARG_ppMet ,&(grp->met),
+                            MMG5_ARG_ppLs  ,&(grp->ls),
                             MMG5_ARG_end);
 
   mesh = grp->mesh;
   met  = grp->met;
+  ls   = grp->ls;
 
   /* Set maximum memory */
   mesh->memMax = parmesh->memGloMax;

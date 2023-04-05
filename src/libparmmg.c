@@ -71,7 +71,7 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return 0;
     } else if ( mesh->info.iso ) {
-      fprintf(stderr,"  ## WARNING: level-set discretisation under construction\n");
+      fprintf(stderr,"\n\n  ## WARNING: level-set discretisation under construction. \n\n");
       // return 0;
     } else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
@@ -144,7 +144,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met,ls) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -182,12 +182,12 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /* Discretization of the isovalue stored in sol file onto the mesh */
+  /* Discretization of the isovalue  */
   if (mesh->info.iso) {
     tim = 1;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"  -- PHASE 0: ISOVALUE DISCRETIZATION     \n");
+      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
     }
     if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
       return PMMG_STRONGFAILURE;
@@ -195,7 +195,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"  -- PHASE 0 COMPLETED     \n",stim);
+      fprintf(stdout,"  -- PHASE 1a COMPLETED     %s\n",stim);
     }
   }
 
@@ -204,12 +204,23 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  /* Check if the LS has led to a non-manifold topology */
+  if ( mesh->info.iso && !MMG3D_chkmani(mesh) ) {
+    fprintf(stderr,"\n  ## LS discretization: non-manifold initial topology. Exit program.\n");
+    return PMMG_STRONGFAILURE;
+  }
+  else {
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"       LS discretization OK: no non-manifold topology.\n");
+    }
+  }
+
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
     PMMG_prilen(parmesh,0,1);
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met,ls) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -400,7 +411,8 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
 
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    ls   = parmesh->listgrp[0].ls;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, ls ) ) {
       ier = PMMG_LOWFAILURE;
     }
 
