@@ -316,17 +316,19 @@ IF( BUILD_TESTING )
   #####        Test isovalue mode - ls discretization
   #####
   ###############################################################################
-  foreach( NP 1 2 4 8 )
-    add_test( NAME ls-arg-option-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/3D-cube.mesh
-      -ls 0.01
-      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
-    set(lsNotImplemented "## Error: level-set discretisation unavailable")
-    set_property(TEST ls-arg-option-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
-  endforeach()
+  # The following tests were to test the implementation of the ls option
+  # Not relevant anymore
+  # foreach( NP 1 2 4 8 )
+  #   add_test( NAME ls-arg-option-${NP}
+  #     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+  #     ${CI_DIR}/LevelSet/3D-cube.mesh
+  #     -ls 0.01
+  #     -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+  #     -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+  #   set(lsNotImplemented "## Error: level-set discretisation unavailable")
+  #   set_property(TEST ls-arg-option-${NP}
+  #     PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
+  # endforeach()
 
 
   ###############################################################################
