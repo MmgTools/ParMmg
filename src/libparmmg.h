@@ -59,6 +59,7 @@ enum PMMG_Param {
   PMMG_IPARAM_mmgDebug,          /*!< [1/0], Turn on/off debug mode */
   PMMG_IPARAM_angle,             /*!< [1/0], Turn on/off angle detection */
   PMMG_IPARAM_iso,               /*!< [1/0], Level-set meshing */
+  PMMG_IPARAM_isosurf,           /*!< [1/0], Level-set meshing along boundaries */
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
   PMMG_IPARAM_opnbdy,            /*!< [0/1], Enable preservation of open boundaries */
   PMMG_IPARAM_optim,             /*!< [1/0], Optimize mesh keeping its initial edge sizes */
@@ -105,6 +106,7 @@ enum PMMG_Param {
  * a pointer toward a pointer toward a parmesh
  * the \a PMMG_ARG_pMesh keyword to initialize a \a mesh pointer inside your \a parmesh
  * the \a PMMG_ARG_pMet keyword to initialize a \a metric pointer inside your \a parmesh
+ * the \a PMMG_ARG_pLs keyword to initialize a \a level-set pointer inside your \a parmesh
  * the \a PMMG_ARG_dim keyword to set the mesh dimension
  * the \a PMMG_ARG_MPIComm keyword to set the MPI Communicator in which parmmg will work
  * the \a PMMG_ARG_end keyword to end the list of variadic args.

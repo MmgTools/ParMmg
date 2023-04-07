@@ -251,6 +251,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /** specific meshing */
   if ( mesh->info.optim && !met->np ) {
+    // Warning: doSol would need a clean // implementation along interfaces
     if ( !MMG3D_doSol(mesh,met) ) {
       return PMMG_STRONGFAILURE;
     }

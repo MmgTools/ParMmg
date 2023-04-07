@@ -427,6 +427,10 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
+  parmesh->info.iso                = MMG5_OFF;
+  parmesh->info.isosurf            = MMG5_OFF;
+  parmesh->info.lag                = MMG5_LAG;
+
   /** Init MPI data */
   parmesh->comm           = comm;
   /* Initialize the input communicator to computationnal communicator: this value
@@ -649,12 +653,21 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     }
     break;
   case PMMG_IPARAM_iso :
+    parmesh->info.iso = val;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_iso,val) ) return 0;
     }
     break;
+  case PMMG_IPARAM_isosurf :
+    fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
+            " implemented.");
+    return 0;
+
   case PMMG_IPARAM_lag :
+    fprintf(stderr," ## Error: Lagrangian motion not yet implemented.");
+    return 0;
+
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_lag,val) ) return 0;
@@ -675,9 +688,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
     }
     if( val ) {
-#warning opnbdy not supported with surface adaptation
       fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nSetting nosurf on.\n");
+          "\nSetting nosurf option to on.\n");
       for ( k=0; k<parmesh->ngrp; ++k ) {
         mesh = parmesh->listgrp[k].mesh;
         if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
@@ -717,10 +729,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-#warning opnbdy not supported with surface adaptation
       if( !val && mesh->info.opnbdy )
         fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nCannot set nosurf off.\n");
+          "\nCannot set nosurf option to off.\n");
       else if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
     }
     break;

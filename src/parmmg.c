@@ -95,6 +95,7 @@ int main( int argc, char *argv[] )
   /* Allocate the main pmmg struct and assign default values */
   if ( 1 != PMMG_Init_parMesh( PMMG_ARG_start,
                                PMMG_ARG_ppParMesh,&parmesh,
+                               PMMG_ARG_pLs,
                                PMMG_ARG_dim,3,
                                PMMG_ARG_MPIComm,MPI_COMM_WORLD,
                                PMMG_ARG_end) ) {
@@ -108,6 +109,7 @@ int main( int argc, char *argv[] )
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
+                             MMG5_ARG_ppLs,  &parmesh->listgrp[0].ls,
                              MMG5_ARG_end) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 

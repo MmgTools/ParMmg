@@ -534,15 +534,59 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         break;
       case 's':
         if ( !strcmp(argv[i],"-sol") ) {
-          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
-            if ( ! PMMG_Set_inputLsName(parmesh,argv[i]) ) {
+          /* For compatibility with Mmg usage, -sol can be used to provide an
+           * isovalue in ls mode, a displacement in lag one or a metric in adp
+           * mode */
+          /* Called by parmmg app, all structure (sol, ls, met are initialized).
+           * Called by library user, some of them may be NULL. */
+
+          if ( parmesh->listgrp[0].ls ) {
+            /* Store name in ls field but for compatibility with Mmg usage, in
+             * adp mode, the file name will be copied into the metric field at
+             * the end of the current function */
+            if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+              if ( ! PMMG_Set_inputLsName(parmesh,argv[i]) ) {
+                RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                       parmesh->myrank,ret_val=0; goto fail_proc);
+              }
+            }
+            else {
               RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
                                      parmesh->myrank,ret_val=0; goto fail_proc);
             }
           }
-          else {
-            RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
-                                   parmesh->myrank,ret_val=0; goto fail_proc);
+
+          if ( parmesh->listgrp[0].disp ) {
+            /* Store name in disp field but for compatibility with Mmg usage, in
+             * adp mode, the file name will be copied into the metric field at
+             * the end of the current function. It is not an issue to have a
+             * disp and a ls field with the same name as they can't be used
+             * together. */
+            if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+              if ( ! PMMG_Set_inputDispName(parmesh,argv[i]) ) {
+                RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                       parmesh->myrank,ret_val=0; goto fail_proc);
+              }
+            }
+            else {
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
+            }
+          }
+
+          if ( (!parmesh->listgrp[0].ls) && (!parmesh->listgrp[0].disp) ) {
+            /* Neither ls nor disp data structures have been provided, store
+             * solname in metric */
+            if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
+              if ( ! PMMG_Set_inputMetName(parmesh,argv[i]) ) {
+                RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                       parmesh->myrank,ret_val=0; goto fail_proc);
+              }
+            }
+            else {
+              RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                                     parmesh->myrank,ret_val=0; goto fail_proc);
+            }
           }
         }
         else if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
@@ -617,22 +661,49 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
     goto fail_proc;
   }
 
-#warning opnbdy not supported with surface adaptation
+  /* Transfer specific fields from Mmg toward ParMmg */
+  if ( parmesh->listgrp[0].mesh->info.iso ) {
+    parmesh->info.iso = parmesh->listgrp[0].mesh->info.iso;
+  }
+
+  if ( parmesh->listgrp[0].mesh->info.isosurf ) {
+
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
+              " implemented.");
+    }
+    ret_val = 0;
+    goto fail_proc;
+  }
+
+  if ( parmesh->listgrp[0].mesh->info.lag >=0 ) {
+
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr," ## Error: Lagrangian motion not yet implemented.");
+    }
+    ret_val = 0;
+    goto fail_proc;
+  }
+
   if( parmesh->listgrp[0].mesh->info.opnbdy ) {
     fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
         "\nSetting nosurf on.\n");
     if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
   }
 
-  /* Store mesh names into the parmesh if needed */
+  /** Fix parmesh and mesh file names  */
   if ( !parmesh->meshin ) {
     assert ( parmesh->listgrp[0].mesh->namein );
+    /* Store filename into the parmesh if needed */
+    // Algiane: commit cd2be76df47: I think that it is not possible to pass
+    // here anymore
+    assert ( 0 );
     PMMG_Set_name(parmesh,&parmesh->meshin,
                   parmesh->listgrp[0].mesh->namein,"mesh.mesh");
   }
 
   if ( !parmesh->meshout ) {
-    /* .h5 extension are unknown by Mmg: fix this */
+    /* .h5 extension is unknown by Mmg: fix this */
     char *data;
     MMG5_SAFE_CALLOC(data,strlen(parmesh->meshin)+3,char,return 0);
     strncpy(data,parmesh->meshin,strlen(parmesh->meshin)+3);
@@ -650,13 +721,35 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                   parmesh->listgrp[0].mesh->nameout,"mesh.o.mesh");
   }
 
+  /* At this point, if we are not in ls discretiztion or displacement mode and
+   * if a level-set or a displacement structure has been provided,
+   * metric name provided using the -sol command line argument (and stored in
+   * lsin and dispin fields) has to be copied into the metin field */
+  if ( (!parmesh->metin) &&
+       !(parmesh->info.iso || parmesh->info.isosurf || parmesh->info.lag>=0) ) {
+    assert ( parmesh->listgrp[0].ls || parmesh->listgrp[0].disp );
+
+    char *metin = NULL;
+    if ( parmesh->listgrp[0].ls ) {
+      metin = parmesh->lsin;
+    }
+    else {
+      metin = parmesh->dispin;
+    }
+    if ( metin ) {
+      /* A solution name has been provided using -sol option (facultative) */
+      if ( ! PMMG_Set_inputMetName(parmesh,metin) ) {
+        RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                               parmesh->myrank,ret_val=0; goto fail_proc);
+      }
+    }
+  }
+
+  /* Store filenames into the parmesh if they have been parsed by MMG3D_parsar
+   * (when default sol file is stored). */
   if ( (!parmesh->metin) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->namein ) {
     PMMG_Set_name(parmesh,&parmesh->metin,
                   parmesh->listgrp[0].met->namein,"mesh.sol");
-  }
-  if ( (!parmesh->metout) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->nameout ) {
-    PMMG_Set_name(parmesh,&parmesh->metout,
-                  parmesh->listgrp[0].met->nameout,"mesh.o.sol");
   }
   if ( (!parmesh->lsin) && parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->namein ) {
     PMMG_Set_name(parmesh,&parmesh->lsin,
@@ -665,6 +758,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   if ( (!parmesh->dispin) && parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->namein ) {
     PMMG_Set_name(parmesh,&parmesh->dispin,
                   parmesh->listgrp[0].disp->namein,"mesh.sol");
+  }
+
+  if ( (!parmesh->metout) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->nameout ) {
+    PMMG_Set_name(parmesh,&parmesh->metout,
+                  parmesh->listgrp[0].met->nameout,"mesh.o.sol");
   }
 
 fail_proc:

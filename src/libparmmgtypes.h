@@ -356,6 +356,8 @@ typedef struct {
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
   int iso;     /*!< ls mode (not yet available) */
+  int isosurf; /*!< ls mode on boundaries only (not yet available) */
+  int lag;     /*!< lagrangian motion (not yet available) */
   int root;    /*!< MPI root rank */
   int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */

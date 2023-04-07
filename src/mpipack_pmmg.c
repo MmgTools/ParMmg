@@ -118,7 +118,9 @@ int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
   /* ls */
   idx += sizeof(int);
   idx += sizeof(int);
-  if ( ls && ls->namein && ls->nameout ) {
+  /* If the m array of the level-set is not allocated, the level-set field will
+   * not be allocated after redistribution so no need to share its name info */
+  if ( ls && ls->m && ls->namein && ls->nameout ) {
     idx += (strlen(ls->namein) + 1) * sizeof(char);
     idx += (strlen(ls->nameout) + 1) * sizeof(char);
   }
@@ -126,7 +128,10 @@ int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
   /* disp */
   idx += sizeof(int); // metin
   idx += sizeof(int); // metout
-  if ( disp && disp->namein && disp->nameout ) {
+  /* If the m array of the displacement field is not allocated, the disp field
+   * will not be allocated after redistribution so no need to share its name
+   * info */
+  if ( disp && disp->m && disp->namein && disp->nameout ) {
     idx += (strlen(disp->namein) + 1) * sizeof(char);
     idx += (strlen(disp->nameout) + 1) * sizeof(char);
   }
@@ -635,7 +640,9 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
     tmp += metout_s * sizeof(char);
   }
 
-  if ( ls && ls->namein && ls->nameout ) {
+  /* If the m array of the level-set is not allocated, the level-set field will
+   * not be allocated after redistribution so no need to share its name info */
+  if ( ls && ls->m && ls->namein && ls->nameout ) {
     lsin_s   = (strlen(ls->namein) + 1);
     lsout_s  = (strlen(ls->nameout) + 1);
     if ( lsin_s  > MMG5_FILENAME_LEN_MAX || lsout_s > MMG5_FILENAME_LEN_MAX ) {
@@ -659,7 +666,10 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
     tmp += lsout_s * sizeof(char);
   }
 
-  if ( disp && disp->namein && disp->nameout ) {
+  /* If the m array of the displacement field is not allocated, the disp field
+   * will not be allocated after redistribution so no need to share its name
+   * info */
+  if ( disp && disp->m && disp->namein && disp->nameout ) {
     dispin_s   = (strlen(disp->namein) + 1);
     dispout_s  = (strlen(disp->nameout) + 1);
     if ( dispin_s  > MMG5_FILENAME_LEN_MAX || dispout_s > MMG5_FILENAME_LEN_MAX ) {
