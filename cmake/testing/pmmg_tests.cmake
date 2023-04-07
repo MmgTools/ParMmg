@@ -640,7 +640,7 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${input_mesh} -sol ${input_met}
           -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 3 -nobalance -v 10 -surf )
+          -niter 3 -nobalance -v 10 )
       ENDFOREACH()
 
       SET ( input_mesh ${CI_DIR}/Tennis/tennis.meshb )
@@ -652,7 +652,7 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${input_mesh} -sol ${input_met}
           -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 3 -nobalance -v 10 -surf )
+          -niter 3 -nobalance -v 10 )
       ENDFOREACH()
 
 

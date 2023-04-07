@@ -589,9 +589,6 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             }
           }
         }
-        else if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
-          parmesh->listgrp[0].mesh->info.nosurf = 0;
-        }
         else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
                       " adding to mmgArgv for mmg: ",
