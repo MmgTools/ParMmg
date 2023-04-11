@@ -162,6 +162,46 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh);
  **/
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh);
 
+/**
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
+ *
+ * Main program for the parallel isovalue discretisation library for centralized
+ * meshes
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_parmmgls_centralized(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ **/
+int PMMG_parmmgls_centralized(PMMG_pParMesh parmesh);
+
+/**
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
+ *
+ * Main program for the parallel isovalue discretisation library and remesh
+ * library for centralized meshes
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_parmmg_centralized(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ **/
+int PMMG_parmmg_centralized(PMMG_pParMesh parmesh);
+
 /* init file names */
 /**
  * \param parmesh pointer toward a parmesh structure.
