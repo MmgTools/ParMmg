@@ -121,8 +121,11 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
     fprintf(stdout,"-noout       do not write output triangulation\n");
-    fprintf(stdout,"-centralized-output centralized output (Medit format only)");
-    fprintf(stdout,"-distributed-output distributed output (Medit format only)");
+    fprintf(stdout,"-centralized-output centralized output (Medit format only)\n");
+    fprintf(stdout,"-distributed-output distributed output (Medit format only)\n");
+
+    fprintf(stdout,"\n**  Mode specifications (mesh adaptation by default)\n");
+    fprintf(stdout,"-ls     val create mesh of isovalue val (0 if no argument provided)\n");
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -289,6 +292,28 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             ret_val = 0;
             goto fail_proc;
           }
+        }
+        else {
+          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                      " adding to mmgArgv for mmg: ",
+                      ret_val = 0; goto fail_proc );
+        }
+        break;
+      case 'l':
+        if ( !strcmp(argv[i],"-ls") ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_iso,1) ) {
+            ret_val = 0;
+            goto fail_proc;
+          }
+          if ( ++i < argc) {
+            if (isdigit(argv[i][0]) || (argv[i][0]=='-' && isdigit(argv[i][1])) )  {
+              if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_ls,atof(argv[i])) ) {
+                ret_val = 0;
+                goto fail_proc;
+              }
+            }
+          }
+          else i--;
         }
         else {
           ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
@@ -524,7 +549,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
                           parmesh->listgrp[0].mesh,
                           parmesh->listgrp[0].met,
-                          NULL ) ) {
+                          parmesh->listgrp[0].ls ) ) {
     ret_val = 0;
     goto fail_proc;
   }
