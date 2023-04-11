@@ -330,6 +330,44 @@ IF( BUILD_TESTING )
   #     PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
   # endforeach()
 
+  #--------------------------------
+  #--- CENTRALIZED INPUT (CenIn)
+  #--------------------------------
+  # Tests of ls discretization for centralized mesh input
+  foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
+  endforeach()
+
+  # Tests for ls + met for centralized mesh input
+  foreach( NP 1 2 4 8 )
+  add_test( NAME ls-CenIn-met-${NP}
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/3D-cube.mesh
+    -ls 0.0
+    -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+    -met ${CI_DIR}/LevelSet/3D-cube-metric.sol
+    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
+  endforeach()
+
+  # Tests of pvtu output when ls mode
+  foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-DisOut-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}.o.pvtu)
+  endforeach()
+
+  #--------------------------------
+  #--- DISTRIBUTED INPUT (DisIn)
+  #--------------------------------
+
 
   ###############################################################################
   #####
