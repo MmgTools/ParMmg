@@ -1697,6 +1697,14 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
 }
 
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
+    return PMMG_parmmg_distributed(parmesh);
+}
+
+int PMMG_parmmgls_distributed(PMMG_pParMesh parmesh) {
+  return PMMG_parmmg_distributed(parmesh);
+}
+
+int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
   MMG5_pSol        met;
   int              ier,iresult,ierlib;

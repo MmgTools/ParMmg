@@ -313,7 +313,7 @@ int main( int argc, char *argv[] )
         iermesh = PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin);
       }
       else {
-        //int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
+        // int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
         //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
         printf("  ## Error: Distributed fields input not yet implemented.\n");
         iermesh = 0;
@@ -362,7 +362,7 @@ check_mesh_loading:
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
-    ier = PMMG_parmmglib_distributed(parmesh);
+    ier = PMMG_parmmg_distributed(parmesh);
   }
 
   if ( ier != PMMG_STRONGFAILURE ) {
