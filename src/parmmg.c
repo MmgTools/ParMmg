@@ -298,12 +298,13 @@ int main( int argc, char *argv[] )
         iermesh = PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin);
       }
       else {
-        //int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
-        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-        printf("  ## Error: Distributed fields input not yet implemented.\n");
-        iermesh = 0;
+        int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
       }
       if ( iermesh < 1 ) {
+        if ( rank == parmesh->info.root ) {
+          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD FIELDS.\n");
+        }
         ier = 0;
         goto check_mesh_loading;
       }
@@ -386,7 +387,12 @@ check_mesh_loading:
         }
         break;
       case ( MMG5_FMT_VtkPvtu ):
-        PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+        if (grp->field) {
+          PMMG_savePvtuMesh_and_allData(parmesh,parmesh->meshout);
+        }
+        else{
+          PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+        }
         break;
       case ( MMG5_FMT_GmshASCII ): case ( MMG5_FMT_GmshBinary ):
       case ( MMG5_FMT_VtkVtu ):
