@@ -809,7 +809,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param filename name of the file to load the fields from.
+ * \param filename name of the file to load the solutions from.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -858,18 +858,18 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param filename name of the file to load the fields from.
+ * \param filename name of the file to load the solutions from.
  *
  * \return 0 if fail, 1 otherwise
  *
- * Load a centralized field. The rank index is inserted in the input file
+ * Load a set of distributed solutions. The rank index is inserted in the input file
  * name.
  *
  */
 int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
 
   MMG5_pMesh mesh;
-  MMG5_pSol  *field;
+  MMG5_pSol  *sol;
   int        ier;
   char       *data = NULL;
 
@@ -879,7 +879,7 @@ int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
     return 0;
   }
   mesh = parmesh->listgrp[0].mesh;
-  field  = &parmesh->listgrp[0].field;
+  sol  = &parmesh->listgrp[0].field;
 
   /* Add rank index to mesh name */
   if ( filename ) {
@@ -893,7 +893,7 @@ int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
   assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
   mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
 
-  ier = MMG3D_loadAllSols(mesh,field,data);
+  ier = MMG3D_loadAllSols(mesh,sol,data);
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
@@ -905,7 +905,7 @@ int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param filename name of the file to load the mesh from.
+ * \param filename name of the file to save the mesh.
  *
  * \return 0 if fail, 1 otherwise
  *
@@ -961,7 +961,15 @@ int PMMG_saveMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   return 1;
 }
 
-
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to save the mesh.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save a centralized mesh in Medit format.
+ *
+ */
 int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   int        ier;
@@ -994,6 +1002,15 @@ int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to save the metric.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save a centralized metric in Medit format.
+ *
+ */
 int PMMG_saveMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -1028,6 +1045,16 @@ int PMMG_saveMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to save the metric.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save a distributed metric at Medit format. The rank index is inserted
+ * in the output file name.
+ *
+ */
 int PMMG_saveMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -1074,6 +1101,15 @@ int PMMG_saveMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to save the solutions.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save a set of centralized solutions in Medit format.
+ *
+ */
 int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol;
@@ -1101,6 +1137,50 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   else {
     ier = MMG3D_saveAllSols(mesh,&sol,parmesh->fieldout);
   }
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to save the solutions.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save a set of distributed solutions in Medit format. The rank index is  * inserted
+ * in the output file name.
+ */
+int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+  char       *data = NULL;
+
+  if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].field;
+
+  /* Add rank index to mesh name */
+  if ( filename ) {
+    PMMG_insert_rankIndex(parmesh,&data,filename,".sol", ".sol");
+  }
+  else if ( parmesh->fieldout ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->fieldout,".sol", ".sol");
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  ier = MMG3D_saveAllSols(mesh,sol,data);
+
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;

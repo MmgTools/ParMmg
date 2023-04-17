@@ -2031,6 +2031,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 0 if failed, 1 otherwise.
  *
+ * Write 1 or more than 1 solution in a file at medit format for a distributed
+ * mesh (insert rank index to filename).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEALLSOLS_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh, const char *filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
  * Write mesh and 0 or 1 data at pvtu Vtk file format (.pvtu extension).
  *
  * \remark Fortran interface:

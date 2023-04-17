@@ -1316,6 +1316,25 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
 }
 
 /**
+ * See \ref PMMG_saveAllSols_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SAVEALLSOLS_DISTRIBUTED,pmmg_saveallsols_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_saveAllSols_distributed(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_Free_names function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_FREE_NAMES,pmmg_free_names,
