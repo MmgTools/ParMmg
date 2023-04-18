@@ -275,20 +275,35 @@ int main( int argc, char *argv[] )
       }
     }
     /* In iso mode: read metric if any */
-    if ( grp->mesh->info.iso && parmesh->metin ) {
-      if ( !distributedInput ) {
-        iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+    if ( grp->mesh->info.iso) {
+      if ( parmesh->metin ) {
+        if ( !distributedInput ) {
+          iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+        }
+        else {
+          int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
+          MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+        }
+        if ( -1 == iermesh ) {
+          if ( rank == parmesh->info.root ) {
+            fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
+          }
+          ier = 0;
+          goto check_mesh_loading;
+        }
       }
       else {
-        int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
-        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-      }
-      if ( -1 == iermesh ) {
-        if ( rank == parmesh->info.root ) {
-          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
+        /* Give a name to the metric if not provided for distributed metric output */
+        if ( !MMG5_Set_inputSolName(grp->mesh,grp->met,"") ) {
+          fprintf(stdout,"  ## WARNING: Unable to give a name to the metric.\n");
         }
-        ier = 0;
-        goto check_mesh_loading;
+        else {
+          ier = PMMG_Set_name(parmesh,&parmesh->metin,grp->met->namein,"mesh.sol");
+          if (!ier) {
+            fprintf(stdout,"  ## ERROR: Unable to give a name to the metric.\n");
+            PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
+          }
+        }
       }
     }
 
@@ -344,7 +359,7 @@ check_mesh_loading:
   }
   else if ( !distributedInput ) {
     /* Parallel remeshing starting from a centralized mesh */
-    ier = PMMG_parmmglib_centralized(parmesh);
+    ier = PMMG_parmmg_centralized(parmesh);
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */

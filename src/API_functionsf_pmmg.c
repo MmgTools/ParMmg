@@ -1052,6 +1052,16 @@ FORTRAN_NAME(PMMG_PARMMGLIB_CENTRALIZED,pmmg_parmmglib_centralized,
 }
 
 /**
+ * See \ref PMMG_parmmgls_centralized function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_PARMMGLS_CENTRALIZED,pmmg_parmmgls_centralized,
+             (PMMG_pParMesh *parmesh,int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_parmmgls_centralized(*parmesh);
+  return;
+}
+
+/**
  * See \ref PMMG_loadMesh function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_LOADMESH_CENTRALIZED,pmmg_loadmesh_centralized,
