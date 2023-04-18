@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b5ec8453ef3c2337855c6f2b8cc6eac672aa398b
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout bc4e9152071306acaad6b3274f0e9ef7eb216778
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -319,14 +319,27 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-arg-option-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/3D-cube.mesh
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.01
-      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
     set(lsNotImplemented "## Error: level-set discretisation unavailable")
     set_property(TEST ls-arg-option-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
   endforeach()
+
+  #--------------------------------
+  #--- DISTRIBUTED INPUT (DisIn)
+  #--------------------------------
+  add_test( NAME ls-DisIn-ReadLs-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
+    -ls 0.01
+    -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
+    -out ${CI_DIR_RESULTS}/${MESH}-2.o.mesh)
+  set(lsReadFile "3D-cube-ls.sol.0 OPENED")
+  set_property(TEST ls-DisIn-ReadLs-2
+    PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
 
 
   ###############################################################################

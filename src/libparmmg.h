@@ -1904,6 +1904,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return -1 data invalid, 0 no file, 1 ok.
  *
+ * Load distributed displacement, level-set or metric field depending on the
+ * option setted. The solution file must contains only 1 solution.
+ * Insert rank index to the mesh name.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADSOL_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadSol_distributed(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
  * Load 1 or more solutions in a solution file at medit file format.
  *
  * \remark Fortran interface:

@@ -244,10 +244,8 @@ int main( int argc, char *argv[] )
         iermesh = ( PMMG_loadSol_centralized( parmesh, parmesh->lsin ) );
       }
       else {
-        printf("  ## Error: Distributed input not yet implemented for displacement or isovalue.\n");
-        //int ier_loc = PMMG_loadSol_distributed( parmesh, NULL );
-        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-        iermesh = 0;
+        int ier_loc = PMMG_loadSol_distributed( parmesh, parmesh->lsin );
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
       }
       if ( iermesh < 1 ) {
         if ( rank == parmesh->info.root ) {
