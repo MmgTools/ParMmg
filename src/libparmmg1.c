@@ -707,7 +707,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
         /* renumerotation if available: no need to renum the field here (they
          * will be interpolated) */
-        assert ( mesh->npi==mesh->np );
         if ( permNodGlob ) {
           if ( !MMG5_scotchCall(mesh,met,NULL,permNodGlob) )
           {
