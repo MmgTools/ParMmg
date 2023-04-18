@@ -317,17 +317,66 @@ IF( BUILD_TESTING )
   #####
   ###############################################################################
   foreach( NP 1 2 4 8 )
-    add_test( NAME ls-arg-option-${NP}
+    add_test( NAME ls-arg-option-detection-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/3D-cube.mesh
       -ls 0.01
       -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
     set(lsNotImplemented "## Error: level-set discretisation unavailable")
-    set_property(TEST ls-arg-option-${NP}
+    set_property(TEST ls-arg-option-detection-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
   endforeach()
 
+  # Check that the ls file is correctly opened with or without the ls value given
+  set(lsOpenFile "3D-cube-ls.sol OPENED")
+  set(lsOpenFileDefault "3D-cube.sol  NOT FOUND. USE DEFAULT METRIC.")
+
+  # Test of opening ls file when ls val is given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+  endforeach()
+
+  # Test of opening ls file when ls val is not given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls
+      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+  endforeach()
+
+  # Test of opening ls file with a default name when ls val is given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls 0.0
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+  endforeach()
+
+  # Test of opening ls file with a default name when ls val is not given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/3D-cube.mesh
+      -ls
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+  endforeach()
 
   ###############################################################################
   #####

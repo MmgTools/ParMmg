@@ -312,6 +312,11 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
                 goto fail_proc;
               }
             }
+            else {
+              ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
+                          " adding to mmgArgv for mmg: ",
+                          ret_val = 0; goto fail_proc );
+            }
           }
           else i--;
         }
