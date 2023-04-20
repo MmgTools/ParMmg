@@ -1212,6 +1212,25 @@ FORTRAN_NAME(PMMG_LOADALLSOLS_CENTRALIZED,pmmg_loadallsols_centralized,
 }
 
 /**
+ * See \ref PMMG_loadAllSols_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_LOADALLSOLS_DISTRIBUTED,pmmg_loadallsols_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_loadAllSols_distributed(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
  * See \ref PMMG_saveMesh_centralized function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_SAVEMESH_CENTRALIZED,pmmg_savemesh_centralized,
@@ -1300,6 +1319,25 @@ FORTRAN_NAME(PMMG_SAVEALLSOLS_CENTRALIZED,pmmg_saveallsols_centralized,
   tmp[*strlen] = '\0';
 
   *retval = PMMG_saveAllSols_centralized(*parmesh,tmp);
+
+  MMG5_SAFE_FREE(tmp);
+
+  return;
+}
+
+/**
+ * See \ref PMMG_saveAllSols_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_SAVEALLSOLS_DISTRIBUTED,pmmg_saveallsols_distributed,
+             (PMMG_pParMesh *parmesh,char* filename, int *strlen,int* retval),
+             (parmesh,filename,strlen,retval)){
+  char *tmp = NULL;
+
+  MMG5_SAFE_MALLOC(tmp,(*strlen+1),char,);
+  strncpy(tmp,filename,*strlen);
+  tmp[*strlen] = '\0';
+
+  *retval = PMMG_saveAllSols_distributed(*parmesh,tmp);
 
   MMG5_SAFE_FREE(tmp);
 

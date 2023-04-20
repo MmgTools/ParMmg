@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b5ec8453ef3c2337855c6f2b8cc6eac672aa398b
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout bc4e9152071306acaad6b3274f0e9ef7eb216778
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -316,20 +316,6 @@ IF( BUILD_TESTING )
   #####        Test isovalue mode - ls discretization
   #####
   ###############################################################################
-  # The following tests were to test the implementation of the ls option
-  # Not relevant anymore
-  # foreach( NP 1 2 4 8 )
-  #   add_test( NAME ls-arg-option-${NP}
-  #     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-  #     ${CI_DIR}/LevelSet/3D-cube.mesh
-  #     -ls 0.01
-  #     -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
-  #     -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
-  #   set(lsNotImplemented "## Error: level-set discretisation unavailable")
-  #   set_property(TEST ls-arg-option-${NP}
-  #     PROPERTY PASS_REGULAR_EXPRESSION "${lsNotImplemented}")
-  # endforeach()
-
   #--------------------------------
   #--- CENTRALIZED INPUT (CenIn)
   #--------------------------------
@@ -337,9 +323,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/3D-cube.mesh
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
   endforeach()
 
@@ -347,10 +333,10 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
   add_test( NAME ls-CenIn-met-${NP}
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/3D-cube.mesh
+    ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
     -ls 0.0
-    -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
-    -met ${CI_DIR}/LevelSet/3D-cube-metric.sol
+    -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+    -met ${CI_DIR}/LevelSet/centralized/3D-cube-metric.sol
     -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
   endforeach()
 
@@ -358,9 +344,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-DisOut-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/3D-cube.mesh
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}.o.pvtu)
   endforeach()
 
@@ -368,6 +354,40 @@ IF( BUILD_TESTING )
   #--- DISTRIBUTED INPUT (DisIn)
   #--------------------------------
 
+  ###############################################################################
+  #####
+  #####        Test with fields input and output
+  #####
+  ###############################################################################
+  #--------------------------------
+  #--- DISTRIBUTED INPUT (DisIn)
+  #--------------------------------
+  # Test to read  distributed input  fields in Medit format
+  # and  to write distributed output fields in VTK   format
+  add_test( NAME fields-DisIn-DisOutVTK-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
+    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
+
+  set(InputDistributedFields "3D-cube-fields.sol.0 OPENED")
+  set(OutputVtkFields "Writing mesh, metric and fields.")
+  set_property(TEST fields-DisIn-DisOutVTK-2
+    PROPERTY PASS_REGULAR_EXPRESSION
+    "${InputDistributedFields}.*${OutputVtkFields};${OutputVtkFields}.*${InputDistributedFields}")
+
+  # Test to write distributed output fields and metric in Medit format
+  add_test( NAME fields-DisIn-DisOutMesh-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
+    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2-out.mesh)
+
+  set(OutputFieldsName "3D-cube-fields.o.sol.0 OPENED.")
+  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2-out.sol.0 OPENED.")
+  set_property(TEST fields-DisIn-DisOutMesh-2
+    PROPERTY PASS_REGULAR_EXPRESSION
+    "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
 
   ###############################################################################
   #####
