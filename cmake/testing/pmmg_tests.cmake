@@ -329,6 +329,56 @@ IF( BUILD_TESTING )
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
   endforeach()
 
+  # Check that the ls file is correctly opened with or without the ls value given
+  set(lsOpenFile "3D-cube-ls.sol OPENED")
+  set(lsOpenFileDefault "3D-cube.sol  NOT FOUND. USE DEFAULT METRIC.")
+
+  # Test of opening ls file when ls val is given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+  endforeach()
+
+  # Test of opening ls file when ls val is not given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      -ls
+      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+  endforeach()
+
+  # Test of opening ls file with a default name when ls val is given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      -ls 0.0
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+  endforeach()
+
+  # Test of opening ls file with a default name when ls val is not given
+  foreach( NP 1 2)
+    add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      -ls
+      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+    set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+  endforeach()
+
   # Tests for ls + met for centralized mesh input
   foreach( NP 1 2 4 8 )
   add_test( NAME ls-CenIn-met-${NP}
@@ -398,6 +448,40 @@ IF( BUILD_TESTING )
     PROPERTY PASS_REGULAR_EXPRESSION
     "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
 
+  ###############################################################################
+  #####
+  #####        Test with fields input and output
+  #####
+  ###############################################################################
+  #--------------------------------
+  #--- DISTRIBUTED INPUT (DisIn)
+  #--------------------------------
+  # Test to read  distributed input  fields in Medit format
+  # and  to write distributed output fields in VTK   format
+  add_test( NAME fields-DisIn-DisOutVTK-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
+    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
+
+  set(InputDistributedFields "3D-cube-fields.sol.0 OPENED")
+  set(OutputVtkFields "Writing mesh, metric and fields.")
+  set_property(TEST fields-DisIn-DisOutVTK-2
+    PROPERTY PASS_REGULAR_EXPRESSION
+    "${InputDistributedFields}.*${OutputVtkFields};${OutputVtkFields}.*${InputDistributedFields}")
+
+  # Test to write distributed output fields and metric in Medit format
+  add_test( NAME fields-DisIn-DisOutMesh-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
+    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2-out.mesh)
+
+  set(OutputFieldsName "3D-cube-fields.o.sol.0 OPENED.")
+  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2-out.sol.0 OPENED.")
+  set_property(TEST fields-DisIn-DisOutMesh-2
+    PROPERTY PASS_REGULAR_EXPRESSION
+    "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
 
   ###############################################################################
   #####
