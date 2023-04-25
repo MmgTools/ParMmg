@@ -273,6 +273,9 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
       if ( parmesh->listgrp[kgrp].met )                                 \
         parmesh->listgrp[kgrp].met->npi  = parmesh->listgrp[kgrp].met->np; \
                                                                         \
+      if ( parmesh->listgrp[kgrp].ls )                                 \
+        parmesh->listgrp[kgrp].ls->npi  = parmesh->listgrp[kgrp].ls->np; \
+                                                                        \
       if ( parmesh->listgrp[kgrp].mesh ) {                              \
         for ( ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
           parmesh->listgrp[kgrp].field[ksol].npi  = parmesh->listgrp[kgrp].field[ksol].np; \

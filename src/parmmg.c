@@ -109,7 +109,7 @@ int main( int argc, char *argv[] )
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
-                             MMG5_ARG_ppLs,  &parmesh->listgrp[0].ls,
+                             MMG5_ARG_ppLs,   &parmesh->listgrp[0].ls,
                              MMG5_ARG_end) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
@@ -117,6 +117,7 @@ int main( int argc, char *argv[] )
   if ( !PMMG_parmesh_SetMemMax(parmesh) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
+  /* Read command line */
   if ( 1 != PMMG_parsar( argc, argv, parmesh ) )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_STRONGFAILURE );
 
@@ -241,13 +242,11 @@ int main( int argc, char *argv[] )
     if ( grp->mesh->info.lag >= 0 || grp->mesh->info.iso ) {
       /* displacement or isovalue are mandatory */
       if( !distributedInput ) {
-        iermesh = ( PMMG_loadSol_centralized( parmesh, NULL ) );
+        iermesh = ( PMMG_loadSol_centralized( parmesh, parmesh->lsin ) );
       }
       else {
-        printf("  ## Error: Distributed input not yet implemented for displacement.\n");
-        //int ier_loc = PMMG_loadSol_distributed( parmesh, NULL );
-        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-        iermesh = 0;
+        int ier_loc = PMMG_loadSol_distributed( parmesh, parmesh->lsin );
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
       }
       if ( iermesh < 1 ) {
         if ( rank == parmesh->info.root ) {
@@ -275,20 +274,35 @@ int main( int argc, char *argv[] )
       }
     }
     /* In iso mode: read metric if any */
-    if ( grp->mesh->info.iso && parmesh->metin ) {
-      if ( !distributedInput ) {
-        iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+    if ( grp->mesh->info.iso) {
+      if ( parmesh->metin ) {
+        if ( !distributedInput ) {
+          iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
+        }
+        else {
+          int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
+          MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
+        }
+        if ( -1 == iermesh ) {
+          if ( rank == parmesh->info.root ) {
+            fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
+          }
+          ier = 0;
+          goto check_mesh_loading;
+        }
       }
       else {
-        int ier_loc = PMMG_loadMet_distributed( parmesh, parmesh->metin );
-        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-      }
-      if ( -1 == iermesh ) {
-        if ( rank == parmesh->info.root ) {
-          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD METRIC.\n");
+        /* Give a name to the metric if not provided for distributed metric output */
+        if ( !MMG5_Set_inputSolName(grp->mesh,grp->met,"") ) {
+          fprintf(stdout,"  ## WARNING: Unable to give a name to the metric.\n");
         }
-        ier = 0;
-        goto check_mesh_loading;
+        else {
+          ier = PMMG_Set_name(parmesh,&parmesh->metin,grp->met->namein,"mesh.sol");
+          if (!ier) {
+            fprintf(stdout,"  ## ERROR: Unable to give a name to the metric.\n");
+            PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
+          }
+        }
       }
     }
 
@@ -298,12 +312,13 @@ int main( int argc, char *argv[] )
         iermesh = PMMG_loadAllSols_centralized(parmesh,parmesh->fieldin);
       }
       else {
-        //int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
-        //MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
-        printf("  ## Error: Distributed fields input not yet implemented.\n");
-        iermesh = 0;
+        int ier_loc = PMMG_loadAllSols_distributed(parmesh,parmesh->fieldin);
+        MPI_Allreduce( &ier_loc, &iermesh, 1, MPI_INT, MPI_MIN, parmesh->comm);
       }
       if ( iermesh < 1 ) {
+        if ( rank == parmesh->info.root ) {
+          fprintf(stderr,"\n  ## ERROR: UNABLE TO LOAD FIELDS.\n");
+        }
         ier = 0;
         goto check_mesh_loading;
       }
@@ -350,7 +365,7 @@ check_mesh_loading:
   }
   else if ( !distributedInput ) {
     /* Parallel remeshing starting from a centralized mesh */
-    ier = PMMG_parmmglib_centralized(parmesh);
+    ier = PMMG_parmmg_centralized(parmesh);
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
@@ -370,14 +385,33 @@ check_mesh_loading:
       char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
       fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.mesh\n",basename);
       MMG5_SAFE_FREE ( basename );
+      if (grp->field) {
+        fprintf(stdout,"       Writing mesh, metric and fields.\n");
+      }
+      else {
+        fprintf(stdout,"       Writing mesh and metric.\n");
+      }
     }
     else if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditBinary ) {
       char *basename = MMG5_Remove_ext ( parmesh->meshout,".meshb" );
       fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.meshb\n",basename);
       MMG5_SAFE_FREE ( basename );
+      if (grp->field) {
+        fprintf(stdout,"       Writing mesh, metric and fields.\n");
+      }
+      else {
+        fprintf(stdout,"       Writing mesh and metric.\n");
+      }
     }
     else {
-      fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
+      if (grp->field) {
+        fprintf(stdout,"\n  -- WRITING DATA FILE %s\n"
+                "       Writing mesh, metric and fields.\n",parmesh->meshout);
+      }
+      else {
+        fprintf(stdout,"\n  -- WRITING DATA FILE %s\n"
+                "       Writing mesh and metric.\n",parmesh->meshout);
+      }
     }
   }
 
@@ -393,7 +427,12 @@ check_mesh_loading:
       break;
 
     case ( MMG5_FMT_VtkPvtu ):
-      ier = PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+      if (grp->field) {
+        ier = PMMG_savePvtuMesh_and_allData(parmesh,parmesh->meshout);
+      }
+      else{
+        ier = PMMG_savePvtuMesh(parmesh,parmesh->meshout);
+      }
       MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
       break;
 
@@ -424,13 +463,12 @@ check_mesh_loading:
         }
       }
       if ( ier &&  grp->field ) {
-        fprintf(stderr,"  ## Error: %s: PMMG_saveAllSols_distributed function"
-                " not yet implemented."
-                " Ignored.\n",__func__);
+        ier = PMMG_saveAllSols_distributed(parmesh,parmesh->fieldout);
       }
       MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
       break;
+
     case ( PMMG_FMT_HDF5 ):
       ier = PMMG_saveMesh_hdf5(parmesh,parmesh->meshout);
       MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );

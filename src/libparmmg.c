@@ -55,7 +55,7 @@ extern int (*PMMG_interp2bar)(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol oldMet,MMG
 int PMMG_check_inputData(PMMG_pParMesh parmesh)
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,ls;
   int        k;
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
@@ -71,14 +71,14 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return 0;
     } else if ( mesh->info.iso ) {
-      fprintf(stderr,"  ## Error: level-set discretisation unavailable"
-              " (MMG3D_IPARAM_iso):\n");
-      return 0;
+      fprintf(stderr,"\n\n  ## WARNING: level-set discretisation under construction. \n\n");
+      // return 0;
     } else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
       return 0;
     }
+
     /* specific meshing */
     if ( met->np ) {
       if ( mesh->info.optim ) {
@@ -128,10 +128,15 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
 int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,ls;
+  int8_t     tim;
+  char       stim[32];
+  mytime     ctim[TIMEMAX];
+
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
+  ls   = parmesh->listgrp[0].ls;
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
@@ -139,7 +144,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met,ls) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -177,9 +182,37 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  /* Discretization of the isovalue  */
+  if (mesh->info.iso) {
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+    }
+    if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"  -- PHASE 1a COMPLETED     %s\n",stim);
+    }
+  }
+
   /** Mesh analysis */
   if ( !MMG3D_analys(mesh) ) {
     return PMMG_STRONGFAILURE;
+  }
+
+  /* Check if the LS has led to a non-manifold topology */
+  if ( mesh->info.iso && !MMG3D_chkmani(mesh) ) {
+    fprintf(stderr,"\n  ## LS discretization: non-manifold initial topology. Exit program.\n");
+    return PMMG_STRONGFAILURE;
+  }
+  else {
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"       LS discretization OK: no non-manifold topology.\n");
+    }
   }
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
@@ -187,7 +220,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met,ls) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -354,7 +387,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
 int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim ) {
   MMG5_pMesh    mesh;
-  MMG5_pSol     met;
+  MMG5_pSol     met,ls;
   int           ier,iresult;
   int8_t        tim;
   char          stim[32];
@@ -395,7 +428,8 @@ int PMMG_distributeMesh_centralized_timers( PMMG_pParMesh parmesh,mytime *ctim )
 
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    ls   = parmesh->listgrp[0].ls;
+    if ( (ier==PMMG_STRONGFAILURE) && MMG5_unscaleMesh( mesh, met, ls ) ) {
       ier = PMMG_LOWFAILURE;
     }
 
@@ -1596,9 +1630,17 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 }
 
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
+  return PMMG_parmmg_centralized(parmesh);
+}
+
+int PMMG_parmmgls_centralized(PMMG_pParMesh parmesh) {
+  return PMMG_parmmg_centralized(parmesh);
+}
+
+int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
   PMMG_pGrp     grp;
   MMG5_pMesh    mesh;
-  MMG5_pSol     met;
+  MMG5_pSol     met,ls;
   int           ier;
   int           ierlib;
   mytime        ctim[TIMEMAX];
@@ -1635,6 +1677,7 @@ int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh) {
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
   met    = grp->met;
+  ls     = grp->ls;
 
   /** Remeshing */
   tim = 3;

@@ -164,6 +164,46 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh);
  **/
 int PMMG_parmmglib_centralized(PMMG_pParMesh parmesh);
 
+/**
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
+ *
+ * Main program for the parallel isovalue discretisation library for centralized
+ * meshes
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_parmmgls_centralized(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ **/
+int PMMG_parmmgls_centralized(PMMG_pParMesh parmesh);
+
+/**
+ * \param parmesh pointer toward the parmesh structure (boundary entities are
+ * stored into MMG5_Tria, MMG5_Edge... structures)
+ *
+ * \return \ref PMMG_SUCCESS if success, \ref PMMG_LOWFAILURE if fail but we can
+ * return a centralized and unscaled mesh or \ref PMMG_STRONGFAILURE if fail and
+ * we can't return a centralized and unscaled mesh.
+ *
+ * Main program for the parallel isovalue discretisation library and remesh
+ * library for centralized meshes
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_parmmg_centralized(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T,INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)          :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ **/
+int PMMG_parmmg_centralized(PMMG_pParMesh parmesh);
+
 /* init file names */
 /**
  * \param parmesh pointer toward a parmesh structure.
@@ -1906,6 +1946,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return -1 data invalid, 0 no file, 1 ok.
  *
+ * Load distributed displacement, level-set or metric field depending on the
+ * option setted. The solution file must contains only 1 solution.
+ * Insert rank index to the mesh name.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADSOL_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadSol_distributed(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
  * Load 1 or more solutions in a solution file at medit file format.
  *
  * \remark Fortran interface:
@@ -1918,6 +1977,24 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  *
  */
   int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename);
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return -1 data invalid, 0 no file, 1 ok.
+ *
+ * Load 1 or more distributed solutions in a solution file at medit file format.
+ * Insert rank index in the file name.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADALLSOLS_DSITRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename);
 /**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename pointer toward the name of file.
@@ -2011,6 +2088,25 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
   int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh, const char *filename);
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write 1 or more than 1 solution in a file at medit format for a distributed
+ * mesh (insert rank index to filename).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEALLSOLS_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh, const char *filename);
+
+/**
  * \param parmesh pointer toward parmesh steructure.
  * \return 0 if failed, 1 otherwise.
  *
@@ -2101,7 +2197,41 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  */
   int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh,const char *filename);
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write mesh and 0 or 1 data at pvtu Vtk file format (.pvtu extension).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEPVTUMESH(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
 int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write mesh and a list of data fields at pvtu Vtk file format (.pvtu extension).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEPVTUMESH_AND_ALLDATA(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename);
 
 /**
  * \param parmesh pointer toward the parmesh structure
@@ -2187,8 +2317,11 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the nodes on a parallel interface. Nodes ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the nodes on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and ParMmg assumes this ordering is valid, but global indices
+ * are still needed by ParMmg to internally match interface faces.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHNODECOMMUNICATOR_NODES(parmesh,ext_comm_index,&\n
@@ -2212,8 +2345,10 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
  * \param isNotOrdered flag for reordering interface entities if not already done
  * \return 0 if failed, 1 otherwise.
  *
- * Set the faces on a parallel interface. Faces ordering MUST match on the two
- * processes sharing the same interface.
+ * Set the faces on a parallel interface. Global numbering is used to reorder
+ * interface entities if isNotOrdered is equal to 1; otherwise, entities need to
+ * be listed in the same order on the two sides of the interface (isNotOrdered
+ * equal to 0) and global indices are not read.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SET_ITHFACECOMMUNICATOR_FACES(parmesh,ext_comm_index,&\n

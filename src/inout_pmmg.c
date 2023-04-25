@@ -838,6 +838,79 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+int PMMG_loadSol_distributed(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol;
+  int        ier;
+  char       *data = NULL;
+
+  if ( parmesh->myrank >= parmesh->info.npartin ) {
+    assert ( !parmesh->ngrp );
+    return 1;
+  }
+  else if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+
+  mesh = parmesh->listgrp[0].mesh;
+
+  /* For each mode: pointer over the solution structure to load */
+  if ( mesh->info.lag >= 0 ) {
+    sol = parmesh->listgrp[0].disp;
+  }
+  else if ( mesh->info.iso ) {
+    sol = parmesh->listgrp[0].ls;
+  }
+  else {
+    sol = parmesh->listgrp[0].met;
+  }
+
+  /* Add rank index to mesh name */
+  if ( filename ) {
+    PMMG_insert_rankIndex(parmesh,&data,filename,".sol", ".sol");
+  }
+  else if ( mesh->info.lag >= 0 && parmesh->dispin ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->dispin,".sol", ".sol");
+  }
+  else if ( mesh->info.iso && parmesh->lsin ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->lsin,".sol", ".sol");
+  }
+  else if ( parmesh->metin ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->metin,".sol", ".sol");
+  }
+  else if ( mesh->info.lag >= 0 && sol->namein ) {
+    PMMG_insert_rankIndex(parmesh,&data,sol->namein,".sol", ".sol");
+  }
+  else if ( mesh->info.iso && sol->namein ) {
+    PMMG_insert_rankIndex(parmesh,&data,sol->namein,".sol", ".sol");
+  }
+  else if ( sol->namein ) {
+    PMMG_insert_rankIndex(parmesh,&data,sol->namein,".sol", ".sol");
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  ier = MMG3D_loadSol(mesh,sol,data);
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  return ier;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the file to load the solutions from.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load a set of centralized solutions.
+ *
+ */
 int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   MMG5_pSol  *sol;
@@ -878,16 +951,47 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 }
 
-/**
- * \param parmesh pointer toward the parmesh structure.
- * \param filename name of the file to load the mesh from.
- *
- * \return 0 if fail, 1 otherwise
- *
- * Save a distributed mesh with parallel communicators in Medit format (only one
- * group per process is allowed).
- *
- */
+int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
+
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+  char       *data = NULL;
+
+  if ( parmesh->myrank >= parmesh->info.npartin ) {
+    assert ( !parmesh->ngrp );
+    return 1;
+  }
+  else if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].field;
+
+  /* Add rank index to mesh name */
+  if ( filename ) {
+    PMMG_insert_rankIndex(parmesh,&data,filename,".sol", ".sol");
+  }
+  else if ( parmesh->fieldin ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->fieldin,".sol", ".sol");
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  ier = MMG3D_loadAllSols(mesh,sol,data);
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  MMG5_SAFE_FREE(data);
+
+  return ier;
+}
+
 int PMMG_saveMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh  mesh;
   int         ier;
@@ -1076,6 +1180,41 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   else {
     ier = MMG3D_saveAllSols(mesh,&sol,parmesh->fieldout);
   }
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  return ier;
+}
+
+int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+  char       *data = NULL;
+
+  if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].field;
+
+  /* Add rank index to mesh name */
+  if ( filename ) {
+    PMMG_insert_rankIndex(parmesh,&data,filename,".sol", ".sol");
+  }
+  else if ( parmesh->fieldout ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->fieldout,".sol", ".sol");
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  ier = MMG3D_saveAllSols(mesh,sol,data);
+
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
