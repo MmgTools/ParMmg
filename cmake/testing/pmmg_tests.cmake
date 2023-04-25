@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout bc4e9152071306acaad6b3274f0e9ef7eb216778
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout cffe7f183a
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -409,7 +409,7 @@ IF( BUILD_TESTING )
     -ls 0.01
     -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
     -out ${CI_DIR_RESULTS}/${MESH}-2.o.mesh)
-  set(lsReadFile "3D-cube-ls.sol.0 OPENED")
+  set(lsReadFile "3D-cube-ls.0.sol OPENED")
   set_property(TEST ls-DisIn-ReadLs-2
     PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
 
@@ -429,7 +429,7 @@ IF( BUILD_TESTING )
     -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
     -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
 
-  set(InputDistributedFields "3D-cube-fields.sol.0 OPENED")
+  set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
   set(OutputVtkFields "Writing mesh, metric and fields.")
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
@@ -442,8 +442,8 @@ IF( BUILD_TESTING )
     -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
     -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2-out.mesh)
 
-  set(OutputFieldsName "3D-cube-fields.o.sol.0 OPENED.")
-  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2-out.sol.0 OPENED.")
+  set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
+  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2-out.0.sol OPENED.")
   set_property(TEST fields-DisIn-DisOutMesh-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
