@@ -415,6 +415,10 @@ check_mesh_loading:
     }
   }
 
+  /* Initialize ierSave to 1 because for centralized output it will be assigned
+   * only on root rank. */
+  ierSave = 1;
+
   if ( parmesh->listgrp && parmesh->listgrp[0].mesh ) {
     grp = &parmesh->listgrp[0];
 
