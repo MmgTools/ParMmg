@@ -2692,7 +2692,7 @@ int PMMG_Get_format( char *ptr, int fmt ) {
   /* Default is the format given as input */
   int defFmt = fmt;
 
-  if ( !ptr ) return defFmt;
+  if ( (!ptr) || !(*ptr) ) return defFmt;
 
   /* Search if Format is known by Mmg */
   int tmp_fmt = MMG5_Get_format(ptr, MMG5_FMT_Unknown);
