@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout a6c2e0268a6d1
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 715caf8d
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -340,7 +340,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -352,7 +352,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -363,7 +363,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
-      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -374,7 +374,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
-      -out ${CI_DIR_RESULTS}/${MESH}-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -408,10 +408,59 @@ IF( BUILD_TESTING )
     ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
     -ls 0.01
     -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
-    -out ${CI_DIR_RESULTS}/${MESH}-2.o.mesh)
+    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
   set(lsReadFile "3D-cube-ls.0.sol OPENED")
   set_property(TEST ls-DisIn-ReadLs-2
     PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
+
+  # Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
+  add_test( NAME Medit-DisIn-MeshOnly-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
+    -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
+
+  # Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
+  add_test( NAME Medit-DisIn-MeshAndMet-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-sol -v 5
+    -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
+
+  # Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
+  add_test( NAME Medit-DisIn-MeshOnly-4
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
+    ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+
+  # Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
+  add_test( NAME Medit-DisIn-MeshOnly-6
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
+    ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+
+  # hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
+  add_test( NAME hdf5-DisIn-MeshOnly-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
+    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+
+  # hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
+  add_test( NAME hdf5-DisIn-MeshAndMet-2
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-sol.h5 -v 5
+    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
+
+  # hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
+  add_test( NAME hdf5-DisIn-MeshAndMet-8
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-sol.h5 -v 5
+    ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+  # hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
+  add_test( NAME hdf5-DisIn-MeshOnly-8
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
 
   ###############################################################################
   #####
