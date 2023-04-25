@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout cffe7f183a
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout a6c2e0268a6d1
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
