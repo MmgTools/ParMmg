@@ -522,9 +522,14 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   }
 
   if( parmesh->listgrp[0].mesh->info.opnbdy ) {
-    fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-        "\nSetting nosurf on.\n");
-    if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
+    if ( parmesh->info.root == parmesh->myrank ) {
+      fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
+              "\nSetting nosurf on.\n");
+    }
+    if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) {
+      ret_val = 0;
+      goto clean;
+    }
   }
 
   /** Step 6: Sychronize parmesh and mesh file names */
