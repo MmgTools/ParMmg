@@ -466,7 +466,7 @@ int PMMG_loadMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   char*       data = NULL;
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -584,7 +584,7 @@ int PMMG_loadMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -625,7 +625,7 @@ int PMMG_loadMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -667,7 +667,7 @@ int PMMG_loadMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
     return 1;
   }
   else if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -717,7 +717,7 @@ int PMMG_loadLs_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -759,7 +759,7 @@ int PMMG_loadDisp_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -801,7 +801,7 @@ int PMMG_loadSol_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -849,7 +849,7 @@ int PMMG_loadSol_distributed(PMMG_pParMesh parmesh,const char *filename) {
     return 1;
   }
   else if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -922,7 +922,7 @@ int PMMG_loadAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -963,7 +963,7 @@ int PMMG_loadAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
     return 1;
   }
   else if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -998,7 +998,7 @@ int PMMG_saveMesh_distributed(PMMG_pParMesh parmesh,const char *filename) {
   char       *data = NULL;
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -1050,7 +1050,7 @@ int PMMG_saveMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -1083,7 +1083,7 @@ int PMMG_saveMet_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -1114,7 +1114,7 @@ int PMMG_saveMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
   char       *data = NULL;
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -1163,7 +1163,7 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   }
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -1194,7 +1194,7 @@ int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh,const char *filename) {
   char       *data = NULL;
 
   if ( parmesh->ngrp != 1 ) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
             __func__);
     return 0;
   }
@@ -4357,12 +4357,12 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
 
   /* Check arguments */
   if (parmesh->ngrp != 1) {
-    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.",
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in your parmesh.\n",
             __func__);
     return 0;
   }
   if (!filename || !*filename) {
-    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.",
+    fprintf(stderr,"  ## Error: %s: no HDF5 file name provided.\n",
             __func__);
     return 0;
   }
