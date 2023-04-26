@@ -461,6 +461,15 @@ IF( BUILD_TESTING )
     -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
     -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
 
+  IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+    SET(expr "HDF5 library not found")
+    SET_PROPERTY(
+      TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
+      Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
+      hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
+      PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+  ENDIF ( )
+
 
   ###############################################################################
   #####
