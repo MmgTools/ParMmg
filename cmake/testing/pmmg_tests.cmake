@@ -391,6 +391,10 @@ IF( BUILD_TESTING )
   endforeach()
 
   # Tests of pvtu output when ls mode
+  IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+    set(OutputVtkErr "VTK library not founded.")
+  ENDIF ( )
+
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-DisOut-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -398,6 +402,10 @@ IF( BUILD_TESTING )
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}.o.pvtu)
+
+    set_property(TEST ls-CenIn-DisOut-${NP}
+      PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+
   endforeach()
 
   #--------------------------------
@@ -489,9 +497,11 @@ IF( BUILD_TESTING )
 
   set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
   set(OutputVtkFields "Writing mesh, metric and fields.")
+
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
-    "${InputDistributedFields}.*${OutputVtkFields};${OutputVtkFields}.*${InputDistributedFields}")
+    "${InputDistributedFields}.*${OutputVtkFields}.*${OutputVtkErr};
+${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields}")
 
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2
