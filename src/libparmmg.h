@@ -59,6 +59,7 @@ enum PMMG_Param {
   PMMG_IPARAM_mmgDebug,          /*!< [1/0], Turn on/off debug mode */
   PMMG_IPARAM_angle,             /*!< [1/0], Turn on/off angle detection */
   PMMG_IPARAM_iso,               /*!< [1/0], Level-set meshing */
+  PMMG_IPARAM_isosurf,           /*!< [1/0], Level-set meshing along boundaries */
   PMMG_IPARAM_lag,               /*!< [-1/0/1/2], Lagrangian option */
   PMMG_IPARAM_opnbdy,            /*!< [0/1], Enable preservation of open boundaries */
   PMMG_IPARAM_optim,             /*!< [1/0], Optimize mesh keeping its initial edge sizes */
@@ -105,6 +106,7 @@ enum PMMG_Param {
  * a pointer toward a pointer toward a parmesh
  * the \a PMMG_ARG_pMesh keyword to initialize a \a mesh pointer inside your \a parmesh
  * the \a PMMG_ARG_pMet keyword to initialize a \a metric pointer inside your \a parmesh
+ * the \a PMMG_ARG_pLs keyword to initialize a \a level-set pointer inside your \a parmesh
  * the \a PMMG_ARG_dim keyword to set the mesh dimension
  * the \a PMMG_ARG_MPIComm keyword to set the MPI Communicator in which parmmg will work
  * the \a PMMG_ARG_end keyword to end the list of variadic args.
@@ -465,7 +467,7 @@ int  PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam, int val);
  * >   END SUBROUTINE\n
  *
  */
-int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int iparam, double val);
+int  PMMG_Set_dparameter(PMMG_pParMesh parmesh, int dparam, double val);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -2105,6 +2107,97 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
   int PMMG_saveAllSols_distributed(PMMG_pParMesh parmesh, const char *filename);
 
 /**
+ * \param parmesh pointer toward parmesh steructure.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the default entities to save into an hdf5 file.
+ *
+ * For now, used only by hdf5 I/Os.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_DEFAULTIOENTITIES(parmesh,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh);
+
+/**
+ * \param parmesh pointer toward parmesh steructure.
+ * \param target type of entity for which we want to enable/disable saving.
+ * target value has to be one of the PMMG_IO_entities values.
+ * \pararm enable saving if PMMG_ON is passed, disable it if PMMG_OFF is passed.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Enable or disable entities to save depending on the \a val value.
+ *
+ * Passing \ref PMMG_IO_Required as \a target value allows to modify behaviour
+ * for all required entites.
+ *
+ * Passing \ref PMMG_IO_Parallel as \a target value allows to modify behaviour
+ * for all parallel entites.
+ *
+ * For now, used only by hdf5 I/Os.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_IOENTITIES(parmesh,target,val,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     INTEGER, INTENT(IN)             :: target,val\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_Set_IOEntities(PMMG_pParMesh parmesh, int target, int val);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the HDF5 and XDMF files (can have no extention, .h5 or .xdmf extension).
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write the mesh data, the metric, and all the solutions in an HDF5 file,
+ * aswell as an XDMF file for visualisation. This function is to be used for
+ * distributed meshes.
+ *
+ * The entities that have to be saved can be setted using the
+ * \ref PMMG_Set_defaultIOEntities and \ref PMMG_Set_IOEntities
+ * functions.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVEMESH_HDF5(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T , INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)    :: filename\n
+ * >     INTEGER, INTENT(IN)             :: strlen\n
+ * >     INTEGER, INTENT(OUT)            :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveMesh_hdf5(PMMG_pParMesh parmesh,const char *filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of the HDF5 file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Load the mesh data, the metric, and all the solutions from an HDF5 file in
+ * a distributed parmesh.
+ *
+ * The entities that have to be saved can be setted using the
+ * \ref PMMG_Set_defaultIOEntities and \ref PMMG_Set_IOEntities
+ * functions.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_LOADMESH_HDF5(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_loadMesh_hdf5(PMMG_pParMesh parmesh,const char *filename);
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param filename name of file.
  * \return 0 if failed, 1 otherwise.
@@ -2120,7 +2213,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * >   END SUBROUTINE\n
  *
  */
-  int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
+int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename);
 
 /**
  * \param parmesh pointer toward the parmesh structure.

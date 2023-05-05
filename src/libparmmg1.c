@@ -861,21 +861,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
       if ( !parmesh->info.nobalancing ) {
         /** Load balancing of the output mesh */
-
-        /* Store user repartitioning mode */
-        int repartitioning_mode;
-        repartitioning_mode = parmesh->info.repartitioning;
-
         /* Load balance using mesh groups graph */
-        parmesh->info.repartitioning = PMMG_REDISTRIBUTION_graph_balancing;
-        ier = PMMG_loadBalancing(parmesh);
-
-        /* Repristinate user repartitioning mode */
-        parmesh->info.repartitioning = repartitioning_mode;
+        ier = PMMG_loadBalancing(parmesh,PMMG_REDISTRIBUTION_graph_balancing);
       }
     } else {
       /** Standard parallel mesh repartitioning */
-      ier = PMMG_loadBalancing(parmesh);
+      ier = PMMG_loadBalancing(parmesh,parmesh->info.repartitioning);
     }
 
 
@@ -913,7 +904,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   }
 #endif
 
-  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0 );
+  ier = PMMG_qualhisto( parmesh, PMMG_OUTQUA, 0, parmesh->comm );
 
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( !ieresult ) {
@@ -967,7 +958,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   if ( parmesh->info.imprim0 > PMMG_VERB_ITWAVES && !parmesh->info.iso && parmesh->iter>0 ) {
     assert ( parmesh->listgrp[0].met->m );
-    PMMG_prilen(parmesh,1,0);
+    PMMG_prilen(parmesh,1,0,parmesh->comm);
   }
 
   PMMG_CLEAN_AND_RETURN(parmesh,ier_end);

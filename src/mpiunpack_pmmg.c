@@ -412,21 +412,21 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
     if ( !MMG5_Set_outputSolName( mesh,met, parmesh->metout ) ) { *ier = 0; }
   }
 
-  if ( ier_ls ) {
+  if ( ier_ls && ls ) {
     /* ls structure is allocated */
     if ( parmesh->lsin && *parmesh->lsin ) {
       if ( !MMG5_Set_inputSolName( mesh, ls, parmesh->lsin ) ) { *ier = 0; }
     }
   }
 
-  if ( ier_disp ) {
+  if ( ier_disp && disp ) {
     /* disp structure is allocated */
     if ( parmesh->dispin && *parmesh->dispin ) {
       if ( !MMG5_Set_inputSolName( mesh, disp, parmesh->dispin ) ) { *ier = 0; }
     }
   }
 
-  if ( ier_field ) {
+  if ( ier_field && field ) {
     /* field structure is allocated */
     for ( is=0; is<nsols; ++is ) {
       if ( parmesh->fieldin ) {

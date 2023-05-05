@@ -465,13 +465,11 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   MMG5_pTetra    pt;
   MMG5_pxTetra   pxt;
   MMG5_pPoint    ppt;
-  MPI_Comm       comm;
   MPI_Status     status;
   int            *face2int_face_comm_index1,*face2int_face_comm_index2;
   int            *seenFace,*intvalues,*itosend,*itorecv;
   int            ngrp,myrank,color,nitem,k,igrp,i,idx,ie,ifac;
 
-  comm   = parmesh->comm;
   grp    = parmesh->listgrp;
   myrank = parmesh->myrank;
   ngrp   = parmesh->ngrp;
@@ -547,10 +545,12 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       itosend[i]     = intvalues[idx];
     }
 
+    // As this function is called only during analysis we can use directly
+    // read_comm communicator
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
-                   comm,&status),return 0 );
+                   parmesh->info.read_comm,&status),return 0 );
 
     /* Store the info in intvalues */
     for ( i=0; i<nitem; ++i ) {

@@ -153,3 +153,52 @@ IF ( VTK_FOUND AND NOT USE_VTK MATCHES OFF)
 
   SET( LIBRARIES ${VTK_LIBRARIES} ${LIBRARIES} )
 ENDIF ( )
+
+############################################################################
+#####
+#####         HDF5
+#####
+############################################################################
+# Find HDF5 library?
+SET ( USE_HDF5 "" CACHE STRING "Use HDF5 I/O (ON, OFF or <empty>)" )
+SET_PROPERTY(CACHE USE_HDF5 PROPERTY STRINGS "ON" "OFF" "")
+
+IF ( NOT DEFINED USE_HDF5 OR USE_HDF5 STREQUAL "" OR USE_HDF5 MATCHES " +" )
+  # Variable is not provided by user
+  SET(HDF5_PREFER_PARALLEL TRUE)
+
+  FIND_PACKAGE(HDF5 QUIET)
+  IF ( HDF5_FOUND AND NOT HDF5_IS_PARALLEL )
+    UNSET ( HDF5_FOUND )
+  ENDIF( )
+
+ELSE ( )
+  IF ( USE_HDF5 )
+    # User wants to use HDF5 I/O
+    SET(HDF5_PREFER_PARALLEL TRUE)
+
+    FIND_PACKAGE(HDF5)
+
+    IF ( NOT HDF5_FOUND )
+      MESSAGE ( FATAL_ERROR "HDF5 library not found."
+        " Please set the CMake variable USE_HDF5 to OFF to disable HDF5 I/Os.")
+    ENDIF ( )
+
+    IF ( NOT HDF5_IS_PARALLEL )
+      MESSAGE ( FATAL_ERROR "HDF5 parallel library not found: "
+        "Please enable parallel support for HDF5 or set the CMake variable "
+        "USE_HDF5 to OFF to disable HDF5 I/Os.")
+    ENDIF( )
+
+  ENDIF ( )
+ENDIF ( )
+
+IF ( HDF5_FOUND AND NOT USE_HDF5 MATCHES OFF )
+
+  INCLUDE_DIRECTORIES(${HDF5_INCLUDE_DIRS})
+
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DUSE_HDF5")
+  MESSAGE ( STATUS "Compilation with HDF5: add HDF5 I/O." )
+  SET( LIBRARIES  ${LIBRARIES} ${HDF5_LIBRARIES} )
+
+ENDIF ( )
