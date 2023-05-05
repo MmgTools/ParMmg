@@ -248,6 +248,19 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
+  if (mesh->info.iso) {
+// Just print a warning saying that the feature is not implemented and
+// deallocate the isovalue structure (as the ls is not interpolated during the
+// remeshing step, the continuous integration tests will fail otherwise)
+    if ( parmesh->myrank == parmesh->info.root) {
+      fprintf(stdout,"Isovalue discretization is not yet implemented:"
+        " Deallocation of the level-set structure.\n");
+    }
+    PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
+    parmesh->listgrp[0].ls->np = 0;
+  }
+
+
   /** Check distributed API mode. Interface faces OR nodes need to be set by the
    * user through the API interface at this point, meaning that the
    * corresponding external comm is set to the correct size, and filled with
