@@ -421,53 +421,69 @@ IF( BUILD_TESTING )
   set_property(TEST ls-DisIn-ReadLs-2
     PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
 
-  # Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
+  # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
+  # npart with mesh only or mesh+metric.
+
+  ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
   add_test( NAME Medit-DisIn-MeshOnly-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
     -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
 
-  # Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
+  ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
   add_test( NAME Medit-DisIn-MeshAndMet-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
     -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-sol -v 5
     -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
 
-  # Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
+  ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
   add_test( NAME Medit-DisIn-MeshOnly-4
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
     -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
     ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
 
-  # Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
+  ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
   add_test( NAME Medit-DisIn-MeshOnly-6
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
     ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
 
-  # hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
+  ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
   add_test( NAME hdf5-DisIn-MeshOnly-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
     -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
 
-  # hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
+  ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
   add_test( NAME hdf5-DisIn-MeshAndMet-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-sol.h5 -v 5
     -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
 
-  # hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
+  ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
   add_test( NAME hdf5-DisIn-MeshAndMet-8
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
     -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-sol.h5 -v 5
     ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
 
-  # hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
+  ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
   add_test( NAME hdf5-DisIn-MeshOnly-8
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
     -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
     -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+  ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
+  add_test( NAME hdf5-DisIn-MeshAndMet-4
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-sol.h5 -v 5
+    ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+  ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
+  add_test( NAME hdf5-DisIn-MeshOnly-4
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
 
   IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
     SET(expr "HDF5 library not found")

@@ -2537,7 +2537,7 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
 static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                  hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
   MMG5_pMesh  mesh;
-  MMG5_pSol   *sols;
+  MMG5_pSol   sols;
   MMG5_pPoint ppt;
   MMG5_pTetra pt;
   int         nsols, ndigits, np, npg, ne, neg, size, count, vcount, tcount, iwar = 1;
@@ -2549,7 +2549,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 
   /* Set ParMmg variables */
   mesh = parmesh->listgrp[0].mesh;
-  sols = &(parmesh->listgrp[0].field);
+  sols = parmesh->listgrp[0].field;
   nsols = mesh->nsols;
 
   /* Get the local and global number of vertices/tetra */
@@ -2570,25 +2570,29 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 
   for (int i = 0 ; i < nsols ; i++) {
 
-    if ( !sols[i] || !sols[i]->m ) {
+    if ( !(sols+i) || !(sols[i].m) ) {
       iwar = 0;
     }
-    MPI_Allreduce(MPI_IN_PLACE, &iwar, 1, MPI_INT, MPI_MIN, parmesh->comm);
+    else {
+      iwar = 1;
+    }
+
+    MPI_Allreduce(MPI_IN_PLACE, &iwar, 1, MPI_INT, MPI_MAX, parmesh->comm);
     if ( !iwar ) {
       fprintf(stderr, "\n  ## Warning: %s: Skipping empty solution %d.\n", __func__, i);
       continue;
     }
 
-    size = sols[i]->size;
+    size = sols[i].size;
     count = 0;
 
-    if (sols[i]->entities == MMG5_Noentity || sols[i]->entities == MMG5_Vertex) {
+    if (sols[i].entities == MMG5_Noentity || sols[i].entities == MMG5_Vertex) {
       PMMG_MALLOC(parmesh, sol_buf, size * np, double, "sol_buf", goto free_buf);
       for (int k = 0 ; k < mesh->np ; k++) {
         ppt = &mesh->point[k + 1];
         if ( !MG_VOK(ppt) ) continue;
         for (int j = 0 ; j < size ; j++) {
-          sol_buf[count++] = sols[i]->m[1 + k * size + j];
+          sol_buf[count++] = sols[i].m[1 + k * size + j];
         }
       }
       hns[0] = np; hns[1] = size;
@@ -2605,13 +2609,13 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
       vcount++;
     }
 
-    else if (sols[i]->entities == MMG5_Tetrahedron) {
+    else if (sols[i].entities == MMG5_Tetrahedron) {
       PMMG_MALLOC(parmesh, sol_buf, size * ne, double, "sol_buf", goto free_buf);
       for (int k = 0 ; k < mesh->ne ; k++) {
         pt = &mesh->tetra[k + 1];
         if ( !MG_EOK(pt) ) continue;
         for (int j = 0 ; j < size ; j++) {
-          sol_buf[count++] = sols[i]->m[1 + k * size + j];
+          sol_buf[count++] = sols[i].m[1 + k * size + j];
         }
       }
       hns[0] = ne; hns[1] = size;
@@ -2631,7 +2635,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
     else {
       printf("\n  ## Warning: %s: unexpected entity type for solution %d: %s."
              "\n Ignored.\n",
-             __func__, i, MMG5_Get_entitiesName(sols[i]->entities));
+             __func__, i, MMG5_Get_entitiesName(sols[i].entities));
       continue;
     }
 
@@ -2683,7 +2687,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
   hsize_t   neg, npg;
   PMMG_pGrp grp;
-  MMG5_pSol met, *sols;
+  MMG5_pSol met, sols;
   int       nsols, entities;
   FILE      *xdmf_file = NULL;
 
@@ -2693,7 +2697,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   neg  = nentitiesg[PMMG_IO_Tetra];
   grp  = &parmesh->listgrp[0];
   met  = grp->met;
-  sols = &grp->field;
+  sols = grp->field;
   nsols = grp->mesh->nsols;
 
   if (parmesh->myrank == parmesh->info.root) {
@@ -2750,29 +2754,29 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
     for (int i = 0 ; i < nsols ; i++) {
 
       /* Ignore invalid solutions */
-      if ( !sols[i] || !sols[i]->m ) continue;
+      if ( !(sols+i) || !(sols[i].m) ) continue;
 
-      entities = sols[i]->entities;
+      entities = sols[i].entities;
 
       if (entities != MMG5_Noentity && entities != MMG5_Vertex && entities != MMG5_Tetrahedron) continue;
-      if (sols[i]->type == MMG5_Scalar) {
+      if (sols[i].type == MMG5_Scalar) {
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Scalar\">\n", i);
       }
-      else if (sols[i]->type == MMG5_Vector) {
+      else if (sols[i].type == MMG5_Vector) {
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Vector\">\n", i);
       }
-      else if (sols[i]->type == MMG5_Tensor) {
+      else if (sols[i].type == MMG5_Tensor) {
         fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Sol%d\" AttributeType=\"Tensor\">\n", i);
       }
       fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
       fprintf(xdmf_file, "                  Precision=\"8\"\n");
       fprintf(xdmf_file, "                  Format=\"HDF\"\n");
-      if (sols[i]->entities == MMG5_Noentity || sols[i]->entities == MMG5_Vertex) {
-        fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i]->size);
+      if (sols[i].entities == MMG5_Noentity || sols[i].entities == MMG5_Vertex) {
+        fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i].size);
         fprintf(xdmf_file, "          %s:/Solutions/SolAtVertices%d\n", filename, i);
       }
-      else if (sols[i]->entities == MMG5_Tetrahedron) {
-        fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", neg, sols[i]->size);
+      else if (sols[i].entities == MMG5_Tetrahedron) {
+        fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", neg, sols[i].size);
         fprintf(xdmf_file, "          %s:/Solutions/SolAtTetrahedra%d\n", filename, i);
       }
       fprintf(xdmf_file, "        </DataItem>\n");
