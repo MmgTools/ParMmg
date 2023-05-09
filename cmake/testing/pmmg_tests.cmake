@@ -537,7 +537,7 @@ ${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields}")
   add_test( NAME hdf5-CenIn-DisOutHdf5-4
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/Interpolation/coarse.meshb -v 5
-    -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.mesh)
+    -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.h5)
 
   IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
     SET(expr "HDF5 library not found")
