@@ -491,6 +491,7 @@ IF( BUILD_TESTING )
       TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
       Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
       hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
+      hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
       PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
   ENDIF ( )
 
@@ -531,6 +532,19 @@ ${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields}")
   set_property(TEST fields-DisIn-DisOutMesh-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
+
+  # Test saving of solution fields on 4 procs at hdf5 format
+  add_test( NAME hdf5-CenIn-DisOutHdf5-4
+    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+    ${CI_DIR}/Interpolation/coarse.meshb -v 5
+    -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.mesh)
+
+  IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+    SET(expr "HDF5 library not found")
+    SET_PROPERTY(
+      TEST hdf5-CenIn-DisOutHdf5-4
+      PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+  ENDIF ( )
 
   ###############################################################################
   #####
