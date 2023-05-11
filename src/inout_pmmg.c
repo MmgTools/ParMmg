@@ -2438,6 +2438,66 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
 }
 
 /**
+ * \param mesh pointer toward the mesh associated to the solution.
+ * \param sol pointer toward the solution structure to save.
+ * \param dset_id identifier of the HDF5 group in which to write the solution.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param np local number of vertices.
+ * \param npg global number of vertices.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel writing.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save at hdf5 format a given solution structure defined at vertices.
+ *
+ */
+static
+int PMMG_saveSolAtVertices_hdf5(MMG5_pMesh mesh,MMG5_pSol sol,hid_t grp_sol_id,
+                                hid_t dcpl_id,hid_t dxpl_id,int np,int npg,
+                                hsize_t *offset) {
+  int         mcount;
+  MMG5_pPoint ppt;
+  double      *sol_buf;
+  hsize_t     sol_offset[2] = {0, 0};
+  hid_t       dspace_file_id, dspace_mem_id;
+  hid_t       dset_id;
+
+  /* Arrays for bidimensional dataspaces */
+  hsize_t hns[2]  = {np, sol->size};
+  hsize_t hnsg[2] = {npg, sol->size};
+
+  /* Offset for parallel writing */
+  sol_offset[0] = offset[2 * PMMG_IO_Vertex];
+
+  /* Fill the solution buffer */
+  PMMG_MALLOC(mesh, sol_buf, np * sol->size, double, "sol_buf", return 0);
+  mcount = 0;
+  for (int k = 0 ; k < mesh->np ; k++) {
+    ppt = &mesh->point[k + 1];
+    if (!MG_VOK(ppt)) continue;
+    for (int j = 0 ; j < sol->size ; j++) {
+      sol_buf[mcount++] = sol->m[1 + k * sol->size + j];
+    }
+  }
+
+  /* Write the buffer */
+  dspace_mem_id = H5Screate_simple(2, hns, NULL);
+  dspace_file_id = H5Screate_simple(2, hnsg, NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, sol_offset, NULL, hns, NULL);
+  dset_id = H5Dcreate(grp_sol_id, "SolAtVertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+  H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, sol_buf);
+  H5Dclose(dset_id);
+  H5Sclose(dspace_mem_id);
+  H5Sclose(dspace_file_id);
+
+  /* Free the memory */
+  PMMG_DEL_MEM(mesh, sol_buf, double, "sol_buf");
+
+  return 1;
+}
+
+/**
  * \param parmesh pointer toward the parmesh structure.
  * \param grp_sols_id identifier of the HDF5 group in which to write the metric.
  * \param dcpl_id identifier of the dataset creation property list (no fill value).
@@ -2453,14 +2513,10 @@ static int PMMG_savePartitioning_hdf5(PMMG_pParMesh parmesh, hid_t grp_part_id, 
  */
 static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
                                 hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
-  int         np, npg, mcount, isMet;
+  int         np, npg, isMet,ier;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
-  MMG5_pPoint ppt;
-  double      *met_buf;
-  hsize_t     met_offset[2] = {0, 0};
-  hid_t       dspace_mem_id, dspace_file_id;
-  hid_t       dset_id;
+  hid_t       grp_sol_id;
 
   assert ( parmesh->ngrp == 1 );
 
@@ -2486,36 +2542,86 @@ static int PMMG_saveMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
     return 0;
   }
 
-  /* Arrays for bidimensional dataspaces */
-  hsize_t hns[2]  = {np, met->size};
-  hsize_t hnsg[2] = {npg, met->size};
+  HDF_CHECK( grp_sol_id = H5Gcreate(grp_sols_id, "Metric", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions/Metric group.\n",__func__);
+             return 0 );
 
-  /* Offset for parallel writing */
-  met_offset[0] = offset[2 * PMMG_IO_Vertex];
+  ier = PMMG_saveSolAtVertices_hdf5(mesh,met,grp_sol_id,dcpl_id,dxpl_id,np,npg,offset);
 
-  /* Fill the metric buffer */
-  PMMG_MALLOC(parmesh, met_buf, np * met->size, double, "met_buf", return 0);
-  mcount = 0;
-  for (int k = 0 ; k < mesh->np ; k++) {
-    ppt = &mesh->point[k + 1];
-    if (!MG_VOK(ppt)) continue;
-    for (int j = 0 ; j < met->size ; j++) {
-      met_buf[mcount++] = met->m[1 + k * met->size + j];
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not write the metric.\n",__func__);
     }
+    H5Gclose(grp_sol_id);
+    return 0;
   }
 
-  /* Write the buffer */
-  dspace_mem_id = H5Screate_simple(2, hns, NULL);
-  dspace_file_id = H5Screate_simple(2, hnsg, NULL);
-  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, met_offset, NULL, hns, NULL);
-  dset_id = H5Dcreate(grp_sols_id, "MetricAtVertices", H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
-  H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, met_buf);
-  H5Dclose(dset_id);
-  H5Sclose(dspace_mem_id);
-  H5Sclose(dspace_file_id);
+  H5Gclose(grp_sol_id);
 
-  /* Free the memory */
-  PMMG_DEL_MEM(parmesh, met_buf, double, "met_buf");
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which to write the metric.
+ * \param dcpl_id identifier of the dataset creation property list (no fill value).
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of size PMMG_IO_ENTITIES_size containing the local number of entities.
+ * \param nentitiesg array of size PMMG_IO_ENTITIES_size containing the global number of entities.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel writing.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Save the level-set in the \a grp_sols_id group of an HDF5 file (only one group per process is allowed).
+ *
+ */
+static int PMMG_saveLs_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dcpl_id, hid_t dxpl_id,
+                            hsize_t *nentitiesl, hsize_t *nentitiesg, hsize_t *offset) {
+  int         np, npg, isSol,ier;
+  MMG5_pMesh  mesh;
+  MMG5_pSol   ls;
+  hid_t       grp_sol_id;
+
+  assert ( parmesh->ngrp == 1 );
+
+  mesh = parmesh->listgrp[0].mesh;
+  ls = parmesh->listgrp[0].ls;
+  np  = nentitiesl[PMMG_IO_Vertex];
+  npg = nentitiesg[PMMG_IO_Vertex];
+
+  /* Check the metric */
+  isSol = (ls && ls->m);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &isSol, 1, MPI_INT, MPI_MAX, parmesh->comm), return 0);
+
+  if (!isSol) {
+    return 1;
+  }
+  if (ls->size != 1) {
+    fprintf(stderr, "\n  ## Error: %s: Wrong level-set size/type.\n", __func__);
+    return 0;
+  }
+  if (mesh->np != ls->np) {
+    fprintf(stderr, "\n  ## Error: %s: The level-set vertices do not match with the mesh vertices. \n", __func__);
+    return 0;
+  }
+
+  HDF_CHECK( grp_sol_id = H5Gcreate(grp_sols_id, "Ls", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions/Ls group.\n",__func__);
+             H5Gclose(grp_sols_id);
+             return 0 );
+
+  ier = PMMG_saveSolAtVertices_hdf5(mesh,ls,grp_sol_id,dcpl_id,dxpl_id,np,npg,offset);
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not write the level-set.\n",__func__);
+    }
+    H5Gclose(grp_sol_id);
+    return 0;
+  }
+
+  H5Gclose(grp_sol_id);
 
   return 1;
 }
@@ -2545,12 +2651,17 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   hsize_t     *sol_offset;
   double      *sol_buf;
   hid_t       dspace_mem_id, dspace_file_id;
-  hid_t       dset_id, attr_id;
+  hid_t       dset_id, attr_id,grp_sol_id;
 
   /* Set ParMmg variables */
   mesh = parmesh->listgrp[0].mesh;
   sols = parmesh->listgrp[0].field;
   nsols = mesh->nsols;
+
+  if ( !nsols || !sols ) {
+    /* Nothing to save */
+    return 1;
+  }
 
   /* Get the local and global number of vertices/tetra */
   np  = nentitiesl[PMMG_IO_Vertex];
@@ -2567,6 +2678,10 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 
   /* Initialize the counts */
   vcount = tcount = 0;
+
+  HDF_CHECK( grp_sol_id = H5Gcreate(grp_sols_id, "Fields", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT),
+             fprintf(stderr,"\n  ## Error: %s: Could not create the /Solutions/Fields group.\n",__func__);
+             return 0 );
 
   for (int i = 0 ; i < nsols ; i++) {
 
@@ -2642,7 +2757,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
     dspace_mem_id = H5Screate_simple(2, hns, NULL);
     dspace_file_id = H5Screate_simple(2, hnsg, NULL);
     H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, sol_offset, NULL, hns, NULL);
-    dset_id = H5Dcreate(grp_sols_id, solname, H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
+    dset_id = H5Dcreate(grp_sol_id, solname, H5T_NATIVE_DOUBLE, dspace_file_id, H5P_DEFAULT, dcpl_id, H5P_DEFAULT);
     H5Dwrite(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, sol_buf);
     H5Dclose(dset_id);
     H5Sclose(dspace_mem_id);
@@ -2658,15 +2773,18 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
   /* Save the actual number of solutions as group attributes */
   dspace_file_id = H5Screate(H5S_SCALAR);
 
-  attr_id = H5Acreate(grp_sols_id, "NSolsAtVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
+  attr_id = H5Acreate(grp_sol_id, "NSolsAtVertices", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
   H5Awrite(attr_id, H5T_NATIVE_INT, &vcount);
   H5Aclose(attr_id);
 
-  attr_id = H5Acreate(grp_sols_id, "NSolsAtTetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
+  attr_id = H5Acreate(grp_sol_id, "NSolsAtTetrahedra", H5T_NATIVE_INT, dspace_file_id, H5P_DEFAULT, H5P_DEFAULT);
   H5Awrite(attr_id, H5T_NATIVE_INT, &tcount);
   H5Aclose(attr_id);
 
   H5Sclose(dspace_file_id);
+
+  H5Gclose(grp_sol_id);
+
 
   return 1;
 }
@@ -2687,7 +2805,7 @@ static int PMMG_saveAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t
 static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const char *xdmfname, hsize_t *nentitiesg) {
   hsize_t   neg, npg;
   PMMG_pGrp grp;
-  MMG5_pSol met, sols;
+  MMG5_pSol met, ls, sols;
   int       nsols, entities;
   FILE      *xdmf_file = NULL;
 
@@ -2697,6 +2815,7 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
   neg  = nentitiesg[PMMG_IO_Tetra];
   grp  = &parmesh->listgrp[0];
   met  = grp->met;
+  ls   = grp->ls;
   sols = grp->field;
   nsols = grp->mesh->nsols;
 
@@ -2745,7 +2864,20 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
       fprintf(xdmf_file, "                  Precision=\"8\"\n");
       fprintf(xdmf_file, "                  Format=\"HDF\"\n");
       fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, met->size);
-      fprintf(xdmf_file, "          %s:/Solutions/MetricAtVertices\n", filename);
+      fprintf(xdmf_file, "          %s:/Solutions/Metric/SolAtVertices\n", filename);
+      fprintf(xdmf_file, "        </DataItem>\n");
+      fprintf(xdmf_file, "      </Attribute>\n");
+    }
+
+    /* Level-set */
+    if (ls && ls->m) {
+      assert ( ls->size==1 && "Unexpected size for level-set");
+      fprintf(xdmf_file, "      <Attribute Center=\"Node\" Name=\"Level-set\" AttributeType=\"Scalar\">\n");
+      fprintf(xdmf_file, "        <DataItem DataType=\"Float\"\n");
+      fprintf(xdmf_file, "                  Precision=\"8\"\n");
+      fprintf(xdmf_file, "                  Format=\"HDF\"\n");
+      fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, ls->size);
+      fprintf(xdmf_file, "          %s:/Solutions/Ls/SolAtVertices\n", filename);
       fprintf(xdmf_file, "        </DataItem>\n");
       fprintf(xdmf_file, "      </Attribute>\n");
     }
@@ -2773,11 +2905,11 @@ static int PMMG_writeXDMF(PMMG_pParMesh parmesh, const char *filename, const cha
       fprintf(xdmf_file, "                  Format=\"HDF\"\n");
       if (sols[i].entities == MMG5_Noentity || sols[i].entities == MMG5_Vertex) {
         fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", npg, sols[i].size);
-        fprintf(xdmf_file, "          %s:/Solutions/SolAtVertices%d\n", filename, i);
+        fprintf(xdmf_file, "          %s:/Solutions/Fields/SolAtVertices%d\n", filename, i);
       }
       else if (sols[i].entities == MMG5_Tetrahedron) {
         fprintf(xdmf_file, "                  Dimensions=\"%lld %d\">\n", neg, sols[i].size);
-        fprintf(xdmf_file, "          %s:/Solutions/SolAtTetrahedra%d\n", filename, i);
+        fprintf(xdmf_file, "          %s:/Solutions/Fields/SolAtTetrahedra%d\n", filename, i);
       }
       fprintf(xdmf_file, "        </DataItem>\n");
       fprintf(xdmf_file, "      </Attribute>\n");
@@ -4233,17 +4365,85 @@ static int PMMG_loadMeshEntities_hdf5(PMMG_pParMesh parmesh, hid_t grp_entities_
 
 }
 
+/**
+ * \param mesh pointer toward the mesh associated to the solution.
+ * \param sol pointer toward the solution structure to save.
+ * \param dspace_file_id identifier of the HDF5 data space in which is written the solution.
+ * \param dset_id identifier of the HDF5 group in which is written the solution.
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param np number of vertices.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel loading.
+ * \param imprim verbosity level
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load at hdf5 format a given solution structure defined at vertices.
+ *
+ */
+static int PMMG_loadSolAtVertices_hdf5(MMG5_pMesh mesh,MMG5_pSol sol,
+                                       hid_t dspace_file_id,
+                                       hid_t dset_id,hid_t dxpl_id,
+                                       MMG5_int np,hsize_t *offset,int imprim) {
+
+  MMG5_pPoint ppt;
+  double      *sol_buf;
+  hsize_t     sol_offset[2] = {0, 0};
+  hid_t       dspace_mem_id;
+
+  /* Compute the offset for parallel reading */
+  hsize_t hns[2] = {np, sol->size};
+  sol_offset[0] = offset[2 * PMMG_IO_Vertex];
+
+  /* Read the solution buffer */
+  PMMG_MALLOC(mesh, sol_buf, np * sol->size, double, "sol_buf", return 0);
+  dspace_mem_id = H5Screate_simple(2, hns, NULL);
+  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, sol_offset, NULL, hns, NULL);
+  H5Dread(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, sol_buf);
+  H5Sclose(dspace_mem_id);
+
+  /* Set the solution */
+  for (int k = 0 ; k < mesh->np ; k++) {
+    ppt = &mesh->point[k + 1];
+    if (!MG_VOK(ppt)) continue;
+    for (int j = 0 ; j < sol->size ; j++) {
+      sol->m[1 + k * sol->size + j] = sol_buf[k * sol->size + j];
+    }
+  }
+
+  /* Print the solution stats */
+  if ( imprim > PMMG_VERB_STEPS ) {
+    if ( sol->size == 1 )
+      fprintf(stdout,"     NUMBER OF SCALAR VALUES %8d\n",sol->np);
+    else if ( sol->size == 3 )
+      fprintf(stdout,"     NUMBER OF VECTOR VALUES %8d\n",sol->np);
+    else
+      fprintf(stdout,"     NUMBER OF TENSOR VALUES %8d\n",sol->np);
+  }
+
+  PMMG_DEL_MEM(mesh,sol_buf,double,"sol_buf");
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which is written the solution.
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of number of local entities.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel loading.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load at hdf5 format a given solution structure defined at vertices.
+ *
+ */
 static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dxpl_id,
                                 hsize_t *nentitiesl, hsize_t *offset) {
   int         np;
   MMG5_pMesh  mesh;
   MMG5_pSol   met;
-  MMG5_pPoint ppt;
-  double      *met_buf;
-  hsize_t     met_offset[2] = {0, 0};
   hsize_t     hnsg[2] = {0, 0};
-  hid_t       dspace_mem_id, dspace_file_id;
   hid_t       dset_id;
+  hid_t       dspace_file_id;
 
   assert ( parmesh->ngrp == 1 );
 
@@ -4253,12 +4453,17 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
   np = nentitiesl[PMMG_IO_Vertex];
 
   /* Get the metric size */
-  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
-  if (dset_id < 0) return -1;
+  hid_t tmp = H5Gopen(grp_sols_id, "Metric", H5P_DEFAULT);
+  if (tmp < 0) return -1;
+
+  dset_id = H5Dopen(tmp, "SolAtVertices", H5P_DEFAULT);
+
+  if (dset_id < 0) {
+    H5Gclose(tmp);
+    return -1;
+  }
   dspace_file_id = H5Dget_space(dset_id);
   H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL);
-  H5Sclose(dspace_file_id);
-  H5Dclose(dset_id);
 
   /* Set the metric size */
   if (hnsg[1] == 1)
@@ -4274,47 +4479,105 @@ static int PMMG_loadMetric_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t 
     return 0;
   }
 
-  /* Compute the offset for parallel reading */
-  hsize_t hns[2] = {np, met->size};
-  met_offset[0] = offset[2 * PMMG_IO_Vertex];
+  int ier = PMMG_loadSolAtVertices_hdf5(mesh,met,dspace_file_id,dset_id,dxpl_id,
+                                        np,offset,parmesh->info.imprim);
 
-  /* Read the metric buffer */
-  PMMG_MALLOC(parmesh, met_buf, np * met->size, double, "met_buf", return 0);
-  dset_id = H5Dopen(grp_sols_id, "MetricAtVertices", H5P_DEFAULT);
-  dspace_file_id = H5Dget_space(dset_id);
-  dspace_mem_id = H5Screate_simple(2, hns, NULL);
-  H5Sselect_hyperslab(dspace_file_id, H5S_SELECT_SET, met_offset, NULL, hns, NULL);
-  H5Dread(dset_id, H5T_NATIVE_DOUBLE, dspace_mem_id, dspace_file_id, dxpl_id, met_buf);
-  H5Sclose(dspace_mem_id);
   H5Sclose(dspace_file_id);
   H5Dclose(dset_id);
+  H5Gclose(tmp);
 
-  /* Set the metric */
-  for (int k = 0 ; k < mesh->np ; k++) {
-    ppt = &mesh->point[k + 1];
-    if (!MG_VOK(ppt)) continue;
-    for (int j = 0 ; j < met->size ; j++) {
-      met->m[1 + k * met->size + j] = met_buf[k * met->size + j];
-    }
-  }
-
-  /* Print the metric stats */
-  if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
-    if ( met->size == 1 )
-      fprintf(stdout,"     NUMBER OF SCALAR VALUES %8d\n",met->np);
-    else if ( met->size == 3 )
-      fprintf(stdout,"     NUMBER OF VECTOR VALUES %8d\n",met->np);
-    else
-      fprintf(stdout,"     NUMBER OF TENSOR VALUES %8d\n",met->np);
-  }
-
-  return 1;
+  return ier;
 }
 
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which is written the solution.
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of number of local entities.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel loading.
+ *
+ * \return 0 if fail, 1 otherwise
+ *
+ * Load at hdf5 format a given solution structure defined at vertices.
+ *
+ */
+static int PMMG_loadLs_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id, hid_t dxpl_id,
+                            hsize_t *nentitiesl, hsize_t *offset) {
+  int         np;
+  MMG5_pMesh  mesh;
+  MMG5_pSol   ls;
+  hsize_t     hnsg[2] = {0, 0};
+  hid_t       dset_id;
+  hid_t       dspace_file_id;
+
+  assert ( parmesh->ngrp == 1 );
+
+  /* Init mmg variables*/
+  mesh = parmesh->listgrp[0].mesh;
+  ls = parmesh->listgrp[0].ls;
+  np = nentitiesl[PMMG_IO_Vertex];
+
+  /* Get the level-set size */
+  hid_t tmp = H5Gopen(grp_sols_id, "Ls", H5P_DEFAULT);
+  if (tmp < 0) {
+    H5Gclose(tmp);
+    return -1;
+  }
+
+  dset_id = H5Dopen(tmp, "SolAtVertices", H5P_DEFAULT);
+  if (dset_id < 0) return -1;
+  dspace_file_id = H5Dget_space(dset_id);
+  H5Sget_simple_extent_dims(dspace_file_id, hnsg, NULL);
+
+  /* Set the level-set size */
+  if (hnsg[1] == 1)
+    PMMG_Set_metSize(parmesh, MMG5_Vertex, np, MMG5_Scalar);
+  else {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr, "\n  ## Error: %s: Wrong level-set size/type \n", __func__);
+    }
+    return 0;
+  }
+
+  int ier = PMMG_loadSolAtVertices_hdf5(mesh,ls,dspace_file_id,dset_id,dxpl_id,
+                                        np,offset,parmesh->info.imprim);
+  H5Sclose(dspace_file_id);
+  H5Dclose(dset_id);
+  H5Gclose(tmp);
+
+  return ier;
+}
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param grp_sols_id identifier of the HDF5 group in which is written the solution.
+ * \param dxpl_id identifier of the dataset transfer property list (MPI-IO).
+ * \param nentitiesl array of number of local entities.
+ * \param offset array of size PMMG_IO_ENTITIES_size containing the offset for parallel loading.
+ *
+ * \return 0 if fail and we want the calling process to fail too, -1 if fail but
+ * we want to let the calling process continue, 0 if fields are succesfully
+ * readed.
+ *
+ * Load solutions fields at hdf5 format.
+ *
+ */
 static int  PMMG_loadAllSols_hdf5(PMMG_pParMesh parmesh, hid_t grp_sols_id,
-                                  hid_t dcpl_id, hsize_t *nentitiesl,
-                                  hsize_t *nentitiesg, hsize_t *offset) {
-  return 1;
+                                  hid_t dxpl_id, hsize_t *nentitiesl,
+                                  hsize_t *offset) {
+
+  /* Get the metric size */
+  hid_t tmp = H5Gopen(grp_sols_id, "Fields", H5P_DEFAULT);
+  if ( tmp < 0) return -1;
+
+  /* Input mesh has solution fields: hdf5 input is not yet implemented */
+  if (parmesh->myrank == parmesh->info.root) {
+    fprintf(stderr, "\n  ## Error: %s: Solution fields input not yet"
+            " implemented at hdf5 format.\n Ignored.\n", __func__);
+  }
+
+  return -1;
 }
 #endif
 
@@ -4596,7 +4859,7 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
 
   if ( ier == -1 ) {
     if (parmesh->myrank == parmesh->info.root) {
-      fprintf(stderr,"  ** %s  NOT FOUND. USE DEFAULT METRIC.\n",__func__);
+      fprintf(stderr,"  ** METRIC  NOT FOUND. USE DEFAULT METRIC.\n");
     }
   }
   if ( ier == 0 ) {
@@ -4607,13 +4870,28 @@ int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *
     goto free_and_return;
   }
 
-  ier = PMMG_loadAllSols_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, nentitiesg, offset);
+  ier = PMMG_loadLs_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, offset);
 
   MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
              H5Gclose(grp_sols_id);
              goto free_and_return );
 
-  if (!ier) {
+  if ( ier == 0 ) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not load the metric.\n",__func__);
+    }
+    H5Gclose(grp_sols_id);
+    goto free_and_return;
+  }
+
+
+  ier = PMMG_loadAllSols_hdf5(parmesh, grp_sols_id, dxpl_id, nentitiesl, offset);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, read_comm),
+             H5Gclose(grp_sols_id);
+             goto free_and_return );
+
+  if ( ier==0 ) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not load the solutions.\n",__func__);
     }
