@@ -518,7 +518,8 @@ IF( BUILD_TESTING )
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${InputDistributedFields}.*${OutputVtkFields}.*${OutputVtkErr};
-${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields}")
+${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields};
+${InputDistributedFields}.*${OutputVtkErr}.*${OutputVtkFields}")
 
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2
