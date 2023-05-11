@@ -210,7 +210,7 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
   else {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION && mesh->info.iso ) {
       fprintf(stdout,"       LS discretization OK: no non-manifold topology.\n");
     }
   }
