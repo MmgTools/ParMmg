@@ -491,13 +491,12 @@ check_mesh_loading:
       }
       break;
     }
-    /* Check output success */
-    if ( ierSave<1 ) {
-      PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
-    }
   }
 
-
+  /* Check output success */
+  if ( ierSave<1 ) {
+    PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
+  }
 
   chrono(OFF,&PMMG_ctim[tim]);
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
