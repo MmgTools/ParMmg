@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 715caf8d
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout c60fb6a16a7fcbc3e93d9b2babd6cb19caba8123
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -433,7 +433,7 @@ IF( BUILD_TESTING )
   ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
   add_test( NAME Medit-DisIn-MeshAndMet-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-sol -v 5
+    -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
     -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
 
   ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
@@ -457,13 +457,13 @@ IF( BUILD_TESTING )
   ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
   add_test( NAME hdf5-DisIn-MeshAndMet-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-sol.h5 -v 5
+    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
     -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
 
   ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
   add_test( NAME hdf5-DisIn-MeshAndMet-8
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-sol.h5 -v 5
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
     ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
 
   ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
@@ -475,7 +475,7 @@ IF( BUILD_TESTING )
   ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
   add_test( NAME hdf5-DisIn-MeshAndMet-4
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-sol.h5 -v 5
+    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
     ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
 
   ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
@@ -518,7 +518,8 @@ IF( BUILD_TESTING )
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${InputDistributedFields}.*${OutputVtkFields}.*${OutputVtkErr};
-${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields}")
+${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields};
+${InputDistributedFields}.*${OutputVtkErr}.*${OutputVtkFields}")
 
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2
