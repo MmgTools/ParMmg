@@ -326,7 +326,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}-out.mesh)
   endforeach()
 
   # Check that the ls file is correctly opened with or without the ls value given
@@ -340,7 +340,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}-out.mesh)
     set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -352,7 +352,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}-out.mesh)
     set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -363,7 +363,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}-out.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -374,7 +374,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}-out.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -387,7 +387,7 @@ IF( BUILD_TESTING )
     -ls 0.0
     -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
     -met ${CI_DIR}/LevelSet/centralized/3D-cube-metric.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
+    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}-out.mesh)
   endforeach()
 
   # Tests of pvtu output when ls mode
@@ -401,7 +401,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}.o.pvtu)
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
 
     set_property(TEST ls-CenIn-DisOut-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
@@ -416,7 +416,7 @@ IF( BUILD_TESTING )
     ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
     -ls 0.01
     -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
-    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
+    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2-out.mesh)
   set(lsReadFile "3D-cube-ls.0.sol OPENED")
   set_property(TEST ls-DisIn-ReadLs-2
     PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
