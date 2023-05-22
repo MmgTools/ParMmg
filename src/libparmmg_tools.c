@@ -501,7 +501,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
   /** Step 5: Transfer options parsed by Mmg toward ParMmg (if needed) and raise
    * errors for unsupported options */
   parmesh->info.iso = parmesh->listgrp[0].mesh->info.iso;
-  parmesh->info.fem = parmesh->listgrp[0].mesh->info.fem;
+  parmesh->info.fem = parmesh->listgrp[0].mesh->info.setfem;
   parmesh->info.sethmin = parmesh->listgrp[0].mesh->info.sethmin;
   parmesh->info.sethmax = parmesh->listgrp[0].mesh->info.sethmax;
 
