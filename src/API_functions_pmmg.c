@@ -410,7 +410,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug                  = PMMG_NUL;
   parmesh->iter                    = PMMG_UNSET;
   parmesh->niter                   = PMMG_NITER;
-  parmesh->info.fem                = MMG5_FEM;
+  parmesh->info.setfem             = MMG5_FEM;
   parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
   parmesh->info.ifc_layers         = PMMG_MVIFCS_NLAYERS;
   parmesh->info.grps_ratio         = PMMG_GRPS_RATIO;
@@ -675,7 +675,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
 
   case PMMG_IPARAM_nofem :
-    parmesh->info.fem    = (val==1)? 0 : 1;
+    parmesh->info.setfem = (val==1)? 0 : 1;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;

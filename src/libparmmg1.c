@@ -672,7 +672,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #endif
 
       /* Reset the value of the fem mode */
-      mesh->info.fem = parmesh->info.fem;
+      mesh->info.setfem = parmesh->info.setfem;
 
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */
