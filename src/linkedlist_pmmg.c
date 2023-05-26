@@ -533,7 +533,13 @@ int PMMG_sort_iarray( PMMG_pParMesh parmesh,int *array1,int *array2,int *oldIdx,
   }
 
   /* Sort lists based on values in array2, in ascending order */
-  qsort(cell,nitem,sizeof(PMMG_lnkdCell),PMMG_compare_cell2);
+  if ( nitem ) {
+    /* as memset, calling qsort on a non-allocatted array, leads to
+     * have a NULL pointer that is evaluated to True inside a if
+     * test */
+    qsort(cell,nitem,sizeof(PMMG_lnkdCell),PMMG_compare_cell2);
+  }
+
 
   /* Permute arrays and deallocate lists */
   if ( array1 ) {
