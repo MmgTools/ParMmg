@@ -236,12 +236,52 @@
 #define PMMG_UNSET     -1
 
 /**
+ * \def PMMG_ON
+ */
+#define PMMG_ON     1
+
+/**
+ * \def PMMG_OFF
+ */
+#define PMMG_OFF     0
+
+/**
  * \def PMMG_GAP
  *
  * Gap value for reallocation
  *
  */
 #define PMMG_GAP     0.2
+
+/**
+ * \enum PMMG_IO_entities
+ * \brief Type of mesh entities that are saved in/loaded from HDF5 files.
+ */
+enum PMMG_IO_entities {
+  PMMG_IO_Vertex,
+  PMMG_IO_Edge,
+  PMMG_IO_Tria,
+  PMMG_IO_Quad,
+  PMMG_IO_Tetra,
+  PMMG_IO_Prism,
+  PMMG_IO_Corner,
+  PMMG_IO_RequiredVertex,
+  PMMG_IO_ParallelVertex,
+  PMMG_IO_Ridge,
+  PMMG_IO_RequiredEdge,
+  PMMG_IO_ParallelEdge,
+  PMMG_IO_RequiredTria,
+  PMMG_IO_ParallelTria,
+  PMMG_IO_RequiredQuad,
+  PMMG_IO_ParallelQuad,
+  PMMG_IO_RequiredTetra,
+  PMMG_IO_ParallelTetra,
+  PMMG_IO_Normal,
+  PMMG_IO_Tangent,
+  PMMG_IO_ENTITIES_size, // Number of type of entities that can be saved
+  PMMG_IO_Required, // To enable/disable saving of all type of required entites
+  PMMG_IO_Parallel // To enable/disable saving of all type of parallel entites
+};
 
 /**
  * Types
@@ -316,8 +356,10 @@ typedef struct {
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
   int iso;     /*!< ls mode (not yet available) */
+  int isosurf; /*!< ls mode on boundaries only (not yet available) */
+  int lag;     /*!< lagrangian motion (not yet available) */
   int root;    /*!< MPI root rank */
-  int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
+  int setfem;  /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int repartitioning; /*!< way to perform mesh repartitioning */
   int ifc_layers;  /*!< nb of layers for interface displacement */
@@ -332,9 +374,12 @@ typedef struct {
   int globalVNumGot; /*!< have global nodes actually been calculated */
   int globalTNumGot; /*!< have global triangles actually been calculated */
   int fmtout; /*!< store the output format asked */
+  int io_entities[PMMG_IO_ENTITIES_size]; /* Array to store entities to save in some I/O formats */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
-  uint8_t inputMet; /* 1 if User prescribe a metric or a size law */
+  uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
+  int npartin; /*!< nb of partitions of the mesh in the input HDF5 file */
+  MPI_Comm read_comm; /*!< MPI comm containing the procs that read the mesh (HDF5 input) */
 } PMMG_Info;
 
 
@@ -363,7 +408,10 @@ typedef struct {
   char     *fieldin,*fieldout;
 
   /* grp */
-  int       ngrp;       /*!< Number of grp */
+  int       ngrp;       /*!< Number of grp used inside the parmesh. It can
+                         * differ from listgrp size (for example if inputs have
+                         * been provided on a different number of processes than
+                         * the ones used for computation) */
   PMMG_pGrp listgrp;    /*!< List of grp */
   int       nold_grp;       /*!< Number of old grp */
   PMMG_pGrp old_listgrp;    /*!< List of old grp */

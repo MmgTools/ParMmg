@@ -410,7 +410,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug                  = PMMG_NUL;
   parmesh->iter                    = PMMG_UNSET;
   parmesh->niter                   = PMMG_NITER;
-  parmesh->info.fem                = MMG5_FEM;
+  parmesh->info.setfem             = MMG5_FEM;
   parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
   parmesh->info.ifc_layers         = PMMG_MVIFCS_NLAYERS;
   parmesh->info.grps_ratio         = PMMG_GRPS_RATIO;
@@ -427,12 +427,20 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
-  /* Init MPI data */
-  parmesh->comm   = comm;
+  parmesh->info.iso                = MMG5_OFF;
+  parmesh->info.isosurf            = MMG5_OFF;
+  parmesh->info.lag                = MMG5_LAG;
+
+  /** Init MPI data */
+  parmesh->comm           = comm;
+  /* Initialize the input communicator to computationnal communicator: this value
+   * will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.read_comm = comm;
 
   MPI_Initialized(&flag);
   parmesh->size_shm = 1;
   if ( flag ) {
+    MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN);
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
   }
@@ -440,8 +448,11 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     parmesh->nprocs = 1;
     parmesh->myrank = PMMG_NUL;
   }
+  /* Initialize the number of partitions used for inputs to the number of procs:
+   * this value will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.npartin = parmesh->nprocs;
 
-  /* ParMmg verbosity */
+  /** ParMmg verbosity */
   if ( parmesh->myrank==parmesh->info.root ) {
     parmesh->info.imprim = PMMG_IMPRIM;
   }
@@ -457,7 +468,10 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_MMG_IMPRIM );
   }
 
-  /* Default memory */
+  /** I/Os: set default entities to save */
+  PMMG_Set_defaultIOEntities( parmesh );
+
+  /** Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
   PMMG_parmesh_SetMemMax( parmesh );
 
@@ -639,12 +653,21 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     }
     break;
   case PMMG_IPARAM_iso :
+    parmesh->info.iso = val;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_iso,val) ) return 0;
     }
     break;
+  case PMMG_IPARAM_isosurf :
+    fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
+            " implemented.");
+    return 0;
+
   case PMMG_IPARAM_lag :
+    fprintf(stderr," ## Error: Lagrangian motion not yet implemented.");
+    return 0;
+
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_lag,val) ) return 0;
@@ -652,7 +675,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
 
   case PMMG_IPARAM_nofem :
-    parmesh->info.fem    = (val==1)? 0 : 1;
+    parmesh->info.setfem = (val==1)? 0 : 1;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;
@@ -665,9 +688,8 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_opnbdy,val) ) return 0;
     }
     if( val ) {
-#warning opnbdy not supported with surface adaptation
       fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nSetting nosurf on.\n");
+          "\nSetting nosurf option to on.\n");
       for ( k=0; k<parmesh->ngrp; ++k ) {
         mesh = parmesh->listgrp[k].mesh;
         if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
@@ -707,10 +729,9 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
   case PMMG_IPARAM_nosurf :
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
-#warning opnbdy not supported with surface adaptation
       if( !val && mesh->info.opnbdy )
         fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nCannot set nosurf off.\n");
+          "\nCannot set nosurf option to off.\n");
       else if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
     }
     break;
@@ -1896,6 +1917,10 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
  * the triangle.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
@@ -1903,7 +1928,7 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   int ier;
 
   if( !parmesh->info.globalTNumGot ) {
-    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalTNumGot = 1;
   }
 
@@ -1956,6 +1981,10 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
  * each node.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations.
  */
 int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
@@ -1963,7 +1992,7 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
   int        k,ier;
 
   if( !parmesh->info.globalTNumGot ) {
-    ier = PMMG_Compute_trianglesGloNum( parmesh );
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalTNumGot = 1;
   }
 
@@ -1996,6 +2025,9 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
  * Get global node numbering (starting from 1) and rank of the process owning
  * the node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
@@ -2003,7 +2035,7 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   int ier;
 
   if( !parmesh->info.globalVNumGot ) {
-    ier = PMMG_Compute_verticesGloNum( parmesh );
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalVNumGot = 1;
   }
 
@@ -2055,6 +2087,9 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
  * Get global nodes numbering (starting from 1) and ranks of processes owning
  * each node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
@@ -2062,7 +2097,7 @@ int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
   int         ip,ier;
 
   if( !parmesh->info.globalVNumGot ) {
-    ier = PMMG_Compute_verticesGloNum( parmesh );
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
     parmesh->info.globalVNumGot = 1;
   }
 
@@ -2639,6 +2674,119 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
 
   return 1;
 }
+
+/**
+ * \param ptr pointer toward the file extension (dot included)
+ * \param fmt default file format.
+ *
+ * \return and index associated to the file format detected from the extension.
+ *
+ * Get the wanted file format from the mesh extension. If \a fmt is provided, it
+ * is used as default file format (\a ptr==NULL), otherwise, the default file
+ * format is the medit one.
+ *
+ * \remark relies on the MMG5_Get_format function and adds the formats that are
+ * specifics to ParMmg
+ */
+int PMMG_Get_format( char *ptr, int fmt ) {
+  /* Default is the format given as input */
+  int defFmt = fmt;
+
+  if ( (!ptr) || !(*ptr) ) return defFmt;
+
+  /* Search if Format is known by Mmg */
+  int tmp_fmt = MMG5_Get_format(ptr, MMG5_FMT_Unknown);
+
+  if ( tmp_fmt == MMG5_FMT_Unknown ) {
+    /* If format is not known by Mmg, search in ParMmg formats */
+    if ( !strncmp ( ptr,".h5",strlen(".h5") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+    else if ( !strncmp ( ptr,".xdmf",strlen(".xdmf") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+  }
+  return tmp_fmt;
+}
+
+
+int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh) {
+  return PMMG_Set_defaultIOEntities_i(parmesh->info.io_entities);
+}
+
+/**
+ * \param io_entites array to specify which entites to save
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the default entities to save into an hdf5 file.
+ *
+ * \remark For internal use
+ */
+int PMMG_Set_defaultIOEntities_i(int io_entities[PMMG_IO_ENTITIES_size] ) {
+
+  /* Default: save/load everything */
+  for (int i = 0 ; i < PMMG_IO_ENTITIES_size ; i++) {
+    io_entities[i] = 1;
+  }
+
+  return 1;
+}
+
+int PMMG_Set_IOEntities(PMMG_pParMesh parmesh, int target, int val) {
+  return PMMG_Set_IOEntities_i(parmesh->info.io_entities,target,val);
+}
+
+/**
+ * \param io_entites array to specify which entites to save
+ * \param target type of entity for which we want to enable/disable saving.
+ * target value has to be one of the PMMG_IO_entities values.
+ * \pararm enable saving if PMMG_ON is passed, disable it if PMMG_OFF is passed.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Enable or disable entities to save depending on the \a val value.
+ *
+ * \remark For internal use
+ */
+int PMMG_Set_IOEntities_i(int io_entities[PMMG_IO_ENTITIES_size], int target, int val) {
+
+  if ( (val != PMMG_ON) && (val != PMMG_OFF) ) {
+    fprintf(stderr, "  ## Error: %s: Unexpected value for val parameter"
+            " (%d)\n",__func__,val);
+    fprintf(stderr, "            Please pass PMMG_ON or PMMG_OFF value.");
+    return 0;
+  }
+
+  switch(target) {
+
+  case PMMG_IO_Required:
+    io_entities[PMMG_IO_RequiredVertex] = val;
+    io_entities[PMMG_IO_RequiredEdge] = val;
+    io_entities[PMMG_IO_RequiredTria] = val;
+    io_entities[PMMG_IO_RequiredQuad] = val;
+    io_entities[PMMG_IO_RequiredTetra] = val;
+    break;
+
+  case PMMG_IO_Parallel:
+    io_entities[PMMG_IO_ParallelVertex] = val;
+    io_entities[PMMG_IO_ParallelEdge] = val;
+    io_entities[PMMG_IO_ParallelTria] = val;
+    io_entities[PMMG_IO_ParallelQuad] = val;
+    io_entities[PMMG_IO_ParallelTetra] = val;
+    break;
+
+  default:
+    if ( target >= PMMG_IO_ENTITIES_size || target < 0 ) {
+      fprintf(stderr, "  ## Error: %s: Unexpected value for target parameter"
+              " (%d)\n",__func__,target);
+      fprintf(stderr, "            Value has to be one of the listed"
+              " PMMG_IO_entities.\n");
+    }
+    return 0;
+    io_entities[target] = val;
+  }
+  return 1;
+}
+
 
 int PMMG_Free_names(PMMG_pParMesh parmesh)
 {
