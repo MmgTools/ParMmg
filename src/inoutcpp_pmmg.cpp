@@ -51,7 +51,7 @@ int PMMG_loadVtuMesh_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
 #ifndef USE_VTK
 
-  fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
+  fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
   return -1;
 
 #else
@@ -84,7 +84,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
 
 #ifndef USE_VTK
   if ( parmesh->myrank == parmesh->info.root ) {
-    fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
+    fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
   }
   return -1;
 
@@ -124,7 +124,7 @@ int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename) 
 
 #ifndef USE_VTK
   if ( parmesh->myrank == parmesh->info.root ) {
-    fprintf(stderr,"  ** VTK library not founded. Unavailable file format.\n");
+    fprintf(stderr,"  ** VTK library not found. Unavailable file format.\n");
   }
   return -1;
 
