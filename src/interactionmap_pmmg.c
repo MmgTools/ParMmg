@@ -171,7 +171,13 @@ int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interacti
   receivers = NULL;
   PMMG_MALLOC   ( parmesh,receivers,    nrecv_max*nprocs,int,"receivers"   ,ier=0 );
   PMMG_REALLOC  ( parmesh,interact_list,nrecv_max,nneighs_max,int,"interact_list" ,ier=0 );
-  memset ( interact_list,0, nrecv_max * sizeof(int) );
+
+  if ( nrecv_max ) {
+    /* calling memset on a non-allocatted array, leads to
+     * have a NULL pointer that is evaluated to True inside a if
+     * test */
+    memset ( interact_list,0, nrecv_max * sizeof(int) );
+  }
 
   idx = 0;
   for ( k=0; k<nprocs; ++k ) {
