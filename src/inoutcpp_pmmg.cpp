@@ -89,13 +89,15 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
   return -1;
 
 #else
-  char* mdata=NULL; // master file name
+  char* mdata=NULL; // master    file name
+  char* sdata=NULL; // secondary file name
   MMG5_SAFE_CALLOC(mdata,strlen(filename)+6,char,return 0);
+  MMG5_SAFE_CALLOC(sdata,strlen(filename)+6,char,return 0);
 
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
-  snprintf( mdata,strlen(mdata), "%s.pvtu",mdata);
+  snprintf( sdata,strlen(mdata)+100, "%s.pvtu",mdata);
 
   MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
   MMG5_pSol  met  = parmesh->listgrp[0].met;
@@ -106,9 +108,10 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
   vtkMultiProcessController::SetGlobalController(vtkController);
 
   return MMG5_saveVtkMesh_i<vtkUnstructuredGrid,vtkXMLUnstructuredGridWriter,vtkXMLPUnstructuredGridWriter>
-    (mesh,&met,mdata,1,0,parmesh->nprocs,parmesh->myrank,parmesh->info.root);
+    (mesh,&met,sdata,1,0,parmesh->nprocs,parmesh->myrank,parmesh->info.root);
 
   MMG5_SAFE_FREE(mdata);
+  MMG5_SAFE_FREE(sdata);
 
 #endif
   return 1;
@@ -129,13 +132,15 @@ int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename) 
   return -1;
 
 #else
-  char* mdata=NULL; // master file name
+  char* mdata=NULL; // master    file name
+  char* sdata=NULL; // secondary file name
   MMG5_SAFE_CALLOC(mdata,strlen(filename)+6,char,return 0);
+  MMG5_SAFE_CALLOC(sdata,strlen(filename)+6,char,return 0);
 
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
-  snprintf( mdata,strlen(mdata), "%s.pvtu",mdata);
+  snprintf( sdata,strlen(mdata), "%s.pvtu",mdata);
 
   mesh  = parmesh->listgrp[0].mesh;
   // Add met at the end of field to be able to save everything in the pvtu file
@@ -161,9 +166,10 @@ int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename) 
   vtkMultiProcessController::SetGlobalController(vtkController);
 
   return MMG5_saveVtkMesh_i<vtkUnstructuredGrid,vtkXMLUnstructuredGridWriter,vtkXMLPUnstructuredGridWriter>
-    (mesh,allSol,mdata,metricData,0,parmesh->nprocs,parmesh->myrank,parmesh->info.root);
+    (mesh,allSol,sdata,metricData,0,parmesh->nprocs,parmesh->myrank,parmesh->info.root);
 
   MMG5_SAFE_FREE(mdata);
+  MMG5_SAFE_FREE(sdata);
 
 #endif
   return 1;
