@@ -493,7 +493,7 @@ check_mesh_loading:
     }
   }
 
-  /* Check ouput success */
+  /* Check output success */
   if ( ierSave<1 ) {
     PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
   }
