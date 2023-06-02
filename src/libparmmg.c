@@ -240,20 +240,21 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,ls;
   int ier = PMMG_SUCCESS;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
+  ls   = parmesh->listgrp[0].ls;
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
   if (mesh->info.iso) {
-// Just print a warning saying that the feature is not implemented and
-// deallocate the isovalue structure (as the ls is not interpolated during the
-// remeshing step, the continuous integration tests will fail otherwise)
+    // Just print a warning saying that the feature is not implemented and
+    // deallocate the isovalue structure (as the ls is not interpolated during the
+    // remeshing step, the continuous integration tests will fail otherwise)
     if ( parmesh->myrank == parmesh->info.root) {
-      fprintf(stdout,"Isovalue discretization is not yet implemented:"
+      fprintf(stdout,"Isovalue discretization is under development:"
         " Deallocation of the level-set structure.\n");
     }
     PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
@@ -1736,7 +1737,7 @@ int PMMG_parmmgls_distributed(PMMG_pParMesh parmesh) {
 
 int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
+  MMG5_pSol        met,ls;
   int              ier,iresult,ierlib;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
@@ -1798,7 +1799,8 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    ls   = parmesh->listgrp[0].ls;
+    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, ls ) ) {
       ier = PMMG_LOWFAILURE;
     }
   }
