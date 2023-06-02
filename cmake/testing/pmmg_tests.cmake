@@ -392,7 +392,7 @@ IF( BUILD_TESTING )
 
   # Tests of pvtu output when ls mode
   IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
-    set(OutputVtkErr "VTK library not founded.")
+    set(OutputVtkErr "VTK library not found.")
   ENDIF ( )
 
   foreach( NP 1 2 4 8 )
