@@ -97,7 +97,7 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
-  snprintf( sdata,strlen(mdata)+100, "%s.pvtu",mdata);
+  snprintf( sdata,strlen(mdata)+6, "%s.pvtu",mdata);
 
   MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
   MMG5_pSol  met  = parmesh->listgrp[0].met;
@@ -140,7 +140,7 @@ int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename) 
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
-  snprintf( sdata,strlen(mdata), "%s.pvtu",mdata);
+  snprintf( sdata,strlen(mdata)+6, "%s.pvtu",mdata);
 
   mesh  = parmesh->listgrp[0].mesh;
   // Add met at the end of field to be able to save everything in the pvtu file
