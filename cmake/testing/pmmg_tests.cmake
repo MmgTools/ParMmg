@@ -213,6 +213,26 @@ IF( BUILD_TESTING )
       ${myargs}
       )
 
+    # Tests for distributed pvtu output with dots in filename.
+    # Replacement of dots by dashes.
+    IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+      set(OutputVtkErr "VTK library not found.")
+    ENDIF ( )
+
+    set(OutputVtkRenameFilename "3D-cube-PvtuOut-2-a-o.pvtu")
+    set(OutputVtkRenameWarning  "## WARNING: Filename has been changed.")
+
+    add_test( NAME PvtuOut-RenameOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      -out ${CI_DIR_RESULTS}/3D-cube-PvtuOut-2.a.o.pvtu)
+
+    set_property(TEST PvtuOut-RenameOut-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${OutputVtkRenameFilename}.*${OutputVtkRenameWarning}.*${OutputVtkErr};
+       ${OutputVtkRenameWarning}.*${OutputVtkErr}.*${OutputVtkRenameFilename};
+       ${OutputVtkRenameFilename}.*${OutputVtkErr}.*${OutputVtkRenameWarning}")
+
     ###############################################################################
     #####
     #####        Tests fields interpolation with or without metric
@@ -326,7 +346,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}-out.mesh)
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
   endforeach()
 
   # Check that the ls file is correctly opened with or without the ls value given
@@ -340,7 +360,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}-out.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -352,7 +372,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}-out.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
   endforeach()
@@ -363,7 +383,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls 0.0
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}-out.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -374,7 +394,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
       -ls
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}-out.mesh)
+      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
   endforeach()
@@ -387,14 +407,10 @@ IF( BUILD_TESTING )
     -ls 0.0
     -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
     -met ${CI_DIR}/LevelSet/centralized/3D-cube-metric.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}-out.mesh)
+    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
   endforeach()
 
-  # Tests of pvtu output when ls mode
-  IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
-    set(OutputVtkErr "VTK library not found.")
-  ENDIF ( )
-
+  # Tests of distributed pvtu output when ls mode
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-DisOut-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -416,7 +432,7 @@ IF( BUILD_TESTING )
     ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
     -ls 0.01
     -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
-    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2-out.mesh)
+    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
   set(lsReadFile "3D-cube-ls.0.sol OPENED")
   set_property(TEST ls-DisIn-ReadLs-2
     PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
@@ -518,18 +534,18 @@ IF( BUILD_TESTING )
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${InputDistributedFields}.*${OutputVtkFields}.*${OutputVtkErr};
-${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields};
-${InputDistributedFields}.*${OutputVtkErr}.*${OutputVtkFields}")
+     ${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields};
+     ${InputDistributedFields}.*${OutputVtkErr}.*${OutputVtkFields}")
 
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
     ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
     -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2-out.mesh)
+    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
 
   set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
-  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2-out.0.sol OPENED.")
+  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2.o.0.sol OPENED.")
   set_property(TEST fields-DisIn-DisOutMesh-2
     PROPERTY PASS_REGULAR_EXPRESSION
     "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
