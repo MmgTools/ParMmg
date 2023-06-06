@@ -91,12 +91,26 @@ int PMMG_savePvtuMesh(PMMG_pParMesh parmesh, const char * filename) {
 #else
   char* mdata=NULL; // master    file name
   char* sdata=NULL; // secondary file name
+  int i;
   MMG5_SAFE_CALLOC(mdata,strlen(filename)+6,char,return 0);
   MMG5_SAFE_CALLOC(sdata,strlen(filename)+6,char,return 0);
 
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
+
+  // If the output *.pvtu filename has dots "." in the filename,
+  // replace the dots "." with dashes "-".
+  // Why? In VTK function SetFileName(filename), the first dot "." in the
+  // filename is interpreted as the extension start. So, whatever the
+  // user specifies after the first dot "." will be ignored by VTK. To overcome
+  // this and avoid to rewrite on input data, we are replacing the dots by dashes.
+  for(i=0;mdata[i]!='\0';i++) {
+    if(mdata[i]=='.') {
+      mdata[i] = '-';
+    }
+  }
+
   snprintf( sdata,strlen(mdata)+6, "%s.pvtu",mdata);
 
   MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
@@ -134,12 +148,26 @@ int PMMG_savePvtuMesh_and_allData(PMMG_pParMesh parmesh, const char * filename) 
 #else
   char* mdata=NULL; // master    file name
   char* sdata=NULL; // secondary file name
+  int i;
   MMG5_SAFE_CALLOC(mdata,strlen(filename)+6,char,return 0);
   MMG5_SAFE_CALLOC(sdata,strlen(filename)+6,char,return 0);
 
   strcpy(mdata,filename);
   char *ptr = MMG5_Get_filenameExt(mdata);
   *ptr = '\0'; // get basename
+
+  // If the output *.pvtu filename has dots "." in the filename,
+  // replace the dots "." with dashes "-".
+  // Why? In VTK function SetFileName(filename), the first dot "." in the
+  // filename is interpreted as the extension start. So, whatever the
+  // user specifies after the first dot "." will be ignored by VTK. To overcome
+  // this and avoid to rewrite on input data, we are replacing the dots by dashes.
+  for(i=0;mdata[i]!='\0';i++) {
+    if(mdata[i]=='.') {
+      mdata[i] = '-';
+    }
+  }
+
   snprintf( sdata,strlen(mdata)+6, "%s.pvtu",mdata);
 
   mesh  = parmesh->listgrp[0].mesh;
