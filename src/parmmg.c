@@ -385,33 +385,34 @@ check_mesh_loading:
       char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
       fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.mesh\n",basename);
       MMG5_SAFE_FREE ( basename );
-      if (grp->field) {
-        fprintf(stdout,"       Writing mesh, metric and fields.\n");
-      }
-      else {
-        fprintf(stdout,"       Writing mesh and metric.\n");
-      }
     }
     else if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditBinary ) {
       char *basename = MMG5_Remove_ext ( parmesh->meshout,".meshb" );
       fprintf(stdout,"\n  -- WRITING DATA FILE %s.<rankid>.meshb\n",basename);
       MMG5_SAFE_FREE ( basename );
-      if (grp->field) {
-        fprintf(stdout,"       Writing mesh, metric and fields.\n");
+    }
+    else if ( parmesh->info.fmtout == MMG5_FMT_VtkPvtu ) {
+      char *basename = MMG5_Remove_ext ( parmesh->meshout,".pvtu" );
+      int i, rename=0;
+      for(i=0;basename[i]!='\0';i++) {
+        if(basename[i]=='.') {
+          basename[i] = '-';
+          rename = 1;
+        }
       }
-      else {
-        fprintf(stdout,"       Writing mesh and metric.\n");
-      }
+      fprintf(stdout,"\n  -- WRITING DATA FILES %s.pvtu\n",basename);
+      if (rename) fprintf(stdout,"       ## WARNING: Filename has been changed: "
+              "%s => %s.pvtu\n",parmesh->meshout,basename);
+      MMG5_SAFE_FREE ( basename );
     }
     else {
-      if (grp->field) {
-        fprintf(stdout,"\n  -- WRITING DATA FILE %s\n"
-                "       Writing mesh, metric and fields.\n",parmesh->meshout);
-      }
-      else {
-        fprintf(stdout,"\n  -- WRITING DATA FILE %s\n"
-                "       Writing mesh and metric.\n",parmesh->meshout);
-      }
+      fprintf(stdout,"\n  -- WRITING DATA FILE %s\n",parmesh->meshout);
+    }
+    if (grp->field) {
+      fprintf(stdout,"       Writing mesh, metric and fields.\n");
+    }
+    else {
+      fprintf(stdout,"       Writing mesh and metric.\n");
     }
   }
 
