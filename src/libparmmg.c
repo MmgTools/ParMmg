@@ -70,9 +70,6 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       fprintf(stderr,
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return 0;
-    } else if ( mesh->info.iso ) {
-      fprintf(stderr,"\n\n  ## WARNING: level-set discretisation under construction. \n\n");
-      // return 0;
     } else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
@@ -241,6 +238,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls;
+  int8_t     tim;
+  char       stim[32];
+  mytime     ctim[TIMEMAX];
   int ier = PMMG_SUCCESS;
 
   mesh = parmesh->listgrp[0].mesh;
@@ -249,17 +249,16 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
-  if (mesh->info.iso) {
+  // if (mesh->info.iso) {
     // Just print a warning saying that the feature is not implemented and
     // deallocate the isovalue structure (as the ls is not interpolated during the
     // remeshing step, the continuous integration tests will fail otherwise)
-    if ( parmesh->myrank == parmesh->info.root) {
-      fprintf(stdout,"Isovalue discretization is under development:"
-        " Deallocation of the level-set structure.\n");
-    }
-    PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
-    parmesh->listgrp[0].ls->np = 0;
-  }
+    // if ( parmesh->myrank == parmesh->info.root) {
+    //   fprintf(stdout,"Isovalue discretization is under development.\n");
+    // }
+    // PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
+    // parmesh->listgrp[0].ls->np = 0;
+  // }
 
 
   /** Check distributed API mode. Interface faces OR nodes need to be set by the
@@ -288,7 +287,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met,ls) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -324,13 +323,46 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
+  /* Discretization of the isovalue  */
+  if (mesh->info.iso) {
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+      fprintf(stdout,"  --    under development     \n");
+    }
+    if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
+    }
+  }
+
+  // if (mesh->info.iso) {
+    // Just print a warning saying that the feature is not implemented and
+    // deallocate the isovalue structure (as the ls is not interpolated during the
+    // remeshing step, the continuous integration tests will fail otherwise)
+    // if ( parmesh->myrank == parmesh->info.root) {
+    //   fprintf(stdout,"Isovalue discretization is under development.\n");
+    // }
+    // PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
+    // parmesh->listgrp[0].ls->np = 0;
+  // }
+
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
 #warning Luca: check this function
     MMG3D_prilen(mesh,met,0);
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met,ls) ) {
     return PMMG_STRONGFAILURE;
   }
 
@@ -381,10 +413,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( !PMMG_analys(parmesh,mesh,parmesh->info.read_comm) ) {
       return PMMG_STRONGFAILURE;
     }
-  }
-
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0,parmesh->info.read_comm) ) {
-    return PMMG_STRONGFAILURE;
   }
 
   /* Destroy triangles */

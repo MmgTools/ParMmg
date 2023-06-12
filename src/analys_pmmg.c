@@ -2399,6 +2399,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
  * Check all boundary triangles.
  */
 int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+  int       ier;
 
   /**--- stage 1: data structures for surface */
   if ( abs(mesh->info.imprim) > 3 )
@@ -2408,6 +2409,16 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   if ( !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Hashing problem (1). Exit program.\n");
     return 0;
+  }
+
+  if ( mesh->info.iso ) {
+    // ier = MMG3D_update_xtetra ( mesh );
+    ier = 0;
+    if ( !ier ) {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+        fprintf(stdout,"\n  ## Update xtetra data after ls discretization. Do we need to do it  here?");
+      return 0;
+    }
   }
 
   /* create prism adjacency */

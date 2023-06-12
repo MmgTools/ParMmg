@@ -309,13 +309,13 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
         if ( !strcmp(pmmgArgv[i],"-field") ) {
           if ( ++i < pmmgArgc && isascii(pmmgArgv[i][0]) && pmmgArgv[i][0]!='-' ) {
             if ( ! PMMG_Set_inputSolsName(parmesh,pmmgArgv[i]) ) {
-              fprintf(stderr,"\nUnable to set filname for %s\n",pmmgArgv[i-1]);
+              fprintf(stderr,"\nUnable to set filename for %s\n",pmmgArgv[i-1]);
               ret_val = 0;
               goto clean;
             }
           }
           else {
-            PMMG_ERROR_ARG("\nMissing filname for %s\n",pmmgArgv,i-1);
+            PMMG_ERROR_ARG("\nMissing filename for %s\n",pmmgArgv,i-1);
           }
         }
         else {
