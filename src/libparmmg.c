@@ -1857,23 +1857,27 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   }
 
   /** Remeshing */
-  tim = 3;
-  chrono(ON,&(ctim[tim]));
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
-  }
+  /* For ls development do not remesh for now */
+  int remesh = 0;
+  if ( remesh ) {
+    tim = 3;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
+              parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+    }
 
-  ier = PMMG_parmmglib1(parmesh);
-  MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
+    ier = PMMG_parmmglib1(parmesh);
+    MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[tim]));
-  printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
-  }
-  if ( ierlib == PMMG_STRONGFAILURE ) {
-    return ierlib;
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+    }
+    if ( ierlib == PMMG_STRONGFAILURE ) {
+      return ierlib;
+    }
   }
 
   ier = PMMG_parmmglib_post(parmesh);
