@@ -250,14 +250,14 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
   // if (mesh->info.iso) {
-    // Just print a warning saying that the feature is not implemented and
-    // deallocate the isovalue structure (as the ls is not interpolated during the
-    // remeshing step, the continuous integration tests will fail otherwise)
-    // if ( parmesh->myrank == parmesh->info.root) {
-    //   fprintf(stdout,"Isovalue discretization is under development.\n");
-    // }
-    // PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
-    // parmesh->listgrp[0].ls->np = 0;
+  //   // Just print a warning saying that the feature is not implemented and
+  //   // deallocate the isovalue structure (as the ls is not interpolated during the
+  //   // remeshing step, the continuous integration tests will fail otherwise)
+  //   if ( parmesh->myrank == parmesh->info.root) {
+  //     fprintf(stdout,"Isovalue discretization is under development.\n");
+  //   }
+  //   PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
+  //   parmesh->listgrp[0].ls->np = 0;
   // }
 
 
@@ -323,10 +323,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0,parmesh->info.read_comm) ) {
-    return PMMG_STRONGFAILURE;
-  }
-
   /* Discretization of the isovalue  */
   if (mesh->info.iso) {
     tim = 1;
@@ -344,17 +340,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
     }
   }
-
-  // if (mesh->info.iso) {
-    // Just print a warning saying that the feature is not implemented and
-    // deallocate the isovalue structure (as the ls is not interpolated during the
-    // remeshing step, the continuous integration tests will fail otherwise)
-    // if ( parmesh->myrank == parmesh->info.root) {
-    //   fprintf(stdout,"Isovalue discretization is under development.\n");
-    // }
-    // PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
-    // parmesh->listgrp[0].ls->np = 0;
-  // }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
 #warning Luca: check this function
@@ -413,6 +398,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( !PMMG_analys(parmesh,mesh,parmesh->info.read_comm) ) {
       return PMMG_STRONGFAILURE;
     }
+  }
+
+  if ( !PMMG_qualhisto(parmesh,PMMG_INQUA,0,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /* Destroy triangles */
