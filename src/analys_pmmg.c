@@ -2417,7 +2417,6 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     if ( !ier ) {
       if ( parmesh->info.imprim > PMMG_VERB_VERSION )
         fprintf(stdout,"\n  ## Update xtetra data after ls discretization. Do we need to do it  here?");
-      return 0;
     }
   }
 
