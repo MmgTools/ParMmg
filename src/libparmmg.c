@@ -319,26 +319,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     mesh->info.sethmax = 1;
   }
 
+  /* Note :: Needed before ls discretization to include tetras with poor qualities
+      inside one or the other part of the level-set */
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
-  }
-
-  /* Discretization of the isovalue  */
-  if (mesh->info.iso) {
-    tim = 1;
-    chrono(ON,&(ctim[tim]));
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
-      fprintf(stdout,"  --    under development     \n");
-    }
-    if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
-      return PMMG_STRONGFAILURE;
-    }
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
-    }
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES && (!mesh->info.iso) && met->m ) {
@@ -392,6 +376,24 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       PMMG_DEL_MEM(parmesh, parmesh->int_face_comm,PMMG_Int_comm,"int face comm");
       if ( !PMMG_build_faceCommFromNodes(parmesh,parmesh->info.read_comm) ) return PMMG_STRONGFAILURE;
       break;
+  }
+
+  /* Discretization of the isovalue  */
+  if (mesh->info.iso) {
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+      fprintf(stdout,"  --    under development     \n");
+    }
+    if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
+    }
   }
 
   if ( parmesh->myrank < parmesh->info.npartin ) {
