@@ -2402,7 +2402,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   int       ier;
 
   /**--- stage 1: data structures for surface */
-  if ( abs(mesh->info.imprim) > 3 )
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n  ** SURFACE ANALYSIS\n");
 
   /* create tetra adjacency */
@@ -2411,13 +2411,13 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
     return 0;
   }
 
-  if ( mesh->info.iso ) {
+  /* Update the xtetra data after the ls discretization */
+  if ( mesh->info.iso && mesh->info.opnbdy ) {
     ier = MMG3D_update_xtetra ( mesh );
-    // ier = 0;
     if ( !ier ) {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-        fprintf(stdout,"\n  ## Update xtetra data after ls discretization. Do we need to do it  here?");
-        return 0;
+      fprintf(stderr,"\n  ## Problem when updating the xtetra data after ls discretization."
+              " Exit program.\n");
+      return 0;
     }
   }
 
@@ -2676,7 +2676,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   }
 
   /**--- stage 2: surface analysis */
-  if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"  ** SETTING TOPOLOGY\n");
 
   /* identify connexity */
