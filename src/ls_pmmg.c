@@ -43,7 +43,10 @@
  * \param mesh pointer toward the mesh structure.
  * \param sol pointer toward the level-set values.
  * \param met pointer toward a metric (non-mandatory).
+ *
  * \return 1 if success, 0 otherwise.
+ *
+ * \todo Fill the funtion
  *
  * Proceed to discretization of the implicit function carried by sol into mesh,
  * once values of sol have been snapped/checked
@@ -62,6 +65,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSo
  *
  * \return 1 if success, 0 otherwise
  *
+ * \todo Fill the funtion
+ *
  * Removal of small parasitic components (bubbles of material, etc) with volume
  * less than mesh->info.rmc (default VOLFRAC) * volume of the mesh.
  *
@@ -76,7 +81,10 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward the mesh structure.
  * \param sol pointer toward the level-set function.
+ *
  * \return 1 if success, 0 if fail.
+ *
+ * \todo Fill the funtion
  *
  * Snap values of the level set function very close to 0 to exactly 0,
  * and prevent nonmanifold patterns from being generated.
@@ -93,6 +101,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
  * \param mesh pointer toward the mesh structure.
  * \param sol pointer toward the level-set.
  * \param met pointer toward  a metric (optionnal).
+ *
  * \return 0 if fail, 1 otherwise.
  *
  * Create implicit surface in mesh.
@@ -102,14 +111,14 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   char str[16]="";
 
   /* Set function pointers */
-  /* TODO :: Surface ls and alias functions */
+  /** \todo TODO :: Surface ls and alias functions */
   if ( mesh->info.isosurf ) {
     fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
             " implemented. Exit program.\n");
     return 0;
   }
 
-  if ( abs(mesh->info.imprim) > 3 )
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"  ** ISOSURFACE EXTRACTION %s\n",str);
 
   if ( mesh->nprism || mesh->nquad ) {
@@ -118,7 +127,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* TODO :: Snap values of level set function if needed */
+  /** \todo TODO :: Snap values of level set function if needed */
   if ( !PMMG_snpval_ls(parmesh,mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
     return 0;
@@ -163,7 +172,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* TODO :: Removal of small parasitic components */
+  /** \todo TODO :: Removal of small parasitic components */
   if ( mesh->info.rmc > 0 ) {
     PMMG_rmc(parmesh,mesh,sol);
     fprintf(stdout,"\n  ## Warning: rmc option not implemented yet for ParMmg\n");
@@ -171,13 +180,13 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   }
 
 #ifdef USE_POINTMAP
-  /* Initialize source point with input index */
+  /* OK :: Initialize source point with input index */
   MMG5_int ip;
   for( ip = 1; ip <= mesh->np; ip++ )
     mesh->point[ip].src = ip;
 #endif
 
-  //-- OK :: Compute vertices and triangles global numerotation
+  /* OK :: Compute vertices and triangles global numerotation */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
@@ -192,20 +201,16 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     }
   }
 
-  /* TODO :: Discretization of the implicit funtion - Cut tetra */
+  /** \todo TODO :: Discretization of the implicit funtion - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
     fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
   }
 
   /* Not sure which function to be used to deallocate memory */
-  // MMG5_DEL_MEM(mesh,mesh->adja);
-  // MMG5_DEL_MEM(mesh,mesh->adjt);
-  // MMG5_DEL_MEM(mesh,mesh->tria);
-
-  // PMMG_DEL_MEM(mesh,mesh->adja,int,"deallocate adja table");
-  // PMMG_DEL_MEM(mesh,mesh->adjt,int,"deallocate adjt table");
-  // PMMG_DEL_MEM(mesh,mesh->tria,int,"deallocate tria table");
+  MMG5_DEL_MEM(mesh,mesh->adja);
+  MMG5_DEL_MEM(mesh,mesh->adjt);
+  MMG5_DEL_MEM(mesh,mesh->tria);
 
   mesh->nt = 0;
 
