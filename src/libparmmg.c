@@ -295,7 +295,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_setfunc(mesh,met);
   PMMG_setfunc(parmesh);
 
-  /** specific meshing */
+  /** Specific meshing */
   if ( mesh->info.optim && !met->np ) {
     // Warning: doSol would need a clean // implementation along interfaces
     if ( !MMG3D_doSol(mesh,met) ) {
@@ -335,7 +335,8 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /** Mesh analysis I: check triangles, create xtetras */
+  /** Mesh analysis I: Needed to create communicators
+   *  Check triangles, create xtetras */
   if ( parmesh->myrank < parmesh->info.npartin ) {
     if ( !PMMG_analys_tria(parmesh,mesh) ) {
       return PMMG_STRONGFAILURE;
@@ -350,7 +351,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-       * to edges and nodes */
+       * to edges and nodes - Why we do that? */
       if ( parmesh->myrank < parmesh->info.npartin ) {
         PMMG_tria2elmFace_coords( parmesh );
       }
@@ -378,8 +379,13 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
-  /* Discretization of the isovalue  */
+  /** Discretization of the isovalue  */
   if (mesh->info.iso) {
+
+    /* Destroy adja and adjat */
+    MMG5_DEL_MEM(mesh,mesh->adja);
+    MMG5_DEL_MEM(mesh,mesh->adjt);
+
     tim = 1;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -394,8 +400,17 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
     }
+
+    /** Mesh analysis Ib : After LS discretization
+     * Check triangles, create xtetras */
+    if ( parmesh->myrank < parmesh->info.npartin ) {
+      if ( !PMMG_analys_tria(parmesh,mesh) ) {
+        return PMMG_STRONGFAILURE;
+      }
+    }
   }
 
+  /** Mesh analysis II: Perform surface analysis */
   if ( parmesh->myrank < parmesh->info.npartin ) {
     if ( !PMMG_analys(parmesh,mesh,parmesh->info.read_comm) ) {
       return PMMG_STRONGFAILURE;
@@ -1859,27 +1874,23 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   }
 
   /** Remeshing */
-  /* For ls development do not remesh for now */
-  int remesh = 0;
-  if ( remesh ) {
-    tim = 3;
-    chrono(ON,&(ctim[tim]));
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-              parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
-    }
+  tim = 3;
+  chrono(ON,&(ctim[tim]));
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
+            parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+  }
 
-    ier = PMMG_parmmglib1(parmesh);
-    MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  ier = PMMG_parmmglib1(parmesh);
+  MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
-    }
-    if ( ierlib == PMMG_STRONGFAILURE ) {
-      return ierlib;
-    }
+  chrono(OFF,&(ctim[tim]));
+  printim(ctim[tim].gdif,stim);
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+  }
+  if ( ierlib == PMMG_STRONGFAILURE ) {
+    return ierlib;
   }
 
   ier = PMMG_parmmglib_post(parmesh);
