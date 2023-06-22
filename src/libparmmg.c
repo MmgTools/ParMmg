@@ -1887,6 +1887,9 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   }
   else {
     ier = 0;
+    /* define metric map to ensure citest fields-DisIn-DisOutMesh-2 to pass
+       for now. This if will be remove anyway later */
+    MMG3D_defsiz_iso(mesh,met);
   }
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
