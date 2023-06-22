@@ -1881,7 +1881,13 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
+  int remesh = 0;
+  if (remesh) {
+    ier = PMMG_parmmglib1(parmesh);
+  }
+  else {
+    ier = 0;
+  }
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
   chrono(OFF,&(ctim[tim]));
