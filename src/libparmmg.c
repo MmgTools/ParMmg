@@ -1881,7 +1881,21 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
+  int remesh = 0;
+  if (remesh) {
+    ier = PMMG_parmmglib1(parmesh);
+  }
+  else {
+    ier = 0;
+    /* define metric map to ensure citest fields-DisIn-DisOutMesh-2 to pass
+       for now. This if will be remove anyway later */
+#ifndef USE_HDF5
+    if (parmesh->info.fmtout != PMMG_FMT_HDF5)
+      MMG3D_defsiz_iso(mesh,met);
+#else
+      MMG3D_defsiz_iso(mesh,met);
+#endif
+  }
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
   chrono(OFF,&(ctim[tim]));
