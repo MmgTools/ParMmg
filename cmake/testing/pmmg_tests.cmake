@@ -229,9 +229,8 @@ IF( BUILD_TESTING )
 
     set_property(TEST PvtuOut-RenameOut-2
       PROPERTY PASS_REGULAR_EXPRESSION
-      "${OutputVtkRenameFilename}.*${OutputVtkRenameWarning}.*${OutputVtkErr};
-       ${OutputVtkRenameWarning}.*${OutputVtkErr}.*${OutputVtkRenameFilename};
-       ${OutputVtkRenameFilename}.*${OutputVtkErr}.*${OutputVtkRenameWarning}")
+      "${OutputVtkRenameFilename}.*${OutputVtkRenameWarning};
+       ${OutputVtkRenameWarning}.*${OutputVtkRenameFilename}")
 
     ###############################################################################
     #####
@@ -419,8 +418,10 @@ IF( BUILD_TESTING )
       -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
 
-    set_property(TEST ls-CenIn-DisOut-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+    IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+      set_property(TEST ls-CenIn-DisOut-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+    ENDIF ( )
 
   endforeach()
 
@@ -524,7 +525,7 @@ IF( BUILD_TESTING )
   # and  to write distributed output fields in VTK   format
   add_test( NAME fields-DisIn-DisOutVTK-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
+    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
     -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
     -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
 
@@ -533,9 +534,8 @@ IF( BUILD_TESTING )
 
   set_property(TEST fields-DisIn-DisOutVTK-2
     PROPERTY PASS_REGULAR_EXPRESSION
-    "${InputDistributedFields}.*${OutputVtkFields}.*${OutputVtkErr};
-     ${OutputVtkFields}.*${OutputVtkErr}.*${InputDistributedFields};
-     ${InputDistributedFields}.*${OutputVtkErr}.*${OutputVtkFields}")
+    "${InputDistributedFields}.*${OutputVtkFields};
+     ${OutputVtkFields}.*${InputDistributedFields}")
 
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2

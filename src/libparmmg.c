@@ -70,9 +70,6 @@ int PMMG_check_inputData(PMMG_pParMesh parmesh)
       fprintf(stderr,
               "  ## Error: lagrangian mode unavailable (MMG3D_IPARAM_lag):\n");
       return 0;
-    } else if ( mesh->info.iso ) {
-      fprintf(stderr,"\n\n  ## WARNING: level-set discretisation under construction. \n\n");
-      // return 0;
     } else if ( mesh->info.optimLES && met->size==6 ) {
       fprintf(stdout,"  ## Error: strong mesh optimization for LES methods"
               " unavailable (MMG3D_IPARAM_optimLES) with an anisotropic metric.\n");
@@ -240,25 +237,28 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 {
   MMG5_pMesh mesh;
-  MMG5_pSol  met;
+  MMG5_pSol  met,ls;
+  int8_t     tim;
+  char       stim[32];
+  mytime     ctim[TIMEMAX];
   int ier = PMMG_SUCCESS;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
+  ls   = parmesh->listgrp[0].ls;
 
   assert ( ( mesh != NULL ) && ( met != NULL ) && "Preprocessing empty args");
 
-  if (mesh->info.iso) {
-// Just print a warning saying that the feature is not implemented and
-// deallocate the isovalue structure (as the ls is not interpolated during the
-// remeshing step, the continuous integration tests will fail otherwise)
-    if ( parmesh->myrank == parmesh->info.root) {
-      fprintf(stdout,"Isovalue discretization is not yet implemented:"
-        " Deallocation of the level-set structure.\n");
-    }
-    PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
-    parmesh->listgrp[0].ls->np = 0;
-  }
+  // if (mesh->info.iso) {
+  //   // Just print a warning saying that the feature is not implemented and
+  //   // deallocate the isovalue structure (as the ls is not interpolated during the
+  //   // remeshing step, the continuous integration tests will fail otherwise)
+  //   if ( parmesh->myrank == parmesh->info.root) {
+  //     fprintf(stdout,"Isovalue discretization is under development.\n");
+  //   }
+  //   PMMG_DEL_MEM(mesh,parmesh->listgrp[0].ls->m,double,"ls structure");
+  //   parmesh->listgrp[0].ls->np = 0;
+  // }
 
 
   /** Check distributed API mode. Interface faces OR nodes need to be set by the
@@ -287,7 +287,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_Set_commonFunc();
 
   /** Mesh scaling and quality histogram */
-  if ( !MMG5_scaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_scaleMesh(mesh,met,ls) ) {
     return PMMG_LOWFAILURE;
   }
 
@@ -295,7 +295,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   MMG3D_setfunc(mesh,met);
   PMMG_setfunc(parmesh);
 
-  /** specific meshing */
+  /** Specific meshing */
   if ( mesh->info.optim && !met->np ) {
     // Warning: doSol would need a clean // implementation along interfaces
     if ( !MMG3D_doSol(mesh,met) ) {
@@ -319,6 +319,8 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     mesh->info.sethmax = 1;
   }
 
+  /* Note :: Needed before ls discretization to include tetras with poor qualities
+      inside one or the other part of the level-set */
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
   }
@@ -329,11 +331,12 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
 
   /** Mesh unscaling */
-  if ( !MMG5_unscaleMesh(mesh,met,NULL) ) {
+  if ( !MMG5_unscaleMesh(mesh,met,ls) ) {
     return PMMG_STRONGFAILURE;
   }
 
-  /** Mesh analysis I: check triangles, create xtetras */
+  /** Mesh analysis I: Needed to create communicators
+   *  Check triangles, create xtetras */
   if ( parmesh->myrank < parmesh->info.npartin ) {
     if ( !PMMG_analys_tria(parmesh,mesh) ) {
       return PMMG_STRONGFAILURE;
@@ -348,7 +351,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-       * to edges and nodes */
+       * to edges and nodes - Why we do that? */
       if ( parmesh->myrank < parmesh->info.npartin ) {
         PMMG_tria2elmFace_coords( parmesh );
       }
@@ -376,6 +379,38 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       break;
   }
 
+  /** Discretization of the isovalue  */
+  if (mesh->info.iso) {
+
+    /* Destroy adja and adjat */
+    MMG5_DEL_MEM(mesh,mesh->adja);
+    MMG5_DEL_MEM(mesh,mesh->adjt);
+
+    tim = 1;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+      fprintf(stdout,"  --    under development     \n");
+    }
+    if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
+      return PMMG_STRONGFAILURE;
+    }
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
+    }
+
+    /** Mesh analysis Ib : After LS discretization
+     * Check triangles, create xtetras */
+    if ( parmesh->myrank < parmesh->info.npartin ) {
+      if ( !PMMG_analys_tria(parmesh,mesh) ) {
+        return PMMG_STRONGFAILURE;
+      }
+    }
+  }
+
+  /** Mesh analysis II: Perform surface analysis */
   if ( parmesh->myrank < parmesh->info.npartin ) {
     if ( !PMMG_analys(parmesh,mesh,parmesh->info.read_comm) ) {
       return PMMG_STRONGFAILURE;
@@ -1727,8 +1762,16 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
 }
 
 int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
+    return PMMG_parmmg_distributed(parmesh);
+}
+
+int PMMG_parmmgls_distributed(PMMG_pParMesh parmesh) {
+  return PMMG_parmmg_distributed(parmesh);
+}
+
+int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   MMG5_pMesh       mesh;
-  MMG5_pSol        met;
+  MMG5_pSol        met,ls;
   int              ier,iresult,ierlib;
   mytime           ctim[TIMEMAX];
   int8_t           tim;
@@ -1790,7 +1833,8 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
     ier  = PMMG_preprocessMesh_distributed( parmesh );
     mesh = parmesh->listgrp[0].mesh;
     met  = parmesh->listgrp[0].met;
-    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, NULL ) ) {
+    ls   = parmesh->listgrp[0].ls;
+    if ( (ier==PMMG_STRONGFAILURE) && (parmesh->nprocs == parmesh->info.npartin) && MMG5_unscaleMesh( mesh, met, ls ) ) {
       ier = PMMG_LOWFAILURE;
     }
   }
@@ -1834,7 +1878,7 @@ int PMMG_parmmglib_distributed(PMMG_pParMesh parmesh) {
   chrono(ON,&(ctim[tim]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+            parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
   ier = PMMG_parmmglib1(parmesh);

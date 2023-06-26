@@ -1063,6 +1063,16 @@ FORTRAN_NAME(PMMG_PARMMGLIB_DISTRIBUTED,pmmg_parmmglib_distributed,
 }
 
 /**
+ * See \ref PMMG_parmmgls_distributed function in \ref libparmmg.h file.
+ */
+FORTRAN_NAME(PMMG_PARMMGLS_DISTRIBUTED,pmmg_parmmgls_distributed,
+             (PMMG_pParMesh *parmesh,int* retval),
+             (parmesh,retval)) {
+  *retval = PMMG_parmmgls_distributed(*parmesh);
+  return;
+}
+
+/**
  * See \ref PMMG_parmmglib_centralized function in \ref libparmmg.h file.
  */
 FORTRAN_NAME(PMMG_PARMMGLIB_CENTRALIZED,pmmg_parmmglib_centralized,

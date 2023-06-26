@@ -369,7 +369,7 @@ check_mesh_loading:
   }
   else {
     /* Parallel remeshing starting from a distributed mesh */
-    ier = PMMG_parmmglib_distributed(parmesh);
+    ier = PMMG_parmmg_distributed(parmesh);
   }
 
   /** Check result and save output files */
