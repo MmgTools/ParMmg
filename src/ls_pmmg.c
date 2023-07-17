@@ -122,8 +122,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSo
       if ( p0->flag && p1->flag )  continue;
 
       // Otherwise take the values at these points
-      v0  = sol->m[ip0]-mesh->info.ls;
-      v1  = sol->m[ip1]-mesh->info.ls;
+      v0  = sol->m[ip0];
+      v1  = sol->m[ip1];
 
       // If the points are not already exactly on the level-set
       // and does not have the same sign, then this edge needs to be split
@@ -245,8 +245,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSo
       // Check the ls value at the edge nodes
       p0 = &mesh->point[ip0];
       p1 = &mesh->point[ip1];
-      v0 = sol->m[ip0]-mesh->info.ls;
-      v1 = sol->m[ip1]-mesh->info.ls;
+      v0 = sol->m[ip0];
+      v1 = sol->m[ip1];
 
       // Check if the edge should be split
       // If one of the points is exactly on the level set, the point exists already, pass
@@ -339,8 +339,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSo
         }
       }
 
-      // For this new point, add the value of the solution, i.e. the isovalue
-      sol->m[np] = mesh->info.ls;
+      // For this new point, add the value of the solution, i.e. the isovalue 0
+      sol->m[np] = 0;
 
       // If user provide a metric, interpolate it at the new point
       if ( met && met->m ) {
@@ -524,6 +524,11 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
             " hybrid meshes. Exit program.\n");
     return 0;
   }
+
+  /* Modify the value of the level-set to work with the 0 level-set  */
+  MMG5_int k;
+  for (k=1; k<= sol->np; k++)
+    sol->m[k] -= mesh->info.ls;
 
   /** \todo TODO :: Snap values of level set function if needed */
   if ( !PMMG_snpval_ls(parmesh,mesh,sol) ) {
