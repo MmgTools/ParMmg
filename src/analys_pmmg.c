@@ -1510,6 +1510,11 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
   return 1;
 }
 
+static inline
+int MMG5_skip_nonOldParBdy ( int8_t tag ) {
+  return !(tag & MG_OLDPARBDY);
+}
+
 /**
  * \param mesh pointer toward the mesh  structure.
  * \return 0 if point is singular, 1 otherwise.
@@ -1520,88 +1525,9 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
  */
 static inline
 int PMMG_update_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
-  MMG5_pTetra         ptet;
-  MMG5_pPoint         ppt;
-  MMG5_Hash           hash;
-  int                 k,i;
-  int                 nc, nre, ng, nrp, nm, ier;
 
-  /* Second: seek the non-required non-manifold points and try to analyse
-   * whether they are corner or required. */
+  return MMG5_setVertexNmTag(mesh,MMG5_skip_nonOldParBdy);
 
-  /* Hash table used by boulernm to store the special edges passing through
-   * a given point */
-  if ( ! MMG5_hashNew(mesh,&hash,mesh->np,(int)(3.71*mesh->np)) ) return 0;
-
-  nc = nre = 0;
-  ++mesh->base;
-  for (k=1; k<=mesh->ne; ++k) {
-    ptet = &mesh->tetra[k];
-    if ( !MG_EOK(ptet) ) continue;
-
-    for ( i=0; i<4; ++i ) {
-      ppt = &mesh->point[ptet->v[i]];
-
-      /* Skip non-previously-parallel points */
-      if ( !(ppt->tag & MG_OLDPARBDY) ) continue;
-
-      if ( (!MG_VOK(ppt)) || (ppt->flag==mesh->base)  ) continue;
-      ppt->flag = mesh->base;
-
-      if ( (!(ppt->tag & MG_NOM)) || (ppt->tag & MG_REQ) ) continue;
-
-      ier = MMG5_boulernm(mesh,&hash, k, i, &ng, &nrp, &nm);
-      if ( ier < 0 ) return 0;
-      else if ( !ier ) continue;
-
-      if ( (ng+nrp+nm) > 2 ) {
-        /* More than 2 feature edges are passing through the point: point is
-         * marked as corner */
-        ppt->tag |= MG_CRN + MG_REQ;
-        ppt->tag &= ~MG_NOSURF;
-        nre++;
-        nc++;
-      }
-      else if ( (ng == 2) || (nrp == 2) || (nm == 2) ) {
-        /* Exactly 2 edges of same type are passing through the point: do
-         * nothing */
-        continue;
-      }
-      else if ( (ng+nrp+nm) == 2 ) {
-        /* 2 edges of different type are passing through the point: point is
-         * marked as required */
-        ppt->tag |= MG_REQ;
-        ppt->tag &= ~MG_NOSURF;
-        nre++;
-      }
-      else if ( ng == 1 && !nrp ){
-        ppt->tag |= MG_CRN + MG_REQ;
-        ppt->tag &= ~MG_NOSURF;
-        nre++;
-        nc++;
-      }
-      else if ( (ng+nrp+nm) == 1 ){
-        /* Only 1 feature edge is passing through the point: point is
-         * marked as corner */
-        assert ( (ng == 1) || (nrp==1) || (nm==1) );
-        ppt->tag |= MG_CRN + MG_REQ;
-        ppt->tag &= ~MG_NOSURF;
-        nre++;
-        nc++;
-      }
-      else {
-        assert ( 0 && "unexpected case");
-      }
-    }
-  }
-
-  /* Free the edge hash table */
-  MMG5_DEL_MEM(mesh,hash.item);
-
-  if ( mesh->info.ddebug || abs(mesh->info.imprim) > 3 )
-    fprintf(stdout,"     %d corner and %d required vertices added\n",nc,nre);
-
-  return 1;
 }
 
 /**
