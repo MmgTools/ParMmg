@@ -351,7 +351,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
-       * to edges and nodes - Why we do that? */
+       * to edges and nodes */
       if ( parmesh->myrank < parmesh->info.npartin ) {
         PMMG_tria2elmFace_coords( parmesh );
       }
