@@ -127,7 +127,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     // Loop over edges
     for (ia=0; ia<6; ia++) {
 
-      // Grab the points defining the edges
+      // Get the points defining the edges
       ip0 = pt->v[MMG5_iare[ia][0]];
       ip1 = pt->v[MMG5_iare[ia][1]];
       p0  = &mesh->point[ip0];
@@ -250,7 +250,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         // (b) If the edges is not required, then continue
         if ( !(pxt->tag[ MMG5_iarf[ia][j] ] & MG_REQ) ) continue;
 
-        // (b) otherwise grab the extremity of the edges ...
+        // (b) otherwise get the extremity of the edges ...
         ip0 = pt->v[MMG5_idir[ia][MMG5_inxt2[j]]];
         ip1 = pt->v[MMG5_idir[ia][MMG5_iprv2[j]]];
         np  = -1;
@@ -295,7 +295,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     // Loop over the edges in the external communicator
     for (iedge=0; iedge < nitem_ext_edge; iedge++) {
 
-      // Grab the index of the edge in internal comm
+      // Get the index of the edge in internal comm
       pos_edge_ext = ext_edge_comm->int_comm_index[iedge];
       pos_edge_int = grp->edge2int_edge_comm_index2[pos_edge_ext];
       val_edge     = grp->edge2int_edge_comm_index1[pos_edge_int];
@@ -435,7 +435,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
     // Loop over the edges ia
     for (ia=0; ia<6; ia++) {
-      // Grab the points of the edge and np (value stored in hash.item[key].k)
+      // Get the points of the edge and np (value stored in hash.item[key].k)
       ip0 = pt->v[MMG5_iare[ia][0]];
       ip1 = pt->v[MMG5_iare[ia][1]];
       np  = MMG5_hashGet(&hash,ip0,ip1);
@@ -547,7 +547,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     pt->flag = 0;
     memset(vx,0,6*sizeof(MMG5_int));
 
-    // Loop over the edges, grab hash.item[key].k
+    // Loop over the edges, get hash.item[key].k
     // and set flags to the tetra that need to be split
     bdy_tetra = 0;
     for (ia=0; ia<6; ia++) {
