@@ -458,8 +458,12 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSo
 int PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
 int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
-int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int tetra_sorted[3],MMG5_int node_sorted[3]);
-void PMMG_sort_vertices(PMMG_pParMesh parmesh,MMG5_int t0[3]);
+int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_sort_vertices(MMG5_int *a);
+void PMMG_sort_tetra(MMG5_int *tetra, MMG5_int *v_t0, MMG5_int *v_t1, MMG5_int *v_t2);
+int PMMG_compare_3ints_array(int *a, int *b);
+void PMMG_swap_ints(int *a, int *b);
+// void PMMG_swap_3int_arrays(int *a, int *b);
 
 /* Internal library */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
