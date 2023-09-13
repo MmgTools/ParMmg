@@ -679,8 +679,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
         ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
 
-        // After the split, the flag of the tetra k has been set to zero, 
-        // so reassignation fo the flag to the tetra k
+        // After the split, the flag of the tetra k has been set to zero,
+        // so reassignation of the flag to the tetra k
         pt->flag = flag;
 
         uint8_t       tau[4];
@@ -703,10 +703,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
         nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
 
-        // Update the first face located at pos_face_int - Modify only index1 - index 2 stay the same
+        // Update the first face located at pos_face_int - Modify only index1 - index2 stays the same
         grp->face2int_face_comm_index1[pos_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
 
-        // Update the 2 other faces
+        // Update the communicators for the 2 other faces
         for (j=0; j<2; j++) {
           grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
           grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
@@ -823,11 +823,8 @@ int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted){
 
   MMG5_pTetra pt;
-  MMG5_int ne_tmp;
+  MMG5_int ne_tmp, min_tmp;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
-
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n      ## TODO:: PMMG_spli4op_sort.\n");
 
   ne_tmp = mesh->ne;
 
@@ -854,6 +851,11 @@ int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Find the index of the minimun index on ifac
+  node_sorted[0]=PMMG_find_node(v_t0);
+
+  // Sort the indices by increasing order
   PMMG_sort_vertices(v_t0);
 
   //---------------------------------------//
@@ -876,6 +878,11 @@ int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Find the index of the minimun index on ifac
+  node_sorted[1]=PMMG_find_node(v_t1);
+
+  // Sort the indices by increasing order
   PMMG_sort_vertices(v_t1);
 
   //--------------------------------------//
@@ -894,39 +901,72 @@ int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Find the index of the minimun index on ifac
+  node_sorted[2]=PMMG_find_node(v_t2);
+
+  // Sort the indices by increasing order
   PMMG_sort_vertices(v_t2);
 
   /*****************************************************/
   /* STEP 2 :: Sort this tetra by their global indices */
   /*****************************************************/
-  PMMG_sort_tetra(tetra_sorted,v_t0,v_t1,v_t2);
+  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
 
   return 1;
 }
 
 /**
- * \param tetra IDs of the tetra to be sorted
+ * \param tetra Indices of the tetra to be sorted
+ * \param node  Indices of the minimum index on ifac
  * \param v_t0 First  tetra: indices of the triangle on face ifac
  * \param v_t1 Second tetra: indices of the triangle on face ifac
  * \param v_t2 Third  tetra: indices of the triangle on face ifac
  *
  * Sort the tetras in increasing order based on vertices number
+ * Swap also the array storing ifac indices
+ * Swap also the array storing the index of the minimum index on ifac
  *
  */
-void PMMG_sort_tetra(MMG5_int *tetra, MMG5_int *v_t0, MMG5_int *v_t1, MMG5_int *v_t2) {
+void PMMG_sort_tetra(MMG5_int *tetra, MMG5_int *node, MMG5_int *v_t0, MMG5_int *v_t1, MMG5_int *v_t2) {
   // Sorting using conditional statements
-  if (PMMG_compare_3ints_array(v_t0, v_t1) > 1) {
+  if (PMMG_compare_3ints_array(v_t0, v_t1) > 0) {
     PMMG_swap_ints(&tetra[0], &tetra[1]);
-    PMMG_swap_ints(&(*v_t0), &(*v_t1));
+    PMMG_swap_ints(&node[0], &node[1]);
+    PMMG_swap_3int_arrays(v_t0, v_t1);
   }
-  if (PMMG_compare_3ints_array(v_t1, v_t2) > 1) {
+  if (PMMG_compare_3ints_array(v_t1, v_t2) > 0) {
     PMMG_swap_ints(&tetra[1], &tetra[2]);
-    PMMG_swap_ints(&(*v_t1), &(*v_t2));
+    PMMG_swap_ints(&node[1], &node[2]);
+    PMMG_swap_3int_arrays(v_t1, v_t2);
   }
-  if (PMMG_compare_3ints_array(v_t0, v_t1) > 1) {
+  if (PMMG_compare_3ints_array(v_t0, v_t1) > 0) {
     PMMG_swap_ints(&tetra[0], &tetra[1]);
-    PMMG_swap_ints(&(*v_t0), &(*v_t1));
+    PMMG_swap_ints(&node[0], &node[1]);
+    PMMG_swap_3int_arrays(v_t0, v_t1);
   }
+}
+
+/**
+ * \param node Index of the min node index on face ifac
+ * \param v_t  Indices of the triangle on face ifac
+ *
+ * Index of the min node index on face ifac
+ *
+ */
+int PMMG_find_node(MMG5_int *v_t) {
+  MMG5_int node;
+  MMG5_int min_tmp = MG_MIN(v_t[0],MG_MIN(v_t[1],v_t[2]));
+  if (min_tmp == v_t[0]) {
+    node = 0;
+  }
+  else if (min_tmp == v_t[1]) {
+    node = 1;
+  }
+  else if (min_tmp == v_t[2]) {
+    node = 2;
+  }
+  return node;
 }
 
 /**
@@ -962,13 +1002,12 @@ void PMMG_sort_vertices(MMG5_int *a) {
  */
 int PMMG_compare_3ints_array(int *a, int *b) {
   int result;
-
   result = a[0] - b[0];
   if (result == 0) {
     result = a[1] - b[1];
-  }
-  if (result == 0) {
-    result = a[2] - b[2];
+    if (result == 0) {
+      result = a[2] - b[2];
+    }
   }
   return result;
 }
@@ -981,7 +1020,7 @@ int PMMG_compare_3ints_array(int *a, int *b) {
  *
  */
 void PMMG_swap_ints(int *a, int *b) {
-    int temp = *a;
+    MMG5_int temp = *a;
     *a = *b;
     *b = temp;
 }
@@ -993,11 +1032,13 @@ void PMMG_swap_ints(int *a, int *b) {
  * Swap the array of 3 integers a and b
  *
  */
-// void PMMG_swap_3int_arrays(int *a, int *b) {
-//     int temp = *a;
-//     *a = *b;
-//     *b = temp;
-// }
+void PMMG_swap_3int_arrays(int *a, int *b) {
+    for ( int i = 0; i < 3; i++ ) {
+        MMG5_int temp = a[i];
+        a[i] = b[i];
+        b[i] = temp;
+    }
+}
 
 /**
  * \param parmesh pointer toward a parmesh structure
