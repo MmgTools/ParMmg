@@ -53,9 +53,6 @@
  *
  */
 int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_pSol met){
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n      ## PMMG_cuttet_ls:: Under development.\n");
-
   MMG5_pTetra   pt;
   MMG5_pxTetra  pxt;
   MMG5_pPoint   p0,p1;
@@ -71,7 +68,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   PMMG_pExt_comm ext_node_comm,ext_edge_comm,ext_face_comm;
   PMMG_pGrp      grp;
 
-  MMG5_int ne_init;
+  MMG5_int ne_init,ne_tmp;
   MMG5_int vGlobNum[4],vGlobNum_tria[3];
   MMG5_int p_tmp;
 
@@ -92,13 +89,18 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   int ip0_g,ip1_g;
   int ifac,iploc;
-  int sign,bdy_tetra;
+  int sign,bdy_tetra,print_rank=1,already_split;
 
   uint8_t       tau[4];
   const uint8_t *taued=NULL;
   int8_t        imin0,imin2;
   MMG5_int      tetra_sorted[3], node_sorted[3];
   int flag,nface_added;
+
+  // if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+
+  if ( parmesh->myrank == print_rank )
+    fprintf(stdout,"\n      ## PMMG_cuttet_ls:: Under development.\n");
 
   // Ensure only one group on each proc
   assert(parmesh->ngrp == 1);
@@ -114,7 +116,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /*************************/
   /* STEP 1 :: Reset flags */
   /*************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 1 :: Reset flags ...");
 
   for (k=1; k<=mesh->np; k++)
@@ -123,13 +125,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   for (k=1; k<=mesh->ne; k++)
     mesh->tetra[k].flag = 0;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n              ... STEP 1 :: Done. \n");
 
   /***********************************************************************/
   /* STEP 2 :: Approximate the number nb of intersection points on edges */
   /***********************************************************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 2 :: Approximate nbr of intersection points ...");
 
   nb = 0;
@@ -169,7 +171,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   }
   if ( ! nb )  return 1;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->myrank == print_rank ) {
     fprintf(stdout,"\n              ... PROC %d :: Approximate nbr of intersection points nb ~ %d. \n",parmesh->myrank,nb);
     fprintf(stdout,"\n              ... STEP 2 :: Done. \n");
   }
@@ -183,7 +185,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /*******************************/
   /* STEP 3 :: Memory allocation */
   /*******************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 3 :: Memory allocation ...");
 
   // STEP 3.1 :: Initialize hash table for edges //
@@ -230,13 +232,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   // STEP 3.6 :: Allocate all the other variables that need to be allocated !
   // ...
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n              ... STEP 3 :: Done. \n");
 
   /****************************************************************/
   /* STEP 4 :: Identify required edges. Put hash.item[key].k = -1 */
   /****************************************************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 4 :: Identify required edges and put hash.item[key].k = -1 ...");
 
   // Loop over tetra
@@ -291,24 +293,24 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     }
   }
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n              ... STEP 4 :: Done. \n");
 
   /************************************************************************/
   /* STEP 5 :: Create points at iso-value. Fill or update edge hash table */
   /************************************************************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 5 :: Create points at iso-value. Fill or update edge hash table...");
 
   //---------------------------------------------------------------//
   // STEP 5.1 :: Create new points located on parallel interfaces  //
   //---------------------------------------------------------------//
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 5.1 :: Create points located on parallel interfaces...");
 
   // TO BE ADDED - If Multimat; allocation; metric; MG_EOK
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                  Number of node comm :: %d ; edge comm ::: %d & face comm :: %d",
                    next_node_comm,next_edge_comm,next_face_comm);
 
@@ -343,7 +345,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         // 1. Update external communicator
         // 1.1. Find the appropriate external node comm
         if ( mesh->point[np].s != (i_comme+1) ) {
-          if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+          if ( parmesh->myrank == print_rank )
           fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge tetra %d, "
                         "ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Already split at pos %d in int comm - Add into this comm \n",
                         parmesh->myrank, color_in_edge, color_out_edge, iedge,
@@ -362,7 +364,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
           mesh->point[np].s = i_comme+1;
         }
         else {
-          if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+          if ( parmesh->myrank == print_rank )
           fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge tetra %d, "
                         "ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Already split at pos %d in int comm - Already in this comm \n",
                         parmesh->myrank, color_in_edge, color_out_edge, iedge,
@@ -406,7 +408,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 #endif
       np = MMG3D_newPt(mesh,c,0,src);
 
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+      if ( parmesh->myrank == print_rank )
         fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - "
                       "Edge tetra %d, ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Split edge np=%d \n",
                       parmesh->myrank, color_in_edge, color_out_edge, iedge,
@@ -453,7 +455,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   //---------------------------------------------------------------//
   // STEP 5.3 :: Create all the other new points located elsewhere //
   //---------------------------------------------------------------//
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 5.2 :: Create points located elsewhere...\n");
 
   // TO BE ADDED - If Multimat; allocation; metric; warning; MG_EOK
@@ -471,7 +473,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
       // If hash.item[key].k is not 0 or -1 then pass, it means this edge has already been split
       if ( np>0 ) {
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"                        Edge already split ia %d - ",ia);
           fprintf(stdout," Points %d & %d - ",ip0,ip1);
           fprintf(stdout," np %d \n",np);
@@ -517,7 +519,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 #endif
       np = MMG3D_newPt(mesh,c,0,src);
 
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      if ( parmesh->myrank == print_rank ) {
         fprintf(stdout,"                        Split edge ia %d - ",ia);
         fprintf(stdout," Points %d & %d - ",ip0,ip1);
         fprintf(stdout," Weighting factor %f - ",s);
@@ -541,23 +543,23 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     }
   }
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n              ... STEP 5 :: Done. \n");
 
   /*******************************************/
   /* STEP 6 :: Split according to tets flags */
   /*******************************************/
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n          --> STEP 6 :: Split according to tets flags...\n");
 
   //------------------------------------------//
   // STEP 6.1 :: Compute global node vertices //
   //------------------------------------------//
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 6.1 :: Compute global node vertives...\n");
 
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+    if ( parmesh->myrank == print_rank ) {
       fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
       PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
     }
@@ -566,7 +568,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   //--------------------------------------------------------------//
   // STEP 6.2 :: Do the splitting for tetra on parallel interface //
   //--------------------------------------------------------------//
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 6.2 :: Split tetra on parallel interface...\n");
 
   ns  = 0; // Number of total split on this proc
@@ -602,26 +604,29 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       if ( !MG_EOK(pt) )  continue;
 
       // If the tetra has already a flag - then it has already been processed
+      already_split = 0;
       if (pt->flag) {
         // If flag equals to -1, then tetra does not need to be split
-        // Otherwise update the communicators only
-        // and pass
+        // Otherwise update the communicators only and pass
         if (pt->flag != -1) {
-          //-- TODO
-          if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          if ( parmesh->myrank == print_rank) {
             fprintf(stdout,"\n                  ---------------------------------------");
             fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d ALREADY SPLIT - TODO :: update comms",
                     parmesh->myrank,k,pt->flag);
           }
+          already_split = 1;
+          ne_tmp = pt->mark;
         }
         else {
-          if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+          if ( parmesh->myrank == print_rank ) {
             fprintf(stdout,"\n                  ---------------------------------------");
             fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d NO NEED TO BE SPLIT",
                     parmesh->myrank,k,pt->flag);
           }
+          pt->mark = mesh->ne;
+          ne_tmp   = mesh->ne;
+          continue;
         }
-        continue;
       }
 
       // Otherwise, loop over the edges, get hash.item[key].k
@@ -650,83 +655,83 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       // Do the actual split
       switch (flag) {
       case 1: case 2: case 4: case 8: case 16: case 32: /* 1 edge split */
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"\n                  ---------------------------------------");
           fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split1, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
-        ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+        if (!already_split) ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
         pt->flag = flag; // Flag tetra k
 
         // Compute tau
         MMG3D_split1_cfg(flag,tau,&taued);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split1_sort(parmesh,mesh,k,ifac,tau,tetra_sorted,node_sorted);
+        PMMG_split1_sort(parmesh,mesh,k,ifac,tau,ne_tmp,tetra_sorted,node_sorted);
 
         ns++;
         break;
 
       case 48: case 24: case 40: case 6: case 34: case 36:
-      case 20: case 5: case 17: case 9: case 3: case 10: /* 2 edges (same face) split */
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      case 20: case 5:  case 17: case 9: case 3:  case 10: /* 2 edges (same face) split */
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"\n                  ---------------------------------------");
           fprintf(stdout,"\n\n                  MyRank %d, Tetra k %d, MMG5_split2sf, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
-        ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+        if (!already_split) ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
         pt->flag = flag; // Flag tetra k
 
         // Compute tau and imin0
         imin0=MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split2sf_sort(parmesh,mesh,k,ifac,tau,imin0,tetra_sorted,node_sorted);
+        PMMG_split2sf_sort(parmesh,mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted);
 
         ns++;
         break;
 
       case 7: case 25: case 42: case 52: /* 3 edges on conic configuration split */
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"\n                  ---------------------------------------");
           fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split3cone_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
-        ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+        if (!already_split) ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
         pt->flag = flag; // Flag tetra k
 
         // Compute tau, imin0 and imin2
         MMG3D_split3cone_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split3cone_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,tetra_sorted,node_sorted);
+        PMMG_split3cone_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
 
         ns++;
         break;
 
       case 30: case 45: case 51:
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"\n                  ---------------------------------------");
           fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split4op_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
-        ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+        if (!already_split) ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
         pt->flag = flag; // Flag tetra k
 
         // Compute tau, imin0 and imin2
         MMG3D_split4op_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split4op_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,tetra_sorted,node_sorted);
+        PMMG_split4op_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
 
         ns++;
         break;
 
       default :
         assert(pt->flag == 0);
-        if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        if ( parmesh->myrank == print_rank ) {
           fprintf(stdout,"\n                  ---------------------------------------");
-          fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d, DO NOT NEED TO BE SPLIT",parmesh->myrank,k,pt->flag);
+          fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d, DO NOT NEED TO BE SPLIT",print_rank,k,pt->flag);
         }
         // Put this flag to -1 to specify that this tetra has been processed
         pt->flag = -1;
@@ -734,28 +739,51 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       }
 
       // Update face communicators
-      nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
+      if (already_split) {
+        nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
+
+        // Update the communicators
+        nface_added = 0;
+        for (j=0; j<3; j++) {
+          if ( tetra_sorted[j] != -1) {
+            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j]+3*ifac+node_sorted[j];
+            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
+            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
+            nface_added += 1;
+          }
+        }
+
+        // Update the total number of faces
+        nitem_int_face += nface_added;
+        nitem_ext_face += nface_added;
+        parmesh->int_face_comm->nitem = nitem_int_face;
+        grp->nitem_int_face_comm      = nitem_int_face;
+        ext_face_comm->nitem          = nitem_ext_face;
+      }
+      else {
+        nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
 
         // Update the first face located at pos_face_int - Modify only index1 - index2 stays the same
         grp->face2int_face_comm_index1[pos_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
 
-      // Update the communicators for the 2 other faces
-      nface_added = 0;
-      for (j=0; j<2; j++) {
-        if ( tetra_sorted[j+1] != -1) {
-          grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
-          grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
-          ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
-          nface_added += 1;
+        // Update the communicators for the 2 other faces
+        nface_added = 0;
+        for (j=0; j<2; j++) {
+          if ( tetra_sorted[j+1] != -1) {
+            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
+            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
+            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
+            nface_added += 1;
+          }
         }
-      }
 
-      // Update the total number of faces
-      nitem_int_face += nface_added;
-      nitem_ext_face += nface_added;
-      parmesh->int_face_comm->nitem = nitem_int_face;
-      grp->nitem_int_face_comm      = nitem_int_face;
-      ext_face_comm->nitem          = nitem_ext_face;
+        // Update the total number of faces
+        nitem_int_face += nface_added;
+        nitem_ext_face += nface_added;
+        parmesh->int_face_comm->nitem = nitem_int_face;
+        grp->nitem_int_face_comm      = nitem_int_face;
+        ext_face_comm->nitem          = nitem_ext_face;
+      }
 
       if ( !ier ) return 0;
     }
@@ -765,7 +793,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   //----------------------------------------------------------//
   // STEP 6.3 :: Do the splitting for tetra located elsewhere //
   //----------------------------------------------------------//
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 6.3 :: Split tetra located elsewhere...\n");
 
   // ACHTUNG / TODO :: ne - total nbr of tetra in mesh has changed like we have already
@@ -785,13 +813,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     // If this tetra has flag = 0 - then it is a tetra that has not been treated - a tetra in the volum
     // If flag !=0, the tetra has already been split. We pass and do nothing.
     if (pt->flag) {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-        fprintf(stdout,"                        Tetra k %d :: already split \n",k);
+      if ( parmesh->myrank == print_rank )
+        fprintf(stdout,"                  TETRA k %d :: already split \n",k);
       continue;
     }
     else {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-        fprintf(stdout,"                        Tetra k %d :: to be split \n",k);
+      if ( parmesh->myrank == print_rank )
+        fprintf(stdout,"                  TETRA k %d :: to be split ",k);
     }
 
     // Loop over the edges, get hash.item[key].k
@@ -811,54 +839,54 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     // Do the actual split
     switch (pt->flag) {
     case 1: case 2: case 4: case 8: case 16: case 32: /* 1 edge split */
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n                  ---------------------------------------");
-        fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split1, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
+      if ( parmesh->myrank == print_rank ) {
+        fprintf(stdout,"\n                      ---------------------------------------");
+        fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split1, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+      ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
 
     case 48: case 24: case 40: case 6: case 34: case 36:
-    case 20: case 5: case 17: case 9: case 3: case 10: /* 2 edges (same face) split */
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n                  ---------------------------------------");
-        fprintf(stdout,"\n\n                  MyRank %d, Tetra k %d, MMG5_split2sf, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
+    case 20: case 5:  case 17: case 9: case 3:  case 10: /* 2 edges (same face) split */
+      if ( parmesh->myrank == print_rank ) {
+        fprintf(stdout,"\n                      ---------------------------------------");
+        fprintf(stdout,"\n\n                      MyRank %d, Tetra k %d, MMG5_split2sf, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+      ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
 
     case 7: case 25: case 42: case 52: /* 3 edges on conic configuration split */
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n                  ---------------------------------------");
-        fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split3cone_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
+      if ( parmesh->myrank == print_rank) {
+        fprintf(stdout,"\n                      ---------------------------------------");
+        fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split3cone_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+      ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
 
     case 30: case 45: case 51:
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n                  ---------------------------------------");
-        fprintf(stdout,"\n                  MyRank %d, Tetra k %d, MMG5_split4op_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
+      if ( parmesh->myrank == print_rank ) {
+        fprintf(stdout,"\n                      ---------------------------------------");
+        fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split4op_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank);
+      ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,print_rank);
       ns++;
       break;
 
     default :
       assert(pt->flag == 0);
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n                  ---------------------------------------");
-        fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d, DO NOT NEED TO BE SPLIT",parmesh->myrank,k,pt->flag);
+      if ( parmesh->myrank == print_rank ) {
+        fprintf(stdout,"\n                      ---------------------------------------");
+        fprintf(stdout,"\n                      MyRank %d, Tetra k %d, Flag %d, DO NOT NEED TO BE SPLIT",print_rank,k,pt->flag);
       }
       // Put this flag to -1 to specify that this tetra has been processed
       pt->flag = -1;
@@ -871,11 +899,11 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   }
 
   // Print the number of split
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"     %7" MMG5_PRId " splitted\n",ns);
   // fprintf(stdout,"\n              ... PROC %d :: Nbr of split ns = %d. \n",parmesh->myrank,ns);
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n              ... STEP 6 :: Done. \n");
 
   // Delete the edges hash table
@@ -897,14 +925,14 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
  *
  */
 int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],
+            MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
-  MMG5_int ne_tmp;
+  // MMG5_int ne_tmp;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
 
-  ne_tmp = mesh->ne;
+  // ne_tmp = mesh->ne;
 
   /***********************************************************************/
   /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
@@ -986,14 +1014,14 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  */
 int PMMG_split2sf_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int imin,
+            MMG5_int k,int ifac,uint8_t tau[4],int imin,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
-  MMG5_int ne_tmp;
+  // MMG5_int ne_tmp;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
 
-  ne_tmp = mesh->ne;
+  // ne_tmp = mesh->ne;
 
   /*************************************************************************/
   /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
@@ -1095,14 +1123,14 @@ int PMMG_split2sf_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  */
 int PMMG_split3cone_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,
+            MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
-  MMG5_int ne_tmp;
+  // MMG5_int ne_tmp;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
 
-  ne_tmp = mesh->ne;
+  // ne_tmp = mesh->ne;
 
   /*************************************************************************/
   /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
@@ -1211,14 +1239,15 @@ int PMMG_split3cone_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  */
 int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,
+            MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
-  MMG5_int ne_tmp, min_tmp;
+  // MMG5_int ne_tmp;
+  MMG5_int min_tmp;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
 
-  ne_tmp = mesh->ne;
+  // ne_tmp = mesh->ne;
 
   /*************************************************************************/
   /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
