@@ -634,11 +634,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
       // Otherwise, loop over the edges, get hash.item[key].k
       // and set flags to the tetra that need to be split
-      memset(vx,0,6*sizeof(MMG5_int));
-      for (ia=0; ia<6; ia++) {
-        vx[ia] = MMG5_hashGet(&hash,pt->v[MMG5_iare[ia][0]],pt->v[MMG5_iare[ia][1]]);
-        if ( vx[ia] > 0 )
-          MG_SET(pt->flag,ia);
+      if (!already_split) {
+        memset(vx,0,6*sizeof(MMG5_int));
+        for (ia=0; ia<6; ia++) {
+          vx[ia] = MMG5_hashGet(&hash,pt->v[MMG5_iare[ia][0]],pt->v[MMG5_iare[ia][1]]);
+          if ( vx[ia] > 0 )
+            MG_SET(pt->flag,ia);
+        }
       }
       flag = pt->flag;
 
@@ -759,6 +761,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
         break;
 
+      case -1:
+        assert(pt->flag == -1);
+        if ( parmesh->myrank == print_rank ) {
+          fprintf(stdout,"\n                  ---------------------------------------");
+          fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d, DO NOT NEED TO BE SPLIT and has already been treated",print_rank,k,pt->flag);
+        }
+
       default :
         assert(pt->flag == 0);
         if ( parmesh->myrank == print_rank ) {
@@ -772,47 +781,27 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
       // Update face communicators
       nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
-      if (already_split) {
-        // Update the communicators for the 3 faces
-        nface_added = 0;
-        for (j=0; j<3; j++) {
-          if ( tetra_sorted[j] != -1) {
-            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j]+3*ifac+node_sorted[j];
-            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
-            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
-            nface_added += 1;
-          }
+
+      // Update the first face located at pos_face_int - Modify only index1 - index2 stays the same
+      grp->face2int_face_comm_index1[pos_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
+
+      // Update the communicators for the potential 2 other faces
+      nface_added = 0;
+      for (j=0; j<2; j++) {
+        if ( tetra_sorted[j+1] != -1) {
+          grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
+          grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
+          ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
+          nface_added += 1;
         }
-
-        // Update the total number of faces
-        nitem_int_face += nface_added;
-        nitem_ext_face += nface_added;
-        parmesh->int_face_comm->nitem = nitem_int_face;
-        grp->nitem_int_face_comm      = nitem_int_face;
-        ext_face_comm->nitem          = nitem_ext_face;
       }
-      else {
-        // Update the first face located at pos_face_int - Modify only index1 - index2 stays the same
-        grp->face2int_face_comm_index1[pos_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
 
-        // Update the communicators for the potential 2 other faces
-        nface_added = 0;
-        for (j=0; j<2; j++) {
-          if ( tetra_sorted[j+1] != -1) {
-            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
-            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
-            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
-            nface_added += 1;
-          }
-        }
-
-        // Update the total number of faces
-        nitem_int_face += nface_added;
-        nitem_ext_face += nface_added;
-        parmesh->int_face_comm->nitem = nitem_int_face;
-        grp->nitem_int_face_comm      = nitem_int_face;
-        ext_face_comm->nitem          = nitem_ext_face;
-      }
+      // Update the total number of faces
+      nitem_int_face += nface_added;
+      nitem_ext_face += nface_added;
+      parmesh->int_face_comm->nitem = nitem_int_face;
+      grp->nitem_int_face_comm      = nitem_int_face;
+      ext_face_comm->nitem          = nitem_ext_face;
 
       if ( !ier ) return 0;
     }
@@ -824,9 +813,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   //----------------------------------------------------------//
   if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 6.3 :: Split tetra located elsewhere...\n");
-
-  // ACHTUNG / TODO :: ne - total nbr of tetra in mesh has changed like we have already
-  // split some tetra, this has created new tetras.
 
   // Loop over tetra
   for (k=1; k<=ne_init; k++) {
