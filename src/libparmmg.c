@@ -1881,7 +1881,7 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
             parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  int remesh = 0;
+  int remesh = 1;
   if (remesh) {
     ier = PMMG_parmmglib1(parmesh);
   }
