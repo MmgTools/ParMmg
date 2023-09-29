@@ -75,6 +75,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   uint8_t        tau[4];
   const uint8_t *taued=NULL;
   int8_t         imin0,imin2;
+  int16_t         tag;
 
   int i_commn,i_comme,i_commf;
   int iedge,iface;
@@ -409,7 +410,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 #else
       src = 1;
 #endif
-      np = MMG3D_newPt(mesh,c,0,src);
+      tag = p0->tag;
+      tag &= ~MG_BDY;
+      np = MMG3D_newPt(mesh,c,tag,src);
 
       // Memory allocation for sol and met
       if ( !np ) {
