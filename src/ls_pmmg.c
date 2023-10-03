@@ -402,6 +402,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       src = 1;
 #endif
       np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
+      // tag = p0->tag;
+      // tag &= ~MG_BDY;
+      // np = MMG3D_newPt(mesh,c,tag,src);
 
       // Memory allocation for sol and met
       if ( !np ) {
