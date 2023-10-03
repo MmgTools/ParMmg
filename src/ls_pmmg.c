@@ -53,31 +53,38 @@
  *
  */
 int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_pSol met){
-  MMG5_pTetra   pt;
-  MMG5_pxTetra  pxt;
-  MMG5_pPoint   p0,p1;
-  MMG5_Hash     hash;
-  double        c[3],v0,v1,s;
-  int           ier;
-  MMG5_int      vx[6];
-  MMG5_int      k,ip0,ip1,np,nb,ns,src,refext,refint;
-  int8_t        ia,j,npneg;
-  static int8_t mmgWarn = 0;
+  MMG5_pTetra  pt,pt0;
+  MMG5_pxTetra pxt,pxt0;
+  MMG5_pPoint  p0,p1;
+  MMG5_Hash    hash;
 
-  // Local variables added by LM
   PMMG_pExt_comm ext_node_comm,ext_edge_comm,ext_face_comm;
   PMMG_pGrp      grp;
 
   MMG5_int ne_init,ne_tmp,p_tmp;
-  MMG5_int vGlobNum[4],vGlobNum_tria[3];
+  MMG5_int k,k0;
+  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint;
+  MMG5_int vGlobNum[4],vx[6];
   MMG5_int tetra_sorted[3], node_sorted[3];
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
-  uint8_t        tau[4];
-  const uint8_t *taued=NULL;
-  int8_t         imin0,imin2;
 
+  static int8_t  mmgWarn = 0;
+  int8_t         ia,imin0,imin2,
+  int8_t         i,j;
+  int8_t         npneg,nface_added;
+
+  const uint8_t *taued=NULL;
+  uint8_t        tau[4];
+
+  double c[3],v0,v1,s;
+
+  int already_split;
+  int pos_tmp, pos_tmp_already;
   int i_commn,i_comme,i_commf;
   int iedge,iface;
+  int ifac,iploc;
+  int flag;
+  int ier;
 
   int nitem_int_node,nitem_int_face;
   int nitem_ext_node,nitem_ext_edge,nitem_ext_face;
@@ -90,12 +97,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   int pos_edge_ext,pos_edge_int,val_edge;
   int pos_face_ext,pos_face_int,val_face;
-
-  int ip0_g,ip1_g;
-  int ifac,iploc;
-  int already_split;
-  int pos_tmp, pos_tmp_already;
-  int flag,nface_added;
 
   // To be removed
   int print_rank=0;
@@ -115,7 +116,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   nitem_int_node = grp->nitem_int_node_comm; // Number of initial total nodes in internal node communicator
   nitem_int_face = grp->nitem_int_face_comm; // Number of initial total faces in internal node communicator
 
-  ne_init = mesh->ne; // Initial number of tetra - we need to keep this for step 6.3
+  ne_init = mesh->ne; // Initial number of tetra - needed step 6.3
 
   /*************************/
   /* STEP 1 :: Reset flags */
@@ -176,8 +177,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   if ( ! nb )  return 1;
 
   if ( parmesh->myrank == print_rank ) {
-    fprintf(stdout,"\n              ... PROC %d :: Approximate nbr of intersection points nb ~ %d. \n",parmesh->myrank,nb);
-    fprintf(stdout,"\n              ... STEP 2 :: Done. \n");
+    fprintf(stdout,"\n              ... PROC %d :: Approximate nbr of intersection points ~ %d. \n",parmesh->myrank,nb);
+    fprintf(stdout,"              ... STEP 2 :: Done. \n");
   }
 
   /* TODO :: test if the number of point proc by proc is correct */
@@ -313,10 +314,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   if ( parmesh->myrank == print_rank )
     fprintf(stdout,"\n                 STEP 5.1 :: Create points located on parallel interfaces...");
 
-  if ( parmesh->myrank == print_rank )
-    fprintf(stdout,"\n                  Number of node comm :: %d ; edge comm ::: %d & face comm :: %d",
-                   next_node_comm,next_edge_comm,next_face_comm);
-
   // Loop over the number of edge communicator
   for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
 
@@ -340,19 +337,15 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
       MMG5_hashGet_all(&hash,ip0,ip1,&np,&ns);
 
-      ip0_g = mesh->point[ip0].tmp;
-      ip1_g = mesh->point[ip1].tmp;
-
       // If hash.item[key].k is not 0 or -1 then pass, it means this edge has already been split
       if ( np>0 ) {
         // 1. Update external communicator
         // 1.1. Find the appropriate external node comm
         if ( mesh->point[np].s != (i_comme+1) ) {
           if ( parmesh->myrank == print_rank )
-          fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge tetra %d, "
-                        "ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Already split at pos %d in int comm - Add into this comm \n",
-                        parmesh->myrank, color_in_edge, color_out_edge, iedge,
-                        ip0, ip1, ip0_g, ip1_g,ns);
+          fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge %d, "
+                        "Points %d & %d :: Already split at pos %d in int comm - Add into this comm",
+                        parmesh->myrank, color_in_edge, color_out_edge, iedge, ip0, ip1, ns);
           for (i_commn=0; i_commn < next_node_comm; i_commn++) {
             ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // Current external node communicator
             color_out_node = ext_node_comm->color_out;         // Proc to exchange with
@@ -368,10 +361,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
         else {
           if ( parmesh->myrank == print_rank )
-          fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge tetra %d, "
-                        "ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Already split at pos %d in int comm - Already in this comm \n",
-                        parmesh->myrank, color_in_edge, color_out_edge, iedge,
-                        ip0, ip1, ip0_g, ip1_g,ns);
+          fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - Edge %d, "
+                        "Points %d & %d :: Already split at pos %d in int comm - Already in this comm",
+                        parmesh->myrank, color_in_edge, color_out_edge, iedge, ip0, ip1, ns);
         }
         continue;
       }
@@ -409,7 +401,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 #else
       src = 1;
 #endif
-      np = MMG3D_newPt(mesh,c,0,src);
+      np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
 
       // Memory allocation for sol and met
       if ( !np ) {
@@ -467,9 +459,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       // Update node communicator
       if ( parmesh->myrank == print_rank )
         fprintf(stdout,"\n                    MyRank %d :: Proc %d -> %d - "
-                      "Edge tetra %d, ip0 %d, ip1 %d, ip0_g %d, ip1_g %d :: Split edge np=%d \n",
-                      parmesh->myrank, color_in_edge, color_out_edge, iedge,
-                      ip0, ip1, ip0_g, ip1_g,np);
+                      "Edge %d, Points %d & %d :: Split np=%d",
+                      parmesh->myrank, color_in_edge, color_out_edge, iedge, ip0, ip1, np);
 
       // 1. Update the internal node comm
       grp->node2int_node_comm_index1[nitem_int_node] = np;
@@ -507,10 +498,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     mesh->point[k].s = 0;
 
   //---------------------------------------------------------------//
-  // STEP 5.3 :: Create all the other new points located elsewhere //
+  // STEP 5.2 :: Create all the other new points located elsewhere //
   //---------------------------------------------------------------//
   if ( parmesh->myrank == print_rank )
-    fprintf(stdout,"\n                 STEP 5.2 :: Create points located elsewhere...\n");
+    fprintf(stdout,"\n                 STEP 5.2 :: Create points located elsewhere...");
 
   // Loop over tetra k
   for (k=1; k<=mesh->ne; k++) {
@@ -527,9 +518,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       // If hash.item[key].k is not 0 or -1 then pass, it means this edge has already been split
       if ( np>0 ) {
         if ( parmesh->myrank == print_rank ) {
-          fprintf(stdout,"                        Edge already split ia %d - ",ia);
-          fprintf(stdout," Points %d & %d - ",ip0,ip1);
-          fprintf(stdout," np %d \n",np);
+          fprintf(stdout,"\n                    MyRank %d :: Tetra %d - Edge %d - "
+                        "Points %d & %d :: Already split np=%d",
+                        parmesh->myrank, k, ia, ip0, ip1, np);
         }
         continue;
       }
@@ -573,11 +564,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       np = MMG3D_newPt(mesh,c,0,src);
 
       if ( parmesh->myrank == print_rank ) {
-        fprintf(stdout,"                        Split edge ia %d - ",ia);
-        fprintf(stdout," Points %d & %d - ",ip0,ip1);
-        fprintf(stdout," Weighting factor %f - ",s);
-        fprintf(stdout," New coord %f %f %f - ",c[0],c[1],c[2]);
-        fprintf(stdout," np %d \n",np);
+        fprintf(stdout,"\n                    MyRank %d :: Tetra %d - Edge %d - "
+                      "Points %d & %d :: Split np=%d",
+                      parmesh->myrank, k, ia, ip0, ip1, np);
       }
 
       // Memory allocation for sol and met
@@ -660,13 +649,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /* STEP 6 :: Split according to tets flags */
   /*******************************************/
   if ( parmesh->myrank == print_rank )
-    fprintf(stdout,"\n          --> STEP 6 :: Split according to tets flags...\n");
+    fprintf(stdout,"\n          --> STEP 6 :: Split according to tets flags...");
 
   //------------------------------------------//
   // STEP 6.1 :: Compute global node vertices //
   //------------------------------------------//
   if ( parmesh->myrank == print_rank )
-    fprintf(stdout,"\n                 STEP 6.1 :: Compute global node vertives...\n");
+    fprintf(stdout,"\n                 STEP 6.1 :: Compute global node vertives...");
 
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
     if ( parmesh->myrank == print_rank ) {
@@ -679,7 +668,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   // STEP 6.2 :: Do the splitting for tetra on parallel interface //
   //--------------------------------------------------------------//
   if ( parmesh->myrank == print_rank )
-    fprintf(stdout,"\n                 STEP 6.2 :: Split tetra on parallel interface...\n");
+    fprintf(stdout,"\n                 STEP 6.2 :: Split tetra on parallel interface...");
 
   ns  = 0; // Number of total split on this proc
   ier = 1; // Error
@@ -716,22 +705,22 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       pxt = &mesh->xtetra[pt->xt];
       if ( !MG_EOK(pt) )  continue;
 
-      // If the tetra has already a flag - then it has already been processed
+      // If the tetra has already a flag (flag !=0) - then it has already been processed
       already_split = 0;
       if (pt->flag) {
-        // If flag equals to -1, then tetra does not need to be split
-        // Otherwise update the communicators only and pass
-        if (pt->flag != -1) {
+        // If flag equals to -1 (flag<0), then tetra does not need to be split
+        // Otherwise (flag>0) update the communicators only and pass
+        if (pt->flag < 0) {
           if ( parmesh->myrank == print_rank) {
             fprintf(stdout,"\n                  ---------------------------------------");
-            fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d ALREADY SPLIT - TODO :: update comms",
+            fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d ALREADY SPLIT :: Need to update comms",
                     parmesh->myrank,k,pt->flag);
           }
           already_split = 1;
           pos_tmp_already = pt->mark;
           ne_tmp  = ne_tmp_tab[pos_tmp_already];
         }
-        else {
+        else if (pt->flag > 0) {
           if ( parmesh->myrank == print_rank ) {
             fprintf(stdout,"\n                  ---------------------------------------");
             fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d NO NEED TO BE SPLIT",
@@ -780,7 +769,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
         if (!already_split) {
-          ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+          ier = MMG5_split1_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
           pt->flag = flag; // Flag tetra k
           pt->mark = pos_tmp;
           ne_tmp_tab[pos_tmp] = mesh->ne;
@@ -793,7 +782,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         MMG3D_split1_cfg(flag,tau,&taued);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split1_sort(parmesh,mesh,k,ifac,tau,ne_tmp,tetra_sorted,node_sorted);
+        PMMG_split1_sort(mesh,k,ifac,tau,ne_tmp,tetra_sorted,node_sorted);
 
         break;
 
@@ -805,7 +794,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
         if (!already_split) {
-          ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+          ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
           pt->flag = flag; // Flag tetra k
           pt->mark = pos_tmp;
           ne_tmp_tab[pos_tmp] = mesh->ne;
@@ -818,7 +807,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         imin0=MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split2sf_sort(parmesh,mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted);
+        PMMG_split2sf_sort(mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted);
 
         break;
 
@@ -829,7 +818,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
         if (!already_split) {
-          ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+          ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
           pt->flag = flag; // Flag tetra k
           pt->mark = pos_tmp;
           ne_tmp_tab[pos_tmp] = mesh->ne;
@@ -842,7 +831,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         MMG3D_split3cone_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split3cone_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
+        PMMG_split3cone_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
 
         break;
 
@@ -853,7 +842,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                   parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
         }
         if (!already_split) {
-          ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+          ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
           pt->flag = flag; // Flag tetra k
           pt->mark = pos_tmp;
           ne_tmp_tab[pos_tmp] = mesh->ne;
@@ -866,7 +855,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         MMG3D_split4op_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2);
 
         // Find the tetras (tetra_sorted) and nodes (node_sorted) sorted
-        PMMG_split4op_sort(parmesh,mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
+        PMMG_split4op_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted);
 
         break;
 
@@ -886,6 +875,23 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         // Put this flag to -1 to specify that this tetra has been processed
         pt->flag = -1;
         break;
+      }
+
+      // Update tag of edges in xtetra with MG_PARBDY
+      if (!already_split) {
+        for (j=0; j<3; j++) {
+          k0 = tetra_sorted[j];
+          if (k0 != -1) {
+            pt0  = &mesh->tetra[k0];
+            pxt0 = &mesh->xtetra[pt0->xt];
+            for (i=0; i<3; i++) {
+              ia = MMG5_iarf[ifac][i];
+              if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
+                pxt0->tag[ia] |= MG_PARBDY;
+              }
+            }
+          }
+        }
       }
 
       // Update face communicators
@@ -967,7 +973,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split1, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split1_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+      ier = MMG5_split1_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
@@ -979,7 +985,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         fprintf(stdout,"\n\n                      MyRank %d, Tetra k %d, MMG5_split2sf, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split2sf_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+      ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
@@ -990,7 +996,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split3cone_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split3cone_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+      ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
       pt->flag = flag; // Flag tetra k
       ns++;
       break;
@@ -1001,7 +1007,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         fprintf(stdout,"\n                      MyRank %d, Tetra k %d, MMG5_split4op_GlobNum, Flag %d, vGlobNum %d-%d-%d-%d, vx (%d)-(%d)-(%d)-(%d)-(%d)-(%d)\n",
                 parmesh->myrank,k,pt->flag,vGlobNum[0],vGlobNum[1],vGlobNum[2],vGlobNum[3],vx[0],vx[1],vx[2],vx[3],vx[4],vx[5]);
       }
-      ier = MMG5_split4op_GlobNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
+      ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1,parmesh->myrank==print_rank);
       ns++;
       break;
 
@@ -1048,17 +1054,22 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 }
 
 /**
- * \param parmesh pointer toward a parmesh structure
+ * \param mesh   pointer toward the mesh structure
+ * \param k      index of the tetra that we have split with MMG5_split1_globNum
+ * \param ifac   local index of the boundary face on parellel interface that we have split
+ * \param tau    vertices permutation
+ * \param ne_tmp number of tetra created after MMG5_split1_globNum
+ * \param tetra_sorted indices of tetras (defining ifac after the split MMG5_split1_globNum)
+ *                     sorted by increasing order of their global node numerotation
+ * \param node_sorted  for each tetras in tetra_sorted: local index of the node on ifac having
+ *                     the minimum index based on the global node numerotation
  *
- * \return 1 if success, 0 otherwise
- *
- * \todo Fill the funtion
- *
- * Sort the tetras created by MMG5_split1_GlobNum.
+ * Sort the tetras created by MMG5_split1_globNum which define the face ifac.
+ * Find the node on ifac with the minimum index (based on the global node numerotation)
+ * for each tetra in tetra_sorted and store the local index in node_sorted.
  *
  */
-int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,
+void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
@@ -1067,21 +1078,20 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   /***********************************************************************/
   /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
   /***********************************************************************/
-  // Based on reference configuration 1
-  // The 2 tetras created by MMG3D_split1_GlobNum are at
-  //    mesh.tetra[k] and [ne_tmp]
-  // Note that 2 faced are divided into 2 and 2 are not divided
+  // The 2 tetras created by MMG3D_split1_GlobNum are at mesh.tetra[k] and [ne_tmp]
+  // Note that 2 faces of the initial tetra are divided into 2
+  //       and 2 faces are not divided.
 
   //--------------------------------------//
   // STEP 1.1 :: Index of the first tetra //
   //--------------------------------------//
-  // Tetra #0 created by split1
+  // Tetra #0 created by MMG3D_split1_GlobNum
   tetra_sorted[0] = k;
-  // Excepted for the following cases:: treta #1 or #2 created by split2sf
+  // Excepted for the following case:: treta #1 created by MMG3D_split1_GlobNum
   if ( (ifac==tau[0]) ) tetra_sorted[0] = ne_tmp;
 
   // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[0]];
+  pt     = &mesh->tetra[tetra_sorted[0]];
   v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
@@ -1095,9 +1105,9 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   //---------------------------------------//
   // STEP 1.2 :: Index of the second tetra //
   //---------------------------------------//
-  // Tetra #1 created by split1
+  // Tetra #1 created by MMG3D_split1_GlobNum
   tetra_sorted[1] = ne_tmp;
-  // Excepted for the following cases:: treta #2 created by split2sf
+  // Excepted for the following cases:: treta #2 created by MMG3D_split1_GlobNum
   if ( ifac == tau[0] ) tetra_sorted[1] = -1;
   if ( ifac == tau[1] ) tetra_sorted[1] = -1;
 
@@ -1121,7 +1131,7 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   //--------------------------------------//
   // STEP 1.3 :: Index of the third tetra //
   //--------------------------------------//
-  // There is no third tetra for split1
+  // There is no third tetra for MMG3D_split1_GlobNum
   tetra_sorted[2] = -1;
   v_t2[0] = v_t2[1] = v_t2[2] = -1;
 
@@ -1130,7 +1140,7 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   /*******************************************************/
   PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
 
-  return 1;
+  return;
 }
 
 /**
@@ -1140,10 +1150,10 @@ int PMMG_split1_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  * \todo Fill the funtion
  *
- * Sort the tetras created by MMG5_split2sf_GlobNum.
+ * Sort the tetras created by MMG5_split2sf_globNum.
  *
  */
-int PMMG_split2sf_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+int PMMG_split2sf_sort(MMG5_pMesh mesh,
             MMG5_int k,int ifac,uint8_t tau[4],int imin,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
@@ -1246,10 +1256,10 @@ int PMMG_split2sf_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  * \todo Fill the funtion
  *
- * Sort the tetras created by MMG5_split3cone_GlobNum.
+ * Sort the tetras created by MMG5_split3cone_globNum.
  *
  */
-int PMMG_split3cone_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+int PMMG_split3cone_sort(MMG5_pMesh mesh,
             MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
@@ -1260,7 +1270,7 @@ int PMMG_split3cone_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
   /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
   /*************************************************************************/
   // Based on reference configuration 7
-  // The 4 tetras created by MMG3D_split3cone_GlobNum are at
+  // The 4 tetras created by MMG3D_split3cone_globNum are at
   //    mesh.tetra[k], [ne_tmp], [ne_tmp-1] and [ne_tmp-2]
   // Note that 3 faces are divided into 3 faces and 1 is not divided
 
@@ -1359,10 +1369,10 @@ int PMMG_split3cone_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
  *
  * \todo Fill the funtion
  *
- * Sort the tetras created by MMG5_split4op_GlobNum.
+ * Sort the tetras created by MMG5_split4op_globNum.
  *
  */
-int PMMG_split4op_sort(PMMG_pParMesh parmesh,MMG5_pMesh mesh,
+int PMMG_split4op_sort(MMG5_pMesh mesh,
             MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int ne_tmp,
             MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
