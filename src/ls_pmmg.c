@@ -69,7 +69,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
 
   static int8_t  mmgWarn = 0;
-  int8_t         ia,imin0,imin2,
+  int8_t         ia,imin0,imin2;
   int8_t         i,j;
   int8_t         npneg,nface_added;
 
