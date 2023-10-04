@@ -1059,21 +1059,22 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 /**
  * \param mesh   pointer toward the mesh structure
  * \param k      index of the tetra that we have split with MMG5_split1_globNum
- * \param ifac   local index of the boundary face on parellel interface that we have split
+ * \param ifac   local index of the face located on a parallel boundary
+ *               that we have split with MMG5_split1_globNum
  * \param tau    vertices permutation
  * \param ne_tmp number of tetra created after MMG5_split1_globNum
  * \param tetra_sorted indices of tetras (defining ifac after the split MMG5_split1_globNum)
- *                     sorted by increasing order of their global node numerotation
- * \param node_sorted  for each tetras in tetra_sorted: local index of the node on ifac having
- *                     the minimum index based on the global node numerotation
+ *                     sorted by increasing order of their global node index
+ * \param node_sorted  for each tetras in tetra_sorted: local index of the node
+ *                     on ifac having the minimum global node index
  *
- * Sort the tetras created by MMG5_split1_globNum which define the face ifac.
- * Find the node on ifac with the minimum index (based on the global node numerotation)
+ * Sort the tetras created by MMG5_split1_globNum defining the face ifac.
+ * Find the node on ifac with the minimum global node index
  * for each tetra in tetra_sorted and store the local index in node_sorted.
  *
  */
-void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,
-            MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
+void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],
+                      MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
 
   MMG5_pTetra pt;
   MMG5_int v_t0[3], v_t1[3], v_t2[3];
@@ -1081,7 +1082,8 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_in
   /***********************************************************************/
   /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
   /***********************************************************************/
-  // The 2 tetras created by MMG3D_split1_GlobNum are at mesh.tetra[k] and [ne_tmp]
+  // The 2 tetras created by MMG3D_split1_GlobNum are at
+  //       mesh.tetra[k] (tetra #0) and [ne_tmp] (tetra #1)
   // Note that 2 faces of the initial tetra are divided into 2
   //       and 2 faces are not divided.
 
@@ -1090,10 +1092,341 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_in
   //--------------------------------------//
   // Tetra #0 created by MMG3D_split1_GlobNum
   tetra_sorted[0] = k;
-  // Excepted for the following case:: treta #1 created by MMG3D_split1_GlobNum
+  // Except for the following:: treta #1 created by MMG3D_split1_GlobNum
   if ( (ifac==tau[0]) ) tetra_sorted[0] = ne_tmp;
 
-  // Global indices of points defining ifac
+  // Global node indices of the 3 vertices on ifac
+  pt     = &mesh->tetra[tetra_sorted[0]];
+  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Index of the minimum global node index defining ifac
+  node_sorted[0]=PMMG_find_node(v_t0);
+
+  // Sort the vertices by increasing order
+  PMMG_sort_vertices(v_t0);
+
+  //---------------------------------------//
+  // STEP 1.2 :: Index of the second tetra //
+  //---------------------------------------//
+  // Tetra #1 created by MMG3D_split1_GlobNum
+  tetra_sorted[1] = ne_tmp;
+  // Except for the following:: no more tetra define ifac - we assign -1
+  if ( ifac == tau[0] ) tetra_sorted[1] = -1;
+  if ( ifac == tau[1] ) tetra_sorted[1] = -1;
+
+  if ( tetra_sorted[1] != -1 ) {
+    // Global node indices of the 3 vertices on ifac
+    pt     = &mesh->tetra[tetra_sorted[1]];
+    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+    // Index of the minimum global node index defining ifac
+    node_sorted[1]=PMMG_find_node(v_t1);
+
+    // Sort the vertices by increasing order
+    PMMG_sort_vertices(v_t1);
+  }
+  else {
+    v_t1[0] = v_t1[1] = v_t1[2] = -1;
+  }
+
+  //--------------------------------------//
+  // STEP 1.3 :: Index of the third tetra //
+  //--------------------------------------//
+  // There is no third tetra created by MMG3D_split1_GlobNum - we assign -1
+  tetra_sorted[2] = -1;
+  v_t2[0] = v_t2[1] = v_t2[2] = -1;
+
+  /*******************************************************/
+  /* STEP 2 :: Sort these tetras by their global indices */
+  /*******************************************************/
+  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
+
+  return;
+}
+
+/**
+ * \param mesh   pointer toward the mesh structure
+ * \param k      index of the tetra that we have split with MMG5_split2sf_globNum
+ * \param ifac   local index of the face located on a parallel boundary
+ *               that we have split with MMG5_split2sf_globNum
+ * \param tau    vertices permutation
+ * \param imin   minimal index of vertices \a tau[1] and \a tau[2]
+ * \param ne_tmp number of tetra created after MMG5_split2sf_globNum
+ * \param tetra_sorted indices of tetras (defining ifac after the split MMG5_split2sf_globNum)
+ *                     sorted by increasing order of their global node index
+ * \param node_sorted  for each tetras in tetra_sorted: local index of the node on ifac having
+ *                     the minimum global node index
+ *
+ * Sort the tetras created by MMG5_split2sf_globNum defining the face ifac.
+ * Find the node on ifac with the minimum global node index
+ * for each tetra in tetra_sorted and store the local index in node_sorted.
+ *
+ */
+void PMMG_split2sf_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin,
+                        MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
+
+  MMG5_pTetra pt;
+  MMG5_int v_t0[3], v_t1[3], v_t2[3];
+
+  /***********************************************************************/
+  /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
+  /***********************************************************************/
+  // The 3 tetras created by MMG3D_split2sf_GlobNum are at
+  //    mesh.tetra[k] (tetra #0), [ne_tmp-1] (tetra #1) and [ne_tmp] (tetra #2)
+  // Note that 1 face of the initial tetra is divided into 3;
+  //           2 faces are divided into 2 and 1 face is not divided.
+
+  //--------------------------------------//
+  // STEP 1.1 :: Index of the first tetra //
+  //--------------------------------------//
+  // Tetra #0 created by MMG5_split2sf_globNum
+  tetra_sorted[0] = k;
+  // Except for the following:: treta #1 or #2 created by MMG5_split2sf_globNum
+  if ( (imin==tau[1]) && (ifac==tau[3]) ) tetra_sorted[0] = ne_tmp;
+  if ( (imin==tau[2]) && (ifac==tau[3]) ) tetra_sorted[0] = ne_tmp-1;
+
+  // Global node indices of the 3 vertices on ifac
+  pt     = &mesh->tetra[tetra_sorted[0]];
+  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Index of the minimum global node index defining ifac
+  node_sorted[0]=PMMG_find_node(v_t0);
+
+  // Sort the vertices by increasing order
+  PMMG_sort_vertices(v_t0);
+
+  //---------------------------------------//
+  // STEP 1.2 :: Index of the second tetra //
+  //---------------------------------------//
+  // Tetra #1 created by MMG5_split2sf_globNum
+  tetra_sorted[1] = ne_tmp-1;
+  // Except for the following:: treta #2 created by MMG5_split2sf_globNum or no more tetra
+  if ( ifac == tau[1] ) tetra_sorted[1] = ne_tmp;
+  if ( ifac == tau[3] ) tetra_sorted[1] = -1;
+
+  if ( tetra_sorted[1] != -1 ) {
+    // Global node indices of the 3 vertices on ifac
+    pt     = &mesh->tetra[tetra_sorted[1]];
+    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+    // Index of the minimum global node index defining ifac
+    node_sorted[1]=PMMG_find_node(v_t1);
+
+    // Sort the vertices by increasing order
+    PMMG_sort_vertices(v_t1);
+  }
+  else {
+    v_t1[0] = v_t1[1] = v_t1[2] = -1;
+  }
+
+  //--------------------------------------//
+  // STEP 1.3 :: Index of the third tetra //
+  //--------------------------------------//
+  // Tetra #2 created by MMG5_split2sf_globNum
+  tetra_sorted[2] = ne_tmp;
+  // Except for the following: no more tetra define ifac
+  if ( ifac != tau[0] ) tetra_sorted[2] = -1;
+
+  if ( tetra_sorted[2] != -1 ) {
+    // Global node indices of the 3 vertices on ifac
+    pt     = &mesh->tetra[tetra_sorted[2]];
+    v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+    v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+    v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+    // Index of the minimum global node index defining ifac
+    node_sorted[2]=PMMG_find_node(v_t2);
+
+    // Sort the vertices by increasing order
+    PMMG_sort_vertices(v_t2);
+  }
+  else{
+    v_t2[0] = v_t2[1] = v_t2[2] = -1;
+  }
+
+  /*******************************************************/
+  /* STEP 2 :: Sort these tetras by their global indices */
+  /*******************************************************/
+  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
+
+  return;
+}
+
+/**
+ * \param mesh   pointer toward the mesh structure
+ * \param k      index of the tetra that we have split with MMG5_split3cone_globNum
+ * \param ifac   local index of the face located on a parallel boundary
+ *               that we have split with MMG5_split3cone_globNum
+ * \param tau    vertices permutation
+ * \param ia     first  condition to choose the appropriate split in MMG5_split3cone_globNum
+ * \param ib     second condition to choose the appropriate split in MMG5_split3cone_globNum
+ * \param ne_tmp number of tetra created after MMG5_split3cone_globNum
+ * \param tetra_sorted indices of tetras (defining ifac after the split MMG5_split3cone_globNum)
+ *                     sorted by increasing order of their global node index
+ * \param node_sorted  for each tetras in tetra_sorted: local index of the node on ifac having
+ *                     the minimum global node index
+ *
+ * Sort the tetras created by MMG5_split3cone_globNum defining the face ifac.
+ * Find the node on ifac with the minimum global node index
+ * for each tetra in tetra_sorted and store the local index in node_sorted.
+ *
+ */
+void PMMG_split3cone_sort(MMG5_pMesh mesh, MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,
+                          MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
+
+  MMG5_pTetra pt;
+  MMG5_int v_t0[3], v_t1[3], v_t2[3];
+
+  /***********************************************************************/
+  /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
+  /***********************************************************************/
+  // The 4 tetras created by MMG3D_split3cone_globNum are at
+  //       mesh.tetra[k] (tetra #0),  [ne_tmp-2] (tetra #1),
+  //          [ne_tmp-1] (tetra #2) and [ne_tmp] (tetra #3)
+  // Note that 3 faces of the initial tetra are divided into 3
+  //       and 1 face is not divided.
+
+  //--------------------------------------//
+  // STEP 1.1 :: Index of the first tetra //
+  //--------------------------------------//
+  // Tetra #0 created by MMG5_split3cone_globNum
+  tetra_sorted[0] = k;
+  // Except for the following:: treta #3 created by MMG5_split3cone_globNum
+  if ( ifac == tau[0] ) tetra_sorted[0] = ne_tmp;
+
+  // Global node indices of the 3 vertices on ifac
+  pt     = &mesh->tetra[tetra_sorted[0]];
+  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+  // Index of the minimum global node index defining ifac
+  node_sorted[0]=PMMG_find_node(v_t0);
+
+  // Sort the vertices by increasing order
+  PMMG_sort_vertices(v_t0);
+
+  //---------------------------------------//
+  // STEP 1.2 :: Index of the second tetra //
+  //---------------------------------------//
+  // Tetra #1 created by MMG5_split3cone_globNum
+  tetra_sorted[1] = ne_tmp-2;
+  // Except for the following:: treta #2 created by MMG5_split3cone_globNum or no more tetra
+  if ( (ia==tau[1]) && (ifac == tau[1]) ) tetra_sorted[1] = ne_tmp-1;
+  if ( (ia==tau[2]) && (ifac == tau[2]) ) tetra_sorted[1] = ne_tmp-1;
+  if ( (ia==tau[3]) && (ifac == tau[3]) ) tetra_sorted[1] = ne_tmp-1;
+  if ( ifac == tau[0] ) tetra_sorted[1] = -1;
+
+  if ( tetra_sorted[1] != -1 ) {
+    // Global node indices of the 3 vertices on ifac
+    pt      = &mesh->tetra[tetra_sorted[1]];
+    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+    // Index of the minimum global node index defining ifac
+    node_sorted[1]=PMMG_find_node(v_t1);
+
+    // Sort the vertices by increasing order
+    PMMG_sort_vertices(v_t1);
+  }
+  else {
+    v_t1[0] = v_t1[1] = v_t1[2] = -1;
+  }
+
+  //--------------------------------------//
+  // STEP 1.3 :: Index of the third tetra //
+  //--------------------------------------//
+  // Tetra #3 created by MMG5_split3cone_globNum
+  tetra_sorted[2] = ne_tmp;
+  // Except for the following:: treta #2 by MMG5_split3cone_globNum or no more tetra
+  if ( (ia==tau[1]) && (ib==tau[2]) && (ifac == tau[3]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( (ia==tau[1]) && (ib==tau[3]) && (ifac == tau[2]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( (ia==tau[2]) && (ib==tau[1]) && (ifac == tau[3]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( (ia==tau[2]) && (ib==tau[3]) && (ifac == tau[1]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( (ia==tau[3]) && (ib==tau[1]) && (ifac == tau[2]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( (ia==tau[3]) && (ib==tau[2]) && (ifac == tau[1]) ) tetra_sorted[2] = ne_tmp-1;
+  if ( ifac == tau[0] ) tetra_sorted[2] = -1;
+
+  if ( tetra_sorted[2] != -1 ) {
+    // Global node indices of the 3 vertices on ifac
+    pt     = &mesh->tetra[tetra_sorted[2]];
+    v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
+    v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
+    v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
+
+    // Index of the minimum global node index defining ifac
+    node_sorted[2]=PMMG_find_node(v_t2);
+
+    // Sort the vertices by increasing order
+    PMMG_sort_vertices(v_t2);
+  }
+  else{
+    v_t2[0] = v_t2[1] = v_t2[2] = -1;
+  }
+
+  /*******************************************************/
+  /* STEP 2 :: Sort these tetras by their global indices */
+  /*******************************************************/
+  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
+
+  return;
+}
+
+
+/**
+ * \param mesh   pointer toward the mesh structure
+ * \param k      index of the tetra that we have split with MMG5_split4op_globNum
+ * \param ifac   local index of the face located on a parallel boundary
+ *               that we have split with MMG5_split4op_globNum
+ * \param tau    vertices permutation
+ * \param imin01 minimal index of vertices \a tau[0] and \a tau[1]
+ * \param imin23 minimal index of vertices \a tau[2] and \a tau[3]
+ * \param ne_tmp number of tetra created after MMG5_split4op_globNum
+ * \param tetra_sorted indices of tetras (defining ifac after the split MMG5_split4op_globNum)
+ *                     sorted by increasing order of their global node index
+ * \param node_sorted  for each tetras in tetra_sorted: local index of the node on ifac having
+ *                     the minimum global node index
+ *
+ * Sort the tetras created by MMG5_split4op_globNum defining the face ifac.
+ * Find the node on ifac with the minimum global node index
+ * for each tetra in tetra_sorted and store the local index in node_sorted.
+ *
+ */
+void PMMG_split4op_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,
+                        MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
+
+  MMG5_pTetra pt;
+  MMG5_int v_t0[3], v_t1[3], v_t2[3];
+
+  /***********************************************************************/
+  /* STEP 1 :: Find the indices of the new tetras defining the face ifac */
+  /***********************************************************************/
+  // The 6 tetras created by MMG5_split4op_globNum are at
+  //    mesh.tetra[k] (tetra #0), [ne_tmp-4] (tetra #1),  [ne_tmp-3] (tetra #2),
+  //       [ne_tmp-2] (tetra #3), [ne_tmp-1] (tetra #4) and [ne_tmp] (tetra #5)
+  // Note that all the 4 faces of the initial tetra are divided into 3.
+
+  //--------------------------------------//
+  // STEP 1.1 :: Index of the first tetra //
+  //--------------------------------------//
+  // Tetra #0 created by MMG5_split4op_globNum
+  tetra_sorted[0] = k;
+  // Except for the following:: treta #2 created by MMG5_split4op_globNum
+  if ( (imin01==tau[0]) && (imin23==tau[2]) && (ifac == tau[1]) ) tetra_sorted[0] = ne_tmp-3;
+  if ( (imin01==tau[1]) && (imin23==tau[2]) && (ifac == tau[0]) ) tetra_sorted[0] = ne_tmp-3;
+  if ( (imin01==tau[0]) && (imin23==tau[3]) && (ifac == tau[1]) ) tetra_sorted[0] = ne_tmp-3;
+  if ( (imin01==tau[1]) && (imin23==tau[3]) && (ifac == tau[0]) ) tetra_sorted[0] = ne_tmp-3;
+
+  // Global node indices of the 3 vertices on ifac
   pt     = &mesh->tetra[tetra_sorted[0]];
   v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
@@ -1108,317 +1441,9 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_in
   //---------------------------------------//
   // STEP 1.2 :: Index of the second tetra //
   //---------------------------------------//
-  // Tetra #1 created by MMG3D_split1_GlobNum
-  tetra_sorted[1] = ne_tmp;
-  // Excepted for the following cases:: treta #2 created by MMG3D_split1_GlobNum
-  if ( ifac == tau[0] ) tetra_sorted[1] = -1;
-  if ( ifac == tau[1] ) tetra_sorted[1] = -1;
-
-  if ( tetra_sorted[1] != -1 ) {
-    // Global indices of points defining ifac
-    pt    = &mesh->tetra[tetra_sorted[1]];
-    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-    // Index of the minimum index of the nodes defining ifac
-    node_sorted[1]=PMMG_find_node(v_t1);
-
-    // Sort the vertices by increasing order
-    PMMG_sort_vertices(v_t1);
-  }
-  else {
-    v_t1[0] = v_t1[1] = v_t1[2] = -1;
-  }
-
-  //--------------------------------------//
-  // STEP 1.3 :: Index of the third tetra //
-  //--------------------------------------//
-  // There is no third tetra for MMG3D_split1_GlobNum
-  tetra_sorted[2] = -1;
-  v_t2[0] = v_t2[1] = v_t2[2] = -1;
-
-  /*******************************************************/
-  /* STEP 2 :: Sort these tetras by their global indices */
-  /*******************************************************/
-  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
-
-  return;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * \return 1 if success, 0 otherwise
- *
- * \todo Fill the funtion
- *
- * Sort the tetras created by MMG5_split2sf_globNum.
- *
- */
-int PMMG_split2sf_sort(MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int imin,MMG5_int ne_tmp,
-            MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
-
-  MMG5_pTetra pt;
-  MMG5_int v_t0[3], v_t1[3], v_t2[3];
-
-  /*************************************************************************/
-  /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
-  /*************************************************************************/
-  // Based on reference configuration 48
-  // The 3 tetras created by MMG3D_split2sf_GlobNum are at
-  //    mesh.tetra[k], [ne_tmp] and [ne_tmp-1]
-  // Note that 1 face is divided into 3; 2 are divided into 2 and 1 is not divided
-
-  //--------------------------------------//
-  // STEP 1.1 :: Index of the first tetra //
-  //--------------------------------------//
-  // Tetra #0 created by split2sf
-  tetra_sorted[0] = k;
-  // Excepted for the following cases:: treta #1 or #2 created by split2sf
-  if ( (imin==tau[1]) && (ifac==tau[3]) ) tetra_sorted[0] = ne_tmp;
-  if ( (imin==tau[2]) && (ifac==tau[3]) ) tetra_sorted[0] = ne_tmp-1;
-
-
-  // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[0]];
-  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-  // Index of the minimum index of the nodes defining ifac
-  node_sorted[0]=PMMG_find_node(v_t0);
-
-  // Sort the vertices by increasing order
-  PMMG_sort_vertices(v_t0);
-
-  //---------------------------------------//
-  // STEP 1.2 :: Index of the second tetra //
-  //---------------------------------------//
-  // Tetra #3 created by split2sf
-  tetra_sorted[1] = ne_tmp-1;
-  // Excepted for the following cases:: treta #2 created by split2sf
-  if ( ifac == tau[1] ) tetra_sorted[1] = ne_tmp;
-  if ( ifac == tau[3] ) tetra_sorted[1] = -1;
-
-  if ( tetra_sorted[1] != -1 ) {
-    // Global indices of points defining ifac
-    pt    = &mesh->tetra[tetra_sorted[1]];
-    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-    // Index of the minimum index of the nodes defining ifac
-    node_sorted[1]=PMMG_find_node(v_t1);
-
-    // Sort the vertices by increasing order
-    PMMG_sort_vertices(v_t1);
-  }
-  else {
-    v_t1[0] = v_t1[1] = v_t1[2] = -1;
-  }
-
-  //--------------------------------------//
-  // STEP 1.3 :: Index of the third tetra //
-  //--------------------------------------//
-  // Tetra #5 created by split2sf
-  tetra_sorted[2] = ne_tmp;
-  // Excepted for the following cases
-  if ( ifac != tau[0] ) tetra_sorted[2] = -1;
-
-  if ( tetra_sorted[2] != -1 ) {
-    // Global indices of points defining ifac
-    pt    = &mesh->tetra[tetra_sorted[2]];
-    v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-    v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-    v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-    // Index of the minimum index of the nodes defining ifac
-    node_sorted[2]=PMMG_find_node(v_t2);
-
-    // Sort the vertices by increasing order
-    PMMG_sort_vertices(v_t2);
-  }
-  else{
-    v_t2[0] = v_t2[1] = v_t2[2] = -1;
-  }
-
-  /*******************************************************/
-  /* STEP 2 :: Sort these tetras by their global indices */
-  /*******************************************************/
-  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
-
-  return 1;
-}
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * \return 1 if success, 0 otherwise
- *
- * \todo Fill the funtion
- *
- * Sort the tetras created by MMG5_split3cone_globNum.
- *
- */
-int PMMG_split3cone_sort(MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,MMG5_int ne_tmp,
-            MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
-
-  MMG5_pTetra pt;
-  MMG5_int v_t0[3], v_t1[3], v_t2[3];
-
-  /*************************************************************************/
-  /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
-  /*************************************************************************/
-  // Based on reference configuration 7
-  // The 4 tetras created by MMG3D_split3cone_globNum are at
-  //    mesh.tetra[k], [ne_tmp], [ne_tmp-1] and [ne_tmp-2]
-  // Note that 3 faces are divided into 3 faces and 1 is not divided
-
-  //--------------------------------------//
-  // STEP 1.1 :: Index of the first tetra //
-  //--------------------------------------//
-  // Tetra #0 created by split3cone
-  tetra_sorted[0] = k;
-  // Excepted for the following cases:: treta #3 created by split3cone
-  if ( ifac == tau[0] ) tetra_sorted[0] = ne_tmp;
-
-  // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[0]];
-  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-  // Index of the minimum index of the nodes defining ifac
-  node_sorted[0]=PMMG_find_node(v_t0);
-
-  // Sort the vertices by increasing order
-  PMMG_sort_vertices(v_t0);
-
-  //---------------------------------------//
-  // STEP 1.2 :: Index of the second tetra //
-  //---------------------------------------//
-  // Tetra #3 created by split3cone
+  // Tetra #3 created by MMG5_split4op_globNum
   tetra_sorted[1] = ne_tmp-2;
-  // Excepted for the following cases:: treta #2 created by split3cone
-  if ( (ia==tau[1]) && (ifac == tau[1]) ) tetra_sorted[1] = ne_tmp-1;
-  if ( (ia==tau[2]) && (ifac == tau[2]) ) tetra_sorted[1] = ne_tmp-1;
-  if ( (ia==tau[3]) && (ifac == tau[3]) ) tetra_sorted[1] = ne_tmp-1;
-  if ( ifac == tau[0] ) tetra_sorted[1] = -1;
-
-  if ( tetra_sorted[1] != -1 ) {
-    // Global indices of points defining ifac
-    pt    = &mesh->tetra[tetra_sorted[1]];
-    v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-    v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-    v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-    // Index of the minimum index of the nodes defining ifac
-    node_sorted[1]=PMMG_find_node(v_t1);
-
-    // Sort the vertices by increasing order
-    PMMG_sort_vertices(v_t1);
-  }
-  else {
-    v_t1[0] = v_t1[1] = v_t1[2] = -1;
-  }
-
-  //--------------------------------------//
-  // STEP 1.3 :: Index of the third tetra //
-  //--------------------------------------//
-  // Tetra #5 created by split3cone
-  tetra_sorted[2] = ne_tmp;
-  // Excepted for the following cases:: treta #2 by split3cone
-  if ( (ia==tau[1]) && (ib==tau[2]) && (ifac == tau[3]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( (ia==tau[1]) && (ib==tau[3]) && (ifac == tau[2]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( (ia==tau[2]) && (ib==tau[1]) && (ifac == tau[3]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( (ia==tau[2]) && (ib==tau[3]) && (ifac == tau[1]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( (ia==tau[3]) && (ib==tau[1]) && (ifac == tau[2]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( (ia==tau[3]) && (ib==tau[2]) && (ifac == tau[1]) ) tetra_sorted[2] = ne_tmp-1;
-  if ( ifac == tau[0] ) tetra_sorted[2] = -1;
-
-  if ( tetra_sorted[2] != -1 ) {
-    // Global indices of points defining ifac
-    pt    = &mesh->tetra[tetra_sorted[2]];
-    v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-    v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-    v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-    // Index of the minimum index of the nodes defining ifac
-    node_sorted[2]=PMMG_find_node(v_t2);
-
-    // Sort the vertices by increasing order
-    PMMG_sort_vertices(v_t2);
-  }
-  else{
-    v_t2[0] = v_t2[1] = v_t2[2] = -1;
-  }
-
-  /*******************************************************/
-  /* STEP 2 :: Sort these tetras by their global indices */
-  /*******************************************************/
-  PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
-
-  return 1;
-}
-
-
-/**
- * \param parmesh pointer toward a parmesh structure
- *
- * \return 1 if success, 0 otherwise
- *
- * \todo Fill the funtion
- *
- * Sort the tetras created by MMG5_split4op_globNum.
- *
- */
-int PMMG_split4op_sort(MMG5_pMesh mesh,
-            MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int ne_tmp,
-            MMG5_int *tetra_sorted,MMG5_int *node_sorted) {
-
-  MMG5_pTetra pt;
-  MMG5_int v_t0[3], v_t1[3], v_t2[3];
-
-  /*************************************************************************/
-  /* STEP 1 :: Find the indices of the 3 new tetras defining the face ifac */
-  /*************************************************************************/
-  // Based on reference configuration 30
-  // The 6 tetras created by MMG3D_split4op_GlobNum are at
-  //    mesh.tetra[k], [ne_tmp], [ne_tmp-1], [ne_tmp-2], [ne_tmp-3] and [ne_tmp-4]
-  // Note that all the 4 faces are divided into 3 faces
-
-  //--------------------------------------//
-  // STEP 1.1 :: Index of the first tetra //
-  //--------------------------------------//
-  // Tetra #0 created by split4op
-  tetra_sorted[0] = k;
-  // Excepted for the following cases treta #2 created by split4op
-  if ( (imin01==tau[0]) && (imin23==tau[2]) && (ifac == tau[1]) ) tetra_sorted[0] = ne_tmp-3;
-  if ( (imin01==tau[1]) && (imin23==tau[2]) && (ifac == tau[0]) ) tetra_sorted[0] = ne_tmp-3;
-  if ( (imin01==tau[0]) && (imin23==tau[3]) && (ifac == tau[1]) ) tetra_sorted[0] = ne_tmp-3;
-  if ( (imin01==tau[1]) && (imin23==tau[3]) && (ifac == tau[0]) ) tetra_sorted[0] = ne_tmp-3;
-
-  // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[0]];
-  v_t0[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
-  v_t0[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
-  v_t0[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
-
-  // Index of the minimum index of the nodes defining ifac
-  node_sorted[0]=PMMG_find_node(v_t0);
-
-  // Sort the vertices by increasing order
-  PMMG_sort_vertices(v_t0);
-
-  //---------------------------------------//
-  // STEP 1.2 :: Index of the second tetra //
-  //---------------------------------------//
-  // Tetra #3 created by split4op
-  tetra_sorted[1] = ne_tmp-2;
-  // Excepted for the following cases:: treta #1 or #2 created by split4op
+  // Except for the following:: treta #1 or #2 created by MMG5_split4op_globNum
   if (ifac == tau[2]) {
     tetra_sorted[1] = ne_tmp-4;
     if ( imin01 == tau[1]) tetra_sorted[1] = ne_tmp-3;
@@ -1429,7 +1454,7 @@ int PMMG_split4op_sort(MMG5_pMesh mesh,
   }
 
   // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[1]];
+  pt     = &mesh->tetra[tetra_sorted[1]];
   v_t1[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t1[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t1[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
@@ -1443,16 +1468,16 @@ int PMMG_split4op_sort(MMG5_pMesh mesh,
   //--------------------------------------//
   // STEP 1.3 :: Index of the third tetra //
   //--------------------------------------//
-  // Tetra #5 created by split4op
+  // Tetra #5 created by MMG5_split4op_globNum
   tetra_sorted[2] = ne_tmp;
-  // Excepted for the following cases:: treta #3 or #4 created by split4op
+  // Except for the following:: treta #3 or #4 created by MMG5_split4op_globNum
   if ( (imin23==tau[2]) && (ifac == tau[0]) ) tetra_sorted[2] = ne_tmp-1;
   if ( (imin23==tau[3]) && (ifac == tau[1]) ) tetra_sorted[2] = ne_tmp-1;
   if ( (imin23==tau[2]) && (ifac == tau[2]) ) tetra_sorted[2] = ne_tmp-2;
   if ( (imin23==tau[3]) && (ifac == tau[3]) ) tetra_sorted[2] = ne_tmp-2;
 
-  // Global indices of points defining ifac
-  pt    = &mesh->tetra[tetra_sorted[2]];
+  // Global node indices of the 3 vertices on ifac
+  pt     = &mesh->tetra[tetra_sorted[2]];
   v_t2[0] = mesh->point[pt->v[MMG5_idir[ifac][0]]].tmp;
   v_t2[1] = mesh->point[pt->v[MMG5_idir[ifac][1]]].tmp;
   v_t2[2] = mesh->point[pt->v[MMG5_idir[ifac][2]]].tmp;
@@ -1468,38 +1493,33 @@ int PMMG_split4op_sort(MMG5_pMesh mesh,
   /*******************************************************/
   PMMG_sort_tetra(tetra_sorted,node_sorted,v_t0,v_t1,v_t2);
 
-  return 1;
+  return;
 }
 
 /**
- * \param v_t Indices of the triangle on face ifac
+ * \param v_t Indices of a triangle vertices
  *
- * Find the index ofd the minimum of the indices defining ifac
+ * Find the local index of the minimum of the 3 indices defining the triangle
+ *
+ * \return 0, 1 or 2 the local index of the minimum
  *
  */
 int PMMG_find_node(MMG5_int *v_t) {
-  int min = MG_MIN(v_t[0],MG_MIN(v_t[1],v_t[2]));
-  if (min==v_t[0]){
-    return 0;
-  }
-  else if (min==v_t[1]){
-    return 1;
-  }
-  else
-    return 2;
+  MMG5_int min = MG_MIN(v_t[0],MG_MIN(v_t[1],v_t[2]));
+  if (min==v_t[0]) return 0;
+  else if (min==v_t[1]) return 1;
+  else return 2;
 }
 
-
 /**
- * \param tetra Indices of the tetra to be sorted
- * \param node  Indices of the nodes to be sorted
- * \param v_t0 First  tetra: indices of the triangle on face ifac
- * \param v_t1 Second tetra: indices of the triangle on face ifac
- * \param v_t2 Third  tetra: indices of the triangle on face ifac
+ * \param tetra Indices of the tetras to be sorted
+ * \param node  Indices of the nodes associated with the tetras
+ * \param v_t0  First  tetra: indices of triangle vertices
+ * \param v_t1  Second tetra: indices of triangle vertices
+ * \param v_t2  Third  tetra: indices of triangle vertices
  *
- * Sort the tetras in increasing order based on vertices number
- * Swap also the array storing ifac indices
- * Swap also the array storing the index of the minimum index on ifac
+ * Sort the tetras in increasing order based on vertices indices
+ * Sort accordingly to the tetra sorting, the array storing the indices of nodes
  *
  */
 void PMMG_sort_tetra(MMG5_int *tetra, MMG5_int *node, MMG5_int *v_t0, MMG5_int *v_t1, MMG5_int *v_t2) {
@@ -1526,21 +1546,21 @@ void PMMG_sort_tetra(MMG5_int *tetra, MMG5_int *node, MMG5_int *v_t0, MMG5_int *
 }
 
 /**
- * \param a table of the vertices of a triangle
+ * \param v_t table of a triangle vertices
  *
- * Sort the vertices of tria in increasing order
+ * Sort the vertices of the triangle in increasing order
  *
  */
-void PMMG_sort_vertices(MMG5_int *a) {
+void PMMG_sort_vertices(MMG5_int *v_t) {
   // Sorting using conditional statements
-  if (a[0] > a[1]) {
-    PMMG_swap_ints(&a[0], &a[1]);
+  if (v_t[0] > v_t[1]) {
+    PMMG_swap_ints(&v_t[0], &v_t[1]);
   }
-  if (a[1] > a[2]) {
-    PMMG_swap_ints(&a[1], &a[2]);
+  if (v_t[1] > v_t[2]) {
+    PMMG_swap_ints(&v_t[1], &v_t[2]);
   }
-  if (a[0] > a[1]) {
-    PMMG_swap_ints(&a[0], &a[1]);
+  if (v_t[0] > v_t[1]) {
+    PMMG_swap_ints(&v_t[0], &v_t[1]);
   }
 }
 
@@ -1548,24 +1568,26 @@ void PMMG_sort_vertices(MMG5_int *a) {
  * \param a table of the 3 vertices of first  triangle
  * \param b table of the 3 vertices of second triangle
  *
- * \return result = negative value if a < b
- * \return result = 0 if a = b
- * \return result = positive value if a > b
+ * \return -1 if a < b
+ * \return  0 if a = b
+ * \return +1 if a > b
  *
- * Compare vertices of 2 triangles to sort the triangle in "increasing" order
- * based on their vertices value
+ * Compare vertices of 2 triangles to sort the triangle by increasing order
+ * of their vertices indices
  *
  */
 int PMMG_compare_3ints_array(int *a, int *b) {
-  int result;
-  result = a[0] - b[0];
-  if (result == 0) {
-    result = a[1] - b[1];
-    if (result == 0) {
-      result = a[2] - b[2];
-    }
-  }
-  return result;
+  MMG5_int result;
+  if (a[0] > b[0]) return 1;
+  else if (a[0] < b[0]) return -1;
+
+  if (a[1] > b[1]) return 1;
+  else if (a[1] < b[1]) return -1;
+
+  if (a[2] > b[2]) return 1;
+  else if (a[2] < b[2]) return -1;
+
+  return 0;
 }
 
 /**
@@ -1590,7 +1612,7 @@ void PMMG_swap_ints(int *a, int *b) {
  */
 void PMMG_swap_3int_arrays(int *a, int *b) {
     for ( int i = 0; i < 3; i++ ) {
-        int temp = a[i];
+        MMG5_int temp = a[i];
         a[i] = b[i];
         b[i] = temp;
     }
