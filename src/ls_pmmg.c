@@ -99,7 +99,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int pos_face_ext,pos_face_int,val_face;
 
   // To be removed
-  int print_rank=0;
+  int print_rank=1;
   // if ( parmesh->info.imprim > PMMG_VERB_VERSION )
 
   if ( parmesh->myrank == print_rank )
@@ -401,7 +401,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 #else
       src = 1;
 #endif
-      np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
+      // np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
+      np = MMG3D_newPt(mesh,c,0,src);
       // tag = p0->tag;
       // tag &= ~MG_BDY;
       // np = MMG3D_newPt(mesh,c,tag,src);
@@ -711,9 +712,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       // If the tetra has already a flag (flag !=0) - then it has already been processed
       already_split = 0;
       if (pt->flag) {
-        // If flag equals to -1 (flag<0), then tetra does not need to be split
-        // Otherwise (flag>0) update the communicators only and pass
-        if (pt->flag < 0) {
+        // If flag flag>0 update the communicators;
+        // Otherwise, if flag equals to -1 (flag<0), then tetra does not need to be split
+        if (pt->flag > 0) {
           if ( parmesh->myrank == print_rank) {
             fprintf(stdout,"\n                  ---------------------------------------");
             fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d ALREADY SPLIT :: Need to update comms",
@@ -723,7 +724,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
           pos_tmp_already = pt->mark;
           ne_tmp  = ne_tmp_tab[pos_tmp_already];
         }
-        else if (pt->flag > 0) {
+        else if (pt->flag < 0) {
           if ( parmesh->myrank == print_rank ) {
             fprintf(stdout,"\n                  ---------------------------------------");
             fprintf(stdout,"\n                  MyRank %d, Tetra k %d, Flag %d NO NEED TO BE SPLIT",
@@ -881,17 +882,15 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       }
 
       // Update tag of edges in xtetra with MG_PARBDY
-      if (!already_split) {
-        for (j=0; j<3; j++) {
-          k0 = tetra_sorted[j];
-          if (k0 != -1) {
-            pt0  = &mesh->tetra[k0];
-            pxt0 = &mesh->xtetra[pt0->xt];
-            for (i=0; i<3; i++) {
-              ia = MMG5_iarf[ifac][i];
-              if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
-                pxt0->tag[ia] |= MG_PARBDY;
-              }
+      for (j=0; j<3; j++) {
+        k0 = tetra_sorted[j];
+        if (k0 != -1) {
+          pt0  = &mesh->tetra[k0];
+          pxt0 = &mesh->xtetra[pt0->xt];
+          for (i=0; i<3; i++) {
+            ia = MMG5_iarf[ifac][i];
+            if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
+              pxt0->tag[ia] |= MG_PARBDY;
             }
           }
         }
