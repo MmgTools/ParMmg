@@ -69,12 +69,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
 
   static int8_t  mmgWarn = 0;
-  int8_t         ia,imin0,imin2;
+  int8_t         ia;
   int8_t         i,j;
   int8_t         npneg,nface_added;
 
   const uint8_t *taued=NULL;
   uint8_t        tau[4];
+  uint8_t        imin0,imin2;
 
   double c[3],v0,v1,s;
 
