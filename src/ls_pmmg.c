@@ -613,7 +613,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       pxt = &mesh->xtetra[pt->xt];
       if ( !MG_EOK(pt) )  continue;
 
-      /* STEP 6.2.1: Find global numerotation and split pattern of the tetra */
+      /* STEP 6.2.1: Find global numbering and split pattern of the tetra */
       /* If the tetra has already a flag (flag !=0) - then it has already been processed */
       already_split = 0;
       if (pt->flag) {
@@ -778,7 +778,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     /* If the tetra has already a flag (flag !=0) - it has already been processed. Pass to the next tetra. */
     if (pt->flag) continue;
 
-    /* STEP 6.3.1: Find global numerotation and split pattern of the tetra */
+    /* STEP 6.3.1: Find global numbering and split pattern of the tetra */
     /* Get the split pattern: loop over the edges, get hash.item[key].k */
     memset(vx,0,6*sizeof(MMG5_int));
     for (ia=0; ia<6; ia++) {
