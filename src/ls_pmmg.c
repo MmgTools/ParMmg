@@ -684,7 +684,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
 
         /* Find the tetras and nodes defining the face ifac of tetra k */
-        imin0=MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued); // Compute tau and imin0
+        MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued,&imin0); // Compute tau and imin0
         PMMG_split2sf_sort(mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
         break;
 
