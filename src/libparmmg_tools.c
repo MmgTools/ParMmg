@@ -397,7 +397,7 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           }
         }
         else if ( !strcmp(pmmgArgv[i],"-mmg-d") ) {
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgDebug,val) ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgDebug,1) ) {
             ret_val = 0;
             goto clean;
           }
