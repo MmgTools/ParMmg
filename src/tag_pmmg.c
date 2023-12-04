@@ -355,14 +355,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ip0 = pt->v[MMG5_iare[ia][0]];
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
-            /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf ) {
-              if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
-              if( !(gettag & MG_REQ) ) {
-                /* do not add the MG_NOSURF tag on a required entity */
-                if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
-              }
-            }
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
