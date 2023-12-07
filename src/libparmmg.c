@@ -1735,7 +1735,10 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
+  int remesh = 1;
+  if (remesh) {
+    ier = PMMG_parmmglib1(parmesh);
+  }
   MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
   chrono(OFF,&(ctim[tim]));

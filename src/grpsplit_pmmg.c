@@ -1848,6 +1848,11 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartit
   if ( ier )
     ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning_mode);
 
+  /* Update tag after split group */
+  // if ( parmesh->listgrp[0].mesh->info.ddebug ) {
+  //   ier = PMMG_updateTag(parmesh);
+  // }
+
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);

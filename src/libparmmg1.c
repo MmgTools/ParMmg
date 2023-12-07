@@ -599,6 +599,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
                                PMMG_REDISTRIBUTION_graph_balancing );
   }
 
+  /* Update tag after split group */
+  // if ( parmesh->listgrp[0].mesh->info.ddebug ) {
+  //   if ( !PMMG_updateTag(parmesh) ) {
+  //     goto strong_failed;
+  //   }
+  // }
+
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
 

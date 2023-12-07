@@ -354,6 +354,30 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
                 if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
               }
             }
+            // /* If MG_GEO; add MG_GEO */
+            // if (pxt->tag[ia] & MG_GEO) {
+            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_GEO ) ) return 0;
+            // }
+            // /* If MG_REF; add MG_REF */
+            // if (pxt->tag[ia] & MG_REF) {
+            //   if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REF ) ) return 0;
+            // }
+            // /* If MG_NOM; add MG_NOM */
+            // if (pxt->tag[ia] & MG_NOM) {
+            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_NOM ) ) return 0;
+            // }
+            // /* If MG_OPNBDY; add MG_OPNBDY */
+            // if (pxt->tag[ia] & MG_OPNBDY) {
+            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_OPNBDY ) ) return 0;
+            // }
+            // /* If MG_PARBDYBDY; add MG_PARBDYBDY */
+            // if (pxt->tag[ia] & MG_PARBDYBDY) {
+            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_PARBDYBDY ) ) return 0;
+            // }
+            // /* If MG_OLDPARBDY; add MG_OLDPARBDY */
+            // if (pxt->tag[ia] & MG_OLDPARBDY) {
+            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_OLDPARBDY ) ) return 0;
+            // }
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
@@ -366,6 +390,18 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
                 ppt->tag |= MG_REQ + MG_NOSURF;
               }
             }
+            // /* If MG_GEO; add MG_GEO */
+            // if (pxt->tag[ia] & MG_GEO) ppt->tag |= MG_GEO;
+            // /* If MG_REF; add MG_REF */
+            // if (pxt->tag[ia] & MG_REF) ppt->tag |= MG_REF;
+            // /* If MG_NOM; add MG_NOM */
+            // if (pxt->tag[ia] & MG_NOM) ppt->tag |= MG_NOM;
+            // /* If MG_OPNBDY; add MG_OPNBDY */
+            // if (pxt->tag[ia] & MG_OPNBDY) ppt->tag |= MG_OPNBDY;
+            // /* If MG_PARBDYBDY; add MG_PARBDYBDY */
+            // if (pxt->tag[ia] & MG_PARBDYBDY) ppt->tag |= MG_PARBDYBDY;
+            // /* If MG_OLDPARBDY; add MG_OLDPARBDY */
+            // if (pxt->tag[ia] & MG_OLDPARBDY) ppt->tag |= MG_OLDPARBDY;
           }
         }
       }
