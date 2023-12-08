@@ -130,6 +130,8 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   char       stim[32];
   mytime     ctim[TIMEMAX];
 
+  /* Chrono initialization */
+  tminit(ctim,TIMEMAX);
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -242,6 +244,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   char       stim[32];
   mytime     ctim[TIMEMAX];
   int ier = PMMG_SUCCESS;
+
+  /* Chrono initialization */
+  tminit(ctim,TIMEMAX);
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
