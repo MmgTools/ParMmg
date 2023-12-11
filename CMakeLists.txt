@@ -182,15 +182,8 @@ EXECUTE_PROCESS ( COMMAND  ${MPIEXEC} --oversubscribe sleep 1
   RESULT_VARIABLE CMD_ERROR
   OUTPUT_VARIABLE CMD_OUTPUT )
 
-<<<<<<< HEAD
-STRING(REGEX REPLACE "\"" " " CMD_OUT "${CMD_OUTPUT}")
-
-IF ( "${CMD_OUT}" MATCHES "oversubscribe" )
-  SET ( MPI_ARGS "--oversubscribe" )
-=======
 IF ( "${CMD_ERROR}" MATCHES "0" )
   SET ( MPI_ARGS "-oversubscribe" )
->>>>>>> develop
 ENDIF()
 
 # Check the minimum MPI version
