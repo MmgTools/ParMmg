@@ -24,6 +24,7 @@
 #include "parmmg.h"
 #include <stddef.h>
 #include "inlined_functions_3d_private.h"
+#include "mmgexterns_private.h"
 
 typedef struct {
   double min;
@@ -371,7 +372,7 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral, MPI_Comm comm
  * read_comm communicator (i.e. the communicator used to provide the inputs).
  * For all ather calls, comm has to be the communicator to use for computations.
  *
- * \return 0 if fail, 1 otherwise.
+ * \return 2 without metric, 0 if fail, 1 otherwise.
  *
  * Compute the required information to print the length histogram
  *
@@ -404,6 +405,12 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   *lmin = 1.e30;
   *amin = *amax = *bmin = *bmax = 0;
   *nullEdge = 0;
+
+  if ( (!met) || (!met->m) ) {
+    /* the functions that computes the edge length cannot be called without an
+     * allocated metric */
+    return 2;
+  }
 
   /* Hash parallel edges in the mesh */
   if ( PMMG_hashPar(mesh,&hpar) != PMMG_SUCCESS ) return 0;
@@ -469,11 +476,18 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
       /* Remove edge from hash ; ier = 1 if edge has been found */
       ier = MMG5_hashPop(&hash,np,nq);
       if( ier ) {
-        if ( (!metRidTyp) && met->size==6 && met->m ) {
+        assert ( met->m );
+        if ( (!metRidTyp) && met->size==6 ) {
+          assert ( met->m );
+          /* We pass here if metric is aniso without metRidTyp */
           len = MMG5_lenSurfEdg33_ani(mesh,met,np,nq,(tag & MG_GEO));
         }
-        else
-          len = MMG5_lenSurfEdg_iso(mesh,met,np,nq,0);
+        else {
+          /* We pass here if metric is aniso with metRidTyp or iso with
+           * allocated metric. Note that the lenSurfEdg function segfault if called
+           * with met==NULL or met->m==NULL */
+          len = MMG5_lenSurfEdg(mesh,met,np,nq,0);
+        }
 
 
         if ( !len ) {
@@ -534,6 +548,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
       /* Remove edge from hash ; ier = 1 if edge has been found */
       ier = MMG5_hashPop(&hash,np,nq);
       if( ier ) {
+        assert ( met->m );
         if ( (!metRidTyp) && met->size==6 && met->m ) {
           len = MMG5_lenedg33_ani(mesh,met,ia,pt);
         }
@@ -656,21 +671,35 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral, MPI_Com
   if ( parmesh->ngrp==1 ) {
     mesh = parmesh->listgrp[0].mesh;
     met = parmesh->listgrp[0].met;
-    if ( met && met->m ) {
-      if( isCentral )
-        ier = MMG3D_computePrilen( mesh, met,
-                                   &lenStats.avlen, &lenStats.lmin,
-                                   &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                                   &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                   &lenStats.nullEdge, metRidTyp, &bd,
-                                   lenStats.hl );
-      else
-        ier = PMMG_computePrilen( parmesh, mesh, met,
-                                  &lenStats.avlen, &lenStats.lmin,
-                                  &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                                  &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                  &lenStats.nullEdge, metRidTyp, &bd,
-                                  lenStats.hl,comm );
+    if( isCentral ) {
+      /* If metric is not allocated or if hash table alloc fails, the next
+       * function returns 0, which allows to detect that we cannot print the
+       * edge length histo. */
+      ier = MMG3D_computePrilen( mesh, met,
+                                 &lenStats.avlen, &lenStats.lmin,
+                                 &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                 &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                 &lenStats.nullEdge, metRidTyp, &bd,
+                                 lenStats.hl );
+    }
+    else {
+      /* The next function returns 0 if the hash table alloc fails and 2 if
+       * called without metric (in this case we are not able to compute the edge
+       * lengths). It allows to detect:
+       *   - if we can't print the histo due to an alloc error (ier = 0 on 1 MPI
+       *     process at least)
+       *   - if we can't print the histo because the metric is not allocated
+       *     (ier=2 on all the MPI process)
+       *   - if we can print the histo (metric is allocated on at least 1 MPI
+       *     process and no MPI process fail, thus ier is at least 1 on all the
+       *     MPI proc but may be 2 on some of them)
+       */
+      ier = PMMG_computePrilen( parmesh, mesh, met,
+                                &lenStats.avlen, &lenStats.lmin,
+                                &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                &lenStats.nullEdge, metRidTyp, &bd,
+                                lenStats.hl,comm );
     }
   }
 
@@ -679,7 +708,8 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral, MPI_Com
   else
     MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, comm );
 
-  if ( !ieresult ) {
+  if ( (ieresult==0) || ieresult==2 ) {
+    /* We are not able to print the histogram */
     MPI_Type_free( &mpi_lenStats_t );
     MPI_Op_free( &mpi_lenStats_op );
     return 0;

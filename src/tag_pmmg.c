@@ -261,7 +261,9 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
  *
  * \return 0 if fail, 1 otherwise
  *
- * Update the tag on the points and tetra
+ * Update the parallel-related tags on the points and tetra: first, remove
+ * obsolete parallel markers; second, re-tag boundary entites; third, tag new
+ * parallel interfaces from the internal communicator.
  *
  */
 int PMMG_updateTag(PMMG_pParMesh parmesh) {
@@ -289,15 +291,22 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
       pt = &mesh->tetra[k];
       if ( !pt->xt ) continue;
       pxt = &mesh->xtetra[pt->xt];
-      /* Untag parallel nodes */
+      /* Untag parallel nodes: remove PARBDY, BDY, REQ, PARBDYBDY and NOSURF
+       * tag. Point not marked by NOSURF tag are required by the user: re-add
+       * the REQ tag. */
       for ( j=0 ; j<4 ; j++ ) {
         ppt = &mesh->point[pt->v[j]];
         PMMG_untag_par_node(ppt);
       }
-      /* Untag parallel edges */
+      /* Untag parallel edges: remove PARBDY, BDY, REQ, PARBDYBDY and NOSURF
+       * tag. Point not marked by NOSURF tag are required by the user: re-add
+       * the REQ tag. */
       for ( j=0 ; j<6 ; j++ )
         PMMG_untag_par_edge(pxt,j);
-      /* Untag parallel faces */
+      /* Untag parallel faces: remove PARBDY, BDY, REQ and NOSURF tags but nor
+       * PARBDYBDY one (used to recognize BDY faces whose BDY tag has been
+       * removed). Point not marked by NOSURF tag are required by the user:
+       * re-add the REQ tag.  */
       for ( j=0 ; j<4 ; j++ )
         PMMG_untag_par_face(pxt,j);
     }
@@ -346,14 +355,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ip0 = pt->v[MMG5_iare[ia][0]];
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
-            /* Constrain boundary if -nosurf option */
-            if( mesh->info.nosurf ) {
-              if( !MMG5_hGet( &hash, ip0, ip1, &getref, &gettag ) ) return 0;
-              if( !(gettag & MG_REQ) ) {
-                /* do not add the MG_NOSURF tag on a required entity */
-                if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REQ + MG_NOSURF ) ) return 0;
-              }
-            }
             // /* If MG_GEO; add MG_GEO */
             // if (pxt->tag[ia] & MG_GEO) {
             //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_GEO ) ) return 0;
@@ -390,18 +391,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
                 ppt->tag |= MG_REQ + MG_NOSURF;
               }
             }
-            // /* If MG_GEO; add MG_GEO */
-            // if (pxt->tag[ia] & MG_GEO) ppt->tag |= MG_GEO;
-            // /* If MG_REF; add MG_REF */
-            // if (pxt->tag[ia] & MG_REF) ppt->tag |= MG_REF;
-            // /* If MG_NOM; add MG_NOM */
-            // if (pxt->tag[ia] & MG_NOM) ppt->tag |= MG_NOM;
-            // /* If MG_OPNBDY; add MG_OPNBDY */
-            // if (pxt->tag[ia] & MG_OPNBDY) ppt->tag |= MG_OPNBDY;
-            // /* If MG_PARBDYBDY; add MG_PARBDYBDY */
-            // if (pxt->tag[ia] & MG_PARBDYBDY) ppt->tag |= MG_PARBDYBDY;
-            // /* If MG_OLDPARBDY; add MG_OLDPARBDY */
-            // if (pxt->tag[ia] & MG_OLDPARBDY) ppt->tag |= MG_OLDPARBDY;
           }
         }
       }
@@ -468,7 +457,9 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
          * so remove the MG_NOSURF tag if the edge is truly required */
         if( pxt->tag[j] & MG_REQ )
           gettag &= ~MG_NOSURF;
-        /* set edge tag */
+        /* set edge tag (without NOSURF tag if the edge is required by the
+         * user): here we preserve the initial MG_REQ tag of each tetra, thus,
+         * potential inconsistencies will not be solved. */
         pxt->tag[j] |= gettag;
       }
     }

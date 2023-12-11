@@ -1281,6 +1281,10 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **displsgrp,int **mapgrp ) 
   for( k=0; k<nproc; k++ )
     ngrps[k] = (*displsgrp)[k+1]-(*displsgrp)[k];
 
+  // Remark: with open-mpi (v4.1.2) the next allgatherv raises a valgrind error
+  // on rank 0 due to the use of memcpy with overlapping locations. It seems to
+  // be an error in the open-mpi implementation and to have no consequences on
+  // the results
   MPI_CHECK(
     MPI_Allgatherv(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,
                    &(*mapgrp)[0],ngrps,&(*displsgrp)[0],MPI_INT,
