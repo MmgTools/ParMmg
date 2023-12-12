@@ -433,10 +433,27 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
          * so remove the MG_NOSURF tag if the edge is truly required */
         if( pxt->tag[j] & MG_REQ )
           gettag &= ~MG_NOSURF;
+
         /* set edge tag (without NOSURF tag if the edge is required by the
          * user): here we preserve the initial MG_REQ tag of each tetra, thus,
-         * potential inconsistencies will not be solved. */
-        pxt->tag[j] |= gettag;
+         * potential inconsistencies will not be solved.
+         *
+         * A xtetra may have an edge that is boundary but doesn't belong to any
+         * boundary face:
+         *  - if this edge is marked as MG_BDY, the edge tag should be
+         *    consistent with edge tag stored from a boundary face and we have
+         *    to maintain this consistency;
+         *
+         * - if this edge is not marked as MG_BDY (tag == 0), we are not able to
+         *    know if the edge is ref or required or if it has any other tag so
+         *    we are not able to maintain the tag consistency and we have to
+         *    preserve the fact that the edge is not MG_BDY.
+         *
+         */
+        if ( (pxt->tag[j] & MG_BDY) ||
+             ( (pxt->ftag[MMG5_ifar[j][0]] & MG_BDY) || (pxt->ftag[MMG5_ifar[j][1]] & MG_BDY) ) ) {
+               pxt->tag[j] |= gettag;
+        }
       }
     }
     PMMG_DEL_MEM( mesh, hash.geom, MMG5_hgeom, "Edge hash table" );

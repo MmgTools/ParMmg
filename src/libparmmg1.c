@@ -401,7 +401,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     }
   }
 
-  /** Step 2: Travel through the \a facesData array, get int the hash table the
+  /** Step 2: Travel through the \a facesData array, get in the hash table the
    * index of the element to which belong the face and update the face
    * communicator */
   face2int_face_comm_index1 = grp->face2int_face_comm_index1;
