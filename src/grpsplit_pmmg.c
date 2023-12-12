@@ -1100,27 +1100,24 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
     if ( !tetraCur->xt ) continue;
 
     pxt = &mesh->xtetra[tetraCur->xt];
-    for ( j=0; j<4; j++ ) {
-      /* We recover edge tag infos from boundary faces */
-      if ( !(pxt->ftag[j] & MG_BDY) ) continue;
+    for ( j=0; j<6; j++ ) {
 
-      int i;
-      for ( i=0; i<3; ++i ) {
-        int ia = MMG5_iarf[j][i];
-        int ip0 = pt->v[MMG5_iare[ia][0]];
-        int ip1 = pt->v[MMG5_iare[ia][1]];
+      /* Tag infos have to be consistent for all edges marked as boundary */
+      if ( !(pxt->tag[j] & MG_BDY) ) continue;
 
-        int16_t tag;
-        int     ref;
+      int ip0 = pt->v[MMG5_iare[j][0]];
+      int ip1 = pt->v[MMG5_iare[j][1]];
 
-        /* get the tag stored in the hash table (old mesh) and set it the xtetra
-         * edge (new mesh): hGet may return 0 as edges of the old mesh are not
-         * hashed if they were not belonging to a boundary face (but due to the
-         * new partitionning, it is possible that they are now belonging to a bdy
-         * face). */
-        MMG5_hGet( &hash, ip0, ip1, &ref, &tag );
-        pxt->tag[ia] |= tag;
-      }
+      int16_t tag;
+      int     ref;
+
+      /* get the tag stored in the hash table (old mesh) and set it the xtetra
+       * edge (new mesh): hGet may return 0 as edges of the old mesh are not
+       * hashed if they were not belonging to a boundary face (but due to the
+       * new partitionning, it is possible that they are now belonging to a bdy
+       * face). */
+      MMG5_hGet( &hash, ip0, ip1, &ref, &tag );
+      pxt->tag[j] |= tag;
     }
 
   }
