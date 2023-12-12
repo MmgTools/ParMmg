@@ -269,7 +269,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* to could save the mesh, the adjacency have to be correct */
-    if ( mesh->info.ddebug ) {
+//    if ( mesh->info.ddebug ) {
       if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
                 __func__);
@@ -279,7 +279,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-    }
+//    }
   }
 
   return 1;
@@ -624,6 +624,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
     if ( !mesh ) continue;
 
+    if ( !MMG5_chkmsh(mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+
+
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
 
@@ -664,6 +670,12 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       mesh         = parmesh->listgrp[i].mesh;
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
+
+
+      if ( !MMG5_chkmsh(mesh,1,1) ) {
+        fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+        return 0;
+      }
 
 #warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
@@ -938,6 +950,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));

@@ -32,6 +32,8 @@
  *
  */
 #include "parmmg.h"
+#include "mmgexterns_private.h"
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -88,6 +90,14 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
   }
+
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
    * enters the function and not the other proc */
@@ -150,6 +160,12 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
         fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
         ier_glob = 0;
       }
+    }
+  }
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
     }
   }
 

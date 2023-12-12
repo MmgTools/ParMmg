@@ -33,6 +33,7 @@
  */
 #include "parmmg.h"
 #include "metis_pmmg.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param nelem number of elements in the initial group
@@ -1843,6 +1844,13 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartit
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
   }
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
@@ -1907,8 +1915,22 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartit
   }
 
   /** Split the group into the suitable number of groups */
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
   if ( ier )
     ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning_mode);
+
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
