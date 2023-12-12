@@ -137,7 +137,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,partitioning_mode);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
-    }
+  }
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
