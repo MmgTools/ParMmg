@@ -1459,13 +1459,13 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* OK - Create table of adjacency for tetra */
+  /* Create table of adjacency for tetra */
   if ( !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
     return 0;
   }
 
-  /* OK - Check the compatibility of triangle orientation with tetra faces */
+  /* Check the compatibility of triangle orientation with tetra faces */
   if ( !MMG5_bdryPerm(mesh) ) {
     fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
     return 0;
@@ -1480,19 +1480,19 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* OK - Build hash table for initial edges */
+  /* Build hash table for initial edges */
   if ( !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     return 0;
   }
 
-  /* OK - Set the triangles references to the tetrahedra faces and edges */
+  /* Set the triangles references to the tetrahedra faces and edges */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Problem in setting boundary. Exit program.\n");
     return 0;
   }
 
-  /* OK - Reset the mesh->info.isoref field everywhere */
+  /* Reset the mesh->info.isoref field everywhere */
   if ( !MMG3D_resetRef_ls(mesh) ) {
     fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
     return 0;
@@ -1512,7 +1512,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     mesh->point[ip].src = ip;
 #endif
 
-  /* OK - Compute vertices and triangles global numerotation */
+  /* Compute vertices global numerotation
+     This step is needed to compute the edge communicator */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
@@ -1520,7 +1521,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     }
   }
 
-  /* Hash parallel edges */
+  /* Hash parallel edges
+     This step is needed to compute the edge communicator */
   if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
@@ -1536,7 +1538,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     }
   }
 
-  /** \todo TODO :: Discretization of the implicit funtion - Cut tetra */
+  /** Discretization of the implicit funtion - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
     fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
@@ -1547,9 +1549,17 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   MMG5_DEL_MEM(mesh,mesh->adjt);
   MMG5_DEL_MEM(mesh,mesh->tria);
 
+  /* The function MMG5_hGeom is in charge to set mesh->na=0 if not already.
+     Here mesh->na is modified by the creation of the edge comm PMMG_build_edgeComm and is
+     set equal to the number of // edges.
+     Unfortunately here PMMG_build_edgeComm cannot be called after MMG5_hGeom.
+     Hence, mesh->na is then set equal to 0 here because:
+        1. later in the analysis, mesh->na needs to be equal to 0 and;
+        2. at this stage, the edge comm does not exist anymore, so mesh->na should be 0 */
+  mesh->na = 0;
   mesh->nt = 0;
 
-  /* OK - Set ref to tetra according to the sign of the level-set */
+  /* Set ref to tetra according to the sign of the level-set */
   if ( !MMG3D_setref_ls(mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem in setting references. Exit program.\n");
     return 0;
