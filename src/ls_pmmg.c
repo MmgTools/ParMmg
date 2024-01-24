@@ -726,44 +726,46 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
       if ( !ier ) return 0;
 
-      /* STEP 6.2.3 - Update tag of edges in xtetra with MG_PARBDY */
-      for (j=0; j<3; j++) {
-        k0 = tetra_sorted[j];
-        if (k0 != -1) {
-          pt0  = &mesh->tetra[k0];
-          pxt0 = &mesh->xtetra[pt0->xt];
-          for (i=0; i<3; i++) {
-            ia = MMG5_iarf[ifac][i];
-            if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
-              pxt0->tag[ia] |= MG_PARBDY;
+      if (pt->flag != -1) {
+        /* STEP 6.2.3 - Update tag of edges in xtetra with MG_PARBDY */
+        for (j=0; j<3; j++) {
+          k0 = tetra_sorted[j];
+          if (k0 != -1) {
+            pt0  = &mesh->tetra[k0];
+            pxt0 = &mesh->xtetra[pt0->xt];
+            for (i=0; i<3; i++) {
+              ia = MMG5_iarf[ifac][i];
+              if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
+                pxt0->tag[ia] |= MG_PARBDY;
+              }
             }
           }
         }
-      }
 
-      /* STEP 6.2.4 - Update face communicators */
-      nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
+        /* STEP 6.2.4 - Update face communicators */
+        nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
 
-      /* (a) Update the first face located at idx_face_int - Modify only index1 - index2 stays the same */
-      grp->face2int_face_comm_index1[idx_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
+        /* (a) Update the first face located at idx_face_int - Modify only index1 - index2 stays the same */
+        grp->face2int_face_comm_index1[idx_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
 
-      /* (b) Update the communicators for the potential 2 other faces */
-      nface_added = 0;
-      for (j=0; j<2; j++) {
-        if ( tetra_sorted[j+1] != -1) {
-          grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
-          grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
-          ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
-          nface_added += 1;
+        /* (b) Update the communicators for the potential 2 other faces */
+        nface_added = 0;
+        for (j=0; j<2; j++) {
+          if ( tetra_sorted[j+1] != -1) {
+            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
+            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
+            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
+            nface_added += 1;
+          }
         }
-      }
 
-      /* (c) Update the total number of faces */
-      nitem_int_face += nface_added;
-      nitem_ext_face += nface_added;
-      parmesh->int_face_comm->nitem = nitem_int_face;
-      grp->nitem_int_face_comm      = nitem_int_face;
-      ext_face_comm->nitem          = nitem_ext_face;
+        /* (c) Update the total number of faces */
+        nitem_int_face += nface_added;
+        nitem_ext_face += nface_added;
+        parmesh->int_face_comm->nitem = nitem_int_face;
+        grp->nitem_int_face_comm      = nitem_int_face;
+        ext_face_comm->nitem          = nitem_ext_face;
+      }
     }
   }
 
@@ -1538,7 +1540,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     }
   }
 
-  /** Discretization of the implicit funtion - Cut tetra */
+  /** Discretization of the implicit function - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
     fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
@@ -1569,6 +1571,9 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   for ( MMG5_int k=1; k<=mesh->np; ++k ) {
     if ( mesh->point[k].tag & MG_BDY ) {
       mesh->point[k].tag &= ~MG_BDY;
+    }
+    if ( mesh->point[k].tag & MG_PARBDYBDY ) {
+      mesh->point[k].tag &= ~MG_PARBDYBDY;
     }
   }
 
