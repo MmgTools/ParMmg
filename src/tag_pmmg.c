@@ -355,30 +355,6 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
             ip0 = pt->v[MMG5_iare[ia][0]];
             ip1 = pt->v[MMG5_iare[ia][1]];
             if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_BDY ) ) return 0;
-            // /* If MG_GEO; add MG_GEO */
-            // if (pxt->tag[ia] & MG_GEO) {
-            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_GEO ) ) return 0;
-            // }
-            // /* If MG_REF; add MG_REF */
-            // if (pxt->tag[ia] & MG_REF) {
-            //   if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_REF ) ) return 0;
-            // }
-            // /* If MG_NOM; add MG_NOM */
-            // if (pxt->tag[ia] & MG_NOM) {
-            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_NOM ) ) return 0;
-            // }
-            // /* If MG_OPNBDY; add MG_OPNBDY */
-            // if (pxt->tag[ia] & MG_OPNBDY) {
-            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_OPNBDY ) ) return 0;
-            // }
-            // /* If MG_PARBDYBDY; add MG_PARBDYBDY */
-            // if (pxt->tag[ia] & MG_PARBDYBDY) {
-            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_PARBDYBDY ) ) return 0;
-            // }
-            // /* If MG_OLDPARBDY; add MG_OLDPARBDY */
-            // if (pxt->tag[ia] & MG_OLDPARBDY) {
-            //    if( !MMG5_hTag( &hash, ip0, ip1, 0, MG_OLDPARBDY ) ) return 0;
-            // }
           }
           /* Tag face nodes */
           for ( j=0 ; j<3 ; j++) {
