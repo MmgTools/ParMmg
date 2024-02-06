@@ -392,10 +392,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       /* If user provide a metric, interpolate it at the new point */
       if ( met && met->m ) {
         if ( met->size > 1 ) {
-          ier = MMG3D_intmet33_ani(mesh,met,k,ia,np,s);
+          ier = MMG3D_intmet33_ani_edge(met,ip0,ip1,np,s);
         }
         else {
-          ier = MMG5_intmet_iso(mesh,met,k,ia,np,s);
+          ier = MMG5_intmet_iso_edge(met,ip0,ip1,np,s);
         }
         if ( ier <= 0 ) {
           /* Unable to compute the metric */
@@ -735,7 +735,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
             pxt0 = &mesh->xtetra[pt0->xt];
             for (i=0; i<3; i++) {
               ia = MMG5_iarf[ifac][i];
-              if ( !(pxt0->tag[ia] && MG_PARBDY) ) {
+              if ( !(pxt0->tag[ia] & MG_PARBDY) ) {
                 pxt0->tag[ia] |= MG_PARBDY;
               }
             }
@@ -1554,7 +1554,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   /* The function MMG5_hGeom is in charge to set mesh->na=0 if not already.
      Here mesh->na is modified by the creation of the edge comm PMMG_build_edgeComm and is
      set equal to the number of // edges.
-     Unfortunately here PMMG_build_edgeComm cannot be called after MMG5_hGeom.
+     Unfortunately here PMMG_build_edgeComm cannot be called before MMG5_hGeom.
      Hence, mesh->na is then set equal to 0 here because:
         1. later in the analysis, mesh->na needs to be equal to 0 and;
         2. at this stage, the edge comm does not exist anymore, so mesh->na should be 0 */
