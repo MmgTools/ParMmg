@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout c60fb6a16a7fcbc3e93d9b2babd6cb19caba8123
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b3fece6cb6afbcd73962c7586aafa211af396e4c
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -224,7 +224,7 @@ IF( BUILD_TESTING )
 
     add_test( NAME PvtuOut-RenameOut-2
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -out ${CI_DIR_RESULTS}/3D-cube-PvtuOut-2.a.o.pvtu)
 
     set_property(TEST PvtuOut-RenameOut-2
@@ -342,9 +342,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
   endforeach()
 
@@ -356,9 +356,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2)
     add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
@@ -368,9 +368,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2)
     add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls
-      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
       PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
@@ -380,7 +380,7 @@ IF( BUILD_TESTING )
   foreach( NP 1 2)
     add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls 0.0
       -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
@@ -391,7 +391,7 @@ IF( BUILD_TESTING )
   foreach( NP 1 2)
     add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls
       -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
     set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
@@ -402,10 +402,10 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
   add_test( NAME ls-CenIn-met-${NP}
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+    ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
     -ls 0.0
-    -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
-    -met ${CI_DIR}/LevelSet/centralized/3D-cube-metric.sol
+    -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+    -met ${CI_DIR}/LevelSet/1p_centralized/3D-cube-metric.sol
     -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
   endforeach()
 
@@ -413,9 +413,9 @@ IF( BUILD_TESTING )
   foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-DisOut-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/centralized/3D-cube-ls.sol
+      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
 
     IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
@@ -430,9 +430,9 @@ IF( BUILD_TESTING )
   #--------------------------------
   add_test( NAME ls-DisIn-ReadLs-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
+    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
     -ls 0.01
-    -sol ${CI_DIR}/LevelSet/distributed/3D-cube-ls.sol
+    -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
     -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
   set(lsReadFile "3D-cube-ls.0.sol OPENED")
   set_property(TEST ls-DisIn-ReadLs-2
@@ -525,8 +525,8 @@ IF( BUILD_TESTING )
   # and  to write distributed output fields in VTK   format
   add_test( NAME fields-DisIn-DisOutVTK-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh -v 10
-    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
+    -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
     -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
 
   set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
@@ -540,8 +540,8 @@ IF( BUILD_TESTING )
   # Test to write distributed output fields and metric in Medit format
   add_test( NAME fields-DisIn-DisOutMesh-2
     COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/distributed/3D-cube.mesh
-    -field ${CI_DIR}/LevelSet/distributed/3D-cube-fields.sol
+    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh
+    -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
     -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
 
   set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
