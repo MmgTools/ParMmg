@@ -328,240 +328,240 @@ IF( BUILD_TESTING )
       ENDFOREACH()
     ENDFOREACH()
 
-  ENDIF()
+    ###############################################################################
+    #####
+    #####        Test isovalue mode - ls discretization
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    # Tests of ls discretization for centralized mesh input
+    foreach( NP 1 2 4 8 )
+      add_test( NAME ls-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
+    endforeach()
 
-  ###############################################################################
-  #####
-  #####        Test isovalue mode - ls discretization
-  #####
-  ###############################################################################
-  #--------------------------------
-  #--- CENTRALIZED INPUT (CenIn)
-  #--------------------------------
-  # Tests of ls discretization for centralized mesh input
-  foreach( NP 1 2 4 8 )
-    add_test( NAME ls-CenIn-${NP}
+    # Check that the ls file is correctly opened with or without the ls value given
+    set(lsOpenFile "3D-cube-ls.sol OPENED")
+    set(lsOpenFileDefault "3D-cube.sol  NOT FOUND. USE DEFAULT METRIC.")
+
+    # Test of opening ls file when ls val is given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+    endforeach()
+
+    # Test of opening ls file when ls val is not given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls
+        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+    endforeach()
+
+    # Test of opening ls file with a default name when ls val is given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls 0.0
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+    endforeach()
+
+    # Test of opening ls file with a default name when ls val is not given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+    endforeach()
+
+    # Tests for ls + met for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-met-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
-  endforeach()
+      -met ${CI_DIR}/LevelSet/1p_centralized/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
+    endforeach()
 
-  # Check that the ls file is correctly opened with or without the ls value given
-  set(lsOpenFile "3D-cube-ls.sol OPENED")
-  set(lsOpenFileDefault "3D-cube.sol  NOT FOUND. USE DEFAULT METRIC.")
+    # Tests of distributed pvtu output when ls mode
+    foreach( NP 1 2 4 8 )
+      add_test( NAME ls-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
 
-  # Test of opening ls file when ls val is given
-  foreach( NP 1 2)
-    add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
-    set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
-  endforeach()
+      IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+        set_property(TEST ls-CenIn-DisOut-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+      ENDIF ( )
 
-  # Test of opening ls file when ls val is not given
-  foreach( NP 1 2)
-    add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-      -ls
-      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
-    set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
-  endforeach()
+    endforeach()
 
-  # Test of opening ls file with a default name when ls val is given
-  foreach( NP 1 2)
-    add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-      -ls 0.0
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
-    set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
-  endforeach()
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    add_test( NAME ls-DisIn-ReadLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
+      -ls 0.01
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
+    set(lsReadFile "3D-cube-ls.0.sol OPENED")
+    set_property(TEST ls-DisIn-ReadLs-2
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
 
-  # Test of opening ls file with a default name when ls val is not given
-  foreach( NP 1 2)
-    add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-      -ls
-      -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
-    set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
-  endforeach()
+    # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
+    # npart with mesh only or mesh+metric.
 
-  # Tests for ls + met for centralized mesh input
-  foreach( NP 1 2 4 8 )
-  add_test( NAME ls-CenIn-met-${NP}
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-    -ls 0.0
-    -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-    -met ${CI_DIR}/LevelSet/1p_centralized/3D-cube-metric.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
-  endforeach()
+    ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
 
-  # Tests of distributed pvtu output when ls mode
-  foreach( NP 1 2 4 8 )
-    add_test( NAME ls-CenIn-DisOut-${NP}
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
+    ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
+    add_test( NAME Medit-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
 
-    IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
-      set_property(TEST ls-CenIn-DisOut-${NP}
-        PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+    ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+
+    ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
+    add_test( NAME Medit-DisIn-MeshOnly-6
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
+    add_test( NAME hdf5-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
+    add_test( NAME hdf5-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
+        Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
+        hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
+        hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
     ENDIF ( )
 
-  endforeach()
 
-  #--------------------------------
-  #--- DISTRIBUTED INPUT (DisIn)
-  #--------------------------------
-  add_test( NAME ls-DisIn-ReadLs-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
-    -ls 0.01
-    -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-    -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
-  set(lsReadFile "3D-cube-ls.0.sol OPENED")
-  set_property(TEST ls-DisIn-ReadLs-2
-    PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
+    ###############################################################################
+    #####
+    #####        Test with fields input and output
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    # Test to read  distributed input  fields in Medit format
+    # and  to write distributed output fields in VTK   format
+    add_test( NAME fields-DisIn-DisOutVTK-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
+      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
 
-  # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
-  # npart with mesh only or mesh+metric.
+    set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
+    set(OutputVtkFields "Writing mesh, metric and fields.")
 
-  ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
-  add_test( NAME Medit-DisIn-MeshOnly-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
-    -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
+    set_property(TEST fields-DisIn-DisOutVTK-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${InputDistributedFields}.*${OutputVtkFields};
+      ${OutputVtkFields}.*${InputDistributedFields}")
 
-  ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
-  add_test( NAME Medit-DisIn-MeshAndMet-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
-    -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
+    # Test to write distributed output fields and metric in Medit format
+    add_test( NAME fields-DisIn-DisOutMesh-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh
+      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
 
-  ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
-  add_test( NAME Medit-DisIn-MeshOnly-4
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
-    ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+    set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
+    set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2.o.0.sol OPENED.")
+    set_property(TEST fields-DisIn-DisOutMesh-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
 
-  ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
-  add_test( NAME Medit-DisIn-MeshOnly-6
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
-    ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+    # Test saving of solution fields on 4 procs at hdf5 format
+    add_test( NAME hdf5-CenIn-DisOutHdf5-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.h5)
 
-  ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
-  add_test( NAME hdf5-DisIn-MeshOnly-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
-    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST hdf5-CenIn-DisOutHdf5-4
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
 
-  ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
-  add_test( NAME hdf5-DisIn-MeshAndMet-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
-    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
-
-  ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
-  add_test( NAME hdf5-DisIn-MeshAndMet-8
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
-    ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
-
-  ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
-  add_test( NAME hdf5-DisIn-MeshOnly-8
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
-    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
-
-  ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
-  add_test( NAME hdf5-DisIn-MeshAndMet-4
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
-    ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
-
-  ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
-  add_test( NAME hdf5-DisIn-MeshOnly-4
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-    -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
-    -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
-
-
-  IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
-    SET(expr "HDF5 library not found")
-    SET_PROPERTY(
-      TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
-      Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
-      hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
-      hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
-      PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
-  ENDIF ( )
-
-
-  ###############################################################################
-  #####
-  #####        Test with fields input and output
-  #####
-  ###############################################################################
-  #--------------------------------
-  #--- DISTRIBUTED INPUT (DisIn)
-  #--------------------------------
-  # Test to read  distributed input  fields in Medit format
-  # and  to write distributed output fields in VTK   format
-  add_test( NAME fields-DisIn-DisOutVTK-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
-    -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
-
-  set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
-  set(OutputVtkFields "Writing mesh, metric and fields.")
-
-  set_property(TEST fields-DisIn-DisOutVTK-2
-    PROPERTY PASS_REGULAR_EXPRESSION
-    "${InputDistributedFields}.*${OutputVtkFields};
-     ${OutputVtkFields}.*${InputDistributedFields}")
-
-  # Test to write distributed output fields and metric in Medit format
-  add_test( NAME fields-DisIn-DisOutMesh-2
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh
-    -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
-    -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
-
-  set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
-  set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2.o.0.sol OPENED.")
-  set_property(TEST fields-DisIn-DisOutMesh-2
-    PROPERTY PASS_REGULAR_EXPRESSION
-    "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
-
-  # Test saving of solution fields on 4 procs at hdf5 format
-  add_test( NAME hdf5-CenIn-DisOutHdf5-4
-    COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-    ${CI_DIR}/Interpolation/coarse.meshb -v 5
-    -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.h5)
-
-  IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
-    SET(expr "HDF5 library not found")
-    SET_PROPERTY(
-      TEST hdf5-CenIn-DisOutHdf5-4
-      PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
-  ENDIF ( )
+  ENDIF()
 
   ###############################################################################
   #####
