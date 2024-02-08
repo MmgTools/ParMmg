@@ -330,7 +330,7 @@ IF( BUILD_TESTING )
 
     # Test to verify the patch on update MG_REF tag.
     # This test fail if the tag MG_REF is not updated by PMMG_updateTagRef_node in PMMG_update_analys.
-    # See ParMmg PR#
+    # See ParMmg PR#103
     add_test( NAME update-ref-tag
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
