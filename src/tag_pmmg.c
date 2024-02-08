@@ -454,6 +454,39 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
 }
 
 /**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param mesh pointer to the mesh structure
+ *
+ * Update the nodes tag with MG_REF if the edge in tetra is also MG_REF
+ *
+ */
+void PMMG_updateTagRef_node(PMMG_pParMesh parmesh, MMG5_pMesh mesh) {
+  MMG5_pTetra   pt;
+  MMG5_pxTetra  pxt;
+  MMG5_int      k,ip0,ip1;
+  int           ia;
+
+  for ( k=1; k<=mesh->ne; k++ ) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) ) continue;
+    if ( !pt->xt ) continue;
+    pxt = &mesh->xtetra[pt->xt];
+    for ( ia=0 ; ia<6 ; ia++ ) {
+      if ( pxt->tag[ia] & MG_REF) {
+        ip0 = pt->v[MMG5_iare[ia][0]];
+        ip1 = pt->v[MMG5_iare[ia][1]];
+        if ( !(mesh->point[ip0].tag & MG_REF) ) {
+          mesh->point[ip0].tag |= MG_REF;
+        }
+        if ( !(mesh->point[ip1].tag & MG_REF) ) {
+          mesh->point[ip1].tag |= MG_REF;
+        }
+      }
+    }
+  }
+}
+
+/**
  * \param parmesh pointer to parmesh structure.
  * \return 0 if fail, 1 if success.
  *
