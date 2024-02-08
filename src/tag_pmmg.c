@@ -458,6 +458,9 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
  * \param mesh pointer to the mesh structure
  *
  * Update the nodes tag with MG_REF if the edge in tetra is also MG_REF
+ * \remark When we enter this function, the tag MG_OLDPBDY is correctly assigned to xtetra.ftag only.
+ * However, we can have only an edge on the // interface (and no face). Therefore, we need 
+ * to loop over all the edges of all the tetra.
  *
  */
 void PMMG_updateTagRef_node(PMMG_pParMesh parmesh, MMG5_pMesh mesh) {
