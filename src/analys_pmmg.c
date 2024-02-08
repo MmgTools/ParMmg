@@ -1568,6 +1568,9 @@ int PMMG_update_analys(PMMG_pParMesh parmesh) {
       return 0;
     }
 
+    /* Update tag MG_REF of points if edge tag is MG_REF in xtetra */
+    PMMG_updateTagRef_node(parmesh,mesh);
+
     /* First: seek edges at the interface of two distinct domains and mark it as
      * required */
 #warning Luca: add a function like MMG5_setEdgeNmTag(mesh,hash)
