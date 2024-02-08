@@ -328,6 +328,14 @@ IF( BUILD_TESTING )
       ENDFOREACH()
     ENDFOREACH()
 
+    # Test to verify the patch on update MG_REF tag.
+    # This test fail if the tag MG_REF is not updated by PMMG_updateTagRef_node in PMMG_update_analys.
+    # See ParMmg PR#
+    add_test( NAME update-ref-tag
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
+      -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
+
     ###############################################################################
     #####
     #####        Test isovalue mode - ls discretization
