@@ -60,6 +60,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   PMMG_pExt_comm ext_node_comm,ext_edge_comm,ext_face_comm;
   PMMG_pGrp      grp;
+  MMG5_pSol      field;
+  MMG5_pSol      psl;
 
   MMG5_int ne_init,ne_tmp;
   MMG5_int k,k0;
@@ -106,6 +108,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   /* Initialization */
   grp = &parmesh->listgrp[0];
+  field    = grp->field;
   next_node_comm = parmesh->next_node_comm;  // Number of communicator for nodes
   next_edge_comm = parmesh->next_edge_comm;  // Number of communicator for edges
   next_face_comm = parmesh->next_face_comm;  // Number of communicator for faces
@@ -406,6 +409,26 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
       }
 
+      /** Field interpolation */
+      if ( mesh->nsols ) {
+        for ( j=0; j<mesh->nsols; ++j ) {
+          psl    = field + j;
+          if ( field->size > 1 ) {
+            ier = MMG3D_intmet33_ani_edge(psl,ip0,ip1,np,s);
+          }
+          else {
+            ier = MMG5_intmet_iso_edge(psl,ip0,ip1,np,s);
+          }
+          if ( ier <= 0 ) {
+            /* Unable to compute the metric */
+            fprintf(stderr,"\n  ## Error: %s: unable to"
+                    " interpolate the metric during the level-set"
+                    " discretization\n",__func__);
+            return 0;
+          }
+        }
+      }
+
       /* STEP 5.1.4 - Update node communicators and edge hash table */
       /* (a) Update the internal node communicators */
       grp->node2int_node_comm_index1[nitem_int_node] = np;
@@ -550,6 +573,26 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                   " interpolate the metric during the level-set"
                   " discretization\n",__func__);
           return 0;
+        }
+      }
+
+      /** Field interpolation */
+      if ( mesh->nsols ) {
+        for ( j=0; j<mesh->nsols; ++j ) {
+          psl    = field + j;
+          if ( field->size > 1 ) {
+            ier = MMG3D_intmet33_ani(mesh,psl,k,ia,np,s);
+          }
+          else {
+            ier = MMG5_intmet_iso(mesh,psl,k,ia,np,s);
+          }
+          if ( ier <= 0 ) {
+            /* Unable to compute the metric */
+            fprintf(stderr,"\n  ## Error: %s: unable to"
+                    " interpolate the metric during the level-set"
+                    " discretization\n",__func__);
+            return 0;
+          }
         }
       }
 
