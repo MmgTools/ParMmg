@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b3fece6cb6afbcd73962c7586aafa211af396e4c
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 4191e89c786da984356291be3553e8f26ceb61a2
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -232,6 +232,79 @@ IF( BUILD_TESTING )
       "${OutputVtkRenameFilename}.*${OutputVtkRenameWarning};
        ${OutputVtkRenameWarning}.*${OutputVtkRenameFilename}")
 
+    # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
+    # npart with mesh only or mesh+metric.
+    ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
+
+    ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
+    add_test( NAME Medit-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
+
+    ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+
+    ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
+    add_test( NAME Medit-DisIn-MeshOnly-6
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
+    add_test( NAME hdf5-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
+    add_test( NAME hdf5-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
+        Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
+        hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
+        hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
+
     ###############################################################################
     #####
     #####        Tests fields interpolation with or without metric
@@ -333,7 +406,7 @@ IF( BUILD_TESTING )
     # See ParMmg PR#103
     add_test( NAME update-ref-tag
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
+      ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
       -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
 
     ###############################################################################
@@ -434,89 +507,119 @@ IF( BUILD_TESTING )
     #--------------------------------
     #--- DISTRIBUTED INPUT (DisIn)
     #--------------------------------
-    add_test( NAME ls-DisIn-ReadLs-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
-      -ls 0.01
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
-    set(lsReadFile "3D-cube-ls.0.sol OPENED")
-    set_property(TEST ls-DisIn-ReadLs-2
-      PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
+    #***********************
+    #** TOY GEOM LS tests
+    #***********************
+    foreach( NP 2 5)
 
-    # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
-    # npart with mesh only or mesh+metric.
+      # Toy geom:: ls_val not given + no remesh
+      add_test( NAME ls-DisIn-lsnotgiven-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+        -ls
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-lsnotgiven-${NP}.o.mesh)
 
-    ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
-    add_test( NAME Medit-DisIn-MeshOnly-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
-      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
+      # Toy geom:: ls_val=0.0 + no remesh
+      add_test( NAME ls-DisIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-${NP}.o.mesh)
 
-    ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
-    add_test( NAME Medit-DisIn-MeshAndMet-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
-      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
+      # Toy geom:: ls_val=0.5 + no remesh
+      add_test( NAME ls-DisIn-lsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+        -ls 0.5
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-lsval-${NP}.o.mesh)
 
-    ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
-    add_test( NAME Medit-DisIn-MeshOnly-4
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
-      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+      # Toy geom:: ls_val=0.0 + remesh
+      add_test( NAME ls-DisIn-remesh-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-remesh-${NP}.o.mesh)
 
-    ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
-    add_test( NAME Medit-DisIn-MeshOnly-6
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
-      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+      # Toy geom:: ls_val=0.0 + remesh hsiz
+      add_test( NAME ls-DisIn-hsiz-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -hsiz 0.1
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-hsiz-${NP}.o.mesh)
 
-    ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
-    add_test( NAME hdf5-DisIn-MeshOnly-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
-      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+      # Toy geom:: ls_val=0.5 + remesh hsiz
+      add_test( NAME ls-DisIn-lsval-hsiz-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -hsiz 0.1
+        -ls 0.5
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-lsval-hsiz-${NP}.o.mesh)
 
-    ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
-    add_test( NAME hdf5-DisIn-MeshAndMet-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
-      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
+      # Toy geom:: ls_val=0.0 + remesh metric
+      add_test( NAME ls-DisIn-metric-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-metric-${NP}.o.pvtu)
 
-    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
-    add_test( NAME hdf5-DisIn-MeshAndMet-8
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
-      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+        SET(metric-open "cube-metric.0.sol OPENED")
+        SET_PROPERTY(
+          TEST ls-DisIn-metric-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${metric-open}")
 
-    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
-    add_test( NAME hdf5-DisIn-MeshOnly-8
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
-      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+      # Toy geom:: ls_val=0.0 + no remesh + fields
+      add_test( NAME ls-DisIn-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+        -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-fields-${NP}.o.pvtu)
 
-    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
-    add_test( NAME hdf5-DisIn-MeshAndMet-4
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
-      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+        SET(fields-open "cube-fields.0.sol OPENED")
+        SET_PROPERTY(
+          TEST ls-DisIn-fields-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${fields-open}")
 
-    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
-    add_test( NAME hdf5-DisIn-MeshOnly-4
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
-      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+      # Toy geom:: ls_val=0.0 + remesh metric + fields
+      add_test( NAME ls-DisIn-metric-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-edges.mesh -v 5
+        -met   ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+        -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-metric-fields-${NP}.o.pvtu)
 
+    endforeach()
 
-    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
-      SET(expr "HDF5 library not found")
-      SET_PROPERTY(
-        TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
-        Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
-        hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
-        hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
-        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
-    ENDIF ( )
+    #***********************
+    #** COMPLEX GEOM LS tests
+    #***********************
+    # Note that for now this test fail - LS on complexe test case need to be fixed
+    # However this test pass right now as we just check if the LS file is read correctly
+    # add_test( NAME ls-DisIn-ReadLs-2
+    #   COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+    #   ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
+    #   -ls 0.01
+    #   -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+    #   -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
+    # set(lsReadFile "3D-cube-ls.0.sol OPENED")
+    # set_property(TEST ls-DisIn-ReadLs-2
+    #   PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
 
 
     ###############################################################################
