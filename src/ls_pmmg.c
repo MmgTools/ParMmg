@@ -320,6 +320,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       }
 
       // TODO:: Multimaterial - Check whether an entity with reference ref should be split
+      // This function does not work here because we come from an edge and not a tetra
+      // Need to find a way to know if we need to split or not this edge..
+      // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
       /* STEP 5.1.2 - Create a new point if this edge needs to be split */
       /* Check the ls value at the edge nodes */
