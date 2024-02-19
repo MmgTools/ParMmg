@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b3fece6cb6afbcd73962c7586aafa211af396e4c
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout b23b5cfe1b3e57b25a16befcc08cdb7f32178d75
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -518,6 +518,67 @@ IF( BUILD_TESTING )
         PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
     ENDIF ( )
 
+   ###############################################################################
+    #####
+    #####        Test with multi-material input file *mmg3d 'LSReferences'
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    SET(lsRefReadFile ".mmg3d OPENED")
+    foreach (NP 1 4)
+      add_test( NAME lsRef-Read-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5 -nomove -noinsert -noswap -niter 1
+        -out ${CI_DIR_RESULTS}/lsRef-Read-CenIn-${NP}.o.mesh)
+
+        set_property(TEST lsRef-Read-CenIn-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${lsRefReadFile}")
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WHITOUT LS
+    foreach (NP 1 2 4)
+      add_test( NAME lsRef-Run-CenIn-CenOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5
+        -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-CenOut-${NP}.o.mesh)
+
+      add_test( NAME lsRef-Run-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5 -distributed-output
+        -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-DisOut-${NP}.o.mesh)
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WITH LS
+    # TODO once LS implemented
+
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    add_test( NAME lsRef-Read-DisIn-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5 -nomove -noinsert -noswap -niter 1
+      -out ${CI_DIR_RESULTS}/locParam-Read-DisIn-2.o.mesh)
+
+    set_property(TEST lsRef-Read-DisIn-2
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsRefReadFile}")
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WHITOUT LS
+    add_test( NAME lsRef-Run-DisIn-DisOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5
+      -out ${CI_DIR_RESULTS}/lsRef-Run-DisIn-DisOut-2.o.mesh)
+
+    add_test( NAME lsRef-Run-DisIn-CenOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/lsRef-Run-DisIn-CenOut-2.o.mesh)
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WITH LS
+    # TODO once LS implemented
 
     ###############################################################################
     #####
@@ -568,6 +629,63 @@ IF( BUILD_TESTING )
         TEST hdf5-CenIn-DisOutHdf5-4
         PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
     ENDIF ( )
+
+    ###############################################################################
+    #####
+    #####        Test with local parameters input file *mmg3d 'parameters'
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    SET(locParamReadFile ".mmg3d OPENED")
+    foreach (NP 1 4)
+      add_test( NAME locParam-Read-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -nomove -noinsert -noswap -niter 1
+        -out ${CI_DIR_RESULTS}/locParam-Read-CenIn-${NP}.o.mesh)
+
+        set_property(TEST locParam-Read-CenIn-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${locParamReadFile}")
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors
+    foreach (NP 1 2 4)
+      add_test( NAME locParam-Run-CenIn-CenOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5
+        -out ${CI_DIR_RESULTS}/locParam-Run-CenIn-CenOut-${NP}.o.mesh)
+
+      add_test( NAME locParam-Run-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -distributed-output
+        -out ${CI_DIR_RESULTS}/locParam-Run-CenIn-DisOut-${NP}.o.mesh)
+    endforeach()
+
+
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    add_test( NAME locParam-Read-DisIn-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -nomove -noinsert -noswap -niter 1
+      -out ${CI_DIR_RESULTS}/locParam-Read-DisIn-2.o.mesh)
+
+    set_property(TEST locParam-Read-DisIn-2
+      PROPERTY PASS_REGULAR_EXPRESSION "${locParamReadFile}")
+
+    #-- Test if tests with input file *mmg3d run correctly without errors
+    add_test( NAME locParam-Run-DisIn-DisOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5
+      -out ${CI_DIR_RESULTS}/locParam-Run-DisIn-DisOut-2.o.mesh)
+
+    add_test( NAME locParam-Run-DisIn-CenOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/locParam-Run-DisIn-CenOut-2.o.mesh)
 
   ENDIF()
 
