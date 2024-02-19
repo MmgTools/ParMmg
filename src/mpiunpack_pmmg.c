@@ -459,7 +459,7 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
  */
 static
 void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh ) {
-  int   k,nmat,npar;
+  int   k,nmat,npar,invsize;
 
   if ( ier_mesh ) {
     /** Mesh infos */
@@ -573,8 +573,9 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
       /* invmat */
-      *buffer += 2*sizeof(int);
-      *buffer += info->invmat.size*sizeof(int); // ????
+      *buffer += sizeof(int);
+      invsize = *( (int *) *buffer); *buffer += sizeof(int);
+      *buffer += invsize*sizeof(int);
     }
 
     /* local parameters */
