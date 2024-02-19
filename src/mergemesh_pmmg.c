@@ -1518,7 +1518,7 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
   /** Recover mesh infos */
   grp_1 = &rcv_grps[0];
   assert ( grp_1->mesh );
-  memcpy ( &mesh->info,&grp_1->mesh->info,sizeof(MMG5_Info) );
+  if ( !PMMG_copy_mmgInfo ( &grp_1->mesh->info,&mesh->info ) ) return 0;
 
   /** Recover mesh name */
 
