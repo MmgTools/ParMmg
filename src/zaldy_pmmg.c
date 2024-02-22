@@ -616,7 +616,67 @@ int PMMG_updateMeshSize( PMMG_pParMesh parmesh, int fitMesh )
 int PMMG_resize_extComm ( PMMG_pParMesh parmesh,PMMG_pExt_comm ext_comm,
                           int newSize,int *oldSize ) {
 
+  int* tmp;
+  size_t size_to_allocate,size_to_add,size_to_increase;
+
+
   if ( newSize == *oldSize ) return 1;
+
+  fprintf(stdout,"\n      ## My_rank :: %d - newSize=%d - oldSize=%d \n",parmesh->myrank,newSize,*oldSize);
+
+
+  if ((newSize) < (*oldSize)) {
+    size_to_allocate = (newSize)*sizeof(int);
+    fprintf(stdout,"\n      ## My_rank :: %d - (newSize) < (*oldSize) - size_to_allocate=%zu\n",parmesh->myrank,size_to_allocate);
+    // tmp = (int *)myrealloc((ext_comm->int_comm_index),size_to_allocate,(*oldSize)*sizeof(int));
+    // if ( tmp == NULL ) {
+    //   fprintf(stdout,"\n      ## My_rank :: %d - (newSize) < (*oldSize) - PMMG_resize_extComm tmp NULL\n",parmesh->myrank);
+    // }
+    // else {
+    //   fprintf(stdout,"\n      ## My_rank :: %d - (newSize) < (*oldSize) - PMMG_resize_extComm tmp OK\n",parmesh->myrank);
+    // }
+  }
+  else if ((newSize) > (*oldSize)) {
+    size_to_add = ((newSize)-(*oldSize))*sizeof(int);
+    size_to_allocate = (newSize)*sizeof(int);
+    size_to_increase = (*oldSize)*sizeof(int);
+    fprintf(stdout,"\n      ## My_rank :: %d - (newSize) > (*oldSize) - size_to_add=%zu - size_to_allocate=%zu - size_to_increase=%zu\n",parmesh->myrank,size_to_add,size_to_allocate,size_to_increase);
+    fprintf(stdout,"\n      ## My_rank :: %d -  - (parmesh)->memCu=%zu + bytes=%zu > (parmesh)->memMax=%zu\n",parmesh->myrank,parmesh->memCur,size_to_add,parmesh->memMax );
+
+
+// void * myrealloc(void * ptr_in, size_t s, size_t oldsize) {
+//   char *ptr;
+//   char *ptr_in_c = (char*)ptr_in;
+
+//   if ( !ptr_in ) {
+//     assert ( !oldsize );
+//     return mymalloc( s );
+//   }
+
+//   ptr_in_c -= sizeof(size_t);
+//   if (oldsize != *((size_t*)ptr_in_c)) {
+//     fprintf(stderr, "myrealloc: Error: freed memory mismatch\n");
+//     assert(0);
+//   }
+//   ptr = (char *)realloc(ptr_in_c, s+sizeof(size_t));
+//   if (ptr == NULL)
+//     return NULL;
+//   else {
+//     *((size_t*)ptr)=s;
+//     ptr+=sizeof(size_t);
+//     return (void*)ptr;
+//   }
+
+    // MEM_CHK_AVAIL(parmesh,size_to_add,"blablablablabla int_comm_index");
+
+    // tmp = (int *)myrealloc((ext_comm->int_comm_index),size_to_allocate,size_to_increase);
+    // if ( tmp == NULL ) {
+    //   fprintf(stdout,"\n      ## My_rank :: %d - (newSize) > (*oldSize) - PMMG_resize_extComm tmp NULL\n",parmesh->myrank);
+    // }
+    // else {
+    //   fprintf(stdout,"\n      ## My_rank :: %d - (newSize) > (*oldSize) - PMMG_resize_extComm tmp OK\n",parmesh->myrank);
+    // }
+  }
 
   PMMG_REALLOC(parmesh,ext_comm->int_comm_index,newSize,*oldSize,int,
                "int_comm_index",return 0);
