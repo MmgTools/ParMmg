@@ -459,7 +459,7 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
  */
 static
 void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh ) {
-  int   k,nmat,npar;
+  int   k,nmat,npar,invsize;
 
   if ( ier_mesh ) {
     /** Mesh infos */
@@ -519,6 +519,19 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
         *buffer += sizeof(int8_t);
         *buffer += 3*sizeof(int);
       }
+
+      info->invmat.offset  = *( (int *) *buffer); *buffer += sizeof(int);
+      info->invmat.size    = *( (int *) *buffer); *buffer += sizeof(int);
+      MMG5_SAFE_CALLOC(info->invmat.lookup,info->invmat.size,int, *ier = 0);
+      if ( *ier ) {
+        for ( k=0; k<info->invmat.size; ++k ) {
+          info->invmat.lookup[k] = *( (int *) *buffer);
+          *buffer += sizeof(int);
+        }
+      }
+      else {
+        *buffer += info->invmat.size*sizeof(int);
+      }
     }
 
     /* local parameters */
@@ -554,10 +567,15 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     *buffer += 7*sizeof(uint8_t);
 
     if ( nmat ) {
+      /* mat */
       *buffer += nmat*sizeof(int8_t);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
+      /* invmat */
+      *buffer += sizeof(int);
+      invsize = *( (int *) *buffer); *buffer += sizeof(int);
+      *buffer += invsize*sizeof(int);
     }
 
     /* local parameters */

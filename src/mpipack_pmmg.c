@@ -211,6 +211,10 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
     idx += info->nmat*sizeof(int); //  mat->ref
     idx += info->nmat*sizeof(int); //  mat->rin
     idx += info->nmat*sizeof(int); //  mat->rex
+    assert( info->invmat.lookup);
+    idx += sizeof(int); // invmat->offset
+    idx += sizeof(int); // invmat->size
+    idx += info->invmat.size*sizeof(int); // invmat->lookup
   }
 
   /* local parameters */
@@ -790,6 +794,12 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
       *( (int *) tmp)  = info->mat[k].ref; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rin; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rex; tmp += sizeof(int);
+    }
+    assert( info->invmat.lookup);
+    *( (int *) tmp) = info->invmat.offset; tmp += sizeof(int);
+    *( (int *) tmp) = info->invmat.size;   tmp += sizeof(int);
+    for ( k=0; k<info->invmat.size; ++k ) {
+      *( (int *) tmp) = info->invmat.lookup[k]; tmp += sizeof(int);
     }
   }
 
