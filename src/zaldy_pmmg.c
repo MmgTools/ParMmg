@@ -616,30 +616,8 @@ int PMMG_updateMeshSize( PMMG_pParMesh parmesh, int fitMesh )
 int PMMG_resize_extComm ( PMMG_pParMesh parmesh,PMMG_pExt_comm ext_comm,
                           int newSize,int *oldSize ) {
 
-  int* tmp;
-  size_t size_to_allocate,size_to_add,size_to_increase;
-  int    stat = PMMG_SUCCESS;                                           \
-
-
   if ( newSize == *oldSize ) return 1;
 
-  fprintf(stdout,"\n      ## My_rank :: %d - newSize=%d - oldSize=%d \n",parmesh->myrank,newSize,*oldSize);
-
-  if ((newSize) < (*oldSize)) {
-    size_to_allocate = (newSize)*sizeof(int);
-    fprintf(stdout,"\n      ## My_rank :: %d - (newSize) < (*oldSize) - size_to_allocate=%zu\n",parmesh->myrank,size_to_allocate);
-    // tmp = (int *)myrealloc((ext_comm->int_comm_index),size_to_allocate,(*oldSize)*sizeof(int));
-  }
-  else if ((newSize) > (*oldSize)) {
-    size_to_add = ((newSize)-(*oldSize))*sizeof(int);
-    size_to_allocate = (newSize)*sizeof(int);
-    size_to_increase = (*oldSize)*sizeof(int);
-    fprintf(stdout,"\n      ## My_rank :: %d - (newSize) > (*oldSize) - size_to_add=%zu - size_to_allocate=%zu - size_to_increase=%zu\n",parmesh->myrank,size_to_add,size_to_allocate,size_to_increase);
-    fprintf(stdout,"\n      ## My_rank :: %d -  - (parmesh)->memCu=%zu + bytes=%zu > (parmesh)->memMax=%zu\n",parmesh->myrank,parmesh->memCur,size_to_add,parmesh->memMax );
-    MEM_CHK_AVAIL(parmesh,size_to_add,"TESTTTTTT ::::: int_comm_index");
-  }
-
-  // PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure)
   PMMG_REALLOC(parmesh,ext_comm->int_comm_index,newSize,*oldSize,int,
                "int_comm_index",return 0);
 
@@ -681,7 +659,7 @@ int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
       PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend, double,"rtosend" );
 
     if ( (*ext_comm+k)->rtorecv )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,int,"rtorecv" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,double,"rtorecv" );
 
   }
 
