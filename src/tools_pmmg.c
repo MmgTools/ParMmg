@@ -111,6 +111,8 @@ const char* PMMG_Get_pmmgArgName(int typArg)
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy ) {
   MMG5_pMat mat_tmp;
   MMG5_pPar par_tmp;
+  int       *lookup_tmp;
+  int i;
 
   // assert to remove (we may authorize to have mat and par already allocated )
   assert ( (!info_cpy->mat) && (!info_cpy->par) );
@@ -123,6 +125,22 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy ) {
   }
   if ( mat_tmp ) {
     *mat_tmp = *info->mat;
+    for ( i=0; i<info->nmat; ++i ) {
+      mat_tmp[i]=info->mat[i];
+    }
+  }
+
+  if ( info->nmat && (!info_cpy->invmat.lookup) ) {
+    MMG5_SAFE_CALLOC(lookup_tmp,info->invmat.size,int,return 0);
+  }
+  else {
+    lookup_tmp = info_cpy->invmat.lookup;
+  }
+  if ( lookup_tmp ) {
+    *lookup_tmp = *info->invmat.lookup;
+    for ( i=0; i<info->invmat.size; ++i ) {
+      lookup_tmp[i]=info->invmat.lookup[i];
+    }
   }
 
   /* local parameters */
@@ -134,12 +152,16 @@ int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy ) {
   }
   if ( par_tmp ) {
     *par_tmp = *info->par;
+    for ( i=0; i<info->npar; ++i ) {
+      par_tmp[i]=info->par[i];
+    }
   }
 
   *info_cpy = *info;
 
   info_cpy->mat = mat_tmp;
   info_cpy->par = par_tmp;
+  info_cpy->invmat.lookup = lookup_tmp;
 
   return 1;
 }
