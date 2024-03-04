@@ -90,6 +90,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int ier;
 
   int nitem_int_node,nitem_int_face;
+  int nitem_int_node_firstalloc,nitem_int_face_firstalloc;
   int nitem_ext_node,nitem_ext_edge,nitem_ext_face;
   int nitem_ext_face_init;
   int next_node_comm,next_face_comm,next_edge_comm;
@@ -181,6 +182,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                nitem_int_node+2*nb,
                nitem_int_node,
                int,"Allocation of node2int_node_comm_index2", return 0);
+  nitem_int_node_firstalloc = nitem_int_node+2*nb;
 
   /* STEP 3.3 - Realloc internal face communicators */
   PMMG_REALLOC(parmesh, grp->face2int_face_comm_index1,
@@ -191,23 +193,26 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
                3*nitem_int_face,
                nitem_int_face,
                int,"Allocation of face2int_face_comm_index2", return 0);
+  nitem_int_face_firstalloc = 3*nitem_int_face;
 
   /* STEP 3.4 - Realloc external node communicator */
-  for ( k=0; k<parmesh->next_node_comm; ++k ) {
+  for ( k=0; k<parmesh->next_node_comm; k++ ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
     PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
                  ext_node_comm->nitem+2*nb,
                  ext_node_comm->nitem,
                  int,"Allocation of external node communicator",return 0);
+    ext_node_comm->nitem_to_share = ext_node_comm->nitem+2*nb;
   }
 
   /* STEP 3.5 - Realloc external face communicator */
-  for ( k=0; k<parmesh->next_face_comm; ++k ) {
+  for ( k=0; k<parmesh->next_face_comm; k++ ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
     PMMG_REALLOC(parmesh,ext_face_comm->int_comm_index,
                  ext_face_comm->nitem+2*ext_face_comm->nitem,
                  ext_face_comm->nitem,
                  int,"Allocation of external face communicator",return 0);
+    ext_face_comm->nitem_to_share = ext_face_comm->nitem+2*ext_face_comm->nitem;
   }
 
   /* STEP 3.6 - Allocate all the other variables needed to be allocated ! */
@@ -907,13 +912,53 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     if ( !ier ) return 0;
   }
 
-  /** STEP 7 - Deallocation of memory and reset of some fields */
+  /** STEP 7 - Deallocation/Allocation of memory and reset of some fields */
   /* Delete the tables storing imin0, imin2 and ne_tmp_tab */
   PMMG_DEL_MEM(parmesh,vGlobNum_tab,MMG5_int,"vGlobNum_tab");
   PMMG_DEL_MEM(parmesh,ne_tmp_tab,MMG5_int,"ne_tmp_tab");
 
   /* Delete the edges hash table */
   MMG5_DEL_MEM(mesh,hash.item);
+
+  /* Realloc internal node communicators to exact final size */
+  PMMG_REALLOC(parmesh, grp->node2int_node_comm_index1,
+               nitem_int_node,
+               nitem_int_node_firstalloc,
+               int,"Allocation of node2int_node_comm_index1", return 0);
+  PMMG_REALLOC(parmesh, grp->node2int_node_comm_index2,
+               nitem_int_node,
+               nitem_int_node_firstalloc,
+               int,"Allocation of node2int_node_comm_index2", return 0);
+
+  /* Realloc internal face communicators to exact final size */
+  PMMG_REALLOC(parmesh, grp->face2int_face_comm_index1,
+               nitem_int_face,
+               nitem_int_face_firstalloc,
+               int,"Allocation of face2int_face_comm_index1", return 0);
+  PMMG_REALLOC(parmesh, grp->face2int_face_comm_index2,
+               nitem_int_face,
+               nitem_int_face_firstalloc,
+               int,"Allocation of face2int_face_comm_index2", return 0);
+
+  /* Realloc external node communicator to exact final size */
+  for ( k=0; k<parmesh->next_node_comm; k++ ) {
+    ext_node_comm = &parmesh->ext_node_comm[k];
+    PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
+                 ext_node_comm->nitem,
+                 ext_node_comm->nitem_to_share,
+                 int,"Re-allocation of external node communicator",return 0);
+    ext_node_comm->nitem_to_share = 0;
+  }
+
+  /* Realloc external face communicator to exact final size */
+  for ( k=0; k<parmesh->next_face_comm; k++ ) {
+    ext_face_comm = &parmesh->ext_face_comm[k];
+    PMMG_REALLOC(parmesh,ext_face_comm->int_comm_index,
+                 ext_face_comm->nitem,
+                 ext_face_comm->nitem_to_share,
+                 int,"Re-allocation of external face communicator",return 0);
+    ext_face_comm->nitem_to_share = 0;
+  }
 
   /* Reset mark and flag in mesh->tetra */
   for (k=1; k<=ne_init; k++) {
