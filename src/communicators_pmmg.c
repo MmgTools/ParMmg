@@ -89,11 +89,11 @@ void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm listcomm,
     }
     if ( NULL != comm->rtosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtosend,int,"ext comm rtosend array");
+      PMMG_DEL_MEM(parmesh,comm->rtosend,double,"ext comm rtosend array");
     }
     if ( NULL != comm->rtorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtorecv,int,"ext comm rtorecv array");
+      PMMG_DEL_MEM(parmesh,comm->rtorecv,double,"ext comm rtorecv array");
     }
   }
 }

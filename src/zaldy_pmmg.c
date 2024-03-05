@@ -659,7 +659,7 @@ int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
       PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend, double,"rtosend" );
 
     if ( (*ext_comm+k)->rtorecv )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,int,"rtorecv" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,double,"rtorecv" );
 
   }
 
