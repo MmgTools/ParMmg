@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 89cdf876d577ca5c26767decac4fc35e4ae0d255
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout e6a3c9da83c439cbbc39f7e9906d760bdfec2bfe
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -406,7 +406,7 @@ IF( BUILD_TESTING )
     # See ParMmg PR#103
     add_test( NAME update-ref-tag
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
       -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
 
     ###############################################################################
@@ -515,96 +515,96 @@ IF( BUILD_TESTING )
       foreach( MODE faces nodes)
 
         # Toy geom:: ls_val not given + no remesh
-        add_test( NAME ls-DisIn-lsnotgiven-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -noswap -nomove -noinsert -nobalance -metis-ratio 10000
           -ls
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-lsnotgiven-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.0 + no remesh
-        add_test( NAME ls-DisIn-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -noswap -nomove -noinsert -nobalance -metis-ratio 10000
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.5 + no remesh
-        add_test( NAME ls-DisIn-lsval-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-lsval-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -noswap -nomove -noinsert -nobalance -metis-ratio 10000
           -ls 0.5
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-lsval-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsval-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.0 + remesh
-        add_test( NAME ls-DisIn-remesh-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-remesh-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-remesh-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-remesh-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.0 + remesh hsiz
-        add_test( NAME ls-DisIn-hsiz-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-hsiz-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -hsiz 0.1
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-hsiz-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-hsiz-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.5 + remesh hsiz
-        add_test( NAME ls-DisIn-lsval-hsiz-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-lsval-hsiz-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -hsiz 0.1
           -ls 0.5
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-lsval-hsiz-${MODE}-${NP}.o.mesh)
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsval-hsiz-${MODE}-${NP}.o.mesh)
 
         # Toy geom:: ls_val=0.0 + remesh metric
-        add_test( NAME ls-DisIn-metric-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-metric-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-metric-${MODE}-${NP}.o.mesh)
+          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-${MODE}-${NP}.o.mesh)
 
           SET(metric-open "cube-metric.0.sol OPENED")
           SET_PROPERTY(
-            TEST ls-DisIn-metric-${MODE}-${NP}
+            TEST ls-DisIn-toygeom-metric-${MODE}-${NP}
             PROPERTY PASS_REGULAR_EXPRESSION "${metric-open}")
 
         # Toy geom:: ls_val=0.0 + no remesh + fields
-        add_test( NAME ls-DisIn-fields-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-fields-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
           -noswap -nomove -noinsert -nobalance -metis-ratio 10000
-          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-fields-${MODE}-${NP}.o.mesh)
+          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-fields-${MODE}-${NP}.o.mesh)
 
           SET(fields-open "cube-fields.0.sol OPENED")
           SET_PROPERTY(
-            TEST ls-DisIn-fields-${MODE}-${NP}
+            TEST ls-DisIn-toygeom-fields-${MODE}-${NP}
             PROPERTY PASS_REGULAR_EXPRESSION "${fields-open}")
 
         # Toy geom:: ls_val=0.0 + remesh metric + fields
-        add_test( NAME ls-DisIn-metric-fields-${MODE}-${NP}
+        add_test( NAME ls-DisIn-toygeom-metric-fields-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -met   ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
-          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-metric-fields-${MODE}-${NP}.o.mesh)
+          -met   ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-fields-${MODE}-${NP}.o.mesh)
 
         # TODO :: anisotropic metric
 
@@ -614,17 +614,51 @@ IF( BUILD_TESTING )
     #***********************
     #** COMPLEX GEOM LS tests
     #***********************
-    # Note that for now this test fail - LS on complexe test case need to be fixed
-    # However this test pass right now as we just check if the LS file is read correctly
-    # add_test( NAME ls-DisIn-ReadLs-2
-    #   COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-    #   ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
-    #   -ls 0.01
-    #   -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-    #   -out ${CI_DIR_RESULTS}/ls-DisIn-ReadLs-2.o.mesh)
-    # set(lsReadFile "3D-cube-ls.0.sol OPENED")
-    # set_property(TEST ls-DisIn-ReadLs-2
-    #   PROPERTY PASS_REGULAR_EXPRESSION "${lsReadFile}")
+    # Complex geom:: ls_val=0.0 + remesh
+    add_test( NAME ls-DisIn-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-2.o.mesh)
+
+    # Complex geom:: ls_val=0.0 + remesh hsiz
+    add_test( NAME ls-DisIn-hsiz-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5 -hsiz 0.1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-hisiz-2.o.mesh)
+
+    # Complex geom:: ls_val=0.0 + remesh metric
+    add_test( NAME ls-DisIn-metric-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/2p_distributed/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-metric-2.o.mesh)
+
+    # Complex geom:: ls_val=0.0 + remesh + fields
+    add_test( NAME ls-DisIn-fields-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-fields-2.o.mesh)
+
+    # Complex geom:: ls_val=0.0 + remesh metric + fields
+    add_test( NAME ls-DisIn-metric-fields-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/2p_distributed/3D-cube-metric.sol
+      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/ls-DisIn-metric-fields-2.o.mesh)
+
+
 
    ###############################################################################
     #####
