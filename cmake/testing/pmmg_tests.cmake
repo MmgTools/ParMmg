@@ -224,7 +224,7 @@ IF( BUILD_TESTING )
 
     add_test( NAME PvtuOut-RenameOut-2
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
       -out ${CI_DIR_RESULTS}/3D-cube-PvtuOut-2.a.o.pvtu)
 
     set_property(TEST PvtuOut-RenameOut-2
@@ -421,9 +421,9 @@ IF( BUILD_TESTING )
     foreach( NP 1 2 4 8 )
       add_test( NAME ls-CenIn-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls 0.0
-        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
     endforeach()
 
@@ -435,9 +435,9 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls 0.0
-        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
         PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
@@ -447,9 +447,9 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls
-        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
         PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
@@ -459,7 +459,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls 0.0
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
@@ -470,7 +470,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
@@ -481,20 +481,43 @@ IF( BUILD_TESTING )
     foreach( NP 1 2 4 8 )
     add_test( NAME ls-CenIn-met-${NP}
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
       -ls 0.0
-      -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
-      -met ${CI_DIR}/LevelSet/1p_centralized/3D-cube-metric.sol
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
       -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
+    endforeach()
+
+    # Tests for ls + fields for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-fields-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -field ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-fields-${NP}.o.mesh)
+    endforeach()
+
+    # Tests for ls + met + fields for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-met-fields-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -field ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-fields-${NP}.o.mesh)
     endforeach()
 
     # Tests of distributed pvtu output when ls mode
     foreach( NP 1 2 4 8 )
       add_test( NAME ls-CenIn-DisOut-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
         -ls 0.0
-        -sol ${CI_DIR}/LevelSet/1p_centralized/3D-cube-ls.sol
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
 
       IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
@@ -558,15 +581,6 @@ IF( BUILD_TESTING )
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-hsiz-${MODE}-${NP}.o.mesh)
 
-        # Toy geom:: ls_val=0.5 + remesh hsiz
-        add_test( NAME ls-DisIn-toygeom-lsval-hsiz-${MODE}-${NP}
-          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -hsiz 0.1
-          -ls 0.5
-          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
-          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsval-hsiz-${MODE}-${NP}.o.mesh)
-
         # Toy geom:: ls_val=0.0 + remesh metric
         add_test( NAME ls-DisIn-toygeom-metric-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -614,50 +628,53 @@ IF( BUILD_TESTING )
     #***********************
     #** COMPLEX GEOM LS tests
     #***********************
-    # Complex geom:: ls_val=0.0 + remesh
-    add_test( NAME ls-DisIn-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-2.o.mesh)
+    foreach( NP 2 5)
 
-    # Complex geom:: ls_val=0.0 + remesh hsiz
-    add_test( NAME ls-DisIn-hsiz-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5 -hsiz 0.1
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-hisiz-2.o.mesh)
+      # Complex geom:: ls_val=0.0 + remesh
+      add_test( NAME ls-DisIn-cubegeom-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-${NP}.o.mesh)
 
-    # Complex geom:: ls_val=0.0 + remesh metric
-    add_test( NAME ls-DisIn-metric-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -met ${CI_DIR}/LevelSet/2p_distributed/3D-cube-metric.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-metric-2.o.mesh)
+      # Complex geom:: ls_val=0.0 + remesh hsiz
+      add_test( NAME ls-DisIn-cubegeom-hsiz-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5 -hsiz 0.1
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-hisiz-${NP}.o.mesh)
 
-    # Complex geom:: ls_val=0.0 + remesh + fields
-    add_test( NAME ls-DisIn-fields-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-fields-2.o.mesh)
+      # Complex geom:: ls_val=0.0 + remesh metric
+      add_test( NAME ls-DisIn-cubegeom-metric-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
 
-    # Complex geom:: ls_val=0.0 + remesh metric + fields
-    add_test( NAME ls-DisIn-metric-fields-2
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10 -niter 5
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/2p_distributed/3D-cube-ls.sol
-      -met ${CI_DIR}/LevelSet/2p_distributed/3D-cube-metric.sol
-      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
-      -out ${CI_DIR_RESULTS}/ls-DisIn-metric-fields-2.o.mesh)
+      # Complex geom:: ls_val=0.0 + remesh + fields
+      add_test( NAME ls-DisIn-cubegeom-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -field ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-fields.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-fields-${NP}.o.mesh)
 
+      # Complex geom:: ls_val=0.0 + remesh metric + fields
+      add_test( NAME ls-DisIn-cubegeom-metric-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
+        -field ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-fields.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-fields-${NP}.o.mesh)
+
+    endforeach()
 
 
    ###############################################################################
@@ -673,7 +690,7 @@ IF( BUILD_TESTING )
     foreach (NP 1 4)
       add_test( NAME lsRef-Read-CenIn-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5 -nomove -noinsert -noswap -niter 1
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5 -nomove -noinsert -noswap -niter 1
         -out ${CI_DIR_RESULTS}/lsRef-Read-CenIn-${NP}.o.mesh)
 
         set_property(TEST lsRef-Read-CenIn-${NP}
@@ -684,12 +701,12 @@ IF( BUILD_TESTING )
     foreach (NP 1 2 4)
       add_test( NAME lsRef-Run-CenIn-CenOut-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5
         -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-CenOut-${NP}.o.mesh)
 
       add_test( NAME lsRef-Run-CenIn-DisOut-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_centralized/3D-cube.mesh -v 5 -distributed-output
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5 -distributed-output
         -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-DisOut-${NP}.o.mesh)
     endforeach()
 
@@ -734,8 +751,8 @@ IF( BUILD_TESTING )
     # and  to write distributed output fields in VTK   format
     add_test( NAME fields-DisIn-DisOutVTK-2
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh -v 10
-      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube.mesh -v 10
+      -field ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube-fields.sol
       -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
 
     set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
@@ -749,8 +766,8 @@ IF( BUILD_TESTING )
     # Test to write distributed output fields and metric in Medit format
     add_test( NAME fields-DisIn-DisOutMesh-2
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/2p_distributed/3D-cube.mesh
-      -field ${CI_DIR}/LevelSet/2p_distributed/3D-cube-fields.sol
+      ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube.mesh
+      -field ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube-fields.sol
       -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
 
     set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
