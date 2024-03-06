@@ -648,7 +648,7 @@ IF( BUILD_TESTING )
 
       # Complex geom:: ls_val=0.0 + remesh metric
       add_test( NAME ls-DisIn-cubegeom-metric-${NP}
-        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
