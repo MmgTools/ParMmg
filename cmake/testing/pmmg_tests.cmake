@@ -435,7 +435,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
@@ -447,7 +447,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
         -ls
         -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
@@ -456,10 +456,11 @@ IF( BUILD_TESTING )
     endforeach()
 
     # Test of opening ls file with a default name when ls val is given
+    # WRONG TEST:: Here we test metric file not LS file
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
         -ls 0.0
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
@@ -467,10 +468,11 @@ IF( BUILD_TESTING )
     endforeach()
 
     # Test of opening ls file with a default name when ls val is not given
+    # WRONG TEST:: Here we test metric file not LS file
     foreach( NP 1 2)
       add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
         -ls
         -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
       set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
@@ -541,7 +543,7 @@ IF( BUILD_TESTING )
         add_test( NAME ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+          -noswap -nomove -noinsert -nobalance
           -ls
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}.o.mesh)
@@ -550,7 +552,7 @@ IF( BUILD_TESTING )
         add_test( NAME ls-DisIn-toygeom-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+          -noswap -nomove -noinsert -nobalance
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-${MODE}-${NP}.o.mesh)
@@ -559,7 +561,7 @@ IF( BUILD_TESTING )
         add_test( NAME ls-DisIn-toygeom-lsval-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+          -noswap -nomove -noinsert -nobalance
           -ls 0.5
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsval-${MODE}-${NP}.o.mesh)
@@ -599,7 +601,7 @@ IF( BUILD_TESTING )
         add_test( NAME ls-DisIn-toygeom-fields-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
-          -noswap -nomove -noinsert -nobalance -metis-ratio 10000
+          -noswap -nomove -noinsert -nobalance
           -ls 0.0
           -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
           -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
@@ -633,7 +635,7 @@ IF( BUILD_TESTING )
       # Complex geom:: ls_val=0.0 + remesh
       add_test( NAME ls-DisIn-cubegeom-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-${NP}.o.mesh)
@@ -641,7 +643,7 @@ IF( BUILD_TESTING )
       # Complex geom:: ls_val=0.0 + remesh hsiz
       add_test( NAME ls-DisIn-cubegeom-hsiz-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5 -hsiz 0.1
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5 -hsiz 0.1
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-hisiz-${NP}.o.mesh)
@@ -649,7 +651,7 @@ IF( BUILD_TESTING )
       # Complex geom:: ls_val=0.0 + remesh metric
       add_test( NAME ls-DisIn-cubegeom-metric-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
@@ -658,7 +660,7 @@ IF( BUILD_TESTING )
       # Complex geom:: ls_val=0.0 + remesh + fields
       add_test( NAME ls-DisIn-cubegeom-fields-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -field ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-fields.sol
@@ -667,7 +669,7 @@ IF( BUILD_TESTING )
       # Complex geom:: ls_val=0.0 + remesh metric + fields
       add_test( NAME ls-DisIn-cubegeom-metric-fields-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 10 -niter 5
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
         -ls 0.0
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
