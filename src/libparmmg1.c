@@ -764,7 +764,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         }
 
         if ( parmesh->iter < parmesh->niter-1 && (!parmesh->info.inputMet) ) {
-          /* Delete the metrec computed by Mmg except at last iter */
+          /* Delete the metric computed by Mmg except at last iter */
           PMMG_DEL_MEM(mesh,met->m,double,"internal metric");
         }
 
