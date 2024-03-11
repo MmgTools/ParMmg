@@ -225,6 +225,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) )  continue;
 
+    // /* Check whether the tetra with reference ref should be split */
+    // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+
     /** Step 4.1 - Identification of edges belonging to a required tet */
     /* If the tetra is required MG_REQ  */
     if ( pt->tag & MG_REQ ) {
@@ -267,13 +270,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       }
     }
   }
-
-#ifndef NDEBUG
-  // TODO
-  // mesh->base verify that mesh->base has not been changed
-  // base_init and verify at the end it does not have changed
-  // modify doc to say it is also used in ParMmg
-#endif
 
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
@@ -332,8 +328,13 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       }
 
       // TODO:: Multimaterial - Check whether an entity with reference ref should be split
-      // This function does not work here because we come from an edge and not a tetra
-      // Need to find a way to know if we need to split or not this edge..
+      // Pb1: This function does not work here because we come from an edge and not a tetra
+      // Need to find a way to know if we need to split or not this edge...
+      // Pb2: even if I find a way to know if this edge need to be split on this partition
+      // still no way to know if it is split from another partition if we are in
+      // the case where on partition 1/material 1 and partition 2/material 2 and
+      // we split mat1 but we do not split mat2. In that case, on partition 2, we will never know
+      // that edges on // interface need to be split.
       // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
       /* STEP 5.1.2 - Create a new point if this edge needs to be split */
@@ -370,7 +371,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
 
       /* STEP 5.1.3 - Update of met, sol and field for the new point */
-      // TODO:: Add field interpolation for the new point
       /* Memory allocation for sol and met */
       if ( !np ) {
         MMG5_int oldnpmax = mesh->npmax;
@@ -424,7 +424,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
       }
 
-      /** Field interpolation */
+      /* If user provide fields, interpolate them at the new point */
       if ( mesh->nsols ) {
         for ( j=0; j<mesh->nsols; ++j ) {
           psl    = field + j;
@@ -435,9 +435,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
             ier = MMG5_intmet_iso_edge(psl,ip0,ip1,np,s);
           }
           if ( ier <= 0 ) {
-            /* Unable to compute the metric */
+            /* Unable to compute fields */
             fprintf(stderr,"\n  ## Error: %s: unable to"
-                    " interpolate the metric during the level-set"
+                    " interpolate fields during the level-set"
                     " discretization\n",__func__);
             return 0;
           }
@@ -481,7 +481,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     }
   }
 
-  /** STEP 5.2 - Create all the other new points located elsewhere */
+  /** STEP 5.2 - Create all the other new points located elsewhere and update hash table */
   /* Loop over tetra k */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
@@ -494,7 +494,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       ip1 = pt->v[MMG5_iare[ia][1]];
       np  = MMG5_hashGet(&hash,ip0,ip1);
 
-      /* If np>0 (i.e. hash.item[key].k != [0;-1]), this edge has already been split, pass to the next edge. */
+      /* If np>0 (i.e. hash.item[key].k != [0;-1]), this edge has already been split, pass to the next edge */
       if ( np>0 ) continue;
 
       /* Check whether an entity with reference ref should be split */
@@ -537,7 +537,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       np = MMG3D_newPt(mesh,c,0,src);
 
       /* STEP 5.2.2 - Update of met, sol and field for the new point */
-      // TODO:: Add field interpolation for the new point
       /* Memory allocation for sol and met */
       if ( !np ) {
         MMG5_int oldnpmax = mesh->npmax;
@@ -591,7 +590,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
         }
       }
 
-      /** Field interpolation */
+      /* If user provide fields, interpolate them at the new point */
       if ( mesh->nsols ) {
         for ( j=0; j<mesh->nsols; ++j ) {
           psl    = field + j;
@@ -602,9 +601,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
             ier = MMG5_intmet_iso(mesh,psl,k,ia,np,s);
           }
           if ( ier <= 0 ) {
-            /* Unable to compute the metric */
+            /* Unable to compute fields */
             fprintf(stderr,"\n  ## Error: %s: unable to"
-                    " interpolate the metric during the level-set"
+                    " interpolate fields during the level-set"
                     " discretization\n",__func__);
             return 0;
           }
@@ -836,10 +835,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       else if (pt->flag == -1) {
         /* STEP 6.2.5 - Update internal face communicators for tetra not split */
         /* As the tetra is not split, the tetra index has not changed.
-           However, the node is not necessarely the same as the choice has been
-           made to use the minimum global node index of the face ifac, and this
-           global node index depends on the new numbering done after the creation of
-           the new points. Therefore, we need to update face2int_face_comm_index1 */
+           Moreover, the node of face ifac is chosen to be the node with highest
+           coordinates, so it should not have been changed either. However, to be
+           sure we are not missing a case, we still update face2int_face_comm_index1 */
         grp->face2int_face_comm_index1[idx_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
       }
     }
