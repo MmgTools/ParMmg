@@ -46,7 +46,7 @@
  *
  * \return 1 if success, 0 otherwise.
  *
- * \todo Fill the funtion
+ * \todo Multimaterial isSplit() on // interface
  *
  * Proceed to discretization of the implicit function carried by sol into mesh,
  * once values of sol have been snapped/checked
@@ -102,7 +102,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_face_ext,idx_face_int,val_face;
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n      ## PMMG_cuttet_ls:: Under development.\n");
+    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not supported yet.\n");
 
   /* Ensure only one group on each proc */
   assert(parmesh->ngrp == 1);
@@ -1564,10 +1564,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* TO BE CHECKED :: Check behaviour with PMMG_APIDISTRIB_nodes
-    Identify surface mesh
-    Clean triangle array - remove useless or double triangles
-    and add the missing ones */
+  /* Identify surface mesh. Clean triangle array: remove useless or double
+     triangles and add the missing ones */
   if ( !MMG5_chkBdryTria(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;

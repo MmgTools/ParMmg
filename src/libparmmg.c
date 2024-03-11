@@ -324,7 +324,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     mesh->info.sethmax = 1;
   }
 
-  /* Note:: Needed before ls discretization to include tetras with poor qualities
+  /* Note: Needed before ls discretization to include tetras with poor qualities
       inside one or the other part of the level-set */
   if ( !MMG3D_tetraQual( mesh, met, 0 ) ) {
     return PMMG_STRONGFAILURE;
