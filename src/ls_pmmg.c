@@ -1654,6 +1654,10 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   mesh->na = 0;
   mesh->nt = 0;
 
+  /* Update mesh->npi and mesh->nei to be equal to mesh->np and mesh->ne, respectively */
+  mesh->npi = mesh->np;
+  mesh->nei = mesh->ne;
+
   /* Set ref to tetra according to the sign of the level-set */
   if ( !MMG3D_setref_ls(mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem in setting references. Exit program.\n");
