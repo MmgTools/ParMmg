@@ -1602,7 +1602,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   doublevalues = parmesh->int_node_comm->doublevalues;
 
   /* Loop on near-parallel edges */
-  for( k = 1; k <= var->hash->max; k++ ) {
+  for( k = 0; k <= var->hash->max; k++ ) {
     ph = &var->hash->geom[k];
     if( !ph->a ) continue;
 

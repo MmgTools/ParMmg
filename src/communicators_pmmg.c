@@ -871,24 +871,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     ifac   = ptt->cc%4;
 
     /* Get triangle node with highest coordinates */
-    iploc  = 0;
-    ppt = &mesh->point[ptt->v[0]];
-    cmax[0] = ppt->c[0];
-    cmax[1] = ppt->c[1];
-    cmax[2] = ppt->c[2];
-    for( iloc=1; iloc<3; iloc++ ) {
-      ppt = &mesh->point[ptt->v[iloc]];
-      for( idim=0; idim<3; idim++ ) {
-        if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
-        if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
-          cmax[0] = ppt->c[0];
-          cmax[1] = ppt->c[1];
-          cmax[2] = ppt->c[2];
-          iploc  = iloc;
-          break;
-        }
-      }
-    }
+    iploc = PMMG_tria_highestcoord(mesh,ptt->v);
 
     /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
@@ -898,6 +881,42 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     for( iloc = 0; iloc < 3; iloc++ )
       PMMG_tag_par_node(&mesh->point[ptt->v[iloc]]);
   }
+}
+
+/**
+ * \param mesh  pointer toward the mesh structure
+ * \param ptt_v indices of a triangle vertices
+ * \return iploc (0, 1 or 2) local node index
+ *
+ * Get triangle node with highest coordinates
+ *
+ */
+int PMMG_tria_highestcoord( MMG5_pMesh mesh, MMG5_int *ptt_v) {
+  MMG5_pPoint  ppt;
+  int          idim,iloc,iploc;
+  double       cmax[3];
+
+  /* Get triangle node with highest coordinates */
+  iploc  = 0;
+  ppt = &mesh->point[ptt_v[0]];
+  cmax[0] = ppt->c[0];
+  cmax[1] = ppt->c[1];
+  cmax[2] = ppt->c[2];
+  for( iloc=1; iloc<3; iloc++ ) {
+    ppt = &mesh->point[ptt_v[iloc]];
+    for( idim=0; idim<3; idim++ ) {
+      if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
+      if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
+        cmax[0] = ppt->c[0];
+        cmax[1] = ppt->c[1];
+        cmax[2] = ppt->c[2];
+        iploc  = iloc;
+        break;
+      }
+    }
+  }
+
+  return iploc;
 }
 
 /**

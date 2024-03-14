@@ -28,6 +28,7 @@
  * \author Algiane Froehly (Inria/UBordeaux)
  * \author Nikolas Pattakos (Inria)
  * \author Luca Cirrottola (Inria)
+ * \author Laetitia Mottet (UBordeaux)
  * \version
  * \copyright
  *
@@ -272,4 +273,88 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
     PMMG_DEL_MEM(mesh,mesh->edge,MMG5_Edge,"deallocating edges");
 
   return PMMG_SUCCESS;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param hash pointer toward the hash table of edges.
+ * \param a index of the first extremity of the edge.
+ * \param b index of the second extremity of the edge.
+ * \param k index of new point along the edge [a,b].
+ * \param s If ls mode in ParMmg: index of new point in internal edge communicator;
+ *          otherwise, the value stored in variable s.
+ * \return PMMG_SUCCESS if success, PMMG_FAILURE if fail (edge is not found).
+ *
+ * Update the index of the new point stored along the edge \f$[a;b]\f$ (similar to MMG5_hashUpdate in mmg).
+ * If ls mode in ParMmg: update the index of the new point in internal edge communicator in variable s;
+ * otherwise, update the value stored in variable s.
+ *
+ */
+int PMMG_hashUpdate_all(MMG5_Hash *hash, MMG5_int a,MMG5_int b,MMG5_int k,MMG5_int s) {
+  MMG5_hedge  *ph;
+  MMG5_int     key;
+  MMG5_int    ia,ib;
+
+  ia  = MG_MIN(a,b);
+  ib  = MG_MAX(a,b);
+  key = (MMG5_KA*(int64_t)ia + MMG5_KB*(int64_t)ib) % hash->siz;
+  ph  = &hash->item[key];
+
+  while ( ph->a ) {
+    if ( ph->a == ia && ph->b == ib ) {
+      ph->k = k;
+      ph->s = s;
+      return PMMG_SUCCESS;
+    }
+
+    if ( !ph->nxt ) return PMMG_FAILURE;
+
+    ph = &hash->item[ph->nxt];
+
+  }
+
+  return PMMG_FAILURE;
+}
+
+/**
+ * \param hash pointer toward the hash table of edges.
+ * \param a index of the first extremity of the edge.
+ * \param b index of the second extremity of the edge.
+ * \param k index of new point along the edge [a,b].
+ * \param s If ls mode in ParMmg: index of new point in internal edge communicator;
+ *          otherwise, the value stored in variable s.
+ * \return PMMG_SUCCESS if success, PMMG_FAILURE if fail (edge is not found).
+ *
+ * Find the index of the new point stored along the edge \f$[a;b]\f$ (similar to MMG5_hashGet in mmg).
+ * If ls mode in ParMmg: find the index of the new point in internal edge communicator;
+ * otherwise, find the value stored in variable s.
+ *
+ */
+MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s) {
+  MMG5_hedge  *ph;
+  MMG5_int    key;
+  MMG5_int    ia,ib;
+
+  if ( !hash->item ) return 0;
+
+  ia  = MG_MIN(a,b);
+  ib  = MG_MAX(a,b);
+  key = (MMG5_KA*(int64_t)ia + MMG5_KB*(int64_t)ib) % hash->siz;
+  ph  = &hash->item[key];
+
+  if ( !ph->a )  return PMMG_FAILURE;
+  if ( ph->a == ia && ph->b == ib )  {
+    *k = ph->k;
+    *s = ph->s;
+    return PMMG_SUCCESS;
+  }
+  while ( ph->nxt ) {
+    ph = &hash->item[ph->nxt];
+    if ( ph->a == ia && ph->b == ib ) {
+      *k = ph->k;
+      *s = ph->s;
+      return PMMG_SUCCESS;
+    }
+  }
+  return PMMG_FAILURE;
 }

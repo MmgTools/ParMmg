@@ -453,11 +453,26 @@ int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
 
 /* Isovalue discretization functions */
-int PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
-int PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSol met);
-int PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
-int PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
-int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
+int  PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
+int  PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSol met);
+int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
+int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
+
+int      PMMG_hashUpdate_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int k,MMG5_int s);
+MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s);
+
+void PMMG_nosplit_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split2sf_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split3cone_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split4op_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+int  PMMG_sort_vertices(MMG5_pMesh mesh,MMG5_int k,MMG5_int *v_t,int ifac);
+void PMMG_sort_tetra(MMG5_int *tetra,MMG5_int *node,MMG5_int *v_t0,MMG5_int *v_t1,MMG5_int *v_t2);
+void PMMG_swap_vertices(MMG5_int *a);
+void PMMG_swap_ints(int *a, int *b);
+void PMMG_swap_3int_arrays(int *a, int *b);
+int  PMMG_compare_3ints_array(int *a, int *b);
 
 /* Internal library */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
@@ -497,6 +512,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm );
 int PMMG_color_commNodes( PMMG_pParMesh parmesh,MPI_Comm comm );
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
+int PMMG_tria_highestcoord( MMG5_pMesh mesh, MMG5_int *v_t);
 int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh );
 int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh );
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh, MPI_Comm comm );
