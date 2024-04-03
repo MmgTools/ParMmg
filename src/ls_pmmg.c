@@ -62,10 +62,12 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   PMMG_pGrp      grp;
   MMG5_pSol      field;
   MMG5_pSol      psl;
+  MMG5_pMat      mat;
+
 
   MMG5_int ne_init,ne_tmp;
   MMG5_int k,k0;
-  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint;
+  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint,ref;
   MMG5_int vGlobNum[4],vx[6];
   MMG5_int tetra_sorted[3], node_sorted[3];
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
@@ -102,10 +104,25 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_face_ext,idx_face_int,val_face;
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not supported yet.\n");
+    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
   assert(parmesh->ngrp == 1);
+
+  /* For now, does not support `nosplit` option in multimat  */
+  // To be removed when supported
+  for (i=0; i<mesh->info.nmat; i++) {
+    mat    = &mesh->info.mat[i];
+    ref    = mat->ref;
+    refint = mat->rin;
+    refext = mat->rex;
+    if ( (ref == refint) & (ref == refext) ) {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n      -- WARNING: The option `nosplit` in multimat is not supported yet.\n\n\n");
+        PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
+      }
+    }
+  }
 
   /* Initialization */
   grp = &parmesh->listgrp[0];
@@ -225,7 +242,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) )  continue;
 
-    // /* Check whether the tetra with reference ref should be split */
+    /* Check whether the tetra with reference ref should be split */
+    // For now, the option nosplit is not supported
+    // So we assume all the elements should be split
     // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
     /** Step 4.1 - Identification of edges belonging to a required tet */
@@ -498,7 +517,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       if ( np>0 ) continue;
 
       /* Check whether an entity with reference ref should be split */
-      if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+      // For now, the option nosplit is not supported
+      // So we assume all the elements should be split
+      // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
       /* STEP 5.2.1 - Create a new point if this edge needs to be split */
       /* Check the ls value at the edge nodes */
