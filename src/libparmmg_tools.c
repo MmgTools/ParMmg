@@ -108,6 +108,8 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
     fprintf(stdout,"-met   file  load metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
+    fprintf(stdout,"-f     file  load parameter file\n");
+
     fprintf(stdout,"-noout       do not write output triangulation\n");
     fprintf(stdout,"-centralized-output centralized output (Medit format only)\n");
     fprintf(stdout,"-distributed-output distributed output (Medit format only)\n");
