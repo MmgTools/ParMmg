@@ -103,7 +103,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_edge_ext,idx_edge_int,idx_edge_mesh;
   int idx_face_ext,idx_face_int,val_face;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
@@ -116,11 +116,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     ref    = mat->ref;
     refint = mat->rin;
     refext = mat->rex;
-    if ( (ref == refint) & (ref == refext) ) {
-      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-        fprintf(stdout,"\n      -- WARNING: The option `nosplit` in multimat is not supported yet.\n\n\n");
-        PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-      }
+    if ( (ref == refint) && (ref == refext) ) {
+      if ( parmesh->myrank == parmesh->info.root )
+        fprintf(stderr,"\n      -- ERROR: The option `nosplit` in multimat is not supported yet.\n");
+      return 0;
     }
   }
 
@@ -663,10 +662,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /** STEP 6 - Split according to tets flags */
   /** STEP 6.1 - Compute global node vertices */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+    return 0;
   }
 
   /** STEP 6.2 - Do the splitting for tetra on parallel interface */
@@ -1627,27 +1624,21 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   /* Compute vertices global numerotation
      This step is needed to compute the edge communicator */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->info.read_comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+    return 0;
   }
 
   /* Hash parallel edges
      This step is needed to compute the edge communicator */
   if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
+    return 0;
   }
 
   /* Build edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,parmesh->info.read_comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: Impossible to build edge communicator \n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to build edge communicator \n\n\n");
+    return 0;
   }
 
 #ifndef NDEBUG
@@ -1656,7 +1647,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
 
   /** Discretization of the implicit function - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
-    fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
+    if ( parmesh->myrank == parmesh->info.root )
+      fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
   }
 
