@@ -62,10 +62,12 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   PMMG_pGrp      grp;
   MMG5_pSol      field;
   MMG5_pSol      psl;
+  MMG5_pMat      mat;
+
 
   MMG5_int ne_init,ne_tmp;
   MMG5_int k,k0;
-  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint;
+  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint,ref;
   MMG5_int vGlobNum[4],vx[6];
   MMG5_int tetra_sorted[3], node_sorted[3];
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
@@ -101,11 +103,25 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_edge_ext,idx_edge_int,idx_edge_mesh;
   int idx_face_ext,idx_face_int,val_face;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not supported yet.\n");
+if ( parmesh->myrank == parmesh->info.root )
+    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
   assert(parmesh->ngrp == 1);
+
+  /* For now, does not support `nosplit` option in multimat  */
+  // To be removed when supported
+  for (i=0; i<mesh->info.nmat; i++) {
+    mat    = &mesh->info.mat[i];
+    ref    = mat->ref;
+    refint = mat->rin;
+    refext = mat->rex;
+    if ( (ref == refint) && (ref == refext) ) {
+      if ( parmesh->myrank == parmesh->info.root )
+        fprintf(stderr,"\n      -- ERROR: The option `nosplit` in multimat is not supported yet.\n");
+      return 0;
+    }
+  }
 
   /* Initialization */
   grp = &parmesh->listgrp[0];
@@ -225,7 +241,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) )  continue;
 
-    // /* Check whether the tetra with reference ref should be split */
+    /* Check whether the tetra with reference ref should be split */
+    // For now, the option nosplit is not supported
+    // So we assume all the elements should be split
     // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
     /** Step 4.1 - Identification of edges belonging to a required tet */
@@ -498,7 +516,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
       if ( np>0 ) continue;
 
       /* Check whether an entity with reference ref should be split */
-      if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+      // For now, the option nosplit is not supported
+      // So we assume all the elements should be split
+      // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
       /* STEP 5.2.1 - Create a new point if this edge needs to be split */
       /* Check the ls value at the edge nodes */
@@ -642,10 +662,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /** STEP 6 - Split according to tets flags */
   /** STEP 6.1 - Compute global node vertices */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+    return 0;
   }
 
   /** STEP 6.2 - Do the splitting for tetra on parallel interface */
@@ -1606,27 +1624,21 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   /* Compute vertices global numerotation
      This step is needed to compute the edge communicator */
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->info.read_comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
+    return 0;
   }
 
   /* Hash parallel edges
      This step is needed to compute the edge communicator */
   if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
+    return 0;
   }
 
   /* Build edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,parmesh->info.read_comm ) ) {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n\n\n  -- WARNING: Impossible to build edge communicator \n\n\n");
-      PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
-    }
+    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to build edge communicator \n\n\n");
+    return 0;
   }
 
 #ifndef NDEBUG
@@ -1635,7 +1647,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
 
   /** Discretization of the implicit function - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
-    fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
+    if ( parmesh->myrank == parmesh->info.root )
+      fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
   }
 
