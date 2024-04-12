@@ -180,7 +180,7 @@ jobs:
           path: ParMmg
 
       # checkout the event branch for automatic workflows
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: inputs.branch_name == ''
         with:
           path: ParMmg
