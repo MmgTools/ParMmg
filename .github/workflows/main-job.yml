@@ -17,6 +17,12 @@ on:
         required: false
         type: string
 
+      code_coverage:
+        description: 'Code coverage'
+        required: false
+        default: true
+        type: boolean
+
 # job
 jobs:
   ci:
@@ -59,6 +65,24 @@ jobs:
                 additional-IOs: on
 
     steps:
+      - name: Set cmake_build_type and export coverage flags
+        run: |
+          if ${{ matrix.os == 'ubuntu-20.04' && inputs.code_coverage == true }}; then
+            # if code coverage is enabled, linux build is runned in Debug mode
+
+            if [[ ${{ inputs.cmake_build_type }} != Debug ]]; then
+              echo "WARNING: build type is forced to debug mode on ubuntu to allow coverage."
+            fi
+
+            echo "BUILD_TYPE=Debug" >> "$GITHUB_ENV"
+            echo "C_FLG_PROF=-fprofile-arcs -ftest-coverage" >> "$GITHUB_ENV"
+
+          else
+            echo "BUILD_TYPE=${{ inputs.cmake_build_type }}" >> "$GITHUB_ENV"
+          fi
+
+        shell: bash
+
       - name: Print options and set environment variables
         run: |
           echo "${{ github.event.inputs.name }}:
@@ -66,7 +90,7 @@ jobs:
             Pointmap:${{ matrix.pointmap }},
             Scotch:  ${{ matrix.scotch }},
             Mpich instead of openmpi: ${{ matrix.mpich-instead-openmpi }},
-            Build:   ${{ inputs.cmake_build_type }},
+            Build:   ${{ env.BUILD_TYPE }},
             additional-IOs: ${{matrix.additional-IOs}}"
 
           # gfortran compiler and scotch makefile depends on the os
@@ -149,7 +173,7 @@ jobs:
 
 
       # checkout the provided branch name if workflow is manually run
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         if: inputs.branch_name
         with:
           ref: ${{github.event.inputs.branch}}
@@ -164,25 +188,25 @@ jobs:
       - name: Test compilation with shared libs linkage
         run: |
           cmake -SParMmg -Bbuild_shared -DCI_DIR=~/testparmmg \
-          ${{ env.C_FLG }} \
+             -DCMAKE_C_FLAGS=${{ env.C_FLG_PROF }} \
           ${{ env.FORT_FLG }} \
             -DBUILD_TESTING=ON \
-            -DCMAKE_BUILD_TYPE=${{ inputs.cmake_build_type }} \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DUSE_POINTMAP=${{ matrix.pointmap }} \
             -DUSE_SCOTCH=${{ matrix.scotch }} \
             -DSCOTCH_DIR=scotch \
             -DBUILD_SHARED_LIBS=ON \
             ${{ inputs.add_cmake_cfg_args }}
-            cmake --build build_shared --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+            cmake --build build_shared --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
         shell: bash
 
       - name: Configure Mmg with static libs (default behaviour)
         run: |
           cmake -SParMmg -Bbuild -DCI_DIR=~/testparmmg\
-          ${{ env.C_FLG }} \
+            -DCMAKE_C_FLAGS=${{ env.C_FLG_PROF }} \
           ${{ env.FORT_FLG }} \
             -DBUILD_TESTING=ON \
-            -DCMAKE_BUILD_TYPE=${{ inputs.cmake_build_type }} \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
             -DUSE_POINTMAP=${{ matrix.pointmap }} \
             -DUSE_SCOTCH=${{ matrix.scotch }} \
             -DSCOTCH_DIR=scotch \
@@ -191,29 +215,29 @@ jobs:
 
       - name: Build ParMmg
         run: |
-          cmake --build build --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+          cmake --build build --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
 
       - name: Install ParMmg
         run: |
-          sudo cmake --build build --target install --config ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+          sudo cmake --build build --target install --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
 
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ParMmg-bin
+          name: ParMmg-bin-${{ matrix.os }}-${{ matrix.pointmap }}-${{ matrix.scotch }}-${{ matrix.mpich-instead-openmpi }}-${{ matrix.additional-IOs }}
           path: |
             build/bin
 
       - name: Test ParMmg
         run: |
           cd build
-          ctest --timeout 7200 -VV -C ${{ inputs.cmake_build_type }} -E  ${{ env.EXCLUDE_TESTS }}
+          ctest --timeout 7200 -VV -C ${{ env.BUILD_TYPE }} -E  ${{ env.EXCLUDE_TESTS }}
 
       - name: Test non native I/Os (requiring install of dependencies)
         if: matrix.additional-IOs == 'on'
         run: |
           cd build
-          ctest -R "hdf5" -VV -C ${{ inputs.cmake_build_type }} -j ${{ env.NJOBS }}
+          ctest -R "hdf5" -VV -C ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
 
       # - name: Archive production artifacts for tests
       #  if: success() || failure()
@@ -222,3 +246,13 @@ jobs:
       #    name: ParMmg-tests
       #    path: |
       #      build/TEST_OUTPUTS
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-20.04' && inputs.code_coverage == true
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          root_dir: .
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
