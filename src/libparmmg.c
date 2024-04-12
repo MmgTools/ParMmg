@@ -370,6 +370,10 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       if ( !PMMG_build_nodeCommFromFaces(parmesh,parmesh->info.read_comm) ) {
         return PMMG_STRONGFAILURE;
       }
+
+      /* 3) Create overlap */
+      PMMG_create_overlap(parmesh);
+
       break;
 
     case PMMG_APIDISTRIB_nodes :

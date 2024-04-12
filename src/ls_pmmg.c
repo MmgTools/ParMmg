@@ -103,7 +103,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_edge_ext,idx_edge_int,idx_edge_mesh;
   int idx_face_ext,idx_face_int,val_face;
 
-if ( parmesh->myrank == parmesh->info.root )
+  if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
@@ -1522,8 +1522,113 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  *
  */
 int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
+
+  MMG5_pTetra   pt;
+  MMG5_pPoint   p0;
+  double        *tmp;
+  MMG5_int      k,nc,ns,ip,ncg;
+  int8_t        i;
+
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n      ## TODO:: PMMG_snpval_ls.\n");
+
+  /* Create tetra adjacency */
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Error: %s: hashing problem (1). Exit program.\n",
+      __func__);
+    return 0;
+  }
+
+  /* Reset point flags */
+  for (k=1; k<=mesh->np; k++)
+    mesh->point[k].flag = 0;
+
+  /* Memory allocation */
+  MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(double),"temporary table",
+                fprintf(stderr,"  Exit program.\n");
+                return 0);
+  MMG5_SAFE_CALLOC(tmp,mesh->npmax+1,double,return 0);
+
+  /* Include tetras with very poor quality that are connected to the negative part */
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !pt->v[0] ) continue;
+    if ( pt->qual < MMG5_EPS ) {
+      for (i=0; i<4; i++) {
+        ip = pt->v[i];
+        if ( sol->m[ip] < 1000.0*MMG5_EPS ) break;
+      }
+      if ( i < 4 ) {
+        for (i=0; i<4; i++) {
+          ip = pt->v[i];
+          sol->m[ip] = -1000.0*MMG5_EPS;
+        }
+      }
+    }
+  }
+
+  /* Snap values of sol that are close to 0 to 0 exactly */
+  ns = 0;
+  for (k=1; k<=mesh->np; k++) {
+    p0 = &mesh->point[k];
+    if ( !MG_VOK(p0) ) continue;
+    if ( fabs(sol->m[k]) < MMG5_EPS ) {
+      if ( mesh->info.ddebug )
+        fprintf(stderr,"  ## Warning: %s: snapping value %" MMG5_PRId "; "
+                "previous value: %E.\n",__func__,k,fabs(sol->m[k]));
+
+      tmp[k] = ( fabs(sol->m[k]) < MMG5_EPSD ) ?
+        (-100.0*MMG5_EPS) : sol->m[k];
+      p0->flag = 1;
+      sol->m[k] = 0;
+      ns++;
+    }
+  }
+
+  /* Check snapping did not lead to a nonmanifold situation */
+  ncg = 0;
+  do {
+    nc = 0;
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) ) continue;
+      for (i=0; i<4; i++) {
+        ip = pt->v[i];
+        p0 = &mesh->point[ip];
+        if ( p0->flag == 1 ) {
+          if ( !(p0->tag & MG_PARBDY) ) {
+            fprintf(stdout, " PROC %d - MMG3D_ismaniball for point not on MG_PARBDY \n", parmesh->myrank);
+            if ( !MMG3D_ismaniball(mesh,sol,k,i) ) {
+              if ( tmp[ip] < 0.0 )
+                sol->m[ip] = -100.0*MMG5_EPS;
+              else
+                sol->m[ip] = +100.0*MMG5_EPS;
+
+              p0->flag = 0;
+              nc++;
+            }
+          }
+          else {
+            fprintf(stdout, "PROC %d - MMG3D_ismaniball for point on MG_PARBDY \n", parmesh->myrank);
+          }
+        }
+      }
+    }
+    ncg += nc;
+  }
+  while ( nc );
+
+  if ( (abs(mesh->info.imprim) > 5 || mesh->info.ddebug) && ns+ncg > 0 )
+    fprintf(stdout,"     %8" MMG5_PRId " points snapped, %" MMG5_PRId " corrected\n",ns,ncg);
+
+  /* Reset point flags */
+  for (k=1; k<=mesh->np; k++)
+    mesh->point[k].flag = 0;
+
+  /* Memory free */
+  MMG5_DEL_MEM(mesh,mesh->adja);
+  MMG5_DEL_MEM(mesh,tmp);
+
   return 1;
 }
 

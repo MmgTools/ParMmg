@@ -38,3 +38,96 @@
 #include "parmmg.h"
 #include "mmgexterns_private.h"
 
+/**
+ * \param parmesh pointer toward a parmesh structure
+ * \param mesh pointer toward the mesh structure.
+ *
+ * \return 1 if success, 0 if fail.
+ *
+ * \todo Fill the funtion
+ *
+ * Snap values of the level set function very close to 0 to exactly 0,
+ * and prevent nonmanifold patterns from being generated.
+ *
+ */
+int PMMG_create_overlap(PMMG_pParMesh parmesh) {
+
+  PMMG_pExt_comm ext_node_comm;
+  PMMG_pGrp      grp;
+  MMG5_pPoint    p0;
+  MMG5_pMesh     mesh;
+  MMG5_pTetra    pt;
+
+  int i, k;
+
+  int inode;
+  int i_commn;
+
+  int nitem_int_node;
+  int nitem_ext_node;
+  int next_node_comm;
+
+  int color_in_node,color_out_node;
+
+  int idx_node_ext,idx_node_int,idx_node_mesh;
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+      fprintf(stdout,"\n      ## TODO:: PMMG_create_overlap.\n");
+
+  /* For now - creationof overlap works only on packed mesh ,
+      i.e. on one group */
+  /* Ensure only one group on each proc */
+  assert(parmesh->ngrp == 1);
+
+  /* Initialization */
+  grp  = &parmesh->listgrp[0];
+  mesh = parmesh->listgrp[0].mesh;
+
+  /* Loop over the number of node communicator */
+  for (i_commn=0; i_commn<next_node_comm; i_commn++) {
+
+      /* Get external edge communicator information */
+      ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
+      color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
+      color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
+      nitem_ext_node = ext_node_comm->nitem;             // Number of nodes in common between these 2 procs
+
+    /* Loop over the nodes in the external edge communicator */
+    for (inode=0; inode < nitem_ext_node; inode++) {
+
+      /* Get the indices of the nodes in internal communicators */
+      idx_node_ext  = ext_node_comm->int_comm_index[inode];
+      idx_node_int  = grp->node2int_node_comm_index2[idx_node_ext];
+      idx_node_mesh = grp->node2int_node_comm_index1[idx_node_int];
+
+      /* Add the tag MG_OVERLAP to these nodes*/
+      p0 = &mesh->point[idx_node_mesh];
+      p0->tag |= MG_OVERLAP;
+
+    }
+  }
+
+  /* Loop over number of tetra and assign MG_OVERLAP */
+  for (k=1; k<=mesh->ne; k++) {
+
+    /* Get the tetra k */
+    pt  = &mesh->tetra[k];
+
+    /* Loop over vertex of tetra and assign MG_OVERLAP */
+    for (i=0; i<=3; i++) {
+      if ( pt->v[i] & MG_OVERLAP) {
+        pt->tag |= MG_OVERLAP;
+        break;
+      }
+    }
+
+    /* If tetra is now MG_OVERLAP, then assign all the nodes to MG_OVERLAP */
+    if (pt->tag & MG_OVERLAP) {
+      for (i=0; i<=3; i++) {
+        pt->v[i] |= MG_OVERLAP;
+      }
+    }
+ }
+
+  return 1;
+}
