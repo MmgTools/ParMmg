@@ -243,6 +243,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   int8_t     tim;
   char       stim[32];
   mytime     ctim[TIMEMAX];
+  MMG5_int   *permtria;
   int ier = PMMG_SUCCESS;
 
   /* Chrono initialization */
@@ -342,8 +343,9 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
 
   /** Mesh analysis I: Needed to create communicators
    *  Check triangles, create xtetras */
+  PMMG_CALLOC(parmesh,permtria,mesh->nt+1,MMG5_int,"permtria",return 0);
   if ( parmesh->myrank < parmesh->info.npartin ) {
-    if ( !PMMG_analys_tria(parmesh,mesh) ) {
+    if ( !PMMG_analys_tria(parmesh,mesh,permtria) ) {
       return PMMG_STRONGFAILURE;
     }
   }
@@ -358,7 +360,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
        * to edges and nodes */
       if ( parmesh->myrank < parmesh->info.npartin ) {
-        PMMG_tria2elmFace_coords( parmesh );
+        PMMG_tria2elmFace_coords( parmesh, permtria );
       }
       /* 2) Build node communicators from face ones (here because the mesh needs
        *    to be unscaled) */
@@ -409,7 +411,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
     /** Mesh analysis Ib : After LS discretization
      * Check triangles, create xtetras */
     if ( parmesh->myrank < parmesh->info.npartin ) {
-      if ( !PMMG_analys_tria(parmesh,mesh) ) {
+      if ( !PMMG_analys_tria(parmesh,mesh,permtria) ) {
         return PMMG_STRONGFAILURE;
       }
     }

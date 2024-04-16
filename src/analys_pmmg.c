@@ -2327,7 +2327,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
  *
  * Check all boundary triangles.
  */
-int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_int *permtria) {
   int       ier;
 
   /**--- stage 1: data structures for surface */
@@ -2362,7 +2362,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* identify surface mesh */
-  if ( !MMG5_chkBdryTria(mesh) ) {
+  if ( !PMMG_chkBdryTria(mesh,permtria) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;
   }
