@@ -849,7 +849,7 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh ) {
  * - Store the index triplet in group communicator index 1,
  * - Tag corresponding triangle edges and nodes as PARBDY.
  */
-void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
+void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh, MMG5_int *permtria ) {
   PMMG_pGrp    grp;
   MMG5_pMesh   mesh;
   MMG5_pTria   ptt;
@@ -866,7 +866,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
-    ptt = &mesh->tria[kt];
+    ptt   = &mesh->tria[permtria[kt]];
     ie     = ptt->cc/4;
     ifac   = ptt->cc%4;
 
