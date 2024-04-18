@@ -344,23 +344,26 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   /** Mesh analysis I: Needed to create communicators
    *  Check triangles, create xtetras */
   PMMG_CALLOC(parmesh,permtria,mesh->nt+1,MMG5_int,"permtria",return 0);
+  MMG5_int k;
+  for (k=0;k<=mesh->nt+1;k++) {
+    permtria[k] = k;
+  }
   if ( parmesh->myrank < parmesh->info.npartin ) {
     if ( !PMMG_analys_tria(parmesh,mesh,permtria) ) {
       return PMMG_STRONGFAILURE;
     }
   }
-
   /* For both API modes, build communicators indices and set xtetra as PARBDY */
   switch( parmesh->info.API_mode ) {
     case PMMG_APIDISTRIB_faces :
       /* 1) Set face communicators indexing */
-      if( !PMMG_build_faceCommIndex( parmesh ) ) return 0;
+      if( !PMMG_build_faceCommIndex( parmesh, permtria ) ) return 0;
 
       /* Convert tria index into iel face index (it needs a valid cc field in
        * each tria), and tag xtetra face as PARBDY before the tag is transmitted
        * to edges and nodes */
       if ( parmesh->myrank < parmesh->info.npartin ) {
-        PMMG_tria2elmFace_coords( parmesh, permtria );
+        PMMG_tria2elmFace_coords( parmesh );
       }
       /* 2) Build node communicators from face ones (here because the mesh needs
        *    to be unscaled) */
@@ -385,6 +388,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       if ( !PMMG_build_faceCommFromNodes(parmesh,parmesh->info.read_comm) ) return PMMG_STRONGFAILURE;
       break;
   }
+  MMG5_SAFE_FREE( permtria );
 
   /** Discretization of the isovalue  */
   if (mesh->info.iso) {
