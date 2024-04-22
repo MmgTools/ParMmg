@@ -221,13 +221,6 @@ jobs:
         run: |
           sudo cmake --build build --target install --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
 
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ParMmg-bin-${{ matrix.os }}-${{ matrix.pointmap }}-${{ matrix.scotch }}-${{ matrix.mpich-instead-openmpi }}-${{ matrix.additional-IOs }}
-          path: |
-            build/bin
-
       - name: Test ParMmg
         run: |
           cd build
@@ -239,20 +232,35 @@ jobs:
           cd build
           ctest -R "hdf5" -VV -C ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
 
-      # - name: Archive production artifacts for tests
-      #  if: success() || failure()
-      #  uses: actions/upload-artifact@v2
-      #  with:
-      #    name: ParMmg-tests
-      #    path: |
-      #      build/TEST_OUTPUTS
-
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-20.04' && inputs.code_coverage == true
-        uses: codecov/codecov-action@v4
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
         with:
-          fail_ci_if_error: true
-          root_dir: .
-          verbose: true
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          name: ParMmg-build-${{ matrix.os }}-${{ matrix.pointmap }}-${{ matrix.scotch }}-${{ matrix.mpich-instead-openmpi }}-${{ matrix.additional-IOs }}
+          path: |
+            build
+
+  upload_coverage:
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+    - name: Checkout repository
+      # Codecov need the source code to pair with coverage
+      uses: actions/checkout@v4
+      with:
+        path: ParMmg
+
+    - name: Download coverage artifact
+      uses: actions/download-artifact@v4
+      with:
+        pattern:  ParMmg-build-ubuntu-*
+
+    - name: Upload coverage to Codecov
+      if: inputs.code_coverage == true
+      uses: codecov/codecov-action@v4
+      with:
+        fail_ci_if_error: true
+        root_dir: .
+        verbose: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
