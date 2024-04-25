@@ -255,6 +255,7 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         MMG_FSCANF(inm,"%d",&ncomm);
         pos = ftell(inm);
         if (API_mode == PMMG_UNSET) {
+          /** if both parallel nodes and parallel faces are provided, use faces to build communicators */
           API_mode = PMMG_APIDISTRIB_nodes;
         }
         break;
