@@ -251,8 +251,8 @@ IF ( DOWNLOAD_MMG )
   OPTION ( USE_POINTMAP "Use map for point tracking" ON )
 
   EXTERNALPROJECT_ADD ( Mmg
-    GIT_REPOSITORY https://github.com/MmgTools/mmg.git
-    GIT_TAG 3a5e3abc38f7f100a481bcebe8aa23e105d7c381
+    GIT_REPOSITORY https://github.com/mpotse/mmg.git
+    GIT_TAG 0c583b2ecfbdbf76e4b98b82458e5f1cffbcfebf
     INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     CMAKE_ARGS ${MMG_ARGS} -DUSE_ELAS=OFF ${COMPILER_CFG} ${FLAGS_CFG}
     ${SCOTCH_CFG} ${VTK_CFG} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
