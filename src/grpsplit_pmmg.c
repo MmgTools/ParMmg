@@ -435,7 +435,7 @@ int PMMG_create_oldGrp( PMMG_pParMesh parmesh,int igrp ) {
  * size at which the node2int_node_comm arrays are allocated.
  *
  */
-static int
+int
 PMMG_splitGrps_newGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,int igrpOld,
                          int ne,int *f2ifc_max,int *n2inc_max ) {
   PMMG_pGrp  const grp      = &listgrp[igrp];

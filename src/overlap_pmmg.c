@@ -52,11 +52,16 @@
  */
 int PMMG_create_overlap(PMMG_pParMesh parmesh) {
 
+  PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
-  PMMG_pGrp      grp;
+  PMMG_pGrp      grp,grp_init,grp_overlap;
   MMG5_pPoint    p0;
-  MMG5_pMesh     mesh;
+  MMG5_pMesh     mesh,meshOld;
   MMG5_pTetra    pt;
+  MPI_Status     status;
+
+  MMG5_int ip,ngrp,ne_init,n2inc_max,f2ifc_max,base_init;
+  MMG5_int nt_overlap, np_overlap, s_init;
 
   int i, k;
 
@@ -71,6 +76,9 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh) {
 
   int idx_node_ext,idx_node_int,idx_node_mesh;
 
+  double *rtosend,*rtorecv,*doublevalues;
+  int    *itosend,*itorecv,*intvalues;
+
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
       fprintf(stdout,"\n      ## TODO:: PMMG_create_overlap.\n");
 
@@ -80,17 +88,31 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh) {
   assert(parmesh->ngrp == 1);
 
   /* Initialization */
-  grp  = &parmesh->listgrp[0];
+  grp_init  = &parmesh->listgrp[0];
   mesh = parmesh->listgrp[0].mesh;
+  int_node_comm = parmesh->int_node_comm;
+
+  doublevalues = int_node_comm->doublevalues;
+  intvalues    = int_node_comm->intvalues;
+
+  next_node_comm = parmesh->next_node_comm;  // Number of communicator for nodes
+
+  /* STEP 1 - Identify nodes and tetra to communicate and MPI_Sendrecv them */
 
   /* Loop over the number of node communicator */
   for (i_commn=0; i_commn<next_node_comm; i_commn++) {
 
-      /* Get external edge communicator information */
-      ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
-      color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
-      color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-      nitem_ext_node = ext_node_comm->nitem;             // Number of nodes in common between these 2 procs
+    /* Get external edge communicator information */
+    ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
+    color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
+    color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
+    nitem_ext_node = ext_node_comm->nitem;             // Number of nodes in common between these 2 procs
+
+
+    /* STEP 1.1 - First loop to estimate the number of nodes and tetra to communicate
+                  for the CALLOC of itosend, itorecv, rtosend and rtorecv */
+    nt_overlap = np_overlap = 0;
+    s_init     = mesh->point[1].s;
 
     /* Loop over the nodes in the external edge communicator */
     for (inode=0; inode < nitem_ext_node; inode++) {
@@ -102,32 +124,126 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh) {
 
       /* Add the tag MG_OVERLAP to these nodes*/
       p0 = &mesh->point[idx_node_mesh];
-      p0->tag |= MG_OVERLAP;
+      p0->flag=1;
 
     }
+
+    /* Loop over number of tetra and assign MG_OVERLAP */
+    for (k=1; k<=mesh->ne; k++) {
+      /* Get the tetra k */
+      pt  = &mesh->tetra[k];
+
+      /* Loop over vertex of tetra and assign MG_OVERLAP to tetras */
+      for (i=0; i<4; i++) {
+        ip = pt->v[i];
+        p0 = &mesh->point[ip];
+        if ( p0->flag ) {
+          pt->tag |= MG_OVERLAP;
+          nt_overlap++;
+          break;
+        }
+      }
+
+      /* If tetra is now MG_OVERLAP, then assign MG_OVERLAP to nodes */
+      if (pt->tag & MG_OVERLAP) {
+        for (i=0; i<4; i++) {
+          ip = pt->v[i];
+          p0 = &mesh->point[ip];
+          if ( !(p0->flag) && (p0->s != color_out_node+1) ) {
+            p0->tag |= MG_OVERLAP;
+            p0->s = color_out_node+1;
+            np_overlap++;
+          }
+        }
+      }
+    }
+
+    fprintf(stdout, "OVERLAP Proc=%d->Proc=%d :: npoint=%d, ntetra=%d \n",parmesh->myrank,color_out_node,np_overlap,nt_overlap);
+
+    /* Reinitialise flags of points */
+    for (inode=0; inode < nitem_ext_node; inode++) {
+
+      /* Get the indices of the nodes in internal communicators */
+      idx_node_ext  = ext_node_comm->int_comm_index[inode];
+      idx_node_int  = grp->node2int_node_comm_index2[idx_node_ext];
+      idx_node_mesh = grp->node2int_node_comm_index1[idx_node_int];
+
+      /* Add the tag MG_OVERLAP to these nodes*/
+      p0 = &mesh->point[idx_node_mesh];
+      p0->flag = 0;
+
+    }
+
+    /* STEP 1.2 - Allocate itosend, itorecv, rtosend and rtorecv using CALLOC */
+
+    /* STEP 1.3 - Second loop to fill node and tetras data to be communicated */
+
+    for (k=1; k<=mesh->ne; k++) {
+
+      /* Remove tetra tag - not now in the second loop */
+      pt->tag =~ MG_OVERLAP;
+    }
+
+  /* STEP 3 -  */
+
+
   }
 
-  /* Loop over number of tetra and assign MG_OVERLAP */
-  for (k=1; k<=mesh->ne; k++) {
 
-    /* Get the tetra k */
-    pt  = &mesh->tetra[k];
+  // PMMG_CALLOC(parmesh,doublevalues,3*nitem_ext_node,double,"Alloc doublevalues",return 0);
 
-    /* Loop over vertex of tetra and assign MG_OVERLAP */
-    for (i=0; i<=3; i++) {
-      if ( pt->v[i] & MG_OVERLAP) {
-        pt->tag |= MG_OVERLAP;
-        break;
-      }
-    }
 
-    /* If tetra is now MG_OVERLAP, then assign all the nodes to MG_OVERLAP */
-    if (pt->tag & MG_OVERLAP) {
-      for (i=0; i<=3; i++) {
-        pt->v[i] |= MG_OVERLAP;
-      }
-    }
- }
+    // PMMG_REALLOC(parmesh,ext_node_comm->rtosend,nitem_ext_node,3*np_overlap,double,"Realloc rtosend",return 0);
+    // PMMG_REALLOC(parmesh,ext_node_comm->rtorecv,nitem_ext_node,3*np_overlap,double,"Realloc rtorecv",return 0);
+
+    // PMMG_CALLOC(parmesh,ext_node_comm->rtosend,np_overlap,double,"Alloc rtosend",return 0);
+    // PMMG_CALLOC(parmesh,ext_node_comm->rtorecv,np_overlap,double,"Alloc rtorecv",return 0);
+
+    // itosend = ext_node_comm->itosend;
+    // itorecv = ext_node_comm->itorecv;
+    // rtosend = ext_node_comm->rtosend;
+    // rtorecv = ext_node_comm->rtorecv;
+
+    // MPI_CHECK(
+    //   MPI_Sendrecv(itosend,nitem_ext_node,MPI_INT,color_out_node,MPI_OVERLAP_TAG,
+    //                itorecv,nitem_ext_node,MPI_INT,color_out_node,MPI_OVERLAP_TAG,
+    //                parmesh->info.read_comm,&status),return 0 );
+
+  /* Create listgrp[1] */
+  // PMMG_pGrp grpOld;
+  // MMG5_pMesh meshOld;
+  // int grpIdOld;
+  // idx_t ngrp;
+
+  // /* We are splitting group 0 */
+  // grpIdOld = 0;
+
+  // assert(parmesh->ngrp == 1);
+  // grpOld = &parmesh->listgrp[grpIdOld];
+  // meshOld = parmesh->listgrp[grpIdOld].mesh;
+
+  // /* How many groups to split into */
+  // ngrp = 2;
+
+  // /* part array contains the groupID for each tetra */
+  // PMMG_CALLOC(parmesh,part,meshOld->ne,idx_t,"metis buffer ", return 0);
+  // for (k=0;k<meshOld->ne,k++) {
+  //   part[k]=1;
+  // }
+
+
+
+  /* Loop over the number of node communicator */
+  // for (i_commn=0; i_commn<next_node_comm; i_commn++) {
+
+  //     /* Get external edge communicator information */
+  //     ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
+  //     color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
+  //     color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
+  //     nitem_ext_node = ext_node_comm->nitem;             // Number of nodes in common between these 2 procs
+
+  // }
+
 
   return 1;
 }
