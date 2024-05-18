@@ -1098,7 +1098,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
 
-  size_t     pack_size_tot;
+  size_t     pack_size_tot,next_disp;
   int        *rcv_pack_size,ier,ier_glob,k,*displs,ier_pack;
   int        nprocs,root,pack_size;
   char       *rcv_buffer,*buffer,*ptr;
@@ -1145,7 +1145,17 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
     displs[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
       assert ( displs[k-1] <= INT_MAX - rcv_pack_size[k-1] && "INT_MAX overflow");
-      displs[k] = displs[k-1] + rcv_pack_size[k-1];
+      next_disp = displs[k-1] + rcv_pack_size[k-1];
+      if(next_disp>INT_MAX){
+        /* The displacements argument to MPI_Gatherv() is an array of int
+         * (signed) so the number of elements must be smaller than 2^31.
+         * To get around this we must pack more data in a single element
+         * or use multiple messages.
+         */
+        fprintf(stderr, "  ## Error: too many elements for MPI_Gatherv()\n");
+        MPI_Abort(parmesh->comm, 1);      /* error detected only on root */
+      }
+      displs[k] = next_disp;
     }
     pack_size_tot        = (size_t)(displs[nprocs-1])+(size_t)(rcv_pack_size[nprocs-1]);
     assert ( pack_size_tot < SIZE_MAX && "SIZE_MAX overflow" );
