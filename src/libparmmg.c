@@ -372,7 +372,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       }
 
       /* 3) Create overlap */
-      PMMG_create_overlap(parmesh);
+      PMMG_create_overlap(parmesh,parmesh->info.read_comm);
 
       break;
 

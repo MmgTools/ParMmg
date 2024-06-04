@@ -1597,7 +1597,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
         p0 = &mesh->point[ip];
         if ( p0->flag == 1 ) {
           if ( !(p0->tag & MG_PARBDY) ) {
-            fprintf(stdout, " PROC %d - MMG3D_ismaniball for point not on MG_PARBDY \n", parmesh->myrank);
+            // fprintf(stdout, " PROC %d - MMG3D_ismaniball for point not on MG_PARBDY \n", parmesh->myrank);
             if ( !MMG3D_ismaniball(mesh,sol,k,i) ) {
               if ( tmp[ip] < 0.0 )
                 sol->m[ip] = -100.0*MMG5_EPS;
@@ -1608,9 +1608,9 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
               nc++;
             }
           }
-          else {
-            fprintf(stdout, "PROC %d - MMG3D_ismaniball for point on MG_PARBDY \n", parmesh->myrank);
-          }
+          // else {
+            // fprintf(stdout, "PROC %d - MMG3D_ismaniball for point on MG_PARBDY \n", parmesh->myrank);
+          // }
         }
       }
     }

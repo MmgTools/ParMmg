@@ -453,7 +453,7 @@ int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
 
 /* Overlap functions */
-int PMMG_create_overlap(PMMG_pParMesh parmesh);
+int PMMG_create_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);
 
 /* Isovalue discretization functions */
 int  PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
