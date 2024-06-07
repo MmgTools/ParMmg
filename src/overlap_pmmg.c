@@ -160,7 +160,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     /* itosend   - the number of point to send    np_overlap_send - 1 int */
     /* itorecv   - the number of point to receive np_overlap_recv - 1 int */
     PMMG_CALLOC(parmesh,rtosend,3*mesh->np,double,"rtosend",ier = 0);
-    PMMG_CALLOC(parmesh,intvalues,mesh->np,int,"intvalues",ier = 0);
+    // PMMG_CALLOC(parmesh,intvalues,mesh->np,int,"intvalues",ier = 0);
     PMMG_CALLOC(parmesh,itosend,1,int,"itosend",ier = 0);
     PMMG_CALLOC(parmesh,itorecv,1,int,"itorecv",ier = 0);
     PMMG_CALLOC(parmesh,pointTag_ToSend,mesh->np,uint16_t,"pointTag_ToSend",ier = 0);
@@ -171,7 +171,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /* Initialize arrays to send */
     memset(rtosend,0x00,3*mesh->np*sizeof(double));
-    memset(intvalues,0x00,mesh->np*sizeof(int));
+    // memset(intvalues,0x00,mesh->np*sizeof(int));
     memset(itosend,0x00,sizeof(int));
     memset(itorecv,0x00,sizeof(int));
     // memset(pointTag_ToSend,0x00,mesh->np*sizeof(uint16_t));
@@ -227,10 +227,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
           p0 = &mesh->point[ip];
           if ( !(p0->flag) ) {
             p0->flag = np_overlap_tmp+1;
-            pointCoord_ToSend[3*np_overlap_tmp]  = p0->c[0];
-            pointCoord_ToSend[3*np_overlap_tmp+1]= p0->c[1];
-            pointCoord_ToSend[3*np_overlap_tmp+2]= p0->c[2];
-            pointIdx_ToSend[np_overlap_tmp]  = ip;
+            pointCoord_ToSend[3*np_overlap_tmp]   = p0->c[0];
+            pointCoord_ToSend[3*np_overlap_tmp+1] = p0->c[1];
+            pointCoord_ToSend[3*np_overlap_tmp+2] = p0->c[2];
+            pointIdx_ToSend[np_overlap_tmp] = ip;
             pointTag_ToSend[np_overlap_tmp] = p0->tag+MG_OVERLAP;
             np_overlap_tmp++;
           }
@@ -265,21 +265,9 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     ext_node_comm->nitem_to_share = itorecv[0];
 
-    overlap->np_overlap[i_commn]=itorecv[0];
-
     fprintf(stdout, "OVERLAP Proc=%d->Proc=%d :: nitem_to_share=%d, itosend[0]=%d, itorecv[0]=%d \n",parmesh->myrank,color_out_node,ext_node_comm->nitem_to_share,itosend[0],itorecv[0]);
 
-    /* Deallocate itosend and itorecv to be able to share intvalues */
-    PMMG_DEL_MEM(parmesh,itosend,int,"itosend");
-    PMMG_DEL_MEM(parmesh,itorecv,int,"itorecv");
-    PMMG_CALLOC(parmesh,itosend,np_overlap_tmp,int,"itosend",ier = 0);
-    PMMG_CALLOC(parmesh,itorecv,ext_node_comm->nitem_to_share,int,"itorecv",ier = 0);
-
     PMMG_CALLOC(parmesh,pointIdx_ToRecv,ext_node_comm->nitem_to_share,int,"pointIdx_ToRecv",ier = 0);
-
-    for (inode=0; inode < np_overlap_tmp; inode++) {
-      itosend[inode] = intvalues[inode];
-    }
 
     /* Send and receive the index of points to exchange/share */
     MPI_CHECK(
@@ -288,9 +276,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
                    comm,&status),return 0 );
 
     /* For rtorecv, we receive nitem_to_share number of points */
-    PMMG_CALLOC(parmesh,rtorecv,3*ext_node_comm->nitem_to_share,double,"rtorecv",ier = 0);
-    memset(rtorecv,0x00,3*ext_node_comm->nitem_to_share*sizeof(double));
-
     PMMG_CALLOC(parmesh,pointCoord_ToRecv,3*ext_node_comm->nitem_to_share,double,"pointCoord_ToRecv",ier = 0);
     memset(pointCoord_ToRecv,0x00,3*ext_node_comm->nitem_to_share*sizeof(double));
 
@@ -317,12 +302,13 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     nitem_to_share_old += ext_node_comm->nitem_to_share;
 
     /* Deallocate memory*/
-    PMMG_DEL_MEM(parmesh,rtosend,double,"rtosend");
-    PMMG_DEL_MEM(parmesh,intvalues,int,"intvalues");
     PMMG_DEL_MEM(parmesh,itosend,int,"itosend");
     PMMG_DEL_MEM(parmesh,itorecv,int,"itorecv");
 
     PMMG_DEL_MEM(parmesh,pointCoord_ToRecv,double,"pointCoord_ToRecv");
+    PMMG_DEL_MEM(parmesh,pointCoord_ToSend,double,"pointCoord_ToSend");
+    PMMG_DEL_MEM(parmesh,pointIdx_ToRecv,double,"pointIdx_ToRecv");
+    PMMG_DEL_MEM(parmesh,pointIdx_ToSend,double,"pointIdx_ToSend");
 
 
   }
