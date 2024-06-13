@@ -1170,10 +1170,22 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 
   /* Gather the packed parmeshes */
   ier = MG_MIN ( ier, ier_pack );
-  MPI_CHECK( MPI_Gatherv ( ptr,pack_size,MPI_CHAR,
+  
+  // Remplacer MPI_Gatherv par une boucle Send/Recv
+  if (parmesh->myrank == root) {
+    for (int i = 0; i < nprocs; ++i) {
+      if (i != root) {
+        MPI_CHECK(MPI_Recv(rcv_buffer + displs[i], rcv_pack_size[i], MPI_CHAR, i, 0, parmesh->comm, MPI_STATUS_IGNORE), ier = 0);
+      }
+    }
+  } else {
+    MPI_CHECK(MPI_Send(ptr, pack_size, MPI_CHAR, root, 0, parmesh->comm), ier = 0);
+  }
+  /*MPI_CHECK( MPI_Gatherv ( ptr,pack_size,MPI_CHAR,
                            rcv_buffer,rcv_pack_size,
-                           displs,MPI_CHAR,root,parmesh->comm ),ier=0 );
-
+                           displs,MPI_CHAR,root,parmesh->comm ),ier=0 );*/
+                           
+	
   PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
 
   /** 4: Unpack parmeshes */
