@@ -387,12 +387,17 @@ typedef struct {
  * \brief Overlap structure.
  */
 typedef struct {
-  int *np_overlap; /*!< Number of nodes from overlap */
-  int *nt_overlap; /*!< Number of tetra from overlap */
-  MMG5_HGeom hash_overlap;  /*!< Hash for overlap nodes */
+  int color_in;
+  int color_out;
+  int np_in2out;
+  int np_out2in;
+  int nt_in2out;
+  int nt_out2in;
+  int *hash_in2out;
+  int *hash_out2in;
 
 } PMMG_Overlap;
-typedef PMMG_Overlap  * PMMG_pOverlap;
+typedef PMMG_Overlap * PMMG_pOverlap;
 
 /**
  * \struct PMMG_ParMesh
@@ -441,7 +446,7 @@ typedef struct {
   PMMG_pExt_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
 
   /* overlap variables */
-  PMMG_Overlap overlap; /*!<  Overlap variables */
+  PMMG_pOverlap overlap; /*!<  Overlap variables */
 
   /* global variables */
   int            ddebug; //! Debug level

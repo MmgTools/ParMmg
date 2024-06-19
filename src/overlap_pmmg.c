@@ -72,22 +72,38 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int inode;
   int i_commn;
 
+  int np_in2out, np_out2in;
+  int nt_in2out, nt_out2in;
+  int np_out,np_in;
+
   int nitem_int_node;
   int nitem_ext_node;
   int next_node_comm;
+
+  int LOCAL_MPI_TAG;
 
   int *ip_overlap[2];
   double c_inode[3];
   MMG5_int np_new;
 
+  int      *pointIdxInterface_ToSend, *pointIdxInterface_ToRecv;
   int      *tetraVertices_ToSend, *tetraVertices_ToRecv;
+  int      *tetraVertices_ToRecv_outIdx, *tetraVertices_ToRecv_inIdx;
+  int      *tetraFlag_ToSend, *tetraFlag_ToRecv;
+  int      *hash_overlap_ToSend, *hash_overlap_ToRecv;
   int      *tetraIdx_ToSend, *tetraIdx_ToRecv;
   double   *pointCoord_ToSend, *pointCoord_ToRecv;
   int      *pointIdx_ToSend, *pointIdx_ToRecv;
   uint16_t *pointTag_ToSend, *pointTag_ToRecv;
+  int *hash_overlap_new2old, *hash_overlap_old2new;
+  int *hash_in2out, *hash_out2in;
+
+  int *tetraVertices_ToAdd;
+  int ip1,ip2,icoord;
+  int ip_in, ip_out;
+  uint16_t tag_inode;
 
   int color_in_node,color_out_node;
-  int nitem_to_share_old;
 
   int idx_node_ext,idx_node_int,idx_node_mesh;
 
@@ -106,34 +122,15 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   grp  = &parmesh->listgrp[0];
   mesh = parmesh->listgrp[0].mesh;
   int_node_comm = parmesh->int_node_comm;
-  overlap = &parmesh->overlap;
   ireq = 0;
   request     = NULL;
-  nitem_to_share_old = 1;
+  next_node_comm = parmesh->next_node_comm;  // Number of communicator for nodes
+  LOCAL_MPI_TAG = 1;
 
   /* Allocate and reset memory */
-  /* allocate doublevalues */
-  PMMG_CALLOC(parmesh,int_node_comm->doublevalues,3*10*int_node_comm->nitem,double,"doublevalues",ier = 0);
-  memset(int_node_comm->doublevalues,0x00,3*10*int_node_comm->nitem*sizeof(double));
+  PMMG_CALLOC(parmesh,parmesh->overlap,next_node_comm,PMMG_Overlap,"allocate PMMG_Overlap ",ier = 0);
 
-  PMMG_CALLOC(parmesh,ip_overlap[0],1,int,"ip_overlap",ier = 0);
-  PMMG_CALLOC(parmesh,ip_overlap[1],1,int,"ip_overlap",ier = 0);
-  memset(ip_overlap[0],0x00,1*sizeof(int));
-  memset(ip_overlap[1],0x00,1*sizeof(int));
-
-  PMMG_CALLOC(parmesh,tetraVertices_ToSend,4*mesh->ne,int,"tetraVertices_ToSend",ier = 0);
-  memset(tetraVertices_ToSend,0x00,4*mesh->ne*sizeof(int));
-
-  PMMG_CALLOC(parmesh,tetraIdx_ToSend,mesh->ne,int,"tetraIdx_ToSend",ier = 0);
-  memset(tetraIdx_ToSend,0x00,mesh->ne*sizeof(int));
-
-  doublevalues = int_node_comm->doublevalues;
-  intvalues    = int_node_comm->intvalues;
-
-  next_node_comm = parmesh->next_node_comm;  // Number of communicator for nodes
-
-  PMMG_CALLOC(parmesh,overlap->np_overlap,next_node_comm,int,"parmesh->overlap.np_overlap ",return 0);
-  PMMG_CALLOC(parmesh,overlap->nt_overlap,next_node_comm,int,"parmesh->overlap.nt_overlap ",return 0);
+  // intvalues    = int_node_comm->intvalues;
 
   /* STEP 1 - Identify nodes and tetra to communicate and MPI_Sendrecv them */
 
@@ -146,38 +143,29 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
     nitem_ext_node = ext_node_comm->nitem;             // Number of nodes in common between these 2 procs
 
-    rtosend = ext_node_comm->rtosend;
-    rtorecv = ext_node_comm->rtorecv;
-
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
+    /* Fill overlap values */
+    overlap = &parmesh->overlap[i_commn];
+    overlap->color_in  = color_in_node;
+    overlap->color_out = color_out_node;
+
     /* Allocate memory */
-    /* rtosend   - at max the whole mesh with np points of 3 coordinates is sent */
-    /* intvalues - at max the whole mesh with np points i sent*/
-    /* itosend   - the number of point to send    np_overlap_send - 1 int */
-    /* itorecv   - the number of point to receive np_overlap_recv - 1 int */
-    PMMG_CALLOC(parmesh,rtosend,3*mesh->np,double,"rtosend",ier = 0);
-    // PMMG_CALLOC(parmesh,intvalues,mesh->np,int,"intvalues",ier = 0);
-    PMMG_CALLOC(parmesh,itosend,1,int,"itosend",ier = 0);
-    PMMG_CALLOC(parmesh,itorecv,1,int,"itorecv",ier = 0);
+    PMMG_CALLOC(parmesh,tetraVertices_ToSend,4*mesh->ne,int,"tetraVertices_ToSend",ier = 0);
+    PMMG_CALLOC(parmesh,tetraFlag_ToSend,4*mesh->ne,int,"tetraFlag_ToSend",ier = 0);
+    PMMG_CALLOC(parmesh,tetraIdx_ToSend,mesh->ne,int,"tetraIdx_ToSend",ier = 0);
     PMMG_CALLOC(parmesh,pointTag_ToSend,mesh->np,uint16_t,"pointTag_ToSend",ier = 0);
-
     PMMG_CALLOC(parmesh,pointCoord_ToSend,3*mesh->np,double,"pointCoord_ToSend",ier = 0);
-    PMMG_CALLOC(parmesh,pointIdx_ToSend,mesh->np,int,"pointIdx_ToSend",ier = 0);
-
+    PMMG_CALLOC(parmesh,pointIdxInterface_ToSend,nitem_ext_node,int,"pointIdxInterface_ToSend",ier = 0);
 
     /* Initialize arrays to send */
-    memset(rtosend,0x00,3*mesh->np*sizeof(double));
-    // memset(intvalues,0x00,mesh->np*sizeof(int));
-    memset(itosend,0x00,sizeof(int));
-    memset(itorecv,0x00,sizeof(int));
-    // memset(pointTag_ToSend,0x00,mesh->np*sizeof(uint16_t));
-    // memset(pointIdx_ToSend,0x00,mesh->np*sizeof(int));
+    // memset(tetraFlag_ToSend,0x00,4*mesh->ne*sizeof(int));
 
     /* STEP 1.1 - First loop to estimate the number of nodes and tetra to communicate
                   for the CALLOC of itosend, itorecv, rtosend and rtorecv */
-    nt_overlap = np_overlap = 0;
+    nt_in2out = np_in2out = 0;
+    // nt_out2in = np_out2in = 0;
 
     /* Loop over the nodes in the external edge communicator */
     for (inode=0; inode < nitem_ext_node; inode++) {
@@ -190,6 +178,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       /* Add the flag 1 to these nodes*/
       p0 = &mesh->point[idx_node_mesh];
       p0->flag=-1;
+      pointIdxInterface_ToSend[inode] = idx_node_mesh;
     }
 
     /* Loop over number of tetra and assign MG_OVERLAP */
@@ -206,32 +195,34 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         p0 = &mesh->point[ip];
         if ( p0->flag < 0 ) {
           pt->tag |= MG_OVERLAP;
-          nt_overlap++;
+          nt_in2out++;
           break;
         }
       }
 
-      /* Store info of tetra to send */
-      tetraVertices_ToSend[4*nt_overlap]  = pt->v[0];
-      tetraVertices_ToSend[4*nt_overlap+1]= pt->v[1];
-      tetraVertices_ToSend[4*nt_overlap+2]= pt->v[2];
-      tetraVertices_ToSend[4*nt_overlap+3]= pt->v[3];
-      tetraIdx_ToSend[nt_overlap] = k;
-
       /* If tetra is now MG_OVERLAP, then assign MG_OVERLAP to nodes */
       if (pt->tag & MG_OVERLAP) {
+
         for (i=0; i<4; i++) {
           ip = pt->v[i];
           p0 = &mesh->point[ip];
+          tetraVertices_ToSend[4*(nt_in2out-1)+i]  = pt->v[i];
           if ( (p0->flag>=0)  && (p0->flag!=color_out_node+1) ) {
+            tetraFlag_ToSend[4*(nt_in2out-1)+i]  = 1;
             p0->flag = color_out_node+1;
-            pointCoord_ToSend[3*np_overlap]   = p0->c[0];
-            pointCoord_ToSend[3*np_overlap+1] = p0->c[1];
-            pointCoord_ToSend[3*np_overlap+2] = p0->c[2];
-            pointIdx_ToSend[np_overlap] = ip;
-            pointTag_ToSend[np_overlap] = p0->tag+MG_OVERLAP;
-            np_overlap++;
+            pointCoord_ToSend[3*np_in2out]   = p0->c[0];
+            pointCoord_ToSend[3*np_in2out+1] = p0->c[1];
+            pointCoord_ToSend[3*np_in2out+2] = p0->c[2];
+            pointTag_ToSend[np_in2out] = p0->tag+MG_OVERLAP;
+            np_in2out++;
           }
+          else if (p0->flag==-1) {
+            tetraFlag_ToSend[4*(nt_in2out-1)+i]  = -1;
+          }
+          else {
+            tetraFlag_ToSend[4*(nt_in2out-1)+i]  = 0;
+          }
+          tetraIdx_ToSend[nt_in2out] = k;
         }
       }
       pt->tag =~ MG_OVERLAP;
@@ -249,81 +240,179 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       p0->flag = 0;
     }
 
-    /* Number of item to share */
-    itosend[0] = np_overlap;
-
     /* First send and receive the number of points to exchange/share */
-    /* TODO :: Use MPI_Probe instead? */
     MPI_CHECK(
-      MPI_Sendrecv(itosend,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG,
-                   itorecv,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG,
+      MPI_Sendrecv(&np_in2out,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+1,
+                   &np_out2in,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+1,
+                   comm,&status),return 0 );
+    overlap->np_in2out = np_in2out;
+    overlap->np_out2in = np_out2in;
+
+    // fprintf(stdout, "OVERLAP Proc=%d-Proc=%d :: np_in2out=%d, np_out2in=%d\n",parmesh->myrank,color_out_node,np_in2out,np_out2in);
+
+    MPI_CHECK(
+      MPI_Sendrecv(&nt_in2out,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+2,
+                   &nt_out2in,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+2,
+                   comm,&status),return 0 );
+    overlap->nt_in2out = nt_in2out;
+    overlap->nt_out2in = nt_out2in;
+
+    // fprintf(stdout, "OVERLAP Proc=%d-Proc=%d :: nt_in2out=%d, nt_out2in=%d\n",
+    //                   parmesh->myrank,color_out_node,nt_in2out,nt_out2in);
+
+    np_in = mesh->np;
+    MPI_CHECK(
+      MPI_Sendrecv(&np_in, 1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+3,
+                   &np_out,1,MPI_INT,color_out_node,MPI_OVERLAP_TAG+3,
                    comm,&status),return 0 );
 
-    ext_node_comm->nitem_to_share = itorecv[0];
+    // fprintf(stdout, "OVERLAP Proc=%d-Proc=%d :: np_in=%d, np_out=%d, np_in2out=%d, np_out2in=%d\n",
+    //                   parmesh->myrank,color_out_node,np_in,np_out,np_in2out,np_out2in);
 
-    // fprintf(stdout, "OVERLAP Proc=%d->Proc=%d :: npoint=%d, ntetra=%d; nptosend=%d, nptorecv=%d \n",color_in_node,color_out_node,np_overlap,nt_overlap,itosend[0],itorecv[0]);
+    /* Alloc hash table for point correspondance */
+    hash_in2out = overlap->hash_in2out;
+    hash_out2in = overlap->hash_out2in;
+    PMMG_CALLOC(parmesh,hash_in2out,np_in +np_out2in+1,int,"hash_in2out",ier = 0); // TO check if size OK
+    PMMG_CALLOC(parmesh,hash_out2in,np_out          +1,int,"hash_out2in",ier = 0); // TO check if size OK
+
+    // PMMG_CALLOC(parmesh,parmesh->overlap[i_commn].hash_in2out,np_in +np_out2in+1,int,"hash_in2out",ier = 0); // TO check if size OK
+    // PMMG_CALLOC(parmesh,parmesh->overlap[i_commn].hash_out2in,np_out          +1,int,"hash_out2in",ier = 0); // TO check if size OK
+
+
+    /* Send and receive the local indexes of nodes on interface */
+    PMMG_CALLOC(parmesh,pointIdxInterface_ToRecv,nitem_ext_node,int,"pointIdxInterface_ToRecv",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(pointIdxInterface_ToSend,nitem_ext_node,MPI_INT,color_out_node,MPI_OVERLAP_TAG+4,
+                   pointIdxInterface_ToRecv,nitem_ext_node,MPI_INT,color_out_node,MPI_OVERLAP_TAG+4,
+                   comm,&status),return 0 );
+
+    /* Fill the hash table of overlap with interface points first */
+    for (inode=0; inode < nitem_ext_node; inode++) {
+      ip_out = pointIdxInterface_ToRecv[inode]; // Index of nodes on color_out (the other partition)
+      ip_in  = pointIdxInterface_ToSend[inode]; // Index of nodes on color_in  (this partition)
+      hash_out2in[ip_out] = ip_in;  // From index on color_out, I found index on color_in
+      hash_in2out[ip_in]  = ip_out; // From index on color_in,  I found index on color_out
+    }
+
+    // /* Send and receive the index of points to exchange/share */
+    PMMG_CALLOC(parmesh,tetraVertices_ToRecv_outIdx,4*nt_out2in,int,"tetraVertices_ToRecv_outIdx",ier = 0);
+    PMMG_CALLOC(parmesh,tetraVertices_ToRecv_inIdx, 4*nt_out2in,int,"tetraVertices_ToRecv_inIdx",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(tetraVertices_ToSend,       4*nt_in2out,MPI_INT,color_out_node,MPI_OVERLAP_TAG+5,
+                   tetraVertices_ToRecv_outIdx,4*nt_out2in,MPI_INT,color_out_node,MPI_OVERLAP_TAG+5,
+                   comm,&status),return 0 );
 
     /* Send and receive the index of points to exchange/share */
-    PMMG_CALLOC(parmesh,pointIdx_ToRecv,ext_node_comm->nitem_to_share,int,"pointIdx_ToRecv",ier = 0);
+    PMMG_CALLOC(parmesh,tetraFlag_ToRecv,4*nt_out2in,int,"tetraFlag_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointIdx_ToSend,np_overlap,MPI_INT,color_out_node,MPI_OVERLAP_TAG+1,
-                   pointIdx_ToRecv,ext_node_comm->nitem_to_share,MPI_INT,color_out_node,MPI_OVERLAP_TAG+1,
+      MPI_Sendrecv(tetraFlag_ToSend,4*nt_in2out,MPI_INT,color_out_node,MPI_OVERLAP_TAG+6,
+                   tetraFlag_ToRecv,4*nt_out2in,MPI_INT,color_out_node,MPI_OVERLAP_TAG+6,
                    comm,&status),return 0 );
 
     /* Send and receive the tags of points to exchange/share */
-    PMMG_CALLOC(parmesh,pointTag_ToRecv,ext_node_comm->nitem_to_share,uint16_t,"pointTag_ToRecv",ier = 0);
+    PMMG_CALLOC(parmesh,pointTag_ToRecv,np_out2in,uint16_t,"pointTag_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointTag_ToSend,np_overlap,MPI_UINT16_T,color_out_node,MPI_OVERLAP_TAG+2,
-                   pointTag_ToRecv,ext_node_comm->nitem_to_share,MPI_UINT16_T,color_out_node,MPI_OVERLAP_TAG+2,
+      MPI_Sendrecv(pointTag_ToSend,np_in2out,MPI_UINT16_T,color_out_node,MPI_OVERLAP_TAG+7,
+                   pointTag_ToRecv,np_out2in,MPI_UINT16_T,color_out_node,MPI_OVERLAP_TAG+7,
                    comm,&status),return 0 );
-
-    /* For rtorecv, we receive nitem_to_share number of points */
-    PMMG_CALLOC(parmesh,pointCoord_ToRecv,3*ext_node_comm->nitem_to_share,double,"pointCoord_ToRecv",ier = 0);
-    memset(pointCoord_ToRecv,0x00,3*ext_node_comm->nitem_to_share*sizeof(double));
 
     /* Now send and receive the coordinates of the points */
+    PMMG_CALLOC(parmesh,pointCoord_ToRecv,3*np_out2in,double,"pointCoord_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointCoord_ToSend,3*np_overlap,MPI_DOUBLE,color_out_node,MPI_OVERLAP_TAG+3,
-                   pointCoord_ToRecv,3*ext_node_comm->nitem_to_share,MPI_DOUBLE,color_out_node,MPI_OVERLAP_TAG+3,
+      MPI_Sendrecv(pointCoord_ToSend,3*np_in2out,MPI_DOUBLE,color_out_node,MPI_OVERLAP_TAG+8,
+                   pointCoord_ToRecv,3*np_out2in,MPI_DOUBLE,color_out_node,MPI_OVERLAP_TAG+8,
                    comm,&status),return 0 );
 
-    /* Add these point to the local mesh->point */
-    PMMG_REALLOC(parmesh,ip_overlap[0],ext_node_comm->nitem_to_share+nitem_to_share_old,nitem_to_share_old,
-                 int,"Re-allocate ip_overlap",return 0);
-    PMMG_REALLOC(parmesh,ip_overlap[1],ext_node_comm->nitem_to_share+nitem_to_share_old,nitem_to_share_old,
-                 int,"Re-allocate ip_overlap",return 0);
-
-    uint16_t tag_inode;
-
+    // /* Fill the hash table of overlap with the other points */
+    icoord=0;
     mesh->xpmax  = MG_MAX( (long long)(1.5*mesh->xp),mesh->npmax);
 
-    for (inode=0; inode < ext_node_comm->nitem_to_share; inode++) {
-      c_inode[0]=pointCoord_ToRecv[3*inode];
-      c_inode[1]=pointCoord_ToRecv[3*inode+1];
-      c_inode[2]=pointCoord_ToRecv[3*inode+2];
-      tag_inode =pointTag_ToRecv[inode];
-      if (tag_inode & MG_PARBDY) {
-        fprintf(stdout, "OVERLAP Proc=%d->Proc=%d :: inode=%d, tag_inode=%d, ip=%d \n",parmesh->myrank,color_out_node,inode,tag_inode,pointIdx_ToRecv[inode]);
-      }
-      np_new = MMG3D_newPt(mesh,c_inode,tag_inode,0);
+    for (inode=0; inode < 4*nt_out2in; inode++) {
+      ip_out=tetraVertices_ToRecv_outIdx[inode];
+      if (tetraFlag_ToRecv[inode]==1) {
+        c_inode[0]=pointCoord_ToRecv[3*icoord];
+        c_inode[1]=pointCoord_ToRecv[3*icoord+1];
+        c_inode[2]=pointCoord_ToRecv[3*icoord+2];
+        tag_inode =pointTag_ToRecv[icoord];
+        icoord += 1;
 
-      // For debugging - this array is not really needed for now...
-      ip_overlap[0][inode+nitem_to_share_old-1] = pointIdx_ToRecv[inode];
-      ip_overlap[1][inode+nitem_to_share_old-1] = np_new;
+        ip_in = MMG3D_newPt(mesh,c_inode,tag_inode,0);
+
+        // if (parmesh->myrank==2 && color_out_node==1) {
+          // fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: NEW           - inode=%d, ip_out=%d, ip_in=%d\n",
+          //                  parmesh->myrank,color_out_node,inode,ip_out,ip_in);
+        // }
+        hash_out2in[ip_out] = ip_in;  // From index on color_out, I found index on color_in
+        hash_in2out[ip_in]  = ip_out; // From index on color_in,  I found index on color_out
+        tetraVertices_ToRecv_inIdx[inode]=ip_in;
+      }
+      else if (tetraFlag_ToRecv[inode]==-1) {
+        tetraVertices_ToRecv_inIdx[inode]=hash_out2in[ip_out];
+        // if (parmesh->myrank==2 && color_out_node==1) {
+        //   fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: INTERFACE     - inode=%d, ip_out=%d, ip_in=%d\n",
+        //                    parmesh->myrank,color_out_node,inode,ip_out,hash_out2in[ip_out]);
+        // }
+      }
+      else{
+        tetraVertices_ToRecv_inIdx[inode]=hash_out2in[ip_out];
+        // if (parmesh->myrank==2 && color_out_node==1) {
+        //   fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: ALREADY ADDED - inode=%d, ip_out=%d, ip_in=%d\n",
+        //                    parmesh->myrank,color_out_node,inode,ip_out,hash_out2in[ip_out]);
+        // }
+      }
     }
-    nitem_to_share_old += ext_node_comm->nitem_to_share;
+
+    if (parmesh->myrank==0 && color_out_node==1) {
+      for (inode=0; inode < 4*nt_out2in; inode+=4) {
+        fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: inIdx=[%d-%d-%d-%d], outIdx=[%d-%d-%d-%d]\n",
+                          parmesh->myrank,color_out_node,
+                          tetraVertices_ToRecv_inIdx[inode],tetraVertices_ToRecv_inIdx[inode+1],tetraVertices_ToRecv_inIdx[inode+2],tetraVertices_ToRecv_inIdx[inode+3],
+                          tetraVertices_ToRecv_outIdx[inode],tetraVertices_ToRecv_outIdx[inode+1],tetraVertices_ToRecv_outIdx[inode+2],tetraVertices_ToRecv_outIdx[inode+3]);
+      }
+
+      fprintf(stdout, "\n\n");
+
+      for (inode=0; inode < mesh->np; inode++) {
+        fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_in2out - ip_in=%d, ip_out=%d\n",
+                          parmesh->myrank,color_out_node,inode,hash_in2out[inode]);
+      }
+
+      fprintf(stdout, "\n\n");
+
+      for (inode=0; inode < np_out; inode++) {
+        fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_out2in ip_out=%d, ip_in=%d\n",
+                            parmesh->myrank,color_out_node,inode,hash_out2in[inode]);
+      }
+    }
 
     /* Deallocate memory*/
-    PMMG_DEL_MEM(parmesh,itosend,int,"itosend");
-    PMMG_DEL_MEM(parmesh,itorecv,int,"itorecv");
+      // overlap->hash_in2out = hash_in2out;
+      // overlap->hash_out2in = hash_out2in;
+    // PMMG_DEL_MEM(parmesh,hash_in2out,int,"hash_in2out");
+    // PMMG_DEL_MEM(parmesh,hash_out2in,int,"hash_out2in");
 
-    PMMG_DEL_MEM(parmesh,pointCoord_ToRecv,double,"pointCoord_ToRecv");
     PMMG_DEL_MEM(parmesh,pointCoord_ToSend,double,"pointCoord_ToSend");
-    PMMG_DEL_MEM(parmesh,pointIdx_ToRecv,double,"pointIdx_ToRecv");
-    PMMG_DEL_MEM(parmesh,pointIdx_ToSend,double,"pointIdx_ToSend");
+    PMMG_DEL_MEM(parmesh,pointCoord_ToRecv,double,"pointCoord_ToRecv");
 
+    PMMG_DEL_MEM(parmesh,pointTag_ToSend,uint16_t,"pointTag_ToSend");
+    PMMG_DEL_MEM(parmesh,pointTag_ToRecv,uint16_t,"pointTag_ToRecv");
+
+    PMMG_DEL_MEM(parmesh,pointIdxInterface_ToSend,int,"pointIdxInterface_ToSend");
+    PMMG_DEL_MEM(parmesh,pointIdxInterface_ToRecv,int,"pointIdxInterface_ToRecv");
+
+    PMMG_DEL_MEM(parmesh,tetraVertices_ToSend,int,"tetraVertices_ToSend");
+    PMMG_DEL_MEM(parmesh,tetraVertices_ToRecv_inIdx, int,"tetraVertices_ToRecv_inIdx");
+    PMMG_DEL_MEM(parmesh,tetraVertices_ToRecv_outIdx,int,"tetraVertices_ToRecv_outIdx");
+
+    PMMG_DEL_MEM(parmesh,tetraFlag_ToSend,int,"tetraFlag_ToSend");
+    PMMG_DEL_MEM(parmesh,tetraFlag_ToRecv,int,"tetraFlag_ToRecv");
+
+    PMMG_DEL_MEM(parmesh,tetraIdx_ToSend,int,"tetraIdx_ToSend");
 
   }
+
+  fprintf(stdout, "\n\n-------> END of OVERLAP \n");
+
 
   return 1;
 }
