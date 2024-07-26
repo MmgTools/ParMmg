@@ -1224,6 +1224,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
     if( !MG_EOK(pt) || !pt->xt ) continue;
     pxt = &mesh->xtetra[pt->xt];
     for( ifac = 0; ifac < 4; ifac++ ) {
+      if( !MG_GET(pxt->ori,ifac) ) continue;
       tag = pxt->ftag[ifac];
       /* Skip non-boundary faces */
       if( !(tag & MG_BDY) || ( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) ) )
