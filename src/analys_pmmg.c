@@ -1318,6 +1318,7 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
   for (ia=1;ia<=mesh->na;ia++) {
     pa = &mesh->edge[ia];
     intvalues[ia-1] = pa->base;
+    if (!(pa->tag & MG_PARBDYBDY)) continue;
     if (pa->base == parmesh->nprocs) return 0;
   }
 
