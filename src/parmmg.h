@@ -289,12 +289,14 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 
 
 #define ERROR_AT(msg1,msg2)                                          \
-  fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
-           __func__, __FILE__, __LINE__ )
+  fprintf( stderr, "%s %s function: %s, file: %s, line: %d \n", \
+           msg1, msg2, __func__, __FILE__, __LINE__ )
 
 #define MEM_CHK_AVAIL(mesh,bytes,msg) do {                            \
   if ( (mesh)->memCur + (bytes) > (mesh)->memMax ) {                  \
-    ERROR_AT(msg," Exceeded max memory allowed: ");      \
+    char diag[1024];                                                  \
+    snprintf(diag, 1024, " Allocation of %ld bytes exceeds max %ld: ", bytes, (mesh)->memMax); \
+    ERROR_AT(msg, diag);                                              \
     stat = PMMG_FAILURE;                                              \
   } else if ( (mesh)->memCur + (bytes) < 0  ) {                       \
     ERROR_AT(msg," Tried to free more mem than allocated: " );        \
