@@ -1132,6 +1132,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
  * buffer pointer at the end of the written area. The parmesh groups must have
  * been merged before entering this function.
  *
+ * \remark the \a buffer pointer is modified (shifted) thus, after this
+ * function, it cannot be used for deallocation anymore
  */
 int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh ,char **buffer ) {
   PMMG_pGrp grp;
