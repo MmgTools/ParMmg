@@ -1098,9 +1098,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
 
-  size_t     pack_size_tot,next_disp;
-  int        *rcv_pack_size,ier,ier_glob,k,*displs,ier_pack;
-  int        nprocs,root,pack_size,buf_idx;
+  size_t     pack_size_tot,next_disp,*displs,buf_idx;
+  int        *rcv_pack_size,ier,ier_glob,k,ier_pack;
+  int        nprocs,root,pack_size;
   char       *rcv_buffer,*ptr_to_free,*buffer;
 
   nprocs        = parmesh->nprocs;
@@ -1120,7 +1120,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   /** 1: Memory alloc */
   if ( parmesh->myrank == root ) {
     PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,int,"rcv_pack_size",ier=0);
-    PMMG_MALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
+    PMMG_MALLOC( parmesh, displs               ,nprocs,size_t,"displs for gatherv",ier=0);
     PMMG_CALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
     PMMG_MALLOC( parmesh, (*rcv_int_node_comm) ,nprocs,PMMG_Int_comm,"rcv_int_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_next_node_comm),nprocs,int,"rcv_next_comm" ,ier=0);
