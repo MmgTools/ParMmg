@@ -1144,17 +1144,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     displs[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
-      assert ( displs[k-1] <= INT_MAX - rcv_pack_size[k-1] && "INT_MAX overflow");
       next_disp = displs[k-1] + rcv_pack_size[k-1];
-      if(next_disp>INT_MAX){
-        /* The displacements argument to MPI_Gatherv() is an array of int
-         * (signed) so the number of elements must be smaller than 2^31.
-         * To get around this we must pack more data in a single element
-         * or use multiple messages.
-         */
-        fprintf(stderr, "  ## Error: too many elements for MPI_Gatherv()\n");
-        MPI_Abort(parmesh->comm, 1);      /* error detected only on root */
-      }
       displs[k] = next_disp;
     }
 
