@@ -339,7 +339,7 @@ int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
                   "adja array", return 0);
   }
 
-  if ( !nemax_old )
+  if ( !xtmax_old )
     PMMG_CALLOC(mesh, mesh->xtetra, mesh->xtmax+1, MMG5_xTetra,
                 "boundary tetra array", return 0);
   else
