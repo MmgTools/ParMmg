@@ -170,6 +170,29 @@ IF( BUILD_TESTING )
       -out ${CI_DIR_RESULTS}/opnbdy-island.o.mesh
       )
 
+    ### test -m option
+    add_test ( NAME memory-pmmg_sphere-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -mmg-v 5 -v 5 -m 15
+      ${CI_DIR}/Sphere/sphere
+      -out ${CI_DIR_RESULTS}/memory-sphere.o.mesh
+      )
+    set_property(TEST memory-pmmg_sphere-2
+      PROPERTY
+      PASS_REGULAR_EXPRESSION "MAXIMUM MEMORY AUTHORIZED PER PROCESS \\(MB\\)    15"
+      )
+
+    add_test ( NAME memory-mmg_sphere-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -mmg-v 5 -v 5 -m 15
+      ${CI_DIR}/Sphere/sphere
+      -out ${CI_DIR_RESULTS}/memory-sphere.o.mesh
+      )
+    set_property(TEST memory-mmg_sphere-2
+      PROPERTY
+      PASS_REGULAR_EXPRESSION "MAXIMUM MEMORY AUTHORIZED \\(MB\\)    15"
+      )
+
     ###############################################################################
     #####
     #####        Test centralized/distributed I/O (on multidomain and openbdy tests)
