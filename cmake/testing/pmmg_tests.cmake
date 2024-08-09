@@ -171,6 +171,8 @@ IF( BUILD_TESTING )
       )
 
     ### test -m option
+    #### The 2 tests are intentionnaly failing (inside an assert in debug mode, with an error
+    #### message otherwise) due to lack of memory when computing the hash table
     add_test ( NAME memory-pmmg_sphere-2
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
       -mmg-v 5 -v 5 -m 15
