@@ -1097,7 +1097,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          PMMG_pInt_comm *rcv_int_node_comm,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
-
   size_t     pack_size_tot,next_disp,*displs,buf_idx;
   int        *rcv_pack_size,ier,ier_glob,k,ier_pack;
   int        nprocs,root,pack_size;
