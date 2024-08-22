@@ -1789,29 +1789,25 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
     coor_list[i].idx = i;
   }
 
-  /* Sort coor_list depending on its coordinates */
-  qsort(coor_list,nitem_node,sizeof(PMMG_coorCell),PMMG_compare_coorCell);
-
-  /* Travel the list and remove the identic nodes */
-  idx = 0;
+  /* Travel the list and remove the identic nodes (use naive algorithm after
+   * issues using point sorting). */
   if ( nitem_node ) {
-    new_pos[coor_list[0].idx] = 0;
 
-    for ( i=1; i<nitem_node; ++i ) {
-      if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
-        ++idx;
-        if ( idx != i ) {
-          coor_list[idx].c[0] = coor_list[i].c[0];
-          coor_list[idx].c[1] = coor_list[i].c[1];
-          coor_list[idx].c[2] = coor_list[i].c[2];
-          coor_list[idx].idx  = coor_list[i].idx;
-        }
-        new_pos[coor_list[i].idx] = idx;
+    /* Detection of duplicated valies and assignation of a unique position in
+     * the internal communicator. For now these positions are not contiguous. */
+    for ( i = 0; i < nitem_node-1; ++i ) {
+
+      if ( new_pos[coor_list[i].idx] < i ) {
+        /* Point is a duplication so it has already been compared to everyone */
+        continue;
       }
-      else
-        new_pos[coor_list[i].idx] = new_pos[coor_list[idx].idx];
+
+      for ( j=i+1; j<nitem_node; ++j ) {
+        if ( !PMMG_compare_coorCell(&coor_list[i],&coor_list[j]) ) {
+          new_pos[coor_list[j].idx] = new_pos[coor_list[i].idx];
+        }
+      }
     }
-    nitem_node = idx+1;
   }
 
   /* Update node2int_node_comm arrays */

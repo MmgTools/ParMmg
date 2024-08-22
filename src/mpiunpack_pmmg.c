@@ -1112,6 +1112,9 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,char *
  * pointer toward a buffer of type "x". Then we can get the variable value by
  * dereferencing the adress of the buffer.
  *
+ * \remark the \a buffer pointer is modified (shifted) thus, after this
+ * function, it cannot be used for deallocation anymore
+ *
  */
 int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
                              PMMG_pInt_comm int_node_comm,
