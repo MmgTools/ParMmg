@@ -2310,27 +2310,29 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     }
   }
 
-  /** Second pass: Check dihedral angle and mark geometric edge with
-   *  2*PMMG_UNSET (3x if it is already a reference edge) */
-  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
+  if ( mesh->info.dhd > MMG5_ANGLIM ) {
+    /** Second pass: Check dihedral angle and mark geometric edge with
+     *  2*PMMG_UNSET (3x if it is already a reference edge) */
+    for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+      ext_edge_comm = &parmesh->ext_edge_comm[k];
 
-    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
-      idx  = ext_edge_comm->int_comm_index[i];
+      for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+        idx  = ext_edge_comm->int_comm_index[i];
 
-      nt1 = intvalues[2*idx];
+        nt1 = intvalues[2*idx];
 
-      if( nt1 == 2 ) {
-        for( d = 0; d < 3; d++ ) {
-          n1[d] = doublevalues[6*idx+d];
-          n2[d] = doublevalues[6*idx+3+d];
-        }
-        dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
-        if ( dhd <= mesh->info.dhd ) {
-          if( intvalues[2*idx+1] != PMMG_UNSET )
-            intvalues[2*idx+1] = 2*PMMG_UNSET;
-          else
-            intvalues[2*idx+1] = 3*PMMG_UNSET;
+        if( nt1 == 2 ) {
+          for( d = 0; d < 3; d++ ) {
+            n1[d] = doublevalues[6*idx+d];
+            n2[d] = doublevalues[6*idx+3+d];
+          }
+          dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
+          if ( dhd <= mesh->info.dhd ) {
+            if( intvalues[2*idx+1] != PMMG_UNSET )
+              intvalues[2*idx+1] = 2*PMMG_UNSET;
+            else
+              intvalues[2*idx+1] = 3*PMMG_UNSET;
+          }
         }
       }
     }
@@ -2768,7 +2770,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
    *   2.1. adds possibly missing MG_NOM tags;
    *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed. */
 #warning setdhd analysis the NOM edges: what if -nr is triggered (wrong NOM setting)?
-  if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
+  if ( !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
