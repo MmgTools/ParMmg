@@ -2044,7 +2044,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  *
  * \return 1 if success, 0 if failure.
  *
- * Check dihedral angle to detect ridges on parallel edges.
+ * Check features along parallel edges:
+ *   - check for non-manifold edges
+ *   - check for reference edges (the edge shares 2 surfaces with different refs)
+ *   - if needed, check dihedral angle to detect ridges on parallel edges.
  *
  * The integer communicator is dimensioned to store the number of triangles seen
  * by a parallel edge on each partition, and a "flag" to check the references of
@@ -2058,7 +2061,7 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  * MG_PARBDYBDY only on the process who has them with the right orientation
  * (by PMMG_parbdyTria), so they will be processed only once.
  */
-int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
+int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
@@ -2766,11 +2769,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* 2. Call PMMG_setdhd to analyze edges splitted by the parallel interface:
-   *   2.1. adds possibly missing MG_NOM tags;
-   *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed. */
-#warning setdhd analysis the NOM edges: what if -nr is triggered (wrong NOM setting)?
-  if ( !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
+  /* 2. Call PMMG_setfeatures to analyze edges splitted by the parallel interface:
+   *   2.1. adds possibly missing MG_NOM tags (add MG_REF tags to MG_NOM edges);
+   *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed;
+   *   2.3. adds MG_REF tag for edges separating surfaces with different refs;
+   *   2.4. transfer edges tags to edge vertices.
+   */
+  if ( !PMMG_setfeatures( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
