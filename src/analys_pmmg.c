@@ -2199,13 +2199,18 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
 
     /* Get parallel edge touched by a boundary face and store normal vectors */
     for (i=0; i<3; i++) {
-      /* Skip non-manifold edges */
-      if ( (ptr->tag[i] & MG_NOM) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
+
+      if ( (ptr->tag[i] & MG_NOM) ) {
+        /* We only need to store that the edge is non-manifold to share the
+         * information with the other MPI processes */
+        intvalues[2*idx] = 3;
+        continue;
+      }
 
       /* Count how many times the edge is seen locally */
       intvalues[2*idx]++;
@@ -2342,19 +2347,30 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
 
     /* Get parallel edge touched by a MG_BDY face and store normal vectors */
     for (i=0; i<3; i++) {
-      /* Skip non-manifold edges */
-      if ( (ptr->tag[i] & MG_NOM) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
+
+      /* Skip non-manifold edges */
+#ifndef NDEBUG
+      if ( (ptr->tag[i] & MG_NOM) ) {
+        assert ( intvalues[2*idx] != 2 );
+      }
+#endif
+
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
-        ptr->tag[i] |= MG_GEO + MG_NOM;
+#warning remove MG_GEO fpr Mmg consistency ?
+        /* MG_REF info is not analyzed in parallel for non-manifold edges (only
+           serially by Mmy).  As we need to ensure the tag consistency across
+           the processes and for sake of simplicity, we simply mark all the
+           MG_NOM edges as MG_REF */
+        ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
         i1 = MMG5_inxt2[i];
         i2 = MMG5_inxt2[i1];
-        mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
-        mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
+        mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM + MG_REF;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
@@ -2376,11 +2392,16 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
-          ptr->tag[i] |= MG_GEO + MG_NOM;
+#warning remove MG_GEO fpr Mmg consistency ?
+          /* MG_REF info is not analyzed in parallel for non-manifold edges (only
+           serially by Mmy).  As we need to ensure the tag consistency across
+           the processes and for sake of simplicity, we simply mark all the
+           MG_NOM edges as MG_REF */
+          ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
           i1 = MMG5_inxt2[i];
           i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
-          mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
+          mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM + MG_REF;
           nm++;
         }
       }
