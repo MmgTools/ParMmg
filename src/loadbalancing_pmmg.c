@@ -143,7 +143,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   }
 
   if ( ier ) {
-    /** Redistribute the ngrp groups of listgrp into a higher number of groups */
+    /** Redistribute the ngrp groups of listgrp into a lower number of groups */
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,partitioning_mode);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");

@@ -1551,7 +1551,7 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
   for (k=1; k<=mesh->ne; k++) {
     pt   = &mesh->tetra[k];
     if( !MG_EOK(pt) ) continue;
-    
+
     for (i=0; i<4; i++) {
       p0 = &mesh->point[pt->v[i]];
       if ( !(p0->tag & MG_OLDPARBDY) ) continue;
@@ -1582,7 +1582,7 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
     p0->tag |= MG_REQ;
     p0->tag &= ~MG_NOSURF;
   }*/
-  
+
   return 1;
 }
 
@@ -1731,6 +1731,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * Check for singularities.
+ *
  * \remark Modeled after the MMG5_singul function.
  */
 int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_Comm comm) {
@@ -2729,6 +2730,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   }
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
+  /* 1. Call \ref MMG5_setdhd to analyze edges at interfaces of 2 "true"
+   * boundary faces. Skip pure parallel faces */
   if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2740,6 +2743,10 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
+  /* 2. Call PMMG_setdhd to analyze edges splitted by the parallel interface:
+   *   2.1. adds possibly missing MG_NOM tags;
+   *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed. */
+#warning setdhd analysis the NOM edges: what if -nr is triggered (wrong NOM setting)?
   if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2794,7 +2801,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* Tag parallel faces on material interfaces as boundary */
+  /* Tag parallel faces on material interfaces as boundary (ie, add \ref MG_PARBDYBDY tag) */
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2811,6 +2818,9 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
     fprintf(stdout,"  ** UPDATING TOPOLOGY AT NON-MANIFOLD POINTS\n");
 
+  /* 1. set non-manifold edges sharing non-intersecting multidomains as required
+     2. travel points lying along non-manifold edges and set tags depending on
+     the number of feature edges passing through the point */
   if ( !MMG5_setNmTag(mesh,&hash) ) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
