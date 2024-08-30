@@ -660,15 +660,25 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
                             return 0);
       }
       ptnew = &mesh->tetra[iel];
-      // memcpy(ptnew,pt0,sizeof(MMG5_Tetra));
       ptnew->v[0] = v0;
       ptnew->v[1] = v1;
       ptnew->v[2] = v2;
       ptnew->v[3] = v3;
       ptnew->ref  = ref;
-      ptnew->qual = MMG5_caltet(mesh,met,ptnew) ;//MMG5_orcal(mesh,met,iel);
+      ptnew->qual = MMG5_caltet(mesh,met,ptnew); //MMG5_orcal(mesh,met,iel);
       ptnew->tag |= MG_OVERLAP;
     }
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+    fprintf(stdout, "        OVERLAP - part %d send %d points and %d tetra to part %d\n",
+                      color_in,npTot_in2out,ntTot_in2out,color_out);
+
+    // n_ToSend[0] = npInterior_in2out;// Nbr of interior  point from Pcolor_in to send to Pcolor_out
+    // n_ToSend[1] = npPBDY_in2out;    // Nbr of MG_PARBDY point from Pcolor_in to send to Pcolor_out
+    // n_ToSend[2] = npTot_in2out;     // Total nbr of points from Pcolor_in to send to Pcolor_out
+    // n_ToSend[3] = ndataPBDY_in2out; // Nbr of data for MG_PARBDY points from Pcolor_in to send to Pcolor_out
+    // n_ToSend[4] = np_in;            // Total nbr of points on mesh Pcolor_in
+    // n_ToSend[5] = ntTot_in2out;     // Total nbr of tetras from Pcolor_in to send to Pcolor_out
 
     /* Deallocate memory*/
     PMMG_DEL_MEM(parmesh,pointCoordInterior_ToSend,double,"pointCoordInterior_ToSend");
@@ -705,6 +715,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
   /* Deallocate memory*/
   PMMG_DEL_MEM(parmesh,dataPBDY_AlreadyAdded,int,"dataPBDY_AlreadyAdded");
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+    fprintf(stdout, "        OVERLAP - part %d has %d points and %d tetras after overlap creation\n",
+                      color_in,mesh->np,mesh->ne);
 
   /* Realloc np and ne */
   // mesh->ne = mesh->nei;
