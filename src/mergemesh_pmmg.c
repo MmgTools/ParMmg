@@ -1097,11 +1097,10 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
                          PMMG_pInt_comm *rcv_int_node_comm,
                          int **rcv_next_node_comm,
                          PMMG_pExt_comm **rcv_ext_node_comm ) {
-
-  size_t     pack_size_tot;
-  int        *rcv_pack_size,ier,ier_glob,k,*displs,ier_pack;
+  size_t     pack_size_tot,next_disp,*displs,buf_idx;
+  int        *rcv_pack_size,ier,ier_glob,k,ier_pack;
   int        nprocs,root,pack_size;
-  char       *rcv_buffer,*buffer,*ptr;
+  char       *rcv_buffer,*ptr_to_free,*buffer;
 
   nprocs        = parmesh->nprocs;
   root          = parmesh->info.root;
@@ -1120,7 +1119,7 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   /** 1: Memory alloc */
   if ( parmesh->myrank == root ) {
     PMMG_MALLOC( parmesh, rcv_pack_size        ,nprocs,int,"rcv_pack_size",ier=0);
-    PMMG_MALLOC( parmesh, displs               ,nprocs,int,"displs for gatherv",ier=0);
+    PMMG_MALLOC( parmesh, displs               ,nprocs,size_t,"displs for gatherv",ier=0);
     PMMG_CALLOC( parmesh, (*rcv_grps)          ,nprocs,PMMG_Grp,"rcv_grps",ier=0);
     PMMG_MALLOC( parmesh, (*rcv_int_node_comm) ,nprocs,PMMG_Int_comm,"rcv_int_comm" ,ier=0);
     PMMG_MALLOC( parmesh, (*rcv_next_node_comm),nprocs,int,"rcv_next_comm" ,ier=0);
@@ -1144,16 +1143,33 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   if ( parmesh->myrank == root ) {
     displs[0] = 0;
     for ( k=1; k<nprocs; ++k ) {
-      assert ( displs[k-1] <= INT_MAX - rcv_pack_size[k-1] && "INT_MAX overflow");
-      displs[k] = displs[k-1] + rcv_pack_size[k-1];
+      next_disp = displs[k-1] + rcv_pack_size[k-1];
+      displs[k] = next_disp;
     }
+
+    /* On root, we will gather all the meshes in rcv_buffer so we have to
+     * compute the total pack size */
     pack_size_tot        = (size_t)(displs[nprocs-1])+(size_t)(rcv_pack_size[nprocs-1]);
     assert ( pack_size_tot < SIZE_MAX && "SIZE_MAX overflow" );
-    PMMG_MALLOC( parmesh,rcv_buffer,pack_size_tot,char,"rcv_buffer",ier=0);
+
+    /* root will write directly in the suitable position of rcv_buffer */
+    buf_idx = displs[root];
+  }
+  else {
+    /* on ranks other than root we just need to store the local mesh so buffer
+     * will be of size pack_size */
+    pack_size_tot = pack_size;
+    /* we will write the mesh at the starting position */
+    buf_idx = 0;
   }
 
+  PMMG_MALLOC( parmesh,rcv_buffer,pack_size_tot,char,"rcv_buffer",ier=0);
+
   /* Parmesh compression */
-  PMMG_MALLOC ( parmesh,buffer,pack_size,char,"buffer to send",ier=0 );
+  buffer = &rcv_buffer[buf_idx];
+
+  /* Save input allocated address to avoid arrors at unalloc */
+  ptr_to_free = rcv_buffer;
 
 #ifndef NDEBUG
   /* Remark: in release mode, a non allocated buffer used in gatherv creates a
@@ -1164,17 +1180,40 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   }
 #endif
 
-  ptr = buffer;
+  /* /!\ mpipack_parmesh and mpiunpack_parmesh are modifying the buffer pointer
+   * making it not valid for realloc / unalloc */
+
+  /* Save adress of buffer because it will be set the the end of the char array
+  by the \a PMMG_mpipack_parmesh function */
+  char *buffer_to_send = buffer;
   ier_pack = PMMG_mpipack_parmesh ( parmesh ,&buffer );
+
+  /* Do not use \a buffer pointer after this call: it points toward the end of
+   * the packed array which is useless */
+  buffer = NULL;
+
   assert ( ier_pack );
 
   /* Gather the packed parmeshes */
   ier = MG_MIN ( ier, ier_pack );
-  MPI_CHECK( MPI_Gatherv ( ptr,pack_size,MPI_CHAR,
-                           rcv_buffer,rcv_pack_size,
-                           displs,MPI_CHAR,root,parmesh->comm ),ier=0 );
 
-  PMMG_DEL_MEM(parmesh,ptr,char,"buffer to send");
+  /* Here the gatherv call has been replaced by a send/recv to avoid errors when
+   * displacements overflow the INT_MAX value */
+  if (parmesh->myrank == root) {
+    int i;
+    for ( i = 0; i < nprocs; ++i ) {
+      if ( i != root ) {
+        MPI_CHECK(
+          MPI_Recv(rcv_buffer + displs[i], rcv_pack_size[i], MPI_CHAR, i,
+                   MPI_MERGEMESH_TAG, parmesh->comm, MPI_STATUS_IGNORE),
+          ier = 0);
+      }
+    }
+  } else {
+    MPI_CHECK(
+      MPI_Send(buffer_to_send, pack_size, MPI_CHAR, root, MPI_MERGEMESH_TAG,parmesh->comm),
+      ier = 0);
+  }
 
   /** 4: Unpack parmeshes */
 #ifndef NDEBUG
@@ -1185,7 +1224,6 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
 #endif
 
   if ( parmesh->myrank == root ) {
-    ptr = rcv_buffer;
     for ( k=0; k<nprocs; ++k ) {
       ier_pack = PMMG_mpiunpack_parmesh ( parmesh,(*rcv_grps),k,(*rcv_int_node_comm)+k,
                                           (*rcv_next_node_comm)+k,(*rcv_ext_node_comm)+k,
@@ -1198,7 +1236,9 @@ int PMMG_gather_parmesh( PMMG_pParMesh parmesh,
   /* Free temporary arrays */
   PMMG_DEL_MEM(parmesh,rcv_pack_size,int,"rcv_pack_size");
   PMMG_DEL_MEM(parmesh,displs,int,"displs");
-  PMMG_DEL_MEM(parmesh,ptr ,char,"rcv_buffer");
+  /* the address of rcv_buffer is modified by packing/unpacking so it is needed
+   * to send the initially allocated address stored in to the unalloc macro */
+  PMMG_DEL_MEM(parmesh,ptr_to_free,char,"rcv_buffer");
 
   return ier;
 }

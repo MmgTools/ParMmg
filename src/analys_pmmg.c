@@ -1224,6 +1224,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
     if( !MG_EOK(pt) || !pt->xt ) continue;
     pxt = &mesh->xtetra[pt->xt];
     for( ifac = 0; ifac < 4; ifac++ ) {
+      if( !MG_GET(pxt->ori,ifac) ) continue;
       tag = pxt->ftag[ifac];
       /* Skip non-boundary faces */
       if( !(tag & MG_BDY) || ( (tag & MG_PARBDY) && !(tag & MG_PARBDYBDY) ) )
@@ -1281,6 +1282,81 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
     pa = &mesh->edge[ia];
     idx = ia-1;
     pa->base = intvalues[idx];
+  }
+
+  return 1;
+}
+
+/**
+ * \param parmesh pointer toward the parmesh structure
+ * \param hpar hash table parallel edges
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
+ * \return 0 if failure, 1 if success.
+ *
+ * Check that every edge has one and only one owner.
+ */
+int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm ) {
+  PMMG_pInt_comm int_edge_comm;
+  PMMG_pExt_comm ext_edge_comm;
+  MMG5_pMesh     mesh;
+  MMG5_pEdge     pa;
+  int            *intvalues, *itosend, *itorecv;
+  int            i, idx, k, nitem, color, ia;
+  MPI_Status     status;
+
+  assert( parmesh->ngrp == 1 );
+  mesh = parmesh->listgrp[0].mesh;
+
+  int_edge_comm = parmesh->int_edge_comm;
+  intvalues = int_edge_comm->intvalues;
+
+  /** Store list of parallel edge owners */
+  for (ia=1;ia<=mesh->na;ia++) {
+    pa = &mesh->edge[ia];
+    intvalues[ia-1] = pa->base;
+    if (!(pa->tag & MG_PARBDYBDY)) continue;
+    if (pa->base == parmesh->nprocs) return 0;
+  }
+
+  /** Exchange values on the interfaces among procs */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+    nitem         = ext_edge_comm->nitem;
+    color         = ext_edge_comm->color_out;
+
+    itosend = ext_edge_comm->itosend;
+    itorecv = ext_edge_comm->itorecv;
+
+    /* Fill buffers */
+    for ( i=0; i<nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      itosend[i] = intvalues[idx];
+    }
+
+    /* Communication */
+    MPI_CHECK(
+      MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
+                   comm,&status),return 0 );
+  }
+
+  /* Check that all edges have the same owner over the whole mesh */
+  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+    ext_edge_comm = &parmesh->ext_edge_comm[k];
+
+    itorecv = ext_edge_comm->itorecv;
+
+    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+      idx  = ext_edge_comm->int_comm_index[i];
+      if (!(intvalues[idx] == itorecv[i])) {
+        fprintf(stderr,"Parallel edge has two different owners. \n");
+        return 0;
+      }
+    }
   }
 
   return 1;
@@ -2792,6 +2868,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     return 0;
   }
+
+#ifndef NDEBUG
+  if (!PMMG_check_edge_owners(parmesh,&hpar,comm)) {
+    fprintf(stderr,"\n ## Parallel edge has no owner or too many owners. Exit program. \n");
+    return 0;
+  }
+#endif
 
   /* identify singularities on parallel points.
    * No need to call a *_setVertexNmTag function, as it already takes into

@@ -254,7 +254,10 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
       } else if(!strncmp(chaine,"ParallelVertexCommunicators",strlen("ParallelVertexCommunicators"))) {
         MMG_FSCANF(inm,"%d",&ncomm);
         pos = ftell(inm);
-        API_mode = PMMG_APIDISTRIB_nodes;
+        if (API_mode == PMMG_UNSET) {
+          /** if both parallel nodes and parallel faces are provided, use faces to build communicators */
+          API_mode = PMMG_APIDISTRIB_nodes;
+        }
         break;
       }
     }
@@ -292,7 +295,9 @@ int PMMG_loadCommunicators( PMMG_pParMesh parmesh,const char *filename ) {
         MMG_FREAD(&ncomm,MMG5_SW,1,inm);
         if(iswp) ncomm=MMG5_swapbin(ncomm);
         pos = ftell(inm);
-        API_mode = PMMG_APIDISTRIB_nodes;
+        if (API_mode == PMMG_UNSET) {
+          API_mode = PMMG_APIDISTRIB_nodes;
+        }
         rewind(inm);
         fseek(inm,bpos,SEEK_SET);
         continue;
