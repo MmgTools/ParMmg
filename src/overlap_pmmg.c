@@ -41,9 +41,11 @@
 
 /**
  * \param parmesh pointer toward a parmesh structure
- * \param comm pointer toward ...
+ * \param comm MPI communicator for ParMmg
  *
  * \return 1 if success, 0 if fail.
+ *
+ * Delete the overlap points and tetras present in the mesh
  *
  * \remark Data transfer between partitions are:
  *  - mesh->point.c, mesh->point.tag and mesh->point.ref;
@@ -52,10 +54,6 @@
  * Date NOT transfer between partitions are:
  *  - Other mesh->point and mesh->tetra fields
  *  - mesh->xtetra fields
- *
- * \todo Fill the funtion
- *
- * TODO
  *
  */
 int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
@@ -673,13 +671,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     fprintf(stdout, "        OVERLAP - part %d send %d points and %d tetra to part %d\n",
                       color_in,npTot_in2out,ntTot_in2out,color_out);
 
-    // n_ToSend[0] = npInterior_in2out;// Nbr of interior  point from Pcolor_in to send to Pcolor_out
-    // n_ToSend[1] = npPBDY_in2out;    // Nbr of MG_PARBDY point from Pcolor_in to send to Pcolor_out
-    // n_ToSend[2] = npTot_in2out;     // Total nbr of points from Pcolor_in to send to Pcolor_out
-    // n_ToSend[3] = ndataPBDY_in2out; // Nbr of data for MG_PARBDY points from Pcolor_in to send to Pcolor_out
-    // n_ToSend[4] = np_in;            // Total nbr of points on mesh Pcolor_in
-    // n_ToSend[5] = ntTot_in2out;     // Total nbr of tetras from Pcolor_in to send to Pcolor_out
-
     /* Deallocate memory*/
     PMMG_DEL_MEM(parmesh,pointCoordInterior_ToSend,double,"pointCoordInterior_ToSend");
     PMMG_DEL_MEM(parmesh,pointCoordInterior_ToRecv,double,"pointCoordInterior_ToRecv");
@@ -720,25 +711,19 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     fprintf(stdout, "        OVERLAP - part %d has %d points and %d tetras after overlap creation\n",
                       color_in,mesh->np,mesh->ne);
 
-  /* Realloc np and ne */
-  // mesh->ne = mesh->nei;
-  // mesh->np = mesh->npi;
-
-  // if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-  //   fprintf(stdout, "\n\n-------> END of OVERLAP \n");
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+    fprintf(stdout, "\n\n-------> END of OVERLAP \n");
 
   return 1;
 }
 
 /**
  * \param parmesh pointer toward a parmesh structure
- * \param comm pointer toward ...
+ * \param comm MPI communicator for ParMmg
  *
  * \return 1 if success, 0 if fail.
  *
- * \todo Fill the funtion
- *
- * TODO
+ * Delete the overlap points and tetras present in the mesh
  *
  */
 int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
