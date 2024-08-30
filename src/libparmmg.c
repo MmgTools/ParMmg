@@ -371,9 +371,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
         return PMMG_STRONGFAILURE;
       }
 
-      /* 3) Create overlap */
-      PMMG_create_overlap(parmesh,parmesh->info.read_comm);
-
       break;
 
     case PMMG_APIDISTRIB_nodes :
@@ -401,9 +398,12 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
       fprintf(stdout,"  --    under development     \n");
     }
+
+    /* Iso-value discretization */
     if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
       return PMMG_STRONGFAILURE;
     }
+
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -1138,8 +1138,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
     ppt->tmp = ++counter+offsets[parmesh->myrank];
     assert(ppt->tmp);
   }
-  // assert( counter == nowned );
-
+  assert( counter == nowned );
 
   /** Step 2: Communicate global numbering */
 
