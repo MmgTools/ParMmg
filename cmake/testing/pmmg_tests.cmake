@@ -411,6 +411,87 @@ IF( BUILD_TESTING )
 
     ###############################################################################
     #####
+    #####        Tests overlap
+    #####
+    ###############################################################################
+    # Test if overlap is created
+    set(overlapCreation "## Create Overlap.")
+
+    add_test( NAME overlap-create
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-create.o.mesh)
+    set_property(TEST overlap-create
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapCreation}")
+
+    # Test if overlap is deleted
+    set(overlapDelete "## Delete Overlap.")
+
+    add_test( NAME overlap-delete
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-delete.o.mesh)
+    set_property(TEST overlap-delete
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapDelete}")
+
+    # Tests if overlap is created correctly
+    set(overlapCheckP0P1 "OVERLAP - part 0 send 74 points and 257 tetra to part 1")
+    set(overlapCheckP0P2 "OVERLAP - part 0 send 29 points and 110 tetra to part 2")
+    set(overlapCheckP0P3 "OVERLAP - part 0 send 61 points and 204 tetra to part 3")
+    set(overlapCheckP0P4 "OVERLAP - part 0 send 28 points and 66 tetra to part 4")
+    set(overlapCheckP0 "OVERLAP - part 0 has 433 points and 1492 tetras after overlap creation")
+
+    add_test( NAME overlap-check-P0P1
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P1.o.mesh)
+    set_property(TEST overlap-check-P0P1
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P1}")
+
+    add_test( NAME overlap-check-P0P2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P2.o.mesh)
+    set_property(TEST overlap-check-P0P2
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P2}")
+
+    add_test( NAME overlap-check-P0P3
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P3.o.mesh)
+    set_property(TEST overlap-check-P0P3
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P3}")
+
+    add_test( NAME overlap-check-P0P4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P4.o.mesh)
+    set_property(TEST overlap-check-P0P4
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P4}")
+
+    add_test( NAME overlap-check-P0
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0.o.mesh)
+    set_property(TEST overlap-check-P0
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
+    ###############################################################################
+    #####
     #####        Test isovalue mode - ls discretization
     #####
     ###############################################################################
