@@ -463,7 +463,7 @@ int  PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
 int  PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSol met);
 int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
-int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
+int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MPI_Comm comm);
 
 int      PMMG_hashUpdate_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int k,MMG5_int s);
 MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s);
