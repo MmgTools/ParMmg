@@ -45,6 +45,14 @@
  *
  * \return 1 if success, 0 if fail.
  *
+ * \remark Data transfer between partitions are:
+ *  - mesh->point.c, mesh->point.tag and mesh->point.ref;
+ *  - mesh->tetra.v and mesh->tetra.ref
+ *  - mesh->ls
+ * Date NOT transfer between partitions are:
+ *  - Other mesh->point and mesh->tetra fields
+ *  - mesh->xtetra fields
+ *
  * \todo Fill the funtion
  *
  * TODO
@@ -60,22 +68,29 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   PMMG_pOverlap  overlap;
   MPI_Status     status;
   MMG5_pPoint    p0;
-  MMG5_pTetra    pt;
+  MMG5_pTetra    pt,ptnew;
 
-  int ier = 1; /* initialize error */
-  int LOCAL_MPI_TAG;
-  int print_msg;
+  int ier = 1;       // Initialize error
+  int LOCAL_MPI_TAG; // Tag used for MPI comm
+  int print_msg;     // For debug - to be deleted
 
   int i,j,k,r;
   int ip_in,ip_out,ip_ter,ip;
+  int iel;
   int icoord,icomm,icomm_ter;
-  int src,ref;
+  int ref;
+  int v0,v1,v2,v3;
 
-  int ne_in,np_out,np_in;
-  int npTot_in2out, npTot_out2in;
-  int npInt_in2out, npInt_out2in;
+  int ne_in;  // Initial nbr of tetra in the mesh
+  int np_in;  // Nbr of mesh pts on Pcolor_in
+  int np_out; // Nbr of mesh pts on Pcolor_out
+
+  int npInterior_in2out, npInterior_out2in;
   int npPBDY_in2out, npPBDY_out2in;
+  int npTot_in2out, npTot_out2in;
+
   int ntTot_in2out, ntTot_out2in;
+
   int ndataPBDY_in2out, ndataPBDY_out2in;
   int ndataPBDY_added;
 
@@ -86,31 +101,38 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int nitem_ext,nitem_ext_ter,next_comm;
   int color_in,color_out,color_ter;
 
-  double coord[3];
+  double coord[3],ls_val;
 
   uint16_t tag;
 
-  int      *n_ToSend, *n_ToRecv;
-  int      *pointIdxInterface_ToSend, *pointIdxInterface_ToRecv;
-  int      *tetraVertices_ToSend, *tetraVertices_ToRecv;
-  int      *tetraVertices_ToRecv_outIdx, *tetraVertices_ToRecv_inIdx;
-  int      *tetraFlag_ToSend, *tetraFlag_ToRecv;
-  int      *pointIdxPBDY_ToSend, *pointIdxPBDY_ToRecv;
-  int      *pointRefPBDY_ToSend, *pointRefPBDY_ToRecv;
-  int      *pointRefInt_ToSend, *pointRefInt_ToRecv;
+  int      *n_ToSend, *n_ToRecv; // Table to store ... for MPI_SENDRECV
+
+  double   *pointCoordInterior_ToSend, *pointCoordPBDY_ToSend; // Points coord
+  double   *pointCoordInterior_ToRecv, *pointCoordPBDY_ToRecv; // Points coord having MG_PBDY tag
+
+  double   *lsInterior_ToSend, *lsPBDY_ToSend; // Solution
+  double   *lsInterior_ToRecv, *lsPBDY_ToRecv; // Solution
+
+  uint16_t *pointTagInterior_ToSend, *pointTagPBDY_ToSend;
+  uint16_t *pointTagInterior_ToRecv, *pointTagPBDY_ToRecv;
+
+  int      *pointRefInterior_ToSend, *pointRefPBDY_ToSend;
+  int      *pointRefInterior_ToRecv, *pointRefPBDY_ToRecv;
+
+  int      *pointIdxPBDY_ToSend, *pointIdxInterface_ToSend;
+  int      *pointIdxPBDY_ToRecv, *pointIdxInterface_ToRecv;
+
+  int      *tetraVertices_ToSend, *tetraVertices_ToRecv_outIdx;
+  int      *tetraVertices_ToRecv, *tetraVertices_ToRecv_inIdx;
+  int      *tetraRef_ToSend, *tetraVerticesSeen_ToSend;
+  int      *tetraRef_ToRecv, *tetraVerticesSeen_ToRecv;
+
   int      *dataPBDY_ToSend, *dataPBDY_ToRecv;
-  int      *pointPBDY_ToRecv_inIdx, *point_PBDY_ToRecv_outIdx;
   int      *dataPBDY_AlreadyAdded;
   int      *hash_in2out, *hash_out2in;
-  double   *pointCoordInt_ToSend, *pointCoordInt_ToRecv;
-  double   *pointCoordPBDY_ToSend, *pointCoordPBDY_ToRecv;
-  uint16_t *pointTagInt_ToSend,  *pointTagInt_ToRecv;
-  uint16_t *pointTagPBDY_ToSend, *pointTagPBDY_ToRecv;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
       fprintf(stdout,"\n      ## Create Overlap.\n");
-      fprintf(stdout,"\n      ## TODO:: PMMG_create_overlap.\n");
-  }
 
   /* Creation of overlap works only on packed mesh, i.e. on one group */
   /* Ensure only one group on each proc */
@@ -138,7 +160,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     /* Local initialization */
     LOCAL_MPI_TAG = 1;
     npPBDY_in2out = 0;
-    npInt_in2out  = 0;
+    npInterior_in2out  = 0;
     npTot_in2out  = 0;
     ntTot_in2out  = 0;
     ndataPBDY_in2out = 0;
@@ -157,17 +179,20 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     overlap->color_out = color_out;
 
     /* Local allocation memory */
-    PMMG_CALLOC(parmesh,pointCoordInt_ToSend,    3*mesh->np,double,  "pointCoordInt_ToSend",    ier = 0);
-    PMMG_CALLOC(parmesh,pointCoordPBDY_ToSend,   3*mesh->np,double,  "pointCoordPBDY_ToSend",   ier = 0);
-    PMMG_CALLOC(parmesh,pointTagInt_ToSend,      mesh->np,  uint16_t,"pointTagInt_ToSend",      ier = 0);
-    PMMG_CALLOC(parmesh,pointRefInt_ToSend,      mesh->np,  int,     "pointRefInt_ToSend",     ier = 0);
-    PMMG_CALLOC(parmesh,pointTagPBDY_ToSend,     mesh->np,  uint16_t,"pointTagPBDY_ToSend",     ier = 0);
-    PMMG_CALLOC(parmesh,pointRefPBDY_ToSend,     mesh->np,  int,     "pointRefPBDY_ToSend",     ier = 0);
-    PMMG_CALLOC(parmesh,pointIdxPBDY_ToSend,     mesh->np,  int,     "pointIdxPBDY_ToSend",     ier = 0);
-    PMMG_CALLOC(parmesh,pointIdxInterface_ToSend,nitem_ext, int,     "pointIdxInterface_ToSend",ier = 0);
-    PMMG_CALLOC(parmesh,tetraVertices_ToSend,    4*mesh->ne,int,     "tetraVertices_ToSend",    ier = 0);
-    PMMG_CALLOC(parmesh,tetraFlag_ToSend,        4*mesh->ne,int,     "tetraFlag_ToSend",        ier = 0);
     PMMG_CALLOC(parmesh,n_ToSend,6,int,"n_ToSend",ier = 0);
+    PMMG_CALLOC(parmesh,pointCoordInterior_ToSend, 3*mesh->np, double,  "pointCoordInterior_ToSend",ier = 0);
+    PMMG_CALLOC(parmesh,pointCoordPBDY_ToSend,     3*mesh->np, double,  "pointCoordPBDY_ToSend",    ier = 0);
+    PMMG_CALLOC(parmesh,pointTagInterior_ToSend,     mesh->np, uint16_t,"pointTagInterior_ToSend",  ier = 0);
+    PMMG_CALLOC(parmesh,pointTagPBDY_ToSend,         mesh->np, uint16_t,"pointTagPBDY_ToSend",      ier = 0);
+    PMMG_CALLOC(parmesh,pointRefInterior_ToSend,     mesh->np, int,     "pointRefInterior_ToSend",  ier = 0);
+    PMMG_CALLOC(parmesh,pointRefPBDY_ToSend,         mesh->np, int,     "pointRefPBDY_ToSend",      ier = 0);
+    PMMG_CALLOC(parmesh,pointIdxPBDY_ToSend,         mesh->np, int,     "pointIdxPBDY_ToSend",      ier = 0);
+    PMMG_CALLOC(parmesh,pointIdxInterface_ToSend,    nitem_ext,int,     "pointIdxInterface_ToSend", ier = 0);
+    PMMG_CALLOC(parmesh,tetraVertices_ToSend,      4*mesh->ne, int,     "tetraVertices_ToSend",     ier = 0);
+    PMMG_CALLOC(parmesh,tetraVerticesSeen_ToSend,  4*mesh->ne, int,     "tetraVerticesSeen_ToSend", ier = 0);
+    PMMG_CALLOC(parmesh,tetraRef_ToSend,             mesh->ne, int,     "tetraRef_ToSend",          ier = 0);
+    PMMG_CALLOC(parmesh,lsInterior_ToSend,           mesh->np, double,  "lsInterior_ToSend",        ier = 0);
+    PMMG_CALLOC(parmesh,lsPBDY_ToSend,               mesh->np, double,  "lsPBDY_ToSend",            ier = 0);
 
     /** STEP 1 - Identification of the nodes between Pcolor_in and Pcolor_out.
               a) Assign flag -1 to these nodes
@@ -187,17 +212,17 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /** STEP 2 - Identification of the points and the tetra to send to Pcolor_out.
               a) ntTot_in2out: nbr of tetra  from Pcolor_in to send to Pcolor_out.
-              b) npInt_in2out: nbr of points (except those tag MG_PARBDY) from Pcolor_in to send to Pcolor_out.
+              b) npInterior_in2out: nbr of points (except those tag MG_PARBDY) from Pcolor_in to send to Pcolor_out.
               b) npPBDY_in2out: nbr of points tag MG_PARBDY from Pcolor_in to send to Pcolor_out.
               c) tetraVertices_ToSend: list of tetra vertices to send to Pcolor_out.
-              d) tetraFlag_ToSend: flag the tetra vertices using following rules
+              d) tetraVerticesSeen_ToSend: flag the tetra vertices using following rules
                     +1 means the vertex is seen for the first time
                       0 means the vertex has been already seen (from another tetra)
                         OR is on the interface between Pcolor_in and Pcolor_out
                         OR is tag MG_PARBDY (special treatments for those)
-              e) pointCoordInt_ToSend:  nodes coordinates to send to Pcolor_out
+              e) pointCoordInterior_ToSend:  nodes coordinates to send to Pcolor_out
               f) pointCoordPBDY_ToSend: nodes (tagged MG_PARBDY) coordinates to send to Pcolor_out
-              g) pointTagInt_ToSend: nodes tags to send to Pcolor_out
+              g) pointTagInterior_ToSend: nodes tags to send to Pcolor_out
               h) pointTagPBDY_ToSend: nodes (tagged MG_PARBDY) tags to send to Pcolor_out
               i) pointIdxPBDY_ToSend: nodes indexes w/ MG_PARBDY tag (except
                   those on interface between Pcolor_in & Pcolor_out) to send to Pcolor_out **/
@@ -217,9 +242,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
       /* If tetra is now MG_OVERLAP, then loop over the vertices */
       if (pt->tag & MG_OVERLAP) {
-        // TODO : add ref of tetra in this table tetraVertices_ToSend
-        // ref = pt->ref;
-        // tetraVertices_ToSend[5*ntTot_in2out+5] = ref;
+        tetraRef_ToSend[ntTot_in2out] = pt->ref;
 
         for (i=0; i<4; i++) {
           ip  = pt->v[i];
@@ -228,58 +251,60 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
           /* If this node has never been seen before
              and is not on interface between Pcolor_in and Pcolor_out,
-             assign flag 1 to this vertex in tetraFlag_ToSend,
+             assign flag 1 to this vertex in VerticesSeen_ToSend,
              store the coordinates and the tag of the node */
           if ( (p0->flag>=0)  && (p0->flag!=color_out+1) ) {
 
             /* Update flag of this vertex to identify it has already been seen */
             p0->flag = color_out+1;
 
-            /* If this vertex is tag MG_PARBDY, store it in pointIdxPBDY_ToSend
+            /* Store the point info and tetra flag to be sent to Pcolor_out */
+            if (!(p0->tag & MG_PARBDY)) {
+              tetraVerticesSeen_ToSend[4*ntTot_in2out+i] = 1;
+              pointCoordInterior_ToSend[3*npInterior_in2out]   = p0->c[0];
+              pointCoordInterior_ToSend[3*npInterior_in2out+1] = p0->c[1];
+              pointCoordInterior_ToSend[3*npInterior_in2out+2] = p0->c[2];
+              pointTagInterior_ToSend[npInterior_in2out]       = p0->tag;
+              pointRefInterior_ToSend[npInterior_in2out]       = p0->ref;
+              lsInterior_ToSend[npInterior_in2out]             = ls->m[ip];
+              npInterior_in2out++;
+            }
+            else {
+              /* If this vertex is tag MG_PARBDY, store it in pointIdxPBDY_ToSend
                pointIdxPBDY_ToSend stores the points w/ MG_PARBDY tag except the ones
                at interface between Pcolor_in and Pcolor_out */
-            if (p0->tag & MG_PARBDY) {
-              tetraFlag_ToSend[4*ntTot_in2out+i]       = 0;
+              tetraVerticesSeen_ToSend[4*ntTot_in2out+i] = 0;
               pointCoordPBDY_ToSend[3*npPBDY_in2out]   = p0->c[0];
               pointCoordPBDY_ToSend[3*npPBDY_in2out+1] = p0->c[1];
               pointCoordPBDY_ToSend[3*npPBDY_in2out+2] = p0->c[2];
               pointTagPBDY_ToSend[npPBDY_in2out]       = p0->tag;
               pointRefPBDY_ToSend[npPBDY_in2out]       = p0->ref;
               pointIdxPBDY_ToSend[npPBDY_in2out]       = ip;
+              lsPBDY_ToSend[npPBDY_in2out]             = ls->m[ip];
               npPBDY_in2out++;
-            }
-            else {
-              /* Store useful information */
-              tetraFlag_ToSend[4*ntTot_in2out+i]     = 1;
-              pointCoordInt_ToSend[3*npInt_in2out]   = p0->c[0];
-              pointCoordInt_ToSend[3*npInt_in2out+1] = p0->c[1];
-              pointCoordInt_ToSend[3*npInt_in2out+2] = p0->c[2];
-              pointTagInt_ToSend[npInt_in2out]       = p0->tag;
-              pointRefInt_ToSend[npInt_in2out]       = p0->ref;
-              npInt_in2out++;
             }
           }
           /* If this node is on the interface between Pcolor_in and Pcolor_out,
-             this node will be treated separately, assign 0 in tetraFlag_ToSend
+             this node will be treated separately, assign 0 in tetraVerticesSeen_ToSend
              OR
              If this node has been seen before in another tetra,
-             assign 0 in tetraFlag_ToSend */
+             assign 0 in tetraVerticesSeen_ToSend */
           else {
-            tetraFlag_ToSend[4*ntTot_in2out+i]  = 0;
+            tetraVerticesSeen_ToSend[4*ntTot_in2out+i]  = 0;
           }
         }
         ntTot_in2out++;
         /* Remove the tag MG_OVERLAP - not needed here: here it is used as a way
-          to identify the tetra to be send. Later, tetras having the tag MG_OVERLAP
+          to identify the tetra to be sent. Later, tetras having the tag MG_OVERLAP
           will actually be tetras received from Pcolor_out */
         pt->tag &= ~MG_OVERLAP;
       }
     }
 
     /* The total number of point to send to Pcolor_out npTot_in2out is
-       the nbr of point not tagged MG_PARBDY npInt_in2out
+       the nbr of point not tagged MG_PARBDY npInterior_in2out
        plus the ones tagged MG_PARBDY npPBDY_in2out */
-    npTot_in2out = npInt_in2out + npPBDY_in2out;
+    npTot_in2out = npInterior_in2out + npPBDY_in2out;
 
     /** STEP 3 - Reinitialise flags of points to 0 **/
     for (i=0; i < nitem_ext; i++) {
@@ -305,7 +330,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     PMMG_CALLOC(parmesh,dataPBDY_ToSend,3*npPBDY_in2out*parmesh->nprocs,int,"dataPBDY_ToSend",ier = 0);
 
     /* Loop over the nodes with MG_PARBDY tags */
-    for (i=0; i<npPBDY_in2out+1; i++) {
+    for (i=0; i<npPBDY_in2out; i++) {
       ip = pointIdxPBDY_ToSend[i];
       p0 = &mesh->point[ip];
 
@@ -334,8 +359,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
               dataPBDY_ToSend[3*ndataPBDY_in2out]   = color_ter;
               dataPBDY_ToSend[3*ndataPBDY_in2out+1] = j;  // position in external communicator
               dataPBDY_ToSend[3*ndataPBDY_in2out+2] = ip; // index of point on this partition
-              // fprintf(stdout, "OVERLAP Proc=%d :: color_ter=%d, dataPBDY_ToSend=[%d-%d-%d] \n", color_in,color_ter,
-              //         dataPBDY_ToSend[3*ndataPBDY_in2out],dataPBDY_ToSend[3*ndataPBDY_in2out+1],dataPBDY_ToSend[3*ndataPBDY_in2out+2]);
               ndataPBDY_in2out++;
               break;
             }
@@ -346,16 +369,16 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     np_in = mesh->np;
 
-    n_ToSend[0]=npInt_in2out;     // Nbr of interior  point from Pcolor_in to send to Pcolor_out
-    n_ToSend[1]=npPBDY_in2out;    // Nbr of MG_PARBDY point from Pcolor_in to send to Pcolor_out
-    n_ToSend[2]=npTot_in2out;     // Total nbr of points from Pcolor_in to send to Pcolor_out
-    n_ToSend[3]=ndataPBDY_in2out; // Nbr of data for MG_PARBDY points from Pcolor_in to send to Pcolor_out
-    n_ToSend[4]=np_in;            // Total nbr of points on mesh Pcolor_in
-    n_ToSend[5]=ntTot_in2out;     // Total nbr of tetras from Pcolor_in to send to Pcolor_out
+    n_ToSend[0] = npInterior_in2out;// Nbr of interior  point from Pcolor_in to send to Pcolor_out
+    n_ToSend[1] = npPBDY_in2out;    // Nbr of MG_PARBDY point from Pcolor_in to send to Pcolor_out
+    n_ToSend[2] = npTot_in2out;     // Total nbr of points from Pcolor_in to send to Pcolor_out
+    n_ToSend[3] = ndataPBDY_in2out; // Nbr of data for MG_PARBDY points from Pcolor_in to send to Pcolor_out
+    n_ToSend[4] = np_in;            // Total nbr of points on mesh Pcolor_in
+    n_ToSend[5] = ntTot_in2out;     // Total nbr of tetras from Pcolor_in to send to Pcolor_out
 
     /** STEP 5 - Send and Receive all the data from the other partitions **/
-    // TODO :: Improve number of communications - 10 comm for now -> might be reduced to 7
-    /* STEP 5.1 - First send and receive the different sizes to exchange/share */
+    // TODO :: Improve number of communications
+    /* STEP 5.1 - First send/receive the different sizes to exchange/share */
     PMMG_CALLOC(parmesh,n_ToRecv,6,int,"n_ToRecv",ier = 0);
     MPI_CHECK(
       MPI_Sendrecv(n_ToSend,6,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
@@ -363,18 +386,12 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
-    npInt_out2in     = n_ToRecv[0];
-    npPBDY_out2in    = n_ToRecv[1];
-    npTot_out2in     = n_ToRecv[2];
-    ndataPBDY_out2in = n_ToRecv[3];
-    np_out           = n_ToRecv[4];
-    ntTot_out2in     = n_ToRecv[5];
-
-    // fprintf(stdout, "OVERLAP Proc %d-Proc %d :: npInt_in2out=%d, npPBDY_in2out=%d, npTot_in2out=%d -- npInt_out2in=%d, npPBDY_out2in=%d, npTot_out2in=%d  \n", color_in,color_out,
-    //         npInt_in2out,npPBDY_in2out,npTot_in2out,npInt_out2in,npPBDY_out2in,npTot_out2in);
-
-    // fprintf(stdout, "OVERLAP Proc %d-Proc %d :: ntTot_in2out=%d, ntTot_out2in=%d  \n", color_in,color_out,
-    //         ntTot_in2out,ntTot_out2in);
+    npInterior_out2in = n_ToRecv[0];
+    npPBDY_out2in     = n_ToRecv[1];
+    npTot_out2in      = n_ToRecv[2];
+    ndataPBDY_out2in  = n_ToRecv[3];
+    np_out            = n_ToRecv[4];
+    ntTot_out2in      = n_ToRecv[5];
 
     overlap->np_in2out = npTot_in2out;
     overlap->np_out2in = npTot_out2in;
@@ -396,13 +413,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
-    // if (color_in == 0) {
-    //   for (i=0; i<ndataPBDY_out2in; i++) {
-    //     fprintf(stdout, "OVERLAP Proc=%d :: color_out=%d, dataPBDY_ToRecv=[%d-%d-%d] \n", color_in,color_out,
-    //             dataPBDY_ToRecv[3*i],dataPBDY_ToRecv[3*i+1],dataPBDY_ToRecv[3*i+2]);
-    //   }
-    // }
-
     /* Send/receive nodes index located on interface between Pcolor_in and Pcolor_out */
     PMMG_CALLOC(parmesh,pointIdxInterface_ToRecv,nitem_ext,int,"pointIdxInterface_ToRecv",ier = 0);
     MPI_CHECK(
@@ -420,7 +430,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     LOCAL_MPI_TAG++;
 
     /* Send/receive nodes index of tetras vertices */
-    // TODO :: Maybe add flag into tetraVertices_ToSend to avoid 2 communications
+    // TODO :: Maybe add flag (and ref?) into tetraVertices_ToSend to avoid 2 communications
     PMMG_CALLOC(parmesh,tetraVertices_ToRecv_outIdx,4*ntTot_out2in,int,"tetraVertices_ToRecv_outIdx",ier = 0);
     PMMG_CALLOC(parmesh,tetraVertices_ToRecv_inIdx, 4*ntTot_out2in,int,"tetraVertices_ToRecv_inIdx",ier = 0);
     MPI_CHECK(
@@ -429,20 +439,28 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
-    /* Send/receive nodes flag of tetras vertices */
-    PMMG_CALLOC(parmesh,tetraFlag_ToRecv,4*ntTot_out2in,int,"tetraFlag_ToRecv",ier = 0);
+    /* Send/receive nodes flag to know if it has been seen of tetras vertices */
+    PMMG_CALLOC(parmesh,tetraVerticesSeen_ToRecv,4*ntTot_out2in,int,"tetraVerticesSeen_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(tetraFlag_ToSend,4*ntTot_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
-                   tetraFlag_ToRecv,4*ntTot_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+      MPI_Sendrecv(tetraVerticesSeen_ToSend,4*ntTot_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   tetraVerticesSeen_ToRecv,4*ntTot_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   comm,&status),return 0 );
+    LOCAL_MPI_TAG++;
+
+    /* Send/receive tetra ref */
+    PMMG_CALLOC(parmesh,tetraRef_ToRecv,ntTot_out2in,int,"tetraRef_ToRecv",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(tetraRef_ToSend,ntTot_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   tetraRef_ToRecv,ntTot_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
     /* Send/receive nodes tag */
     // TODO :: group the next 2 communications
-    PMMG_CALLOC(parmesh,pointTagInt_ToRecv,npInt_out2in,uint16_t,"pointTagInt_ToRecv",ier = 0);
+    PMMG_CALLOC(parmesh,pointTagInterior_ToRecv,npInterior_out2in,uint16_t,"pointTagInterior_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointTagInt_ToSend,npInt_in2out,MPI_UINT16_T,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
-                   pointTagInt_ToSend,npInt_out2in,MPI_UINT16_T,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+      MPI_Sendrecv(pointTagInterior_ToSend,npInterior_in2out,MPI_UINT16_T,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   pointTagInterior_ToRecv,npInterior_out2in,MPI_UINT16_T,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
@@ -455,10 +473,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /* Send/receive nodes references */
     // TODO :: group the next 2 communications
-    PMMG_CALLOC(parmesh,pointRefInt_ToRecv,npInt_out2in,int,"pointRefInt_ToRecv",ier = 0);
+    PMMG_CALLOC(parmesh,pointRefInterior_ToRecv,npInterior_out2in,int,"pointRefInterior_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointRefInt_ToSend,npInt_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
-                   pointRefInt_ToRecv,npInt_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+      MPI_Sendrecv(pointRefInterior_ToSend,npInterior_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   pointRefInterior_ToRecv,npInterior_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
@@ -471,10 +489,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /* Send/receive nodes coordinates */
     // TODO :: group the next 2 communications
-    PMMG_CALLOC(parmesh,pointCoordInt_ToRecv,3*npInt_out2in,double,"pointCoordInt_ToRecv",ier = 0);
+    PMMG_CALLOC(parmesh,pointCoordInterior_ToRecv,3*npInterior_out2in,double,"pointCoordInterior_ToRecv",ier = 0);
     MPI_CHECK(
-      MPI_Sendrecv(pointCoordInt_ToSend,3*npInt_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
-                   pointCoordInt_ToRecv,3*npInt_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+      MPI_Sendrecv(pointCoordInterior_ToSend,3*npInterior_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   pointCoordInterior_ToRecv,3*npInterior_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
@@ -482,6 +500,21 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     MPI_CHECK(
       MPI_Sendrecv(pointCoordPBDY_ToSend,3*npPBDY_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    pointCoordPBDY_ToRecv,3*npPBDY_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   comm,&status),return 0 );
+    LOCAL_MPI_TAG++;
+
+    /* Send/receive ls solution */
+    PMMG_CALLOC(parmesh,lsInterior_ToRecv,npInterior_out2in,double,"lsInterior_ToRecv",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(lsInterior_ToSend,npInterior_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   lsInterior_ToRecv,npInterior_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   comm,&status),return 0 );
+    LOCAL_MPI_TAG++;
+
+    PMMG_CALLOC(parmesh,lsPBDY_ToRecv,npPBDY_out2in,double,"lsPBDY_ToRecv",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(lsPBDY_ToSend,npPBDY_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   lsPBDY_ToRecv,npPBDY_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
@@ -494,19 +527,20 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     }
 
     /** STEP 7 - Add nodes having MG_PARBDY tag to the overlap hash tables **/
-    mesh->xpmax  = MG_MAX( (long long)(1.5*mesh->xp),mesh->npmax);
+    mesh->xpmax = MG_MAX( (long long)(1.5*mesh->xp),mesh->npmax);
 
     /* Loop over the points having MG_PARBDY tag */
-    for (i=0; i < npPBDY_out2in+1; i++) {
-      ip_out=pointIdxPBDY_ToRecv[i];
-      coord[0]=pointCoordPBDY_ToRecv[3*i];
-      coord[1]=pointCoordPBDY_ToRecv[3*i+1];
-      coord[2]=pointCoordPBDY_ToRecv[3*i+2];
-      tag     =pointTagPBDY_ToRecv[i]+MG_OVERLAP;
-      ref     =pointRefPBDY_ToRecv[i];
+    for (i=0; i < npPBDY_out2in; i++) {
+      ip_out   = pointIdxPBDY_ToRecv[i];
+      coord[0] = pointCoordPBDY_ToRecv[3*i];
+      coord[1] = pointCoordPBDY_ToRecv[3*i+1];
+      coord[2] = pointCoordPBDY_ToRecv[3*i+2];
+      tag      = pointTagPBDY_ToRecv[i]+MG_OVERLAP;
+      ref      = pointRefPBDY_ToRecv[i];
+      ls_val   = lsPBDY_ToRecv[i];
 
       /* Loop over the data allowing to identify these points */
-      for (j=0; j < ndataPBDY_out2in+1; j++) {
+      for (j=0; j < ndataPBDY_out2in; j++) {
         color_ter = dataPBDY_ToRecv[3*j];
         loc       = dataPBDY_ToRecv[3*j+1];
         ip        = dataPBDY_ToRecv[3*j+2];
@@ -535,13 +569,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
           /* If the point has not been added, yet, then add it */
           if (duplicated_point==0) {
             if ( color_ter != color_in ) {
-#ifdef USE_POINTMAP
-              src = 1; //p0->src;
-#else
-              src = 1;
-#endif
-              ip_in = MMG3D_newPt(mesh,coord,tag,src);
-              // TODO :: add ref here
+              ip_in = MMG3D_newPt(mesh,coord,tag,1);
+              mesh->point[ip_in].ref = ref; // Add ref
+              mesh->point[ip_in].xp  = 0;   // Assign 0 to xp
+              ls->m[ip_in]           = ls_val;
             }
           }
           hash_out2in[ip_out] = ip_in;  // From index on color_out, I found index on color_in
@@ -556,38 +587,25 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       }
     }
 
-    if (color_in == 0) {
-      fprintf(stdout, "OVERLAP Proc %d :: ndataPBDY_added=%d  \n", color_in,ndataPBDY_added);
-      for (i=0; i < ndataPBDY_added; i++) {
-        fprintf(stdout, "OVERLAP Proc=%d :: dataPBDY_AlreadyAdded=[%d-%d-%d-%d-%d]\n",
-                          color_in,
-                          dataPBDY_AlreadyAdded[5*i],dataPBDY_AlreadyAdded[5*i+1],dataPBDY_AlreadyAdded[5*i+2],
-                          dataPBDY_AlreadyAdded[5*i+3],dataPBDY_AlreadyAdded[5*i+4]);
-      }
-    }
-
     /** STEP 8 - Add all the other nodes to the overlap hash tables **/
     icoord=0;
 
     for (i=0; i < 4*ntTot_out2in; i++) {
       ip_out=tetraVertices_ToRecv_outIdx[i];
 
-      if (tetraFlag_ToRecv[i]==1) {
-        coord[0]=pointCoordInt_ToRecv[3*icoord];
-        coord[1]=pointCoordInt_ToRecv[3*icoord+1];
-        coord[2]=pointCoordInt_ToRecv[3*icoord+2];
-        ref     =pointRefInt_ToRecv[icoord];
-        tag     =pointTagInt_ToRecv[icoord]+MG_OVERLAP;
+      if (tetraVerticesSeen_ToRecv[i]==1) {
+        coord[0] = pointCoordInterior_ToRecv[3*icoord];
+        coord[1] = pointCoordInterior_ToRecv[3*icoord+1];
+        coord[2] = pointCoordInterior_ToRecv[3*icoord+2];
+        ref      = pointRefInterior_ToRecv[icoord];
+        tag      = pointTagInterior_ToRecv[icoord]+MG_OVERLAP;
+        ls_val   = lsInterior_ToRecv[icoord];
         icoord += 1;
 
-#ifdef USE_POINTMAP
-        src = 1; //p0->src;
-#else
-        src = 1;
-#endif
-
-        ip_in = MMG3D_newPt(mesh,coord,tag,src);
-        mesh->point[ip_in].ref = ref;
+        ip_in = MMG3D_newPt(mesh,coord,tag,1);
+        mesh->point[ip_in].ref = ref; // Add ref
+        mesh->point[ip_in].xp  = 0;   // Assign 0 to xp
+        ls->m[ip_in]           = ls_val;
         hash_out2in[ip_out] = ip_in;  // From index on color_out, I found index on color_in
         hash_in2out[ip_in]  = ip_out; // From index on color_in,  I found index on color_out
         tetraVertices_ToRecv_inIdx[i]=ip_in;
@@ -597,47 +615,40 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       }
     }
 
+    // if (print_msg) {
+    //   for (i=0; i < 4*ntTot_out2in; i+=4) {
+    //     fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: inIdx=[%d-%d-%d-%d], outIdx=[%d-%d-%d-%d]\n",
+    //                       color_in,color_out,
+    //                       tetraVertices_ToRecv_inIdx[i],tetraVertices_ToRecv_inIdx[i+1],tetraVertices_ToRecv_inIdx[i+2],tetraVertices_ToRecv_inIdx[i+3],
+    //                       tetraVertices_ToRecv_outIdx[i],tetraVertices_ToRecv_outIdx[i+1],tetraVertices_ToRecv_outIdx[i+2],tetraVertices_ToRecv_outIdx[i+3]);
+    //   }
 
-    if (print_msg) {
-      for (i=0; i < 4*ntTot_out2in; i+=4) {
-        fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: inIdx=[%d-%d-%d-%d], outIdx=[%d-%d-%d-%d]\n",
-                          color_in,color_out,
-                          tetraVertices_ToRecv_inIdx[i],tetraVertices_ToRecv_inIdx[i+1],tetraVertices_ToRecv_inIdx[i+2],tetraVertices_ToRecv_inIdx[i+3],
-                          tetraVertices_ToRecv_outIdx[i],tetraVertices_ToRecv_outIdx[i+1],tetraVertices_ToRecv_outIdx[i+2],tetraVertices_ToRecv_outIdx[i+3]);
-      }
+    //   fprintf(stdout, "\n\n");
 
-      fprintf(stdout, "\n\n");
+    //   for (i=0; i < np_in+npTot_out2in+1; i++) {
+    //     if (hash_in2out[i] != 0) {
+    //       fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_in2out - ip_in=%d, ip_out=%d\n",
+    //                         color_in,color_out,i,hash_in2out[i]);
+    //     }
+    //   }
 
-      for (i=0; i < np_in+npTot_out2in+1; i++) {
-        if (hash_in2out[i] != 0) {
-          fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_in2out - ip_in=%d, ip_out=%d\n",
-                            color_in,color_out,i,hash_in2out[i]);
-        }
-      }
+    //   fprintf(stdout, "\n\n");
 
-      fprintf(stdout, "\n\n");
-
-      for (i=0; i < np_out+1; i++) {
-        if (hash_out2in[i] != 0) {
-          fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_out2in ip_out=%d, ip_in=%d\n",
-                              color_in,color_out,i,hash_out2in[i]);
-        }
-      }
-    }
+    //   for (i=0; i < np_out+1; i++) {
+    //     if (hash_out2in[i] != 0) {
+    //       fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_out2in ip_out=%d, ip_in=%d\n",
+    //                           color_in,color_out,i,hash_out2in[i]);
+    //     }
+    //   }
+    // }
 
     /* Add the tetra to the mesh */
-    int v0,v1,v2,v3;
-    MMG5_pTetra         ptnew;
-    MMG5_int iel;
-    // MMG5_xTetra         xt,xt1;
-
-    // pt0=&mesh->tetra[1];
-
     for (i=0; i < ntTot_out2in; i++) {
       v0 = tetraVertices_ToRecv_inIdx[4*i];
       v1 = tetraVertices_ToRecv_inIdx[4*i+1];
       v2 = tetraVertices_ToRecv_inIdx[4*i+2];
       v3 = tetraVertices_ToRecv_inIdx[4*i+3];
+      ref = tetraRef_ToRecv[i];
 
       iel = MMG3D_newElt(mesh);
       if ( !iel ) {
@@ -654,19 +665,20 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       ptnew->v[1] = v1;
       ptnew->v[2] = v2;
       ptnew->v[3] = v3;
+      ptnew->ref  = ref;
       ptnew->qual = MMG5_caltet(mesh,met,ptnew) ;//MMG5_orcal(mesh,met,iel);
       ptnew->tag |= MG_OVERLAP;
     }
 
     /* Deallocate memory*/
-    PMMG_DEL_MEM(parmesh,pointCoordInt_ToSend,double,"pointCoordInt_ToSend");
-    PMMG_DEL_MEM(parmesh,pointCoordInt_ToRecv,double,"pointCoordInt_ToRecv");
+    PMMG_DEL_MEM(parmesh,pointCoordInterior_ToSend,double,"pointCoordInterior_ToSend");
+    PMMG_DEL_MEM(parmesh,pointCoordInterior_ToRecv,double,"pointCoordInterior_ToRecv");
 
     PMMG_DEL_MEM(parmesh,pointCoordPBDY_ToSend,double,"pointCoordPBDY_ToSend");
     PMMG_DEL_MEM(parmesh,pointCoordPBDY_ToRecv,double,"pointCoordPBDY_ToRecv");
 
-    PMMG_DEL_MEM(parmesh,pointTagInt_ToSend,uint16_t,"pointTagInt_ToSend");
-    PMMG_DEL_MEM(parmesh,pointTagInt_ToRecv,uint16_t,"pointTagInt_ToRecv");
+    PMMG_DEL_MEM(parmesh,pointTagInterior_ToSend,uint16_t,"pointTagInterior_ToSend");
+    PMMG_DEL_MEM(parmesh,pointTagInterior_ToRecv,uint16_t,"pointTagInterior_ToRecv");
 
     PMMG_DEL_MEM(parmesh,pointTagPBDY_ToSend,uint16_t,"pointTagPBDY_ToSend");
     PMMG_DEL_MEM(parmesh,pointTagPBDY_ToRecv,uint16_t,"pointTagPBDY_ToRecv");
@@ -678,8 +690,11 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     PMMG_DEL_MEM(parmesh,tetraVertices_ToRecv_inIdx, int,"tetraVertices_ToRecv_inIdx");
     PMMG_DEL_MEM(parmesh,tetraVertices_ToRecv_outIdx,int,"tetraVertices_ToRecv_outIdx");
 
-    PMMG_DEL_MEM(parmesh,tetraFlag_ToSend,int,"tetraFlag_ToSend");
-    PMMG_DEL_MEM(parmesh,tetraFlag_ToRecv,int,"tetraFlag_ToRecv");
+    PMMG_DEL_MEM(parmesh,tetraVerticesSeen_ToSend,int,"tetraVerticesSeen_ToSend");
+    PMMG_DEL_MEM(parmesh,tetraVerticesSeen_ToRecv,int,"tetraVerticesSeen_ToRecv");
+
+    PMMG_DEL_MEM(parmesh,tetraRef_ToSend,int,"tetraRef_ToSend");
+    PMMG_DEL_MEM(parmesh,tetraRef_ToRecv,int,"tetraRef_ToRecv");
 
     PMMG_DEL_MEM(parmesh,dataPBDY_ToSend,int,"dataPBDY_ToSend");
     PMMG_DEL_MEM(parmesh,dataPBDY_ToRecv,int,"dataPBDY_ToRecv");
@@ -695,8 +710,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   // mesh->ne = mesh->nei;
   // mesh->np = mesh->npi;
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout, "\n\n-------> END of OVERLAP \n");
+  // if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+  //   fprintf(stdout, "\n\n-------> END of OVERLAP \n");
 
   return 1;
 }
@@ -714,8 +729,36 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
  */
 int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-      fprintf(stdout,"\n      ## TODO:: PMMG_delete_overlap.\n");
+  PMMG_pGrp   grp;
+  MMG5_pMesh  mesh;
+  MMG5_pTetra pt;
+  MMG5_pPoint ppt;
 
-return 1;
+  int i;
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"\n      ## Delete Overlap.\n");
+  }
+
+  /* Delete overlap works only on packed mesh, i.e. on one group */
+  /* Ensure only one group on each proc */
+  assert(parmesh->ngrp == 1);
+
+  /* Global initialization */
+  grp  = &parmesh->listgrp[0];
+  mesh =  parmesh->listgrp[0].mesh;
+
+  for (i=mesh->ne; i > 0; i--) {
+    pt = &mesh->tetra[i];
+    if ( !(pt->tag & MG_OVERLAP) ) continue;
+    if ( !MMG3D_delElt(mesh,i) )   return 0;
+  }
+
+  for (i=mesh->np; i > 0; i--) {
+    ppt = &mesh->point[i];
+    if ( !(ppt->tag & MG_OVERLAP) ) continue;
+    MMG3D_delPt(mesh,i);
+  }
+
+  return 1;
 }
