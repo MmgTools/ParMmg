@@ -345,7 +345,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
    *  Check triangles, create xtetras */
   PMMG_CALLOC(parmesh,permtria,mesh->nt+1,MMG5_int,"permtria",return 0);
   MMG5_int k;
-  for (k=0;k<=mesh->nt+1;k++) {
+  for (k=0;k<=mesh->nt;k++) {
     permtria[k] = k;
   }
   if ( parmesh->myrank < parmesh->info.npartin ) {
