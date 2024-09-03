@@ -434,6 +434,13 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
       -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
 
+    # Test to check that when not using -opnbdy option, internal triangles are correctly removed.
+    # See ParMmg PR#110
+    add_test( NAME extrainternaltriangles
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 3 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Cube/internaltriangles-P3.mesh -v 10
+      -out ${CI_DIR_RESULTS}/internaltriangles-P3.o.mesh)
+
     ###############################################################################
     #####
     #####        Test isovalue mode - ls discretization
