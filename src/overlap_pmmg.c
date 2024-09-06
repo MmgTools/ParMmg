@@ -141,12 +141,16 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   nt_initial      = mesh->ne;
   ndataPBDY_added = 0;
 
+  /* Reset flags */
+  for (k=1; k<=mesh->np; k++)
+    mesh->point[k].flag = 0;
+
   /* Global allocation memory */
   PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",return 0);
   PMMG_CALLOC(parmesh,parmesh->overlap,next_comm,PMMG_Overlap,"overlap",ier = 0);
   PMMG_CALLOC(parmesh,dataPBDY_AlreadyAdded,5*mesh->np,int,"dataPBDY_AlreadyAdded",ier = 0);
 
-  /** Store point index in internal communicator intvalues */
+  /* Store point index in internal communicator intvalues */
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
     ip   = grp->node2int_node_comm_index1[i];
     idx  = grp->node2int_node_comm_index2[i];
@@ -526,7 +530,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       coord[0] = pointCoordPBDY_ToRecv[3*i];
       coord[1] = pointCoordPBDY_ToRecv[3*i+1];
       coord[2] = pointCoordPBDY_ToRecv[3*i+2];
-      tag      = pointTagPBDY_ToRecv[i]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
+      tag      = pointTagPBDY_ToRecv[i]|MG_OVERLAP; // Add the tag MG_OVERLAP to this point
       ref      = pointRefPBDY_ToRecv[i];
       ls_val   = lsPBDY_ToRecv[i];
 
@@ -593,7 +597,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         coord[1] = pointCoordInterior_ToRecv[3*j+1];
         coord[2] = pointCoordInterior_ToRecv[3*j+2];
         ref      = pointRefInterior_ToRecv[j];
-        tag      = pointTagInterior_ToRecv[j]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
+        tag      = pointTagInterior_ToRecv[j]|MG_OVERLAP; // Add the tag MG_OVERLAP to this point
         ls_val   = lsInterior_ToRecv[j];
         j += 1;
 
@@ -723,6 +727,10 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     if ( !(ppt->tag & MG_OVERLAP) ) continue;
     MMG3D_delPt(mesh,i);
   }
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+    fprintf(stdout, "        OVERLAP - part %d has %d pts and %d tetras after overlap deletion\n",
+                      parmesh->myrank,mesh->np,mesh->ne);
 
   return 1;
 }
