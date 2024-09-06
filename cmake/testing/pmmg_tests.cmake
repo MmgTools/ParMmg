@@ -516,25 +516,15 @@ IF( BUILD_TESTING )
       PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
 
     # Tests if overlap is deleted correctly
-    set(overlapCheckDeletePoints "NUMBER OF VERTICES            528")
-    set(overlapCheckDeleteTetras "NUMBER OF TETRAHEDRA         1311")
-    add_test( NAME overlap-check-deletePoints
+    set(overlapCheckDelete "OVERLAP - part 0 has 282 pts and 882 tetras after overlap deletion")
+    add_test( NAME overlap-check-delete
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/overlap-check-deletePoints.o.mesh)
-    set_property(TEST overlap-check-deletePoints
-      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDeletePoints}")
-
-    add_test( NAME overlap-check-deleteTetras
-      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
-      -ls 0.0
-      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
-      -out ${CI_DIR_RESULTS}/overlap-check-deleteTetras.o.mesh)
-    set_property(TEST overlap-check-deleteTetras
-      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDeleteTetras}")
+      -out ${CI_DIR_RESULTS}/overlap-check-delete.o.mesh)
+    set_property(TEST overlap-check-delete
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
 
     ###############################################################################
     #####

@@ -526,7 +526,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       coord[0] = pointCoordPBDY_ToRecv[3*i];
       coord[1] = pointCoordPBDY_ToRecv[3*i+1];
       coord[2] = pointCoordPBDY_ToRecv[3*i+2];
-      tag      = pointTagPBDY_ToRecv[i]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
+      tag      = pointTagPBDY_ToRecv[i]|MG_OVERLAP; // Add the tag MG_OVERLAP to this point
       ref      = pointRefPBDY_ToRecv[i];
       ls_val   = lsPBDY_ToRecv[i];
 
@@ -593,7 +593,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         coord[1] = pointCoordInterior_ToRecv[3*j+1];
         coord[2] = pointCoordInterior_ToRecv[3*j+2];
         ref      = pointRefInterior_ToRecv[j];
-        tag      = pointTagInterior_ToRecv[j]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
+        tag      = pointTagInterior_ToRecv[j]|MG_OVERLAP; // Add the tag MG_OVERLAP to this point
         ls_val   = lsInterior_ToRecv[j];
         j += 1;
 
@@ -723,6 +723,10 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     if ( !(ppt->tag & MG_OVERLAP) ) continue;
     MMG3D_delPt(mesh,i);
   }
+
+  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
+    fprintf(stdout, "        OVERLAP - part %d has %d pts and %d tetras after overlap deletion\n",
+                      parmesh->myrank,mesh->np,mesh->ne);
 
   return 1;
 }
