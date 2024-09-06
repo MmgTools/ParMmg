@@ -107,7 +107,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
-  assert(parmesh->ngrp == 1);
+  assert(parmesh->ngrp == 1 && "more than one group per rank not implemented");
 
   /* For now, does not support `nosplit` option in multimat  */
   // To be removed when supported
@@ -1522,7 +1522,7 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  * and prevent nonmanifold patterns from being generated.
  *
  */
-int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm comm) {
+int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   MMG5_pTetra   pt;
   MMG5_pPoint   p0;
@@ -1530,11 +1530,13 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
   PMMG_pExt_comm ext_comm;
   PMMG_pGrp      grp;
   MPI_Status     status;
+  MMG5_pMesh     mesh;
+  MMG5_pSol      sol;
 
   int nitem_ext,next_comm,nitem_ToShare_ToSend,nitem_ToShare_ToRecv;
   int color_in,color_out;
   int idx_ext,idx_int;
-  int icomm,i,ip;
+  int icomm,i,ip,idx;
   double *tmp;
   MMG5_int k,nc,ns,ncg;
   double         *rtosend,*rtorecv,*doublevalues;
@@ -1544,11 +1546,17 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n      ## TODO:: PMMG_snpval_ls.\n");
 
+  /* Ensure only one group on each proc */
+  assert(parmesh->ngrp == 1 && "more than one group per rank not implemented");
+
   /* Get external node communicator information */
   grp  = &parmesh->listgrp[0];
-  next_comm = parmesh->next_node_comm;  // Number of nodes communicator
+  mesh =  parmesh->listgrp[0].mesh;
+  sol  = parmesh->listgrp[0].ls;
+  next_comm = parmesh->next_node_comm; // Nbr of external node communicators
+  int_comm  = parmesh->int_node_comm;  // Internal node communicator
 
-  /* Create tetra adjacency */
+  /** STEP 1 - Create tetra adjacency */
   if ( !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Error: %s: hashing problem (1). Exit program.\n",
       __func__);
@@ -1561,11 +1569,20 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
     mesh->point[k].s    = -1;
   }
 
+  /* Allocation memory */
+  PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",return 0);
   MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(double),"temporary table",
                 fprintf(stderr,"  Exit program.\n"); return 0);
   MMG5_SAFE_CALLOC(tmp,mesh->npmax+1,double,return 0);
 
-  /* Identify proc owner of interface points */
+  /** STEP 2 - Identify proc owner of interface points */
+  /* Store point index in internal communicator intvalues */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    int_comm->intvalues[idx] = ip;
+  }
+
   /* The highest rank to which this point belong store in mesh->point.s */
   for (icomm=0; icomm<next_comm; icomm++) {
     ext_comm  = &parmesh->ext_node_comm[icomm]; // External node communicator
@@ -1576,10 +1593,9 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
     /* Loop over the nodes in the external node communicator **/
     for (i=0; i < nitem_ext; i++) {
       /* Get the indices of the nodes in internal communicators */
-      idx_ext = ext_comm->int_comm_index[i];
-      idx_int = grp->node2int_node_comm_index2[idx_ext];
-      ip      = grp->node2int_node_comm_index1[idx_int];
-      p0      = &mesh->point[ip];
+      idx = ext_comm->int_comm_index[i];
+      ip  = int_comm->intvalues[idx];
+      p0  = &mesh->point[ip];
 
       if (color_out > p0->s)
         p0->s = color_out;
@@ -1588,7 +1604,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
     }
   }
 
-  /* Include tetras with very poor quality that are connected to the negative part */
+  /** STEP 3 - Include tetras with very poor quality that are connected to the negative part */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
     if ( !pt->v[0] ) continue;
@@ -1610,7 +1626,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
 
   fprintf(stdout, " \n\n");
 
-  /* Snap values of sol that are close to 0 to 0 exactly */
+  /** STEP 4 - Snap values of sol that are close to 0 to 0 exactly */
   ns = 0;
   for (k=1; k<=mesh->np; k++) {
     p0 = &mesh->point[k];
@@ -1637,6 +1653,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
 
   fprintf(stdout, " \n\n");
 
+  /** STEP 5 - Check snapping did not lead to a nonmanifold situation */
   ncg = 0;
   do {
     nc = 0;
@@ -1667,25 +1684,25 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol, MPI_Comm
   }
   while ( nc );
 
-  /* Transfer data of snap point to the other proc */
-  nitem_ToShare_ToSend = 0; // Nbr of nodes in common between Pcolor_in and Pcolor_out
-  PMMG_CALLOC(parmesh,intvalues,    mesh->np, int,    "intvalues",    ier = 0);
-  PMMG_CALLOC(parmesh,doublevalues, mesh->np, double, "doublevalues", ier = 0);
+  /** TODO :: STEP 6 - Transfer data of snap point to the other proc */
+  // nitem_ToShare_ToSend = 0; // Nbr of nodes in common between Pcolor_in and Pcolor_out
+  // PMMG_CALLOC(parmesh,intvalues,    mesh->np, int,    "intvalues",    ier = 0);
+  // PMMG_CALLOC(parmesh,doublevalues, mesh->np, double, "doublevalues", ier = 0);
 
-  for (k=1; k<=mesh->np; k++) {
-    p0 = &mesh->point[k];
-    if ( !MG_VOK(p0) ) continue;
-    if ( !(p0->tag & MG_PARBDY)  ) continue; // If the point is not MG_PARBDY,  ignore it
-    if ( !(p0->tag & MG_OVERLAP) ) continue; // If the point is not MG_OVERLAP, ignore it
+  // for (k=1; k<=mesh->np; k++) {
+  //   p0 = &mesh->point[k];
+  //   if ( !MG_VOK(p0) ) continue;
+  //   if ( !(p0->tag & MG_PARBDY)  ) continue; // If the point is not MG_PARBDY,  ignore it
+  //   if ( !(p0->tag & MG_OVERLAP) ) continue; // If the point is not MG_OVERLAP, ignore it
 
-    /* If this point is MG_PARBDY or MG_OVERLAP and has been modified on this partition (p0->flag==-1) */
-    if ( (p0->flag == -1) )  {
-      intvalues[nitem_ToShare_ToSend] = ip;
-      doublevalues[nitem_ToShare_ToSend] = sol->m[ip];
-      nitem_ToShare_ToSend +=1;
+  //   /* If this point is MG_PARBDY or MG_OVERLAP and has been modified on this partition (p0->flag==-1) */
+  //   if ( (p0->flag == -1) )  {
+  //     intvalues[nitem_ToShare_ToSend] = ip;
+  //     doublevalues[nitem_ToShare_ToSend] = sol->m[ip];
+  //     nitem_ToShare_ToSend +=1;
 
-    }
-  }
+  //   }
+  // }
 
   // for (icomm=0; icomm<next_comm; icomm++) {
   //   ext_comm  = &parmesh->ext_node_comm[icomm]; // External node communicator
@@ -1799,7 +1816,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   }
 
   /** \todo TODO :: Snap values of level set function if needed */
-  if ( !PMMG_snpval_ls(parmesh,mesh,sol,parmesh->info.read_comm) ) {
+  if ( !PMMG_snpval_ls(parmesh,parmesh->info.read_comm) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
     return 0;
   }

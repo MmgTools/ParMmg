@@ -94,11 +94,12 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int ntTot_in2out; // Total   tetras nbr from Pcolor_in sends    to   Pcolor_out
   int ntTot_out2in; // Total   tetras nbr on   Pcolor_in receives from Pcolor_out
 
-  /* Tetras vertices index and ref to send/receive */
+  /* Tetras vertices index, ref and quality to send/receive */
   int *tetraVertices_ToSend;        // Indices of tetra vertices from Pcolor_in sends to Pcolor_out
   int *tetraVertices_ToRecv_inIdx;  // Indices of tetra vertices from Pcolor_out on Pcolor_in
   int *tetraVertices_ToRecv_outIdx; // Indices of tetra vertices from Pcolor_out on Pcolor_out
   int *tetraRef_ToSend, *tetraRef_ToRecv;
+  double *tetraQual_ToSend, *tetraQual_ToRecv;
   int *tetraVerticesSeen_ToSend, *tetraVerticesSeen_ToRecv; // Flag tetra vertices
 
   /* Number of points */
@@ -193,6 +194,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     PMMG_CALLOC(parmesh,tetraVertices_ToSend,      4*mesh->ne, int,     "tetraVertices_ToSend",     ier = 0);
     PMMG_CALLOC(parmesh,tetraVerticesSeen_ToSend,  4*mesh->ne, int,     "tetraVerticesSeen_ToSend", ier = 0);
     PMMG_CALLOC(parmesh,tetraRef_ToSend,             mesh->ne, int,     "tetraRef_ToSend",          ier = 0);
+    PMMG_CALLOC(parmesh,tetraQual_ToSend,            mesh->ne, double,  "tetraQual_ToSend",          ier = 0);
     PMMG_CALLOC(parmesh,lsInterior_ToSend,           mesh->np, double,  "lsInterior_ToSend",        ier = 0);
     PMMG_CALLOC(parmesh,lsPBDY_ToSend,               mesh->np, double,  "lsPBDY_ToSend",            ier = 0);
 
@@ -235,7 +237,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       /* If tetra has not been identified as MG_OVERLAP, then ignore it */
       if ( !(pt->tag & MG_OVERLAP) ) continue;
 
-      tetraRef_ToSend[ntTot_in2out] = pt->ref;
+      tetraRef_ToSend[ntTot_in2out]  = pt->ref;
+      tetraQual_ToSend[ntTot_in2out] = pt->qual;
 
       for (i=0; i<4; i++) {
         ip  = pt->v[i];
@@ -419,6 +422,14 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     MPI_CHECK(
       MPI_Sendrecv(tetraRef_ToSend,ntTot_in2out,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    tetraRef_ToRecv,ntTot_out2in,MPI_INT,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   comm,&status),return 0 );
+    LOCAL_MPI_TAG++;
+
+    /* Send/receive tetras qualities */
+    PMMG_CALLOC(parmesh,tetraQual_ToRecv,ntTot_out2in,double,"tetraQual_ToRecv",ier = 0);
+    MPI_CHECK(
+      MPI_Sendrecv(tetraQual_ToSend,ntTot_in2out,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
+                   tetraQual_ToRecv,ntTot_out2in,MPI_DOUBLE,color_out,MPI_OVERLAP_TAG+LOCAL_MPI_TAG,
                    comm,&status),return 0 );
     LOCAL_MPI_TAG++;
 
@@ -634,6 +645,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       pt->v[2] = tetraVertices_ToRecv_inIdx[4*i+2];
       pt->v[3] = tetraVertices_ToRecv_inIdx[4*i+3];
       pt->ref  = tetraRef_ToRecv[i];
+      pt->qual = tetraQual_ToRecv[i];
       pt->tag |= MG_OVERLAP;
     }
 
@@ -666,6 +678,9 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     PMMG_DEL_MEM(parmesh,tetraRef_ToSend,int,"tetraRef_ToSend");
     PMMG_DEL_MEM(parmesh,tetraRef_ToRecv,int,"tetraRef_ToRecv");
+
+    PMMG_DEL_MEM(parmesh,tetraQual_ToSend,double,"tetraQual_ToSend");
+    PMMG_DEL_MEM(parmesh,tetraQual_ToRecv,double,"tetraQual_ToRecv");
 
     PMMG_DEL_MEM(parmesh,dataPBDY_ToSend,int,"dataPBDY_ToSend");
     PMMG_DEL_MEM(parmesh,dataPBDY_ToRecv,int,"dataPBDY_ToRecv");
