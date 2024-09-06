@@ -58,11 +58,11 @@
  */
 int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
-  PMMG_pInt_comm int_comm;
+  /* Local variables */
   PMMG_pExt_comm ext_comm,ext_comm_ter;
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
-  MMG5_pSol      met,ls;
+  MMG5_pSol      ls;
   PMMG_pOverlap  overlap;
   MPI_Status     status;
   MMG5_pPoint    p0;
@@ -70,7 +70,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
   int ier = 1;       // Initialize error
   int LOCAL_MPI_TAG; // Tag used for MPI comm
-  int print_msg;     // For debug - to be deleted
 
   int i,j,k,r;
   int ip_in,ip_out,ip_ter,ip;
@@ -93,7 +92,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int ndataPBDY_added;
 
   int loc,duplicated_point;
-  int min_color, max_color;
 
   int idx_int;
   int nitem_ext,nitem_ext_ter,next_comm;
@@ -139,10 +137,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   /* Global initialization */
   grp  = &parmesh->listgrp[0];
   mesh =  parmesh->listgrp[0].mesh;
-  met  =  parmesh->listgrp[0].met;
   ls   =  parmesh->listgrp[0].ls;
 
-  int_comm  = parmesh->int_node_comm;
   next_comm = parmesh->next_node_comm;  // Number of nodes communicator
 
   ndataPBDY_added = 0;
@@ -162,8 +158,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     npTot_in2out  = 0;
     ntTot_in2out  = 0;
     ndataPBDY_in2out = 0;
-
-    print_msg = (parmesh->myrank==0); // && color_out==1);
 
     /* Get external node communicator information */
     ext_comm  = &parmesh->ext_node_comm[icomm]; // External node communicator
@@ -388,10 +382,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     np_out            = n_ToRecv[4];
     ntTot_out2in      = n_ToRecv[5];
 
-    overlap->np_in2out = npTot_in2out;
-    overlap->np_out2in = npTot_out2in;
-    overlap->nt_in2out = ntTot_in2out;
-    overlap->nt_out2in = ntTot_out2in;
+    overlap->np_in2out = npTot_in2out; // Total pts   nbr sends    from Pcolor_in to   Pcolor_out
+    overlap->np_out2in = npTot_out2in; // Total pts   nbr receives on   Pcolor_in from Pcolor_out
+    overlap->nt_in2out = ntTot_in2out; // Total tetra nbr sends    from Pcolor_in to   Pcolor_out
+    overlap->nt_out2in = ntTot_out2in; // Total tetra nbr receives on   Pcolor_in from Pcolor_out
 
     /* STEP 5.2 - Alloc hash table for nodes index link */
     hash_in2out = overlap->hash_in2out;
@@ -539,8 +533,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         color_ter = dataPBDY_ToRecv[3*j];
         loc       = dataPBDY_ToRecv[3*j+1];
         ip        = dataPBDY_ToRecv[3*j+2];
-        min_color = MG_MIN(color_out,color_ter);
-        max_color = MG_MAX(color_out,color_ter);
 
         /* Search if this point has already been added to this mesh */
         duplicated_point = 0;
@@ -610,33 +602,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       }
     }
 
-    // if (print_msg) {
-    //   for (i=0; i < 4*ntTot_out2in; i+=4) {
-    //     fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: inIdx=[%d-%d-%d-%d], outIdx=[%d-%d-%d-%d]\n",
-    //                       color_in,color_out,
-    //                       tetraVertices_ToRecv_inIdx[i],tetraVertices_ToRecv_inIdx[i+1],tetraVertices_ToRecv_inIdx[i+2],tetraVertices_ToRecv_inIdx[i+3],
-    //                       tetraVertices_ToRecv_outIdx[i],tetraVertices_ToRecv_outIdx[i+1],tetraVertices_ToRecv_outIdx[i+2],tetraVertices_ToRecv_outIdx[i+3]);
-    //   }
-
-    //   fprintf(stdout, "\n\n");
-
-    //   for (i=0; i < np_in+npTot_out2in+1; i++) {
-    //     if (hash_in2out[i] != 0) {
-    //       fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_in2out - ip_in=%d, ip_out=%d\n",
-    //                         color_in,color_out,i,hash_in2out[i]);
-    //     }
-    //   }
-
-    //   fprintf(stdout, "\n\n");
-
-    //   for (i=0; i < np_out+1; i++) {
-    //     if (hash_out2in[i] != 0) {
-    //       fprintf(stdout, "OVERLAP Proc=%d<-Proc=%d :: hash_out2in ip_out=%d, ip_in=%d\n",
-    //                           color_in,color_out,i,hash_out2in[i]);
-    //     }
-    //   }
-    // }
-
     /* Add the tetra to the mesh */
     for (i=0; i < ntTot_out2in; i++) {
       v0 = tetraVertices_ToRecv_inIdx[4*i];
@@ -660,12 +625,11 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       ptnew->v[2] = v2;
       ptnew->v[3] = v3;
       ptnew->ref  = ref;
-      ptnew->qual = MMG5_caltet(mesh,met,ptnew); //MMG5_orcal(mesh,met,iel);
       ptnew->tag |= MG_OVERLAP;
     }
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout, "        OVERLAP - part %d send %d points and %d tetra to part %d\n",
+    fprintf(stdout, "        OVERLAP - part %d sends %d pts and %d tetra to part %d\n",
                       color_in,npTot_in2out,ntTot_in2out,color_out);
 
     /* Deallocate memory*/
@@ -705,11 +669,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   PMMG_DEL_MEM(parmesh,dataPBDY_AlreadyAdded,int,"dataPBDY_AlreadyAdded");
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout, "        OVERLAP - part %d has %d points and %d tetras after overlap creation\n",
+    fprintf(stdout, "        OVERLAP - part %d has %d pts and %d tetras after overlap creation\n",
                       color_in,mesh->np,mesh->ne);
-
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout, "\n\n-------> END of OVERLAP \n");
 
   return 1;
 }
@@ -725,7 +686,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
  */
 int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
-  PMMG_pGrp   grp;
+  /* Local variables */
   MMG5_pMesh  mesh;
   MMG5_pTetra pt;
   MMG5_pPoint ppt;
@@ -741,15 +702,16 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   assert(parmesh->ngrp == 1);
 
   /* Global initialization */
-  grp  = &parmesh->listgrp[0];
   mesh =  parmesh->listgrp[0].mesh;
 
+  /* Step 1 - Delete tetras with tag MG_OVERLAP */
   for (i=mesh->ne; i > 0; i--) {
     pt = &mesh->tetra[i];
     if ( !(pt->tag & MG_OVERLAP) ) continue;
     if ( !MMG3D_delElt(mesh,i) )   return 0;
   }
 
+  /* Step 2 - Delete points with tag MG_OVERLAP */
   for (i=mesh->np; i > 0; i--) {
     ppt = &mesh->point[i];
     if ( !(ppt->tag & MG_OVERLAP) ) continue;
