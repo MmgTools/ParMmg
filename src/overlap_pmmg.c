@@ -141,6 +141,10 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   nt_initial      = mesh->ne;
   ndataPBDY_added = 0;
 
+  /* Reset flags */
+  for (k=1; k<=mesh->np; k++)
+    mesh->point[k].flag = 0;
+
   /* Global allocation memory */
   PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",return 0);
   PMMG_CALLOC(parmesh,parmesh->overlap,next_comm,PMMG_Overlap,"overlap",ier = 0);

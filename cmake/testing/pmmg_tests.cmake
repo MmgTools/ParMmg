@@ -515,6 +515,16 @@ IF( BUILD_TESTING )
     set_property(TEST overlap-check-P0
       PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
 
+    add_test( NAME overlap-check-P0-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0-met.o.mesh)
+    set_property(TEST overlap-check-P0-met
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
     # Tests if overlap is deleted correctly
     set(overlapCheckDelete "OVERLAP - part 0 has 282 pts and 882 tetras after overlap deletion")
     add_test( NAME overlap-check-delete
@@ -524,6 +534,15 @@ IF( BUILD_TESTING )
       -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/overlap-check-delete.o.mesh)
     set_property(TEST overlap-check-delete
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
+    add_test( NAME overlap-check-delete-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-delete-met.o.mesh)
+    set_property(TEST overlap-check-delete-met
       PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
 
     ###############################################################################
