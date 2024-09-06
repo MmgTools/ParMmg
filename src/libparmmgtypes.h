@@ -387,14 +387,14 @@ typedef struct {
  * \brief Overlap structure.
  */
 typedef struct {
-  int color_in;
-  int color_out;
-  int np_in2out;
-  int np_out2in;
-  int nt_in2out;
-  int nt_out2in;
-  int *hash_in2out;
-  int *hash_out2in;
+  int color_in;     /*!< Color of the hosting processor */
+  int color_out;    /*!< Color of the remote processor */
+  int np_in2out;    /*!< Nbr of points sends    from color_in to   color_out */
+  int np_out2in;    /*!< Nbr of points receives on   color_in from color_out */
+  int nt_in2out;    /*!< Nbr of tetra  sends    from color_in to   color_out */
+  int nt_out2in;    /*!< Nbr of tetra  receives on   color_in from color_out */
+  int *hash_in2out; /*!< Hash table to find pts index on color_out from pts index on color_in */
+  int *hash_out2in; /*!< Hash table to find pts index on color_in  from pts index on color_out */
 
 } PMMG_Overlap;
 typedef PMMG_Overlap * PMMG_pOverlap;

@@ -22,16 +22,15 @@
 */
 
 /**
- * \file isovalue_pmmg.c
- * \brief Create implicit surface in distribuited mesh.
+ * \file overlap_pmmg.c
+ * \brief Create and delete overlap.
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (InriaSoft)
  * \author Laetitia Mottet (UBordeaux)
  * \version 1
  * \copyright GNU Lesser General Public License.
  *
- * Main library functions (parallel remeshing starting from centralized or
- * distributed data.
+ * Functions to create and delete the overlap
  *
  */
 
@@ -45,13 +44,14 @@
  *
  * \return 1 if success, 0 if fail.
  *
- * Delete the overlap points and tetras present in the mesh
+ * Create the overlap. The overlap consists in sending to and receiving from
+ * neighbour partitions one extra layer of point and associated tetra.
  *
- * \remark Data transfer between partitions are:
- *  - mesh->point.c, mesh->point.tag and mesh->point.ref;
+ * \remark Data transferred between partitions:
+ *  - mesh->point.c, mesh->point.tag and mesh->point.ref
  *  - mesh->tetra.v and mesh->tetra.ref
  *  - mesh->ls
- * Date NOT transfer between partitions are:
+ * Data NOT transferred between partitions:
  *  - Other mesh->point and mesh->tetra fields
  *  - mesh->xtetra fields
  *
@@ -95,7 +95,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int loc,duplicated_point;
   int min_color, max_color;
 
-  int idx_ext,idx_int;
+  int idx_int;
   int nitem_ext,nitem_ext_ter,next_comm;
   int color_in,color_out,color_ter;
 
@@ -198,8 +198,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     /* Loop over the nodes in the external node communicator **/
     for (i=0; i < nitem_ext; i++) {
       /* Get the indices of the nodes in internal communicators */
-      idx_ext = ext_comm->int_comm_index[i];
-      idx_int = grp->node2int_node_comm_index2[idx_ext];
+      idx_int = ext_comm->int_comm_index[i];
       ip      = grp->node2int_node_comm_index1[idx_int];
 
       /* Add the flag -1 to these nodes */
@@ -306,8 +305,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /** STEP 3 - Reinitialise flags of points to 0 **/
     for (i=0; i < nitem_ext; i++) {
-      idx_ext = ext_comm->int_comm_index[i];
-      idx_int = grp->node2int_node_comm_index2[idx_ext];
+      idx_int = ext_comm->int_comm_index[i];
       ip      = grp->node2int_node_comm_index1[idx_int];
       p0 = &mesh->point[ip];
       p0->flag = 0;
@@ -346,8 +344,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
           /* Loop over the nodes in the external node communicator Pcolor_ter */
           for (j=0; j < nitem_ext_ter; j++) {
             /* Get the indices of the nodes in internal communicators */
-            idx_ext = ext_comm_ter->int_comm_index[j];
-            idx_int = grp->node2int_node_comm_index2[idx_ext];
+            idx_int = ext_comm_ter->int_comm_index[j];
             ip_ter  = grp->node2int_node_comm_index1[idx_int];
 
             /* Each time the node ip is found being shared w/ another
@@ -533,7 +530,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       coord[0] = pointCoordPBDY_ToRecv[3*i];
       coord[1] = pointCoordPBDY_ToRecv[3*i+1];
       coord[2] = pointCoordPBDY_ToRecv[3*i+2];
-      tag      = pointTagPBDY_ToRecv[i]+MG_OVERLAP;
+      tag      = pointTagPBDY_ToRecv[i]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
       ref      = pointRefPBDY_ToRecv[i];
       ls_val   = lsPBDY_ToRecv[i];
 
@@ -596,7 +593,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         coord[1] = pointCoordInterior_ToRecv[3*icoord+1];
         coord[2] = pointCoordInterior_ToRecv[3*icoord+2];
         ref      = pointRefInterior_ToRecv[icoord];
-        tag      = pointTagInterior_ToRecv[icoord]+MG_OVERLAP;
+        tag      = pointTagInterior_ToRecv[icoord]&MG_OVERLAP; // Add the tag MG_OVERLAP to this point
         ls_val   = lsInterior_ToRecv[icoord];
         icoord += 1;
 
