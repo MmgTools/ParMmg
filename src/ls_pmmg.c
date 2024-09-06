@@ -103,6 +103,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   int idx_edge_ext,idx_edge_int,idx_edge_mesh;
   int idx_face_ext,idx_face_int,val_face;
 
+  int pos_buf;
+
 if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
@@ -291,22 +293,11 @@ if ( parmesh->myrank == parmesh->info.root )
 
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
-  /* Loop over the number of edge communicator */
-  for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
+  /* Loop over the edges in the internal edge communicator */
+    for (k=0; k < grp->nitem_int_edge_comm; k++) {
 
-    /* Get external edge communicator information */
-    ext_edge_comm  = &parmesh->ext_edge_comm[i_comme]; // External edge communicator
-    color_in_edge  = ext_edge_comm->color_in;          // Color of the hosting proc - this proc
-    color_out_edge = ext_edge_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-    nitem_ext_edge = ext_edge_comm->nitem;             // Number of edges in common between these 2 procs
-
-    /* Loop over the edges in the external edge communicator */
-    for (iedge=0; iedge < nitem_ext_edge; iedge++) {
-
-      /* Get the indices of the edge in internal communicators and mesh->edge */
-      idx_edge_ext  = ext_edge_comm->int_comm_index[iedge];
-      idx_edge_int  = grp->edge2int_edge_comm_index2[idx_edge_ext];
-      idx_edge_mesh = grp->edge2int_edge_comm_index1[idx_edge_int];
+      idx_edge_mesh = grp->face2int_face_comm_index1[k];
+      pos_buf       = grp->face2int_face_comm_index2[k];
 
       /* Find extremities of this edge */
       ip0 = mesh->edge[idx_edge_mesh].a;
@@ -325,20 +316,23 @@ if ( parmesh->myrank == parmesh->info.root )
         /* If mesh->point[np].s != (i_comme+1), add this node to the external node communicator.
            Otherwise, this node has already been added to the external node comm - do nothing.  */
         if ( mesh->point[np].s != (i_comme+1) ) {
-          /* (a) Find the appropriate external node comm */
-          for (i_commn=0; i_commn < next_node_comm; i_commn++) {
-            ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
-            color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
-            color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-            assert(color_in_node == color_in_edge);            // Ensure that the hosting proc is the same
-            /* (b) If color_out of edge and node comm are the same - Update external node communicator */
-            if (color_out_node == color_out_edge) {
-              nitem_ext_node = ext_node_comm->nitem;              // Initial nbr of nodes in common between these 2 procs
-              ext_node_comm->int_comm_index[nitem_ext_node] = ns; // Add the node to the external node comm
-              ext_node_comm->nitem = nitem_ext_node + 1;          // Updated nbr of nodes in common between these 2 procs
-              break;
-            }
-          }
+
+          parmesh->int_node_comm->intvalues[pos_buf] = ns; 
+
+          // /* (a) Find the appropriate external node comm */
+          // for (i_commn=0; i_commn < next_node_comm; i_commn++) {
+          //   ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
+          //   color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
+          //   color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
+          //   assert(color_in_node == color_in_edge);            // Ensure that the hosting proc is the same
+          //   /* (b) If color_out of edge and node comm are the same - Update external node communicator */
+          //   if (color_out_node == color_out_edge) {
+          //     nitem_ext_node = ext_node_comm->nitem;              // Initial nbr of nodes in common between these 2 procs
+          //     ext_node_comm->int_comm_index[nitem_ext_node] = ns; // Add the node to the external node comm
+          //     ext_node_comm->nitem = nitem_ext_node + 1;          // Updated nbr of nodes in common between these 2 procs
+          //     break;
+          //   }
+          // }
           /* (c) Update mesh->point[np].s to specify that this node already exists in the external node comm */
           mesh->point[np].s = i_comme+1;
         }
@@ -496,6 +490,27 @@ if ( parmesh->myrank == parmesh->info.root )
       nitem_int_node += 1;
       parmesh->int_node_comm->nitem = nitem_int_node;
       grp->nitem_int_node_comm      = nitem_int_node;
+    }
+
+
+  for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
+
+    /* Get external edge communicator information */
+    ext_edge_comm  = &parmesh->ext_edge_comm[i_comme]; // External edge communicator
+    color_in_edge  = ext_edge_comm->color_in;          // Color of the hosting proc - this proc
+    color_out_edge = ext_edge_comm->color_out;         // Color of the remote  proc - the proc to exchange with
+    nitem_ext_edge = ext_edge_comm->nitem;             // Number of edges in common between these 2 procs
+
+    /* Loop over the edges in the external edge communicator */
+    for (iedge=0; iedge < nitem_ext_edge; iedge++) {
+
+      /* Get the indices of the edge in internal communicators and mesh->edge */
+      idx_edge_int  = ext_edge_comm->int_comm_index[iedge];
+
+      nitem_ext_node = ext_node_comm->nitem;              // Initial nbr of nodes in common between these 2 procs
+      ext_node_comm->int_comm_index[nitem_ext_node] = parmesh->int_node_comm->intvalues[idx_edge_int]; // Add the node to the external node comm
+      ext_node_comm->nitem = nitem_ext_node + 1;          // Updated nbr of nodes in common between these 2 procs
+
     }
   }
 
