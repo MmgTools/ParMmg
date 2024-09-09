@@ -397,7 +397,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
       fprintf(stdout,"  --    under development     \n");
     }
-    if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
+    if ( !PMMG_ls(parmesh) ) {
       return PMMG_STRONGFAILURE;
     }
     chrono(OFF,&(ctim[tim]));

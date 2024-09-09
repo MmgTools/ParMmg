@@ -455,8 +455,8 @@ int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
 
 /* Isovalue discretization functions */
-int  PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
-int  PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSol met);
+int  PMMG_ls(PMMG_pParMesh parmesh);
+int  PMMG_cuttet_ls(PMMG_pParMesh parmesh);
 int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
 int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);

@@ -22,7 +22,7 @@
 */
 
 /**
- * \file isovalue_pmmg.c
+ * \file ls_pmmg.c
  * \brief Create implicit surface in distribuited mesh.
  * \author Cécile Dobrzynski (Bx INP/Inria/UBordeaux)
  * \author Algiane Froehly (InriaSoft)
@@ -30,8 +30,7 @@
  * \version 1
  * \copyright GNU Lesser General Public License.
  *
- * Main library functions (parallel remeshing starting from centralized or
- * distributed data.
+ * Functions to perform the level-set discretization in parallel
  *
  */
 
@@ -52,18 +51,20 @@
  * once values of sol have been snapped/checked
  *
  */
-int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_pSol met){
+int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   MMG5_pTetra  pt,pt0;
   MMG5_pxTetra pxt,pxt0;
   MMG5_pPoint  p0,p1;
   MMG5_Hash    hash;
 
   PMMG_pExt_comm ext_node_comm,ext_edge_comm,ext_face_comm;
+  PMMG_pInt_comm int_node_comm, int_edge_comm, int_face_comm;
   PMMG_pGrp      grp;
   MMG5_pSol      field;
   MMG5_pSol      psl;
   MMG5_pMat      mat;
-
+  MMG5_pMesh     mesh;
+  MMG5_pSol      met,sol;
 
   MMG5_int ne_init,ne_tmp;
   MMG5_int k,k0;
@@ -74,7 +75,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   static int8_t  mmgWarn = 0;
   int8_t         ia;
-  int8_t         i,j;
   int8_t         npneg,nface_added;
 
   const uint8_t *taued=NULL;
@@ -83,19 +83,26 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
 
   double c[3],v0,v1,s;
 
+  int i,j;
   int already_split;
-  int idx_tmp;
+  int idx_tmp, idx;
   int i_commn,i_comme,i_commf;
   int iedge,iface;
   int ifac,iploc;
   int flag;
+  int ie;
+  int pos, pos_edge, pos_node;
   int ier;
 
-  int nitem_int_node,nitem_int_face;
-  int nitem_int_node_firstalloc,nitem_int_face_firstalloc;
-  int nitem_ext_node,nitem_ext_edge,nitem_ext_face;
+  // int nitem_int_node,nitem_int_face;
+  int nitem_grp_node_firstalloc,nitem_grp_face_firstalloc;
+  // int nitem_ext_node,nitem_ext_edge,nitem_ext_face;
   int nitem_ext_face_init;
   int next_node_comm,next_face_comm,next_edge_comm;
+
+  int nitem_int_node, nitem_grp_node, nitem_ext_node;
+  int nitem_int_edge, nitem_grp_edge, nitem_ext_edge;
+  int nitem_int_face, nitem_grp_face, nitem_ext_face;
 
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
@@ -108,6 +115,10 @@ if ( parmesh->myrank == parmesh->info.root )
 
   /* Ensure only one group on each proc */
   assert(parmesh->ngrp == 1);
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+  sol  = parmesh->listgrp[0].ls;
 
   /* For now, does not support `nosplit` option in multimat  */
   // To be removed when supported
@@ -125,12 +136,20 @@ if ( parmesh->myrank == parmesh->info.root )
 
   /* Initialization */
   grp = &parmesh->listgrp[0];
-  field    = grp->field;
+  field = grp->field;
   next_node_comm = parmesh->next_node_comm;  // Number of communicator for nodes
   next_edge_comm = parmesh->next_edge_comm;  // Number of communicator for edges
   next_face_comm = parmesh->next_face_comm;  // Number of communicator for faces
-  nitem_int_node = grp->nitem_int_node_comm; // Number of initial total nodes in internal node communicator
-  nitem_int_face = grp->nitem_int_face_comm; // Number of initial total faces in internal node communicator
+  nitem_grp_node = grp->nitem_int_node_comm; // Number of initial total nodes in internal node communicator
+  nitem_grp_edge = grp->nitem_int_edge_comm;
+  nitem_grp_face = grp->nitem_int_face_comm; // Number of initial total faces in internal node communicator
+  int_node_comm = parmesh->int_node_comm; // Internal node communicator
+  int_edge_comm = parmesh->int_edge_comm; // Internal edge communicator
+  int_face_comm = parmesh->int_face_comm; // Internal face communicator
+
+  nitem_int_node = int_node_comm->nitem;
+  nitem_int_edge = int_edge_comm->nitem;
+  nitem_int_face = int_face_comm->nitem;
 
   ne_init = mesh->ne; // Initial number of tetra - before ls - needed in step 6.3
 
@@ -191,49 +210,51 @@ if ( parmesh->myrank == parmesh->info.root )
 
   /* STEP 3.2 - Realloc internal node communicators */
   PMMG_REALLOC(parmesh, grp->node2int_node_comm_index1,
-               nitem_int_node+2*nb,
-               nitem_int_node,
+               nitem_grp_node+nitem_grp_edge,
+               nitem_grp_node,
                int,"Allocation of node2int_node_comm_index1", return 0);
   PMMG_REALLOC(parmesh, grp->node2int_node_comm_index2,
-               nitem_int_node+2*nb,
-               nitem_int_node,
+               nitem_grp_node+nitem_grp_edge,
+               nitem_grp_node,
                int,"Allocation of node2int_node_comm_index2", return 0);
-  nitem_int_node_firstalloc = nitem_int_node+2*nb;
+  nitem_grp_node_firstalloc = nitem_grp_node+nitem_grp_edge;
 
   /* STEP 3.3 - Realloc internal face communicators */
   PMMG_REALLOC(parmesh, grp->face2int_face_comm_index1,
-               3*nitem_int_face,
-               nitem_int_face,
+               3*nitem_grp_face,
+               nitem_grp_face,
                int,"Allocation of face2int_face_comm_index1", return 0);
   PMMG_REALLOC(parmesh, grp->face2int_face_comm_index2,
-               3*nitem_int_face,
-               nitem_int_face,
+               3*nitem_grp_face,
+               nitem_grp_face,
                int,"Allocation of face2int_face_comm_index2", return 0);
-  nitem_int_face_firstalloc = 3*nitem_int_face;
+  nitem_grp_face_firstalloc = 3*nitem_grp_face;
 
   /* STEP 3.4 - Realloc external node communicator */
   for ( k=0; k<parmesh->next_node_comm; k++ ) {
     ext_node_comm = &parmesh->ext_node_comm[k];
+    nitem_ext_node = ext_node_comm->nitem;
     PMMG_REALLOC(parmesh,ext_node_comm->int_comm_index,
-                 ext_node_comm->nitem+2*nb,
-                 ext_node_comm->nitem,
+                 nitem_ext_node+2*nb,
+                 nitem_ext_node,
                  int,"Allocation of external node communicator",return 0);
-    ext_node_comm->nitem_to_share = ext_node_comm->nitem+2*nb;
+    ext_node_comm->nitem_to_share = nitem_ext_node+2*nb;
   }
 
   /* STEP 3.5 - Realloc external face communicator */
   for ( k=0; k<parmesh->next_face_comm; k++ ) {
     ext_face_comm = &parmesh->ext_face_comm[k];
+    nitem_ext_face = ext_face_comm->nitem;
     PMMG_REALLOC(parmesh,ext_face_comm->int_comm_index,
-                 ext_face_comm->nitem+2*ext_face_comm->nitem,
-                 ext_face_comm->nitem,
+                 nitem_ext_face+2*nitem_ext_face,
+                 nitem_ext_face,
                  int,"Allocation of external face communicator",return 0);
-    ext_face_comm->nitem_to_share = ext_face_comm->nitem+2*ext_face_comm->nitem;
+    ext_face_comm->nitem_to_share = nitem_ext_face+2*nitem_ext_face;
   }
 
   /* STEP 3.6 - Allocate all the other variables needed to be allocated ! */
-  PMMG_CALLOC( parmesh,vGlobNum_tab,4*(nitem_int_face),MMG5_int,"vGlobNum_tab",return 0 );
-  PMMG_CALLOC( parmesh,ne_tmp_tab,nitem_int_face+1,MMG5_int,"ne_tmp_tab",return 0 );
+  PMMG_CALLOC( parmesh,vGlobNum_tab,4*(nitem_grp_face),MMG5_int,"vGlobNum_tab",return 0 );
+  PMMG_CALLOC( parmesh,ne_tmp_tab,nitem_grp_face+1,MMG5_int,"ne_tmp_tab",return 0 );
 
   /** STEP 4 - Identify required edges. Put hash.item[key].k = -1 */
   /* Loop over tetra */
@@ -289,9 +310,155 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
+  /* Internal edge communicator intvalues stores id of the point np if the edge is split
+    otherwise -1 */
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,"int_edge_comm intvalues",return 0);
+
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
-  /* Loop over the number of edge communicator */
+  /* Loop on the internal edge communicator */
+  for (i=0; i < nitem_grp_edge; i++) {
+
+    ie  = grp->edge2int_edge_comm_index1[i];
+    pos = grp->edge2int_edge_comm_index2[i];
+    int_edge_comm->intvalues[pos] = -1;
+
+    /* Find extremities of this edge */
+    ip0 = mesh->edge[ie].a;
+    ip1 = mesh->edge[ie].b;
+
+    // TODO:: Multimaterial - Check whether an entity with reference ref should be split
+    // Pb1: This function does not work here because we come from an edge and not a tetra
+    // Need to find a way to know if we need to split or not this edge...
+    // Pb2: even if I find a way to know if this edge need to be split on this partition
+    // still no way to know if it is split from another partition if we are in
+    // the case where on partition 1/material 1 and partition 2/material 2 and
+    // we split mat1 but we do not split mat2. In that case, on partition 2, we will never know
+    // that edges on // interface need to be split.
+    // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+
+    /* STEP 5.1.2 - Create a new point if this edge needs to be split */
+    /* Check the ls value at the edge nodes */
+    p0 = &mesh->point[ip0];
+    p1 = &mesh->point[ip1];
+    v0 = sol->m[ip0];
+    v1 = sol->m[ip1];
+
+    /* Check if the edge should be split */
+    /* If one of the points is exactly on the level set, the point exists already, pass */
+    if ( fabs(v0) < MMG5_EPSD2 || fabs(v1) < MMG5_EPSD2 ) continue;
+    /* If the points have the same sign, no need to split the edge, pass */
+    else if ( MG_SMSGN(v0,v1) ) continue;
+    /* If one or the other point has never been treated, pass */
+    else if ( !p0->flag || !p1->flag ) continue;
+
+    /* Define the weighting factor */
+    s = v0 / (v0-v1);
+    s = MG_MAX(MG_MIN(s,1.0-MMG5_EPS),MMG5_EPS);
+
+    /* Find the coordinates of the new points using the weighting factor */
+    c[0] = p0->c[0] + s*(p1->c[0]-p0->c[0]);
+    c[1] = p0->c[1] + s*(p1->c[1]-p0->c[1]);
+    c[2] = p0->c[2] + s*(p1->c[2]-p0->c[2]);
+
+    /* Create a new point with coordinates c, tags MG_PARBDY+MG_NOSURF+MG_REQ
+        and source src. Return the new number of points np in this partition    */
+#ifdef USE_POINTMAP
+    src = p0->src;
+#else
+    src = 1;
+#endif
+    np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
+
+    /* Update internal, external and grp communicators */
+    grp->node2int_node_comm_index1[nitem_grp_node]=np;
+    grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node;
+    int_edge_comm->intvalues[pos] = nitem_int_node;
+    nitem_int_node += 1;
+    nitem_grp_node += 1;
+    grp->nitem_int_node_comm = nitem_grp_node;
+    int_node_comm->nitem     = nitem_int_node;
+
+    MMG5_hashUpdate(&hash,ip0,ip1,np);
+
+
+    /* STEP 5.1.3 - Update of met, sol and field for the new point */
+    /* Memory allocation for sol and met */
+    if ( !np ) {
+      MMG5_int oldnpmax = mesh->npmax;
+      MMG3D_POINT_REALLOC(mesh,sol,np,MMG5_GAP,
+                            fprintf(stderr,"\n  ## Error: %s: unable to"
+                                    " allocate a new point\n",__func__);
+                            MMG5_INCREASE_MEM_MESSAGE();
+                            return 0
+                            ,c,0,src);
+      if( met ) {
+        if( met->m ) {
+          MMG5_ADD_MEM(mesh,(met->size*(mesh->npmax-met->npmax))*sizeof(double),
+                        "larger solution",
+                        MMG5_SAFE_RECALLOC(mesh->point,mesh->npmax+1,oldnpmax+1,MMG5_Point,,);
+                        mesh->memCur -= (mesh->npmax - oldnpmax)*sizeof(MMG5_Point);
+                        mesh->npmax = oldnpmax;
+                        mesh->np = mesh->npmax-1;
+                        mesh->npnil = 0;
+                        return 0);
+          MMG5_SAFE_REALLOC(met->m,met->size*(met->npmax+1),
+                            met->size*(mesh->npmax+1),
+                            double,"larger solution",
+                            MMG5_SAFE_RECALLOC(mesh->point,mesh->npmax+1,oldnpmax+1,MMG5_Point,,);
+                            mesh->memCur -= (mesh->npmax - oldnpmax)*sizeof(MMG5_Point);
+                            mesh->npmax = oldnpmax;
+                            mesh->np = mesh->npmax-1;
+                            mesh->npnil = 0;
+                            return 0);
+        }
+        met->npmax = mesh->npmax;
+      }
+    }
+
+    /* For this new point, add the value of the solution, i.e. the isovalue 0 */
+    sol->m[np] = 0;
+
+    /* If user provide a metric, interpolate it at the new point */
+    if ( met && met->m ) {
+      if ( met->size > 1 ) {
+        ier = MMG3D_intmet33_ani_edge(met,ip0,ip1,np,s);
+      }
+      else {
+        ier = MMG5_intmet_iso_edge(met,ip0,ip1,np,s);
+      }
+      if ( ier <= 0 ) {
+        /* Unable to compute the metric */
+        fprintf(stderr,"\n  ## Error: %s: unable to"
+                " interpolate the metric during the level-set"
+                " discretization\n",__func__);
+        return 0;
+      }
+    }
+
+    /* If user provide fields, interpolate them at the new point */
+    if ( mesh->nsols ) {
+      for ( j=0; j<mesh->nsols; ++j ) {
+        psl    = field + j;
+        if ( field->size > 1 ) {
+          ier = MMG3D_intmet33_ani_edge(psl,ip0,ip1,np,s);
+        }
+        else {
+          ier = MMG5_intmet_iso_edge(psl,ip0,ip1,np,s);
+        }
+        if ( ier <= 0 ) {
+          /* Unable to compute fields */
+          fprintf(stderr,"\n  ## Error: %s: unable to"
+                  " interpolate fields during the level-set"
+                  " discretization\n",__func__);
+          return 0;
+        }
+      }
+    }
+
+  }
+
+
   for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
 
     /* Get external edge communicator information */
@@ -304,168 +471,11 @@ if ( parmesh->myrank == parmesh->info.root )
     for (iedge=0; iedge < nitem_ext_edge; iedge++) {
 
       /* Get the indices of the edge in internal communicators and mesh->edge */
-      idx_edge_ext  = ext_edge_comm->int_comm_index[iedge];
-      idx_edge_int  = grp->edge2int_edge_comm_index2[idx_edge_ext];
-      idx_edge_mesh = grp->edge2int_edge_comm_index1[idx_edge_int];
+      pos_edge = ext_edge_comm->int_comm_index[iedge];
+      pos_node = int_edge_comm->intvalues[pos_edge];
 
-      /* Find extremities of this edge */
-      ip0 = mesh->edge[idx_edge_mesh].a;
-      ip1 = mesh->edge[idx_edge_mesh].b;
-
-      /* Get np (i.e. hash.item[key].k) and ns (i.e. hash.item[key].s) associated with this edge.
-         np: index of the node along this edge in mesh->point. If np>0, this node already exists.
-         ns: index of the node along this edge in internal node comm index2. */
-      PMMG_hashGet_all(&hash,ip0,ip1,&np,&ns);
-
-      /* STEP 5.1.1 - Update external node communicators if edge already split */
-      /*      If np>0 (i.e. hash.item[key].k != [0;-1]), this edge has already been split;
-              and new node on this edge is already in the internal node comm.
-              Update external node comm if needed, then pass to the next edge. */
-      if ( np>0 ) {
-        /* If mesh->point[np].s != (i_comme+1), add this node to the external node communicator.
-           Otherwise, this node has already been added to the external node comm - do nothing.  */
-        if ( mesh->point[np].s != (i_comme+1) ) {
-          /* (a) Find the appropriate external node comm */
-          for (i_commn=0; i_commn < next_node_comm; i_commn++) {
-            ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
-            color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
-            color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-            assert(color_in_node == color_in_edge);            // Ensure that the hosting proc is the same
-            /* (b) If color_out of edge and node comm are the same - Update external node communicator */
-            if (color_out_node == color_out_edge) {
-              nitem_ext_node = ext_node_comm->nitem;              // Initial nbr of nodes in common between these 2 procs
-              ext_node_comm->int_comm_index[nitem_ext_node] = ns; // Add the node to the external node comm
-              ext_node_comm->nitem = nitem_ext_node + 1;          // Updated nbr of nodes in common between these 2 procs
-              break;
-            }
-          }
-          /* (c) Update mesh->point[np].s to specify that this node already exists in the external node comm */
-          mesh->point[np].s = i_comme+1;
-        }
-        continue;
-      }
-
-      // TODO:: Multimaterial - Check whether an entity with reference ref should be split
-      // Pb1: This function does not work here because we come from an edge and not a tetra
-      // Need to find a way to know if we need to split or not this edge...
-      // Pb2: even if I find a way to know if this edge need to be split on this partition
-      // still no way to know if it is split from another partition if we are in
-      // the case where on partition 1/material 1 and partition 2/material 2 and
-      // we split mat1 but we do not split mat2. In that case, on partition 2, we will never know
-      // that edges on // interface need to be split.
-      // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
-
-      /* STEP 5.1.2 - Create a new point if this edge needs to be split */
-      /* Check the ls value at the edge nodes */
-      p0 = &mesh->point[ip0];
-      p1 = &mesh->point[ip1];
-      v0 = sol->m[ip0];
-      v1 = sol->m[ip1];
-
-      /* Check if the edge should be split */
-      /* If one of the points is exactly on the level set, the point exists already, pass */
-      if ( fabs(v0) < MMG5_EPSD2 || fabs(v1) < MMG5_EPSD2 ) continue;
-      /* If the points have the same sign, no need to split the edge, pass */
-      else if ( MG_SMSGN(v0,v1) ) continue;
-      /* If one or the other point has never been treated, pass */
-      else if ( !p0->flag || !p1->flag ) continue;
-
-      /* Define the weighting factor */
-      s = v0 / (v0-v1);
-      s = MG_MAX(MG_MIN(s,1.0-MMG5_EPS),MMG5_EPS);
-
-      /* Find the coordinates of the new points using the weighting factor */
-      c[0] = p0->c[0] + s*(p1->c[0]-p0->c[0]);
-      c[1] = p0->c[1] + s*(p1->c[1]-p0->c[1]);
-      c[2] = p0->c[2] + s*(p1->c[2]-p0->c[2]);
-
-      /* Create a new point with coordinates c, tags MG_PARBDY+MG_NOSURF+MG_REQ
-         and source src. Return the new number of points np in this partition    */
-#ifdef USE_POINTMAP
-      src = p0->src;
-#else
-      src = 1;
-#endif
-      np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
-
-      /* STEP 5.1.3 - Update of met, sol and field for the new point */
-      /* Memory allocation for sol and met */
-      if ( !np ) {
-        MMG5_int oldnpmax = mesh->npmax;
-        MMG3D_POINT_REALLOC(mesh,sol,np,MMG5_GAP,
-                             fprintf(stderr,"\n  ## Error: %s: unable to"
-                                     " allocate a new point\n",__func__);
-                             MMG5_INCREASE_MEM_MESSAGE();
-                             return 0
-                             ,c,0,src);
-        if( met ) {
-          if( met->m ) {
-            MMG5_ADD_MEM(mesh,(met->size*(mesh->npmax-met->npmax))*sizeof(double),
-                         "larger solution",
-                         MMG5_SAFE_RECALLOC(mesh->point,mesh->npmax+1,oldnpmax+1,MMG5_Point,,);
-                         mesh->memCur -= (mesh->npmax - oldnpmax)*sizeof(MMG5_Point);
-                         mesh->npmax = oldnpmax;
-                         mesh->np = mesh->npmax-1;
-                         mesh->npnil = 0;
-                         return 0);
-            MMG5_SAFE_REALLOC(met->m,met->size*(met->npmax+1),
-                              met->size*(mesh->npmax+1),
-                              double,"larger solution",
-                              MMG5_SAFE_RECALLOC(mesh->point,mesh->npmax+1,oldnpmax+1,MMG5_Point,,);
-                              mesh->memCur -= (mesh->npmax - oldnpmax)*sizeof(MMG5_Point);
-                              mesh->npmax = oldnpmax;
-                              mesh->np = mesh->npmax-1;
-                              mesh->npnil = 0;
-                              return 0);
-          }
-          met->npmax = mesh->npmax;
-        }
-      }
-
-      /* For this new point, add the value of the solution, i.e. the isovalue 0 */
-      sol->m[np] = 0;
-
-      /* If user provide a metric, interpolate it at the new point */
-      if ( met && met->m ) {
-        if ( met->size > 1 ) {
-          ier = MMG3D_intmet33_ani_edge(met,ip0,ip1,np,s);
-        }
-        else {
-          ier = MMG5_intmet_iso_edge(met,ip0,ip1,np,s);
-        }
-        if ( ier <= 0 ) {
-          /* Unable to compute the metric */
-          fprintf(stderr,"\n  ## Error: %s: unable to"
-                  " interpolate the metric during the level-set"
-                  " discretization\n",__func__);
-          return 0;
-        }
-      }
-
-      /* If user provide fields, interpolate them at the new point */
-      if ( mesh->nsols ) {
-        for ( j=0; j<mesh->nsols; ++j ) {
-          psl    = field + j;
-          if ( field->size > 1 ) {
-            ier = MMG3D_intmet33_ani_edge(psl,ip0,ip1,np,s);
-          }
-          else {
-            ier = MMG5_intmet_iso_edge(psl,ip0,ip1,np,s);
-          }
-          if ( ier <= 0 ) {
-            /* Unable to compute fields */
-            fprintf(stderr,"\n  ## Error: %s: unable to"
-                    " interpolate fields during the level-set"
-                    " discretization\n",__func__);
-            return 0;
-          }
-        }
-      }
-
-      /* STEP 5.1.4 - Update node communicators and edge hash table */
-      /* (a) Update the internal node communicators */
-      grp->node2int_node_comm_index1[nitem_int_node] = np;
-      grp->node2int_node_comm_index2[nitem_int_node] = nitem_int_node;
+      /* If pos_node < 0, this edge is not split, so ignore it */
+      if (pos_node < 0) continue;
 
       /* (b) Update the external node communicator */
       /* Find the appropriate external node comm */
@@ -477,25 +487,12 @@ if ( parmesh->myrank == parmesh->info.root )
 
         /* If color_out of edge and node comm are the same - Update external node communicator */
         if (color_out_node == color_out_edge) {
-          nitem_ext_node = ext_node_comm->nitem;                          // Initial nbr of nodes in common between these 2 procs
-          ext_node_comm->int_comm_index[nitem_ext_node] = nitem_int_node; // Add the node to the external node comm
-          ext_node_comm->nitem = nitem_ext_node + 1;                      // Updated nbr of nodes in common between these 2 procs
+          nitem_ext_node = ext_node_comm->nitem;                    // Initial nbr of nodes in common between these 2 procs
+          ext_node_comm->int_comm_index[nitem_ext_node] = pos_node; // Add the node to the external node comm
+          ext_node_comm->nitem = nitem_ext_node + 1;                // Updated nbr of nodes in common between these 2 procs
           break;
         }
       }
-
-      /* (c) Add the index of this edge comm into mesh->point[np].s to specify */
-      /*     this node is already in this external node communicator */
-      mesh->point[np].s = i_comme+1;
-
-      /* (d) Update hash hash.item[key].k = -1 becomes = np and         */
-      /*                 hash.item[key].s = -1 becomes = nitem_int_node */
-      PMMG_hashUpdate_all(&hash,ip0,ip1,np,nitem_int_node);
-
-      /* (e) Update the total number of nodes in internal node communicator */
-      nitem_int_node += 1;
-      parmesh->int_node_comm->nitem = nitem_int_node;
-      grp->nitem_int_node_comm      = nitem_int_node;
     }
   }
 
@@ -651,13 +648,13 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
   /** Check the internal node communicator */
   assert( PMMG_check_intNodeComm( parmesh ) );
 
   /** Check the external node communicator */
   assert( PMMG_check_extNodeComm( parmesh,parmesh->info.read_comm ) );
-#endif
+// #endif
 
   /** STEP 6 - Split according to tets flags */
   /** STEP 6.1 - Compute global node vertices */
@@ -836,18 +833,18 @@ if ( parmesh->myrank == parmesh->info.root )
         nface_added = 0;
         for (j=0; j<2; j++) {
           if ( tetra_sorted[j+1] != -1) {
-            grp->face2int_face_comm_index1[nitem_int_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
-            grp->face2int_face_comm_index2[nitem_int_face+j] = nitem_int_face+j;
-            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_int_face+j;
+            grp->face2int_face_comm_index1[nitem_grp_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
+            grp->face2int_face_comm_index2[nitem_grp_face+j] = nitem_grp_face+j;
+            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_grp_face+j;
             nface_added += 1;
           }
         }
 
         /* (c) Update the total number of faces */
-        nitem_int_face += nface_added;
+        nitem_grp_face += nface_added;
         nitem_ext_face += nface_added;
-        parmesh->int_face_comm->nitem = nitem_int_face;
-        grp->nitem_int_face_comm      = nitem_int_face;
+        parmesh->int_face_comm->nitem = nitem_grp_face;
+        grp->nitem_int_face_comm      = nitem_grp_face;
         ext_face_comm->nitem          = nitem_ext_face;
       }
       else if (pt->flag == -1) {
@@ -861,13 +858,13 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
-#ifndef NDEBUG
-  /** Check the internal node communicator */
+// #ifndef NDEBUG
+  /** Check the internal face communicator */
   assert( PMMG_check_intFaceComm( parmesh ) );
 
-  /** Check the external node communicator */
+  /** Check the external face communicator */
   assert( PMMG_check_extFaceComm( parmesh,parmesh->info.read_comm ) );
-#endif
+// #endif
 
   /** STEP 6.3 - Do the splitting for tetra located elsewhere */
   /* Loop over tetra */
@@ -938,28 +935,29 @@ if ( parmesh->myrank == parmesh->info.root )
   /* Delete the tables storing imin0, imin2 and ne_tmp_tab */
   PMMG_DEL_MEM(parmesh,vGlobNum_tab,MMG5_int,"vGlobNum_tab");
   PMMG_DEL_MEM(parmesh,ne_tmp_tab,MMG5_int,"ne_tmp_tab");
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
 
   /* Delete the edges hash table */
   MMG5_DEL_MEM(mesh,hash.item);
 
   /* Realloc internal node communicators to exact final size */
   PMMG_REALLOC(parmesh, grp->node2int_node_comm_index1,
-               nitem_int_node,
-               nitem_int_node_firstalloc,
+               nitem_grp_node,
+               nitem_grp_node_firstalloc,
                int,"Allocation of node2int_node_comm_index1", return 0);
   PMMG_REALLOC(parmesh, grp->node2int_node_comm_index2,
-               nitem_int_node,
-               nitem_int_node_firstalloc,
+               nitem_grp_node,
+               nitem_grp_node_firstalloc,
                int,"Allocation of node2int_node_comm_index2", return 0);
 
   /* Realloc internal face communicators to exact final size */
   PMMG_REALLOC(parmesh, grp->face2int_face_comm_index1,
-               nitem_int_face,
-               nitem_int_face_firstalloc,
+               nitem_grp_face,
+               nitem_grp_face_firstalloc,
                int,"Allocation of face2int_face_comm_index1", return 0);
   PMMG_REALLOC(parmesh, grp->face2int_face_comm_index2,
-               nitem_int_face,
-               nitem_int_face_firstalloc,
+               nitem_grp_face,
+               nitem_grp_face_firstalloc,
                int,"Allocation of face2int_face_comm_index2", return 0);
 
   /* Realloc external node communicator to exact final size */
@@ -1538,9 +1536,15 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
  * Create implicit surface in mesh.
  *
  */
-int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) {
+int PMMG_ls(PMMG_pParMesh parmesh) {
   char str[16]="";
   MMG5_HGeom hpar;
+  MMG5_pMesh mesh;
+  MMG5_pSol  met,sol;
+
+  mesh = parmesh->listgrp[0].mesh;
+  met  = parmesh->listgrp[0].met;
+  sol  = parmesh->listgrp[0].ls;
 
   /* Set function pointers */
   /** \todo TODO :: Surface ls and alias functions */
@@ -1641,12 +1645,12 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-#ifndef NDEBUG
+// #ifndef NDEBUG
   assert ( PMMG_check_extEdgeComm ( parmesh,parmesh->info.read_comm ) );
-#endif
+// #endif
 
   /** Discretization of the implicit function - Cut tetra */
-  if ( !PMMG_cuttet_ls(parmesh,mesh,sol,met) ) {
+  if ( !PMMG_cuttet_ls(parmesh) ) {
     if ( parmesh->myrank == parmesh->info.root )
       fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;
