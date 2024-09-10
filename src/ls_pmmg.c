@@ -67,7 +67,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   MMG5_pSol      met,sol;
 
   MMG5_int ne_init,ne_tmp;
-  MMG5_int k,k0;
+  MMG5_int i,j,k,k0;
   MMG5_int ip0,ip1,np,nb,ns,src,refext,refint,ref;
   MMG5_int vGlobNum[4],vx[6];
   MMG5_int tetra_sorted[3], node_sorted[3];
@@ -83,20 +83,17 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   double c[3],v0,v1,s;
 
-  int i,j;
   int already_split;
-  int idx_tmp, idx;
+  int idx_tmp;
   int i_commn,i_comme,i_commf;
-  int iedge,iface;
   int ifac,iploc;
   int flag;
   int ie;
   int pos, pos_edge, pos_node;
   int ier;
+  int val_face;
 
-  // int nitem_int_node,nitem_int_face;
   int nitem_grp_node_firstalloc,nitem_grp_face_firstalloc;
-  // int nitem_ext_node,nitem_ext_edge,nitem_ext_face;
   int nitem_ext_face_init;
   int next_node_comm,next_face_comm,next_edge_comm;
 
@@ -106,9 +103,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
-
-  int idx_edge_ext,idx_edge_int,idx_edge_mesh;
-  int idx_face_ext,idx_face_int,val_face;
 
 if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
@@ -458,7 +452,7 @@ if ( parmesh->myrank == parmesh->info.root )
 
   }
 
-
+  /* Update external node communicator */
   for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
 
     /* Get external edge communicator information */
@@ -468,10 +462,10 @@ if ( parmesh->myrank == parmesh->info.root )
     nitem_ext_edge = ext_edge_comm->nitem;             // Number of edges in common between these 2 procs
 
     /* Loop over the edges in the external edge communicator */
-    for (iedge=0; iedge < nitem_ext_edge; iedge++) {
+    for (i=0; i < nitem_ext_edge; i++) {
 
       /* Get the indices of the edge in internal communicators and mesh->edge */
-      pos_edge = ext_edge_comm->int_comm_index[iedge];
+      pos_edge = ext_edge_comm->int_comm_index[i];
       pos_node = int_edge_comm->intvalues[pos_edge];
 
       /* If pos_node < 0, this edge is not split, so ignore it */
@@ -668,7 +662,200 @@ if ( parmesh->myrank == parmesh->info.root )
   ier = 1;     // Error
   idx_tmp = 0; // Index of an already split tetra to recover info stored in ne_tmp_tab and vGlobNum_tab
 
+  /* Allocate internal face comm */
+  PMMG_CALLOC(parmesh,int_face_comm->intvalues,3*nitem_int_face,int,"int_face_comm intvalues",return 0);
+
+  int nitem_grp_face_tmp;
+
+  nitem_grp_face_tmp = nitem_grp_face;
+
   /* Loop over the number of faces communicator */
+  // for (i_commf=0; i_commf < next_face_comm; i_commf++) {
+  for (i=0; i < nitem_grp_face; i++) {
+
+    /* Get the index of the face in internal communicator and the value of the face */
+    val_face = grp->face2int_face_comm_index1[i];
+    pos      = grp->face2int_face_comm_index2[i];
+    int_face_comm->intvalues[3*pos]   = -1;
+    int_face_comm->intvalues[3*pos+1] = -1;
+    int_face_comm->intvalues[3*pos+2] = -1;
+
+    /* Find the local tetra, the face and node associated */
+    k     = val_face/12;     // Index of the tetra on this proc
+    ifac  = (val_face%12)/3; // Index of the face
+    iploc = (val_face%12)%3; // Index of the node
+
+    /* Get the tetra k and xtetra associated */
+    pt  = &mesh->tetra[k];
+    pxt = &mesh->xtetra[pt->xt];
+    if ( !MG_EOK(pt) )  continue;
+
+    /* STEP 6.2.1 - Find global numbering and split pattern of the tetra */
+    /* If the tetra has already a flag (flag !=0) - then it has already been processed */
+    already_split = 0;
+    if (pt->flag) {
+      /* If flag>0, we need to update the face communicators; */
+      if (pt->flag > 0) {
+        already_split = 1;             // Identify the tetra as already split
+        idx_tmp = pt->mark;            // Index of ne_tmp stored in ne_tmp_tab
+        ne_tmp  = ne_tmp_tab[idx_tmp]; // Old total number of tetras just after the split of this old tetra
+        /* Get global num of the old tetra vertices before the split */
+        for (j=0; j<4; j++) {
+          vGlobNum[j] = vGlobNum_tab[idx_tmp*4+j];
+        }
+      }
+      /* Otherwise, if flag equals to -1 (flag<0), the tetra does not need to be split. Pass to the next tetra. */
+      else if (pt->flag < 0) continue;
+    }
+    /* Otherwise, if flag=0, the tetra has never been processed. */
+    else {
+      /* Get the split pattern: loop over the edges, get hash.item[key].k */
+      memset(vx,0,6*sizeof(MMG5_int));
+      for (ia=0; ia<6; ia++) {
+        vx[ia] = MMG5_hashGet(&hash,pt->v[MMG5_iare[ia][0]],pt->v[MMG5_iare[ia][1]]);
+        if ( vx[ia] > 0 )
+          MG_SET(pt->flag,ia);
+      }
+
+      /* Get and store global num of the tetra vertices */
+      for (j=0; j<4; j++) {
+        vGlobNum[j] = mesh->point[pt->v[j]].tmp;
+        vGlobNum_tab[ns*4+j] = vGlobNum[j];
+      }
+    }
+
+    /* Get the split pattern stored in flag */
+    flag = pt->flag;
+
+    /* Initialize tetra_sorted and node_sorted at -1 */
+    memset(tetra_sorted,-1,3*sizeof(MMG5_int));
+    memset(node_sorted, -1,3*sizeof(MMG5_int));
+
+    /* STEP 6.2.2 - If not already done, split the tetra according to the flag */
+    switch (flag) {
+    case 1: case 2: case 4: case 8: case 16: case 32: // 1 edge split
+      if (!already_split) {
+        ier = MMG5_split1(mesh,met,k,vx,1);
+        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        pt->mark = ns;             // Split number to recover info later if needed
+        ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
+        ne_tmp         = mesh->ne; // Total number of tetras after this split
+        ns++;                      // Incremente the total number of split
+      }
+
+      /* Find the tetras and nodes defining the face ifac of tetra k */
+      MMG3D_split1_cfg(flag,tau,&taued); // Compute tau
+      PMMG_split1_sort(mesh,k,ifac,tau,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
+      break;
+
+    case 48: case 24: case 40: case 6: case 34: case 36: // 2 edges (same face) split
+    case 20: case 5:  case 17: case 9: case 3:  case 10:
+      if (!already_split) {
+        ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1);
+        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        pt->mark = ns;             // Split number to recover info later if needed
+        ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
+        ne_tmp         = mesh->ne; // Total number of tetras after this split
+        ns++;                      // Incremente the total number of split
+      }
+
+      /* Find the tetras and nodes defining the face ifac of tetra k */
+      MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued,&imin0); // Compute tau and imin0
+      PMMG_split2sf_sort(mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
+      break;
+
+    case 7: case 25: case 42: case 52: // 3 edges on conic configuration split
+      if (!already_split) {
+        ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1);
+        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        pt->mark = ns;             // Split number to recover info later if needed
+        ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
+        ne_tmp         = mesh->ne; // Total number of tetras after this split
+        ns++;                      // Incremente the total number of split
+      }
+
+      /* Find the tetras and nodes defining the face ifac of tetra k */
+      MMG3D_split3cone_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2); // Compute tau, imin0 and imin2
+      PMMG_split3cone_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
+      break;
+
+    case 30: case 45: case 51: // 4 edges on opposite configuration split
+      if (!already_split) {
+        ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1);
+        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        pt->mark = ns;             // Split number to recover info later if needed
+        ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
+        ne_tmp         = mesh->ne; // Total number of tetras after this split
+        ns++;                      // Incremente the total number of split
+      }
+
+      /* Find the tetras and nodes defining the face ifac of tetra k */
+      MMG3D_split4op_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2); // Compute tau, imin0 and imin2
+      PMMG_split4op_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
+      break;
+
+    default: // This tetra does not need to be split and is processed for the first time
+      assert(pt->flag == 0);
+      pt->flag = -1; // Put this flag to -1 to specify that this tetra has been processed
+      PMMG_nosplit_sort(mesh,k,ifac,tetra_sorted,node_sorted);
+      break;
+    }
+
+    if ( !ier ) return 0;
+
+    if (pt->flag != -1) {
+      /* STEP 6.2.3 - Update tag of edges in xtetra with MG_PARBDY */
+      for (j=0; j<3; j++) {
+        k0 = tetra_sorted[j];
+        if (k0 != -1) {
+          pt0  = &mesh->tetra[k0];
+          pxt0 = &mesh->xtetra[pt0->xt];
+          for (k=0; k<3; k++) {
+            ia = MMG5_iarf[ifac][k];
+            if ( !(pxt0->tag[ia] & MG_PARBDY) ) {
+              pxt0->tag[ia] |= MG_PARBDY;
+            }
+          }
+        }
+      }
+
+      /* STEP 6.2.4 - Update face communicators */
+      /* (a) Update the first face located at i - Modify only index1 - index2 stays the same */
+      grp->face2int_face_comm_index1[i] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
+      int_face_comm->intvalues[3*pos] = pos;
+
+      /* (b) Update the communicators for the potential 2 other faces */
+      nface_added = 0;
+      for (j=0; j<2; j++) {
+        if ( tetra_sorted[j+1] != -1) {
+          grp->face2int_face_comm_index1[nitem_grp_face_tmp+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
+          grp->face2int_face_comm_index2[nitem_grp_face_tmp+j] = nitem_grp_face_tmp+j;
+          int_face_comm->intvalues[3*pos+j+1] = nitem_grp_face_tmp+j;
+          nface_added += 1;
+        }
+      }
+
+      /* (c) Update the total number of faces */
+      nitem_grp_face_tmp += nface_added;
+      int_face_comm->nitem = nitem_grp_face_tmp;
+
+    }
+    else if (pt->flag == -1) {
+      /* STEP 6.2.5 - Update internal face communicators for tetra not split */
+      /* As the tetra is not split, the tetra index has not changed.
+          Moreover, the node of face ifac is chosen to be the node with highest
+          coordinates, so it should not have been changed either. However, to be
+          sure we are not missing a case, we still update face2int_face_comm_index1 */
+      grp->face2int_face_comm_index1[i] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
+    }
+  }
+
+  /* Update number of element in index1/index2 face comm*/
+  nitem_grp_face = nitem_grp_face_tmp;
+  grp->nitem_int_face_comm = nitem_grp_face;
+  int_face_comm->nitem = nitem_grp_face;
+
+  /* Update external face comm */
   for (i_commf=0; i_commf < next_face_comm; i_commf++) {
 
     /* Get current external face communicator */
@@ -677,194 +864,33 @@ if ( parmesh->myrank == parmesh->info.root )
     nitem_ext_face_init = ext_face_comm->nitem;        // Initial number of faces in common between these 2 procs
 
     /* Loop over the faces in the external face communicator */
-    for (iface=0; iface < nitem_ext_face_init; iface++) {
-
-      /* Get the index of the face in internal communicator and the value of the face */
-      idx_face_ext = ext_face_comm->int_comm_index[iface];
-      idx_face_int = grp->face2int_face_comm_index2[idx_face_ext];
-      val_face     = grp->face2int_face_comm_index1[idx_face_int];
-
-      /* Find the local tetra, the face and node associated */
-      k     = val_face/12;     // Index of the tetra on this proc
-      ifac  = (val_face%12)/3; // Index of the face
-      iploc = (val_face%12)%3; // Index of the node
-
-      /* Get the tetra k and xtetra associated */
-      pt  = &mesh->tetra[k];
-      pxt = &mesh->xtetra[pt->xt];
-      if ( !MG_EOK(pt) )  continue;
-
-      /* STEP 6.2.1 - Find global numbering and split pattern of the tetra */
-      /* If the tetra has already a flag (flag !=0) - then it has already been processed */
-      already_split = 0;
-      if (pt->flag) {
-        /* If flag>0, we need to update the face communicators; */
-        if (pt->flag > 0) {
-          already_split = 1;             // Identify the tetra as already split
-          idx_tmp = pt->mark;            // Index of ne_tmp stored in ne_tmp_tab
-          ne_tmp  = ne_tmp_tab[idx_tmp]; // Old total number of tetras just after the split of this old tetra
-          /* Get global num of the old tetra vertices before the split */
-          for (j=0; j<4; j++) {
-            vGlobNum[j] = vGlobNum_tab[idx_tmp*4+j];
-          }
-        }
-        /* Otherwise, if flag equals to -1 (flag<0), the tetra does not need to be split. Pass to the next tetra. */
-        else if (pt->flag < 0) continue;
+    for (i=0; i < nitem_ext_face_init; i++) {
+      pos = ext_face_comm->int_comm_index[i];
+      int val1 = int_face_comm->intvalues[3*pos];
+      int val2 = int_face_comm->intvalues[3*pos+1];
+      int val3 = int_face_comm->intvalues[3*pos+2];
+      if (val1 >= 0) {
+        ext_face_comm->int_comm_index[i] = val1;
       }
-      /* Otherwise, if flag=0, the tetra has never been processed. */
-      else {
-        /* Get the split pattern: loop over the edges, get hash.item[key].k */
-        memset(vx,0,6*sizeof(MMG5_int));
-        for (ia=0; ia<6; ia++) {
-          vx[ia] = MMG5_hashGet(&hash,pt->v[MMG5_iare[ia][0]],pt->v[MMG5_iare[ia][1]]);
-          if ( vx[ia] > 0 )
-            MG_SET(pt->flag,ia);
-        }
-
-        /* Get and store global num of the tetra vertices */
-        for (j=0; j<4; j++) {
-          vGlobNum[j] = mesh->point[pt->v[j]].tmp;
-          vGlobNum_tab[ns*4+j] = vGlobNum[j];
-        }
+      if (val2 >= 0) {
+        ext_face_comm->int_comm_index[nitem_ext_face] = val2;
+        nitem_ext_face += 1;
       }
-
-      /* Get the split pattern stored in flag */
-      flag = pt->flag;
-
-      /* Initialize tetra_sorted and node_sorted at -1 */
-      memset(tetra_sorted,-1,3*sizeof(MMG5_int));
-      memset(node_sorted, -1,3*sizeof(MMG5_int));
-
-      /* STEP 6.2.2 - If not already done, split the tetra according to the flag */
-      switch (flag) {
-      case 1: case 2: case 4: case 8: case 16: case 32: // 1 edge split
-        if (!already_split) {
-          ier = MMG5_split1(mesh,met,k,vx,1);
-          pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-          pt->mark = ns;             // Split number to recover info later if needed
-          ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
-          ne_tmp         = mesh->ne; // Total number of tetras after this split
-          ns++;                      // Incremente the total number of split
-        }
-
-        /* Find the tetras and nodes defining the face ifac of tetra k */
-        MMG3D_split1_cfg(flag,tau,&taued); // Compute tau
-        PMMG_split1_sort(mesh,k,ifac,tau,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
-        break;
-
-      case 48: case 24: case 40: case 6: case 34: case 36: // 2 edges (same face) split
-      case 20: case 5:  case 17: case 9: case 3:  case 10:
-        if (!already_split) {
-          ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1);
-          pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-          pt->mark = ns;             // Split number to recover info later if needed
-          ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
-          ne_tmp         = mesh->ne; // Total number of tetras after this split
-          ns++;                      // Incremente the total number of split
-        }
-
-        /* Find the tetras and nodes defining the face ifac of tetra k */
-        MMG3D_split2sf_cfg(flag,vGlobNum,tau,&taued,&imin0); // Compute tau and imin0
-        PMMG_split2sf_sort(mesh,k,ifac,tau,imin0,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
-        break;
-
-      case 7: case 25: case 42: case 52: // 3 edges on conic configuration split
-        if (!already_split) {
-          ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1);
-          pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-          pt->mark = ns;             // Split number to recover info later if needed
-          ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
-          ne_tmp         = mesh->ne; // Total number of tetras after this split
-          ns++;                      // Incremente the total number of split
-        }
-
-        /* Find the tetras and nodes defining the face ifac of tetra k */
-        MMG3D_split3cone_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2); // Compute tau, imin0 and imin2
-        PMMG_split3cone_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
-        break;
-
-      case 30: case 45: case 51: // 4 edges on opposite configuration split
-        if (!already_split) {
-          ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1);
-          pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-          pt->mark = ns;             // Split number to recover info later if needed
-          ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
-          ne_tmp         = mesh->ne; // Total number of tetras after this split
-          ns++;                      // Incremente the total number of split
-        }
-
-        /* Find the tetras and nodes defining the face ifac of tetra k */
-        MMG3D_split4op_cfg(flag,vGlobNum,tau,&taued,&imin0,&imin2); // Compute tau, imin0 and imin2
-        PMMG_split4op_sort(mesh,k,ifac,tau,imin0,imin2,ne_tmp,tetra_sorted,node_sorted); // Find tetra_sorted and node_sorted
-        break;
-
-      default: // This tetra does not need to be split and is processed for the first time
-        assert(pt->flag == 0);
-        pt->flag = -1; // Put this flag to -1 to specify that this tetra has been processed
-        PMMG_nosplit_sort(mesh,k,ifac,tetra_sorted,node_sorted);
-        break;
-      }
-
-      if ( !ier ) return 0;
-
-      if (pt->flag != -1) {
-        /* STEP 6.2.3 - Update tag of edges in xtetra with MG_PARBDY */
-        for (j=0; j<3; j++) {
-          k0 = tetra_sorted[j];
-          if (k0 != -1) {
-            pt0  = &mesh->tetra[k0];
-            pxt0 = &mesh->xtetra[pt0->xt];
-            for (i=0; i<3; i++) {
-              ia = MMG5_iarf[ifac][i];
-              if ( !(pxt0->tag[ia] & MG_PARBDY) ) {
-                pxt0->tag[ia] |= MG_PARBDY;
-              }
-            }
-          }
-        }
-
-        /* STEP 6.2.4 - Update face communicators */
-        nitem_ext_face = ext_face_comm->nitem; // Number of faces in common between these 2 procs
-
-        /* (a) Update the first face located at idx_face_int - Modify only index1 - index2 stays the same */
-        grp->face2int_face_comm_index1[idx_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
-
-        /* (b) Update the communicators for the potential 2 other faces */
-        nface_added = 0;
-        for (j=0; j<2; j++) {
-          if ( tetra_sorted[j+1] != -1) {
-            grp->face2int_face_comm_index1[nitem_grp_face+j] = 12*tetra_sorted[j+1]+3*ifac+node_sorted[j+1];
-            grp->face2int_face_comm_index2[nitem_grp_face+j] = nitem_grp_face+j;
-            ext_face_comm->int_comm_index[nitem_ext_face+j]  = nitem_grp_face+j;
-            nface_added += 1;
-          }
-        }
-
-        /* (c) Update the total number of faces */
-        nitem_grp_face += nface_added;
-        nitem_ext_face += nface_added;
-        parmesh->int_face_comm->nitem = nitem_grp_face;
-        grp->nitem_int_face_comm      = nitem_grp_face;
-        ext_face_comm->nitem          = nitem_ext_face;
-      }
-      else if (pt->flag == -1) {
-        /* STEP 6.2.5 - Update internal face communicators for tetra not split */
-        /* As the tetra is not split, the tetra index has not changed.
-           Moreover, the node of face ifac is chosen to be the node with highest
-           coordinates, so it should not have been changed either. However, to be
-           sure we are not missing a case, we still update face2int_face_comm_index1 */
-        grp->face2int_face_comm_index1[idx_face_int] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
+      if (val3 >= 0) {
+        ext_face_comm->int_comm_index[nitem_ext_face] = val3;
+        nitem_ext_face += 1;
       }
     }
+    ext_face_comm->nitem = nitem_ext_face;
   }
 
-// #ifndef NDEBUG
+#ifndef NDEBUG
   /** Check the internal face communicator */
   assert( PMMG_check_intFaceComm( parmesh ) );
 
   /** Check the external face communicator */
   assert( PMMG_check_extFaceComm( parmesh,parmesh->info.read_comm ) );
-// #endif
+#endif
 
   /** STEP 6.3 - Do the splitting for tetra located elsewhere */
   /* Loop over tetra */
@@ -935,7 +961,8 @@ if ( parmesh->myrank == parmesh->info.root )
   /* Delete the tables storing imin0, imin2 and ne_tmp_tab */
   PMMG_DEL_MEM(parmesh,vGlobNum_tab,MMG5_int,"vGlobNum_tab");
   PMMG_DEL_MEM(parmesh,ne_tmp_tab,MMG5_int,"ne_tmp_tab");
-  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"intvalues");
+  PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
+  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face intvalues");
 
   /* Delete the edges hash table */
   MMG5_DEL_MEM(mesh,hash.item);
