@@ -92,6 +92,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int pos, pos_edge, pos_node;
   int ier;
   int val_face;
+  int val1, val2,val3;
 
   int nitem_grp_node_firstalloc,nitem_grp_face_firstalloc;
   int nitem_ext_face_init;
@@ -642,13 +643,13 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
-// #ifndef NDEBUG
+#ifndef NDEBUG
   /** Check the internal node communicator */
   assert( PMMG_check_intNodeComm( parmesh ) );
 
   /** Check the external node communicator */
   assert( PMMG_check_extNodeComm( parmesh,parmesh->info.read_comm ) );
-// #endif
+#endif
 
   /** STEP 6 - Split according to tets flags */
   /** STEP 6.1 - Compute global node vertices */
@@ -866,9 +867,9 @@ if ( parmesh->myrank == parmesh->info.root )
     /* Loop over the faces in the external face communicator */
     for (i=0; i < nitem_ext_face_init; i++) {
       pos = ext_face_comm->int_comm_index[i];
-      int val1 = int_face_comm->intvalues[3*pos];
-      int val2 = int_face_comm->intvalues[3*pos+1];
-      int val3 = int_face_comm->intvalues[3*pos+2];
+      val1 = int_face_comm->intvalues[3*pos];
+      val2 = int_face_comm->intvalues[3*pos+1];
+      val3 = int_face_comm->intvalues[3*pos+2];
       if (val1 >= 0) {
         ext_face_comm->int_comm_index[i] = val1;
       }
