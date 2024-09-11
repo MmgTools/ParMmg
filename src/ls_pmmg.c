@@ -68,14 +68,19 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   MMG5_int ne_init,ne_tmp;
   MMG5_int i,j,k,k0;
-  MMG5_int ip0,ip1,np,nb,ns,src,refext,refint,ref;
+  MMG5_int ie,idx_tmp;
+  MMG5_int pos,pos_edge,pos_node,pos_face;
+  MMG5_int ip0,ip1,np,nb,ns;
+  MMG5_int src;
+  MMG5_int refext,refint,ref;
   MMG5_int vGlobNum[4],vx[6];
   MMG5_int tetra_sorted[3], node_sorted[3];
   MMG5_int *ne_tmp_tab,*vGlobNum_tab;
 
   static int8_t  mmgWarn = 0;
-  int8_t         ia;
-  int8_t         npneg,nface_added;
+  int8_t ia;
+  int8_t npneg,nface_added;
+  int8_t already_split;
 
   const uint8_t *taued=NULL;
   uint8_t        tau[4];
@@ -83,16 +88,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   double c[3],v0,v1,s;
 
-  int already_split;
-  int idx_tmp;
-  int i_commn,i_comme,i_commf;
-  int ifac,iploc;
+  int i_commf;
+  int ifac,iploc,val_face;
   int flag;
-  int ie;
-  int pos, pos_edge, pos_node;
   int ier;
-  int val_face;
-  int val1, val2,val3;
 
   int nitem_grp_node_firstalloc,nitem_grp_face_firstalloc;
   int nitem_ext_face_init;
@@ -101,6 +100,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int nitem_int_node, nitem_grp_node, nitem_ext_node;
   int nitem_int_edge, nitem_grp_edge, nitem_ext_edge;
   int nitem_int_face, nitem_grp_face, nitem_ext_face;
+  int nitem_grp_face_tmp;
 
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
@@ -305,18 +305,19 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
-  /* Internal edge communicator intvalues stores id of the point np if the edge is split
-    otherwise -1 */
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,"int_edge_comm intvalues",return 0);
-
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
+  /* Internal edge communicator - intvalues stores:
+    - point position as in node2int_node_comm_index2 if the edge is split
+    - otherwise, -1 */
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,"int_edge_comm intvalues",return 0);
+
   /* Loop on the internal edge communicator */
   for (i=0; i < nitem_grp_edge; i++) {
 
-    ie  = grp->edge2int_edge_comm_index1[i];
-    pos = grp->edge2int_edge_comm_index2[i];
-    int_edge_comm->intvalues[pos] = -1;
+    ie  = grp->edge2int_edge_comm_index1[i]; // id of edge
+    pos = grp->edge2int_edge_comm_index2[i]; // position in int_edge_comm->intvalues
+    int_edge_comm->intvalues[pos] = -1;      // initialization at -1
 
     /* Find extremities of this edge */
     ip0 = mesh->edge[ie].a;
@@ -332,7 +333,7 @@ if ( parmesh->myrank == parmesh->info.root )
     // that edges on // interface need to be split.
     // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
-    /* STEP 5.1.2 - Create a new point if this edge needs to be split */
+    /* STEP 5.1.1 - Create a new point if this edge needs to be split */
     /* Check the ls value at the edge nodes */
     p0 = &mesh->point[ip0];
     p1 = &mesh->point[ip1];
@@ -365,19 +366,17 @@ if ( parmesh->myrank == parmesh->info.root )
 #endif
     np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
 
-    /* Update internal, external and grp communicators */
-    grp->node2int_node_comm_index1[nitem_grp_node]=np;
-    grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node;
-    int_edge_comm->intvalues[pos] = nitem_int_node;
+    /* Update internal communicators of node and edge. For int edge comm
+       intvalues stores the point position as in node2int_node_comm_index2 */
+    grp->node2int_node_comm_index1[nitem_grp_node]=np; // Add this new point in int node comm index1
+    grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node; // Positiion in int node comm
+    int_edge_comm->intvalues[pos] = nitem_int_node; // In int edge comm, assign position of node in int comm
     nitem_int_node += 1;
     nitem_grp_node += 1;
     grp->nitem_int_node_comm = nitem_grp_node;
     int_node_comm->nitem     = nitem_int_node;
 
-    MMG5_hashUpdate(&hash,ip0,ip1,np);
-
-
-    /* STEP 5.1.3 - Update of met, sol and field for the new point */
+    /* STEP 5.1.2 - Update hash table, met, sol and field for the new point */
     /* Memory allocation for sol and met */
     if ( !np ) {
       MMG5_int oldnpmax = mesh->npmax;
@@ -451,47 +450,54 @@ if ( parmesh->myrank == parmesh->info.root )
       }
     }
 
+    /* Update hash table */
+    MMG5_hashUpdate(&hash,ip0,ip1,np);
+
   }
 
-  /* Update external node communicator */
-  for (i_comme=0; i_comme < next_edge_comm; i_comme++) {
+  /** STEP 5.2 -  Update external node communicator  */
+  /* Loop over the external edge comm */
+  for (i=0; i < next_edge_comm; i++) {
 
     /* Get external edge communicator information */
-    ext_edge_comm  = &parmesh->ext_edge_comm[i_comme]; // External edge communicator
-    color_in_edge  = ext_edge_comm->color_in;          // Color of the hosting proc - this proc
-    color_out_edge = ext_edge_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-    nitem_ext_edge = ext_edge_comm->nitem;             // Number of edges in common between these 2 procs
+    ext_edge_comm  = &parmesh->ext_edge_comm[i]; // External edge communicator
+    color_in_edge  = ext_edge_comm->color_in;    // Color of the hosting proc - this proc
+    color_out_edge = ext_edge_comm->color_out;   // Color of the remote  proc - the proc to exchange with
+    nitem_ext_edge = ext_edge_comm->nitem;       // Nbr of edges in common between these 2 procs
 
     /* Loop over the edges in the external edge communicator */
-    for (i=0; i < nitem_ext_edge; i++) {
+    for (j=0; j < nitem_ext_edge; j++) {
 
-      /* Get the indices of the edge in internal communicators and mesh->edge */
-      pos_edge = ext_edge_comm->int_comm_index[i];
+      /* Get the position of the edge and node in internal communicators */
+      pos_edge = ext_edge_comm->int_comm_index[j];
       pos_node = int_edge_comm->intvalues[pos_edge];
 
-      /* If pos_node < 0, this edge is not split, so ignore it */
+      /* If pos_node < 0, this edge j is not split, so ignore it */
       if (pos_node < 0) continue;
 
-      /* (b) Update the external node communicator */
-      /* Find the appropriate external node comm */
-      for (i_commn=0; i_commn < next_node_comm; i_commn++) {
-        ext_node_comm  = &parmesh->ext_node_comm[i_commn]; // External node communicator
-        color_in_node  = ext_node_comm->color_in;          // Color of the hosting proc - this proc
-        color_out_node = ext_node_comm->color_out;         // Color of the remote  proc - the proc to exchange with
-        assert(color_in_node == color_in_edge);            // Ensure that the hosting proc is the same
+      /* Update the external node communicator */
+      /* Loop over the external node comm to find the appropriate one tu be updated */
+      for (k=0; k < next_node_comm; k++) {
+        ext_node_comm  = &parmesh->ext_node_comm[k]; // External node communicator
+        color_in_node  = ext_node_comm->color_in;    // Color of the hosting proc - this proc
+        color_out_node = ext_node_comm->color_out;   // Color of the remote  proc - the proc to exchange with
+        assert(color_in_node == color_in_edge);      // Ensure that the hosting proc is the same
+
+        /* While color_out_node and color_out_edge are different, continue */
+        if (color_out_node != color_out_edge) continue;
 
         /* If color_out of edge and node comm are the same - Update external node communicator */
-        if (color_out_node == color_out_edge) {
-          nitem_ext_node = ext_node_comm->nitem;                    // Initial nbr of nodes in common between these 2 procs
-          ext_node_comm->int_comm_index[nitem_ext_node] = pos_node; // Add the node to the external node comm
-          ext_node_comm->nitem = nitem_ext_node + 1;                // Updated nbr of nodes in common between these 2 procs
-          break;
-        }
+        // if (color_out_node == color_out_edge) {
+        nitem_ext_node = ext_node_comm->nitem;                    // Initial nbr of nodes in common between these 2 procs
+        ext_node_comm->int_comm_index[nitem_ext_node] = pos_node; // Add the node to the external node comm
+        ext_node_comm->nitem = nitem_ext_node + 1;                // Updated nbr of nodes in common between these 2 procs
+        break;
+        // }
       }
     }
   }
 
-  /** STEP 5.2 - Create all the other new points located elsewhere and update hash table */
+  /** STEP 5.3 - Create all the other new points located elsewhere and update hash table */
   /* Loop over tetra k */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
@@ -512,7 +518,7 @@ if ( parmesh->myrank == parmesh->info.root )
       // So we assume all the elements should be split
       // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
-      /* STEP 5.2.1 - Create a new point if this edge needs to be split */
+      /* STEP 5.3.1 - Create a new point if this edge needs to be split */
       /* Check the ls value at the edge nodes */
       p0 = &mesh->point[ip0];
       p1 = &mesh->point[ip1];
@@ -548,7 +554,7 @@ if ( parmesh->myrank == parmesh->info.root )
 #endif
       np = MMG3D_newPt(mesh,c,0,src);
 
-      /* STEP 5.2.2 - Update of met, sol and field for the new point */
+      /* STEP 5.3.2 - Update of met, sol and field for the new point */
       /* Memory allocation for sol and met */
       if ( !np ) {
         MMG5_int oldnpmax = mesh->npmax;
@@ -662,21 +668,19 @@ if ( parmesh->myrank == parmesh->info.root )
   ns  = 0;     // Number of total split on this proc
   ier = 1;     // Error
   idx_tmp = 0; // Index of an already split tetra to recover info stored in ne_tmp_tab and vGlobNum_tab
+  nitem_grp_face_tmp = nitem_grp_face;
 
   /* Allocate internal face comm */
   PMMG_CALLOC(parmesh,int_face_comm->intvalues,3*nitem_int_face,int,"int_face_comm intvalues",return 0);
 
-  int nitem_grp_face_tmp;
-
-  nitem_grp_face_tmp = nitem_grp_face;
-
-  /* Loop over the number of faces communicator */
-  // for (i_commf=0; i_commf < next_face_comm; i_commf++) {
+  /* Loop over the internal faces communicator */
   for (i=0; i < nitem_grp_face; i++) {
 
-    /* Get the index of the face in internal communicator and the value of the face */
+    /* Get the position of the face in internal communicator and the value of the face */
     val_face = grp->face2int_face_comm_index1[i];
     pos      = grp->face2int_face_comm_index2[i];
+
+    /* Initialize interval face comm at -1 */
     int_face_comm->intvalues[3*pos]   = -1;
     int_face_comm->intvalues[3*pos+1] = -1;
     int_face_comm->intvalues[3*pos+2] = -1;
@@ -820,10 +824,10 @@ if ( parmesh->myrank == parmesh->info.root )
         }
       }
 
-      /* STEP 6.2.4 - Update face communicators */
+      /* STEP 6.2.4 - Update internal face communicators */
       /* (a) Update the first face located at i - Modify only index1 - index2 stays the same */
       grp->face2int_face_comm_index1[i] = 12*tetra_sorted[0]+3*ifac+node_sorted[0];
-      int_face_comm->intvalues[3*pos] = pos;
+      int_face_comm->intvalues[3*pos]   = pos;
 
       /* (b) Update the communicators for the potential 2 other faces */
       nface_added = 0;
@@ -839,7 +843,6 @@ if ( parmesh->myrank == parmesh->info.root )
       /* (c) Update the total number of faces */
       nitem_grp_face_tmp += nface_added;
       int_face_comm->nitem = nitem_grp_face_tmp;
-
     }
     else if (pt->flag == -1) {
       /* STEP 6.2.5 - Update internal face communicators for tetra not split */
@@ -851,38 +854,40 @@ if ( parmesh->myrank == parmesh->info.root )
     }
   }
 
-  /* Update number of element in index1/index2 face comm*/
+  /** STEP 6.3 - Update internal and external face communicator */
+  /* Update number of element in internal face comm*/
   nitem_grp_face = nitem_grp_face_tmp;
   grp->nitem_int_face_comm = nitem_grp_face;
   int_face_comm->nitem = nitem_grp_face;
 
   /* Update external face comm */
-  for (i_commf=0; i_commf < next_face_comm; i_commf++) {
+  for (k=0; k < next_face_comm; k++) {
 
     /* Get current external face communicator */
-    ext_face_comm  = &parmesh->ext_face_comm[i_commf]; // External face communicator
-    nitem_ext_face = ext_face_comm->nitem;             // Number of faces in common between these 2 procs
-    nitem_ext_face_init = ext_face_comm->nitem;        // Initial number of faces in common between these 2 procs
+    ext_face_comm  = &parmesh->ext_face_comm[k]; // External face communicator
+    nitem_ext_face = ext_face_comm->nitem;       // Nbr of faces in common between these 2 procs
+    nitem_ext_face_init = ext_face_comm->nitem;  // Initial nbr of faces in common between these 2 procs
 
     /* Loop over the faces in the external face communicator */
     for (i=0; i < nitem_ext_face_init; i++) {
       pos = ext_face_comm->int_comm_index[i];
-      val1 = int_face_comm->intvalues[3*pos];
-      val2 = int_face_comm->intvalues[3*pos+1];
-      val3 = int_face_comm->intvalues[3*pos+2];
-      if (val1 >= 0) {
-        ext_face_comm->int_comm_index[i] = val1;
-      }
-      if (val2 >= 0) {
-        ext_face_comm->int_comm_index[nitem_ext_face] = val2;
-        nitem_ext_face += 1;
-      }
-      if (val3 >= 0) {
-        ext_face_comm->int_comm_index[nitem_ext_face] = val3;
-        nitem_ext_face += 1;
+
+      /* Loop over the potential 3 faces created after the split */
+      for (j=0; j < 3; j++) {
+        pos_face = int_face_comm->intvalues[3*pos+j];
+        if (pos_face < 0) continue; // If pos_face=-1, there is not extra face to add
+        /* The first face is located at i in the ext face comm */
+        if (j==0) {
+          ext_face_comm->int_comm_index[i] = pos_face;
+        }
+        /* The next faces are added at the end of the ext face comm */
+        else {
+          ext_face_comm->int_comm_index[nitem_ext_face] = pos_face;
+          nitem_ext_face += 1;
+        }
       }
     }
-    ext_face_comm->nitem = nitem_ext_face;
+    ext_face_comm->nitem = nitem_ext_face; // Update nbr of face in ext face comm
   }
 
 #ifndef NDEBUG
@@ -893,7 +898,7 @@ if ( parmesh->myrank == parmesh->info.root )
   assert( PMMG_check_extFaceComm( parmesh,parmesh->info.read_comm ) );
 #endif
 
-  /** STEP 6.3 - Do the splitting for tetra located elsewhere */
+  /** STEP 6.4 - Do the splitting for tetra located elsewhere */
   /* Loop over tetra */
   for (k=1; k<=ne_init; k++) {
 
@@ -905,7 +910,7 @@ if ( parmesh->myrank == parmesh->info.root )
     /* If the tetra has already a flag (flag !=0) - it has already been processed. Pass to the next tetra. */
     if (pt->flag) continue;
 
-    /* STEP 6.3.1 - Find global numbering and split pattern of the tetra */
+    /* STEP 6.4.1 - Find global numbering and split pattern of the tetra */
     /* Get the split pattern: loop over the edges, get hash.item[key].k */
     memset(vx,0,6*sizeof(MMG5_int));
     for (ia=0; ia<6; ia++) {
@@ -922,7 +927,7 @@ if ( parmesh->myrank == parmesh->info.root )
     /* Get the split pattern stored in flag */
     flag = pt->flag;
 
-    /* STEP 6.3.2 - If not already done, split the tetra according to the flag */
+    /* STEP 6.4.2 - If not already done, split the tetra according to the flag */
     switch (flag) {
     case 1: case 2: case 4: case 8: case 16: case 32: // 1 edge split
       ier = MMG5_split1(mesh,met,k,vx,1);
@@ -962,10 +967,12 @@ if ( parmesh->myrank == parmesh->info.root )
   /* Delete the tables storing imin0, imin2 and ne_tmp_tab */
   PMMG_DEL_MEM(parmesh,vGlobNum_tab,MMG5_int,"vGlobNum_tab");
   PMMG_DEL_MEM(parmesh,ne_tmp_tab,MMG5_int,"ne_tmp_tab");
+
+  /* Delete the edges hash table */
   PMMG_DEL_MEM(parmesh,int_edge_comm->intvalues,int,"edge intvalues");
   PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"face intvalues");
 
-  /* Delete the edges hash table */
+  /* Delete internal communicators */
   MMG5_DEL_MEM(mesh,hash.item);
 
   /* Realloc internal node communicators to exact final size */
@@ -1013,10 +1020,6 @@ if ( parmesh->myrank == parmesh->info.root )
     mesh->tetra[k].mark = 0;
     mesh->tetra[k].flag = 0;
   }
-
-  /* Reset s in mesh->point */
-  for (k=1; k<=mesh->np; k++)
-    mesh->point[k].s = 0;
 
   return ns;
 }
