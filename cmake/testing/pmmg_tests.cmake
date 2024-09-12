@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 0b1fce5e92fd42514fd75e8542ff67adeb6d77f8
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout a8b02c1196945bab072664f4f30f053dabb2639c
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -433,6 +433,13 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
       -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
+
+    # Test to check that when not using -opnbdy option, internal triangles are correctly removed.
+    # See ParMmg PR#110
+    add_test( NAME extrainternaltriangles
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 3 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Cube/internaltriangles-P3.mesh -v 10
+      -out ${CI_DIR_RESULTS}/internaltriangles-P3.o.mesh)
 
     ###############################################################################
     #####
