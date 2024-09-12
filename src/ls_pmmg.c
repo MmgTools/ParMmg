@@ -1070,7 +1070,7 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],
   /* Tetra #0 created by MMG5_split1 */
   tetra_sorted[0] = k;
   /* Except for the following: treta #1 created by MMG5_split1 */
-  if ( (ifac==tau[0]) ) tetra_sorted[0] = ne_tmp;
+  if ( ifac==tau[0] ) tetra_sorted[0] = ne_tmp;
 
   /* Store index of the node with highest coordinates in node_sorted[0]
      and sort the vertices by increasing order in v_t0 */

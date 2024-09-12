@@ -547,7 +547,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
         /* Search into dataPBDY_AlreadyAdded to seen if it exists already */
         for (r=0; r < ndataPBDY_added+1; r++) {
           if ( (color_out == dataPBDY_AlreadyAdded[5*r+1]) && (color_ter == dataPBDY_AlreadyAdded[5*r])) {
-            if ((k == dataPBDY_AlreadyAdded[5*r+2]) ) {
+            if ( k == dataPBDY_AlreadyAdded[5*r+2] ) {
               ip_in = dataPBDY_AlreadyAdded[5*r+3];
               duplicated_point =1;
               break;
