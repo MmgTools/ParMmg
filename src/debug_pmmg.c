@@ -455,7 +455,7 @@ int PMMG_saveQual(MMG5_pMesh mesh, const char *filename) {
  * Write group surface mesh and edges with given tag in medit format.
  *
  */
-int PMMG_grp_to_saveEdges( PMMG_pParMesh parmesh,int grpId,int16_t tag,char *basename ) {
+int PMMG_grp_to_saveEdges( PMMG_pParMesh parmesh,int grpId,uint16_t tag,char *basename ) {
   PMMG_pGrp   grp;
   MMG5_pMesh  mesh;
   MMG5_pTria  ptr;

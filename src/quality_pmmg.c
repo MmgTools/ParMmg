@@ -393,7 +393,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   double          len;
   int             i,k,ia,np,nq,n;
   int             ref;
-  int16_t         tag;
+  uint16_t        tag;
   int8_t          i0,i1,ier;
   static double   bd[9]= {0.0, 0.3, 0.6, 0.7071, 0.9, 1.3, 1.4142, 2.0, 5.0};
 

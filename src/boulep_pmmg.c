@@ -242,7 +242,7 @@ int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface
   double   dd,l0,l1;
   int      base,nump,nr,nnm,k,piv,na,nb,adj,nvstart,fstart,aux,ip0,ip1;
   int     *adja,color;
-  int16_t  tag;
+  uint16_t tag;
   int8_t   iopp,ipiv,indb,inda,i,isface;
   int8_t   indedg[4][4] = { {-1,0,1,2}, {0,-1,3,4}, {1,3,-1,5}, {2,4,5,-1} };
 

@@ -262,7 +262,7 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
                                    PMMG_pExt_comm ext_edge_comm,MMG5_pTetra pt,int ifac,int iloc,int j,int color,int *item ) {
   MMG5_pEdge pa;
   int        edg;
-  int16_t    tag;
+  uint16_t   tag;
   int8_t     i1,i2;
 
   /* Take the edge opposite to vertex iloc+j on face ifac */
@@ -661,7 +661,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar,
   MMG5_hgeom     *ph;
   int            *nitems_ext_comm,color,k,i,idx,ie,ifac,iloc,j,item;
   int            edg;
-  int16_t        tag;
+  uint16_t       tag;
   int8_t         ia,i1,i2;
 
   assert( parmesh->ngrp == 1 );

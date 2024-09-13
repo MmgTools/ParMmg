@@ -375,6 +375,7 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       if ( !PMMG_build_nodeCommFromFaces(parmesh,parmesh->info.read_comm) ) {
         return PMMG_STRONGFAILURE;
       }
+
       break;
 
     case PMMG_APIDISTRIB_nodes :
@@ -403,9 +404,12 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
       fprintf(stdout,"  --    under development     \n");
     }
+
+    /* Iso-value discretization */
     if ( !PMMG_ls(parmesh,mesh,ls,met) ) {
       return PMMG_STRONGFAILURE;
     }
+
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -1099,6 +1103,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   /* Store owner in the point flag */
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
+    if (ppt->tag & MG_OVERLAP) continue;
     ppt->flag = parmesh->myrank;
   }
 
@@ -1134,12 +1139,12 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   counter = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
+    if (ppt->tag & MG_OVERLAP) continue;
     if( ppt->flag != parmesh->myrank ) continue;
     ppt->tmp = ++counter+offsets[parmesh->myrank];
     assert(ppt->tmp);
   }
   assert( counter == nowned );
-
 
   /** Step 2: Communicate global numbering */
 
@@ -1239,6 +1244,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
 #ifndef NDEBUG
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
+    if (ppt->tag & MG_OVERLAP) continue;
     assert(ppt->tmp > 0);
     assert(ppt->tmp <= offsets[parmesh->nprocs]);
   }

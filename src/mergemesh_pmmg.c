@@ -190,7 +190,7 @@ int PMMG_check_solsNpmax(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
  */
 static inline
 int PMMG_realloc_pointAndSols(MMG5_pMesh mesh,MMG5_pSol met,MMG5_pSol ls,
-                              MMG5_pSol disp,MMG5_pSol field,double *c,int16_t tag,int src) {
+                              MMG5_pSol disp,MMG5_pSol field,double *c,uint16_t tag,int src) {
   MMG5_pSol psl;
   int ip       = 0;
   int oldnpmax = mesh->npmax;

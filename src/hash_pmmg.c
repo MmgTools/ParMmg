@@ -239,7 +239,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
   MMG5_pxTetra pxt;
   MMG5_HGeom   hash;
   int          k,edg;
-  int16_t      tag;
+  uint16_t     tag;
   int8_t       i,i1,i2;
 
 

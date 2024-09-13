@@ -382,6 +382,22 @@ typedef struct {
   MPI_Comm read_comm; /*!< MPI comm containing the procs that read the mesh (HDF5 input) */
 } PMMG_Info;
 
+/**
+ * \struct PMMG_overlap
+ * \brief Overlap structure.
+ */
+typedef struct {
+  int color_in;     /*!< Color of the hosting processor */
+  int color_out;    /*!< Color of the remote processor */
+  int np_in2out;    /*!< Nbr of points sends    from color_in to   color_out */
+  int np_out2in;    /*!< Nbr of points receives on   color_in from color_out */
+  int nt_in2out;    /*!< Nbr of tetra  sends    from color_in to   color_out */
+  int nt_out2in;    /*!< Nbr of tetra  receives on   color_in from color_out */
+  int *hash_in2out; /*!< Hash table to find pts index on color_out from pts index on color_in */
+  int *hash_out2in; /*!< Hash table to find pts index on color_in  from pts index on color_out */
+
+} PMMG_Overlap;
+typedef PMMG_Overlap * PMMG_pOverlap;
 
 /**
  * \struct PMMG_ParMesh
@@ -416,7 +432,6 @@ typedef struct {
   int       nold_grp;       /*!< Number of old grp */
   PMMG_pGrp old_listgrp;    /*!< List of old grp */
 
-
   /* internal communicators */
   PMMG_pInt_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_Int_comm, it is not an array) */
   PMMG_pInt_comm  int_edge_comm; /*!< Internal edge communicator */
@@ -429,6 +444,9 @@ typedef struct {
   PMMG_pExt_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
   int            next_face_comm; /*!< Number of external face communicator */
   PMMG_pExt_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+
+  /* overlap variables */
+  PMMG_pOverlap overlap; /*!<  Overlap variables */
 
   /* global variables */
   int            ddebug; //! Debug level
