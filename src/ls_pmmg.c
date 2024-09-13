@@ -109,7 +109,8 @@ if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
-  assert(parmesh->ngrp == 1);
+  assert ( (parmesh->ngrp == 1 || parmesh->ngrp == 0) &&
+           "Implemented for 1 group per rank" );
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -161,6 +162,10 @@ if ( parmesh->myrank == parmesh->info.root )
   /* Loop over tetra */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
+
+    if ( !MG_EOK(pt) ) {
+      continue;
+    }
 
     /* Loop over edges */
     for (ia=0; ia<6; ia++) {
@@ -369,7 +374,7 @@ if ( parmesh->myrank == parmesh->info.root )
     /* Update internal communicators of node and edge. For int edge comm
        intvalues stores the point position as in node2int_node_comm_index2 */
     grp->node2int_node_comm_index1[nitem_grp_node]=np; // Add this new point in int node comm index1
-    grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node; // Positiion in int node comm
+    grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node; // Position in int node comm
     int_edge_comm->intvalues[pos] = nitem_int_node; // In int edge comm, assign position of node in int comm
     nitem_int_node += 1;
     nitem_grp_node += 1;
@@ -476,7 +481,7 @@ if ( parmesh->myrank == parmesh->info.root )
       if (pos_node < 0) continue;
 
       /* Update the external node communicator */
-      /* Loop over the external node comm to find the appropriate one tu be updated */
+      /* Loop over the external node comm to find the appropriate one to be updated */
       for (k=0; k < next_node_comm; k++) {
         ext_node_comm  = &parmesh->ext_node_comm[k]; // External node communicator
         color_in_node  = ext_node_comm->color_in;    // Color of the hosting proc - this proc
@@ -487,12 +492,10 @@ if ( parmesh->myrank == parmesh->info.root )
         if (color_out_node != color_out_edge) continue;
 
         /* If color_out of edge and node comm are the same - Update external node communicator */
-        // if (color_out_node == color_out_edge) {
         nitem_ext_node = ext_node_comm->nitem;                    // Initial nbr of nodes in common between these 2 procs
         ext_node_comm->int_comm_index[nitem_ext_node] = pos_node; // Add the node to the external node comm
         ext_node_comm->nitem = nitem_ext_node + 1;                // Updated nbr of nodes in common between these 2 procs
         break;
-        // }
       }
     }
   }
@@ -692,8 +695,9 @@ if ( parmesh->myrank == parmesh->info.root )
 
     /* Get the tetra k and xtetra associated */
     pt  = &mesh->tetra[k];
+    assert ( MG_EOK(pt) && "Invalid tetra stored in the communicator" );
+
     pxt = &mesh->xtetra[pt->xt];
-    if ( !MG_EOK(pt) )  continue;
 
     /* STEP 6.2.1 - Find global numbering and split pattern of the tetra */
     /* If the tetra has already a flag (flag !=0) - then it has already been processed */
@@ -733,8 +737,10 @@ if ( parmesh->myrank == parmesh->info.root )
     flag = pt->flag;
 
     /* Initialize tetra_sorted and node_sorted at -1 */
-    memset(tetra_sorted,-1,3*sizeof(MMG5_int));
-    memset(node_sorted, -1,3*sizeof(MMG5_int));
+    for ( j=0; j<3; ++j ) {
+      tetra_sorted[j] = -1;
+      node_sorted[j] = -1;
+    }
 
     /* STEP 6.2.2 - If not already done, split the tetra according to the flag */
     switch (flag) {
@@ -817,9 +823,7 @@ if ( parmesh->myrank == parmesh->info.root )
           pxt0 = &mesh->xtetra[pt0->xt];
           for (k=0; k<3; k++) {
             ia = MMG5_iarf[ifac][k];
-            if ( !(pxt0->tag[ia] & MG_PARBDY) ) {
-              pxt0->tag[ia] |= MG_PARBDY;
-            }
+            pxt0->tag[ia] |= MG_PARBDY;
           }
         }
       }
