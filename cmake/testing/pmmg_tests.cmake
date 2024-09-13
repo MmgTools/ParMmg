@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 0b1fce5e92fd42514fd75e8542ff67adeb6d77f8
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout cd45788c32f6
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -622,6 +622,22 @@ IF( BUILD_TESTING )
             TEST ls-DisIn-toygeom-metric-${MODE}-${NP}
             PROPERTY PASS_REGULAR_EXPRESSION "${metric-open}")
 
+       # Toy geom:: ls_val=0.0 + remesh metric
+       # TO DEBUG raises lot of warnings
+        add_test( NAME ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric-ani.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-${MODE}-${NP}.o.mesh)
+
+          SET(metric-ani-open "cube-metric-ani.0.sol OPENED")
+          SET_PROPERTY(
+            TEST ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+            PROPERTY PASS_REGULAR_EXPRESSION "${metric-ani-open}")
+
+
         # Toy geom:: ls_val=0.0 + no remesh + fields
         add_test( NAME ls-DisIn-toygeom-fields-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -647,7 +663,7 @@ IF( BUILD_TESTING )
           -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-fields-${MODE}-${NP}.o.mesh)
 
-        # TODO :: anisotropic metric
+
 
       endforeach()
     endforeach()
@@ -673,7 +689,7 @@ IF( BUILD_TESTING )
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-hisiz-${NP}.o.mesh)
 
-      # Complex geom:: ls_val=0.0 + remesh metric
+      # Complex geom:: ls_val=0.0 + remesh iso metric
       add_test( NAME ls-DisIn-cubegeom-metric-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
@@ -681,6 +697,18 @@ IF( BUILD_TESTING )
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh aniso metric
+      # Fail with "Assertion failed: (ps > 0. || ps2 > 0." error
+      # TO DEBUG
+      #
+      #dd_test( NAME ls-DisIn-cubegeom-metric-ani-${NP}
+      # COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      # ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+      # -ls 0.0
+      # -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+      # -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric-ani.sol
+      # -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
 
       # Complex geom:: ls_val=0.0 + remesh + fields
       add_test( NAME ls-DisIn-cubegeom-fields-${NP}
