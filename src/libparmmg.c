@@ -1085,6 +1085,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
 
   /* Mark nodes with the owner color (overwritten by higher-rank procs) */
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
+    /* Travel the communicators in increasing order of neighbour rank */
     icomm = iproc2comm[iproc];
     if( icomm == PMMG_UNSET ) continue;
     ext_node_comm = &parmesh->ext_node_comm[icomm];
@@ -1092,6 +1093,9 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
     /* Mark nodes */
     for( i = 0; i < ext_node_comm->nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
+      /* This affectation is right because we ensured that we travel the
+       * communicators in increasing order. Note that intvalues is not
+       * initialized before this stage so it containes fake values. */
       intvalues[idx] = color;
     }
   }
