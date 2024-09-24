@@ -89,7 +89,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   double c[3],v0,v1,s;
 
   int i_commf;
-  int ifac,iploc,val_face;
+  int ifac,iploc;
   int flag;
   int ier;
 
@@ -105,7 +105,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
 
-if ( parmesh->myrank == parmesh->info.root )
+  int idx_edge_ext,idx_edge_int,idx_edge_mesh;
+  int idx_face_ext,idx_face_int,val_face;
+
+  if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
@@ -1103,7 +1106,7 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],
   /* Tetra #0 created by MMG5_split1 */
   tetra_sorted[0] = k;
   /* Except for the following: treta #1 created by MMG5_split1 */
-  if ( (ifac==tau[0]) ) tetra_sorted[0] = ne_tmp;
+  if ( ifac==tau[0] ) tetra_sorted[0] = ne_tmp;
 
   /* Store index of the node with highest coordinates in node_sorted[0]
      and sort the vertices by increasing order in v_t0 */
@@ -1603,10 +1606,20 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   for (k=1; k<= sol->np; k++)
     sol->m[k] -= mesh->info.ls;
 
+  /* Create overlap */
+  if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
   /** \todo TODO :: Snap values of level set function if needed */
   if ( !PMMG_snpval_ls(parmesh,mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
     return 0;
+  }
+
+  /* Delete overlap */
+  if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /* Create table of adjacency for tetra */
@@ -1654,7 +1667,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
 #ifdef USE_POINTMAP
-  /* OK - Initialize source point with input index */
+  /* Initialize source point with input index */
   MMG5_int ip;
   for( ip = 1; ip <= mesh->np; ip++ )
     mesh->point[ip].src = ip;
