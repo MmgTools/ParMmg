@@ -1103,9 +1103,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 
   /* Store owner in the point flag */
+  MMG5_int np_overlap = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    if (ppt->tag & MG_OVERLAP) continue;
+    if (ppt->tag & MG_OVERLAP) {
+      ++np_overlap;
+      continue;
+    }
     ppt->flag = parmesh->myrank;
   }
 
@@ -1117,7 +1121,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 
   /* Count owned nodes */
-  nowned = mesh->np;
+  nowned = mesh->np - np_overlap;
   for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
     if( intvalues[idx] != parmesh->myrank ) nowned--;
   }
