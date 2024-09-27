@@ -152,6 +152,17 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   ne_init = mesh->ne; // Initial number of tetra - before ls - needed in step 6.3
 
+
+  /* Create overlap: the overlap creation uses the point flags that are used in
+   * the current function too so it cannot be called further. */
+  const char *env_dev = getenv("DEV_OVERLAP");
+
+  if(env_dev){
+    if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
   /** STEP 1 - Reset flags */
   for (k=1; k<=mesh->np; k++)
     mesh->point[k].flag = 0;
@@ -167,6 +178,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     pt = &mesh->tetra[k];
 
     if ( !MG_EOK(pt) ) {
+      continue;
+    }
+
+    if ( pt->tag & MG_OVERLAP ) {
       continue;
     }
 
@@ -313,10 +328,20 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
         np  = -1;
 
         /* (c) ... and add an edge to the edge table with hash.item[key].k = -1 */
+        printf("2 - hash %d %d\n",ip0,ip1);
+
         if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) )  return -1;
       }
     }
   }
+
+  /* Delete overlap */
+  if ( env_dev ) {
+    if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
+      return PMMG_STRONGFAILURE;
+    }
+  }
+
 
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
