@@ -259,25 +259,30 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   PMMG_CALLOC( parmesh,vGlobNum_tab,4*(nitem_grp_face),MMG5_int,"vGlobNum_tab",return 0 );
   PMMG_CALLOC( parmesh,ne_tmp_tab,nitem_grp_face+1,MMG5_int,"ne_tmp_tab",return 0 );
 
-  /** STEP 4 - Identify required edges. Put hash.item[key].k = -1 */
+  /** STEP 4 - Identify required edges. Put hash.item[key].k = -1. This step
+   * assumes that the required tags are consistent through the partitions. */
+
   /* Loop over tetra */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) )  continue;
 
-    /* Check whether the tetra with reference ref should be split */
-    // For now, the option nosplit is not supported
-    // So we assume all the elements should be split
+    /* Check whether the tetra with reference ref should be split.  If an edge
+      or face is at the interface of 2 partitions and on one partition, the
+      domain is marked as noSplit and on another, the domain is split, we
+      have to ensure the consistency of split along the interface. */
     // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
 
     /** Step 4.1 - Identification of edges belonging to a required tet */
     /* If the tetra is required MG_REQ  */
     if ( pt->tag & MG_REQ ) {
+
+      np = -1;
       /* Loop over the edges */
       for (ia=0; ia<6; ia++) {
         ip0 = pt->v[MMG5_iare[ia][0]];
         ip1 = pt->v[MMG5_iare[ia][1]];
-        np  = -1;
+
         /* Add an edge to the edge table with hash.item[key].k = -1 */
         if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) )  return -1;
       }
@@ -299,10 +304,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       /* (a) otherwise loop over the edges */
       for (j=0; j<3; j++) {
 
-        /* (b) If the edges is not required, then continue */
+        /* (b) If the edge is not required, then continue */
         if ( !(pxt->tag[ MMG5_iarf[ia][j] ] & MG_REQ) ) continue;
 
-        /* (b) otherwise get the extremity of the edges ... */
+        /* (b) otherwise get the extremity of the edge ... */
         ip0 = pt->v[MMG5_idir[ia][MMG5_inxt2[j]]];
         ip1 = pt->v[MMG5_idir[ia][MMG5_iprv2[j]]];
         np  = -1;
@@ -316,8 +321,10 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
   /* Internal edge communicator - intvalues stores:
-    - point position as in node2int_node_comm_index2 if the edge is split
-    - otherwise, -1 */
+    - point position in the shared buffer of points (as in node2int_node_comm_index2)
+      if the edge is split
+    - otherwise, -1
+  */
   PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,"int_edge_comm intvalues",return 0);
 
   /* Loop on the internal edge communicator */
@@ -375,7 +382,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     np = MMG3D_newPt(mesh,c,MG_PARBDY+MG_NOSURF+MG_REQ,src);
 
     /* Update internal communicators of node and edge. For int edge comm
-       intvalues stores the point position as in node2int_node_comm_index2 */
+       intvalues stores the point position in the shared buffer of point as in
+       node2int_node_comm_index2 */
     grp->node2int_node_comm_index1[nitem_grp_node]=np; // Add this new point in int node comm index1
     grp->node2int_node_comm_index2[nitem_grp_node]=nitem_int_node; // Position in int node comm
     int_edge_comm->intvalues[pos] = nitem_int_node; // In int edge comm, assign position of node in int comm
@@ -459,6 +467,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     }
 
     /* Update hash table */
+    // Remark: to call succesfully hashUpdate, the edge must already exist in
+    // the hash table
     MMG5_hashUpdate(&hash,ip0,ip1,np);
 
   }
@@ -516,7 +526,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       ip1 = pt->v[MMG5_iare[ia][1]];
       np  = MMG5_hashGet(&hash,ip0,ip1);
 
-      /* If np>0 (i.e. hash.item[key].k != [0;-1]), this edge has already been split, pass to the next edge */
+      /* If np>0 (i.e. hash.item[key].k != [0;-1]), this edge has already been
+       * split or is required (user-required or //), pass to the next edge */
       if ( np>0 ) continue;
 
       /* Check whether an entity with reference ref should be split */
@@ -705,9 +716,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     /* STEP 6.2.1 - Find global numbering and split pattern of the tetra */
     /* If the tetra has already a flag (flag !=0) - then it has already been processed */
     already_split = 0;
-    if (pt->flag) {
+    if ( pt->flag ) {
       /* If flag>0, we need to update the face communicators; */
-      if (pt->flag > 0) {
+      if ( pt->flag > 0 ) {
         already_split = 1;             // Identify the tetra as already split
         idx_tmp = pt->mark;            // Index of ne_tmp stored in ne_tmp_tab
         ne_tmp  = ne_tmp_tab[idx_tmp]; // Old total number of tetras just after the split of this old tetra
@@ -717,7 +728,9 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
         }
       }
       /* Otherwise, if flag equals to -1 (flag<0), the tetra does not need to be split. Pass to the next tetra. */
-      else if (pt->flag < 0) continue;
+      else if ( pt->flag < 0 ) {
+        continue;
+      }
     }
     /* Otherwise, if flag=0, the tetra has never been processed. */
     else {
@@ -725,8 +738,11 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       memset(vx,0,6*sizeof(MMG5_int));
       for (ia=0; ia<6; ia++) {
         vx[ia] = MMG5_hashGet(&hash,pt->v[MMG5_iare[ia][0]],pt->v[MMG5_iare[ia][1]]);
-        if ( vx[ia] > 0 )
+
+        if ( vx[ia] > 0 ) {
           MG_SET(pt->flag,ia);
+        }
+
       }
 
       /* Get and store global num of the tetra vertices */
@@ -1693,9 +1709,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     return 0;
   }
 
-// #ifndef NDEBUG
   assert ( PMMG_check_extEdgeComm ( parmesh,parmesh->info.read_comm ) );
-// #endif
 
   /** Discretization of the implicit function - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh) ) {

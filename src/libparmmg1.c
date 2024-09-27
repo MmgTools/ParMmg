@@ -189,8 +189,7 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
  *
  * \return 0 if fail, 1 otherwise
  *
- * Pack the sparse meshes of each group and create triangles and edges before
- * getting out of library
+ * Pack the sparse meshes of each group
  *
  */
 int PMMG_packParMesh( PMMG_pParMesh parmesh )

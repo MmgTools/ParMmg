@@ -1215,7 +1215,12 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
                  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
                  PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
                  return 0 );
-      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+
+#ifndef NDEBUG
+      for( i = 0; i < nitem; i++ ) {
+        assert(itorecv[i]);
+      }
+#endif
     }
   }
 
