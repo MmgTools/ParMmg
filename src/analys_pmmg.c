@@ -1478,7 +1478,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
 }
 
 static inline
-int MMG5_skip_nonOldParBdy ( int8_t tag ) {
+uint16_t MMG5_skip_nonOldParBdy ( uint16_t tag ) {
   return !(tag & MG_OLDPARBDY);
 }
 
