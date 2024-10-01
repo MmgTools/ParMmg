@@ -38,14 +38,47 @@
 #include "mmgexterns_private.h"
 
 /**
+ * \param hash pointer to the hash table of edges.
+ * \param a index of the first extremity of the edge.
+ * \param b index of the second extremity of the edge.
+ * \return the index of point stored along \f$[a;b]\f$.
+ *
+ * Find the index of point stored along \f$[a;b]\f$.
+ * \note In ParMmg, hash_pmmg.c: PMMG_hashGet_all gets k and s at the same time;
+ * \note PMMG_hashGet_all might be moved here if needed one day in mmg.
+ *
+ */
+static inline
+int PMMG_hashMark_splitEdge(MMG5_Hash *hash,MMG5_int a,MMG5_int b) {
+  MMG5_hedge  *ph;
+  MMG5_int    key;
+  MMG5_int    ia,ib;
+
+  if ( !hash->item ) return 0;
+
+  ia  = MG_MIN(a,b);
+  ib  = MG_MAX(a,b);
+  key = (MMG5_KA*(int64_t)ia + MMG5_KB*(int64_t)ib) % hash->siz;
+  ph  = &hash->item[key];
+
+  if ( !ph->a )  return 0;
+  if ( ph->a == ia && ph->b == ib )  return ph->k;
+  while ( ph->nxt ) {
+    ph = &hash->item[ph->nxt];
+    if ( ph->a == ia && ph->b == ib )  return ph->k;
+  }
+  return 0;
+}
+
+
+/**
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward the mesh structure.
  * \param sol pointer toward the level-set values.
  * \param met pointer toward a metric (non-mandatory).
  *
- * \return 1 if success, 0 otherwise.
- *
- * \todo Multimaterial isSplit() on // interface
+ * \return 1 if success, -2 if fail in overlap creation or deletion,
+ * 0 or -1 if fail elsewhere.
  *
  * Proceed to discretization of the implicit function carried by sol into mesh,
  * once values of sol have been snapped/checked
@@ -108,9 +141,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int idx_edge_ext,idx_edge_int,idx_edge_mesh;
   int idx_face_ext,idx_face_int,val_face;
 
-  if ( parmesh->myrank == parmesh->info.root )
-    fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
-
   /* Ensure only one group on each proc */
   assert ( (parmesh->ngrp == 1 || parmesh->ngrp == 0) &&
            "Implemented for 1 group per rank" );
@@ -118,20 +148,6 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
   sol  = parmesh->listgrp[0].ls;
-
-  /* For now, does not support `nosplit` option in multimat  */
-  // To be removed when supported
-  for (i=0; i<mesh->info.nmat; i++) {
-    mat    = &mesh->info.mat[i];
-    ref    = mat->ref;
-    refint = mat->rin;
-    refext = mat->rex;
-    if ( (ref == refint) && (ref == refext) ) {
-      if ( parmesh->myrank == parmesh->info.root )
-        fprintf(stderr,"\n      -- ERROR: The option `nosplit` in multimat is not supported yet.\n");
-      return 0;
-    }
-  }
 
   /* Initialization */
   grp = &parmesh->listgrp[0];
@@ -153,14 +169,17 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   ne_init = mesh->ne; // Initial number of tetra - before ls - needed in step 6.3
 
 
-  /* Create overlap: the overlap creation uses the point flags that are used in
-   * the current function too so it cannot be called further. */
-  const char *env_dev = getenv("DEV_OVERLAP");
+  /* Create an overlap to check if edges along the partition interfaces have to
+   * be split in multi-material mode (it allows to check if an edge belonging to
+   * a "nosplit" material on a partition belongs to a split material on another
+   * partition and thus has to be split) to maintains the mesh consistency.
+   */
 
-  if(env_dev){
-    if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
-      return PMMG_STRONGFAILURE;
-    }
+  // Remark: The overlap creation uses the point flags that are used in the
+  // current function too so it cannot be called further.
+  ier = 1;
+  if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
+    ier = -2;
   }
 
   /** STEP 1 - Reset flags */
@@ -276,22 +295,27 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   /** STEP 4 - Identify required edges. Put hash.item[key].k = -1. This step
    * assumes that the required tags are consistent through the partitions. */
-
   /* Loop over tetra */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
     if ( !MG_EOK(pt) )  continue;
 
-    /* Check whether the tetra with reference ref should be split.  If an edge
-      or face is at the interface of 2 partitions and on one partition, the
-      domain is marked as noSplit and on another, the domain is split, we
-      have to ensure the consistency of split along the interface. */
-    // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+    /* Check whether the tetra with reference ref should be split and, if yes,
+     * use the "s" field of the hashed edge to mark parallel edges that have to
+     * be split.
+     *
+     * If an edge or face is at the interface of 2 partitions and on one
+     * partition, the domain is marked as noSplit and on another, the domain is
+     * split, the overlap allows to mark the parallel edges that have to be
+     * split and to ensure the consistency of split along the interface. */
+    int is_split = MMG5_isSplit(mesh,pt->ref,&refint,&refext);
 
     /** Step 4.1 - Identification of edges belonging to a required tet */
-    /* If the tetra is required MG_REQ  */
-    if ( pt->tag & MG_REQ ) {
-
+    /* Add required edges of required tetras to the hash table. The
+       overlap has to be ignored because we don't want to hash the edges of the
+       overlap and interface edges are marked as required so they will be added
+       to the hash table in the next step. */
+    if ( (pt->tag & MG_REQ) && !(pt->tag & MG_OVERLAP) ) {
       np = -1;
       /* Loop over the edges */
       for (ia=0; ia<6; ia++) {
@@ -299,12 +323,17 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
         ip1 = pt->v[MMG5_iare[ia][1]];
 
         /* Add an edge to the edge table with hash.item[key].k = -1 */
-        if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) )  return -1;
+        if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) ) {
+#warning check handling of ret val
+          return -1;
+        }
       }
       continue;
     }
 
-    /** Step 4.2 - Identification of edges belonging to a (par)boundary or being explicitely required */
+    /** Step 4.2 - Identification of edges belonging to a (par)boundary or being
+     * explicitely required. Here overlap tetra are automatically ignored
+     * because the xt field is not transferred in the overlap. */
     /* If the xtetra associated to this tetra exists */
     if ( !pt->xt ) continue;
 
@@ -328,20 +357,54 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
         np  = -1;
 
         /* (c) ... and add an edge to the edge table with hash.item[key].k = -1 */
-        printf("2 - hash %d %d\n",ip0,ip1);
-
-        if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) )  return -1;
+        if ( !MMG5_hashEdge(mesh,&hash,ip0,ip1,np) ) {
+#warning check handling of ret val
+          return -1;
+        }
       }
     }
   }
 
-  /* Delete overlap */
-  if ( env_dev ) {
-    if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
-      return PMMG_STRONGFAILURE;
+  /** Use the overlap to check which parallel edges have to be split and store
+   * this info in the s field of the hash table. */
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !MG_EOK(pt) )  continue;
+
+    /* Check whether the tetra with reference ref should be split and, if yes,
+     * use the "s" field of the hashed edge to mark parallel edges that have to
+     * be split.
+     *
+     * If an edge or face is at the interface of 2 partitions and on one
+     * partition, the domain is marked as noSplit and on another, the domain is
+     * split, the overlap allows to mark the parallel edges that have to be
+     * split and to ensure the consistency of split along the interface. */
+    int is_split = MMG5_isSplit(mesh,pt->ref,&refint,&refext);
+
+    if ( !is_split ) {
+      continue;
+    }
+    /* Loop over the edges and mark them as belonging to a "split" reference. */
+    for (ia=0; ia<6; ia++) {
+      ip0 = pt->v[MMG5_iare[ia][0]];
+      ip1 = pt->v[MMG5_iare[ia][1]];
+
+      /* Remark: only edges that already exist in the hash table are updated,
+       * thus only required edges are updated. As all parallel edges are
+       * required and already added to the hash table, we will be able to store
+       * the required info. In other cases (edges that doesn't exist in the hash
+       * table), the PMMG_hashUpdate_s function return PMMG_FAILURE, which is
+       * expected and harmless as we will not need to check if the edge is split
+       * or not. */
+      PMMG_hashUpdate_s(&hash,ip0,ip1,1);
     }
   }
 
+
+  /* Delete overlap */
+  if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
+  }
 
   /** STEP 5 - Create points at iso-value. Fill or update edge hash table */
   /** STEP 5.1 - Create new points located on parallel interfaces */
@@ -350,7 +413,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       if the edge is split
     - otherwise, -1
   */
-  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,"int_edge_comm intvalues",return 0);
+  PMMG_CALLOC(parmesh,int_edge_comm->intvalues,nitem_int_edge,int,
+              "int_edge_comm intvalues",return 0);
 
   /* Loop on the internal edge communicator */
   for (i=0; i < nitem_grp_edge; i++) {
@@ -363,15 +427,17 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     ip0 = mesh->edge[ie].a;
     ip1 = mesh->edge[ie].b;
 
-    // TODO:: Multimaterial - Check whether an entity with reference ref should be split
-    // Pb1: This function does not work here because we come from an edge and not a tetra
-    // Need to find a way to know if we need to split or not this edge...
-    // Pb2: even if I find a way to know if this edge need to be split on this partition
-    // still no way to know if it is split from another partition if we are in
-    // the case where on partition 1/material 1 and partition 2/material 2 and
-    // we split mat1 but we do not split mat2. In that case, on partition 2, we will never know
-    // that edges on // interface need to be split.
-    // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+    MMG5_int dummy,is_split;
+    if ( PMMG_SUCCESS != PMMG_hashGet_all(&hash,ip0,ip1,&dummy,&is_split) ) {
+#warning check retval handling
+      return -1;
+    }
+
+    if ( !is_split ) {
+      /* The parallel edge belongs to a domain that is not split */
+      printf("Warning: no split edge: %d %d\n",ip0,ip1);
+      continue;
+    }
 
     /* STEP 5.1.1 - Create a new point if this edge needs to be split */
     /* Check the ls value at the edge nodes */
@@ -555,10 +621,12 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
        * split or is required (user-required or //), pass to the next edge */
       if ( np>0 ) continue;
 
+
       /* Check whether an entity with reference ref should be split */
-      // For now, the option nosplit is not supported
-      // So we assume all the elements should be split
-      // if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) continue;
+      if ( !MMG5_isSplit(mesh,pt->ref,&refint,&refext) ) {
+        printf("rank %d: tetra %d is no split\n",parmesh->myrank,k);
+        continue;
+      }
 
       /* STEP 5.3.1 - Create a new point if this edge needs to be split */
       /* Check the ls value at the edge nodes */
@@ -1737,7 +1805,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   assert ( PMMG_check_extEdgeComm ( parmesh,parmesh->info.read_comm ) );
 
   /** Discretization of the implicit function - Cut tetra */
-  if ( !PMMG_cuttet_ls(parmesh) ) {
+  if ( 0 >= PMMG_cuttet_ls(parmesh) ) {
     if ( parmesh->myrank == parmesh->info.root )
       fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
     return 0;

@@ -329,17 +329,19 @@ int PMMG_chkBdryTria(MMG5_pMesh mesh, MMG5_int* permtria) {
  * \param hash pointer toward the hash table of edges.
  * \param a index of the first extremity of the edge.
  * \param b index of the second extremity of the edge.
- * \param k index of new point along the edge [a,b].
- * \param s If ls mode in ParMmg: index of new point in internal edge communicator;
- *          otherwise, the value stored in variable s.
+ *
+ * \param s If ls mode: 1 for a parallel edge that belongs
+ * to at least one element whose reference has to be splitted (either because we
+ * are not in multi-mat mode or because the reference is split in multi-mat
+ * mode). To avoid useless checks, some non parallel edges may be marked.
+ * If the edge belongs only to non-split references, s has to be 0.
+ *
  * \return PMMG_SUCCESS if success, PMMG_FAILURE if fail (edge is not found).
  *
- * Update the index of the new point stored along the edge \f$[a;b]\f$ (similar to MMG5_hashUpdate in mmg).
- * If ls mode in ParMmg: update the index of the new point in internal edge communicator in variable s;
- * otherwise, update the value stored in variable s.
+ * Update the value of the s field stored along the edge \f$[a;b]\f$
  *
  */
-int PMMG_hashUpdate_all(MMG5_Hash *hash, MMG5_int a,MMG5_int b,MMG5_int k,MMG5_int s) {
+int PMMG_hashUpdate_s(MMG5_Hash *hash, MMG5_int a,MMG5_int b,MMG5_int s) {
   MMG5_hedge  *ph;
   MMG5_int     key;
   MMG5_int    ia,ib;
@@ -351,7 +353,6 @@ int PMMG_hashUpdate_all(MMG5_Hash *hash, MMG5_int a,MMG5_int b,MMG5_int k,MMG5_i
 
   while ( ph->a ) {
     if ( ph->a == ia && ph->b == ib ) {
-      ph->k = k;
       ph->s = s;
       return PMMG_SUCCESS;
     }
