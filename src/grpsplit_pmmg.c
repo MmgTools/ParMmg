@@ -1109,8 +1109,8 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
       int ip0 = pt->v[MMG5_iare[j][0]];
       int ip1 = pt->v[MMG5_iare[j][1]];
 
-      int16_t tag;
-      int     ref;
+      uint16_t tag;
+      int      ref;
 
       /* get the tag stored in the hash table (old mesh) and set it the xtetra
        * edge (new mesh): hGet may return 0 as edges of the old mesh are not

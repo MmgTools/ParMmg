@@ -109,8 +109,8 @@ typedef struct {
  * stored for each of the two edge orientations.
  */
 static inline
-int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
-  int16_t tag;
+int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,uint16_t *color ) {
+  uint16_t tag;
 
   /* Get edge from hash table */
   if( !MMG5_hGet( hash,
@@ -136,8 +136,8 @@ int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
  * each of the two edge orientations.
  */
 static inline
-int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
-  int16_t tag;
+int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,uint16_t color ) {
+  uint16_t tag;
 
   /* Set bitwise tag from color */
   if( color ) {
@@ -309,11 +309,11 @@ int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
-  double *doublevalues;
-  int    ia[2],ip[2],gip;
-  int    *intvalues,idx,d,edg,j,pos;
-  int16_t tag;
-  int8_t  found;
+  double   *doublevalues;
+  int      ia[2],ip[2],gip;
+  int      *intvalues,idx,d,edg,j,pos;
+  uint16_t tag;
+  int8_t   found;
 
   doublevalues = parmesh->int_node_comm->doublevalues;
   intvalues    = parmesh->int_node_comm->intvalues;
@@ -441,7 +441,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int        edg;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
@@ -495,7 +495,7 @@ int PMMG_hashNorver_edge2paredge( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
                                   int idx ) {
   MMG5_pEdge pa;
   int       *intvalues,edg,j,i[2],ip,ip1;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   /* Get internal communicator */
   intvalues = parmesh->int_edge_comm->intvalues;
@@ -543,7 +543,7 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
   MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
   MMG5_pEdge pa;
   int       *intvalues,edg,j,i[2],ip,ip1;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   assert( parmesh->ngrp == 1 );
 
@@ -1207,7 +1207,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
   MMG5_pEdge     pa;
   int            *intvalues,*itosend,*itorecv;
   int            idx,k,nitem,color,edg,ia,ie,ifac,ip[2],i;
-  int16_t        tag;
+  uint16_t       tag;
   MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );
@@ -1587,7 +1587,7 @@ int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
 }
 
 static inline
-int MMG5_skip_nonOldParBdy ( int8_t tag ) {
+uint16_t MMG5_skip_nonOldParBdy ( uint16_t tag ) {
   return !(tag & MG_OLDPARBDY);
 }
 
@@ -1670,7 +1670,7 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
   double      *doublevalues;
   int         *intvalues,ip[2],k,j,idx,ns0,edg,d;
-  int16_t     tag;
+  uint16_t    tag;
   int8_t      isEdg;
 
   /* Get node communicator */
@@ -2073,7 +2073,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
   int            k,ne,nr,nm,j;
   int            i,i1,i2;
   int            idx,edg,d;
-  int16_t        tag;
+  uint16_t       tag;
   MPI_Status     status;
 
   assert( parmesh->ngrp == 1 );

@@ -68,8 +68,8 @@ void PMMG_tag_par_edge(MMG5_pxTetra pxt,int j){
  * Tag an edge as parallel.
  */
 int PMMG_tag_par_edge_hash(MMG5_pTetra pt,MMG5_HGeom hash,int ia){
-  int     ip0,ip1,getref;
-  int16_t gettag;
+  int      ip0,ip1,getref;
+  uint16_t gettag;
 
   ip0 = pt->v[MMG5_iare[ia][0]];
   ip1 = pt->v[MMG5_iare[ia][1]];
@@ -275,7 +275,7 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
   MMG5_HGeom      hash;
   int             *node2int_node_comm0_index1,*face2int_face_comm0_index1;
   int             grpid,iel,ifac,ia,ip0,ip1,k,j,i,getref;
-  int16_t         gettag;
+  uint16_t        gettag;
   int8_t          isbdy;
 
   /* Loop on groups */
