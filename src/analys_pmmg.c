@@ -2107,7 +2107,9 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
 
-      /* Store edge tag in the internal communicator */
+      /* Mark required in the internal communicator (note that we need intvalue
+       * to be a signed integer array while Mmg tags are unsigned ints so we
+       * must be careful to not directly store the edge tag).*/
       if( (ptr->tag[i] & MG_REQ) && !(ptr->tag[i] & MG_NOSURF) ) {
         intvalues[idx] |= MG_REQ;
       }
@@ -2140,7 +2142,6 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     ext_edge_comm = &parmesh->ext_edge_comm[k];
 
     itorecv = ext_edge_comm->itorecv;
-    rtorecv = ext_edge_comm->rtorecv;
 
     for ( i=0; i<ext_edge_comm->nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
@@ -2774,6 +2775,9 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
    *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed;
    *   2.3. adds MG_REF tag for edges separating surfaces with different refs;
    *   2.4. transfer edges tags to edge vertices.
+   *
+   * Analysis uses the tria array so if it is not allocated, this part of the
+   * analysis will not be complete.
    */
   if ( !PMMG_setfeatures( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");

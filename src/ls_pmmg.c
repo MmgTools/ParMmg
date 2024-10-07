@@ -1541,6 +1541,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
 int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) {
   char str[16]="";
   MMG5_HGeom hpar;
+  MMG5_int k;
 
   /* Set function pointers */
   /** \todo TODO :: Surface ls and alias functions */
@@ -1560,7 +1561,6 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   }
 
   /* Modify the value of the level-set to work with the 0 level-set  */
-  MMG5_int k;
   for (k=1; k<= sol->np; k++)
     sol->m[k] -= mesh->info.ls;
 
@@ -1652,7 +1652,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* Not sure which function to be used to deallocate memory */
+  /* Delete outdated arrays */
   MMG5_DEL_MEM(mesh,mesh->adja);
   MMG5_DEL_MEM(mesh,mesh->adjt);
   MMG5_DEL_MEM(mesh,mesh->tria);
@@ -1678,7 +1678,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   }
 
   /* Clean old bdy analysis */
-  for ( MMG5_int k=1; k<=mesh->np; ++k ) {
+  for ( k=1; k<=mesh->np; ++k ) {
     if ( mesh->point[k].tag & MG_BDY ) {
       mesh->point[k].tag &= ~MG_BDY;
     }
@@ -1690,13 +1690,11 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   /* Clean memory */
   MMG5_DEL_MEM(mesh,sol->m);
 
-#ifndef NDEBUG
   /* Check communicators */
   assert ( PMMG_check_extFaceComm ( parmesh,parmesh->info.read_comm ) );
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extNodeComm ( parmesh,parmesh->info.read_comm ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
-#endif
 
   /* Dealloc edge comm  as it is not up-to-date */
   MMG5_DEL_MEM(mesh,hpar.geom);
