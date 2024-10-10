@@ -2363,6 +2363,10 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
       if ( !MMG5_hGet( pHash, ip1, ip2, &edg, &tag ) ) continue;
       idx = edg-1;
 
+      assert ( (((ptr->tag[i] & MG_PARBDY) && !(ptr->tag[i] & MG_PARBDYBDY))
+                || (ptr->tag[i] & MG_BDY))
+               && "edge at intersection of BDY and PARBDY tria or along // tria" );
+
       /* Skip non-manifold edges */
 #ifndef NDEBUG
       if ( (ptr->tag[i] & MG_NOM) ) {
@@ -2371,7 +2375,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 #endif
 
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
-#warning remove MG_GEO fpr Mmg consistency ?
+#warning remove MG_GEO for consistency with Mmg  ?
         /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
