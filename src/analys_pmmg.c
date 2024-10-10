@@ -2356,7 +2356,11 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
-      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+
+      MMG5_int ip1 = ptr->v[i1];
+      MMG5_int ip2 = ptr->v[i2];
+
+      if ( !MMG5_hGet( pHash, ip1, ip2, &edg, &tag ) ) continue;
       idx = edg-1;
 
       /* Skip non-manifold edges */
@@ -2373,41 +2377,33 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
         ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
-        i1 = MMG5_inxt2[i];
-        i2 = MMG5_inxt2[i1];
-        mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM + MG_REF;
-        mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
             (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* reference edge */
           ptr->tag[i]   |= MG_REF;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_REF;
-          mesh->point[ptr->v[i2]].tag |= MG_REF;
+          mesh->point[ip1].tag |= MG_REF;
+          mesh->point[ip2].tag |= MG_REF;
           ne++;
         }
         if( (intvalues[2*idx+1] == 2*PMMG_UNSET) ||
             (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* geometric edge */
           ptr->tag[i]   |= MG_GEO;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_GEO;
-          mesh->point[ptr->v[i2]].tag |= MG_GEO;
+          mesh->point[ip1].tag |= MG_GEO;
+          mesh->point[ip2].tag |= MG_GEO;
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
-#warning remove MG_GEO fpr Mmg consistency ?
+#warning remove MG_GEO for consistency with Mmg ?
           /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
           ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM + MG_REF;
-          mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
           nm++;
         }
       }
