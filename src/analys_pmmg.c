@@ -2406,6 +2406,25 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
           mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
           nm++;
         }
+
+        /* If a feature edge has been provided it is possible that the edge tag
+         * has not been transferred to the edge extremities (for example a
+         * MG_REF edge along boudary triangles of same references may be split
+         * by the level-set. In this case, the new point has tag 0 and its tag
+         * has not yet been updated).
+         */
+        tag = mesh->point[ip1].tag;
+        mesh->point[ip1].tag |= ptr->tag[i];
+        // Remove the MG_NOSURF tag if the vertex is really required.
+        if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+          mesh->point[ip1].tag &= ~MG_NOSURF;
+        }
+        tag = mesh->point[ip2].tag;
+        mesh->point[ip2].tag |= ptr->tag[i];
+        // Remove the MG_NOSURF tag if the vertex is really required.
+        if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+          mesh->point[ip2].tag &= ~MG_NOSURF;
+        }
       }
     }
   }
