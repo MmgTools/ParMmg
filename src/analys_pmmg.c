@@ -2429,8 +2429,6 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     }
   }
 
-#warning Luca: should we exchange tags on the edge communicator to update MG_PARBDYBDY?
-
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
     fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
 
