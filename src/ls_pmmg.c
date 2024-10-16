@@ -147,6 +147,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh, MMG5_pSol sol, MMG5_p
   /* Loop over tetra */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
+    if (!MG_EOK(pt)) continue;
 
     /* Loop over edges */
     for (ia=0; ia<6; ia++) {
@@ -1627,8 +1628,10 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
 #ifdef USE_POINTMAP
   /* Initialize source point with input index */
   MMG5_int ip;
-  for( ip = 1; ip <= mesh->np; ip++ )
-    mesh->point[ip].src = ip;
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+      if ( (!MG_VOK(&mesh->point[ip])) ) continue;
+      mesh->point[ip].src = ip;
+  }
 #endif
 
   /* Compute vertices global numerotation
