@@ -577,7 +577,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
           /* If the tuple (Pcolor_out-Pcolor_ter) is the right one */
           if ( (color_ter == dataPBDY_AlreadyAdded[5*r]) && (color_out == dataPBDY_AlreadyAdded[5*r+1]) ) {
             /* And the point is at the same position in external comm */
-            if ((k == dataPBDY_AlreadyAdded[5*r+2]) ) {
+            if ( k == dataPBDY_AlreadyAdded[5*r+2] ) {
               /* then this point has alreadyh been added */
               ip_in = dataPBDY_AlreadyAdded[5*r+3];
               duplicated_point = 1;
