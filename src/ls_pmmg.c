@@ -105,14 +105,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
 
-<<<<<<< HEAD
-  int idx_edge_ext,idx_edge_int,idx_edge_mesh;
-  int idx_face_ext,idx_face_int,val_face;
-
-  if ( parmesh->myrank == parmesh->info.root )
-=======
 if ( parmesh->myrank == parmesh->info.root )
->>>>>>> develop
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
