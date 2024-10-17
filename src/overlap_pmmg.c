@@ -152,6 +152,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   PMMG_CALLOC(parmesh,dataPBDY_AlreadyAdded,5*mesh->np,int,"dataPBDY_AlreadyAdded",ier = 0);
 
   PMMG_CALLOC(parmesh,n_ToSend,6,int,"n_ToSend",ier = 0);
+  PMMG_CALLOC(parmesh,n_ToRecv,6,int,"n_ToRecv",ier = 0);
   PMMG_CALLOC(parmesh,pointCoordInterior_ToSend, 3*mesh->np, double,  "pointCoordInterior_ToSend",ier = 0);
   PMMG_CALLOC(parmesh,pointCoordPBDY_ToSend,     3*mesh->np, double,  "pointCoordPBDY_ToSend",    ier = 0);
   PMMG_CALLOC(parmesh,pointTagInterior_ToSend,     mesh->np, uint16_t,"pointTagInterior_ToSend",  ier = 0);
@@ -166,12 +167,12 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   PMMG_CALLOC(parmesh,lsInterior_ToSend,           mesh->np, double,  "lsInterior_ToSend",        ier = 0);
   PMMG_CALLOC(parmesh,lsPBDY_ToSend,               mesh->np, double,  "lsPBDY_ToSend",            ier = 0);
 
-  /* Store point index in internal communicator intvalues.
+  /** STEP 1 - Store point index in internal communicator intvalues.
      Like we have only one group (see the assert at the beginning of the function),
      we can store directly the id of the node in the internal comm int_comm->intvalue
      as we know it won't be overwrite by another group. Indeed, entities shared
      by the groups have a unique position in this buffer. In short, the next steps
-     work because we have only one group when we are in this function. */
+     work because we have only one group when we are in this function. **/
   for( i = 0; i < grp->nitem_int_node_comm; i++ ){
     ip  = grp->node2int_node_comm_index1[i];
     pos = grp->node2int_node_comm_index2[i];
@@ -201,7 +202,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     overlap->color_in  = color_in;
     overlap->color_out = color_out;
 
-    /** STEP 1 - Identify nodes at the interface between Pcolor_in and Pcolor_out
+    /** STEP 2 - Identify nodes at the interface between Pcolor_in and Pcolor_out
               a) Assign flag -1 to these nodes
               b) Store the local point indices in pointIdxInterface_ToSend
                  to be able to fill hash_out2in
@@ -220,7 +221,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       pointIdxInterface_ToSend[i] = ip;
     }
 
-    /** STEP 2 - Identification of points and tetras to send to Pcolor_out
+    /** STEP 3 - Identification of points and tetras to send to Pcolor_out
          tetraVerticesSeen_ToSend: flag the tetra vertices using following rules
            +1 means the vertex is seen for the first time
             0 means the vertex has been already seen (from another tetra)
@@ -314,7 +315,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
        plus the ones tagged MG_PARBDY npPBDY_in2out */
     npTot_in2out = npInterior_in2out + npPBDY_in2out;
 
-    /** STEP 3 - Reinitialize points flags and tag **/
+    /* Reinitialize points flags and tag **/
     for (i=0; i < nitem_ext; i++) {
       pos = ext_comm->int_comm_index[i];
       ip  = int_comm->intvalues[pos];
@@ -386,7 +387,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     /** STEP 6 - Send and Receive all the data from the other partitions **/
     // TODO :: Improve number of communications
     /* STEP 6.1 - First send/receive the different sizes to exchange */
-    PMMG_CALLOC(parmesh,n_ToRecv,6,int,"n_ToRecv",ier = 0);
     MPI_CHECK(
       MPI_Sendrecv(n_ToSend,6,MPI_INT,color_out,MPI_OVERLAP_TAG+local_mpi_tag,
                    n_ToRecv,6,MPI_INT,color_out,MPI_OVERLAP_TAG+local_mpi_tag,
@@ -680,7 +680,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
     /* Reset memory*/
     memset(n_ToSend,0x00,6*sizeof(int));
-    PMMG_DEL_MEM(parmesh,n_ToRecv,int,"n_ToRecv");
+    memset(n_ToRecv,0x00,6*sizeof(int));
 
     memset(pointCoordInterior_ToSend,0x00,3*npInterior_in2out*sizeof(double));
     PMMG_DEL_MEM(parmesh,pointCoordInterior_ToRecv,double,"pointCoordInterior_ToRecv");
@@ -727,6 +727,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   }
 
   /* Deallocate memory*/
+  PMMG_DEL_MEM(parmesh,n_ToSend,int,"n_ToSend");
+  PMMG_DEL_MEM(parmesh,n_ToRecv,int,"n_ToRecv");
   PMMG_DEL_MEM(parmesh,pointCoordInterior_ToSend,double,"pointCoordInterior_ToSend");
   PMMG_DEL_MEM(parmesh,pointCoordPBDY_ToSend,double,"pointCoordPBDY_ToSend");
   PMMG_DEL_MEM(parmesh,pointTagInterior_ToSend,uint16_t,"pointTagInterior_ToSend");
