@@ -1630,7 +1630,7 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
 
   /* Hash parallel edges
      This step is needed to compute the edge communicator */
-  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
+  if( PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS ) {
     fprintf(stderr,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
     return 0;
   }

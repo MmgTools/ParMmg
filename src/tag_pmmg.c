@@ -512,6 +512,7 @@ void PMMG_updateTagRef_node(PMMG_pParMesh parmesh, MMG5_pMesh mesh) {
  *
  * Check if faces on a parallel communicator connect elements with different
  * references, and tag them as a "true" boundary (thus PARBDYBDY).
+ *
  */
 int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
@@ -659,7 +660,6 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       }
     }
   }
-
 
   /* Tag parallel points touched by simple MG_BDY faces as MG_PARBDYBDY
    * (a parallel surface can pinch a regular surface in just one point).

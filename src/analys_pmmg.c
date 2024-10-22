@@ -2091,7 +2091,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
   memset(doublevalues,0x00,6*parmesh->int_edge_comm->nitem*sizeof(double));
 
 
-  /** Loop on boundary triangles and store a MG_REQ tag in the edge internal
+  /** Step 1: Loop on boundary triangles and store a MG_REQ tag in the edge internal
    *  communicator where the triangle touches a parallel edge.
    *  (Loop on all triangles, as the tags on corresponding edges are not
    *  required to match yet) */
@@ -2104,6 +2104,8 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
+      /* At this stage, the `tag` field store only the MG_PARBDY tag if pHash
+       * has been created by the `PMMG_hashPar_fromFaceComm` function */
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
 
@@ -2186,7 +2188,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
   }
 
 
-  /** Loop on true boundary triangles and store the normal in the edge internal
+  /** Step 2: Loop on true boundary triangles and store the normal in the edge internal
    *  communicator where the triangle touches a parallel edge. */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
@@ -2238,7 +2240,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     }
   }
 
-  /** Exchange values on the interfaces among procs */
+  /** Step 3: Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
     nitem         = ext_edge_comm->nitem;
@@ -2271,7 +2273,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
                    comm,&status),return 0 );
   }
 
-  /** First pass: Increment the number of seen triangles, check for reference
+  /** Step 4 - First pass: Increment the number of seen triangles, check for reference
    *  edges and mark them with PMMG_UNSET, and store new triangles normals if
    *  there is room for them. */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
@@ -2315,7 +2317,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
   }
 
   if ( mesh->info.dhd > MMG5_ANGLIM ) {
-    /** Second pass: Check dihedral angle and mark geometric edge with
+    /** Step 4 - Second pass: Check dihedral angle and mark geometric edge with
      *  2*PMMG_UNSET (3x if it is already a reference edge) */
     for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
       ext_edge_comm = &parmesh->ext_edge_comm[k];
@@ -2342,7 +2344,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     }
   }
 
-  /** Third pass: Loop on triangles to tag edges and points.
+  /** Step 4 - Third pass: Loop on triangles to tag edges and points.
    *  Now we loop on all triangles because there could be parallel boundary
    *  edges not touched by triangles on the local process, but we want to add
    *  tags on them. */
@@ -2702,7 +2704,6 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
 
@@ -2733,8 +2734,9 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* Hash parallel edges */
-  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
+  /* Hash parallel edges from tetra and face communicator: store edges and the
+     MG_PARBDY tag (other edge tags are not stored).*/
+  if( PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS ) {
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);

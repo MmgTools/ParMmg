@@ -644,7 +644,7 @@ end:
 /**
  * \param parmesh pointer to parmesh structure
  * \param mesh pointer to the mesh structure
- * \param hpar hash table of parallel edges
+ * \param hpar hash table of parallel edges. Read only array.
  * \param comm pointer toward the MPI communicator to use: when called before
  * the first mesh balancing (at preprocessing stage) we have to use the
  * read_comm communicator (i.e. the communicator used to provide the inputs).
