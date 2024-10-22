@@ -34,6 +34,7 @@
 
 #include "parmmg.h"
 #include "libmmg3d.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param ppt pointer toward the point structure
@@ -2121,15 +2122,27 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
          - MG_NOM, MG_OPNBDY and MG_GEO will be analyzed after (this analysis
            should be consistent through the procs);
          - MG_REQ and MG_NOSURF tags are already dealed too;
-         - OLDPARBDY, PARBDY, PARBDYBDY and OVERLAP are related to ParMmg and
+         - OLDPARBDY, PARBDY and OVERLAP are related to ParMmg and
            should be consistent.
 
          It left us with:
            - the MG_REF tag that may be not consistent (if, on a
-             partition, the edge belongs to only PARBDY faces (non PARBDYBDY), it is
+             partition, the edge belongs to only PARBDY faces (non PARBDYBDY),
+             it is
              not marked as REF, while it may be marked as ref if it belongs to a
-             true boundary and is provided as a user ref edge between triangles with
-             same references on another partition.)
+             true boundary and is provided as a user ref edge between triangles
+             with same references on another partition.)
+           - the MG_PARBDYBDY tag that may be inconsistent between trias due to
+             the call of PMMG_parbdyTria: for a physical  boundary triangle
+             at partition interface. On the domain with lower ref, the
+             PARBDYPARBDY tag is removed from edges (to ensure the tria
+             orientation during analysis, the tria will be looked from one rank
+             only, the rank that owned the domain with higer ref). If the edge
+             also belongs to another boundary triangle, it will still have
+             the PARBDYBDY tag on this triangle.
+             We don't want to synchronize this specific tag as it is used for
+             the parallel analysis (for example in hashNorver_loop to loop
+             on well oriented true boundary faces).
       */
       tag = ptr->tag[i] & MG_REF;
       intvalues[idx] |= tag;
@@ -2202,7 +2215,6 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
       if ( intvalues[idx] & MG_REF ) {
         ptr->tag[i] |= MG_REF;
       }
-
     }
   }
 
@@ -2999,7 +3011,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 #warning Luca: check that parbdy are skipped
   MMG5_chkVertexConnectedDomains(mesh);
 
-  /* build hash table for geometric edges */
+  /* build hash table for geometric edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
   if ( !mesh->na && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     PMMG_edge_comm_free( parmesh );
@@ -3013,7 +3026,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* Update edges tags and references for xtetras */
+  /* Update MG_REQ and MG_NOSURF edges tags as well as references for xtetras */
   if ( !MMG5_bdryUpdate(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     PMMG_edge_comm_free( parmesh );
@@ -3062,6 +3075,17 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   mesh->na = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
+
+#ifndef NDEBUG
+  MMG5_int i;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   return 1;
 }

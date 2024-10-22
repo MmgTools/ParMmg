@@ -513,6 +513,11 @@ void PMMG_updateTagRef_node(PMMG_pParMesh parmesh, MMG5_pMesh mesh) {
  * Check if faces on a parallel communicator connect elements with different
  * references, and tag them as a "true" boundary (thus PARBDYBDY).
  *
+ * \remark: Edge tags are not updated along faces with the PARBDYBDY tag as
+ * it is not sufficient to maintain the consistency of PARBDYBDY tags through the mesh.
+ * Morover, even if we manage to have consistent tags inside one mesh, we will
+ * still have to synchronize the edge tags through the partition interfaces. In consequence,
+ * the PARBDYBDY tags may be not consistent throught the entire remeshing process.
  */
 int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
@@ -635,8 +640,8 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       if( seenFace[idx] != 1 ) continue;
 
       /* Tag face as "true" boundary if its ref is different (or if triangle has
-       * a non nul ref in openbdy mode), delete reference if it is only a
-       * parallel boundary */
+       * a non nul ref in opnbdy mode), delete reference if it is only a
+       * parallel boundary. */
       if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
         for( i = 0; i < 3; i++)
@@ -835,6 +840,10 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
         ptt->v[1] = ib;
         ptt->v[2] = ic;
       } else {
+        /* The boundary will belong to one partition only, for the other
+         * partition, the triangle will be considered as simply parallel.  This
+         * means that the PARBDYBDY triangle tags may be not consistent from
+         * here.  */
         ptt->tag[0] &= ~MG_PARBDYBDY;
         ptt->tag[1] &= ~MG_PARBDYBDY;
         ptt->tag[2] &= ~MG_PARBDYBDY;
