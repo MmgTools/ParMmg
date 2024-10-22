@@ -2105,7 +2105,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
       /* At this stage, the `tag` field store only the MG_PARBDY tag if pHash
-       * has been created by the `PMMG_hashPar_fromFaceComm` function */
+       * has been created by the `PMMG_hashPar_fromFaceComm` function. */
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
 
@@ -2115,6 +2115,24 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
       if( (ptr->tag[i] & MG_REQ) && !(ptr->tag[i] & MG_NOSURF) ) {
         intvalues[idx] |= MG_REQ;
       }
+
+      /* Store other relevant edge tag that we want to synchronize through the
+       * parallel interfaces:
+         - MG_NOM, MG_OPNBDY and MG_GEO will be analyzed after (this analysis
+           should be consistent through the procs);
+         - MG_REQ and MG_NOSURF tags are already dealed too;
+         - OLDPARBDY, PARBDY, PARBDYBDY and OVERLAP are related to ParMmg and
+           should be consistent.
+
+         It left us with:
+           - the MG_REF tag that may be not consistent (if, on a
+             partition, the edge belongs to only PARBDY faces (non PARBDYBDY), it is
+             not marked as REF, while it may be marked as ref if it belongs to a
+             true boundary and is provided as a user ref edge between triangles with
+             same references on another partition.)
+      */
+      tag = ptr->tag[i] & MG_REF;
+      intvalues[idx] |= tag;
     }
   }
 
@@ -2152,6 +2170,11 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
         intvalues[idx] |= MG_REQ;
         intvalues[idx] &= ~MG_NOSURF;
       }
+
+      if ( itorecv[i] & MG_REF ) {
+        /* Sync ref tags */
+        intvalues[idx] |= MG_REF;
+      }
     }
   }
 
@@ -2175,6 +2198,11 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
         ptr->tag[i] |= MG_REQ;
         ptr->tag[i] &= ~MG_NOSURF;
       }
+
+      if ( intvalues[idx] & MG_REF ) {
+        ptr->tag[i] |= MG_REF;
+      }
+
     }
   }
 
