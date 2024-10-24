@@ -48,6 +48,7 @@
 #define MPI_COMMUNICATORS_REF_TAG       9000
 #define MPI_ANALYS_TAG                 10000
 #define MPI_MERGEMESH_TAG              11000
+#define MPI_OVERLAP_TAG                12000
 
 #define MPI_CHECK(func_call,on_failure) do {                            \
     int mpi_ret_val;                                                    \

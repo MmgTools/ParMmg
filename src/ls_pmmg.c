@@ -162,6 +162,7 @@ if ( parmesh->myrank == parmesh->info.root )
   /* Loop over tetra */
   for (k=1; k<=mesh->ne; k++) {
     pt = &mesh->tetra[k];
+    if (!MG_EOK(pt)) continue;
 
     if ( !MG_EOK(pt) ) {
       continue;
@@ -1103,7 +1104,7 @@ void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],
   /* Tetra #0 created by MMG5_split1 */
   tetra_sorted[0] = k;
   /* Except for the following: treta #1 created by MMG5_split1 */
-  if ( (ifac==tau[0]) ) tetra_sorted[0] = ne_tmp;
+  if ( ifac==tau[0] ) tetra_sorted[0] = ne_tmp;
 
   /* Store index of the node with highest coordinates in node_sorted[0]
      and sort the vertices by increasing order in v_t0 */
@@ -1603,10 +1604,20 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   for (k=1; k<= sol->np; k++)
     sol->m[k] -= mesh->info.ls;
 
+  /* Create overlap */
+  if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
+  }
+
   /** \todo TODO :: Snap values of level set function if needed */
   if ( !PMMG_snpval_ls(parmesh,mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
     return 0;
+  }
+
+  /* Delete overlap */
+  if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
+    return PMMG_STRONGFAILURE;
   }
 
   /* Create table of adjacency for tetra */
@@ -1654,10 +1665,12 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
 #ifdef USE_POINTMAP
-  /* OK - Initialize source point with input index */
+  /* Initialize source point with input index */
   MMG5_int ip;
-  for( ip = 1; ip <= mesh->np; ip++ )
-    mesh->point[ip].src = ip;
+  for( ip = 1; ip <= mesh->np; ip++ ) {
+      if ( (!MG_VOK(&mesh->point[ip])) ) continue;
+      mesh->point[ip].src = ip;
+  }
 #endif
 
   /* Compute vertices global numerotation
