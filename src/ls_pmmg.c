@@ -1583,7 +1583,11 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   }
 
   /* Identify surface mesh. Clean triangle array: remove useless or double
-     triangles and add the missing ones */
+     triangles and add the missing ones.  Remark: spurious boundary triangles
+     across parallel interface cannot be removed by the serial function but will
+     not be stored inthe xtetra by the MMG5_bdrySet function during analysis.
+     This may create inconsistencies between edge and point tags.
+  */
   if ( !MMG5_chkBdryTria(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;

@@ -953,6 +953,26 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
 #warning Luca: why not like in MMG5_boulec?
       if( MG_EDG(var->ppt->tag) ) {
 
+        if ( (!intvalues[2*idx]) || (!intvalues[2*idx+1]) ) {
+           /* Issue with input edges along parallel interfaces: an input REF or
+            * GEO edge may be stored inside a boundary triangle at interface
+            * between tetra with same reference. In this case, the LS split,
+            * creates a points with REF or GEO tag to match the tag of the
+            * triangle edge (in setfeatures) but the triangle and associated
+            * edge tag are not stored in the xtetra, ended with a division by 0
+            * when computing the tangent at point. */
+
+          if ( parmesh->ddebug  ) {
+            printf("  ## Warning: %s:%d: rank %d: tag inconsistency: ppt tag %u"
+                   " - edge extremities %d %d\n              Point tag is removed.\n",
+                   __func__,__LINE__,parmesh->myrank,
+                   var->ppt->tag,intvalues[2*idx],intvalues[2*idx+1]);
+          }
+
+          var->ppt->tag &= ( (~MG_REF) && (~MG_GEO) );
+          continue;
+        }
+
         c[0] = &doublevalues[6*idx];
         c[1] = &doublevalues[6*idx+3];
 
@@ -2451,7 +2471,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 
         /* If a feature edge has been provided it is possible that the edge tag
          * has not been transferred to the edge extremities (for example a
-         * MG_REF edge along boudary triangles of same references may be split
+         * MG_REF edge along boundary triangles of same references may be split
          * by the level-set. In this case, the new point has tag 0 and its tag
          * has not yet been updated).
          */
