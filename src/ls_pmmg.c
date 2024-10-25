@@ -1576,6 +1576,19 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
+  /* Reset the mesh->info.isoref field everywhere */
+  if ( !MMG3D_resetRef_ls(mesh) ) {
+    fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
+    return 0;
+  }
+
+  /* Tag parallel triangles on material interfaces as boundary. */
+  if( !PMMG_parbdyTria( parmesh ) ) {
+    fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces."
+            " Exit program.\n");
+    return 0;
+  }
+
   /* Check the compatibility of triangle orientation with tetra faces */
   if ( !MMG5_bdryPerm(mesh) ) {
     fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
@@ -1593,7 +1606,8 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
     return 0;
   }
 
-  /* Build hash table for initial edges */
+  /* Build hash table for initial edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
   if ( !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     return 0;
@@ -1602,12 +1616,6 @@ int PMMG_ls(PMMG_pParMesh parmesh, MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met) 
   /* Set the triangles references to the tetrahedra faces and edges */
   if ( !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Problem in setting boundary. Exit program.\n");
-    return 0;
-  }
-
-  /* Reset the mesh->info.isoref field everywhere */
-  if ( !MMG3D_resetRef_ls(mesh) ) {
-    fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
     return 0;
   }
 

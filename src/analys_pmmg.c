@@ -2795,7 +2795,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* build hash table for geometric edges */
+  /* build hash table for geometric edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
   if ( !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2929,7 +2930,10 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* Tag parallel faces on material interfaces as boundary (ie, add \ref MG_PARBDYBDY tag) */
+  /* Tag parallel faces on material interfaces as boundary (ie, add \ref
+   * MG_PARBDYBDY tag) and remove spurious boundary MG_PARBDYBDY tags coming
+   * from spurious internal triangles (between tetras of same references) along
+   * partition interfaces.  */
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
