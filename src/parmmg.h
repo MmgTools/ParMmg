@@ -447,22 +447,24 @@ void PMMG_Analys_Init_SurfNormIndex( MMG5_pTetra pt );
 int PMMG_Analys_Get_SurfNormalIndex( MMG5_pTetra pt,int ifac,int i );
 int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int start,int ip,int *ng,int *nr);
 int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface,double t[3]);
-int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_int *permtria);
+int PMMG_chkBdryTria(MMG5_pMesh mesh, MMG5_int* permtria);
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm);
 int PMMG_update_analys(PMMG_pParMesh parmesh);
 int PMMG_hashParTag_fromXtet( MMG5_pMesh mesh,MMG5_HGeom *pHash );
 int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
 
+/* Overlap functions */
+int PMMG_create_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);
+int PMMG_delete_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);
+
 /* Isovalue discretization functions */
-int  PMMG_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol,MMG5_pSol met);
-int  PMMG_cuttet_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol,MMG5_pSol met);
+int  PMMG_ls(PMMG_pParMesh parmesh);
+int  PMMG_cuttet_ls(PMMG_pParMesh parmesh);
 int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
 int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
-
-int      PMMG_hashUpdate_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int k,MMG5_int s);
-MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s);
 
 void PMMG_nosplit_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
 void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
@@ -516,7 +518,7 @@ void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
 int PMMG_tria_highestcoord( MMG5_pMesh mesh, MMG5_int *v_t);
 int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh );
-int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh );
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh, MMG5_int* permtria );
 int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh, MPI_Comm comm );
 int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh, MPI_Comm comm );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );

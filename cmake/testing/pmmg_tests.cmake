@@ -21,7 +21,7 @@ IF( BUILD_TESTING )
       ENDIF()
       EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 0b1fce5e92fd42514fd75e8542ff67adeb6d77f8
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout cd45788c32f6
         TIMEOUT 20
         WORKING_DIRECTORY ${CI_DIR}
         #COMMAND_ECHO STDOUT
@@ -434,6 +434,124 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
       -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
 
+    # Test to check that when not using -opnbdy option, internal triangles are correctly removed.
+    # See ParMmg PR#110
+    add_test( NAME extrainternaltriangles
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 3 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Cube/internaltriangles-P3.mesh -v 10
+      -out ${CI_DIR_RESULTS}/internaltriangles-P3.o.mesh)
+
+    ###############################################################################
+    #####
+    #####        Tests overlap
+    #####
+    ###############################################################################
+    # Test if overlap is created
+    set(overlapCreation "## Create Overlap.")
+
+    add_test( NAME overlap-create
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-create.o.mesh)
+    set_property(TEST overlap-create
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapCreation}")
+
+    # Test if overlap is deleted
+    set(overlapDelete "## Delete Overlap.")
+
+    add_test( NAME overlap-delete
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-delete.o.mesh)
+    set_property(TEST overlap-delete
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapDelete}")
+
+    # Tests if overlap is created correctly
+    set(overlapCheckP0P1 "OVERLAP - part 0 sends 74 pts and 257 tetra to part 1")
+    set(overlapCheckP0P2 "OVERLAP - part 0 sends 29 pts and 110 tetra to part 2")
+    set(overlapCheckP0P3 "OVERLAP - part 0 sends 61 pts and 204 tetra to part 3")
+    set(overlapCheckP0P4 "OVERLAP - part 0 sends 28 pts and 66 tetra to part 4")
+    set(overlapCheckP0 "OVERLAP - part 0 has 433 pts and 1492 tetras after overlap creation")
+
+    add_test( NAME overlap-check-P0P1
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P1.o.mesh)
+    set_property(TEST overlap-check-P0P1
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P1}")
+
+    add_test( NAME overlap-check-P0P2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P2.o.mesh)
+    set_property(TEST overlap-check-P0P2
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P2}")
+
+    add_test( NAME overlap-check-P0P3
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P3.o.mesh)
+    set_property(TEST overlap-check-P0P3
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P3}")
+
+    add_test( NAME overlap-check-P0P4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P4.o.mesh)
+    set_property(TEST overlap-check-P0P4
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P4}")
+
+    add_test( NAME overlap-check-P0
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0.o.mesh)
+    set_property(TEST overlap-check-P0
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
+    add_test( NAME overlap-check-P0-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0-met.o.mesh)
+    set_property(TEST overlap-check-P0-met
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
+    # Tests if overlap is deleted correctly
+    set(overlapCheckDelete "OVERLAP - part 0 has 282 pts and 882 tetras after overlap deletion")
+    add_test( NAME overlap-check-delete
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-delete.o.mesh)
+    set_property(TEST overlap-check-delete
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
+    add_test( NAME overlap-check-delete-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-delete-met.o.mesh)
+    set_property(TEST overlap-check-delete-met
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
     ###############################################################################
     #####
     #####        Test isovalue mode - ls discretization
@@ -622,6 +740,22 @@ IF( BUILD_TESTING )
             TEST ls-DisIn-toygeom-metric-${MODE}-${NP}
             PROPERTY PASS_REGULAR_EXPRESSION "${metric-open}")
 
+       # Toy geom:: ls_val=0.0 + remesh metric
+       # TO DEBUG raises lot of warnings
+        add_test( NAME ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric-ani.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-${MODE}-${NP}.o.mesh)
+
+          SET(metric-ani-open "cube-metric-ani.0.sol OPENED")
+          SET_PROPERTY(
+            TEST ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+            PROPERTY PASS_REGULAR_EXPRESSION "${metric-ani-open}")
+
+
         # Toy geom:: ls_val=0.0 + no remesh + fields
         add_test( NAME ls-DisIn-toygeom-fields-${MODE}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
@@ -647,7 +781,6 @@ IF( BUILD_TESTING )
           -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
           -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-fields-${MODE}-${NP}.o.mesh)
 
-        # TODO :: anisotropic metric
 
       endforeach()
     endforeach()
@@ -673,7 +806,7 @@ IF( BUILD_TESTING )
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-hisiz-${NP}.o.mesh)
 
-      # Complex geom:: ls_val=0.0 + remesh metric
+      # Complex geom:: ls_val=0.0 + remesh iso metric
       add_test( NAME ls-DisIn-cubegeom-metric-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
         ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
@@ -681,6 +814,18 @@ IF( BUILD_TESTING )
         -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
         -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
         -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh aniso metric
+      # Fail with "Assertion failed: (ps > 0. || ps2 > 0." error
+      # TO DEBUG
+      #
+      #dd_test( NAME ls-DisIn-cubegeom-metric-ani-${NP}
+      # COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      # ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+      # -ls 0.0
+      # -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+      # -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric-ani.sol
+      # -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
 
       # Complex geom:: ls_val=0.0 + remesh + fields
       add_test( NAME ls-DisIn-cubegeom-fields-${NP}

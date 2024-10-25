@@ -91,7 +91,7 @@ typedef struct {
   MMG5_pxTetra pxt;
   MMG5_pPoint  ppt;
   double       n[3];
-  int16_t      tag;
+  uint16_t     tag;
   int          ie,ifac,iloc,iadj;
   int          ip,ip1,ip2;
   int          updloc,updpar;
@@ -274,8 +274,8 @@ int PMMG_hashNorver_loop( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,int16_t ski
  */
 static inline
 int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
-  int     ia[2],ip[2],j;
-  int16_t tag;
+  int      ia[2],ip[2],j;
+  uint16_t tag;
 
   /* Get points */
   ia[0] = MMG5_iarf[var->ifac][MMG5_iprv2[var->iloc]];
@@ -388,7 +388,7 @@ static inline
 int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int idx;
   int ia[2],ip[2],j;
-  int16_t tag;
+  uint16_t tag;
 
   /* Only process ridge points */
   if( !(var->ppt->tag & MG_GEO ) ) return 1;
@@ -414,7 +414,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         parmesh->int_node_comm->intvalues[2*idx] ){
       if( !PMMG_hTagOri( var->hash,
                          var->ip,ip[j], /* pair (ip,np+ip[j]) */
-                         (int)tag,      /* still the same tag */
+                         tag,      /* still the same tag */
                          1 ) )          /* switch color on */
         return 0;
     }
@@ -1519,115 +1519,6 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   return 1;
 }
 
-/**
- * \param parmesh pointer to the parmesh structure
- * \param mesh pointer to the mesh structure
- *
- * \return 1 if success, 0 if failure.
- *
- * Compute continuous geometric support (normal and tangent vectors) on
- * non-manifold MG_OLDPARBDY points.
- *
- * \remark Analogous to the MMG3D_nmgeom function, but it only travels on
- * old parallel points.
- * \remark Normal and tangent vectors on these points are overwritten.
- *
- */
-int PMMG_update_nmgeom(PMMG_pParMesh parmesh,MMG5_pMesh mesh){
-  MMG5_pTetra     pt;
-  MMG5_pPoint     p0;
-  MMG5_pxPoint    pxp;
-  int             k,base;
-  int             *adja;
-  double          n[3],t[3];
-  int             ip;
-  int8_t          i,j,ier;
-
-  for( ip = 1; ip <= mesh->np; ip++ ) {
-    mesh->point[ip].flag = mesh->base;
-  }
-
-  base = ++mesh->base;
-  for (k=1; k<=mesh->ne; k++) {
-    pt   = &mesh->tetra[k];
-    if( !MG_EOK(pt) ) continue;
-    adja = &mesh->adja[4*(k-1)+1];
-    for (i=0; i<4; i++) {
-      if ( adja[i] ) continue;
-      for (j=0; j<3; j++) {
-        ip = MMG5_idir[i][j];
-        p0 = &mesh->point[pt->v[ip]];
-        if ( p0->flag == base )  continue;
-        else if ( !(p0->tag & MG_OLDPARBDY) ) continue;
-        else if ( !(p0->tag & MG_NOM) )  continue;
-
-        p0->flag = base;
-        ier = MMG5_boulenm(mesh,k,ip,i,n,t);
-
-        if ( ier < 0 )
-          return 0;
-        else if ( !ier ) {
-          p0->tag |= MG_REQ;
-          p0->tag &= ~MG_NOSURF;
-        }
-        else {
-          if ( !p0->xp ) {
-            ++mesh->xp;
-            if(mesh->xp > mesh->xpmax){
-              MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                                 "larger xpoint table",
-                                 mesh->xp--;
-                                 fprintf(stderr,"  Exit program.\n");return 0;);
-            }
-            p0->xp = mesh->xp;
-          }
-          pxp = &mesh->xpoint[p0->xp];
-          memcpy(pxp->n1,n,3*sizeof(double));
-          memcpy(p0->n,t,3*sizeof(double));
-        }
-      }
-    }
-  }
-  /* Deal with the non-manifold points that do not belong to a surface
-   * tetra (a tetra that has a face without adjacent)*/
-  for (k=1; k<=mesh->ne; k++) {
-    pt   = &mesh->tetra[k];
-    if( !MG_EOK(pt) ) continue;
-
-    for (i=0; i<4; i++) {
-      p0 = &mesh->point[pt->v[i]];
-      if ( !(p0->tag & MG_OLDPARBDY) ) continue;
-      else if ( p0->tag & MG_PARBDY || p0->tag & MG_REQ || !(p0->tag & MG_NOM) || p0->xp ) continue;
-      ier = MMG5_boulenmInt(mesh,k,i,t);
-      if ( ier ) {
-        ++mesh->xp;
-        if(mesh->xp > mesh->xpmax){
-          MMG5_TAB_RECALLOC(mesh,mesh->xpoint,mesh->xpmax,MMG5_GAP,MMG5_xPoint,
-                            "larger xpoint table",
-                            mesh->xp--;
-                            fprintf(stderr,"  Exit program.\n");return 0;);
-        }
-        p0->xp = mesh->xp;
-        pxp = &mesh->xpoint[p0->xp];
-        memcpy(p0->n,t,3*sizeof(double));
-      }
-      else {
-        p0->tag |= MG_REQ;
-        p0->tag &= ~MG_NOSURF;
-      }
-    }
-  }
-
-  /*for (k=1; k<=mesh->np; k++) {
-    p0 = &mesh->point[k];
-    if ( !(p0->tag & MG_NOM) || p0->xp ) continue;
-    p0->tag |= MG_REQ;
-    p0->tag &= ~MG_NOSURF;
-  }*/
-
-  return 1;
-}
-
 static inline
 uint16_t MMG5_skip_nonOldParBdy ( uint16_t tag ) {
   return !(tag & MG_OLDPARBDY);
@@ -2527,7 +2418,7 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
  *
  * Check all boundary triangles.
  */
-int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_int *permtria) {
   int       ier;
 
   /**--- stage 1: data structures for surface */
@@ -2562,7 +2453,7 @@ int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh) {
   }
 
   /* identify surface mesh */
-  if ( !MMG5_chkBdryTria(mesh) ) {
+  if ( !PMMG_chkBdryTria(mesh,permtria) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;
   }

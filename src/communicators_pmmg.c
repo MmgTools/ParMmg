@@ -866,7 +866,7 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
-    ptt = &mesh->tria[kt];
+    ptt    = &mesh->tria[kt];
     ie     = ptt->cc/4;
     ifac   = ptt->cc%4;
 
@@ -1008,7 +1008,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
  * stored in the external face communicator.
  *
  */
-int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh, MMG5_int* permtria ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_face_comm;
   PMMG_pExt_comm ext_face_comm;
@@ -1038,7 +1038,12 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
   for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
     for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
-      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      if (permtria) {
+        grp->face2int_face_comm_index1[iint] = permtria[ext_face_comm->int_comm_index[iext]];
+      }
+      else {
+        grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      }
       grp->face2int_face_comm_index2[iint] = iint;
       ext_face_comm->int_comm_index[iext] = iint++;
     }
@@ -1214,7 +1219,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh,MPI_Comm comm ) {
   }
 
   /** 6) Set communicators indexing, convert tria index into iel face index */
-  ier = PMMG_build_faceCommIndex( parmesh );
+  ier = PMMG_build_faceCommIndex( parmesh, NULL );
   PMMG_tria2elmFace_flags( parmesh );
 
 

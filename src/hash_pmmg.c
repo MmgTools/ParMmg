@@ -280,6 +280,55 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
 }
 
 /**
+ * \param mesh pointer to the mesh structure.
+ * \return 1 if success, 0 otherwise.
+ *
+ * - Remove double triangles from tria array.
+ *
+ * - Remove triangles that do not belong to a boundary (non opnbdy mode) from
+ *   tria array.
+ *
+ * - Check the matching between actual and given number of faces in the mesh:
+ * Count the number of faces in mesh and compare this number to the number of
+ *   given triangles.
+ *
+ * - If the founded number exceed the given one, add the missing
+ *   boundary triangles (call to MMG5_bdryTria). Do nothing otherwise.
+ *
+ * - Fill the adjacency relationship between prisms and tetra (fill adjapr with
+ *   a negative value to mark this special faces).
+ *
+ * - Set to required the triangles at interface betwen prisms and tet.
+ *
+ */
+int PMMG_chkBdryTria(MMG5_pMesh mesh, MMG5_int* permtria) {
+  MMG5_int       ntmesh,ntpres;
+  int            ier;
+  MMG5_Hash      hashElt;
+
+  /** Step 1: scan the mesh and count the boundaries */
+  ier = MMG5_chkBdryTria_countBoundaries(mesh,&ntmesh,&ntpres);
+
+  /** Step 2: detect the extra boundaries (that will be ignored) provided by the
+   * user */
+  if ( mesh->nt ) {
+    ier = MMG5_chkBdryTria_hashBoundaries(mesh,ntmesh,&hashElt);
+    // Travel through the tria, flag those that are not in the hash tab or
+    // that are stored more that once.
+    ier = MMG5_chkBdryTria_flagExtraTriangles(mesh,&ntpres,&hashElt);
+    // Delete flagged triangles
+    ier = MMG5_chkBdryTria_deleteExtraTriangles(mesh, permtria);
+  }
+  ntmesh +=ntpres;
+
+  /** Step 3: add the missing boundary triangles or, if the mesh contains
+   * prisms, set to required the triangles at interface betwen prisms and tet */
+  ier = MMG5_chkBdryTria_addMissingTriangles(mesh,ntmesh,ntpres);
+
+  return 1;
+}
+
+/**
  * \param mesh pointer toward the mesh structure.
  * \param hash pointer toward the hash table of edges.
  * \param a index of the first extremity of the edge.
