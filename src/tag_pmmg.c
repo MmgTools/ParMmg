@@ -721,7 +721,13 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
 
   comm   = parmesh->comm;
   myrank = parmesh->myrank;
-  assert( parmesh->ngrp == 1 );
+
+  if ( !parmesh->ngrp ) {
+    return 1;
+  }
+
+  assert( parmesh->ngrp == 1 && "Not implemented for multiple groups");
+
   mesh = grp->mesh;
 
   /* intvalues will be used to store tetra ref */
