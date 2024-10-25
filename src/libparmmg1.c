@@ -567,6 +567,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Set inputMet flag */
   parmesh->info.inputMet = 0;
+
+#ifndef NDEBUG
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
+
   for ( i=0; i<parmesh->ngrp; ++i ) {
     met         = parmesh->listgrp[i].met;
     if ( met && met->m ) {

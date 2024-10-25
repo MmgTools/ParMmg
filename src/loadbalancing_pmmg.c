@@ -86,18 +86,29 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   for ( igrp=0; igrp < parmesh->ngrp; igrp++ )
     ne += parmesh->listgrp[igrp].mesh->ne;
 
-  if ( ier ) {
-    /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
-  }
-
-  for (int k=0; k<parmesh->ngrp; ++k ) {
+  int k;
+#ifndef NDEBUG
+  for (k=0; k<parmesh->ngrp; ++k ) {
     if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
   }
+#endif
 
+  if ( ier ) {
+    /** Split the ngrp groups of listgrp into a higher number of groups */
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
+  }
+
+#ifndef NDEBUG
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
    * enters the function and not the other proc */
@@ -118,6 +129,16 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
     tim = 2;
     chrono(ON,&(ctim[tim]));
   }
+
+#ifndef NDEBUG
+  int i;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   ier = PMMG_distribute_grps(parmesh,partitioning_mode);
 
@@ -141,6 +162,15 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
     tim = 3;
     chrono(ON,&(ctim[tim]));
   }
+
+#ifndef NDEBUG
+  for ( int i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   if ( ier ) {
     /** Redistribute the ngrp groups of listgrp into a lower number of groups */
