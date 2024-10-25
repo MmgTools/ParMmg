@@ -33,7 +33,7 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-            os: [ubuntu-20.04,macos-12]
+            os: [ubuntu-20.04,macos-14]
             pointmap: [on,off]
             scotch: [on,off]
             mpich-instead-openmpi: [on,off]
@@ -58,7 +58,7 @@ jobs:
 
               # Remark: hdf5 I/Os are not tested with mpich as the hdf5-mpi
               # homebrew package is built with open-mpi dependency
-              - os: macos-12
+              - os: macos-14
                 pointmap: off
                 scotch: off
                 mpich-instead-openmpi: off
