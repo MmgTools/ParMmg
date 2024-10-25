@@ -356,7 +356,11 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
           pos++;
         }
         assert(found < 2);
+
+#ifndef NDEBUG
         if( pos == 2 ) assert(found);
+#endif
+
         if( !found ) {
           assert( pos < 2 );
           intvalues[2*idx+pos] = gip;
@@ -932,6 +936,43 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
   intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
+  /* Check consistency between point tag and stored infos before erasing
+   * intvalues: if MG_EDG edges have been found on both side of a non singular
+   * MG_EDG point, the intvalues array should be filled with the global id of
+   * the 2 neigbouring points along the feature edge.
+   * It aims to solve the
+   * following issue with input edges along parallel interfaces: an input REF or
+   * GEO edge may be stored inside a boundary triangle at interface * between
+   * tetra with same reference. In this case, the LS split, * creates a points
+   * with REF or GEO tag to match the tag of the * triangle edge (in
+   * setfeatures) but the triangle and associated * edge tag are not stored in
+   * the xtetra, ended with a division by 0 * when computing the tangent at
+   * point. */
+  for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
+    var->ppt = &var->mesh->point[var->ip];
+
+    /* Loop on parallel, non-singular points (they have been flagged in
+     * PMMG_hashNorver_xp_init()) */
+    if( var->ppt->flag && MG_EDG(var->ppt->tag) ) {
+
+      idx = PMMG_point2int_comm_index_get( var->ppt );
+
+      if ( (!intvalues[2*idx]) || (!intvalues[2*idx+1]) ) {
+        /* We will miss infos to compute the tangent... Erase point tag */
+
+        if ( parmesh->ddebug  ) {
+          printf("  ## Warning: %s:%d: rank %d: tag inconsistency: ppt %d tag %u"
+                 " - edge extremities %d %d\n              Point tag is removed.\n",
+                 __func__,__LINE__,parmesh->myrank,var->ip,
+                 var->ppt->tag,intvalues[2*idx],intvalues[2*idx+1]);
+        }
+
+        var->ppt->tag &= ( (~MG_REF) & (~MG_GEO) );
+      }
+    }
+  }
+
+
   memset(intvalues,0,parmesh->int_node_comm->nitem*sizeof(int));
 
   /* Accumulate normal vector contributions */
@@ -952,26 +993,6 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
       /* Compute tangent (as in MMG3D_boulenm) */
 #warning Luca: why not like in MMG5_boulec?
       if( MG_EDG(var->ppt->tag) ) {
-
-        if ( (!intvalues[2*idx]) || (!intvalues[2*idx+1]) ) {
-           /* Issue with input edges along parallel interfaces: an input REF or
-            * GEO edge may be stored inside a boundary triangle at interface
-            * between tetra with same reference. In this case, the LS split,
-            * creates a points with REF or GEO tag to match the tag of the
-            * triangle edge (in setfeatures) but the triangle and associated
-            * edge tag are not stored in the xtetra, ended with a division by 0
-            * when computing the tangent at point. */
-
-          if ( parmesh->ddebug  ) {
-            printf("  ## Warning: %s:%d: rank %d: tag inconsistency: ppt tag %u"
-                   " - edge extremities %d %d\n              Point tag is removed.\n",
-                   __func__,__LINE__,parmesh->myrank,
-                   var->ppt->tag,intvalues[2*idx],intvalues[2*idx+1]);
-          }
-
-          var->ppt->tag &= ( (~MG_REF) && (~MG_GEO) );
-          continue;
-        }
 
         c[0] = &doublevalues[6*idx];
         c[1] = &doublevalues[6*idx+3];
