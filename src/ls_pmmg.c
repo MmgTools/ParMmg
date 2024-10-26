@@ -1545,6 +1545,7 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  * \param parmesh pointer toward a parmesh structure
  * \param mesh pointer toward the mesh structure.
  * \param sol pointer toward the level-set function.
+ * \param comm MPI communicator for ParMmg
  *
  * \return 1 if success, 0 if fail.
  *
@@ -1554,9 +1555,254 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  * and prevent nonmanifold patterns from being generated.
  *
  */
-int PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol) {
+int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
+
+  MMG5_pTetra   pt;
+  MMG5_pPoint   p0;
+  PMMG_pInt_comm int_comm;
+  PMMG_pExt_comm ext_comm;
+  PMMG_pGrp      grp;
+  MPI_Status     status;
+  MMG5_pMesh     mesh;
+  MMG5_pSol      sol;
+
+  int nitem_ext,next_comm,nitem_ToShare_ToSend,nitem_ToShare_ToRecv;
+  int color_in,color_out;
+  int idx_ext,idx_int;
+  int icomm,i,ip,idx;
+  double *tmp;
+  MMG5_int k,nc,ns,ncg;
+  double         *rtosend,*rtorecv,*doublevalues;
+  int            *itosend,*itorecv,*intvalues;
+  int ier = 1;       // Initialize error
+
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
     fprintf(stdout,"\n      ## TODO:: PMMG_snpval_ls.\n");
+
+  /* Ensure only one group on each proc */
+  assert(parmesh->ngrp == 1 && "more than one group per rank not implemented");
+
+  /* Get external node communicator information */
+  grp  = &parmesh->listgrp[0];
+  mesh =  parmesh->listgrp[0].mesh;
+  sol  = parmesh->listgrp[0].ls;
+  next_comm = parmesh->next_node_comm; // Nbr of external node communicators
+  int_comm  = parmesh->int_node_comm;  // Internal node communicator
+
+  /** STEP 1 - Create tetra adjacency */
+  if ( !MMG3D_hashTetra(mesh,1) ) {
+    fprintf(stderr,"\n  ## Error: %s: hashing problem (1). Exit program.\n",
+      __func__);
+    return 0;
+  }
+
+  /* Reset point flags and s */
+  for (k=1; k<=mesh->np; k++) {
+    mesh->point[k].flag =  0;
+    mesh->point[k].s    = -1;
+  }
+
+  /* Allocation memory */
+  PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",return 0);
+  MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(double),"temporary table",
+                fprintf(stderr,"  Exit program.\n"); return 0);
+  MMG5_SAFE_CALLOC(tmp,mesh->npmax+1,double,return 0);
+
+  /** STEP 2 - Identify proc owner of interface points */
+  /* Store point index in internal communicator intvalues */
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    int_comm->intvalues[idx] = ip;
+  }
+
+  /* The highest rank to which this point belong store in mesh->point.s */
+  for (icomm=0; icomm<next_comm; icomm++) {
+    ext_comm  = &parmesh->ext_node_comm[icomm]; // External node communicator
+    color_in  = ext_comm->color_in;             // Color of this partition Pcolor_in
+    color_out = ext_comm->color_out;            // Color of the remote partition Pcolor_out
+    nitem_ext = ext_comm->nitem;                // Nbr of nodes in common between Pcolor_in and Pcolor_out
+
+    /* Loop over the nodes in the external node communicator **/
+    for (i=0; i < nitem_ext; i++) {
+      /* Get the indices of the nodes in internal communicators */
+      idx = ext_comm->int_comm_index[i];
+      ip  = int_comm->intvalues[idx];
+      p0  = &mesh->point[ip];
+
+      if (color_out > p0->s)
+        p0->s = color_out;
+      if (color_in > p0->s)
+        p0->s = color_in;
+    }
+  }
+
+  /** STEP 3 - Include tetras with very poor quality that are connected to the negative part */
+  for (k=1; k<=mesh->ne; k++) {
+    pt = &mesh->tetra[k];
+    if ( !pt->v[0] ) continue;
+    if ( pt->tag & MG_OVERLAP) continue; // Ignore overlap tetra
+    if ( pt->qual < MMG5_EPS ) {
+      fprintf(stdout, " PROC %d - Bad qual=%f < 1e-6 at tetra=%d \n", parmesh->myrank,pt->qual,k);
+      for (i=0; i<4; i++) {
+        ip = pt->v[i];
+        if ( sol->m[ip] < 1000.0*MMG5_EPS ) break;
+      }
+      if ( i < 4 ) {
+        for (i=0; i<4; i++) {
+          ip = pt->v[i];
+          sol->m[ip] = -1000.0*MMG5_EPS;
+        }
+      }
+    }
+  }
+
+  fprintf(stdout, " \n\n");
+
+  /** STEP 4 - Snap values of sol that are close to 0 to 0 exactly */
+  ns = 0;
+  for (k=1; k<=mesh->np; k++) {
+    p0 = &mesh->point[k];
+    if ( !MG_VOK(p0) ) continue;
+    if (p0->tag & MG_OVERLAP) continue; // Ignore overlap points
+    /* Snap points in the interior of the partition and
+       interface points with proc owner being this proc color */
+    if ( (p0->s == -1) || (p0->s == parmesh->myrank))  {
+      if ( fabs(sol->m[k]) < MMG5_EPS ) {
+        if ( mesh->info.ddebug )
+          fprintf(stderr,"  ## Warning: %s: snapping value at vertex %" MMG5_PRId "; "
+                  "previous value: %E.\n",__func__,k,fabs(sol->m[k]));
+
+        tmp[k] = ( fabs(sol->m[k]) < MMG5_EPSD ) ?
+          (-100.0*MMG5_EPS) : sol->m[k];
+        fprintf(stdout, " PROC %d - Snapval point=%d, s=%d, tmp=%f, sol=%f \n", parmesh->myrank,k,p0->s,tmp[k],sol->m[k]);
+
+        p0->flag = 1;
+        sol->m[k] = 0;
+        ns++;
+      }
+    }
+  }
+
+  fprintf(stdout, " \n\n");
+
+  /** STEP 5 - Check snapping did not lead to a nonmanifold situation */
+  ncg = 0;
+  do {
+    nc = 0;
+    /* Check snapping did not lead to a nonmanifold situation */
+    for (k=1; k<=mesh->ne; k++) {
+      pt = &mesh->tetra[k];
+      if ( !MG_EOK(pt) ) continue;
+      if (pt->tag & MG_OVERLAP) continue; // Ignore overlap tetra
+      for (i=0; i<4; i++) {
+        ip = pt->v[i];
+        p0 = &mesh->point[ip];
+        // if (p0->tag & MG_PARBDY) continue;
+        if ( p0->flag == 1 ) {
+          fprintf(stdout, " PROC %d - MMG3D_ismaniball Tetra=%d, Point=%d, maniball=%d \n", parmesh->myrank,k,ip,MMG3D_ismaniball(mesh,sol,k,i));
+          if ( !MMG3D_ismaniball(mesh,sol,k,i) ) {
+            if ( tmp[ip] < 0.0 )
+              sol->m[ip] = -100.0*MMG5_EPS;
+            else
+              sol->m[ip] = +100.0*MMG5_EPS;
+
+            p0->flag = -1;
+            nc++;
+          }
+        }
+      }
+    }
+    ncg += nc;
+  }
+  while ( nc );
+
+  /** TODO :: STEP 6 - Transfer data of snap point to the other proc */
+  // nitem_ToShare_ToSend = 0; // Nbr of nodes in common between Pcolor_in and Pcolor_out
+  // PMMG_CALLOC(parmesh,intvalues,    mesh->np, int,    "intvalues",    ier = 0);
+  // PMMG_CALLOC(parmesh,doublevalues, mesh->np, double, "doublevalues", ier = 0);
+
+  // for (k=1; k<=mesh->np; k++) {
+  //   p0 = &mesh->point[k];
+  //   if ( !MG_VOK(p0) ) continue;
+  //   if ( !(p0->tag & MG_PARBDY)  ) continue; // If the point is not MG_PARBDY,  ignore it
+  //   if ( !(p0->tag & MG_OVERLAP) ) continue; // If the point is not MG_OVERLAP, ignore it
+
+  //   /* If this point is MG_PARBDY or MG_OVERLAP and has been modified on this partition (p0->flag==-1) */
+  //   if ( (p0->flag == -1) )  {
+  //     intvalues[nitem_ToShare_ToSend] = ip;
+  //     doublevalues[nitem_ToShare_ToSend] = sol->m[ip];
+  //     nitem_ToShare_ToSend +=1;
+
+  //   }
+  // }
+
+  // for (icomm=0; icomm<next_comm; icomm++) {
+  //   ext_comm  = &parmesh->ext_node_comm[icomm]; // External node communicator
+  //   color_in  = ext_comm->color_in;             // Color of this partition Pcolor_in
+  //   color_out = ext_comm->color_out;            // Color of the remote partition Pcolor_out
+  //   nitem_ext = ext_comm->nitem;                // Nbr of nodes in common between Pcolor_in and Pcolor_out
+  //   nitem_ToShare_ToSend = 0; // Nbr of nodes in common between Pcolor_in and Pcolor_out
+
+  //   itosend   = ext_comm->itosend;
+  //   rtosend   = ext_comm->rtosend;
+  //   itorecv   = ext_comm->itorecv;
+  //   rtorecv   = ext_comm->rtorecv;
+
+  //   PMMG_CALLOC(parmesh,itosend, nitem_ext, int,    "itosend", ier = 0);
+  //   PMMG_CALLOC(parmesh,rtosend, nitem_ext, double, "rtosend", ier = 0);
+
+  //   /* Loop over the nodes in the external node communicator **/
+  //   for (i=0; i < nitem_ext; i++) {
+  //     /* Get the indices of the nodes in internal communicators */
+  //     idx_ext = ext_comm->int_comm_index[i];
+  //     idx_int = grp->node2int_node_comm_index2[idx_ext];
+  //     ip      = grp->node2int_node_comm_index1[idx_int];
+  //     p0      = &mesh->point[ip];
+
+  //     /* If this point has been treated on this partition, send the data to the other */
+  //     if ( (p0->s == color_in) & (p0->flag == -1))  {
+  //       itosend[nitem_ToShare_ToSend] = ip;
+  //       rtosend[nitem_ToShare_ToSend] = sol->m[ip];
+  //       nitem_ToShare_ToSend +=1;
+
+  //     }
+  //   }
+
+  //   /* Communication */
+  //   // PMMG_CALLOC(parmesh,ext_comm->nitem_to_share,1,int,"nitem_to_share",ier = 0);
+  //   MPI_CHECK(
+  //     MPI_Sendrecv(&nitem_ToShare_ToSend,1,MPI_INT,color_out,MPI_LS_TAG+2,
+  //                  &nitem_ToShare_ToRecv,1,MPI_INT,color_out,MPI_LS_TAG+2,
+  //                  comm,&status),return 0 );
+
+  //   ext_comm->nitem_to_share = nitem_ToShare_ToRecv;
+
+  //   PMMG_CALLOC(parmesh,itorecv, nitem_ToShare_ToRecv, int,    "itorecv", ier = 0);
+  //   PMMG_CALLOC(parmesh,rtorecv, nitem_ToShare_ToRecv, double, "rtorecv", ier = 0);
+
+  //   MPI_CHECK(
+  //     MPI_Sendrecv(itosend,nitem_ToShare_ToSend,MPI_INT,color_out,MPI_LS_TAG,
+  //                  itorecv,nitem_ToShare_ToRecv,MPI_INT,color_out,MPI_LS_TAG,
+  //                  comm,&status),return 0 );
+  //   MPI_CHECK(
+  //     MPI_Sendrecv(rtosend,nitem_ToShare_ToSend,MPI_DOUBLE,color_out,MPI_LS_TAG+1,
+  //                  rtorecv,nitem_ToShare_ToRecv,MPI_DOUBLE,color_out,MPI_LS_TAG+1,
+  //                  comm,&status),return 0 );
+
+  // }
+
+  // if ( (abs(mesh->info.imprim) > 5 || mesh->info.ddebug) && ns+ncg > 0 )
+    fprintf(stdout,"  PROC %d -   %8" MMG5_PRId " points snapped, %" MMG5_PRId " corrected\n",parmesh->myrank,ns,ncg);
+
+  /* Reset point flags */
+  for (k=1; k<=mesh->np; k++)
+    mesh->point[k].flag = 0;
+
+  /* memory free */
+  MMG5_DEL_MEM(mesh,mesh->adja);
+  MMG5_DEL_MEM(mesh,tmp);
+
   return 1;
 }
 
@@ -1609,7 +1855,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
   /** \todo TODO :: Snap values of level set function if needed */
-  if ( !PMMG_snpval_ls(parmesh,mesh,sol) ) {
+  if ( !PMMG_snpval_ls(parmesh,parmesh->info.read_comm) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
     return 0;
   }
