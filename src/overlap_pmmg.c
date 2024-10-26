@@ -245,7 +245,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       /* If tetra has not been identified as MG_OVERLAP, then ignore it */
       if ( !(pt->tag & MG_OVERLAP) ) continue;
 
-      tetraRef_ToSend[ntTot_in2out] = pt->ref;
+      tetraRef_ToSend[ntTot_in2out]  = pt->ref;
 
       /* Loop over the vertices of this tetra, all the nodes belong to the overlap
          that we want to send to Pcolor_out */
@@ -283,6 +283,9 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
              be sent to Pcolor_out. pointIdxPBDY_ToSend stores MG_PARBDY points
              except the ones at interface between Pcolor_in and Pcolor_out */
           else {
+            /* If this vertex is tagged MG_PARBDY, store it in pointIdxPBDY_ToSend
+              pointIdxPBDY_ToSend stores the points w/ MG_PARBDY tag except the ones
+              at interface between Pcolor_in and Pcolor_out */
             tetraVerticesSeen_ToSend[4*ntTot_in2out+i] = 0; // Vertex tagged MG_PARBDY (special treatments for those)
             pointCoordPBDY_ToSend[3*npPBDY_in2out]   = p0->c[0];
             pointCoordPBDY_ToSend[3*npPBDY_in2out+1] = p0->c[1];
@@ -358,7 +361,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
 
         /* Loop over the nodes in the external node communicator Pcolor_ter */
         for (j=0; j < nitem_ext_ter; j++) {
-          /* Get the indices of the nodes in internal communicators */
+         /* Get the indices of the nodes in internal communicators */
           pos    = ext_comm_ter->int_comm_index[j];
           ip_ter = int_comm->intvalues[pos];
 

@@ -464,7 +464,7 @@ int  PMMG_ls(PMMG_pParMesh parmesh);
 int  PMMG_cuttet_ls(PMMG_pParMesh parmesh);
 int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
-int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol);
+int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm);
 
 void PMMG_nosplit_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
 void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
