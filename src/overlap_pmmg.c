@@ -94,8 +94,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int ntTot_in2out; // Total   tetras nbr from Pcolor_in sends    to   Pcolor_out
   int ntTot_out2in; // Total   tetras nbr on   Pcolor_in receives from Pcolor_out
 
-  /* Tetras vertices index, ref and quality to send/receive */
-  double *tetraQual_ToSend, *tetraQual_ToRecv;
+  /* Tetras vertices index and ref to send/receive */
   int *tetraVertices_ToSend;        // Indices of tetra vertices from Pcolor_in sends to Pcolor_out
   int *tetraVertices_ToRecv_inIdx;  // Indices of tetra vertices from Pcolor_out on Pcolor_in
   int *tetraVertices_ToRecv_outIdx; // Indices of tetra vertices from Pcolor_out on Pcolor_out
@@ -247,7 +246,6 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
       if ( !(pt->tag & MG_OVERLAP) ) continue;
 
       tetraRef_ToSend[ntTot_in2out]  = pt->ref;
-      tetraQual_ToSend[ntTot_in2out] = pt->qual;
 
       /* Loop over the vertices of this tetra, all the nodes belong to the overlap
          that we want to send to Pcolor_out */
