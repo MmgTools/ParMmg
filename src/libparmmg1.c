@@ -569,16 +569,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   /** Set inputMet flag */
   parmesh->info.inputMet = 0;
 
-  const char* s = getenv("SAVE");
-
-  for ( i=0; i<parmesh->ngrp; ++i ) {
-
-     if ( s ) {
-      PMMG_grp_to_saveMesh( parmesh, i, "BeforeSplit" );
-    }
-  }
-
-
 #ifndef NDEBUG
   for ( i=0; i<parmesh->ngrp; ++i ) {
     if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {

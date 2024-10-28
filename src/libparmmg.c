@@ -410,17 +410,6 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
       return PMMG_STRONGFAILURE;
     }
 
-     const char* s = getenv("SAVE");
-
-     printf("ngrps ? %d\n",parmesh->ngrp);
-
-     for ( MMG5_int i=0; i<parmesh->ngrp; ++i ) {
-
-       if ( s ) {
-         PMMG_grp_to_saveMesh( parmesh, i, "AfterLs-br" );
-       }
-     }
-
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
