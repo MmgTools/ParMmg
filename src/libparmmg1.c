@@ -768,10 +768,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           }
         }
 
-        if ( s ) {
-          PMMG_grp_to_saveMesh( parmesh, i, "BeforeAdp" );
-        }
-
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
 #else
@@ -779,11 +775,6 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #endif
         mesh->npi = mesh->np;
         mesh->nei = mesh->ne;
-
-
-        if ( s ) {
-          PMMG_grp_to_saveMesh( parmesh, i, "AfterAdp" );
-        }
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");
