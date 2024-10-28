@@ -1993,6 +1993,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  * Boundary triangles shared between two processes have been tagged as
  * MG_PARBDYBDY only on the process who has them with the right orientation
  * (by PMMG_parbdyTria), so they will be processed only once.
+ *
+ * \todo Do not add MG_GEO tag to MG_NOM edges and fix tag non-consistencies in this case.
+ *
  */
 int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
