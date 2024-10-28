@@ -1993,6 +1993,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  * Boundary triangles shared between two processes have been tagged as
  * MG_PARBDYBDY only on the process who has them with the right orientation
  * (by PMMG_parbdyTria), so they will be processed only once.
+ *
+ * \todo Do not add MG_GEO tag to MG_NOM edges and fix tag non-consistencies in this case.
+ *
  */
 int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
@@ -2345,13 +2348,14 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 #endif
 
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
+#warning remove MG_GEO for consistency with Mmg  ?
         /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
-        ptr->tag[i] |=  MG_NOM + MG_REF;
-        mesh->point[ip1].tag |= MG_NOM + MG_REF;
-        mesh->point[ip2].tag |= MG_NOM + MG_REF;
+        ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
@@ -2369,13 +2373,14 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
+#warning remove MG_GEO for consistency with Mmg ?
           /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
-          ptr->tag[i] |= MG_NOM + MG_REF;
-          mesh->point[ip1].tag |= MG_NOM + MG_REF;
-          mesh->point[ip2].tag |= MG_NOM + MG_REF;
+          ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
           nm++;
         }
 
