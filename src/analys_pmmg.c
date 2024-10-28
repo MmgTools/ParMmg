@@ -2345,14 +2345,13 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
 #endif
 
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
-#warning remove MG_GEO for consistency with Mmg  ?
         /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
-        ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
-        mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
-        mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
+        ptr->tag[i] |=  MG_NOM + MG_REF;
+        mesh->point[ip1].tag |= MG_NOM + MG_REF;
+        mesh->point[ip2].tag |= MG_NOM + MG_REF;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
@@ -2370,14 +2369,13 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
-#warning remove MG_GEO for consistency with Mmg ?
           /* MG_REF info is not analyzed in parallel for non-manifold edges (only
            serially by Mmy).  As we need to ensure the tag consistency across
            the processes and for sake of simplicity, we simply mark all the
            MG_NOM edges as MG_REF */
-          ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
-          mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
-          mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
+          ptr->tag[i] |= MG_NOM + MG_REF;
+          mesh->point[ip1].tag |= MG_NOM + MG_REF;
+          mesh->point[ip2].tag |= MG_NOM + MG_REF;
           nm++;
         }
 
