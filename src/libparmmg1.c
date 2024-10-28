@@ -535,6 +535,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   return 1;
 }
 
+int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
@@ -567,6 +568,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Set inputMet flag */
   parmesh->info.inputMet = 0;
+
+  const char* s = getenv("SAVE");
+
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+
+     if ( s ) {
+      PMMG_grp_to_saveMesh( parmesh, i, "BeforeSplit" );
+    }
+  }
+
 
 #ifndef NDEBUG
   for ( i=0; i<parmesh->ngrp; ++i ) {
@@ -632,6 +643,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
 
+    PMMG_grp_to_saveMesh( parmesh, i, "AfterSplit" );
+
     if ( !mesh ) continue;
 
     if ( !MMG5_chkmsh(mesh,1,1) ) {
@@ -687,10 +700,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         return 0;
       }
 
+
 #warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
-      for( k = 1; k <= mesh->np; k++ )
+      for( k = 1; k <= mesh->np; k++ ) {
+#warning Algiane todo
+        //assert ( mesh->point[k].src == k);
         mesh->point[k].src = k;
+      }
 #endif
 
       /* Reset the value of the fem mode */
@@ -761,6 +778,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           }
         }
 
+        if ( s ) {
+          PMMG_grp_to_saveMesh( parmesh, i, "BeforeAdp" );
+        }
+
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
 #else
@@ -768,6 +789,11 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 #endif
         mesh->npi = mesh->np;
         mesh->nei = mesh->ne;
+
+
+        if ( s ) {
+          PMMG_grp_to_saveMesh( parmesh, i, "AfterAdp" );
+        }
 
         if ( !ier ) {
           fprintf(stderr,"\n  ## MMG remeshing problem. Exit program.\n");

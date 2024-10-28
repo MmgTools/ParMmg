@@ -44,6 +44,8 @@
  * Load balancing of the mesh groups over the processors.
  *
  */
+int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
+
 int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
@@ -83,6 +85,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   }
 
   ne = 0;
+  printf("ngrps before loadbal = %d\n", parmesh->ngrp);
   for ( igrp=0; igrp < parmesh->ngrp; igrp++ )
     ne += parmesh->listgrp[igrp].mesh->ne;
 
