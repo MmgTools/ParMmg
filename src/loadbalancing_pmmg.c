@@ -85,7 +85,6 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   }
 
   ne = 0;
-  printf("ngrps before loadbal = %d\n", parmesh->ngrp);
   for ( igrp=0; igrp < parmesh->ngrp; igrp++ )
     ne += parmesh->listgrp[igrp].mesh->ne;
 
