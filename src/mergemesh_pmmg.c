@@ -456,9 +456,6 @@ int PMMG_mergeGrps_interfacePoints( PMMG_pParMesh parmesh ) {
            && ( poi_id_glo < parmesh->int_node_comm->nitem )
            && "check intvalues indices" );
     intvalues[ poi_id_glo ] = poi_id_int;
-    if ( poi_id_int == 1 ) {
-      printf("point id glob is %d\n",poi_id_glo);
-    }
   }
 
   /** Step 2: add points referenced by the rest of the groups meshes' internal
