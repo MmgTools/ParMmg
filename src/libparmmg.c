@@ -1611,7 +1611,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     tim = 1;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n   -- PHASE 3 : MESH PACKED UP\n" );
+      fprintf( stdout,"\n  -- PHASE 3 : MESH PACKED UP\n" );
     }
 
     ier = PMMG_bdryBuild ( parmesh );
@@ -1647,7 +1647,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     chrono(OFF,&(ctim[tim]));
     if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
       printim(ctim[tim].gdif,stim);
-      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
+      fprintf( stdout,"  -- PHASE 3 COMPLETED.     %s\n",stim );
     }
 
     break;
@@ -1657,7 +1657,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     tim = 1;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n   -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
+      fprintf( stdout,"\n  -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
     }
 
     ier = PMMG_merge_parmesh( parmesh );
@@ -1674,7 +1674,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     chrono(OFF,&(ctim[tim]));
     if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
       printim(ctim[tim].gdif,stim);
-      fprintf( stdout,"   -- PHASE 3 COMPLETED.     %s\n",stim );
+      fprintf( stdout,"  -- PHASE 3 COMPLETED.     %s\n",stim );
     }
 
     /** Boundaries reconstruction: by all the procs if the merge has failed,
@@ -1682,7 +1682,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     tim = 2;
     chrono(ON,&(ctim[tim]));
     if (  parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf( stdout,"\n   -- PHASE 4 : MESH PACKED UP\n" );
+      fprintf( stdout,"\n  -- PHASE 4 : MESH PACKED UP\n" );
     }
 
     if ( (!iresult) || (!parmesh->myrank) ) {
@@ -1705,7 +1705,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
       chrono(OFF,&(ctim[tim]));
       if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
         printim(ctim[tim].gdif,stim);
-        fprintf( stdout,"   -- PHASE 4 COMPLETED.     %s\n",stim );
+        fprintf( stdout,"  -- PHASE 4 COMPLETED.     %s\n",stim );
       }
     }
   }
@@ -1906,7 +1906,7 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
   chrono(OFF,&(ctim[tim]));
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"   -- PHASE 1 COMPLETED.     %s\n",stim);
+    fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
   /** Remeshing */

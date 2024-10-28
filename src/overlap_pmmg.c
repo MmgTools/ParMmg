@@ -134,7 +134,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS )
-      fprintf(stdout,"\n     Create Overlap.\n");
+      fprintf(stdout,"       Create Overlap\n");
 
   /* Creation of overlap works only when there is one group */
   /* Ensure only one group on each proc */
@@ -712,7 +712,7 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     }
 
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES )
-      fprintf(stdout, "           part %d sends %d pts and %d tetra to part %d\n",
+      fprintf(stdout, "         part %d sends %d pts and %d tetra to part %d\n",
                       color_in,npTot_in2out,ntTot_in2out,color_out);
 
     /* Reset memory*/
@@ -784,8 +784,8 @@ int PMMG_create_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   PMMG_DEL_MEM(parmesh,int_comm->intvalues,int,"intvalues");
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES )
-    fprintf(stdout, "          part %d has %d pts and %d tetras after overlap creation\n",
-                      color_in,mesh->np,mesh->ne);
+    fprintf(stdout, "         part %d has %d pts and %d tetras after overlap creation\n",
+            color_in,mesh->np,mesh->ne);
 
   return 1;
 }
@@ -809,7 +809,7 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   int i;
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
-      fprintf(stdout,"\n     Delete Overlap.\n");
+      fprintf(stdout,"       Delete Overlap\n");
   }
 
   if ( !parmesh->ngrp ) {
@@ -838,8 +838,8 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
     MMG3D_delPt(mesh,i);
   }
 
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION )
-    fprintf(stdout, "        part %d has %d pts and %d tetras after overlap deletion\n",
+  if ( parmesh->info.imprim > PMMG_VERB_ITWAVES )
+    fprintf(stdout, "          part %d has %d pts and %d tetras after overlap deletion\n",
             parmesh->myrank,mesh->np,mesh->ne);
 
   return 1;

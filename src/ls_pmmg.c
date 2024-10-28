@@ -1654,7 +1654,12 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
     if ( !pt->v[0] ) continue;
     if ( pt->tag & MG_OVERLAP) continue; // Ignore overlap tetra
     if ( pt->qual < MMG5_EPS ) {
-      fprintf(stdout, " PROC %d - Bad qual=%f < 1e-6 at tetra=%d \n", parmesh->myrank,pt->qual,k);
+
+      if ( parmesh->ddebug ) {
+        fprintf(stdout, "  ## Info: %s: rank %d: tetra %d has bad qual (%f < 1e-6)\n",
+                __func__,parmesh->myrank,k,pt->qual);
+      }
+
       for (i=0; i<4; i++) {
         ip = pt->v[i];
         if ( sol->m[ip] < 1000.0*MMG5_EPS ) break;
@@ -1686,7 +1691,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
           (-100.0*MMG5_EPS) : sol->m[k];
 
         if ( parmesh->ddebug ) {
-          fprintf(stderr, "  ## Warning: %s: rank %d - snapping value at "
+          fprintf(stderr, "  ## Warning: %s: rank %d: snapping value at "
                   "vertex %d, s=%d, tmp=%f, sol=%f \n",__func__,
                   parmesh->myrank,k,p0->s,tmp[k],sol->m[k]);
         }
@@ -1713,8 +1718,8 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
         // if (p0->tag & MG_PARBDY) continue;
         if ( p0->flag == 1 ) {
           if ( parmesh->ddebug ) {
-            fprintf(stdout, "  ## Info: %s: rank %d - call MMG3D_ismaniball:\n"
-                            "                              Tetra=%d, Point=%d, maniball=%d \n",
+            fprintf(stdout, "  ## Info: %s: rank %d: call MMG3D_ismaniball:\n"
+                    "                                  Tetra=%d, Point=%d, maniball=%d \n",
                     __func__,parmesh->myrank,k,ip,MMG3D_ismaniball(mesh,sol,k,i));
           }
           if ( !MMG3D_ismaniball(mesh,sol,k,i) ) {
@@ -1823,8 +1828,9 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
   // }
 
-  // if ( (abs(mesh->info.imprim) > 5 || mesh->info.ddebug) && ns+ncg > 0 )
-    fprintf(stdout,"  PROC %d -   %8" MMG5_PRId " points snapped, %" MMG5_PRId " corrected\n",parmesh->myrank,ns,ncg);
+  if ( (parmesh->info.imprim > PMMG_VERB_DETQUAL || parmesh->ddebug) && ns+ncg > 0 )
+    fprintf(stdout,"     rank %d: %8" MMG5_PRId " points snapped, %" MMG5_PRId
+            " corrected\n",parmesh->myrank,ns,ncg);
 
   /* Reset point flags */
   for (k=1; k<=mesh->np; k++)
