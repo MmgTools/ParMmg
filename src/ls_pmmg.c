@@ -105,7 +105,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
   int color_in_node,color_out_node;
   int color_in_edge,color_out_edge;
 
-if ( parmesh->myrank == parmesh->info.root )
+  if ( parmesh->myrank == parmesh->info.root )
     fprintf(stdout,"\n      ## PMMG_cuttet_ls: Multimaterial not fully supported yet.\n");
 
   /* Ensure only one group on each proc */
@@ -1554,6 +1554,9 @@ int PMMG_rmc(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_pSol sol){
  * Snap values of the level set function very close to 0 to exactly 0,
  * and prevent nonmanifold patterns from being generated.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  */
 int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
@@ -1593,7 +1596,7 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
   if ( !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Error: %s: hashing problem (1). Exit program.\n",
       __func__);
-    return 0;
+    ier = 0;
   }
 
   /* Reset point flags and s */
@@ -1603,10 +1606,18 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
   }
 
   /* Allocation memory */
-  PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",return 0);
+  PMMG_CALLOC(parmesh,int_comm->intvalues,int_comm->nitem,int,"intvalues",ier = 0);
   MMG5_ADD_MEM(mesh,(mesh->npmax+1)*sizeof(double),"temporary table",
-                fprintf(stderr,"  Exit program.\n"); return 0);
-  MMG5_SAFE_CALLOC(tmp,mesh->npmax+1,double,return 0);
+                fprintf(stderr,"  Exit program.\n"); ier = 0);
+
+  if ( ier ) {
+    MMG5_SAFE_CALLOC(tmp,mesh->npmax+1,double,ier = 0);
+  }
+
+  if ( !ier ) {
+    /* Comms of step 6 will fail */
+    MPI_Abort(parmesh->comm, PMMG_TMPFAILURE);
+  }
 
   /** STEP 2 - Identify proc owner of interface points */
   /* Store point index in internal communicator intvalues */
@@ -1657,8 +1668,6 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
     }
   }
 
-  fprintf(stdout, " \n\n");
-
   /** STEP 4 - Snap values of sol that are close to 0 to 0 exactly */
   ns = 0;
   for (k=1; k<=mesh->np; k++) {
@@ -1675,7 +1684,12 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
 
         tmp[k] = ( fabs(sol->m[k]) < MMG5_EPSD ) ?
           (-100.0*MMG5_EPS) : sol->m[k];
-        fprintf(stdout, " PROC %d - Snapval point=%d, s=%d, tmp=%f, sol=%f \n", parmesh->myrank,k,p0->s,tmp[k],sol->m[k]);
+
+        if ( parmesh->ddebug ) {
+          fprintf(stderr, "  ## Warning: %s: rank %d - snapping value at "
+                  "vertex %d, s=%d, tmp=%f, sol=%f \n",__func__,
+                  parmesh->myrank,k,p0->s,tmp[k],sol->m[k]);
+        }
 
         p0->flag = 1;
         sol->m[k] = 0;
@@ -1683,8 +1697,6 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
       }
     }
   }
-
-  fprintf(stdout, " \n\n");
 
   /** STEP 5 - Check snapping did not lead to a nonmanifold situation */
   ncg = 0;
@@ -1700,7 +1712,11 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
         p0 = &mesh->point[ip];
         // if (p0->tag & MG_PARBDY) continue;
         if ( p0->flag == 1 ) {
-          fprintf(stdout, " PROC %d - MMG3D_ismaniball Tetra=%d, Point=%d, maniball=%d \n", parmesh->myrank,k,ip,MMG3D_ismaniball(mesh,sol,k,i));
+          if ( parmesh->ddebug ) {
+            fprintf(stdout, "  ## Info: %s: rank %d - call MMG3D_ismaniball:\n"
+                            "                              Tetra=%d, Point=%d, maniball=%d \n",
+                    __func__,parmesh->myrank,k,ip,MMG3D_ismaniball(mesh,sol,k,i));
+          }
           if ( !MMG3D_ismaniball(mesh,sol,k,i) ) {
             if ( tmp[ip] < 0.0 )
               sol->m[ip] = -100.0*MMG5_EPS;
@@ -1721,6 +1737,11 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
   // nitem_ToShare_ToSend = 0; // Nbr of nodes in common between Pcolor_in and Pcolor_out
   // PMMG_CALLOC(parmesh,intvalues,    mesh->np, int,    "intvalues",    ier = 0);
   // PMMG_CALLOC(parmesh,doublevalues, mesh->np, double, "doublevalues", ier = 0);
+
+  // if ( !ier ) {
+  //  /* Avoid deadlock in comms */
+  //  MPI_Abort(parmesh->comm, PMMG_TMPFAILURE);
+  // }
 
   // for (k=1; k<=mesh->np; k++) {
   //   p0 = &mesh->point[k];
@@ -1752,6 +1773,11 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
   //   PMMG_CALLOC(parmesh,itosend, nitem_ext, int,    "itosend", ier = 0);
   //   PMMG_CALLOC(parmesh,rtosend, nitem_ext, double, "rtosend", ier = 0);
 
+  //   if ( !ier ) {
+  //     /* Avoid deadlock in comms */
+  //     MPI_Abort(parmesh->comm, PMMG_TMPFAILURE);
+  //   }
+
   //   /* Loop over the nodes in the external node communicator **/
   //   for (i=0; i < nitem_ext; i++) {
   //     /* Get the indices of the nodes in internal communicators */
@@ -1774,21 +1800,26 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
   //   MPI_CHECK(
   //     MPI_Sendrecv(&nitem_ToShare_ToSend,1,MPI_INT,color_out,MPI_LS_TAG+2,
   //                  &nitem_ToShare_ToRecv,1,MPI_INT,color_out,MPI_LS_TAG+2,
-  //                  comm,&status),return 0 );
+  //                  comm,&status),MPI_Abort(parmesh->comm, PMMG_TMPFAILURE) );
 
   //   ext_comm->nitem_to_share = nitem_ToShare_ToRecv;
 
   //   PMMG_CALLOC(parmesh,itorecv, nitem_ToShare_ToRecv, int,    "itorecv", ier = 0);
   //   PMMG_CALLOC(parmesh,rtorecv, nitem_ToShare_ToRecv, double, "rtorecv", ier = 0);
 
+  //   if ( !ier ) {
+  //     /* Avoid deadlock in comms */
+  //     MPI_Abort(parmesh->comm, PMMG_TMPFAILURE);
+  //   }
+
   //   MPI_CHECK(
   //     MPI_Sendrecv(itosend,nitem_ToShare_ToSend,MPI_INT,color_out,MPI_LS_TAG,
   //                  itorecv,nitem_ToShare_ToRecv,MPI_INT,color_out,MPI_LS_TAG,
-  //                  comm,&status),return 0 );
+  //                  comm,&status), MPI_Abort(parmesh->comm, PMMG_TMPFAILURE) );
   //   MPI_CHECK(
   //     MPI_Sendrecv(rtosend,nitem_ToShare_ToSend,MPI_DOUBLE,color_out,MPI_LS_TAG+1,
   //                  rtorecv,nitem_ToShare_ToRecv,MPI_DOUBLE,color_out,MPI_LS_TAG+1,
-  //                  comm,&status),return 0 );
+  //                  comm,&status), MPI_Abort(parmesh->comm, PMMG_TMPFAILURE) );
 
   // }
 
@@ -1816,6 +1847,9 @@ int PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm) {
  *
  * Create implicit surface in mesh.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  */
 int PMMG_ls(PMMG_pParMesh parmesh) {
   char str[16]="";
@@ -1823,6 +1857,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   MMG5_pMesh mesh;
   MMG5_pSol  met,sol;
   MMG5_int k;
+  int      ier = 1;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -1833,7 +1868,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   if ( mesh->info.isosurf ) {
     fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
             " implemented. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_VERSION )
@@ -1842,7 +1877,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   if ( mesh->nprism || mesh->nquad ) {
     fprintf(stderr,"\n  ## Error: Isosurface extraction not available with"
             " hybrid meshes. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Modify the value of the level-set to work with the 0 level-set  */
@@ -1850,44 +1885,56 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     sol->m[k] -= mesh->info.ls;
 
   /* Create overlap */
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
-    return PMMG_STRONGFAILURE;
+    /* To avoid deadlocks in snpval_ls */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /** \todo TODO :: Snap values of level set function if needed */
   if ( !PMMG_snpval_ls(parmesh,parmesh->info.read_comm) ) {
     fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
-    return 0;
+    /* To avoid deadlocks in parbdyTria */
+    ier = 0;
   }
 
   /* Delete overlap */
   if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
-    return PMMG_STRONGFAILURE;
+    fprintf(stderr,"\n  ## Impossible to delete overlap. Exit program.\n");
+    ier = 0;
   }
 
   /* Create table of adjacency for tetra */
   if ( !MMG3D_hashTetra(mesh,1) ) {
     fprintf(stderr,"\n  ## Hashing problem. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Reset the mesh->info.isoref field everywhere */
-  if ( !MMG3D_resetRef_ls(mesh) ) {
+  if ( ier && !MMG3D_resetRef_ls(mesh) ) {
     fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Tag parallel triangles on material interfaces as boundary. */
+  if ( !ier ) {
+    /* Avoid deadlock in comms in parbdyTria */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if( !PMMG_parbdyTria( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces."
             " Exit program.\n");
-    return 0;
+    ier =  0;
   }
 
   /* Check the compatibility of triangle orientation with tetra faces */
   if ( !MMG5_bdryPerm(mesh) ) {
     fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Identify surface mesh. Clean triangle array: remove useless or double
@@ -1896,29 +1943,29 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
      not be stored inthe xtetra by the MMG5_bdrySet function during analysis.
      This may create inconsistencies between edge and point tags.
   */
-  if ( !MMG5_chkBdryTria(mesh) ) {
+  if ( ier && !MMG5_chkBdryTria(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Build hash table for initial edges: gather tag infos from edges and
    * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
-  if ( !MMG5_hGeom(mesh) ) {
+  if ( ier && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Set the triangles references to the tetrahedra faces and edges */
-  if ( !MMG5_bdrySet(mesh) ) {
+  if ( ier && !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Problem in setting boundary. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /** \todo TODO :: Removal of small parasitic components */
-  if ( mesh->info.rmc > 0 ) {
+  if ( mesh->info.rmc > 0 && ier ) {
     PMMG_rmc(parmesh,mesh,sol);
-    fprintf(stdout,"\n  ## Warning: rmc option not implemented yet for ParMmg\n");
-    return 0;
+    fprintf(stdout,"\n  ## Warning: rmc option not implemented yet for ParMmg.\n");
+    ier = 0;
   }
 
 #ifdef USE_POINTMAP
@@ -1932,31 +1979,41 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
 
   /* Compute vertices global numerotation
      This step is needed to compute the edge communicator */
+
+  if ( !ier ) {
+    /* Avoid deadlock in comms in compute_verticesGloNum */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->info.read_comm ) ) {
-    fprintf(stderr,"\n\n\n  -- WARNING: IMPOSSIBLE TO COMPUTE NODE GLOBAL NUMBERING\n\n\n");
-    return 0;
+    fprintf(stderr,"\n  ## Warning: impossible to compute node global numbering.\n");
+    ier = 0;
   }
 
   /* Hash parallel edges
      This step is needed to compute the edge communicator */
-  if( PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS ) {
-    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
-    return 0;
+  if( ier && (PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS) ) {
+    fprintf(stderr,"\n  ## Warning: impossible to compute the hash parallel edge.\n");
+    ier = 0;
+  }
+
+  if ( !ier ) {
+    /* Avoid deadlock in comms in build_edgeComm */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Build edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,parmesh->info.read_comm ) ) {
-    fprintf(stderr,"\n\n\n  -- WARNING: Impossible to build edge communicator \n\n\n");
-    return 0;
+    fprintf(stderr,"\n  ## Warning: Impossible to build edge communicator.\n");
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   assert ( PMMG_check_extEdgeComm ( parmesh,parmesh->info.read_comm ) );
 
   /** Discretization of the implicit function - Cut tetra */
   if ( !PMMG_cuttet_ls(parmesh) ) {
-    if ( parmesh->myrank == parmesh->info.root )
-      fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
-    return 0;
+    fprintf(stderr,"\n  ## Problem in discretizing implicit function. Exit program.\n");
+    ier = 0;
   }
 
   /* Delete outdated arrays */
@@ -1979,9 +2036,9 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   mesh->nei = mesh->ne;
 
   /* Set ref to tetra according to the sign of the level-set */
-  if ( !MMG3D_setref_ls(mesh,sol) ) {
+  if ( ier && !MMG3D_setref_ls(mesh,sol) ) {
     fprintf(stderr,"\n  ## Problem in setting references. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Clean old bdy analysis */
@@ -1996,6 +2053,11 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
 
   /* Clean memory */
   MMG5_DEL_MEM(mesh,sol->m);
+
+  if ( !ier ) {
+    /* Avoid deadlock in comms in build_edgeComm */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Check communicators */
   assert ( PMMG_check_extFaceComm ( parmesh,parmesh->info.read_comm ) );

@@ -591,6 +591,9 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Local iterations of surface coloring to assign normal vectors on parallel
  * ridge points.
  */
@@ -608,20 +611,23 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,MPI_Comm
     var->updloc = 0;
 
     /* Sweep loop upstream edge -> triangle -> downstream edge */
-    if( !PMMG_hashNorver_loop( parmesh,var,MG_CRN,&PMMG_hashNorver_sweep ) )
-      return 0;
+    if( !PMMG_hashNorver_loop( parmesh,var,MG_CRN,&PMMG_hashNorver_sweep ) ) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /* Set color on parallel edges */
   for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
     idx = grp->edge2int_edge_comm_index2[i];
-    if( !PMMG_hashNorver_edge2paredge( parmesh,var,idx ) )
-      return 0;
+    if( !PMMG_hashNorver_edge2paredge( parmesh,var,idx ) ) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /* Check if any process has marked the need for a parallel update */
   MPI_CHECK( MPI_Allreduce( MPI_IN_PLACE,&var->updpar,1,MPI_INT16_T,MPI_MAX,
-                            comm ),return 0 );
+                            comm ),
+             MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
   return 1;
 }
@@ -647,6 +653,9 @@ int PMMG_hashNorver_compExt( const void *a,const void *b ) {
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Communicate ridge extremities on parallel ridge points.
  */
@@ -695,11 +704,12 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
+
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -755,6 +765,9 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Communicate bitwise integer flags on parallel points, and reduce them on the
  * internal point communicator.
  */
@@ -787,7 +800,7 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh,MPI_Comm comm ){
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -815,6 +828,9 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh,MPI_Comm comm ){
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Communicate contributions to normal and tangent vectors on triangles touching
  * parallel points, and add them to the point vectors.
@@ -852,11 +868,11 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh,MPI_Comm comm ) {
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
      MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -923,6 +939,9 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Compute normal and tangent vectors on parallel points, using a hash tables
  * for edges. once C1 portions of a surface touching a parallel ridge point have
  * been consistently colored.
@@ -976,8 +995,10 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
   memset(intvalues,0,parmesh->int_node_comm->nitem*sizeof(int));
 
   /* Accumulate normal vector contributions */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hn_sumnor ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hn_sumnor ) ) {
+    /* Because we will have a comm in hashNorver_communication_nor */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Load communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
@@ -1049,8 +1070,9 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
   }
 
   /* Parallel reduction on normal vectors */
-  if( !PMMG_hashNorver_communication_nor( parmesh,comm ) )
-    return 0;
+  if( !PMMG_hashNorver_communication_nor( parmesh,comm ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Unload communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
@@ -1237,6 +1259,9 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  *
  * \return 0 if failure, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Set the owner rank of each parallel edge, and store it the \var base field
  * of the edge structure.
  */
@@ -1304,7 +1329,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -1339,6 +1364,9 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
  *
  * \return 0 if failure, 1 if success.
  *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Check that every edge has one and only one owner.
  */
 int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm ) {
@@ -1361,7 +1389,9 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
     pa = &mesh->edge[ia];
     intvalues[ia-1] = pa->base;
     if (!(pa->tag & MG_PARBDYBDY)) continue;
-    if (pa->base == parmesh->nprocs) return 0;
+    if (pa->base == parmesh->nprocs) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /** Exchange values on the interfaces among procs */
@@ -1383,7 +1413,8 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   }
 
   /* Check that all edges have the same owner over the whole mesh */
@@ -1416,6 +1447,9 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Compute normal and tangent vectors on parallel points, using hash tables
  * for edges. This is necessary as it is not convenient to travel the surface
@@ -1458,21 +1492,30 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
 
   /* Create xpoints */
-  if( !PMMG_hashNorver_xp_init( parmesh,var ) )
-    return 0;
+  if( !PMMG_hashNorver_xp_init( parmesh,var ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
 
   /** 1) Find local ridge extremities. */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_edges ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_edges ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
    *     extremity. */
-  if( !PMMG_hashNorver_communication_ext( parmesh,mesh,comm ) ) return 0;
+  if( !PMMG_hashNorver_communication_ext( parmesh,mesh,comm ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Switch edge color if its extremity is found */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
 
   /** 3) Propagate surface colors:
@@ -1491,7 +1534,10 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* 3.2) Parallel update iterations */
   while( var->updpar ) {
@@ -1500,16 +1546,25 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     var->updpar = 0;
 
     /* 3.2.1) Parallel communication */
-    if( !PMMG_hashNorver_communication( parmesh,comm ) ) return 0;
+    if( !PMMG_hashNorver_communication( parmesh,comm ) ) {
+      /* Because we will have a comm in PMMG_hashNorver_locIter */
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
 
     /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
-      if( !PMMG_hashNorver_paredge2edge( parmesh,hash,idx ) ) return 0;
+      if( !PMMG_hashNorver_paredge2edge( parmesh,hash,idx ) ) {
+        /* Because we will have a comm in PMMG_hashNorver_locIter */
+        MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      }
     }
 
     /* 3.2.3) Local update iterations */
-    if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
+    if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) {
+      /* Because we will have a comm in PMMG_hashNorver_normals */
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
 
   }
 
@@ -1665,6 +1720,9 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  *
  * Check for singularities.
  *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * \remark Modeled after the MMG5_singul function.
  */
 int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_Comm comm) {
@@ -1707,7 +1765,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
 
 
   /* Array to reorder communicators */
-  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",
+              MPI_Abort(parmesh->comm,PMMG_TMPFAILURE)
+    );
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     iproc2comm[iproc] = PMMG_UNSET;
@@ -1776,7 +1836,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
   }
 
   /* Get tags and reset buffers and communicator */
@@ -1811,8 +1873,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
 
 
   /** Local singularity analysis */
-  if( !PMMG_loopr( parmesh, var ) )
-    return 0;
+  if( !PMMG_loopr( parmesh, var ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -1839,12 +1902,16 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
 
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
   }
 
   /** First pass: Sum nb. of singularities, Store received edge vectors in
@@ -1996,6 +2063,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  *
  * \todo Do not add MG_GEO tag to MG_NOM edges and fix tag non-consistencies in this case.
  *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  */
 int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
@@ -2102,7 +2172,8 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   }
 
   /* Update edge tags in the internal communicator */
@@ -2240,12 +2311,12 @@ int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status), MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
 
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
-                   comm,&status),return 0 );
+                   comm,&status), MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /** Step 4 - First pass: Increment the number of seen triangles, check for reference
@@ -2663,11 +2734,15 @@ int PMMG_analys_comms_init( PMMG_pParMesh parmesh ) {
  *
  * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
  * tria structure in order to be able to build communicators.
+ *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  */
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   MMG5_Hash       hash;
   MMG5_HGeom      hpar,hnear;
   PMMG_hn_loopvar var;
+  int             ier = 1;
 
   /* Initialization to avoid memleaks when we try to deallocate memory */
   memset(&hpar,0x0,sizeof(MMG5_HGeom));
@@ -2676,26 +2751,26 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   /* Tag parallel triangles on material interfaces as boundary */
   if( !PMMG_parbdyTria( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces. Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
 
   /* create surface adjacency */
-  if ( !MMG3D_hashTria(mesh,&hash) ) {
+  if ( ier && !MMG3D_hashTria(mesh,&hash) ) {
     MMG5_DEL_MEM(mesh,hash.item);
     fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
   /* build hash table for geometric edges: gather tag infos from edges and
    * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
-  if ( !MMG5_hGeom(mesh) ) {
+  if ( ier && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
-    return 0;
+    ier = 0;
   }
 
   /**--- stage 2: surface analysis */
@@ -2703,38 +2778,47 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     fprintf(stdout,"  ** SETTING TOPOLOGY\n");
 
   /* identify connexity */
-  if ( !MMG5_setadj(mesh) ) {
+  if ( ier && !MMG5_setadj(mesh) ) {
     fprintf(stderr,"\n  ## Topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
-    return 0;
+    ier = 0;
   }
 
   /* Hash parallel edges from tetra and face communicator: store edges and the
      MG_PARBDY tag (other edge tags are not stored).*/
-  if( PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS ) {
+  if( ier && (PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS) ) {
+    fprintf(stderr,"\n  ## Warning: impossible to compute the hash parallel edge\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
-    return 0;
+    ier = 0;
   }
 
   /* Build edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
+  if ( !ier ) {
+    /* Avoid deadlock in comms in build_edgeComm */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
+  if ( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
+    fprintf(stderr,"\n  ## Warning: Impossible to build edge communicator\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Compute global node numbering and store it in ppt->tmp */
   if( !PMMG_Compute_verticesGloNum( parmesh,comm ) ) {
+    fprintf(stderr,"\n  ## Warning: impossible to compute node global numbering\n");
+
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Allocate communicator buffers */
@@ -2744,13 +2828,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
   /* 1. Call \ref MMG5_setdhd to analyze edges at interfaces of 2 "true"
    * boundary faces. Skip pure parallel faces */
-  if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
+  if ( ier && (mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh)) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2758,7 +2842,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* 2. Call PMMG_setfeatures to analyze edges splitted by the parallel interface:
@@ -2770,6 +2854,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
    * Analysis uses the tria array so if it is not allocated, this part of the
    * analysis will not be complete.
    */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if ( !PMMG_setfeatures( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2778,11 +2867,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* identify singularities on interior points */
-  if ( !MMG5_singul(mesh) ) {
+  if ( ier && !MMG5_singul(mesh) ) {
     fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2790,14 +2879,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
   /* define (and regularize) normals: create xpoints */
-  if ( !MMG5_norver( mesh ) ) {
+  if ( ier && !MMG5_norver( mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2806,11 +2895,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* set bdry entities to tetra: create xtetra and set references */
-  if ( !MMG5_bdrySet(mesh) ) {
+  if ( ier && !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2821,13 +2910,18 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* Tag parallel faces on material interfaces as boundary (ie, add \ref
    * MG_PARBDYBDY tag) and remove spurious boundary MG_PARBDYBDY tags coming
    * from spurious internal triangles (between tetras of same references) along
    * partition interfaces.  */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2837,7 +2931,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* set non-manifold edges sharing non-intersecting multidomains as required */
@@ -2847,7 +2941,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   /* 1. set non-manifold edges sharing non-intersecting multidomains as required
      2. travel points lying along non-manifold edges and set tags depending on
      the number of feature edges passing through the point */
-  if ( !MMG5_setNmTag(mesh,&hash) ) {
+  if ( ier && !MMG5_setNmTag(mesh,&hash) ) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2856,13 +2950,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
    * the table, plus two other internal edges. */
-  if ( !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) ) {
+  if ( ier && !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) ) {
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2870,7 +2964,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
   var.mesh = mesh;
   var.hash = &hnear;
@@ -2879,7 +2973,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 
   /** 0) Loop on edges touching a parallel point and insert them in the
    *     hash table. */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) ) {
+    fprintf(stderr,"\n ## Unable to hash edges connected to parallel points. Exit program. \n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2889,10 +2989,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   if( !PMMG_set_edge_owners( parmesh,&hpar,comm ) ) {
+    fprintf(stderr,"\n ## Unable to compute edge owners. Exit program. \n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2902,13 +3003,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
 #ifndef NDEBUG
   if (!PMMG_check_edge_owners(parmesh,&hpar,comm)) {
     fprintf(stderr,"\n ## Parallel edge has no owner or too many owners. Exit program. \n");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 #endif
 
@@ -2926,7 +3027,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var,comm ) ) {
@@ -2940,7 +3041,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Deallocate communicator buffers */

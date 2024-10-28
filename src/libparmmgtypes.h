@@ -65,6 +65,13 @@
  */
 #define PMMG_FAILURE  4
 
+/**
+ * \def PMMG_TMPFAILURE
+ *
+ * Return failure not yet handled by developers: MPI_abort is called but should
+ * be removed with a clean error handling with no deadlocks.
+ */
+#define PMMG_TMPFAILURE PMMG_STRONGFAILURE
 
 /**
  * \def PMMG_ARG_start
