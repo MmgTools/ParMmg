@@ -1044,7 +1044,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
               pos ) ) return 0;
 
         for ( j=0; j<3; ++j ) {
-          /* Update the face and face vertices tags */
+          /** Update the face and face vertices tags */
           PMMG_tag_par_edge(pxt,MMG5_iarf[fac][j]);
           ppt = &mesh->point[tetraCur->v[MMG5_idir[fac][j]]];
           PMMG_tag_par_node(ppt);
@@ -1119,6 +1119,11 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
        * face). */
       MMG5_hGet( &hash, ip0, ip1, &ref, &tag );
       pxt->tag[j] |= tag;
+
+      /* Remove spurious NOSURF tag for user required edges */
+      if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+        pxt->tag[j] &= ~MG_NOSURF;
+      }
     }
 
   }
