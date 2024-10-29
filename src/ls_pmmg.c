@@ -819,7 +819,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
 
   /** STEP 6 - Split according to tets flags */
   /** STEP 6.1 - Compute global node vertices */
-  if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->comm ) ) {
+  if ( !PMMG_Compute_verticesGloNum( parmesh,parmesh->info.read_comm ) ) {
     fprintf(stderr,"\n  ## Error: impossible to compute node global numbering\n");
   }
 
