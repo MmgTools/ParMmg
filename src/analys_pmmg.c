@@ -2788,7 +2788,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   /* Hash parallel edges from tetra and face communicator: store edges and the
      MG_PARBDY tag (other edge tags are not stored).*/
   if( ier && (PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS) ) {
-    fprintf(stderr,"\n  ## Warning: impossible to compute the hash parallel edge\n");
+    fprintf(stderr,"\n  ## Impossible to compute the hash parallel edge."
+            " Exit program.\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2802,7 +2803,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   }
 
   if ( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
-    fprintf(stderr,"\n  ## Warning: Impossible to build edge communicator\n");
+    fprintf(stderr,"\n  ## Impossible to build edge communicator."
+            " Exit program\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2811,7 +2813,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 
   /* Compute global node numbering and store it in ppt->tmp */
   if( !PMMG_Compute_verticesGloNum( parmesh,comm ) ) {
-    fprintf(stderr,"\n  ## Warning: impossible to compute node global numbering\n");
+    fprintf(stderr,"\n  ## Impossible to compute node global numbering."
+            " Exit program\n");
 
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
