@@ -3102,7 +3102,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 
 #ifdef USE_POINTMAP
   /* Initialize source point with input index */
-  int ip;
+  MMG5_int ip;
   for( ip = 1; ip <= mesh->np; ip++ )
     mesh->point[ip].src = ip;
 #endif

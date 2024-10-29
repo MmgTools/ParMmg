@@ -632,15 +632,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
 
-    PMMG_grp_to_saveMesh( parmesh, i, "AfterSplit" );
-
     if ( !mesh ) continue;
 
+#ifndef NDEBUG
     if ( !MMG5_chkmsh(mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
-
+#endif
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
@@ -683,18 +682,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
 
-
+#ifndef NDEBUG
       if ( !MMG5_chkmsh(mesh,1,1) ) {
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-
+#endif
 
 #warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
       for( k = 1; k <= mesh->np; k++ ) {
-#warning Algiane todo
-        //assert ( mesh->point[k].src == k);
         mesh->point[k].src = k;
       }
 #endif
@@ -766,6 +763,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
             goto strong_failed;
           }
         }
+
 
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
@@ -967,13 +965,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
+#ifndef NDEBUG
   for (int k=0; k<parmesh->ngrp; ++k ) {
     if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
   }
-
+#endif
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
