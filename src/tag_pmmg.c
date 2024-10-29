@@ -433,10 +433,27 @@ int PMMG_updateTag(PMMG_pParMesh parmesh) {
          * so remove the MG_NOSURF tag if the edge is truly required */
         if( pxt->tag[j] & MG_REQ )
           gettag &= ~MG_NOSURF;
+
         /* set edge tag (without NOSURF tag if the edge is required by the
          * user): here we preserve the initial MG_REQ tag of each tetra, thus,
-         * potential inconsistencies will not be solved. */
-        pxt->tag[j] |= gettag;
+         * potential inconsistencies will not be solved.
+         *
+         * A xtetra may have an edge that is boundary but doesn't belong to any
+         * boundary face:
+         *  - if this edge is marked as MG_BDY, the edge tag should be
+         *    consistent with edge tag stored from a boundary face and we have
+         *    to maintain this consistency;
+         *
+         * - if this edge is not marked as MG_BDY (tag == 0), we are not able to
+         *    know if the edge is ref or required or if it has any other tag so
+         *    we are not able to maintain the tag consistency and we have to
+         *    preserve the fact that the edge is not MG_BDY.
+         *
+         */
+        if ( (pxt->tag[j] & MG_BDY) ||
+             ( (pxt->ftag[MMG5_ifar[j][0]] & MG_BDY) || (pxt->ftag[MMG5_ifar[j][1]] & MG_BDY) ) ) {
+               pxt->tag[j] |= gettag;
+        }
       }
     }
     PMMG_DEL_MEM( mesh, hash.geom, MMG5_hgeom, "Edge hash table" );
@@ -495,6 +512,16 @@ void PMMG_updateTagRef_node(PMMG_pParMesh parmesh, MMG5_pMesh mesh) {
  *
  * Check if faces on a parallel communicator connect elements with different
  * references, and tag them as a "true" boundary (thus PARBDYBDY).
+ *
+ * \remark: Edge tags are not updated along faces with the PARBDYBDY tag as
+ * it is not sufficient to maintain the consistency of PARBDYBDY tags through the mesh.
+ * Morover, even if we manage to have consistent tags inside one mesh, we will
+ * still have to synchronize the edge tags through the partition interfaces. In consequence,
+ * the PARBDYBDY tags may be not consistent throught the entire remeshing process.
+ *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  */
 int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   PMMG_pGrp      grp;
@@ -516,11 +543,12 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
   /* intvalues will be used to store tetra ref */
   int_face_comm = parmesh->int_face_comm;
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "intvalues",return 0);
+              "intvalues", MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   intvalues = parmesh->int_face_comm->intvalues;
 
   /* seenFace will be used to recognize already visited faces */
-  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
+  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",
+              MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
   /** Fill the internal communicator with the first ref found */
   for( igrp = 0; igrp < ngrp; igrp++ ) {
@@ -572,11 +600,11 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     color         = ext_face_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                return 0);
+                MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
     itosend = ext_face_comm->itosend;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
+                MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
     itorecv = ext_face_comm->itorecv;
 
     for ( i=0; i<nitem; ++i ) {
@@ -589,7 +617,8 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
-                   parmesh->info.read_comm,&status),return 0 );
+                   parmesh->info.read_comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
     /* Store the info in intvalues */
     for ( i=0; i<nitem; ++i ) {
@@ -617,8 +646,8 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       if( seenFace[idx] != 1 ) continue;
 
       /* Tag face as "true" boundary if its ref is different (or if triangle has
-       * a non nul ref in openbdy mode), delete reference if it is only a
-       * parallel boundary */
+       * a non nul ref in opnbdy mode), delete reference if it is only a
+       * parallel boundary. */
       if ( (mesh->info.opnbdy && pxt->ref[ifac]>0) ) {
         pxt->ftag[ifac] |= MG_PARBDYBDY;
         for( i = 0; i < 3; i++)
@@ -642,7 +671,6 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
       }
     }
   }
-
 
   /* Tag parallel points touched by simple MG_BDY faces as MG_PARBDYBDY
    * (a parallel surface can pinch a regular surface in just one point).
@@ -681,6 +709,10 @@ int PMMG_parbdySet( PMMG_pParMesh parmesh ) {
  *
  * Check if faces on a parallel communicator connect elements with different
  * references, and tag them as a "true" boundary (thus PARBDYBDY).
+ *
+ * \todo clean parallel error handling (without MPI_abort call and without deadlocks)
+ *
+ * \todo manage opnbdy mode
  */
 int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
   MMG5_Hash      hash;
@@ -699,26 +731,35 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
 
   comm   = parmesh->comm;
   myrank = parmesh->myrank;
-  assert( parmesh->ngrp == 1 );
+
+  if ( !parmesh->ngrp ) {
+    return 1;
+  }
+
+  assert( parmesh->ngrp == 1 && "Not implemented for multiple groups");
+
   mesh = grp->mesh;
 
   /* intvalues will be used to store tetra ref */
   int_face_comm = parmesh->int_face_comm;
   PMMG_MALLOC(parmesh,int_face_comm->intvalues,int_face_comm->nitem,int,
-              "intvalues",return 0);
+              "intvalues",MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   intvalues = parmesh->int_face_comm->intvalues;
 
   /* seenFace will be used to recognize already visited faces */
-  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",return 0);
+  PMMG_CALLOC(parmesh,seenFace,int_face_comm->nitem,int,"seenFace",
+              MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
   /* Hash triangles */
-  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) return 0;
+  if ( ! MMG5_hashNew(mesh,&hash,0.51*mesh->nt,1.51*mesh->nt) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   for (kt=1; kt<=mesh->nt; kt++) {
     ptt = &mesh->tria[kt];
     if ( !MMG5_hashFace(mesh,&hash,ptt->v[0],ptt->v[1],ptt->v[2],kt) ) {
       MMG5_DEL_MEM(mesh,hash.item);
-      return 0;
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
     }
   }
 
@@ -759,11 +800,11 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
     color         = ext_face_comm->color_out;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itosend,nitem,int,"itosend array",
-                return 0);
+                MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
     itosend = ext_face_comm->itosend;
 
     PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv array",
-                return 0);
+                MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
     itorecv = ext_face_comm->itorecv;
 
     for ( i=0; i<nitem; ++i ) {
@@ -774,7 +815,7 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
                    itorecv,nitem,MPI_INT,color,MPI_COMMUNICATORS_REF_TAG,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
     /* Store the info in intvalues */
     for ( i=0; i<nitem; ++i ) {
@@ -818,6 +859,10 @@ int PMMG_parbdyTria( PMMG_pParMesh parmesh ) {
         ptt->v[1] = ib;
         ptt->v[2] = ic;
       } else {
+        /* The boundary will belong to one partition only, for the other
+         * partition, the triangle will be considered as simply parallel.  This
+         * means that the PARBDYBDY triangle tags may be not consistent from
+         * here.  */
         ptt->tag[0] &= ~MG_PARBDYBDY;
         ptt->tag[1] &= ~MG_PARBDYBDY;
         ptt->tag[2] &= ~MG_PARBDYBDY;

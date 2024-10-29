@@ -413,7 +413,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   }
 
   /* Hash parallel edges in the mesh */
-  if ( PMMG_hashPar(mesh,&hpar) != PMMG_SUCCESS ) return 0;
+  if ( PMMG_hashParTag_fromXtet(mesh,&hpar) != PMMG_SUCCESS ) return 0;
 
   /* Build parallel edge communicator */
   if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) return 0;

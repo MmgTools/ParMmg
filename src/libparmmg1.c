@@ -268,7 +268,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* to could save the mesh, the adjacency have to be correct */
-    if ( mesh->info.ddebug ) {
+//    if ( mesh->info.ddebug ) {
       if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
                 __func__);
@@ -278,7 +278,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-    }
+//    }
   }
 
   return 1;
@@ -400,7 +400,7 @@ int  PMMG_update_face2intInterfaceTetra( PMMG_pParMesh parmesh, int igrp,
     }
   }
 
-  /** Step 2: Travel through the \a facesData array, get int the hash table the
+  /** Step 2: Travel through the \a facesData array, get in the hash table the
    * index of the element to which belong the face and update the face
    * communicator */
   face2int_face_comm_index1 = grp->face2int_face_comm_index1;
@@ -534,6 +534,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   return 1;
 }
 
+int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
@@ -566,6 +567,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Set inputMet flag */
   parmesh->info.inputMet = 0;
+
+#ifndef NDEBUG
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
+
   for ( i=0; i<parmesh->ngrp; ++i ) {
     met         = parmesh->listgrp[i].met;
     if ( met && met->m ) {
@@ -621,7 +632,15 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
 
+    PMMG_grp_to_saveMesh( parmesh, i, "AfterSplit" );
+
     if ( !mesh ) continue;
+
+    if ( !MMG5_chkmsh(mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
@@ -664,10 +683,20 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
 
+
+      if ( !MMG5_chkmsh(mesh,1,1) ) {
+        fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+        return 0;
+      }
+
+
 #warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
-      for( k = 1; k <= mesh->np; k++ )
+      for( k = 1; k <= mesh->np; k++ ) {
+#warning Algiane todo
+        //assert ( mesh->point[k].src == k);
         mesh->point[k].src = k;
+      }
 #endif
 
       /* Reset the value of the fem mode */
@@ -937,6 +966,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));

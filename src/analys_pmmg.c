@@ -34,6 +34,7 @@
 
 #include "parmmg.h"
 #include "libmmg3d.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param ppt pointer toward the point structure
@@ -109,7 +110,7 @@ typedef struct {
  * stored for each of the two edge orientations.
  */
 static inline
-int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
+int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,uint16_t *color ) {
   uint16_t tag;
 
   /* Get edge from hash table */
@@ -136,7 +137,7 @@ int PMMG_hGetOri( MMG5_HGeom *hash,int ip0,int ip1,int *ref,int16_t *color ) {
  * each of the two edge orientations.
  */
 static inline
-int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,int16_t color ) {
+int PMMG_hTagOri( MMG5_HGeom *hash,int ip0,int ip1,int ref,uint16_t color ) {
   uint16_t tag;
 
   /* Set bitwise tag from color */
@@ -309,9 +310,9 @@ int PMMG_hash_nearParEdges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   MMG5_pPoint ppt[2];
-  double *doublevalues;
-  int    ia[2],ip[2],gip;
-  int    *intvalues,idx,d,edg,j,pos;
+  double   *doublevalues;
+  int      ia[2],ip[2],gip;
+  int      *intvalues,idx,d,edg,j,pos;
   uint16_t tag;
   int8_t   found;
 
@@ -355,7 +356,11 @@ int PMMG_hashNorver_edges( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
           pos++;
         }
         assert(found < 2);
+
+#ifndef NDEBUG
         if( pos == 2 ) assert(found);
+#endif
+
         if( !found ) {
           assert( pos < 2 );
           intvalues[2*idx+pos] = gip;
@@ -409,7 +414,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
         parmesh->int_node_comm->intvalues[2*idx] ){
       if( !PMMG_hTagOri( var->hash,
                          var->ip,ip[j], /* pair (ip,np+ip[j]) */
-                         (int)tag,      /* still the same tag */
+                         tag,      /* still the same tag */
                          1 ) )          /* switch color on */
         return 0;
     }
@@ -441,7 +446,7 @@ int PMMG_hashNorver_switch( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
 static inline
 int PMMG_hashNorver_sweep( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
   int        edg;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   /* If non-manifold, only process exterior points */
   if( (var->ppt->tag & MG_NOM) && var->iadj ) return 1;
@@ -495,7 +500,7 @@ int PMMG_hashNorver_edge2paredge( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,
                                   int idx ) {
   MMG5_pEdge pa;
   int       *intvalues,edg,j,i[2],ip,ip1;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   /* Get internal communicator */
   intvalues = parmesh->int_edge_comm->intvalues;
@@ -543,7 +548,7 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
   MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
   MMG5_pEdge pa;
   int       *intvalues,edg,j,i[2],ip,ip1;
-  int16_t    color_old,color_new;
+  uint16_t   color_old,color_new;
 
   assert( parmesh->ngrp == 1 );
 
@@ -586,6 +591,9 @@ int PMMG_hashNorver_paredge2edge( PMMG_pParMesh parmesh,MMG5_HGeom *hash,
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Local iterations of surface coloring to assign normal vectors on parallel
  * ridge points.
  */
@@ -603,20 +611,23 @@ int PMMG_hashNorver_locIter( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var,MPI_Comm
     var->updloc = 0;
 
     /* Sweep loop upstream edge -> triangle -> downstream edge */
-    if( !PMMG_hashNorver_loop( parmesh,var,MG_CRN,&PMMG_hashNorver_sweep ) )
-      return 0;
+    if( !PMMG_hashNorver_loop( parmesh,var,MG_CRN,&PMMG_hashNorver_sweep ) ) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /* Set color on parallel edges */
   for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
     idx = grp->edge2int_edge_comm_index2[i];
-    if( !PMMG_hashNorver_edge2paredge( parmesh,var,idx ) )
-      return 0;
+    if( !PMMG_hashNorver_edge2paredge( parmesh,var,idx ) ) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /* Check if any process has marked the need for a parallel update */
   MPI_CHECK( MPI_Allreduce( MPI_IN_PLACE,&var->updpar,1,MPI_INT16_T,MPI_MAX,
-                            comm ),return 0 );
+                            comm ),
+             MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
   return 1;
 }
@@ -642,6 +653,9 @@ int PMMG_hashNorver_compExt( const void *a,const void *b ) {
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Communicate ridge extremities on parallel ridge points.
  */
@@ -690,11 +704,12 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
+
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -750,6 +765,9 @@ int PMMG_hashNorver_communication_ext( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Communicate bitwise integer flags on parallel points, and reduce them on the
  * internal point communicator.
  */
@@ -782,7 +800,7 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh,MPI_Comm comm ){
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -810,6 +828,9 @@ int PMMG_hashNorver_communication( PMMG_pParMesh parmesh,MPI_Comm comm ){
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Communicate contributions to normal and tangent vectors on triangles touching
  * parallel points, and add them to the point vectors.
@@ -847,11 +868,11 @@ int PMMG_hashNorver_communication_nor( PMMG_pParMesh parmesh,MPI_Comm comm ) {
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+1,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
      MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -918,6 +939,9 @@ int PMMG_hn_sumnor( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  *
  * \return 0 if fail, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Compute normal and tangent vectors on parallel points, using a hash tables
  * for edges. once C1 portions of a surface touching a parallel ridge point have
  * been consistently colored.
@@ -931,11 +955,50 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
   intvalues    = parmesh->int_node_comm->intvalues;
   doublevalues = parmesh->int_node_comm->doublevalues;
 
+  /* Check consistency between point tag and stored infos before erasing
+   * intvalues: if MG_EDG edges have been found on both side of a non singular
+   * MG_EDG point, the intvalues array should be filled with the global id of
+   * the 2 neigbouring points along the feature edge.
+   * It aims to solve the
+   * following issue with input edges along parallel interfaces: an input REF or
+   * GEO edge may be stored inside a boundary triangle at interface * between
+   * tetra with same reference. In this case, the LS split, * creates a points
+   * with REF or GEO tag to match the tag of the * triangle edge (in
+   * setfeatures) but the triangle and associated * edge tag are not stored in
+   * the xtetra, ended with a division by 0 * when computing the tangent at
+   * point. */
+  for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
+    var->ppt = &var->mesh->point[var->ip];
+
+    /* Loop on parallel, non-singular points (they have been flagged in
+     * PMMG_hashNorver_xp_init()) */
+    if( var->ppt->flag && MG_EDG(var->ppt->tag) ) {
+
+      idx = PMMG_point2int_comm_index_get( var->ppt );
+
+      if ( (!intvalues[2*idx]) || (!intvalues[2*idx+1]) ) {
+        /* We will miss infos to compute the tangent... Erase point tag */
+
+        if ( parmesh->ddebug  ) {
+          printf("  ## Warning: %s:%d: rank %d: tag inconsistency: ppt %d tag %u"
+                 " - edge extremities %d %d\n              Point tag is removed.\n",
+                 __func__,__LINE__,parmesh->myrank,var->ip,
+                 var->ppt->tag,intvalues[2*idx],intvalues[2*idx+1]);
+        }
+
+        var->ppt->tag &= ( (~MG_REF) & (~MG_GEO) );
+      }
+    }
+  }
+
+
   memset(intvalues,0,parmesh->int_node_comm->nitem*sizeof(int));
 
   /* Accumulate normal vector contributions */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hn_sumnor ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hn_sumnor ) ) {
+    /* Because we will have a comm in hashNorver_communication_nor */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Load communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
@@ -1007,8 +1070,9 @@ int PMMG_hashNorver_normals( PMMG_pParMesh parmesh, PMMG_hn_loopvar *var,MPI_Com
   }
 
   /* Parallel reduction on normal vectors */
-  if( !PMMG_hashNorver_communication_nor( parmesh,comm ) )
-    return 0;
+  if( !PMMG_hashNorver_communication_nor( parmesh,comm ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Unload communicator */
   for( var->ip = 1; var->ip <= var->mesh->np; var->ip++ ) {
@@ -1195,6 +1259,9 @@ int PMMG_hashNorver_xp_init( PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  *
  * \return 0 if failure, 1 if success.
  *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Set the owner rank of each parallel edge, and store it the \var base field
  * of the edge structure.
  */
@@ -1262,7 +1329,7 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
   /* Fill internal communicator */
@@ -1297,6 +1364,9 @@ int PMMG_set_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm )
  *
  * \return 0 if failure, 1 if success.
  *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * Check that every edge has one and only one owner.
  */
 int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm ) {
@@ -1319,7 +1389,9 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
     pa = &mesh->edge[ia];
     intvalues[ia-1] = pa->base;
     if (!(pa->tag & MG_PARBDYBDY)) continue;
-    if (pa->base == parmesh->nprocs) return 0;
+    if (pa->base == parmesh->nprocs) {
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
   }
 
   /** Exchange values on the interfaces among procs */
@@ -1341,7 +1413,8 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   }
 
   /* Check that all edges have the same owner over the whole mesh */
@@ -1374,6 +1447,9 @@ int PMMG_check_edge_owners( PMMG_pParMesh parmesh,MMG5_HGeom *hpar,MPI_Comm comm
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 0 if fail, 1 if success.
+ *
+ * \todo all MPI_Abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  *
  * Compute normal and tangent vectors on parallel points, using hash tables
  * for edges. This is necessary as it is not convenient to travel the surface
@@ -1416,21 +1492,30 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
 
   /* Create xpoints */
-  if( !PMMG_hashNorver_xp_init( parmesh,var ) )
-    return 0;
+  if( !PMMG_hashNorver_xp_init( parmesh,var ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
 
   /** 1) Find local ridge extremities. */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_edges ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_edges ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /** 2) Parallel exchange of ridge extremities, and update color on second
    *     extremity. */
-  if( !PMMG_hashNorver_communication_ext( parmesh,mesh,comm ) ) return 0;
+  if( !PMMG_hashNorver_communication_ext( parmesh,mesh,comm ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* Switch edge color if its extremity is found */
-  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) )
-    return 0;
+  if( !PMMG_hashNorver_loop( parmesh, var, MG_CRN, &PMMG_hashNorver_switch ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
 
   /** 3) Propagate surface colors:
@@ -1449,7 +1534,10 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   }
 
   /* 3.1) Local update iterations */
-  if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
+  if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) {
+    /* Because we will have a comm in hashNorver_communication */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /* 3.2) Parallel update iterations */
   while( var->updpar ) {
@@ -1458,16 +1546,25 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
     var->updpar = 0;
 
     /* 3.2.1) Parallel communication */
-    if( !PMMG_hashNorver_communication( parmesh,comm ) ) return 0;
+    if( !PMMG_hashNorver_communication( parmesh,comm ) ) {
+      /* Because we will have a comm in PMMG_hashNorver_locIter */
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
 
     /* 3.2.2) Get color from parallel edges */
     for( i = 0; i < grp->nitem_int_edge_comm; i++ ){
       idx = grp->edge2int_edge_comm_index2[i];
-      if( !PMMG_hashNorver_paredge2edge( parmesh,hash,idx ) ) return 0;
+      if( !PMMG_hashNorver_paredge2edge( parmesh,hash,idx ) ) {
+        /* Because we will have a comm in PMMG_hashNorver_locIter */
+        MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      }
     }
 
     /* 3.2.3) Local update iterations */
-    if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) return 0;
+    if( !PMMG_hashNorver_locIter( parmesh,var,comm ) ) {
+      /* Because we will have a comm in PMMG_hashNorver_normals */
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
 
   }
 
@@ -1622,6 +1719,10 @@ int PMMG_loopr(PMMG_pParMesh parmesh,PMMG_hn_loopvar *var ) {
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * Check for singularities.
+ *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  * \remark Modeled after the MMG5_singul function.
  */
 int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_Comm comm) {
@@ -1664,7 +1765,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
 
 
   /* Array to reorder communicators */
-  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+  PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",
+              MPI_Abort(parmesh->comm,PMMG_TMPFAILURE)
+    );
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     iproc2comm[iproc] = PMMG_UNSET;
@@ -1733,7 +1836,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
   }
 
   /* Get tags and reset buffers and communicator */
@@ -1768,8 +1873,9 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
 
 
   /** Local singularity analysis */
-  if( !PMMG_loopr( parmesh, var ) )
-    return 0;
+  if( !PMMG_loopr( parmesh, var ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
 
   /** Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_node_comm; ++k ) {
@@ -1796,12 +1902,16 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
 
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+1,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+      );
   }
 
   /** First pass: Sum nb. of singularities, Store received edge vectors in
@@ -1934,7 +2044,10 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  *
  * \return 1 if success, 0 if failure.
  *
- * Check dihedral angle to detect ridges on parallel edges.
+ * Check features along parallel edges:
+ *   - check for non-manifold edges
+ *   - check for reference edges (the edge shares 2 surfaces with different refs)
+ *   - if needed, check dihedral angle to detect ridges on parallel edges.
  *
  * The integer communicator is dimensioned to store the number of triangles seen
  * by a parallel edge on each partition, and a "flag" to check the references of
@@ -1947,8 +2060,14 @@ int PMMG_singul(PMMG_pParMesh parmesh,MMG5_pMesh mesh,PMMG_hn_loopvar *var,MPI_C
  * Boundary triangles shared between two processes have been tagged as
  * MG_PARBDYBDY only on the process who has them with the right orientation
  * (by PMMG_parbdyTria), so they will be processed only once.
+ *
+ * \todo Do not add MG_GEO tag to MG_NOM edges and fix tag non-consistencies in this case.
+ *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
+ *
  */
-int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
+int PMMG_setfeatures(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm comm ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_edge_comm;
   PMMG_pExt_comm ext_edge_comm;
@@ -1978,7 +2097,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
   memset(doublevalues,0x00,6*parmesh->int_edge_comm->nitem*sizeof(double));
 
 
-  /** Loop on boundary triangles and store a MG_REQ tag in the edge internal
+  /** Step 1: Loop on boundary triangles and store a MG_REQ tag in the edge internal
    *  communicator where the triangle touches a parallel edge.
    *  (Loop on all triangles, as the tags on corresponding edges are not
    *  required to match yet) */
@@ -1991,13 +2110,47 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
+      /* At this stage, the `tag` field store only the MG_PARBDY tag if pHash
+       * has been created by the `PMMG_hashPar_fromFaceComm` function. */
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
 
-      /* Store edge tag in the internal communicator */
+      /* Mark required in the internal communicator (note that we need intvalue
+       * to be a signed integer array while Mmg tags are unsigned ints so we
+       * must be careful to not directly store the edge tag).*/
       if( (ptr->tag[i] & MG_REQ) && !(ptr->tag[i] & MG_NOSURF) ) {
         intvalues[idx] |= MG_REQ;
       }
+
+      /* Store other relevant edge tag that we want to synchronize through the
+       * parallel interfaces:
+         - MG_NOM, MG_OPNBDY and MG_GEO will be analyzed after (this analysis
+           should be consistent through the procs);
+         - MG_REQ and MG_NOSURF tags are already dealed too;
+         - OLDPARBDY, PARBDY and OVERLAP are related to ParMmg and
+           should be consistent.
+
+         It left us with:
+           - the MG_REF tag that may be not consistent (if, on a
+             partition, the edge belongs to only PARBDY faces (non PARBDYBDY),
+             it is
+             not marked as REF, while it may be marked as ref if it belongs to a
+             true boundary and is provided as a user ref edge between triangles
+             with same references on another partition.)
+           - the MG_PARBDYBDY tag that may be inconsistent between trias due to
+             the call of PMMG_parbdyTria: for a physical  boundary triangle
+             at partition interface. On the domain with lower ref, the
+             PARBDYPARBDY tag is removed from edges (to ensure the tria
+             orientation during analysis, the tria will be looked from one rank
+             only, the rank that owned the domain with higer ref). If the edge
+             also belongs to another boundary triangle, it will still have
+             the PARBDYBDY tag on this triangle.
+             We don't want to synchronize this specific tag as it is used for
+             the parallel analysis (for example in hashNorver_loop to loop
+             on well oriented true boundary faces).
+      */
+      tag = ptr->tag[i] & MG_REF;
+      intvalues[idx] |= tag;
     }
   }
 
@@ -2019,7 +2172,8 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status),
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   }
 
   /* Update edge tags in the internal communicator */
@@ -2027,7 +2181,6 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     ext_edge_comm = &parmesh->ext_edge_comm[k];
 
     itorecv = ext_edge_comm->itorecv;
-    rtorecv = ext_edge_comm->rtorecv;
 
     for ( i=0; i<ext_edge_comm->nitem; ++i ) {
       idx  = ext_edge_comm->int_comm_index[i];
@@ -2035,6 +2188,11 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
         /* edge is truly required */
         intvalues[idx] |= MG_REQ;
         intvalues[idx] &= ~MG_NOSURF;
+      }
+
+      if ( itorecv[i] & MG_REF ) {
+        /* Sync ref tags */
+        intvalues[idx] |= MG_REF;
       }
     }
   }
@@ -2059,6 +2217,10 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
         ptr->tag[i] |= MG_REQ;
         ptr->tag[i] &= ~MG_NOSURF;
       }
+
+      if ( intvalues[idx] & MG_REF ) {
+        ptr->tag[i] |= MG_REF;
+      }
     }
   }
 
@@ -2072,7 +2234,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
   }
 
 
-  /** Loop on true boundary triangles and store the normal in the edge internal
+  /** Step 2: Loop on true boundary triangles and store the normal in the edge internal
    *  communicator where the triangle touches a parallel edge. */
   for( k = 1; k <= mesh->nt; k++ ) {
     ptr = &mesh->tria[k];
@@ -2089,13 +2251,18 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
 
     /* Get parallel edge touched by a boundary face and store normal vectors */
     for (i=0; i<3; i++) {
-      /* Skip non-manifold edges */
-      if ( (ptr->tag[i] & MG_NOM) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
       if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
       idx = edg-1;
+
+      if ( (ptr->tag[i] & MG_NOM) ) {
+        /* We only need to store that the edge is non-manifold to share the
+         * information with the other MPI processes */
+        intvalues[2*idx] = 3;
+        continue;
+      }
 
       /* Count how many times the edge is seen locally */
       intvalues[2*idx]++;
@@ -2119,7 +2286,7 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     }
   }
 
-  /** Exchange values on the interfaces among procs */
+  /** Step 3: Exchange values on the interfaces among procs */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
     ext_edge_comm = &parmesh->ext_edge_comm[k];
     nitem         = ext_edge_comm->nitem;
@@ -2144,15 +2311,15 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     MPI_CHECK(
       MPI_Sendrecv(itosend,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
                    itorecv,2*nitem,MPI_INT,color,MPI_ANALYS_TAG+2,
-                   comm,&status),return 0 );
+                   comm,&status), MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
 
     MPI_CHECK(
       MPI_Sendrecv(rtosend,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
                    rtorecv,6*nitem,MPI_DOUBLE,color,MPI_ANALYS_TAG+3,
-                   comm,&status),return 0 );
+                   comm,&status), MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
   }
 
-  /** First pass: Increment the number of seen triangles, check for reference
+  /** Step 4 - First pass: Increment the number of seen triangles, check for reference
    *  edges and mark them with PMMG_UNSET, and store new triangles normals if
    *  there is room for them. */
   for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
@@ -2195,33 +2362,35 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
     }
   }
 
-  /** Second pass: Check dihedral angle and mark geometric edge with
-   *  2*PMMG_UNSET (3x if it is already a reference edge) */
-  for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
-    ext_edge_comm = &parmesh->ext_edge_comm[k];
+  if ( mesh->info.dhd > MMG5_ANGLIM ) {
+    /** Step 4 - Second pass: Check dihedral angle and mark geometric edge with
+     *  2*PMMG_UNSET (3x if it is already a reference edge) */
+    for ( k = 0; k < parmesh->next_edge_comm; ++k ) {
+      ext_edge_comm = &parmesh->ext_edge_comm[k];
 
-    for ( i=0; i<ext_edge_comm->nitem; ++i ) {
-      idx  = ext_edge_comm->int_comm_index[i];
+      for ( i=0; i<ext_edge_comm->nitem; ++i ) {
+        idx  = ext_edge_comm->int_comm_index[i];
 
-      nt1 = intvalues[2*idx];
+        nt1 = intvalues[2*idx];
 
-      if( nt1 == 2 ) {
-        for( d = 0; d < 3; d++ ) {
-          n1[d] = doublevalues[6*idx+d];
-          n2[d] = doublevalues[6*idx+3+d];
-        }
-        dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
-        if ( dhd <= mesh->info.dhd ) {
-          if( intvalues[2*idx+1] != PMMG_UNSET )
-            intvalues[2*idx+1] = 2*PMMG_UNSET;
-          else
-            intvalues[2*idx+1] = 3*PMMG_UNSET;
+        if( nt1 == 2 ) {
+          for( d = 0; d < 3; d++ ) {
+            n1[d] = doublevalues[6*idx+d];
+            n2[d] = doublevalues[6*idx+3+d];
+          }
+          dhd = n1[0]*n2[0] + n1[1]*n2[1] + n1[2]*n2[2];
+          if ( dhd <= mesh->info.dhd ) {
+            if( intvalues[2*idx+1] != PMMG_UNSET )
+              intvalues[2*idx+1] = 2*PMMG_UNSET;
+            else
+              intvalues[2*idx+1] = 3*PMMG_UNSET;
+          }
         }
       }
     }
   }
 
-  /** Third pass: Loop on triangles to tag edges and points.
+  /** Step 4 - Third pass: Loop on triangles to tag edges and points.
    *  Now we loop on all triangles because there could be parallel boundary
    *  edges not touched by triangles on the local process, but we want to add
    *  tags on them. */
@@ -2232,52 +2401,81 @@ int PMMG_setdhd(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *pHash,MPI_Comm
 
     /* Get parallel edge touched by a MG_BDY face and store normal vectors */
     for (i=0; i<3; i++) {
-      /* Skip non-manifold edges */
-      if ( (ptr->tag[i] & MG_NOM) ) continue;
 
       i1 = MMG5_inxt2[i];
       i2 = MMG5_inxt2[i1];
-      if ( !MMG5_hGet( pHash, ptr->v[i1], ptr->v[i2], &edg, &tag ) ) continue;
+
+      MMG5_int ip1 = ptr->v[i1];
+      MMG5_int ip2 = ptr->v[i2];
+
+      if ( !MMG5_hGet( pHash, ip1, ip2, &edg, &tag ) ) continue;
       idx = edg-1;
+
+      /* Skip non-manifold edges */
+#ifndef NDEBUG
+      if ( (ptr->tag[i] & MG_NOM) ) {
+        assert ( intvalues[2*idx] != 2 );
+      }
+#endif
+
       if( intvalues[2*idx] == 1 ) { /* no adjacent */
-        ptr->tag[i] |= MG_GEO + MG_NOM;
-        i1 = MMG5_inxt2[i];
-        i2 = MMG5_inxt2[i1];
-        mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
-        mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
+#warning remove MG_GEO for consistency with Mmg  ?
+        /* MG_REF info is not analyzed in parallel for non-manifold edges (only
+           serially by Mmy).  As we need to ensure the tag consistency across
+           the processes and for sake of simplicity, we simply mark all the
+           MG_NOM edges as MG_REF */
+        ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+        mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
         nr++;
       } else {
         if( (intvalues[2*idx+1] ==   PMMG_UNSET) ||
             (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* reference edge */
           ptr->tag[i]   |= MG_REF;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_REF;
-          mesh->point[ptr->v[i2]].tag |= MG_REF;
+          mesh->point[ip1].tag |= MG_REF;
+          mesh->point[ip2].tag |= MG_REF;
           ne++;
         }
         if( (intvalues[2*idx+1] == 2*PMMG_UNSET) ||
             (intvalues[2*idx+1] == 3*PMMG_UNSET) ) { /* geometric edge */
           ptr->tag[i]   |= MG_GEO;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_GEO;
-          mesh->point[ptr->v[i2]].tag |= MG_GEO;
+          mesh->point[ip1].tag |= MG_GEO;
+          mesh->point[ip2].tag |= MG_GEO;
           nr++;
         }
         if( intvalues[2*idx] > 2 ) { /* non-manifold edge */
-          ptr->tag[i] |= MG_GEO + MG_NOM;
-          i1 = MMG5_inxt2[i];
-          i2 = MMG5_inxt2[i1];
-          mesh->point[ptr->v[i1]].tag |= MG_GEO + MG_NOM;
-          mesh->point[ptr->v[i2]].tag |= MG_GEO + MG_NOM;
+#warning remove MG_GEO for consistency with Mmg ?
+          /* MG_REF info is not analyzed in parallel for non-manifold edges (only
+           serially by Mmy).  As we need to ensure the tag consistency across
+           the processes and for sake of simplicity, we simply mark all the
+           MG_NOM edges as MG_REF */
+          ptr->tag[i] |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip1].tag |= MG_GEO + MG_NOM + MG_REF;
+          mesh->point[ip2].tag |= MG_GEO + MG_NOM + MG_REF;
           nm++;
+        }
+
+        /* If a feature edge has been provided it is possible that the edge tag
+         * has not been transferred to the edge extremities (for example a
+         * MG_REF edge along boundary triangles of same references may be split
+         * by the level-set. In this case, the new point has tag 0 and its tag
+         * has not yet been updated).
+         */
+        tag = mesh->point[ip1].tag;
+        mesh->point[ip1].tag |= ptr->tag[i];
+        // Remove the MG_NOSURF tag if the vertex is really required.
+        if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+          mesh->point[ip1].tag &= ~MG_NOSURF;
+        }
+        tag = mesh->point[ip2].tag;
+        mesh->point[ip2].tag |= ptr->tag[i];
+        // Remove the MG_NOSURF tag if the vertex is really required.
+        if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+          mesh->point[ip2].tag &= ~MG_NOSURF;
         }
       }
     }
   }
-
-#warning Luca: should we exchange tags on the edge communicator to update MG_PARBDYBDY?
 
   if ( abs(mesh->info.imprim) > 3 && nr > 0 )
     fprintf(stdout,"     %d ridges, %d edges updated\n",nr,ne);
@@ -2536,11 +2734,15 @@ int PMMG_analys_comms_init( PMMG_pParMesh parmesh ) {
  *
  * \remark Modeled after the MMG3D_analys function, it doesn't deallocate the
  * tria structure in order to be able to build communicators.
+ *
+ * \todo all MPI_abort have to be removed and replaced by a clean error handling
+ * without deadlocks.
  */
 int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   MMG5_Hash       hash;
   MMG5_HGeom      hpar,hnear;
   PMMG_hn_loopvar var;
+  int             ier = 1;
 
   /* Initialization to avoid memleaks when we try to deallocate memory */
   memset(&hpar,0x0,sizeof(MMG5_HGeom));
@@ -2549,26 +2751,26 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   /* Tag parallel triangles on material interfaces as boundary */
   if( !PMMG_parbdyTria( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces. Exit program.\n");
-    return 0;
+    ier = 0;
   }
-
 
   /* Set surface triangles to required in nosurf mode or for parallel boundaries */
   MMG3D_set_reqBoundaries(mesh);
 
   /* create surface adjacency */
-  if ( !MMG3D_hashTria(mesh,&hash) ) {
+  if ( ier && !MMG3D_hashTria(mesh,&hash) ) {
     MMG5_DEL_MEM(mesh,hash.item);
     fprintf(stderr,"\n  ## Hashing problem (2). Exit program.\n");
-    return 0;
+    ier = 0;
   }
 
-  /* build hash table for geometric edges */
-  if ( !MMG5_hGeom(mesh) ) {
+  /* build hash table for geometric edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
+  if ( ier && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
-    return 0;
+    ier = 0;
   }
 
   /**--- stage 2: surface analysis */
@@ -2576,37 +2778,47 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     fprintf(stdout,"  ** SETTING TOPOLOGY\n");
 
   /* identify connexity */
-  if ( !MMG5_setadj(mesh) ) {
+  if ( ier && !MMG5_setadj(mesh) ) {
     fprintf(stderr,"\n  ## Topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
-    return 0;
+    ier = 0;
   }
 
-  /* Hash parallel edges */
-  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
+  /* Hash parallel edges from tetra and face communicator: store edges and the
+     MG_PARBDY tag (other edge tags are not stored).*/
+  if( ier && (PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS) ) {
+    fprintf(stderr,"\n  ## Warning: impossible to compute the hash parallel edge\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
-    return 0;
+    ier = 0;
   }
 
   /* Build edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
+  if ( !ier ) {
+    /* Avoid deadlock in comms in build_edgeComm */
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
+  if ( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) {
+    fprintf(stderr,"\n  ## Warning: Impossible to build edge communicator\n");
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Compute global node numbering and store it in ppt->tmp */
   if( !PMMG_Compute_verticesGloNum( parmesh,comm ) ) {
+    fprintf(stderr,"\n  ## Warning: impossible to compute node global numbering\n");
+
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Allocate communicator buffers */
@@ -2616,11 +2828,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,hpar.geom);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* check for ridges: check dihedral angle using adjacent triangle normals */
-  if ( mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh) ) {
+  /* 1. Call \ref MMG5_setdhd to analyze edges at interfaces of 2 "true"
+   * boundary faces. Skip pure parallel faces */
+  if ( ier && (mesh->info.dhd > MMG5_ANGLIM && !MMG5_setdhd(mesh)) ) {
     fprintf(stderr,"\n  ## Geometry problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2628,10 +2842,24 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
-  if ( mesh->info.dhd > MMG5_ANGLIM && !PMMG_setdhd( parmesh,mesh,&hpar,comm ) ) {
+  /* 2. Call PMMG_setfeatures to analyze edges splitted by the parallel interface:
+   *   2.1. adds possibly missing MG_NOM tags (add MG_REF tags to MG_NOM edges);
+   *   2.2. computes dihedral angle and set MG_GEO (ridge) tag if needed;
+   *   2.3. adds MG_REF tag for edges separating surfaces with different refs;
+   *   2.4. transfer edges tags to edge vertices.
+   *
+   * Analysis uses the tria array so if it is not allocated, this part of the
+   * analysis will not be complete.
+   */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
+  if ( !PMMG_setfeatures( parmesh,mesh,&hpar,comm ) ) {
     fprintf(stderr,"\n  ## Geometry problem on parallel edges. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2639,11 +2867,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* identify singularities on interior points */
-  if ( !MMG5_singul(mesh) ) {
+  if ( ier && !MMG5_singul(mesh) ) {
     fprintf(stderr,"\n  ## MMG5_singul problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2651,14 +2879,14 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   if ( abs(mesh->info.imprim) > 3 || mesh->info.ddebug )
     fprintf(stdout,"  ** DEFINING GEOMETRY\n");
 
   /* define (and regularize) normals: create xpoints */
-  if ( !MMG5_norver( mesh ) ) {
+  if ( ier && !MMG5_norver( mesh ) ) {
     fprintf(stderr,"\n  ## Normal problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2667,11 +2895,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* set bdry entities to tetra: create xtetra and set references */
-  if ( !MMG5_bdrySet(mesh) ) {
+  if ( ier && !MMG5_bdrySet(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2682,10 +2910,18 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
-  /* Tag parallel faces on material interfaces as boundary */
+  /* Tag parallel faces on material interfaces as boundary (ie, add \ref
+   * MG_PARBDYBDY tag) and remove spurious boundary MG_PARBDYBDY tags coming
+   * from spurious internal triangles (between tetras of same references) along
+   * partition interfaces.  */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if( !PMMG_parbdySet( parmesh ) ) {
     fprintf(stderr,"\n  ## Unable to recognize parallel faces on material interfaces. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
@@ -2695,14 +2931,17 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* set non-manifold edges sharing non-intersecting multidomains as required */
   if ( abs(mesh->info.imprim) > 5  || mesh->info.ddebug )
     fprintf(stdout,"  ** UPDATING TOPOLOGY AT NON-MANIFOLD POINTS\n");
 
-  if ( !MMG5_setNmTag(mesh,&hash) ) {
+  /* 1. set non-manifold edges sharing non-intersecting multidomains as required
+     2. travel points lying along non-manifold edges and set tags depending on
+     the number of feature edges passing through the point */
+  if ( ier && !MMG5_setNmTag(mesh,&hash) ) {
     fprintf(stderr,"\n  ## Non-manifold topology problem. Exit program.\n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
@@ -2711,13 +2950,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
 
   /* Hash table used to store edges touching a parallel point.
    * Assume that in the worst case each parallel faces has the three edges in
    * the table, plus two other internal edges. */
-  if ( !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) ) {
+  if ( ier && !MMG5_hNew(mesh,&hnear,3*parmesh->int_face_comm->nitem,5*parmesh->int_face_comm->nitem) ) {
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2725,7 +2964,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     PMMG_analys_comms_free( parmesh );
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    ier = 0;
   }
   var.mesh = mesh;
   var.hash = &hnear;
@@ -2734,7 +2973,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 
   /** 0) Loop on edges touching a parallel point and insert them in the
    *     hash table. */
+
+  if ( !ier ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   if( !PMMG_hashNorver_loop( parmesh, &var, MG_CRN, &PMMG_hash_nearParEdges ) ) {
+    fprintf(stderr,"\n ## Unable to hash edges connected to parallel points. Exit program. \n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2744,10 +2989,11 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   if( !PMMG_set_edge_owners( parmesh,&hpar,comm ) ) {
+    fprintf(stderr,"\n ## Unable to compute edge owners. Exit program. \n");
     MMG5_DEL_MEM(mesh,hash.item);
     MMG5_DEL_MEM(mesh,mesh->htab.geom);
     MMG5_DEL_MEM(mesh,hpar.geom);
@@ -2757,13 +3003,13 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
 #ifndef NDEBUG
   if (!PMMG_check_edge_owners(parmesh,&hpar,comm)) {
     fprintf(stderr,"\n ## Parallel edge has no owner or too many owners. Exit program. \n");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 #endif
 
@@ -2781,7 +3027,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   if( !PMMG_hashNorver( parmesh,mesh,&hnear,&hpar,&var,comm ) ) {
@@ -2795,7 +3041,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     MMG5_DEL_MEM(mesh,mesh->xpoint);
     PMMG_edge_comm_free( parmesh );
     PMMG_DEL_MEM(parmesh, parmesh->int_edge_comm,PMMG_Int_comm,"int edge comm");
-    return 0;
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
   /* Deallocate communicator buffers */
@@ -2805,7 +3051,8 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
 #warning Luca: check that parbdy are skipped
   MMG5_chkVertexConnectedDomains(mesh);
 
-  /* build hash table for geometric edges */
+  /* build hash table for geometric edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
   if ( !mesh->na && !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     PMMG_edge_comm_free( parmesh );
@@ -2819,7 +3066,7 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
     return 0;
   }
 
-  /* Update edges tags and references for xtetras */
+  /* Update MG_REQ and MG_NOSURF edges tags as well as references for xtetras */
   if ( !MMG5_bdryUpdate(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     PMMG_edge_comm_free( parmesh );
@@ -2868,6 +3115,17 @@ int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm) {
   mesh->na = 0;
 
   if ( mesh->nprism ) MMG5_DEL_MEM(mesh,mesh->adjapr);
+
+#ifndef NDEBUG
+  MMG5_int i;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   return 1;
 }

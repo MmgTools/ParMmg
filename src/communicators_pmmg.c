@@ -644,13 +644,16 @@ end:
 /**
  * \param parmesh pointer to parmesh structure
  * \param mesh pointer to the mesh structure
- * \param hpar hash table of parallel edges
+ * \param hpar hash table of parallel edges. Read only array.
  * \param comm pointer toward the MPI communicator to use: when called before
  * the first mesh balancing (at preprocessing stage) we have to use the
  * read_comm communicator (i.e. the communicator used to provide the inputs).
  * For all ather calls, comm has to be the communicator to use for computations.
  *
  * Build edge communicator.
+ *
+ * \todo clean parallel error handling (without MPI_abort call and without deadlocks)
+ *
  */
 int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar,MPI_Comm comm) {
   PMMG_pGrp      grp;
@@ -766,7 +769,10 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar,
   if( !PMMG_build_completeExtEdgeComm( parmesh,comm ) ) return 0;
 
   /* Reorder edge nodes */
-  if( !PMMG_color_commNodes( parmesh,comm ) ) return 0;
+  if( !PMMG_color_commNodes( parmesh,comm ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   MMG5_pPoint ppt0,ppt1;
   int swp;
   for( k = 1; k <= mesh->na; k++ ) {

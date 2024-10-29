@@ -33,6 +33,7 @@
  */
 #include "parmmg.h"
 #include "metis_pmmg.h"
+#include "mmgexterns_private.h"
 
 /**
  * \param nelem number of elements in the initial group
@@ -800,6 +801,7 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
  * \param ngrp nb. of new groups
  * \param grpIdOld index of the group that is splitted in the old list of groups
  * \param grpId index of the group that we create in the list of groups
+ * \param hash table storing tags of boundary edges of original mesh.
  * \param ne number of elements in the new group mesh
  * \param np pointer toward number of points in the new group mesh
  * \param f2ifc_max maximum number of elements in the face2int_face_comm arrays
@@ -817,7 +819,8 @@ static int PMMG_splitGrps_updateFaceCommOld( PMMG_pParMesh parmesh,
  *
  */
 static int
-PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int grpIdOld,int grpId,int ne,
+PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int grpIdOld,int grpId,
+                          MMG5_HGeom hash,int ne,
                           int *np,int *f2ifc_max,int *n2inc_max,idx_t *part,
                           int* posInIntFaceComm,int* iplocFaceComm ) {
   PMMG_pGrp  const grp    = &listgrp[grpId];
@@ -1041,7 +1044,7 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
               pos ) ) return 0;
 
         for ( j=0; j<3; ++j ) {
-          /* Update the face and face vertices tags */
+          /** Update the face and face vertices tags */
           PMMG_tag_par_edge(pxt,MMG5_iarf[fac][j]);
           ppt = &mesh->point[tetraCur->v[MMG5_idir[fac][j]]];
           PMMG_tag_par_node(ppt);
@@ -1088,6 +1091,41 @@ PMMG_splitGrps_fillGroup( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int ngrp,int g
 
     if( !PMMG_splitGrps_updateNodeCommNew( parmesh,grp,mesh,meshOld,tetraCur,pt,
           tet,grpId,n2inc_max,part ) ) return 0;
+
+
+    /* Xtetra have been added by the previous loop, take advantage of the
+     * current one to update possible inconsistencies in edge tags (if a
+     * boundary face has been added along an edge that was previously boundary
+     * but not belonging to a boundary face, some of the edge tags may be
+     * missing). */
+    if ( !tetraCur->xt ) continue;
+
+    pxt = &mesh->xtetra[tetraCur->xt];
+    for ( j=0; j<6; j++ ) {
+
+      /* Tag infos have to be consistent for all edges marked as boundary */
+      if ( !(pxt->tag[j] & MG_BDY) ) continue;
+
+      int ip0 = pt->v[MMG5_iare[j][0]];
+      int ip1 = pt->v[MMG5_iare[j][1]];
+
+      uint16_t tag;
+      int      ref;
+
+      /* get the tag stored in the hash table (old mesh) and set it the xtetra
+       * edge (new mesh): hGet may return 0 as edges of the old mesh are not
+       * hashed if they were not belonging to a boundary face (but due to the
+       * new partitionning, it is possible that they are now belonging to a bdy
+       * face). */
+      MMG5_hGet( &hash, ip0, ip1, &ref, &tag );
+      pxt->tag[j] |= tag;
+
+      /* Remove spurious NOSURF tag for user required edges */
+      if ( (tag & MG_REQ) && !(tag & MG_NOSURF) ) {
+        pxt->tag[j] &= ~MG_NOSURF;
+      }
+    }
+
   }
 
   return 1;
@@ -1254,6 +1292,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
  * \param ngrp number of groups to split the mesh into.
  * \param countPerGrp number of tetras in each new groups.
  * \param part array of the mesh element partitioning.
+ * \param hash table storing tags of boundary edges of original mesh.
  *
  * \return -1 : no possibility to save the mesh
  *         0  : failed but the mesh is correct
@@ -1265,7 +1304,7 @@ int PMMG_update_oldGrps( PMMG_pParMesh parmesh ) {
  *
  */
 int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
-                        idx_t ngrp,int *countPerGrp,idx_t *part ) {
+                        idx_t ngrp,int *countPerGrp,idx_t *part,MMG5_HGeom hash ) {
   PMMG_pGrp grpOld,grpCur;
   MMG5_pMesh meshOld,meshCur;
   /** size of allocated node2int_node_comm_idx. when comm is ready trim to
@@ -1352,7 +1391,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
     grpCur  = &grpsNew[grpId];
     meshCur = grpCur->mesh;
 
-    if ( !PMMG_splitGrps_fillGroup(parmesh,grpsNew,ngrp,grpIdOld,grpId,
+    if ( !PMMG_splitGrps_fillGroup(parmesh,grpsNew,ngrp,grpIdOld,grpId,hash,
                                    countPerGrp[grpId],&poiPerGrp[grpId],
                                    &f2ifc_max[grpId],
                                    &n2inc_max[grpId],part,posInIntFaceComm,
@@ -1461,7 +1500,7 @@ fail_facePos:
  * \warning tetra must be packed.
  *
  */
-int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh ) {
+int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int fitMesh) {
   PMMG_pGrp grpOld;
   PMMG_pGrp grpsNew = NULL;
   MMG5_pMesh meshOld;
@@ -1474,6 +1513,34 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   grpOld = &parmesh->listgrp[grpIdOld];
   meshOld = parmesh->listgrp[grpIdOld].mesh;
 
+
+  /* Create hash table to store edge tags (to keep tag consistency along
+   * boundary edges that doesn't belong to a boundary face in meshOld (and
+   * doesn't has valid tags) but that will belongs to a PARBDY face after group
+   * splitting). Such kind of inconsistencies may be detected by calling the
+   * MMG3D_chkmesh function. */
+  MMG5_HGeom hash;
+  if ( !MMG5_hNew(meshOld, &hash, 6*meshOld->xt, 8*meshOld->xt) ) return 0;
+
+  int k,j,i;
+  for ( k=1; k<=meshOld->ne; k++ ) {
+    MMG5_pTetra pt = &meshOld->tetra[k];
+    if ( !pt->xt ) continue;
+
+    MMG5_pxTetra pxt = &meshOld->xtetra[pt->xt];
+    for ( j=0; j<4; j++ ) {
+      /* We recover edge tag infos from boundary faces */
+      if ( !(pxt->ftag[j] & MG_BDY) ) continue;
+
+      for ( i=0; i<3; ++i ) {
+        int ia = MMG5_iarf[j][i];
+        int ip0 = pt->v[MMG5_iare[ia][0]];
+        int ip1 = pt->v[MMG5_iare[ia][1]];
+        if( !MMG5_hEdge( meshOld, &hash, ip0, ip1, 0, pxt->tag[ia] ) ) return 0;
+      }
+    }
+  }
+
   /* count_per_grp: count new tetra per group, and store new ID in the old
    * tetra flag */
   PMMG_CALLOC(parmesh,countPerGrp,ngrp,int,"counter buffer ",return 0);
@@ -1485,7 +1552,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 
 
   /** Perform group splitting */
-  ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part );
+  ret_val = PMMG_split_eachGrp( parmesh,grpIdOld,grpsNew,ngrp,countPerGrp,part,hash );
+  PMMG_DEL_MEM( meshOld, hash.geom, MMG5_hgeom, "Edge hash table" );
+
   if( ret_val != 1) goto fail_counters;
 
   PMMG_listgrp_free(parmesh, &parmesh->listgrp, parmesh->ngrp);
@@ -1507,7 +1576,6 @@ fail_counters:
   PMMG_DEL_MEM(parmesh,countPerGrp,int,"counter buffer ");
 
 #ifndef NDEBUG
-  int i;
   for( i = 0; i < parmesh->ngrp; i++ )
     PMMG_MEM_CHECK(parmesh,parmesh->listgrp[i].mesh,return 0);
 #endif
@@ -1781,6 +1849,13 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartit
   if ( !ier ) {
     fprintf(stderr,"\n  ## Merge groups problem.\n");
   }
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
@@ -1845,8 +1920,22 @@ int PMMG_split_n2mGrps(PMMG_pParMesh parmesh,int target,int fitMesh,int repartit
   }
 
   /** Split the group into the suitable number of groups */
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+
   if ( ier )
     ier = PMMG_splitPart_grps(parmesh,target,fitMesh,repartitioning_mode);
+
+  for (int k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
