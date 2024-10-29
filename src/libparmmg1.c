@@ -630,6 +630,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Reset the boundary fields between the old mesh size and the new one (Mmg
    * uses this fields assiming they are setted to 0)/ */
+
+  permNodGlob = NULL;
+
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
 
@@ -719,7 +722,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
 #ifdef USE_SCOTCH
         /* Allocation of the array that will store the node permutation */
-        PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+        // npi stores the number of points when we enter Mmg, np stores the
+        // number of points after adatptation.
+        // In theorie, here np == npi
+
+        assert ( mesh->np == mesh->npi );
+
+        PMMG_MALLOC(parmesh,permNodGlob,mesh->npi+1,int,"node permutation",
                     PMMG_scotch_message(&warnScotch) );
         if ( permNodGlob ) {
           for ( k=1; k<=mesh->np; ++k ) {
@@ -832,14 +841,15 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           goto strong_failed;
         }
 
+#ifdef USE_SCOTCH
+        PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+#endif
+
         if ( !ier ) { break; }
+
       }
       /* Reset the mesh->gap field in case Mmg have modified it */
       mesh->gap = MMG5_GAP;
-
-#ifdef USE_SCOTCH
-      PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
-#endif
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
