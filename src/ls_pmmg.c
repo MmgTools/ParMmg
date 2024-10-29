@@ -909,8 +909,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     case 1: case 2: case 4: case 8: case 16: case 32: // 1 edge split
       if (!already_split) {
         ier = MMG5_split1(mesh,met,k,vx,1);
-        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-        pt->mark = ns;             // Split number to recover info later if needed
+        mesh->tetra[k].flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        mesh->tetra[k].mark = ns;             // Split number to recover info later if needed
         ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
         ne_tmp         = mesh->ne; // Total number of tetras after this split
         ns++;                      // Incremente the total number of split
@@ -925,8 +925,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     case 20: case 5:  case 17: case 9: case 3:  case 10:
       if (!already_split) {
         ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1);
-        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-        pt->mark = ns;             // Split number to recover info later if needed
+        mesh->tetra[k].flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        mesh->tetra[k].mark = ns;             // Split number to recover info later if needed
         ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
         ne_tmp         = mesh->ne; // Total number of tetras after this split
         ns++;                      // Incremente the total number of split
@@ -940,8 +940,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     case 7: case 25: case 42: case 52: // 3 edges on conic configuration split
       if (!already_split) {
         ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1);
-        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-        pt->mark = ns;             // Split number to recover info later if needed
+        mesh->tetra[k].flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        mesh->tetra[k].mark = ns;             // Split number to recover info later if needed
         ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
         ne_tmp         = mesh->ne; // Total number of tetras after this split
         ns++;                      // Incremente the total number of split
@@ -955,8 +955,8 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     case 30: case 45: case 51: // 4 edges on opposite configuration split
       if (!already_split) {
         ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1);
-        pt->flag = flag;           // Re-flag tetra k as the flag has been reset in the split
-        pt->mark = ns;             // Split number to recover info later if needed
+        mesh->tetra[k].flag = flag;           // Re-flag tetra k as the flag has been reset in the split
+        mesh->tetra[k].mark = ns;             // Split number to recover info later if needed
         ne_tmp_tab[ns] = mesh->ne; // Total number of tetras after this split
         ne_tmp         = mesh->ne; // Total number of tetras after this split
         ns++;                      // Incremente the total number of split
@@ -978,7 +978,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       ERR_RULE;
     }
 
-    if (pt->flag != -1) {
+    if (mesh->tetra[k].flag != -1) {
       /* STEP 6.2.3 - Update tag of edges in xtetra with MG_PARBDY */
       for (j=0; j<3; j++) {
         k0 = tetra_sorted[j];
@@ -1012,7 +1012,7 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
       nitem_grp_face_tmp += nface_added;
       int_face_comm->nitem = nitem_grp_face_tmp;
     }
-    else if (pt->flag == -1) {
+    else if (mesh->tetra[k].flag == -1) {
       /* STEP 6.2.5 - Update internal face communicators for tetra not split */
       /* As the tetra is not split, the tetra index has not changed.
           Moreover, the node of face ifac is chosen to be the node with highest
@@ -1097,26 +1097,26 @@ int PMMG_cuttet_ls(PMMG_pParMesh parmesh){
     switch (flag) {
     case 1: case 2: case 4: case 8: case 16: case 32: // 1 edge split
       ier = MMG5_split1(mesh,met,k,vx,1);
-      pt->flag = flag; // Re-flag tetra k as the flag has been reset in the split
+      mesh->tetra[k].flag = flag; // Re-flag tetra k as the flag has been reset in the split
       ns++;            // Incremente the total number of split
       break;
 
     case 48: case 24: case 40: case 6: case 34: case 36: // 2 edges (same face) split
     case 20: case 5:  case 17: case 9: case 3:  case 10:
       ier = MMG5_split2sf_globNum(mesh,met,k,vx,vGlobNum,1);
-      pt->flag = flag; // Re-flag tetra k as the flag has been reset in the split
+      mesh->tetra[k].flag = flag; // Re-flag tetra k as the flag has been reset in the split
       ns++;            // Incremente the total number of split
       break;
 
     case 7: case 25: case 42: case 52: // 3 edges on conic configuration split
       ier = MMG5_split3cone_globNum(mesh,met,k,vx,vGlobNum,1);
-      pt->flag = flag; // Re-flag tetra k as the flag has been reset in the split
+      mesh->tetra[k].flag = flag; // Re-flag tetra k as the flag has been reset in the split
       ns++;            // Incremente the total number of split
       break;
 
     case 30: case 45: case 51: // 4 edges on opposite configuration split
       ier = MMG5_split4op_globNum(mesh,met,k,vx,vGlobNum,1);
-      pt->flag = flag; // Re-flag tetra k as the flag has been reset in the split
+      mesh->tetra[k].flag = flag; // Re-flag tetra k as the flag has been reset in the split
       ns++;            // Incremente the total number of split
       break;
 
