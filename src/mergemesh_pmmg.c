@@ -676,6 +676,15 @@ int PMMG_mergeGrpJinI_interfaceTetra(PMMG_pParMesh parmesh,PMMG_pGrp grpI,
       }
       else break;
     }
+/*
+    if ( ie==112310 ) {
+      printf("merge interface tetra %d: %d %d %d %d - %d\n",ie,ptI->v[0],ptI->v[1],ptI->v[2],ptI->v[3],ptI->xt);
+      printf("xt %d %d %d %d - %d %d %d %d %d %d\n",pxtI->ftag[0],pxtI->ftag[1],pxtI->ftag[2],
+             pxtI->ftag[3],pxtI->tag[0],pxtI->tag[1],pxtI->tag[2],
+             pxtI->tag[3],pxtI->tag[4],pxtI->tag[5]);
+      printf("from tetra: %d: %d %d %d %d - ref: %d - xt: %d\n",iel,ptJ->v[0],ptJ->v[1],ptJ->v[2],ptJ->v[3],ptJ->ref,ptJ->xt);
+    }
+*/
   }
 
   return ier;
@@ -745,6 +754,16 @@ int PMMG_mergeGrpJinI_internalTetra( PMMG_pGrp grpI, PMMG_pGrp grpJ ) {
       }
       else break;
     }
+
+/*
+    if ( ie==112310 ) {
+      printf("merge tetra %d: %d %d %d %d - %d\n",ie,ptI->v[0],ptI->v[1],ptI->v[2],ptI->v[3],ptI->xt);
+      printf("xt %d %d %d %d - %d %d %d %d %d %d\n",pxtI->ftag[0],pxtI->ftag[1],pxtI->ftag[2],
+             pxtI->ftag[3],pxtI->tag[0],pxtI->tag[1],pxtI->tag[2],
+             pxtI->tag[3],pxtI->tag[4],pxtI->tag[5]);
+      printf("from tetra: %d: %d %d %d %d - ref: %d - xt: %d\n",k,ptJ->v[0],ptJ->v[1],ptJ->v[2],ptJ->v[3],ptJ->ref,ptJ->xt);
+    }
+*/
   }
 
   return ier;

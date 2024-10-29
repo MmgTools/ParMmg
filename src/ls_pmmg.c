@@ -1822,6 +1822,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   MMG5_HGeom hpar;
   MMG5_pMesh mesh;
   MMG5_pSol  met,sol;
+  MMG5_int k;
 
   mesh = parmesh->listgrp[0].mesh;
   met  = parmesh->listgrp[0].met;
@@ -1845,7 +1846,6 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
   /* Modify the value of the level-set to work with the 0 level-set  */
-  MMG5_int k;
   for (k=1; k<= sol->np; k++)
     sol->m[k] -= mesh->info.ls;
 
@@ -1871,6 +1871,19 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     return 0;
   }
 
+  /* Reset the mesh->info.isoref field everywhere */
+  if ( !MMG3D_resetRef_ls(mesh) ) {
+    fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
+    return 0;
+  }
+
+  /* Tag parallel triangles on material interfaces as boundary. */
+  if( !PMMG_parbdyTria( parmesh ) ) {
+    fprintf(stderr,"\n  ## Unable to recognize parallel triangles on material interfaces."
+            " Exit program.\n");
+    return 0;
+  }
+
   /* Check the compatibility of triangle orientation with tetra faces */
   if ( !MMG5_bdryPerm(mesh) ) {
     fprintf(stderr,"\n  ## Boundary orientation problem. Exit program.\n");
@@ -1878,13 +1891,18 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
   /* Identify surface mesh. Clean triangle array: remove useless or double
-     triangles and add the missing ones */
+     triangles and add the missing ones.  Remark: spurious boundary triangles
+     across parallel interface cannot be removed by the serial function but will
+     not be stored inthe xtetra by the MMG5_bdrySet function during analysis.
+     This may create inconsistencies between edge and point tags.
+  */
   if ( !MMG5_chkBdryTria(mesh) ) {
     fprintf(stderr,"\n  ## Boundary problem. Exit program.\n");
     return 0;
   }
 
-  /* Build hash table for initial edges */
+  /* Build hash table for initial edges: gather tag infos from edges and
+   * triangles and store these infos in tria. Skip non PARBDYBDY // edges. */
   if ( !MMG5_hGeom(mesh) ) {
     fprintf(stderr,"\n  ## Hashing problem (0). Exit program.\n");
     return 0;
@@ -1896,12 +1914,6 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     return 0;
   }
 
-  /* Reset the mesh->info.isoref field everywhere */
-  if ( !MMG3D_resetRef_ls(mesh) ) {
-    fprintf(stderr,"\n  ## Problem in resetting references. Exit program.\n");
-    return 0;
-  }
-
   /** \todo TODO :: Removal of small parasitic components */
   if ( mesh->info.rmc > 0 ) {
     PMMG_rmc(parmesh,mesh,sol);
@@ -1910,7 +1922,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
 #ifdef USE_POINTMAP
-  /* Initialize source point with input index */
+  /* OK - Initialize source point with input index */
   MMG5_int ip;
   for( ip = 1; ip <= mesh->np; ip++ ) {
       if ( (!MG_VOK(&mesh->point[ip])) ) continue;
@@ -1927,7 +1939,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
 
   /* Hash parallel edges
      This step is needed to compute the edge communicator */
-  if( PMMG_hashPar_pmmg( parmesh,&hpar ) != PMMG_SUCCESS ) {
+  if( PMMG_hashPar_fromFaceComm( parmesh,&hpar ) != PMMG_SUCCESS ) {
     fprintf(stderr,"\n\n\n  -- WARNING: Impossible to compute the hash parallel edge \n\n\n");
     return 0;
   }
@@ -1947,7 +1959,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     return 0;
   }
 
-  /* Not sure which function to be used to deallocate memory */
+  /* Delete outdated arrays */
   MMG5_DEL_MEM(mesh,mesh->adja);
   MMG5_DEL_MEM(mesh,mesh->adjt);
   MMG5_DEL_MEM(mesh,mesh->tria);
@@ -1973,7 +1985,7 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   }
 
   /* Clean old bdy analysis */
-  for ( MMG5_int k=1; k<=mesh->np; ++k ) {
+  for ( k=1; k<=mesh->np; ++k ) {
     if ( mesh->point[k].tag & MG_BDY ) {
       mesh->point[k].tag &= ~MG_BDY;
     }
@@ -1985,13 +1997,11 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
   /* Clean memory */
   MMG5_DEL_MEM(mesh,sol->m);
 
-#ifndef NDEBUG
   /* Check communicators */
   assert ( PMMG_check_extFaceComm ( parmesh,parmesh->info.read_comm ) );
   assert ( PMMG_check_intFaceComm ( parmesh ) );
   assert ( PMMG_check_extNodeComm ( parmesh,parmesh->info.read_comm ) );
   assert ( PMMG_check_intNodeComm ( parmesh ) );
-#endif
 
   /* Dealloc edge comm  as it is not up-to-date */
   MMG5_DEL_MEM(mesh,hpar.geom);

@@ -226,6 +226,8 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
   return PMMG_SUCCESS;
 }
 
+int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
+
 /**
  * \param  parmesh pointer to parmesh structure
  *

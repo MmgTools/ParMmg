@@ -144,7 +144,7 @@ int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash 
  * Hash the parallel edges. Only use face communicators to this purpose.
  *
  */
-int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
+int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp    grp = &parmesh->listgrp[0];
   MMG5_pMesh   mesh = grp->mesh;
   MMG5_pTetra  pt;
@@ -181,14 +181,18 @@ int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
 /**
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
+ *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Hash the edges. Use the assumption that all paralle edges are seen by a
- * MG_PARBDY face on an xtetra.
+ * Hash the edges belonging to parallel faces and store their tags with the
+ * additionnal MG_PARBDY tag.
+ *
+ * \remark Use the assumption that all paralle edges are
+ * seen by a MG_PARBDY face on an xtetra.
  *
  */
-int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
+int PMMG_hashParTag_fromXtet( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,na;
@@ -246,7 +250,7 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
   assert ( !mesh->htab.geom );
 
   /* Hash the MG_PARBDY edges */
-  if( PMMG_hashPar(mesh,&hash) != PMMG_SUCCESS ) return PMMG_FAILURE;
+  if( PMMG_hashParTag_fromXtet(mesh,&hash) != PMMG_SUCCESS ) return PMMG_FAILURE;
 
   /** Update xtetra edge tag if needed */
   for (k=1; k<=mesh->ne; ++k) {
