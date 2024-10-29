@@ -150,13 +150,13 @@ int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   PMMG_pInt_comm int_face_comm;
-  int          k,na;
-  int          i,ie,ifac,j,ia,i1,i2;
+  MMG5_int       na,ie;
+  int          i,ifac,j,ia,i1,i2;
 
   assert( parmesh->ngrp == 1 );
 
   /** Allocation of hash table to store parallel edges */
-  na = (int)(mesh->np*0.2); // Euler-Poincare
+  na = (MMG5_int)(mesh->np*0.2); // Euler-Poincare
 
   if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
 
