@@ -268,17 +268,19 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* to could save the mesh, the adjacency have to be correct */
-//    if ( mesh->info.ddebug ) {
+    if ( mesh->info.ddebug ) {
       if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
                 __func__);
         return 0;
       }
+#ifndef NDEBUG
       if ( !MMG5_chkmsh(mesh,1,1) ) {
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-//    }
+#endif
+    }
   }
 
   return 1;
@@ -534,7 +536,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   return 1;
 }
 
-int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
