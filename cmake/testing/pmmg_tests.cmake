@@ -455,8 +455,10 @@ IF( BUILD_TESTING )
       -ls 0.0
       -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/overlap-create.o.mesh)
+
     set_property(TEST overlap-create
-        PROPERTY PASS_REGULAR_EXPRESSION "${overlapCreation}")
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapCreation}"
+      )
 
     # Test if overlap is deleted
     set(overlapDelete " Delete Overlap")
@@ -551,6 +553,23 @@ IF( BUILD_TESTING )
       -out ${CI_DIR_RESULTS}/overlap-check-delete-met.o.mesh)
     set_property(TEST overlap-check-delete-met
       PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
+
+    # Temporary while snapval implementation is in progress and enabled only
+    # when the PMMG_SNAPVAL environment variable is defined
+    set_tests_properties(
+      overlap-check-P0
+      overlap-check-P0-met
+      overlap-check-P0P1
+      overlap-check-P0P2
+      overlap-check-P0P3
+      overlap-check-P0P4
+      overlap-check-delete
+      overlap-check-delete-met
+      overlap-create
+      overlap-delete
+      PROPERTIES ENVIRONMENT "PMMG_SNAPVAL=1"
+    )
 
     ###############################################################################
     #####
