@@ -191,6 +191,10 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
       return PMMG_STRONGFAILURE;
     }
+    /* Update mesh->npi and mesh->nei to be equal to mesh->np and mesh->ne, respectively */
+    mesh->npi = mesh->np;
+    mesh->nei = mesh->ne;
+
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
