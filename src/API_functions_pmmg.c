@@ -391,7 +391,7 @@ int PMMG_Set_outputLsName(PMMG_pParMesh parmesh, const char* lsout) {
   /* If \a lsout is not provided we want to use the basename of the input ls
    * name and the path of the output mesh name */
   if ( parmesh->lsout ) {
-    PMMG_DEL_MEM(parmesh,parmesh->fieldout,char,"fieldout unalloc");
+    PMMG_DEL_MEM(parmesh,parmesh->lsout,char,"lsout unalloc");
   }
 
   if ( (!lsout) || (!*lsout) ) {
@@ -403,9 +403,9 @@ int PMMG_Set_outputLsName(PMMG_pParMesh parmesh, const char* lsout) {
       return 0;
     }
 
-    /* Get input field base name and remove .mesh extension */
+    /* Get input ls base name and remove .mesh extension */
     if ( (!parmesh->lsin) || (!*parmesh->lsin) ) {
-      fprintf(stderr, "  ## Error: %s: please, provide an input field"
+      fprintf(stderr, "  ## Error: %s: please, provide an input ls"
               " name before calling this function without string.\n",
               __func__);
       return 0;
