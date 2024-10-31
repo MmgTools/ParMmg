@@ -454,6 +454,8 @@ int PMMG_update_analys(PMMG_pParMesh parmesh);
 int PMMG_hashParTag_fromXtet( MMG5_pMesh mesh,MMG5_HGeom *pHash );
 int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
+int PMMG_hashUpdate_s(MMG5_Hash *hash,MMG5_int ip0,MMG5_int ip1, MMG5_int s);
+MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s);
 
 /* Overlap functions */
 int PMMG_create_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);

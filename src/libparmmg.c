@@ -191,6 +191,10 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
       return PMMG_STRONGFAILURE;
     }
+    /* Update mesh->npi and mesh->nei to be equal to mesh->np and mesh->ne, respectively */
+    mesh->npi = mesh->np;
+    mesh->nei = mesh->ne;
+
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -225,8 +229,6 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
 
   return PMMG_SUCCESS;
 }
-
-int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
 
 /**
  * \param  parmesh pointer to parmesh structure
@@ -1116,9 +1118,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 
   /* Store owner in the point flag */
+  MMG5_int np_overlap = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
-    if (ppt->tag & MG_OVERLAP) continue;
+    if (ppt->tag & MG_OVERLAP) {
+      ++np_overlap;
+      continue;
+    }
     ppt->flag = parmesh->myrank;
   }
 
@@ -1130,7 +1136,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 
   /* Count owned nodes */
-  nowned = mesh->np;
+  nowned = mesh->np - np_overlap;
   for( idx = 0; idx < int_node_comm->nitem; idx++ ) {
     if( intvalues[idx] != parmesh->myrank ) nowned--;
   }
@@ -1228,7 +1234,12 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
                  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
                  PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
                  MPI_Abort(parmesh->comm,PMMG_TMPFAILURE) );
-      for( i = 0; i < nitem; i++ ) assert(itorecv[i]);
+
+#ifndef NDEBUG
+      for( i = 0; i < nitem; i++ ) {
+        assert(itorecv[i]);
+      }
+#endif
     }
   }
 

@@ -44,8 +44,6 @@
  * Load balancing of the mesh groups over the processors.
  *
  */
-int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
-
 int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
@@ -166,7 +164,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   }
 
 #ifndef NDEBUG
-  for ( int i=0; i<parmesh->ngrp; ++i ) {
+  for ( i=0; i<parmesh->ngrp; ++i ) {
     if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
@@ -194,12 +192,15 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
       }
     }
   }
-  for (int k=0; k<parmesh->ngrp; ++k ) {
-    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+
+#ifndef NDEBUG
+  for (i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
   }
+#endif
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

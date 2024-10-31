@@ -189,8 +189,7 @@ int PMMG_packTetra( PMMG_pParMesh parmesh, int igrp ) {
  *
  * \return 0 if fail, 1 otherwise
  *
- * Pack the sparse meshes of each group and create triangles and edges before
- * getting out of library
+ * Pack the sparse meshes of each group
  *
  */
 int PMMG_packParMesh( PMMG_pParMesh parmesh )
@@ -269,17 +268,19 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* to could save the mesh, the adjacency have to be correct */
-//    if ( mesh->info.ddebug ) {
+    if ( mesh->info.ddebug ) {
       if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
                 __func__);
         return 0;
       }
+#ifndef NDEBUG
       if ( !MMG5_chkmsh(mesh,1,1) ) {
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-//    }
+#endif
+    }
   }
 
   return 1;
@@ -535,7 +536,6 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
   return 1;
 }
 
-int PMMG_grp_to_saveMesh( PMMG_pParMesh parmesh, int i, char*  );
 /**
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
@@ -630,18 +630,20 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
   /** Reset the boundary fields between the old mesh size and the new one (Mmg
    * uses this fields assiming they are setted to 0)/ */
+
+  permNodGlob = NULL;
+
   for ( i=0; i<parmesh->ngrp; ++i ) {
     mesh         = parmesh->listgrp[i].mesh;
 
-    PMMG_grp_to_saveMesh( parmesh, i, "AfterSplit" );
-
     if ( !mesh ) continue;
 
+#ifndef NDEBUG
     if ( !MMG5_chkmsh(mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
-
+#endif
 
     memset(&mesh->xtetra[mesh->xt+1],0,(mesh->xtmax-mesh->xt)*sizeof(MMG5_xTetra));
     memset(&mesh->xpoint[mesh->xp+1],0,(mesh->xpmax-mesh->xp)*sizeof(MMG5_xPoint));
@@ -684,18 +686,16 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       met          = parmesh->listgrp[i].met;
       field        = parmesh->listgrp[i].field;
 
-
+#ifndef NDEBUG
       if ( !MMG5_chkmsh(mesh,1,1) ) {
         fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
         return 0;
       }
-
+#endif
 
 #warning Luca: until analysis is not ready
 #ifdef USE_POINTMAP
       for( k = 1; k <= mesh->np; k++ ) {
-#warning Algiane todo
-        //assert ( mesh->point[k].src == k);
         mesh->point[k].src = k;
       }
 #endif
@@ -722,7 +722,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
 
 #ifdef USE_SCOTCH
         /* Allocation of the array that will store the node permutation */
-        PMMG_MALLOC(parmesh,permNodGlob,mesh->np+1,int,"node permutation",
+        // npi stores the number of points when we enter Mmg, np stores the
+        // number of points after adatptation.
+        // In theorie, here np == npi
+
+        assert ( mesh->np == mesh->npi );
+
+        PMMG_MALLOC(parmesh,permNodGlob,mesh->npi+1,int,"node permutation",
                     PMMG_scotch_message(&warnScotch) );
         if ( permNodGlob ) {
           for ( k=1; k<=mesh->np; ++k ) {
@@ -767,6 +773,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
             goto strong_failed;
           }
         }
+
 
 #ifdef PATTERN
         ier = MMG5_mmg3d1_pattern( mesh, met, permNodGlob );
@@ -834,14 +841,15 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
           goto strong_failed;
         }
 
+#ifdef USE_SCOTCH
+        PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
+#endif
+
         if ( !ier ) { break; }
+
       }
       /* Reset the mesh->gap field in case Mmg have modified it */
       mesh->gap = MMG5_GAP;
-
-#ifdef USE_SCOTCH
-      PMMG_DEL_MEM(parmesh,permNodGlob,int,"node permutation");
-#endif
     }
 
     MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
@@ -968,13 +976,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
   ier = PMMG_merge_grps(parmesh,0);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
+#ifndef NDEBUG
   for (int k=0; k<parmesh->ngrp; ++k ) {
     if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
       fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
       return 0;
     }
   }
-
+#endif
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     chrono(OFF,&(ctim[tim]));
