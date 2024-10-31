@@ -340,7 +340,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
@@ -373,7 +373,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-metAndFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -pure-partitioning
       -distributed-output )
 
@@ -382,7 +382,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-metAndFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -pure-partitioning
       -centralized-output )
 
@@ -404,7 +404,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-met-4-out.mesh
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -pure-partitioning
       -distributed-output )
 
@@ -412,7 +412,7 @@ IF( BUILD_TESTING )
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-met-4-out.mesh
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -pure-partitioning
       -centralized-output )
 
@@ -421,7 +421,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-h5-metAndFields-4-out.h5
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -pure-partitioning )
 
     add_test( NAME PurePartitioning-CenIn-DisOut-withMetAndLs-2
