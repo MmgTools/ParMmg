@@ -2055,22 +2055,28 @@ int PMMG_ls(PMMG_pParMesh parmesh) {
     MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
   }
 
-  if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
-    /* To avoid deadlocks in snpval_ls */
-    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
-  }
+  /* Implementation in progress: call this part of code only when the
+   * PMMG_SNAPVAL environment variable is enabled */
+  const char* dev_snap = getenv("PMMG_SNAPVAL");
 
-  /** \todo TODO :: Snap values of level set function if needed */
-  if ( !PMMG_snpval_ls(parmesh,parmesh->info.read_comm) ) {
-    fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
-    /* To avoid deadlocks in parbdyTria */
-    ier = 0;
-  }
+  if ( dev_snap ) {
+    if ( !PMMG_create_overlap(parmesh,parmesh->info.read_comm) ) {
+      /* To avoid deadlocks in snpval_ls */
+      MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+    }
 
-  /* Delete overlap */
-  if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
-    fprintf(stderr,"\n  ## Impossible to delete overlap. Exit program.\n");
-    ier = 0;
+    /** \todo TODO :: Snap values of level set function if needed */
+    if ( !PMMG_snpval_ls(parmesh,parmesh->info.read_comm) ) {
+      fprintf(stderr,"\n  ## Problem with implicit function. Exit program.\n");
+      /* To avoid deadlocks in parbdyTria */
+      ier = 0;
+    }
+
+    /* Delete overlap */
+    if ( !PMMG_delete_overlap(parmesh,parmesh->info.read_comm) ) {
+      fprintf(stderr,"\n  ## Impossible to delete overlap. Exit program.\n");
+      ier = 0;
+    }
   }
 
   /* Create table of adjacency for tetra */
