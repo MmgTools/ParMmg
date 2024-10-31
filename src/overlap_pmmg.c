@@ -839,7 +839,7 @@ int PMMG_delete_overlap(PMMG_pParMesh parmesh, MPI_Comm comm) {
   }
 
   if ( parmesh->info.imprim > PMMG_VERB_ITWAVES )
-    fprintf(stdout, "          part %d has %d pts and %d tetras after overlap deletion\n",
+    fprintf(stdout, "         part %d has %d pts and %d tetras after overlap deletion\n",
             parmesh->myrank,mesh->np,mesh->ne);
 
   return 1;

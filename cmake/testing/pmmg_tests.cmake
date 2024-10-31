@@ -340,7 +340,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
@@ -362,6 +362,116 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
       -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
+
+    ###############################################################################
+    #####
+    #####        Tests pure-partitioning option
+    #####
+    ###############################################################################
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-metAndFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-metAndFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -centralized-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-4-out.mesh
+      -pure-partitioning
+      -centralized-output )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-4-out.mesh
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMet
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-met-4-out.mesh
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut-withMet
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-met-4-out.mesh
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -centralized-output )
+
+   add_test( NAME PurePartitioning-CenIn-h5-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-h5-metAndFields-4-out.h5
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMetAndLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -distributed-output
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withMetAndLs-2.o.mesh)
+
+   add_test( NAME PurePartitioning-CenIn-h5-withMetAndLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withMetAndLs-2.o.h5)
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -distributed-output
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withLs-2.o.mesh)
+
+   add_test( NAME PurePartitioning-CenIn-h5-withLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withLs-2.o.h5)
+
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST
+        PurePartitioning-CenIn-h5-withMetAndFields
+        PurePartitioning-CenIn-h5-withMetAndLs-2
+        PurePartitioning-CenIn-h5-withLs-2
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
+
+
 
     ###############################################################################
     #####
@@ -425,6 +535,7 @@ IF( BUILD_TESTING )
 
       ENDFOREACH()
     ENDFOREACH()
+
 
     # Test to verify the patch on update MG_REF tag.
     # This test fail if the tag MG_REF is not updated by PMMG_updateTagRef_node in PMMG_update_analys.

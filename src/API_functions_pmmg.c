@@ -382,6 +382,77 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   return ier;
 }
 
+int PMMG_Set_outputLsName(PMMG_pParMesh parmesh, const char* lsout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  ls;
+  int        k,ier,pathlen,baselen;
+  char      *basename,*path,*nopath;
+
+  /* If \a lsout is not provided we want to use the basename of the input ls
+   * name and the path of the output mesh name */
+  if ( parmesh->lsout ) {
+    PMMG_DEL_MEM(parmesh,parmesh->lsout,char,"lsout unalloc");
+  }
+
+  if ( (!lsout) || (!*lsout) ) {
+
+    if ( (!parmesh->meshout) || (!*parmesh->meshout) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an output mesh"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    /* Get input ls base name and remove .mesh extension */
+    if ( (!parmesh->lsin) || (!*parmesh->lsin) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an input ls"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    path   = MMG5_Get_path(parmesh->meshout);
+    nopath = MMG5_Get_basename(parmesh->lsin);
+    basename = MMG5_Remove_ext ( nopath,".sol" );
+
+    pathlen = baselen = 0;
+    if ( path ) pathlen = strlen(path)+1;
+    if ( basename ) baselen = strlen(basename);
+    PMMG_MALLOC(parmesh,parmesh->lsout,pathlen+baselen+1,char,"lsout",return 0);
+    if ( pathlen ) {
+      strncpy(parmesh->lsout,path,pathlen-1);
+      parmesh->lsout[pathlen-1] = MMG5_PATHSEP;
+    }
+    if ( baselen ) {
+      strncpy(parmesh->lsout+pathlen,basename,baselen);
+      parmesh->lsout[pathlen+baselen] = '\0';
+    }
+
+    if ( parmesh->lsout ) {
+      /* Add .o.sol extension */
+      PMMG_REALLOC(parmesh,parmesh->lsout,strlen(parmesh->lsout)+7,
+                   strlen(parmesh->lsout)+1,char,"lsout",return 0);
+      strncat ( parmesh->lsout,".o.sol",7 );
+    }
+
+    MMG5_SAFE_FREE ( path );
+    free ( nopath ); nopath = NULL;
+    MMG5_SAFE_FREE ( basename );
+  }
+  else {
+    PMMG_MALLOC(parmesh,parmesh->lsout,strlen(lsout)+1,char,"lsout",return 0);
+    strcpy(parmesh->lsout,lsout);
+  }
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ls   = parmesh->listgrp[k].ls;
+    ier  = MMG3D_Set_outputSolName(mesh,ls,parmesh->lsout);
+  }
+  return ier;
+}
+
+
 int PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout) {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -625,6 +696,11 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
 #endif
   case PMMG_IPARAM_debug :
     parmesh->ddebug = val;
+    break;
+
+  case PMMG_IPARAM_purePartitioning :
+
+    parmesh->info.pure_partitioning = val;
     break;
 
   case PMMG_IPARAM_distributedOutput :
@@ -2795,6 +2871,7 @@ int PMMG_Free_names(PMMG_pParMesh parmesh)
   PMMG_DEL_MEM ( parmesh, parmesh->metin,char,"metin" );
   PMMG_DEL_MEM ( parmesh, parmesh->metout,char,"metout" );
   PMMG_DEL_MEM ( parmesh, parmesh->lsin,char,"lsin" );
+  PMMG_DEL_MEM ( parmesh, parmesh->lsout,char,"lsout" );
   PMMG_DEL_MEM ( parmesh, parmesh->dispin,char,"dispin" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldin,char,"fieldin" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldout,char,"fieldout" );

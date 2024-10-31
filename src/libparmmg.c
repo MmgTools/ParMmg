@@ -181,24 +181,26 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /* Discretization of the isovalue  */
-  if (mesh->info.iso) {
-    tim = 1;
-    chrono(ON,&(ctim[tim]));
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
-    }
-    if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
-      return PMMG_STRONGFAILURE;
-    }
-    /* Update mesh->npi and mesh->nei to be equal to mesh->np and mesh->ne, respectively */
-    mesh->npi = mesh->np;
-    mesh->nei = mesh->ne;
+  if ( !parmesh->info.pure_partitioning ) {
+    /* Discretization of the isovalue  */
+    if (mesh->info.iso) {
+      tim = 1;
+      chrono(ON,&(ctim[tim]));
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+      }
+      if ( !MMG3D_mmg3d2(mesh,ls,met) ) {
+        return PMMG_STRONGFAILURE;
+      }
+      /* Update mesh->npi and mesh->nei to be equal to mesh->np and mesh->ne, respectively */
+      mesh->npi = mesh->np;
+      mesh->nei = mesh->ne;
 
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"  -- PHASE 1a COMPLETED     %s\n",stim);
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"  -- PHASE 1a COMPLETED     %s\n",stim);
+      }
     }
   }
 
@@ -207,14 +209,17 @@ int PMMG_preprocessMesh( PMMG_pParMesh parmesh )
     return PMMG_STRONGFAILURE;
   }
 
-  /* Check if the LS has led to a non-manifold topology */
-  if ( mesh->info.iso && !MMG3D_chkmani(mesh) ) {
-    fprintf(stderr,"\n  ## LS discretization: non-manifold initial topology. Exit program.\n");
-    return PMMG_STRONGFAILURE;
-  }
-  else {
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION && mesh->info.iso ) {
-      fprintf(stdout,"       LS discretization OK: no non-manifold topology.\n");
+  if ( !parmesh->info.pure_partitioning ) {
+
+    /* Check if the LS has led to a non-manifold topology */
+    if ( mesh->info.iso && !MMG3D_chkmani(mesh) ) {
+      fprintf(stderr,"\n  ## LS discretization: non-manifold initial topology. Exit program.\n");
+      return PMMG_STRONGFAILURE;
+    }
+    else {
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION && mesh->info.iso ) {
+        fprintf(stdout,"       LS discretization OK: no non-manifold topology.\n");
+      }
     }
   }
 
@@ -395,34 +400,37 @@ int PMMG_preprocessMesh_distributed( PMMG_pParMesh parmesh )
   }
   MMG5_SAFE_FREE( permtria );
 
-  /** Discretization of the isovalue  */
-  if (mesh->info.iso) {
+  if ( !parmesh->info.pure_partitioning ) {
 
-    /* Destroy adja and adjat */
-    MMG5_DEL_MEM(mesh,mesh->adja);
-    MMG5_DEL_MEM(mesh,mesh->adjt);
+    /** Discretization of the isovalue  */
+    if (mesh->info.iso) {
 
-    tim = 1;
-    chrono(ON,&(ctim[tim]));
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
-      fprintf(stdout,"  --    under development     \n");
-    }
-    if ( !PMMG_ls(parmesh) ) {
-      return PMMG_STRONGFAILURE;
-    }
+      /* Destroy adja and adjat */
+      MMG5_DEL_MEM(mesh,mesh->adja);
+      MMG5_DEL_MEM(mesh,mesh->adjt);
 
-    chrono(OFF,&(ctim[tim]));
-    printim(ctim[tim].gdif,stim);
-    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-      fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
-    }
-
-    /** Mesh analysis Ib : After LS discretization
-     * Check triangles, create xtetras */
-    if ( parmesh->myrank < parmesh->info.npartin ) {
-      if ( !PMMG_analys_tria(parmesh,mesh,permtria) ) {
+      tim = 1;
+      chrono(ON,&(ctim[tim]));
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n  -- PHASE 1a: ISOVALUE DISCRETIZATION     \n");
+        fprintf(stdout,"  --    under development     \n");
+      }
+      if ( !PMMG_ls(parmesh) ) {
         return PMMG_STRONGFAILURE;
+      }
+
+      chrono(OFF,&(ctim[tim]));
+      printim(ctim[tim].gdif,stim);
+      if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+        fprintf(stdout,"\n  -- PHASE 1a COMPLETED     %s\n",stim);
+      }
+
+      /** Mesh analysis Ib : After LS discretization
+       * Check triangles, create xtetras */
+      if ( parmesh->myrank < parmesh->info.npartin ) {
+        if ( !PMMG_analys_tria(parmesh,mesh,permtria) ) {
+          return PMMG_STRONGFAILURE;
+        }
       }
     }
   }
@@ -1610,6 +1618,11 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
   iresult = 1;
 
+  if ( parmesh->niter == 0 || parmesh->info.pure_partitioning ) {
+    /* set parmesh->iter to allow saving of mesh communicators */
+    parmesh->iter = 0;
+  }
+
   switch ( parmesh->info.fmtout ) {
   case ( PMMG_UNSET ):
     /* No output */
@@ -1765,6 +1778,18 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
     }
   }
 
+  /* I/O check: if an input ls name is provided but the output one is not,
+   compute automatically an output ls name. */
+  if ( parmesh->lsin &&  *parmesh->lsin ) {
+    ier = PMMG_Set_outputLsName(parmesh,NULL);
+    if ( !ier ) {
+      fprintf(stdout,"  ## Warning: %s: rank %d: an input field name is"
+              " provided without an output one.\n"
+              "            : the saving process may fail.\n",
+              __func__,parmesh->myrank);
+    }
+  }
+
   /* Distribute the mesh */
   ier = PMMG_distributeMesh_centralized_timers( parmesh, ctim );
   if( ier != PMMG_SUCCESS ) return ier;
@@ -1782,16 +1807,21 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
              met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
   }
 
-  ier = PMMG_parmmglib1(parmesh);
-  MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
+  if ( !parmesh->info.pure_partitioning ) {
+    ier = PMMG_parmmglib1(parmesh);
+    MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[tim]));
-  printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+    }
+    if ( ierlib == PMMG_STRONGFAILURE ) {
+      return ierlib;
+    }
   }
-  if ( ierlib == PMMG_STRONGFAILURE ) {
-    return ierlib;
+  else {
+    ierlib = 0;
   }
 
   ier = PMMG_parmmglib_post(parmesh);
@@ -1895,6 +1925,14 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
     return iresult;
   }
 
+  if ( parmesh->info.pure_partitioning ) {
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr,"\n  ## Error: %s: Pure repartitioning from distributed"
+              " input not implemented.\n",__func__);
+    }
+    return PMMG_STRONGFAILURE;
+  }
+
   /* I/O check: if the mesh was loaded with nprocs != npartin (for example from
      hdf5 file), call loadBalancing before the remeshing loop to make sure no
      proc has an empty mesh (nprocs > npartin) and the load is well balanced
@@ -1920,24 +1958,26 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
     fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
-  /** Remeshing */
-  tim = 3;
-  chrono(ON,&(ctim[tim]));
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
-            parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
-  }
+  if ( !parmesh->info.pure_partitioning ) {
+    /** Remeshing */
+    tim = 3;
+    chrono(ON,&(ctim[tim]));
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf( stdout,"\n  -- PHASE 2 : %s MESHING\n",
+               parmesh->listgrp[0].met->size < 6 ? "ISOTROPIC" : "ANISOTROPIC" );
+    }
 
-  ier = PMMG_parmmglib1(parmesh);
-  MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
+    ier = PMMG_parmmglib1(parmesh);
+    MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
-  chrono(OFF,&(ctim[tim]));
-  printim(ctim[tim].gdif,stim);
-  if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
-    fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
-  }
-  if ( ierlib == PMMG_STRONGFAILURE ) {
-    return ierlib;
+    chrono(OFF,&(ctim[tim]));
+    printim(ctim[tim].gdif,stim);
+    if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
+      fprintf(stdout,"  -- PHASE 2 COMPLETED.     %s\n",stim);
+    }
+    if ( ierlib == PMMG_STRONGFAILURE ) {
+      return ierlib;
+    }
   }
 
   ier = PMMG_parmmglib_post(parmesh);
