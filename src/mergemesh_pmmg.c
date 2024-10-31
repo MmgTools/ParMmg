@@ -1600,6 +1600,9 @@ int PMMG_mergeParmesh_rcvParMeshes ( PMMG_pParMesh parmesh,PMMG_pGrp rcv_grps,
     if ( parmesh->lsin ) {
       MMG3D_Set_inputSolName (mesh,ls, parmesh->lsin);
     }
+    if ( parmesh->lsout ) {
+      MMG3D_Set_outputSolName (mesh,ls, parmesh->lsout);
+    }
   }
   if ( disp ) {
     if ( parmesh->dispin ) {

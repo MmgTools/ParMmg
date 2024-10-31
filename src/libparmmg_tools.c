@@ -124,6 +124,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
     fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
     fprintf(stdout,"-nobalance         switch off load balancing of the output mesh\n");
+    fprintf(stdout,"-pure-partitioning perform only mesh partitioning (no level-set insertion or remeshing");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -457,6 +458,20 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
           PMMG_UNRECOGNIZED_ARG;
         }
         break;
+
+      case 'p':
+        if ( !strcmp(pmmgArgv[i],"-pure-partitioning") ) {
+          /* Only perform partitionning of intput data */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_purePartitioning,1) )  {
+            ret_val = 0;
+            goto clean;
+          }
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+
       case 'v':  /* verbosity */
         if ( ++i < pmmgArgc ) {
           if ( isdigit(pmmgArgv[i][0]) ||
@@ -638,10 +653,17 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
       return 0;
   }
 
+  /* Assign default output level-set name */
+  if ( parmesh->listgrp[0].ls->nameout == NULL ) {
+    if ( !MMG3D_Set_outputSolName(mesh,parmesh->listgrp[0].ls,"") )
+      return 0;
+  }
+
   /* Transfer solution names into the parmesh */
   assert ( !parmesh->metin );
   assert ( !parmesh->metout );
   assert ( !parmesh->lsin );
+  assert ( !parmesh->lsout );
   assert ( !parmesh->dispin );
 
   if ( met && met->namein ) {
@@ -658,6 +680,10 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 
   if ( met && met->nameout ) {
     PMMG_Set_name(parmesh,&parmesh->metout,met->nameout,"mesh.o.sol");
+  }
+
+  if ( parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->nameout ) {
+    PMMG_Set_name(parmesh,&parmesh->lsout,parmesh->listgrp[0].ls->nameout,"mesh.o.sol");
   }
 
 clean:

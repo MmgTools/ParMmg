@@ -470,6 +470,13 @@ check_mesh_loading:
       if ( ier &&  grp->field ) {
         ier = PMMG_saveAllSols_distributed(parmesh,parmesh->fieldout);
       }
+      if ( ier &&  grp->ls ) {
+        /* Warning: if the ls has the same name than the metric (default case
+         * when no input metric in ls mode), if the ls is not deallocated, the
+         * metric file is overwritten */
+        ier = PMMG_saveLs_distributed(parmesh,parmesh->lsout);
+      }
+
       MPI_Allreduce( &ier, &ierSave, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
       break;
@@ -490,6 +497,14 @@ check_mesh_loading:
       if ( ierSave && grp->field ) {
         ierSave = PMMG_saveAllSols_centralized(parmesh,parmesh->fieldout);
       }
+
+      if ( ierSave && grp->ls ) {
+        /* Warning: if the ls has the same name than the metric (default case
+         * when no input metric in ls mode), if the ls is not deallocated, the
+         * metric file is overwritten */
+        ierSave = PMMG_saveLs_centralized(parmesh,parmesh->lsout);
+      }
+
       break;
     }
   }

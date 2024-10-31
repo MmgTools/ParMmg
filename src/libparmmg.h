@@ -70,6 +70,7 @@ enum PMMG_Param {
   PMMG_IPARAM_nomove,            /*!< [1/0], Avoid/allow point relocation */
   PMMG_IPARAM_nosurf,            /*!< [1/0], Avoid/allow surface modifications */
   PMMG_IPARAM_numberOfLocalParam,/*!< [n], Number of local parameters */
+  PMMG_IPARAM_purePartitioning, /*!< [0/1], Turn off/on pure mesh partitioning (no ls insertion, no remeshing) */
   PMMG_IPARAM_anisosize,         /*!< [1/0], Turn on/off anisotropic metric creation when no metric is provided */
   PMMG_IPARAM_octree,            /*!< [n], Specify the max number of points per octree cell (DELAUNAY) */
   PMMG_IPARAM_meshSize,          /*!< [n], Target mesh size of Mmg (advanced use) */
@@ -388,6 +389,24 @@ int  PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout);
  *
  */
 int  PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout);
+
+/**
+ * \param parmesh pointer toward a parmesh structure.
+ * \param lsout name of the output level-set file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ *  Set the name of output level-set file.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SET_OUTPUTLSNAME(parmesh,lsout,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: lsout\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+int  PMMG_Set_outputLsName(PMMG_pParMesh parmesh, const char* lsout);
 
 /**
  * \param parmesh pointer toward the parmesh structure.
@@ -2114,7 +2133,45 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 0 if failed, 1 otherwise.
  *
- * Write 1 or more than 1 solution in a file at medit format.
+ * Write level-set in a file at medit format.
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVELS_CENTRALIZED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveLs_centralized(PMMG_pParMesh parmesh, const char *filename);
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write level-set in a file at medit format for a distributed
+ * mesh (insert rank index to filename).
+ *
+ * \remark Fortran interface:
+ * >   SUBROUTINE PMMG_SAVELS_DISTRIBUTED(parmesh,filename,strlen,retval)\n
+ * >     MMG5_DATA_PTR_T, INTENT(INOUT) :: parmesh\n
+ * >     CHARACTER(LEN=*), INTENT(IN)   :: filename\n
+ * >     INTEGER, INTENT(IN)            :: strlen\n
+ * >     INTEGER, INTENT(OUT)           :: retval\n
+ * >   END SUBROUTINE\n
+ *
+ */
+  int PMMG_saveLs_distributed(PMMG_pParMesh parmesh, const char *filename);
+
+
+/**
+ * \param parmesh pointer toward the parmesh structure.
+ * \param filename name of file.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Write 1 or more than 1 solution field in a file at medit format.
  *
  * \remark Fortran interface:
  * >   SUBROUTINE PMMG_SAVEALLSOLS_CENTRALIZED(parmesh,filename,strlen,retval)\n
@@ -2132,7 +2189,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog);
  * \param filename name of file.
  * \return 0 if failed, 1 otherwise.
  *
- * Write 1 or more than 1 solution in a file at medit format for a distributed
+ * Write 1 or more than 1 solution field in a file at medit format for a distributed
  * mesh (insert rank index to filename).
  *
  * \remark Fortran interface:

@@ -369,6 +369,7 @@ typedef struct {
   int setfem;  /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int repartitioning; /*!< way to perform mesh repartitioning */
+  int pure_partitioning; /*!< enable/disable pure mesh partitioning mode  */
   int ifc_layers;  /*!< nb of layers for interface displacement */
   double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
   int nobalancing; /*!< switch off final load balancing */
@@ -426,7 +427,7 @@ typedef struct {
   /* file names */
   char     *meshin,*meshout;
   char     *metin,*metout;
-  char     *lsin;
+  char     *lsin,*lsout;
   char     *dispin;
   char     *fieldin,*fieldout;
 

@@ -417,6 +417,11 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
     if ( parmesh->lsin && *parmesh->lsin ) {
       if ( !MMG5_Set_inputSolName( mesh, ls, parmesh->lsin ) ) { *ier = 0; }
     }
+    if ( parmesh->lsout && *parmesh->lsout ) {
+      if ( !MMG5_Set_outputSolName( mesh, ls, parmesh->lsout ) ) {
+        *ier = 0;
+      }
+    }
   }
 
   if ( ier_disp && disp ) {

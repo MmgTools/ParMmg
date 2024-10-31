@@ -1158,6 +1158,57 @@ int PMMG_saveMet_distributed(PMMG_pParMesh parmesh,const char *filename) {
   return ier;
 }
 
+int PMMG_saveLs_centralized(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  *sol;
+  int        ier;
+
+  if ( parmesh->myrank!=parmesh->info.root ) {
+    return 1;
+  }
+
+  if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = &parmesh->listgrp[0].ls;
+
+  /* Except in cases where we want to partition and input mesh + ls without
+   * inserting the ls and remeshing, the level-set will be deallocated */
+  if ( (!*sol) || (!(*sol)->m) ) {
+    if ( parmesh->ddebug ) {
+      fprintf(stdout,"  %s: The Level-set is not allocated. Nothing to save.\n",
+              __func__);
+    }
+    return 1;
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  /* Dirty hack: temporary replace the number of solution fields inside the mesh to allow the use of the saveAllSols function */
+  int nfields = mesh->nsols;
+  mesh->nsols = 1;
+
+  if ( filename && *filename ) {
+    ier = MMG3D_saveAllSols(mesh,sol,filename);
+  }
+  else {
+    ier = MMG3D_saveAllSols(mesh,sol,parmesh->lsout);
+  }
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  /* Restore the number of solution fields */
+  mesh->nsols = nfields;
+
+  return ier;
+}
+
 int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
   MMG5_pMesh mesh;
   MMG5_pSol  sol;
@@ -1188,6 +1239,70 @@ int PMMG_saveAllSols_centralized(PMMG_pParMesh parmesh,const char *filename) {
 
   /* Restore the mmg verbosity to its initial value */
   mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  return ier;
+}
+
+int PMMG_saveLs_distributed(PMMG_pParMesh parmesh,const char *filename) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  sol;
+  int        ier;
+  char       *data = NULL;
+
+  if ( parmesh->ngrp != 1 ) {
+    fprintf(stderr,"  ## Error: %s: you must have exactly 1 group in you parmesh.\n",
+            __func__);
+    return 0;
+  }
+  mesh = parmesh->listgrp[0].mesh;
+  sol  = parmesh->listgrp[0].ls;
+
+  /* Except in cases where we want to partition and input mesh + ls without
+   * inserting the ls and remeshing, the level-set will be deallocated */
+  int noLs;
+
+  // noLsOnRank has to be 1 if we don't have the ls on the rank, 0 if ls is allocated
+  int noLsOnRank = ((!sol) || (!sol->m)) ? 1 : 0;
+
+  MPI_Allreduce( &noLsOnRank, &noLs, 1, MPI_INT, MPI_MIN, parmesh->comm );
+
+  if ( noLs ) {
+    if ( parmesh->ddebug && parmesh->myrank==parmesh->info.root ) {
+      fprintf(stdout,"  %s: The Level-set is not allocated. Nothing to save.\n",
+              __func__);
+    }
+    return 1;
+  }
+
+  if ( noLsOnRank ) {
+    fprintf(stderr,"  ## Error: %s: Distributed saving with empty level-set on one rank not implemented.\n",
+            __func__);
+    return 0;
+  }
+
+  /* Add rank index to mesh name */
+  if ( filename ) {
+    PMMG_insert_rankIndex(parmesh,&data,filename,".sol", ".sol");
+  }
+  else if ( parmesh->lsout ) {
+    PMMG_insert_rankIndex(parmesh,&data,parmesh->lsout,".sol", ".sol");
+  }
+
+  /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
+  assert ( mesh->info.imprim == parmesh->info.mmg_imprim );
+  mesh->info.imprim = MG_MAX ( parmesh->info.imprim, mesh->info.imprim );
+
+  /* Dirty hack: temporary replace the number of solution fields inside the mesh to allow the use of the saveAllSols function */
+  int nfields = mesh->nsols;
+  mesh->nsols = 1;
+
+  ier = MMG3D_saveAllSols(mesh,&sol,data);
+
+  /* Restore the mmg verbosity to its initial value */
+  mesh->info.imprim = parmesh->info.mmg_imprim;
+
+  /* Restore the number of solution fields */
+  mesh->nsols = nfields;
 
   return ier;
 }
@@ -3228,6 +3343,20 @@ int PMMG_saveMesh_hdf5_i(PMMG_pParMesh parmesh, int *save_entities, const char *
   if (!ier) {
     if (parmesh->myrank == parmesh->info.root) {
       fprintf(stderr,"\n  ## Error: %s: Could not write the metric.\n",__func__);
+    }
+    H5Gclose(grp_sols_id);
+    goto free_and_return;
+  }
+
+  ier = PMMG_saveLs_hdf5(parmesh, grp_sols_id, dcpl_id, dxpl_id, nentitiesl, nentitiesg, offset);
+
+  MPI_CHECK( MPI_Allreduce(MPI_IN_PLACE, &ier, 1, MPI_INT, MPI_MIN, parmesh->comm),
+             H5Gclose(grp_sols_id);
+             goto free_and_return );
+
+  if (!ier) {
+    if (parmesh->myrank == parmesh->info.root) {
+      fprintf(stderr,"\n  ## Error: %s: Could not write the level-set.\n",__func__);
     }
     H5Gclose(grp_sols_id);
     goto free_and_return;
