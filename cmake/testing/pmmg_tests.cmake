@@ -429,6 +429,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
       -ls
       -pure-partitioning
+      -distributed-output
       -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
       -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withMetAndLs-2.o.mesh)
@@ -447,6 +448,7 @@ IF( BUILD_TESTING )
       ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
       -ls
       -pure-partitioning
+      -distributed-output
       -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
       -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withLs-2.o.mesh)
 

@@ -1820,6 +1820,9 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
       return ierlib;
     }
   }
+  else {
+    ierlib = 0;
+  }
 
   ier = PMMG_parmmglib_post(parmesh);
   ierlib = MG_MAX ( ier, ierlib );
