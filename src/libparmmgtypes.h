@@ -32,7 +32,7 @@
 #ifndef _LIBPARMMGTYPES_H
 #define _LIBPARMMGTYPES_H
 
-#include "mmg/mmg3d/libmmgtypes.h"
+#include "mmg/common/libmmgtypes.h"
 #include "pmmgversion.h"
 #include <mpi.h>
 
@@ -65,6 +65,13 @@
  */
 #define PMMG_FAILURE  4
 
+/**
+ * \def PMMG_TMPFAILURE
+ *
+ * Return failure not yet handled by developers: MPI_abort is called but should
+ * be removed with a clean error handling with no deadlocks.
+ */
+#define PMMG_TMPFAILURE PMMG_STRONGFAILURE
 
 /**
  * \def PMMG_ARG_start
@@ -236,12 +243,52 @@
 #define PMMG_UNSET     -1
 
 /**
+ * \def PMMG_ON
+ */
+#define PMMG_ON     1
+
+/**
+ * \def PMMG_OFF
+ */
+#define PMMG_OFF     0
+
+/**
  * \def PMMG_GAP
  *
  * Gap value for reallocation
  *
  */
 #define PMMG_GAP     0.2
+
+/**
+ * \enum PMMG_IO_entities
+ * \brief Type of mesh entities that are saved in/loaded from HDF5 files.
+ */
+enum PMMG_IO_entities {
+  PMMG_IO_Vertex,
+  PMMG_IO_Edge,
+  PMMG_IO_Tria,
+  PMMG_IO_Quad,
+  PMMG_IO_Tetra,
+  PMMG_IO_Prism,
+  PMMG_IO_Corner,
+  PMMG_IO_RequiredVertex,
+  PMMG_IO_ParallelVertex,
+  PMMG_IO_Ridge,
+  PMMG_IO_RequiredEdge,
+  PMMG_IO_ParallelEdge,
+  PMMG_IO_RequiredTria,
+  PMMG_IO_ParallelTria,
+  PMMG_IO_RequiredQuad,
+  PMMG_IO_ParallelQuad,
+  PMMG_IO_RequiredTetra,
+  PMMG_IO_ParallelTetra,
+  PMMG_IO_Normal,
+  PMMG_IO_Tangent,
+  PMMG_IO_ENTITIES_size, // Number of type of entities that can be saved
+  PMMG_IO_Required, // To enable/disable saving of all type of required entites
+  PMMG_IO_Parallel // To enable/disable saving of all type of parallel entites
+};
 
 /**
  * Types
@@ -316,10 +363,13 @@ typedef struct {
   int imprim0; /*!< ParMmg verbosity of the zero rank */
   int mem;     /*!< memory asked by user */
   int iso;     /*!< ls mode (not yet available) */
+  int isosurf; /*!< ls mode on boundaries only (not yet available) */
+  int lag;     /*!< lagrangian motion (not yet available) */
   int root;    /*!< MPI root rank */
-  int fem;     /*!< fem mesh (no elt with more than 1 bdy face */
+  int setfem;  /*!< fem mesh (no elt with more than 1 bdy face */
   int mmg_imprim; /*!< 1 if the user has manually setted the mmg verbosity */
   int repartitioning; /*!< way to perform mesh repartitioning */
+  int pure_partitioning; /*!< enable/disable pure mesh partitioning mode  */
   int ifc_layers;  /*!< nb of layers for interface displacement */
   double grps_ratio;  /*!< allowed imbalance ratio between current and demanded groups size */
   int nobalancing; /*!< switch off final load balancing */
@@ -329,12 +379,33 @@ typedef struct {
   int target_mesh_size; /*!< target mesh size for Mmg */
   int API_mode; /*!< use faces or nodes information to build communicators */
   int globalNum; /*!< compute nodes and triangles global numbering in output */
+  int globalVNumGot; /*!< have global nodes actually been calculated */
+  int globalTNumGot; /*!< have global triangles actually been calculated */
   int fmtout; /*!< store the output format asked */
+  int io_entities[PMMG_IO_ENTITIES_size]; /* Array to store entities to save in some I/O formats */
   int8_t sethmin; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
   int8_t sethmax; /*!< 1 if user set hmin, 0 otherwise (needed for multiple library calls) */
-  uint8_t inputMet; /* 1 if User prescribe a metric or a size law */
+  uint8_t inputMet; /*!< 1 if User prescribe a metric or a size law */
+  int npartin; /*!< nb of partitions of the mesh in the input HDF5 file */
+  MPI_Comm read_comm; /*!< MPI comm containing the procs that read the mesh (HDF5 input) */
 } PMMG_Info;
 
+/**
+ * \struct PMMG_overlap
+ * \brief Overlap structure.
+ */
+typedef struct {
+  int color_in;     /*!< Color of the hosting processor */
+  int color_out;    /*!< Color of the remote processor */
+  int np_in2out;    /*!< Nbr of points sends    from color_in to   color_out */
+  int np_out2in;    /*!< Nbr of points receives on   color_in from color_out */
+  int nt_in2out;    /*!< Nbr of tetra  sends    from color_in to   color_out */
+  int nt_out2in;    /*!< Nbr of tetra  receives on   color_in from color_out */
+  int *hash_in2out; /*!< Hash table to find pts index on color_out from pts index on color_in */
+  int *hash_out2in; /*!< Hash table to find pts index on color_in  from pts index on color_out */
+
+} PMMG_Overlap;
+typedef PMMG_Overlap * PMMG_pOverlap;
 
 /**
  * \struct PMMG_ParMesh
@@ -356,16 +427,18 @@ typedef struct {
   /* file names */
   char     *meshin,*meshout;
   char     *metin,*metout;
-  char     *lsin;
+  char     *lsin,*lsout;
   char     *dispin;
   char     *fieldin,*fieldout;
 
   /* grp */
-  int       ngrp;       /*!< Number of grp */
+  int       ngrp;       /*!< Number of grp used inside the parmesh. It can
+                         * differ from listgrp size (for example if inputs have
+                         * been provided on a different number of processes than
+                         * the ones used for computation) */
   PMMG_pGrp listgrp;    /*!< List of grp */
   int       nold_grp;       /*!< Number of old grp */
   PMMG_pGrp old_listgrp;    /*!< List of old grp */
-
 
   /* internal communicators */
   PMMG_pInt_comm  int_node_comm; /*!< Internal node communicator (only one PMMG_Int_comm, it is not an array) */
@@ -379,6 +452,9 @@ typedef struct {
   PMMG_pExt_comm ext_edge_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
   int            next_face_comm; /*!< Number of external face communicator */
   PMMG_pExt_comm ext_face_comm;  /*!< External communicators (in increasing order w.r. to the remote proc index) */
+
+  /* overlap variables */
+  PMMG_pOverlap overlap; /*!<  Overlap variables */
 
   /* global variables */
   int            ddebug; //! Debug level

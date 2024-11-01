@@ -118,7 +118,9 @@ int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
   /* ls */
   idx += sizeof(int);
   idx += sizeof(int);
-  if ( ls && ls->namein && ls->nameout ) {
+  /* If the m array of the level-set is not allocated, the level-set field will
+   * not be allocated after redistribution so no need to share its name info */
+  if ( ls && ls->m && ls->namein && ls->nameout ) {
     idx += (strlen(ls->namein) + 1) * sizeof(char);
     idx += (strlen(ls->nameout) + 1) * sizeof(char);
   }
@@ -126,7 +128,10 @@ int PMMG_mpisizeof_filenames ( PMMG_pGrp grp ) {
   /* disp */
   idx += sizeof(int); // metin
   idx += sizeof(int); // metout
-  if ( disp && disp->namein && disp->nameout ) {
+  /* If the m array of the displacement field is not allocated, the disp field
+   * will not be allocated after redistribution so no need to share its name
+   * info */
+  if ( disp && disp->m && disp->namein && disp->nameout ) {
     idx += (strlen(disp->namein) + 1) * sizeof(char);
     idx += (strlen(disp->nameout) + 1) * sizeof(char);
   }
@@ -206,6 +211,10 @@ int PMMG_mpisizeof_infos ( MMG5_Info *info ) {
     idx += info->nmat*sizeof(int); //  mat->ref
     idx += info->nmat*sizeof(int); //  mat->rin
     idx += info->nmat*sizeof(int); //  mat->rex
+    assert( info->invmat.lookup);
+    idx += sizeof(int); // invmat->offset
+    idx += sizeof(int); // invmat->size
+    idx += info->invmat.size*sizeof(int); // invmat->lookup
   }
 
   /* local parameters */
@@ -635,7 +644,9 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
     tmp += metout_s * sizeof(char);
   }
 
-  if ( ls && ls->namein && ls->nameout ) {
+  /* If the m array of the level-set is not allocated, the level-set field will
+   * not be allocated after redistribution so no need to share its name info */
+  if ( ls && ls->m && ls->namein && ls->nameout ) {
     lsin_s   = (strlen(ls->namein) + 1);
     lsout_s  = (strlen(ls->nameout) + 1);
     if ( lsin_s  > MMG5_FILENAME_LEN_MAX || lsout_s > MMG5_FILENAME_LEN_MAX ) {
@@ -659,7 +670,10 @@ int PMMG_mpipack_filenames ( PMMG_pGrp grp,char **buffer ) {
     tmp += lsout_s * sizeof(char);
   }
 
-  if ( disp && disp->namein && disp->nameout ) {
+  /* If the m array of the displacement field is not allocated, the disp field
+   * will not be allocated after redistribution so no need to share its name
+   * info */
+  if ( disp && disp->m && disp->namein && disp->nameout ) {
     dispin_s   = (strlen(disp->namein) + 1);
     dispout_s  = (strlen(disp->nameout) + 1);
     if ( dispin_s  > MMG5_FILENAME_LEN_MAX || dispout_s > MMG5_FILENAME_LEN_MAX ) {
@@ -780,6 +794,12 @@ void PMMG_mpipack_infos ( MMG5_Info *info,char **buffer ) {
       *( (int *) tmp)  = info->mat[k].ref; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rin; tmp += sizeof(int);
       *( (int *) tmp)  = info->mat[k].rex; tmp += sizeof(int);
+    }
+    assert( info->invmat.lookup);
+    *( (int *) tmp) = info->invmat.offset; tmp += sizeof(int);
+    *( (int *) tmp) = info->invmat.size;   tmp += sizeof(int);
+    for ( k=0; k<info->invmat.size; ++k ) {
+      *( (int *) tmp) = info->invmat.lookup[k]; tmp += sizeof(int);
     }
   }
 
@@ -1112,6 +1132,8 @@ int PMMG_mpipack_grp ( PMMG_pGrp grp,char **buffer ) {
  * buffer pointer at the end of the written area. The parmesh groups must have
  * been merged before entering this function.
  *
+ * \remark the \a buffer pointer is modified (shifted) thus, after this
+ * function, it cannot be used for deallocation anymore
  */
 int PMMG_mpipack_parmesh ( PMMG_pParMesh parmesh ,char **buffer ) {
   PMMG_pGrp grp;

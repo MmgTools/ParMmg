@@ -31,32 +31,19 @@
  */
 #include "parmmg.h"
 
-/*! Helper macro used only in this file: copies the contents of fromV[fromC]
- *  to toV[toC] updates toC */
-#define ARGV_APPEND(parmesh,fromV,toV,fromC,toC,msg,on_failure)   do {  \
-    PMMG_MALLOC(parmesh, toV[ toC ], strlen( fromV[ fromC ] ) + 1, char, msg, \
-                on_failure);                                            \
-    memcpy( toV[ toC ], fromV[ fromC ], (strlen( fromV[ fromC ] ) + 1)*sizeof(char) ); \
-    ++toC;                                                              \
-  }while(0)
+#define PMMG_UNRECOGNIZED_ARG                                           \
+  do {                                                                  \
+    PMMG_ERROR_ARG("\nUnrecognized option %s\n",pmmgArgv,i);            \
+  } while(0)
 
-/**
- * \param parmesh pointer to pmmg structure
- * \param mmgArgv pointer to argv like buffer
- * \param mmgArgc pointer to argc like buffer
- * \param argc    actual argc value
- *
- * Free the allocations of the custom created argc/argv wrapper that is passed
- * to mmg to parse the command line options
- */
-static void
-PMMG_argv_cleanup( PMMG_pParMesh parmesh, char **mmgArgv, int mmgArgc, int argc )
-{
-  int i;
-  for ( i = 0; i < mmgArgc; ++i )
-    PMMG_DEL_MEM(parmesh, mmgArgv[i],char, "Deallocating mmgargv[i]: " );
-  PMMG_DEL_MEM(parmesh, mmgArgv,char*, "Deallocating mmgargv: " );
-}
+#define PMMG_ERROR_ARG(mess,argv_s,i)                                   \
+  do {                                                                  \
+    RUN_ON_ROOT_AND_BCAST(                                              \
+      fprintf(stderr,mess,argv_s[i]) &&                                 \
+      fprintf(stderr,"Please, run %s -h command to get help.\n",argv_s[0]) && \
+      0 ,parmesh->info.root,parmesh->myrank,                            \
+      ret_val = 0;goto clean );                                         \
+  } while(0)
 
 int PMMG_defaultValues( PMMG_pParMesh parmesh )
 {
@@ -119,8 +106,16 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-in    file  input triangulation\n");
     fprintf(stdout,"-out   file  output triangulation\n");
     fprintf(stdout,"-sol   file  load level-set, displacement or metric file\n");
+    fprintf(stdout,"-met   file  load metric file\n");
     fprintf(stdout,"-field file  load sol field to interpolate from init onto final mesh\n");
+    fprintf(stdout,"-f     file  load parameter file\n");
+
     fprintf(stdout,"-noout       do not write output triangulation\n");
+    fprintf(stdout,"-centralized-output centralized output (Medit format only)\n");
+    fprintf(stdout,"-distributed-output distributed output (Medit format only)\n");
+
+    fprintf(stdout,"\n**  Mode specifications (mesh adaptation by default)\n");
+    fprintf(stdout,"-ls     val create mesh of isovalue val (0 if no argument provided)\n");
 
     fprintf(stdout,"\n**  Parameters\n");
     fprintf(stdout,"-niter        val  number of remeshing iterations\n");
@@ -129,6 +124,7 @@ int PMMG_usage( PMMG_pParMesh parmesh, char * const prog )
     fprintf(stdout,"-nlayers      val  number of layers for interface displacement\n");
     fprintf(stdout,"-groups-ratio val  allowed imbalance between current and desired groups size\n");
     fprintf(stdout,"-nobalance         switch off load balancing of the output mesh\n");
+    fprintf(stdout,"-pure-partitioning perform only mesh partitioning (no level-set insertion or remeshing");
 
     //fprintf(stdout,"-ar     val  angle detection\n");
     //fprintf(stdout,"-nr          no angle detection\n");
@@ -172,215 +168,51 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
 {
   int        val,i  = 0;
   int        ret_val = 1;
-  int        mmgArgc = 0;
-  char**     mmgArgv = NULL;
+  int        mmgArgc = 0, pmmgArgc = 0;
+  char       **mmgArgv = NULL,**pmmgArgv = NULL;
 
   assert ( parmesh->ngrp == 1 && "Not available for more than 1 group per proc.\n");
 
-  /** Parse arguments specific to parMmg then add to mmgArgv the mmg arguments
-   * and call the mmg3d parser. */
+  /** First step: search if user want to see the default parameters values or is
+   * asking for help */
   for ( i = 1; i < argc; ++i ) {
     if ( !strcmp( argv[ i ],"-val" ) ) {
-      RUN_ON_ROOT_AND_BCAST( PMMG_defaultValues(parmesh),0,
-                             parmesh->myrank,ret_val=0; goto fail_mmgargv);
-      ret_val = 0;
-      goto fail_mmgargv;
+      RUN_ON_ROOT_AND_BCAST( (PMMG_defaultValues(parmesh) && 0),0,
+                             parmesh->myrank,ret_val=0; goto clean);
     }
     else if ( ( !strcmp( argv[ i ],"-?" ) ) || ( !strcmp( argv[ i ],"-h" ) ) ) {
-      RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                             parmesh->myrank,ret_val=0; goto fail_mmgargv);
-      ret_val = 0;
-      goto fail_mmgargv;
+      RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                             parmesh->myrank,ret_val=0; goto clean);
     }
   }
+
+
+  /** Second step: intercept ParMmg args that exists in Mmg but asks for a
+   * specific treatment ( m, v, d) */
 
   /* Create a new set of argc/argv variables adding only the the cl options that
      mmg has to process
      Overallocating as they are at most argc. Trying to avoid the overallocation
      is not worth any effort, these are ~kb */
-  PMMG_MALLOC(parmesh, mmgArgv, argc, char*, " copy of argv for mmg: ",
-              ret_val = 0; goto fail_mmgargv);
+  MMG5_SAFE_MALLOC( mmgArgv, argc, char*,ret_val = 0; goto clean);
 
   /* First argument is always argv[0] ie prog name */
   i = 0;
-  ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc, " mmgArgv[0] for mmg: ",
-              ret_val = 0; goto fail_proc);
+  MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
 
   i = 1;
   while ( i < argc ) {
     if ( *argv[i] == '-' ) {
       switch( argv[i][1] ) {
-      case 'c':
-        if ( !strcmp(argv[i],"-centralized-output") ) {
-          /* force centralized output: only relevant using medit distributed
-           * input or library call */
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,0) )  {
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-      case 'f':
-        if ( !strcmp(argv[i],"-field") ) {
-          if ( ++i < argc && isascii(argv[i][0]) && argv[i][0]!='-' ) {
-            if ( ! PMMG_Set_inputSolsName(parmesh,argv[i]) ) {
-              RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                     parmesh->myrank,ret_val=0; goto fail_mmgargv);
-              ret_val = 0;
-              goto fail_mmgargv;
-            }
-          }
-          else {
-            RUN_ON_ROOT_AND_BCAST( PMMG_usage(parmesh, argv[0]),0,
-                                   parmesh->myrank,ret_val=0; goto fail_mmgargv);
-            ret_val = 0;
-            goto fail_mmgargv;
-          }
-        }
-        else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-      case 'h':
-        if ( !strcmp(argv[i],"-hmin") && ++i < argc ) {
-          if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_hmin,atof(argv[i])) ) {
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-hmax") && ++i < argc ) {
-          if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_hmax,atof(argv[i])) ) {
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-      case 'g':
-        if ( !strcmp(argv[i],"-groups-ratio") ) {
-
-          if ( ++i < argc ) {
-            if ( isdigit(argv[i][0]) ) {
-
-              if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_groupsRatio,atof(argv[i])) ) {
-                ret_val = 0;
-                goto fail_proc;
-              }
-            }
-            else {
-              i--;
-            }
-          }
-          else {
-            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-
       case 'm':
-        if ( !strcmp(argv[i],"-mmg-v") ) {
-
-          /* Mmg verbosity */
-          if ( ++i < argc ) {
-            if ( isdigit(argv[i][0]) ||
-                 (argv[i][0]=='-' && isdigit(argv[i][1])) ) {
-              val = atoi(argv[i]);
-
-              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgVerbose,val) ) {
-                ret_val = 0;
-                goto fail_proc;
-              }
-            }
-            else {
-              i--;
-            }
-          }
-          else {
-            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-mesh-size") ) {
-
-          /* Remesher target mesh size */
-          if ( ++i < argc ) {
-            if ( isdigit(argv[i][0]) ) {
-              val = atoi(argv[i]);
-
-              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_meshSize,val) ) {
-                ret_val = 0;
-                goto fail_proc;
-              }
-            }
-            else {
-              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-              ret_val = 0;
-              goto fail_proc;
-            }
-          }
-          else {
-            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-metis-ratio") ) {
-
-          /* Number of metis super nodes per mesh */
-          if ( ++i < argc ) {
-            if ( isdigit(argv[i][0]) ) {
-              val = atoi(argv[i]);
-
-              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_metisRatio,val) ) {
-                ret_val = 0;
-                goto fail_proc;
-              }
-            }
-            else {
-              fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-              ret_val = 0;
-              goto fail_proc;
-            }
-          }
-          else {
-            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-mmg-d") ) {
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgDebug,val) ) {
-            ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-m") ) {
+        if ( !strcmp(argv[i],"-m") ) {
           /* memory */
           if ( ++i < argc && isdigit( argv[i][0] ) ) {
             if ( ( atoi(argv[ i ]) > MMG5_memSize() ) || ( atoi(argv[ i ]) < 0 ) ) {
               fprintf( stderr,
                        "\nErroneous mem size requested (%s)\n",argv[i] );
               ret_val = 0;
-              goto fail_proc;
+              goto clean;
             }
             else {
               parmesh->info.mem = atoi( argv[i] );
@@ -388,182 +220,476 @@ int PMMG_parsar( int argc, char *argv[], PMMG_pParMesh parmesh )
             }
             PMMG_parmesh_SetMemMax( parmesh );
           } else {
-            fprintf( stderr, "\nMissing argument option %c\n", argv[i-1][1] );
-            ret_val = 0;
-            goto fail_proc;
+            PMMG_ERROR_ARG("\nMissing argument option %s\n",argv,i-1);
           }
         }
         else {
-          /* else : what happens with -met option... to treat */
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-
-      case 'n':  /* number of adaptation iterations */
-        if ( ( 0 == strncmp( argv[i], "-niter", 5 ) ) && ( ( i + 1 ) < argc ) ) {
-          ++i;
-          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) >= 0 ) ) {
-            parmesh->niter = atoi( argv[i] );
-          } else {
-            parmesh->niter = PMMG_NITER;
-            fprintf( stderr,
-                     "\nWrong number of adaptation iterations (%s).\n",argv[i]);
-
-            ret_val = 0;
-            goto fail_proc;
-          }
-        } else if ( ( 0 == strncmp( argv[i], "-nlayers", 5 ) ) && ( ( i + 1 ) < argc ) ) {
-          ++i;
-          if ( isdigit( argv[i][0] ) && ( atoi( argv[i] ) > 0 ) ) {
-            parmesh->info.ifc_layers = atoi( argv[i] );
-          } else {
-            parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
-            fprintf( stderr,
-                     "\nWrong number of layers for interface displacement (%s).\n",argv[i]);
-
-            ret_val = 0;
-            goto fail_proc;
-          }
-        } else if ( 0 == strncmp( argv[i], "-nobalance", 9 ) ) {
-          parmesh->info.nobalancing = MMG5_ON;
-        } else if ( 0 == strncmp( argv[i], "-nofem", 5 ) ) {
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_nofem,1) )  {
-            ret_val = 0;
-            goto fail_proc;
-          }
-        } else if ( 0 == strncmp( argv[i], "-noout", 5 ) ) {
-          parmesh->info.fmtout = PMMG_UNSET;
-        } else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
+          /*  Arg starts by '-m' but doesn't have to be intercepted: Append to
+           *  list of args to send to Mmg */
+          MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
         }
         break;
 
       case 'd':
-        if ( !strcmp(argv[i],"-distributed-output") ) {
+        if ( !strcmp(argv[i],"-d") ) {
+          /* debug */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
+            ret_val = 0;
+            goto clean;
+          }
+        }
+        else {
+          /*  Arg starts by '-d' but doesn't have to be intercepted: Append to
+           *  list of args to send to Mmg */
+          MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
+        }
+        break;
+      case 'v':  /* verbosity */
+        if ( !strcmp(argv[i],"-v") ) {
+          if ( ++i < argc && ( isdigit(argv[i][0]) ||
+               (argv[i][0]=='-' && isdigit(argv[i][1])) ) ) {
+            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_verbose,atoi(argv[i])) ) {
+              ret_val = 0;
+              goto clean;
+            }
+          }
+          else {
+            i--;
+            PMMG_ERROR_ARG("\nMissing argument option for %s\n",mmgArgv,i);
+          }
+        }
+        else {
+          /*  Arg starts by '-v' but doesn't have to be intercepted: Append to
+           *  list of args to send to Mmg */
+          MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
+        }
+        break;
+      default:
+        /* Arg starts by '-' but doesn't have to be intercepted: Append to list
+         * of args to send to Mmg */
+        MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
+        break;
+      }
+    }
+    else {
+      /* Arg doesn't start with '-': Append to list of args to send to Mmg */
+      MMG_ARGV_APPEND(argv, mmgArgv, i, mmgArgc,ret_val = 0; goto clean);
+    }
+    ++i;
+  }
+
+  /** Third step: Let Mmg parse args it knows among remaining and append in
+     pmmgArgv structure unknown ones */
+  MMG5_SAFE_MALLOC( pmmgArgv, mmgArgc, char*,ret_val = 0; goto clean);
+
+  i = 0;
+
+  MMG_ARGV_APPEND(argv, pmmgArgv, i, pmmgArgc,ret_val = 0; goto clean);
+  MMG5_pMesh mesh = parmesh->listgrp[0].mesh;
+  MMG5_pSol  met  = parmesh->listgrp[0].met;
+  MMG5_pSol  sol  = parmesh->listgrp[0].ls; // Ok for now as // disp is not planned
+  MMG3D_storeknownar(mmgArgc,mmgArgv,mesh,met,sol,&pmmgArgc,pmmgArgv);
+
+  /** Fourth step: parse remaining args with parmmg */
+  i = 1;
+  while ( i < pmmgArgc ) {
+    if ( *pmmgArgv[i] == '-' ) {
+      switch( pmmgArgv[i][1] ) {
+      case 'c':
+        if ( !strcmp(pmmgArgv[i],"-centralized-output") ) {
+          /* force centralized output: only relevant using medit distributed
+           * input or library call */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,0) )  {
+            ret_val = 0;
+            goto clean;
+          }
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+      case 'f':
+        if ( !strcmp(pmmgArgv[i],"-field") ) {
+          if ( ++i < pmmgArgc && isascii(pmmgArgv[i][0]) && pmmgArgv[i][0]!='-' ) {
+            if ( ! PMMG_Set_inputSolsName(parmesh,pmmgArgv[i]) ) {
+              fprintf(stderr,"\nUnable to set filename for %s\n",pmmgArgv[i-1]);
+              ret_val = 0;
+              goto clean;
+            }
+          }
+          else {
+            PMMG_ERROR_ARG("\nMissing filename for %s\n",pmmgArgv,i-1);
+          }
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+      case 'g':
+        if ( !strcmp(pmmgArgv[i],"-groups-ratio") ) {
+
+          if ( ++i < pmmgArgc ) {
+            if ( isdigit(pmmgArgv[i][0]) ) {
+
+              if ( !PMMG_Set_dparameter(parmesh,PMMG_DPARAM_groupsRatio,atof(pmmgArgv[i])) ) {
+                ret_val = 0;
+                goto clean;
+              }
+            }
+            else {
+              i--;
+            }
+          }
+          else {
+            PMMG_ERROR_ARG("\nMissing argument option %s\n",pmmgArgv,i-1);
+          }
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+
+      case 'm':
+        if ( !strcmp(pmmgArgv[i],"-mmg-v") ) {
+          /* Mmg verbosity */
+          if ( ++i < pmmgArgc ) {
+            if ( isdigit(pmmgArgv[i][0]) ||
+                 (pmmgArgv[i][0]=='-' && isdigit(pmmgArgv[i][1])) ) {
+              val = atoi(pmmgArgv[i]);
+
+              if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgVerbose,val) ) {
+                ret_val = 0;
+                goto clean;
+              }
+            }
+            else {
+              i--;
+            }
+          }
+          else {
+            PMMG_ERROR_ARG("\nMissing argument option %s\n",pmmgArgv,i-1);
+          }
+        }
+        else if ( !strcmp(pmmgArgv[i],"-mesh-size") ) {
+
+          /* Remesher target mesh size */
+          if ( ++i < pmmgArgc && isdigit(pmmgArgv[i][0]) ) {
+            val = atoi(pmmgArgv[i]);
+            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_meshSize,val) ) {
+              ret_val = 0;
+              goto clean;
+            }
+          }
+          else {
+            PMMG_ERROR_ARG("\nMissing argument option %s\n",pmmgArgv,i-1);
+          }
+        }
+        else if ( !strcmp(pmmgArgv[i],"-metis-ratio") ) {
+
+          /* Number of metis super nodes per mesh */
+          if ( ++i < pmmgArgc && isdigit(pmmgArgv[i][0]) ) {
+            val = atoi(pmmgArgv[i]);
+
+            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_metisRatio,val) ) {
+              ret_val = 0;
+              goto clean;
+            }
+          }
+          else {
+            PMMG_ERROR_ARG("\nMissing argument option %s\n",pmmgArgv,i-1);
+          }
+        }
+        else if ( !strcmp(pmmgArgv[i],"-mmg-d") ) {
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_mmgDebug,1) ) {
+            ret_val = 0;
+            goto clean;
+          }
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+
+      case 'n':  /* number of adaptation iterations */
+        if ( ( 0 == strncmp( pmmgArgv[i], "-niter", 5 ) ) && ( ( i + 1 ) < pmmgArgc ) ) {
+          ++i;
+          if ( isdigit( pmmgArgv[i][0] ) && ( atoi( pmmgArgv[i] ) >= 0 ) ) {
+            parmesh->niter = atoi( pmmgArgv[i] );
+          } else {
+            parmesh->niter = PMMG_NITER;
+            fprintf( stderr,
+                     "\nWrong number of adaptation iterations (%s).\n",pmmgArgv[i]);
+
+            ret_val = 0;
+            goto clean;
+          }
+        } else if ( ( 0 == strncmp( pmmgArgv[i], "-nlayers", 5 ) ) && ( ( i + 1 ) < pmmgArgc ) ) {
+          ++i;
+          if ( isdigit( pmmgArgv[i][0] ) && ( atoi( pmmgArgv[i] ) > 0 ) ) {
+            parmesh->info.ifc_layers = atoi( pmmgArgv[i] );
+          } else {
+            parmesh->info.ifc_layers = PMMG_MVIFCS_NLAYERS;
+            fprintf( stderr,
+                     "\nWrong number of layers for interface displacement (%s).\n",pmmgArgv[i]);
+
+            ret_val = 0;
+            goto clean;
+          }
+        } else if ( 0 == strncmp( pmmgArgv[i], "-nobalance", 9 ) ) {
+          parmesh->info.nobalancing = MMG5_ON;
+        } else if ( 0 == strncmp( pmmgArgv[i], "-noout", 5 ) ) {
+          parmesh->info.fmtout = PMMG_UNSET;
+        }
+        else {
+          PMMG_UNRECOGNIZED_ARG;
+        }
+        break;
+
+      case 'd':
+        if ( !strcmp(pmmgArgv[i],"-distributed-output") ) {
           /* force distributed output: only relevant using medit centralized
            * input or library call */
           if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_distributedOutput,1) )  {
             ret_val = 0;
-            goto fail_proc;
-          }
-        }
-        else if ( !strcmp(argv[i],"-d") ) {
-          /* debug */
-          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_debug,1) )  {
-            ret_val = 0;
-            goto fail_proc;
+            goto clean;
           }
         }
         else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
+          PMMG_UNRECOGNIZED_ARG;
         }
         break;
-#ifdef USE_SCOTCH
-      case 'r':
-        if ( !strcmp(argv[i],"-rn") ) {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
-        }
-        break;
-#endif
 
-      case 's':
-        if ( 0 == strncmp( argv[i], "-surf", 4 ) ) {
-          parmesh->listgrp[0].mesh->info.nosurf = 0;
+      case 'p':
+        if ( !strcmp(pmmgArgv[i],"-pure-partitioning") ) {
+          /* Only perform partitionning of intput data */
+          if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_purePartitioning,1) )  {
+            ret_val = 0;
+            goto clean;
+          }
         }
         else {
-          ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                      " adding to mmgArgv for mmg: ",
-                      ret_val = 0; goto fail_proc );
+          PMMG_UNRECOGNIZED_ARG;
         }
         break;
+
       case 'v':  /* verbosity */
-        if ( ++i < argc ) {
-          if ( isdigit(argv[i][0]) ||
-               (argv[i][0]=='-' && isdigit(argv[i][1])) ) {
-            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_verbose,atoi(argv[i])) ) {
+        if ( ++i < pmmgArgc ) {
+          if ( isdigit(pmmgArgv[i][0]) ||
+               (pmmgArgv[i][0]=='-' && isdigit(pmmgArgv[i][1])) ) {
+            if ( !PMMG_Set_iparameter(parmesh,PMMG_IPARAM_verbose,atoi(pmmgArgv[i])) ) {
               ret_val = 0;
-              goto fail_proc;
+              goto clean;
             }
           }
           else
             i--;
         }
         else {
-          fprintf(stderr,"\nMissing argument option %c\n",argv[i-1][1]);
+          fprintf(stderr,"\nMissing argument option %s\n",pmmgArgv[i-1]);
           ret_val = 0;
-          goto fail_proc;
+          goto clean;
         }
         break;
 
       default:
-        ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                    " adding to mmgArgv for mmg: ",
-                    ret_val = 0; goto fail_proc);
-
+        PMMG_UNRECOGNIZED_ARG;
         break;
       }
     } else {
-      ARGV_APPEND(parmesh, argv, mmgArgv, i, mmgArgc,
-                  " adding to mmgArgv for mmg: ",
-                  ret_val = 0; goto fail_proc);
+      if ( parmesh->meshin == NULL && mesh->namein == NULL ) {
+        if ( !PMMG_Set_inputMeshName(parmesh,pmmgArgv[i]) ) {
+          ret_val = 0;
+          goto clean;
+        }
+      }
+      else if ( parmesh->meshout == NULL && mesh->nameout == NULL ) {
+        if ( !PMMG_Set_outputMeshName(parmesh,pmmgArgv[i]) ) {
+           ret_val = 0;
+           goto clean;
+        }
+      }
+      else {
+        PMMG_ERROR_ARG("\nArgument %s ignored\n",pmmgArgv,i);
+      }
     }
     ++i;
   }
 
-  // parmmg finished parsing arguments, the rest will be handled by mmg3d
-  if ( 1 != MMG3D_parsar( mmgArgc, mmgArgv,
-                          parmesh->listgrp[0].mesh,
-                          parmesh->listgrp[0].met,
-                          NULL ) ) {
+  /** Step 5: Transfer options parsed by Mmg toward ParMmg (if needed) and raise
+   * errors for unsupported options */
+  parmesh->info.iso = parmesh->listgrp[0].mesh->info.iso;
+  parmesh->info.setfem = parmesh->listgrp[0].mesh->info.setfem;
+  parmesh->info.sethmin = parmesh->listgrp[0].mesh->info.sethmin;
+  parmesh->info.sethmax = parmesh->listgrp[0].mesh->info.sethmax;
+
+  if ( parmesh->listgrp[0].mesh->info.isosurf ) {
+
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
+              " implemented.");
+    }
     ret_val = 0;
-    goto fail_proc;
+    goto clean;
+  }
+
+  if ( parmesh->listgrp[0].mesh->info.lag >=0 ) {
+
+    if ( parmesh->myrank == parmesh->info.root ) {
+      fprintf(stderr," ## Error: Lagrangian motion not yet implemented.");
+    }
+    ret_val = 0;
+    goto clean;
   }
 
   if( parmesh->listgrp[0].mesh->info.opnbdy ) {
-    fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-        "\nSetting nosurf on.\n");
-    if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) return 0;
+    if ( parmesh->info.root == parmesh->myrank ) {
+      fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
+              "\nSetting nosurf on.\n");
+    }
+    if ( !MMG3D_Set_iparameter(parmesh->listgrp[0].mesh,NULL,MMG3D_IPARAM_nosurf,1) ) {
+      ret_val = 0;
+      goto clean;
+    }
   }
 
-  /* Store mesh names into the parmesh if needed */
-  if ( !parmesh->meshin ) {
-    assert ( parmesh->listgrp[0].mesh->namein );
-    PMMG_Set_name(parmesh,&parmesh->meshin,
-                  parmesh->listgrp[0].mesh->namein,"mesh.mesh");
+  /** Step 6: Sychronize parmesh and mesh file names */
+  if ( parmesh->meshin ) {
+    /* Input mesh name provided without -in command line arg */
+    assert ( mesh->namein );
   }
-  if ( !parmesh->meshout ) {
-    assert ( parmesh->listgrp[0].mesh->nameout );
-    PMMG_Set_name(parmesh,&parmesh->meshout,
-                  parmesh->listgrp[0].mesh->nameout,"mesh.o.mesh");
+  else {
+    if ( mesh->namein ) {
+      /* Input mesh name provided with -in command line arg */
+      PMMG_Set_name(parmesh,&parmesh->meshin,mesh->namein,"mesh.mesh");
+    }
+    else {
+      /* Input mesh name not provided */
+      if ( parmesh->myrank==parmesh->info.root ) {
+        fprintf(stderr,"\nMissing input mesh name.\n");
+        fprintf(stderr,"Please, run %s -h command to get help.\n",argv[0]);
+      }
+      ret_val = 0;
+      goto clean;
+    }
   }
-  if ( (!parmesh->metin) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->namein ) {
-    PMMG_Set_name(parmesh,&parmesh->metin,
-                  parmesh->listgrp[0].met->namein,"mesh.sol");
+
+  if ( parmesh->meshout ) {
+    /* Output mesh name provided without -out command line arg */
+    assert ( mesh->nameout );
   }
-  if ( (!parmesh->metout) && parmesh->listgrp[0].met && parmesh->listgrp[0].met->nameout ) {
-    PMMG_Set_name(parmesh,&parmesh->metout,
-                  parmesh->listgrp[0].met->nameout,"mesh.o.sol");
+  else {
+    if ( mesh->nameout ) {
+      /* Output mesh name provided with -out command line arg */
+      PMMG_Set_name(parmesh,&parmesh->meshout,mesh->nameout,"mesh.o.mesh");
+    }
+    else {
+      /* Output mesh name not provided */
+      char *data;
+      MMG5_SAFE_CALLOC(data,strlen(parmesh->meshin)+3,char,return 0);
+      strncpy(data,parmesh->meshin,strlen(parmesh->meshin)+3);
+
+      char *ext = MMG5_Get_filenameExt(data);
+      if ( ext && !strncmp ( ext,".h5",strlen(".h5") ) ) {
+        /* .h5 extension is unknown by Mmg: fix this */
+        *ext = '\0';
+        strcat(data,".o.h5");
+        MMG5_Set_outputMeshName( mesh,data );
+      }
+      else {
+        /* Let Mmg deal automatically with all other file formats */
+        MMG5_Set_outputMeshName( mesh,"" );
+      }
+      MMG5_SAFE_FREE(data);
+
+      assert ( mesh->nameout );
+      PMMG_Set_name(parmesh,&parmesh->meshout,
+                    parmesh->listgrp[0].mesh->nameout,"mesh.o.mesh");
+    }
   }
-  if ( (!parmesh->lsin) && parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->namein ) {
+
+  /* Metric and solution names are always directly parsed inside met, ls and
+   * disp field: in adaptation mode, if the metric name is provided using the
+   * -sol arg and if a ls/disp structure is allocated inside the parmesh (for
+   * now we deal only with the ls case), the metric name has been stored into
+   * the ls/disp name and we have to transfer it in the metric structure. */
+  if ( met->namein==NULL &&
+       !(mesh->info.iso || mesh->info.isosurf || mesh->info.lag>=0) ) {
+
+    if ( sol->namein ) {
+      /* A solution name has been provided using -sol option (facultative) */
+      if ( !MMG3D_Set_inputSolName(mesh,met,sol->namein) ) {
+        RUN_ON_ROOT_AND_BCAST( (PMMG_usage(parmesh, argv[0]) && 0),0,
+                               parmesh->myrank,ret_val=0; goto clean);
+      }
+      MMG5_DEL_MEM(mesh,sol->namein);
+    }
+  }
+
+  /* If no input solution name has been parse, assign default name to the
+   * suitable data structure (metin in adp mode, lsin in ls mode, dispin in lag
+   * mode) */
+  MMG5_pSol tmp = NULL;
+  if ( mesh->info.iso || mesh->info.isosurf ) {
+    tmp = parmesh->listgrp[0].ls;
+  }
+  else if ( mesh->info.lag >=0 ) {
+    tmp = parmesh->listgrp[0].disp;
+  }
+  else {
+    tmp = parmesh->listgrp[0].met;
+  }
+  assert ( tmp );
+
+  if ( tmp->namein == NULL ) {
+    if ( !MMG3D_Set_inputSolName(mesh,tmp,"") ) {
+      ret_val = 0;
+      goto clean;
+    }
+  }
+
+  /* Assign default output metric name */
+  if ( met->nameout == NULL ) {
+    if ( !MMG3D_Set_outputSolName(mesh,met,"") )
+      return 0;
+  }
+
+  /* Assign default output level-set name */
+  if ( parmesh->listgrp[0].ls->nameout == NULL ) {
+    if ( !MMG3D_Set_outputSolName(mesh,parmesh->listgrp[0].ls,"") )
+      return 0;
+  }
+
+  /* Transfer solution names into the parmesh */
+  assert ( !parmesh->metin );
+  assert ( !parmesh->metout );
+  assert ( !parmesh->lsin );
+  assert ( !parmesh->lsout );
+  assert ( !parmesh->dispin );
+
+  if ( met && met->namein ) {
+    PMMG_Set_name(parmesh,&parmesh->metin,met->namein,"mesh.sol");
+  }
+  if ( parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->namein ) {
     PMMG_Set_name(parmesh,&parmesh->lsin,
                   parmesh->listgrp[0].ls->namein,"mesh.sol");
   }
-  if ( (!parmesh->dispin) && parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->namein ) {
+  if ( parmesh->listgrp[0].disp && parmesh->listgrp[0].disp->namein ) {
     PMMG_Set_name(parmesh,&parmesh->dispin,
                   parmesh->listgrp[0].disp->namein,"mesh.sol");
   }
 
-fail_proc:
-  PMMG_argv_cleanup( parmesh, mmgArgv, mmgArgc, argc );
-fail_mmgargv:
+  if ( met && met->nameout ) {
+    PMMG_Set_name(parmesh,&parmesh->metout,met->nameout,"mesh.o.sol");
+  }
+
+  if ( parmesh->listgrp[0].ls && parmesh->listgrp[0].ls->nameout ) {
+    PMMG_Set_name(parmesh,&parmesh->lsout,parmesh->listgrp[0].ls->nameout,"mesh.o.sol");
+  }
+
+clean:
+  MMG5_argv_cleanup( mmgArgv, mmgArgc );
+  MMG5_argv_cleanup( pmmgArgv, pmmgArgc );
+
   return ret_val;
 }
 
@@ -575,7 +701,9 @@ int PMMG_parsop ( PMMG_pParMesh parmesh )
   MMG5_pMesh mesh;
   int        ier;
 
-  assert ( parmesh->ngrp == 1 && "distributed input not yet implemented" );
+  /* We may have ngrp=0 if distributed inputs have been provided on a different
+   * number of processes than the ones used for computation */
+  assert ( parmesh->ngrp <= 1 && "more than one group per rank not implemented");
   mesh = parmesh->listgrp[0].mesh;
 
   /* Set mmg verbosity to the max between the Parmmg verbosity and the mmg verbosity */
@@ -810,6 +938,8 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
 
   /** Step 3: file saving */
   if ( !bin ) {
+    fprintf(fid,"\nNumberOfPartitions\n%d\n",parmesh->nprocs);
+
     if( parmesh->info.API_mode == PMMG_APIDISTRIB_faces ) {
       ncomm = parmesh->next_face_comm;
       fprintf(fid,"\nParallelTriangleCommunicators\n%d\n",ncomm);
@@ -891,4 +1021,14 @@ int PMMG_printCommunicator( PMMG_pParMesh parmesh,const char* filename ) {
   }
 
   return 1;
+}
+
+int PMMG_Get_tetFromTria(PMMG_pParMesh parmesh, int ktri, int* ktet, int* iface ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
+}
+
+int PMMG_Get_tetsFromTria(PMMG_pParMesh parmesh, int ktri, int ktet[2], int iface[2] ){
+  assert ( parmesh->ngrp == 1 );
+  return(MMG3D_Get_tetsFromTria(parmesh->listgrp[0].mesh, ktri, ktet, iface));
 }

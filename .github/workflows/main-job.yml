@@ -1,0 +1,266 @@
+on:
+  workflow_call:
+    inputs:
+      cmake_build_type:
+        description: 'Value for CMAKE_BUILD_TYPE'
+        type: string
+        default: Release
+        required: true
+
+      add_cmake_cfg_args:
+        description: 'Additional arguments for configuration step'
+        required: false
+        type: string
+
+      branch_name:
+        description: 'Branch to checkout when tests are manually triggered'
+        required: false
+        type: string
+
+      code_coverage:
+        description: 'Code coverage'
+        required: false
+        default: true
+        type: boolean
+
+# job
+jobs:
+  ci:
+    if: "! contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ${{ matrix.os }}
+
+    # Launch a matrix of jobs
+    strategy:
+        fail-fast: false
+        matrix:
+            os: [ubuntu-20.04,macos-12]
+            pointmap: [on,off]
+            scotch: [on,off]
+            mpich-instead-openmpi: [on,off]
+            additional-IOs: [off]
+
+            include:
+              # test hdf5 IOs only without scotch and without pointmap.
+              # initial idea was to test vtk IOs too but installation of vtk
+              # with parallel support takes too much time
+              # (it would be possible with a pre-installed docker image)
+              - os: ubuntu-20.04
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: off
+                additional-IOs: on
+
+              - os: ubuntu-20.04
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: on
+                additional-IOs: on
+
+              # Remark: hdf5 I/Os are not tested with mpich as the hdf5-mpi
+              # homebrew package is built with open-mpi dependency
+              - os: macos-12
+                pointmap: off
+                scotch: off
+                mpich-instead-openmpi: off
+                additional-IOs: on
+
+    steps:
+      - name: Set cmake_build_type and export coverage flags
+        run: |
+          if ${{ matrix.os == 'ubuntu-20.04' && inputs.code_coverage == true }}; then
+            # if code coverage is enabled, linux build is runned in Debug mode
+
+            if [[ ${{ inputs.cmake_build_type }} != Debug ]]; then
+              echo "WARNING: build type is forced to debug mode on ubuntu to allow coverage."
+            fi
+
+            echo "BUILD_TYPE=Debug" >> "$GITHUB_ENV"
+            echo "C_FLG_PROF=-fprofile-arcs -ftest-coverage" >> "$GITHUB_ENV"
+
+          else
+            echo "BUILD_TYPE=${{ inputs.cmake_build_type }}" >> "$GITHUB_ENV"
+          fi
+
+        shell: bash
+
+      - name: Print options and set environment variables
+        run: |
+          echo "${{ github.event.inputs.name }}:
+            Os:      ${{ matrix.os }},
+            Pointmap:${{ matrix.pointmap }},
+            Scotch:  ${{ matrix.scotch }},
+            Mpich instead of openmpi: ${{ matrix.mpich-instead-openmpi }},
+            Build:   ${{ env.BUILD_TYPE }},
+            additional-IOs: ${{matrix.additional-IOs}}"
+
+          # gfortran compiler and scotch makefile depends on the os
+          if [ "$RUNNER_OS" == "macOS" ]; then
+             echo "SCOTCH_MAKE=Make.inc/Makefile.inc.i686_mac_darwin10" >> "$GITHUB_ENV"
+             echo "FORT_FLG=\"-DCMAKE_Fortran_COMPILER=gfortran-14\"" >> "$GITHUB_ENV"
+             # Exclude test cases that fail on OSX due to surface model issue in Mmg.
+             echo "EXCLUDE_TESTS=\"DistribSurf-A319\""  >> "$GITHUB_ENV"
+
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+             echo "SCOTCH_MAKE=Make.inc/Makefile.inc.x86-64_pc_linux2" >> "$GITHUB_ENV"
+             echo "FORT_FLG=\"-DCMAKE_Fortran_COMPILER=gfortran-9\"" >> "$GITHUB_ENV"
+             echo "EXCLUDE_TESTS=\"DistribSurf-A319-adp-0-4|DistribSurf-A319-adp-1-4\""  >> "$GITHUB_ENV"
+          fi
+          echo "NJOBS=$NJOBS" >> "$GITHUB_ENV"
+          # Remark: variable values are still empty inside this context
+
+        shell: bash
+        env:
+          NJOBS: "1"
+
+      - name: Install MPICH
+        # Download mpich
+        if: matrix.mpich-instead-openmpi == 'on'
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            brew install mpich
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            sudo sed -i 's/azure\.//' /etc/apt/sources.list
+            sudo apt-get update
+            sudo apt-get install -y libmpich-dev
+          fi
+
+      - name: Install OpenMPI
+        if: matrix.mpich-instead-openmpi == 'off'
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            brew install open-mpi
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            sudo sed -i 's/azure\.//' /etc/apt/sources.list
+            sudo apt-get update
+            sudo apt-get install -y libopenmpi-dev
+          fi
+
+      - name: Install Sctoch
+        # Download scotch only if used
+        if: matrix.scotch == 'on'
+        run: |
+          git clone https://gitlab.inria.fr/scotch/scotch.git
+          cd scotch
+          git checkout v6.1.3
+          cd src
+          cp ${{ env.SCOTCH_MAKE }} Makefile.inc
+          make scotch -j ${{ env.NJOBS }}
+          make install scotch -j ${{ env.NJOBS }}
+
+      #- name: Install VTK
+      #  # Download vtk only if used
+      #  if: matrix.additional-IOs == 'on'
+      #  run: |
+      #    if [ "$RUNNER_OS" == "Linux" ]; then
+      #      # For opengl
+      #      apt install -y libgl1-mesa-dev
+      #    fi
+      #    wget https://www.vtk.org/files/release/9.2/VTK-9.2.5.tar.gz
+      #    tar -xvzf VTK-9.2.5.tar.gz
+      #    cd VTK-9.2.5
+      #    cmake -Bbuild -S. -DVTK_USE_MPI=ON -DVTK_GROUP_ENABLE_MPI=YES
+      #    cmake --build build  --target install --config Release -j 4
+
+      - name: Install hdf5
+        # Download hdf5 only if used
+        if: matrix.additional-IOs == 'on'
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            brew install hdf5-mpi
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt-get install -y libhdf5-mpi-dev
+          fi
+
+
+      # checkout the provided branch name if workflow is manually run
+      - uses: actions/checkout@v4
+        if: inputs.branch_name
+        with:
+          ref: ${{github.event.inputs.branch}}
+          path: ParMmg
+
+      # checkout the event branch for automatic workflows
+      - uses: actions/checkout@v4
+        if: inputs.branch_name == ''
+        with:
+          path: ParMmg
+
+      - name: Test compilation with shared libs linkage
+        run: |
+          cmake -SParMmg -Bbuild_shared -DCI_DIR=~/testparmmg \
+             -DCMAKE_C_FLAGS="${{ env.C_FLG_PROF }}" \
+          ${{ env.FORT_FLG }} \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DUSE_POINTMAP=${{ matrix.pointmap }} \
+            -DUSE_SCOTCH=${{ matrix.scotch }} \
+            -DSCOTCH_DIR=scotch \
+            -DBUILD_SHARED_LIBS=ON \
+            ${{ inputs.add_cmake_cfg_args }}
+            cmake --build build_shared --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
+        shell: bash
+
+      - name: Configure Mmg with static libs (default behaviour)
+        run: |
+          cmake -SParMmg -Bbuild -DCI_DIR=~/testparmmg\
+            -DCMAKE_C_FLAGS="${{ env.C_FLG_PROF }}" \
+          ${{ env.FORT_FLG }} \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DUSE_POINTMAP=${{ matrix.pointmap }} \
+            -DUSE_SCOTCH=${{ matrix.scotch }} \
+            -DSCOTCH_DIR=scotch \
+            ${{ inputs.add_cmake_cfg_args }}
+        shell: bash
+
+      - name: Build ParMmg
+        run: |
+          cmake --build build --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
+
+      - name: Install ParMmg
+        run: |
+          sudo cmake --build build --target install --config ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
+
+      - name: Test ParMmg
+        run: |
+          cd build
+          ctest --timeout 7200 -VV -C ${{ env.BUILD_TYPE }} -E  ${{ env.EXCLUDE_TESTS }}
+
+      - name: Test non native I/Os (requiring install of dependencies)
+        if: matrix.additional-IOs == 'on'
+        run: |
+          cd build
+          ctest -R "hdf5" -VV -C ${{ env.BUILD_TYPE }} -j ${{ env.NJOBS }}
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParMmg-build-${{ matrix.os }}-${{ matrix.pointmap }}-${{ matrix.scotch }}-${{ matrix.mpich-instead-openmpi }}-${{ matrix.additional-IOs }}
+          path: |
+            build
+
+  upload_coverage:
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+    - name: Checkout repository
+      # Codecov need the source code to pair with coverage
+      uses: actions/checkout@v4
+      with:
+        path: ParMmg
+
+    - name: Download coverage artifact
+      uses: actions/download-artifact@v4
+      with:
+        pattern:  ParMmg-build-ubuntu-*
+
+    - name: Upload coverage to Codecov
+      if: inputs.code_coverage == true
+      uses: codecov/codecov-action@v4
+      with:
+        fail_ci_if_error: true
+        root_dir: .
+        verbose: true
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1194,8 +1194,8 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
   assert ( PMMG_check_intFaceComm(parmesh) && "Wrong internal face comm" );
-  assert ( PMMG_check_extNodeComm(parmesh) && "Wrong external node comm" );
-  assert ( PMMG_check_extFaceComm(parmesh) && "Wrong external face comm" );
+  assert ( PMMG_check_extNodeComm(parmesh,parmesh->comm) && "Wrong external node comm" );
+  assert ( PMMG_check_extFaceComm(parmesh,parmesh->comm) && "Wrong external face comm" );
 
   /* The part array is deallocated when groups to be sent are merged (do not
    * do it here) */

@@ -44,10 +44,13 @@
 #include <float.h>
 #include <math.h>
 #include <mpi_pmmg.h>
+#include "hdf_pmmg.h"
 
+#include "metis.h"
 #include "libparmmg.h"
 #include "interpmesh_pmmg.h"
-#include "mmg3d.h"
+#include "libmmg3d.h"
+#include "libmmg3d_private.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -202,6 +205,7 @@ enum PMMG_Format {
   PMMG_FMT_Distributed,                       /*!< Distributed Setters/Getters */
   PMMG_FMT_DistributedMeditASCII,             /*!< Distributed ASCII Medit (.mesh) */
   PMMG_FMT_DistributedMeditBinary,            /*!< Distributed Binary Medit (.meshb) */
+  PMMG_FMT_HDF5,                              /*!< HDF5 format */
   PMMG_FMT_Unknown,                           /*!< Unrecognized */
 };
 
@@ -269,6 +273,9 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
       if ( parmesh->listgrp[kgrp].met )                                 \
         parmesh->listgrp[kgrp].met->npi  = parmesh->listgrp[kgrp].met->np; \
                                                                         \
+      if ( parmesh->listgrp[kgrp].ls )                                 \
+        parmesh->listgrp[kgrp].ls->npi  = parmesh->listgrp[kgrp].ls->np; \
+                                                                        \
       if ( parmesh->listgrp[kgrp].mesh ) {                              \
         for ( ksol=0; ksol<parmesh->listgrp[kgrp].mesh->nsols; ++ksol ) { \
           parmesh->listgrp[kgrp].field[ksol].npi  = parmesh->listgrp[kgrp].field[ksol].np; \
@@ -282,12 +289,14 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
 
 
 #define ERROR_AT(msg1,msg2)                                          \
-  fprintf( stderr, msg1 msg2 " function: %s, file: %s, line: %d \n", \
-           __func__, __FILE__, __LINE__ )
+  fprintf( stderr, "%s %s function: %s, file: %s, line: %d \n", \
+           msg1, msg2, __func__, __FILE__, __LINE__ )
 
 #define MEM_CHK_AVAIL(mesh,bytes,msg) do {                            \
   if ( (mesh)->memCur + (bytes) > (mesh)->memMax ) {                  \
-    ERROR_AT(msg," Exceeded max memory allowed: ");      \
+    char diag[1024];                                                  \
+    snprintf(diag, 1024, " Allocation of %ld bytes exceeds max %ld: ", bytes, (mesh)->memMax); \
+    ERROR_AT(msg, diag);                                              \
     stat = PMMG_FAILURE;                                              \
   } else if ( (mesh)->memCur + (bytes) < 0  ) {                       \
     ERROR_AT(msg," Tried to free more mem than allocated: " );        \
@@ -396,13 +405,13 @@ static const int PMMG_MVIFCS_NLAYERS = 2;
   }                                                                     \
   } while(0)
 
-#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do { \
-    int my_stat = PMMG_SUCCESS;                                         \
-                                                                        \
-    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;); \
-    if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {      \
-      memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type)); \
-    }                                                                   \
+#define PMMG_RECALLOC(mesh,ptr,newsize,oldsize,type,msg,on_failure) do {                \
+    int my_stat = PMMG_SUCCESS;                                                         \
+                                                                                        \
+    PMMG_REALLOC(mesh,ptr,newsize,oldsize,type,msg,my_stat=PMMG_FAILURE;on_failure;);   \
+    if ( (my_stat == PMMG_SUCCESS ) && ((newsize) > (oldsize)) ) {                      \
+      memset( (ptr) + oldsize, 0, ((size_t)((newsize)-(oldsize)))*sizeof(type));        \
+    }                                                                                   \
   } while(0)
 
 
@@ -438,12 +447,38 @@ void PMMG_Analys_Init_SurfNormIndex( MMG5_pTetra pt );
 int PMMG_Analys_Get_SurfNormalIndex( MMG5_pTetra pt,int ifac,int i );
 int PMMG_boulernm(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash,int start,int ip,int *ng,int *nr);
 int PMMG_boulen(PMMG_pParMesh parmesh,MMG5_pMesh mesh,int start,int ip,int iface,double t[3]);
-int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
-int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int PMMG_analys_tria(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_int *permtria);
+int PMMG_chkBdryTria(MMG5_pMesh mesh, MMG5_int* permtria);
+int PMMG_analys(PMMG_pParMesh parmesh,MMG5_pMesh mesh,MPI_Comm comm);
 int PMMG_update_analys(PMMG_pParMesh parmesh);
-int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash );
-int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
+int PMMG_hashParTag_fromXtet( MMG5_pMesh mesh,MMG5_HGeom *pHash );
+int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash );
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash );
+int PMMG_hashUpdate_s(MMG5_Hash *hash,MMG5_int ip0,MMG5_int ip1, MMG5_int s);
+MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s);
+
+/* Overlap functions */
+int PMMG_create_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);
+int PMMG_delete_overlap(PMMG_pParMesh parmesh,MPI_Comm comm);
+
+/* Isovalue discretization functions */
+int  PMMG_ls(PMMG_pParMesh parmesh);
+int  PMMG_cuttet_ls(PMMG_pParMesh parmesh);
+int  PMMG_resetRef_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
+int  PMMG_setref_ls(PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol sol);
+int  PMMG_snpval_ls(PMMG_pParMesh parmesh,MPI_Comm comm);
+
+void PMMG_nosplit_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split1_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split2sf_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split3cone_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int ia,int ib,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+void PMMG_split4op_sort(MMG5_pMesh mesh,MMG5_int k,int ifac,uint8_t tau[4],int imin01,int imin23,MMG5_int ne_tmp,MMG5_int *tetra_sorted,MMG5_int *node_sorted);
+int  PMMG_sort_vertices(MMG5_pMesh mesh,MMG5_int k,MMG5_int *v_t,int ifac);
+void PMMG_sort_tetra(MMG5_int *tetra,MMG5_int *node,MMG5_int *v_t0,MMG5_int *v_t1,MMG5_int *v_t2);
+void PMMG_swap_vertices(MMG5_int *a);
+void PMMG_swap_ints(int *a, int *b);
+void PMMG_swap_3int_arrays(int *a, int *b);
+int  PMMG_compare_3ints_array(int *a, int *b);
 
 /* Internal library */
 void PMMG_setfunc( PMMG_pParMesh parmesh );
@@ -459,9 +494,9 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 /* Load Balancing */
 int PMMG_interactionMap(PMMG_pParMesh parmesh,int **interactions,int **interaction_map);
 int PMMG_transfer_all_grps(PMMG_pParMesh parmesh,idx_t *part,int);
-int PMMG_distribute_grps( PMMG_pParMesh parmesh );
-int PMMG_loadBalancing( PMMG_pParMesh parmesh );
-int PMMG_split_n2mGrps( PMMG_pParMesh,int,int );
+int PMMG_distribute_grps( PMMG_pParMesh parmesh,int partitioning_mode );
+int PMMG_loadBalancing( PMMG_pParMesh parmesh,int partitioning_mode );
+int PMMG_split_n2mGrps( PMMG_pParMesh,int,int,int );
 double PMMG_computeWgt( MMG5_pMesh mesh,MMG5_pSol met,MMG5_pTetra pt,int ifac );
 void PMMG_computeWgt_mesh( MMG5_pMesh mesh,MMG5_pSol met,int tag );
 
@@ -478,28 +513,31 @@ void PMMG_parmesh_ext_comm_free( PMMG_pParMesh,PMMG_pExt_comm,int);
 void PMMG_grp_comm_free( PMMG_pParMesh ,int**,int**,int*);
 void PMMG_node_comm_free( PMMG_pParMesh );
 void PMMG_edge_comm_free( PMMG_pParMesh );
-int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh );
-int PMMG_color_commNodes( PMMG_pParMesh parmesh );
+int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm );
+int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm );
+int PMMG_color_commNodes( PMMG_pParMesh parmesh,MPI_Comm comm );
 void PMMG_tria2elmFace_flags( PMMG_pParMesh parmesh );
 void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh );
+int PMMG_tria_highestcoord( MMG5_pMesh mesh, MMG5_int *v_t);
 int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh );
-int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh );
-int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh );
-int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh );
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh, MMG5_int* permtria );
+int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh, MPI_Comm comm );
+int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh, MPI_Comm comm );
 int PMMG_build_simpleExtNodeComm( PMMG_pParMesh parmesh );
 int PMMG_build_intNodeComm( PMMG_pParMesh parmesh );
-int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh );
-int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar );
+int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh, MPI_Comm comm );
+int PMMG_build_edgeComm( PMMG_pParMesh,MMG5_pMesh,MMG5_HGeom *hpar,MPI_Comm);
+int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh, MPI_Comm comm  );
 
 int PMMG_pack_faceCommunicators(PMMG_pParMesh parmesh);
 int PMMG_pack_nodeCommunicators(PMMG_pParMesh parmesh);
 
 /* Communicators checks */
 int PMMG_check_intFaceComm( PMMG_pParMesh parmesh );
-int PMMG_check_extFaceComm( PMMG_pParMesh parmesh );
-int PMMG_check_intNodeComm( PMMG_pParMesh parmesh );
-int PMMG_check_extNodeComm( PMMG_pParMesh parmesh );
-int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh );
+int PMMG_check_extFaceComm( PMMG_pParMesh parmesh, MPI_Comm comm );
+int PMMG_check_intNodeComm( PMMG_pParMesh parmesh);
+int PMMG_check_extNodeComm( PMMG_pParMesh parmesh, MPI_Comm comm );
+int PMMG_check_extEdgeComm( PMMG_pParMesh parmesh, MPI_Comm comm );
 
 /* Tags */
 void PMMG_tag_par_node(MMG5_pPoint ppt);
@@ -511,6 +549,7 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
 int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
+void PMMG_updateTagRef_node(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
 int  PMMG_parbdySet( PMMG_pParMesh parmesh );
 int  PMMG_parbdyTria( PMMG_pParMesh parmesh );
 
@@ -553,6 +592,7 @@ int  PMMG_updateMeshSize( PMMG_pParMesh parmesh,int fitMesh);
 void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Comm( PMMG_pParMesh parmesh );
 void PMMG_parmesh_Free_Listgrp( PMMG_pParMesh parmesh );
+void PMMG_destroy_int( PMMG_pParMesh,void **ptr[],size_t,char*);
 int  PMMG_clean_emptyMesh( PMMG_pParMesh parmesh, PMMG_pGrp listgrp, int ngrp );
 int  PMMG_resize_extComm ( PMMG_pParMesh,PMMG_pExt_comm,int,int* );
 int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
@@ -561,8 +601,8 @@ int  PMMG_resize_extCommArray ( PMMG_pParMesh,PMMG_pExt_comm*,int,int*);
 int PMMG_copy_mmgInfo ( MMG5_Info *info, MMG5_Info *info_cpy );
 
 /* Quality */
-int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int );
-int PMMG_prilen( PMMG_pParMesh parmesh,int8_t,int );
+int PMMG_qualhisto( PMMG_pParMesh parmesh,int,int,MPI_Comm comm );
+int PMMG_prilen( PMMG_pParMesh parmesh,int8_t,int,MPI_Comm comm );
 int PMMG_tetraQual( PMMG_pParMesh parmesh,int8_t metRidTyp );
 
 /* Variadic_pmmg.c */
@@ -571,6 +611,12 @@ int PMMG_Free_all_var(va_list argptr);
 
 const char* PMMG_Get_pmmgArgName(int typArg);
 
+/* Private I/Os and APIs*/
+int PMMG_loadMesh_hdf5_i(PMMG_pParMesh parmesh, int *load_entities, const char *filename);
+int PMMG_saveMesh_hdf5_i(PMMG_pParMesh parmesh, int *save_entities, const char *filename);
+int PMMG_Set_defaultIOEntities_i(int io_entities[PMMG_IO_ENTITIES_size] );
+int PMMG_Set_IOEntities_i(int io_entities[PMMG_IO_ENTITIES_size], int target, int val);
+int PMMG_Get_format( char *ptr, int fmt );
 
 #ifdef __cplusplus
 }

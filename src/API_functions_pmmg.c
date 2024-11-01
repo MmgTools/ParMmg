@@ -382,6 +382,77 @@ int PMMG_Set_outputSolsName(PMMG_pParMesh parmesh, const char* solout) {
   return ier;
 }
 
+int PMMG_Set_outputLsName(PMMG_pParMesh parmesh, const char* lsout) {
+  MMG5_pMesh mesh;
+  MMG5_pSol  ls;
+  int        k,ier,pathlen,baselen;
+  char      *basename,*path,*nopath;
+
+  /* If \a lsout is not provided we want to use the basename of the input ls
+   * name and the path of the output mesh name */
+  if ( parmesh->lsout ) {
+    PMMG_DEL_MEM(parmesh,parmesh->lsout,char,"lsout unalloc");
+  }
+
+  if ( (!lsout) || (!*lsout) ) {
+
+    if ( (!parmesh->meshout) || (!*parmesh->meshout) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an output mesh"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    /* Get input ls base name and remove .mesh extension */
+    if ( (!parmesh->lsin) || (!*parmesh->lsin) ) {
+      fprintf(stderr, "  ## Error: %s: please, provide an input ls"
+              " name before calling this function without string.\n",
+              __func__);
+      return 0;
+    }
+
+    path   = MMG5_Get_path(parmesh->meshout);
+    nopath = MMG5_Get_basename(parmesh->lsin);
+    basename = MMG5_Remove_ext ( nopath,".sol" );
+
+    pathlen = baselen = 0;
+    if ( path ) pathlen = strlen(path)+1;
+    if ( basename ) baselen = strlen(basename);
+    PMMG_MALLOC(parmesh,parmesh->lsout,pathlen+baselen+1,char,"lsout",return 0);
+    if ( pathlen ) {
+      strncpy(parmesh->lsout,path,pathlen-1);
+      parmesh->lsout[pathlen-1] = MMG5_PATHSEP;
+    }
+    if ( baselen ) {
+      strncpy(parmesh->lsout+pathlen,basename,baselen);
+      parmesh->lsout[pathlen+baselen] = '\0';
+    }
+
+    if ( parmesh->lsout ) {
+      /* Add .o.sol extension */
+      PMMG_REALLOC(parmesh,parmesh->lsout,strlen(parmesh->lsout)+7,
+                   strlen(parmesh->lsout)+1,char,"lsout",return 0);
+      strncat ( parmesh->lsout,".o.sol",7 );
+    }
+
+    MMG5_SAFE_FREE ( path );
+    free ( nopath ); nopath = NULL;
+    MMG5_SAFE_FREE ( basename );
+  }
+  else {
+    PMMG_MALLOC(parmesh,parmesh->lsout,strlen(lsout)+1,char,"lsout",return 0);
+    strcpy(parmesh->lsout,lsout);
+  }
+
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    mesh = parmesh->listgrp[k].mesh;
+    ls   = parmesh->listgrp[k].ls;
+    ier  = MMG3D_Set_outputSolName(mesh,ls,parmesh->lsout);
+  }
+  return ier;
+}
+
+
 int PMMG_Set_outputMetName(PMMG_pParMesh parmesh, const char* metout) {
   MMG5_pMesh mesh;
   MMG5_pSol  met;
@@ -410,7 +481,7 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->ddebug                  = PMMG_NUL;
   parmesh->iter                    = PMMG_UNSET;
   parmesh->niter                   = PMMG_NITER;
-  parmesh->info.fem                = MMG5_FEM;
+  parmesh->info.setfem             = MMG5_FEM;
   parmesh->info.repartitioning     = PMMG_REDISTRIBUTION_mode;
   parmesh->info.ifc_layers         = PMMG_MVIFCS_NLAYERS;
   parmesh->info.grps_ratio         = PMMG_GRPS_RATIO;
@@ -421,16 +492,26 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
   parmesh->info.metis_ratio        = PMMG_RATIO_MMG_METIS;
   parmesh->info.API_mode           = PMMG_APIDISTRIB_faces;
   parmesh->info.globalNum          = PMMG_NUL;
+  parmesh->info.globalVNumGot      = PMMG_NUL;
+  parmesh->info.globalTNumGot      = PMMG_NUL;
   parmesh->info.sethmin            = PMMG_NUL;
   parmesh->info.sethmax            = PMMG_NUL;
   parmesh->info.fmtout             = PMMG_FMT_Unknown;
 
-  /* Init MPI data */
-  parmesh->comm   = comm;
+  parmesh->info.iso                = MMG5_OFF;
+  parmesh->info.isosurf            = MMG5_OFF;
+  parmesh->info.lag                = MMG5_LAG;
+
+  /** Init MPI data */
+  parmesh->comm           = comm;
+  /* Initialize the input communicator to computationnal communicator: this value
+   * will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.read_comm = comm;
 
   MPI_Initialized(&flag);
   parmesh->size_shm = 1;
   if ( flag ) {
+    MPI_Comm_set_errhandler(parmesh->comm, MPI_ERRORS_RETURN);
     MPI_Comm_size( parmesh->comm, &parmesh->nprocs );
     MPI_Comm_rank( parmesh->comm, &parmesh->myrank );
   }
@@ -438,8 +519,11 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     parmesh->nprocs = 1;
     parmesh->myrank = PMMG_NUL;
   }
+  /* Initialize the number of partitions used for inputs to the number of procs:
+   * this value will be overwritten if needed (for example for hdf5 I/O) */
+  parmesh->info.npartin = parmesh->nprocs;
 
-  /* ParMmg verbosity */
+  /** ParMmg verbosity */
   if ( parmesh->myrank==parmesh->info.root ) {
     parmesh->info.imprim = PMMG_IMPRIM;
   }
@@ -455,7 +539,10 @@ void PMMG_Init_parameters(PMMG_pParMesh parmesh,MPI_Comm comm) {
     mesh->info.imprim = MG_MIN ( parmesh->info.imprim,PMMG_MMG_IMPRIM );
   }
 
-  /* Default memory */
+  /** I/Os: set default entities to save */
+  PMMG_Set_defaultIOEntities( parmesh );
+
+  /** Default memory */
   PMMG_parmesh_SetMemGloMax( parmesh );
   PMMG_parmesh_SetMemMax( parmesh );
 
@@ -611,6 +698,11 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     parmesh->ddebug = val;
     break;
 
+  case PMMG_IPARAM_purePartitioning :
+
+    parmesh->info.pure_partitioning = val;
+    break;
+
   case PMMG_IPARAM_distributedOutput :
 
     if ( val == 1 ) {
@@ -637,12 +729,21 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     }
     break;
   case PMMG_IPARAM_iso :
+    parmesh->info.iso = val;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_iso,val) ) return 0;
     }
     break;
+  case PMMG_IPARAM_isosurf :
+    fprintf(stderr," ## Error: Splitting boundaries on isovalue not yet"
+            " implemented.");
+    return 0;
+
   case PMMG_IPARAM_lag :
+    fprintf(stderr," ## Error: Lagrangian motion not yet implemented.");
+    return 0;
+
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_lag,val) ) return 0;
@@ -650,7 +751,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     break;
 
   case PMMG_IPARAM_nofem :
-    parmesh->info.fem    = (val==1)? 0 : 1;
+    parmesh->info.setfem = (val==1)? 0 : 1;
     for ( k=0; k<parmesh->ngrp; ++k ) {
       mesh = parmesh->listgrp[k].mesh;
       met  = parmesh->listgrp[k].met;
@@ -664,7 +765,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
     }
     if( val ) {
       fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nSetting nosurf on.\n");
+          "\nSetting nosurf option to on.\n");
       for ( k=0; k<parmesh->ngrp; ++k ) {
         mesh = parmesh->listgrp[k].mesh;
         if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
@@ -706,7 +807,7 @@ int PMMG_Set_iparameter(PMMG_pParMesh parmesh, int iparam,int val) {
       mesh = parmesh->listgrp[k].mesh;
       if( !val && mesh->info.opnbdy )
         fprintf(stderr," ## Warning: Surface adaptation not supported with opnbdy."
-          "\nCannot set nosurf off.\n");
+          "\nCannot set nosurf option to off.\n");
       else if ( !MMG3D_Set_iparameter(mesh,NULL,MMG3D_IPARAM_nosurf,val) ) return 0;
     }
     break;
@@ -1396,6 +1497,38 @@ int PMMG_Get_NodeCommunicator_nodes(PMMG_pParMesh parmesh, int** local_index) {
   return 1;
 }
 
+int PMMG_Get_ithNodeCommunicator_nodes(PMMG_pParMesh parmesh, int ext_comm_index, int* local_index) {
+  PMMG_pGrp      grp;
+  PMMG_pInt_comm int_node_comm;
+  PMMG_pExt_comm ext_node_comm;
+  MMG5_pMesh     mesh;
+  int            ip,i,idx;
+
+  /* Meshes are merged in grp 0 */
+  int_node_comm = parmesh->int_node_comm;
+  grp  = &parmesh->listgrp[0];
+  mesh = grp->mesh;
+
+
+  /** 1) Store node index in intvalues */
+  PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
+  for( i = 0; i < grp->nitem_int_node_comm; i++ ){
+    ip   = grp->node2int_node_comm_index1[i];
+    idx  = grp->node2int_node_comm_index2[i];
+    parmesh->int_node_comm->intvalues[idx] = ip;
+  }
+
+  /** 2) For each external communicator, get node index from intvalues */
+  ext_node_comm = &parmesh->ext_node_comm[ext_comm_index];
+  for( i = 0; i < ext_node_comm->nitem; i++ ){
+    idx = ext_node_comm->int_comm_index[i];
+    local_index[i] = int_node_comm->intvalues[idx];
+    }
+
+  PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
+  return 1;
+}
+
 int PMMG_Get_FaceCommunicator_faces(PMMG_pParMesh parmesh, int** local_index) {
   MMG5_Hash      hash;
   PMMG_pGrp      grp;
@@ -1860,10 +1993,20 @@ int PMMG_Check_Get_FaceCommunicators(PMMG_pParMesh parmesh,
  * the triangle.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
+  int ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangle global numbering has not been computed.\n",
@@ -1914,11 +2057,20 @@ int PMMG_Get_triangleGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) 
  * each node.
  * If of the triangle is simply a parallel face (but not a boundary), its owner
  * will be negative.
+ *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations.
  */
 int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh mesh;
   MMG5_pTria ptr;
-  int        k;
+  int        k,ier;
+
+  if( !parmesh->info.globalTNumGot ) {
+    ier = PMMG_Compute_trianglesGloNum( parmesh,parmesh->comm );
+    parmesh->info.globalTNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Triangles global numbering has not been computed.\n",
@@ -1949,10 +2101,19 @@ int PMMG_Get_trianglesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner )
  * Get global node numbering (starting from 1) and rank of the process owning
  * the node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
+  int ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
@@ -2002,11 +2163,19 @@ int PMMG_Get_vertexGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
  * Get global nodes numbering (starting from 1) and ranks of processes owning
  * each node.
  *
+ * \remark We may want to provide the MPI communicator as argument to allow to
+ * get global numbering from different communicators. For now it uses the
+ * communicator used during computations
  */
 int PMMG_Get_verticesGloNum( PMMG_pParMesh parmesh, int *idx_glob, int *owner ) {
   MMG5_pMesh  mesh;
   MMG5_pPoint ppt;
-  int         ip;
+  int         ip,ier;
+
+  if( !parmesh->info.globalVNumGot ) {
+    ier = PMMG_Compute_verticesGloNum( parmesh,parmesh->comm );
+    parmesh->info.globalVNumGot = 1;
+  }
 
   if( !parmesh->info.globalNum ) {
     fprintf(stderr,"\n  ## Error: %s: Nodes global numbering has not been computed.\n",
@@ -2042,8 +2211,8 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_pInt_comm int_node_comm;
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            *intvalues,*itosend,*itorecv,*iproc2comm;
   int            color,nitem;
   int            label,*nlabels,*displ,mydispl,unique;
@@ -2058,12 +2227,30 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_CALLOC(parmesh,int_node_comm->intvalues,int_node_comm->nitem,int,"intvalues",return 0);
   intvalues = int_node_comm->intvalues;
 
-  /* Allocate label counts and offsets */
-  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",return 0);
-  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",return 0);
+  /* register heap arrays */
+  size_t iptr,nptr = 3;
+  void** ptr_int[3];
+  ptr_int[0] = (void*)&iproc2comm;
+  ptr_int[1] = (void*)&nlabels;
+  ptr_int[2] = (void*)&displ;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
+  itosend = itorecv =  NULL;
 
   /* Array to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",return 0);
+
+  /* Allocate label counts and offsets */
+  PMMG_CALLOC(parmesh,nlabels,parmesh->nprocs,int,"nlabels",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+  PMMG_CALLOC(parmesh,displ,parmesh->nprocs+1,int,"displ",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
 
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     iproc2comm[iproc] = PMMG_UNSET;
@@ -2170,13 +2357,37 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   /**
    * 4) Communicate global numbering to the ghost copies.
    */
+
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+              return 0);
+
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     color = ext_node_comm->color_out;
     nitem = ext_node_comm->nitem;
 
-    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",return 0);
-    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itosend,nitem,int,"itosend",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                return 0);
+    PMMG_CALLOC(parmesh,ext_node_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                return 0);
     itosend = ext_node_comm->itosend;
     itorecv = ext_node_comm->itorecv;
 
@@ -2191,11 +2402,19 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
         itosend[i] = intvalues[idx];
       }
       MPI_CHECK( MPI_Isend(itosend,nitem,MPI_INT,dst,tag,
-                           parmesh->comm,&request),return 0 );
+                           parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+                 return 0 );
       /* Store recv buffer in the internal communicator */
       for( i = 0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
@@ -2205,7 +2424,6 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       }
     }
   }
-
 
   /**
    * 5) Store numbering results in the output array.
@@ -2221,6 +2439,11 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     }
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+             return 0);
 
 #ifndef NDEBUG
   /* Check global IDs */
@@ -2243,11 +2466,11 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),return 0 );
       for( i=0; i < nitem; i++ ) {
         idx = ext_node_comm->int_comm_index[i];
         assert( idx_glob[icomm][i] == intvalues[idx] );
@@ -2271,19 +2494,30 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   PMMG_DEL_MEM(parmesh,mylabels,int,"mylabels");
 #endif
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
+             return 0);
+
+  // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners"); */
+  /*            return 0 ); */
 
   /* Free arrays */
-  PMMG_DEL_MEM(parmesh,nlabels,int,"nlabels");
-  PMMG_DEL_MEM(parmesh,displ,int,"displ");
-  PMMG_DEL_MEM(parmesh,iproc2comm,int,"iproc2comm");
-
   for( icomm = 0; icomm < parmesh->next_node_comm; icomm++ ) {
     ext_node_comm = &parmesh->ext_node_comm[icomm];
     PMMG_DEL_MEM(parmesh,ext_node_comm->itosend,int,"itosend");
     PMMG_DEL_MEM(parmesh,ext_node_comm->itorecv,int,"itorecv");
   }
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_NodeCommunicator_owners");
 
   PMMG_DEL_MEM(parmesh,int_node_comm->intvalues,int,"intvalues");
 
@@ -2302,8 +2536,8 @@ int PMMG_Get_NodeCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
  */
 int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx_glob,int *nunique,int *ntot) {
   PMMG_pExt_comm ext_face_comm;
-  MPI_Request    request;
-  MPI_Status     status;
+  MPI_Request    *request;
+  MPI_Status     *status;
   int            unique;
   int            color,nitem,npairs_loc,*npairs,*displ_pair,*glob_pair_displ;
   int            src,dst,tag,sendbuffer,recvbuffer,iproc,icomm,i;
@@ -2311,9 +2545,23 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   /* Do this only if there is one group */
   assert( parmesh->ngrp == 1 );
 
-  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
-  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",return 0);
+  /* register heap arrays */
+  size_t iptr,nptr = 3;
+  void** ptr_int[3];
+  ptr_int[0] = (void*)&npairs;
+  ptr_int[1] = (void*)&displ_pair;
+  ptr_int[2] = (void*)&glob_pair_displ;
+  /* nullify them to allow to always call free() on them */
+  for( iptr = 0; iptr < nptr; iptr++ ) {
+    *ptr_int[iptr] = NULL;
+  }
+  request = NULL;
+  status = NULL;
 
+  PMMG_CALLOC(parmesh,npairs,parmesh->nprocs,int,"npair",return 0);
+  PMMG_CALLOC(parmesh,displ_pair,parmesh->nprocs+1,int,"displ_pair",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
 
   /**
    * 1) Compute face owners and count nb of new pair faces hosted on myrank.
@@ -2347,7 +2595,10 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ )
     displ_pair[iproc+1] = displ_pair[iproc]+npairs[iproc];
 
-  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",return 0);
+  PMMG_CALLOC(parmesh,glob_pair_displ,parmesh->next_face_comm+1,int,"glob_pair_displ",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ )
     glob_pair_displ[icomm] = displ_pair[parmesh->myrank];
 
@@ -2365,6 +2616,21 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       glob_pair_displ[icomm+1] = glob_pair_displ[icomm]+nitem;//+1;
   }
 
+  PMMG_MALLOC(parmesh,request,parmesh->nprocs,MPI_Request,
+              "mpi request array",
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+  for ( i=0; i<parmesh->nprocs; ++i ) {
+    request[i] = MPI_REQUEST_NULL;
+  }
+
+  PMMG_MALLOC(parmesh,status,parmesh->nprocs,MPI_Status,
+              "mpi status array",
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+              PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+              return 0);
+
   /* Compute global pair faces enumeration */
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
@@ -2378,11 +2644,19 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     if( parmesh->myrank == src ) {
       sendbuffer = glob_pair_displ[icomm];
       MPI_CHECK( MPI_Isend(&sendbuffer,1,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(&recvbuffer,1,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
       glob_pair_displ[icomm] = recvbuffer;
     }
   }
@@ -2396,8 +2670,19 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
       idx_glob[icomm][i] = glob_pair_displ[icomm]+i+1; /* index starts from 1 */
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+             return 0);
+
+  // Commented the 11/02/22 by Algiane: useless I think
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners"); */
+  /*            return 0 ); */
 
   /* Free arrays */
   PMMG_DEL_MEM(parmesh,npairs,int,"npairs");
@@ -2411,25 +2696,47 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
     ext_face_comm = &parmesh->ext_face_comm[icomm];
     color = ext_face_comm->color_out;
     nitem = ext_face_comm->nitem;
-    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",return 0);
+    PMMG_CALLOC(parmesh,ext_face_comm->itorecv,nitem,int,"itorecv",
+                PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                return 0);
 
     src = MG_MIN(parmesh->myrank,color);
     dst = MG_MAX(parmesh->myrank,color);
     tag = parmesh->nprocs*src+dst;
     if( parmesh->myrank == src ) {
       MPI_CHECK( MPI_Isend(idx_glob[icomm],nitem,MPI_INT,dst,tag,
-                            parmesh->comm,&request),return 0 );
+                            parmesh->comm,&request[color]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
     }
     if ( parmesh->myrank == dst ) {
       MPI_CHECK( MPI_Recv(ext_face_comm->itorecv,nitem,MPI_INT,src,tag,
-                          parmesh->comm,&status),return 0 );
+                          parmesh->comm,&status[0]),
+                 PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+                 PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+                 PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+                 return 0 );
       for( i = 0; i < nitem; i++ )
         assert( idx_glob[icomm][i] == ext_face_comm->itorecv[i] );
     }
   }
 
+  MPI_CHECK( MPI_Waitall(parmesh->nprocs,request,status),
+             PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+             PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+             PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+             return 0);
+
   /* Don't free buffers before they have been received */
-  MPI_CHECK( MPI_Barrier(parmesh->comm),return 0 );
+  /* MPI_CHECK( MPI_Barrier(parmesh->comm), */
+  /*            PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests"); */
+  /*            PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status"); */
+  /*            PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners"); */
+  /*            return 0 ); */
 
   for( icomm = 0; icomm < parmesh->next_face_comm; icomm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[icomm];
@@ -2437,8 +2744,125 @@ int PMMG_Get_FaceCommunicator_owners(PMMG_pParMesh parmesh,int **owner,int **idx
   }
 #endif
 
+  PMMG_DEL_MEM(parmesh,request,MPI_Request,"mpi requests");
+  PMMG_DEL_MEM(parmesh,status,MPI_Status,"mpi_status");
+  PMMG_destroy_int(parmesh,ptr_int,nptr,"Get_FaceCommunicator_owners");
+
   return 1;
 }
+
+/**
+ * \param ptr pointer toward the file extension (dot included)
+ * \param fmt default file format.
+ *
+ * \return and index associated to the file format detected from the extension.
+ *
+ * Get the wanted file format from the mesh extension. If \a fmt is provided, it
+ * is used as default file format (\a ptr==NULL), otherwise, the default file
+ * format is the medit one.
+ *
+ * \remark relies on the MMG5_Get_format function and adds the formats that are
+ * specifics to ParMmg
+ */
+int PMMG_Get_format( char *ptr, int fmt ) {
+  /* Default is the format given as input */
+  int defFmt = fmt;
+
+  if ( (!ptr) || !(*ptr) ) return defFmt;
+
+  /* Search if Format is known by Mmg */
+  int tmp_fmt = MMG5_Get_format(ptr, MMG5_FMT_Unknown);
+
+  if ( tmp_fmt == MMG5_FMT_Unknown ) {
+    /* If format is not known by Mmg, search in ParMmg formats */
+    if ( !strncmp ( ptr,".h5",strlen(".h5") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+    else if ( !strncmp ( ptr,".xdmf",strlen(".xdmf") ) ) {
+      return PMMG_FMT_HDF5;
+    }
+  }
+  return tmp_fmt;
+}
+
+
+int PMMG_Set_defaultIOEntities(PMMG_pParMesh parmesh) {
+  return PMMG_Set_defaultIOEntities_i(parmesh->info.io_entities);
+}
+
+/**
+ * \param io_entites array to specify which entites to save
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Set the default entities to save into an hdf5 file.
+ *
+ * \remark For internal use
+ */
+int PMMG_Set_defaultIOEntities_i(int io_entities[PMMG_IO_ENTITIES_size] ) {
+
+  /* Default: save/load everything */
+  for (int i = 0 ; i < PMMG_IO_ENTITIES_size ; i++) {
+    io_entities[i] = 1;
+  }
+
+  return 1;
+}
+
+int PMMG_Set_IOEntities(PMMG_pParMesh parmesh, int target, int val) {
+  return PMMG_Set_IOEntities_i(parmesh->info.io_entities,target,val);
+}
+
+/**
+ * \param io_entites array to specify which entites to save
+ * \param target type of entity for which we want to enable/disable saving.
+ * target value has to be one of the PMMG_IO_entities values.
+ * \pararm enable saving if PMMG_ON is passed, disable it if PMMG_OFF is passed.
+ * \return 0 if failed, 1 otherwise.
+ *
+ * Enable or disable entities to save depending on the \a val value.
+ *
+ * \remark For internal use
+ */
+int PMMG_Set_IOEntities_i(int io_entities[PMMG_IO_ENTITIES_size], int target, int val) {
+
+  if ( (val != PMMG_ON) && (val != PMMG_OFF) ) {
+    fprintf(stderr, "  ## Error: %s: Unexpected value for val parameter"
+            " (%d)\n",__func__,val);
+    fprintf(stderr, "            Please pass PMMG_ON or PMMG_OFF value.");
+    return 0;
+  }
+
+  switch(target) {
+
+  case PMMG_IO_Required:
+    io_entities[PMMG_IO_RequiredVertex] = val;
+    io_entities[PMMG_IO_RequiredEdge] = val;
+    io_entities[PMMG_IO_RequiredTria] = val;
+    io_entities[PMMG_IO_RequiredQuad] = val;
+    io_entities[PMMG_IO_RequiredTetra] = val;
+    break;
+
+  case PMMG_IO_Parallel:
+    io_entities[PMMG_IO_ParallelVertex] = val;
+    io_entities[PMMG_IO_ParallelEdge] = val;
+    io_entities[PMMG_IO_ParallelTria] = val;
+    io_entities[PMMG_IO_ParallelQuad] = val;
+    io_entities[PMMG_IO_ParallelTetra] = val;
+    break;
+
+  default:
+    if ( target >= PMMG_IO_ENTITIES_size || target < 0 ) {
+      fprintf(stderr, "  ## Error: %s: Unexpected value for target parameter"
+              " (%d)\n",__func__,target);
+      fprintf(stderr, "            Value has to be one of the listed"
+              " PMMG_IO_entities.\n");
+    }
+    return 0;
+    io_entities[target] = val;
+  }
+  return 1;
+}
+
 
 int PMMG_Free_names(PMMG_pParMesh parmesh)
 {
@@ -2447,6 +2871,7 @@ int PMMG_Free_names(PMMG_pParMesh parmesh)
   PMMG_DEL_MEM ( parmesh, parmesh->metin,char,"metin" );
   PMMG_DEL_MEM ( parmesh, parmesh->metout,char,"metout" );
   PMMG_DEL_MEM ( parmesh, parmesh->lsin,char,"lsin" );
+  PMMG_DEL_MEM ( parmesh, parmesh->lsout,char,"lsout" );
   PMMG_DEL_MEM ( parmesh, parmesh->dispin,char,"dispin" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldin,char,"fieldin" );
   PMMG_DEL_MEM ( parmesh, parmesh->fieldout,char,"fieldout" );

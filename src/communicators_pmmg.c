@@ -42,8 +42,9 @@
  */
 void PMMG_parmesh_int_comm_free( PMMG_pParMesh parmesh,PMMG_pInt_comm comm )
 {
-  if ( comm == NULL )
+  if ( comm == NULL ) {
     return;
+  }
 
   if ( NULL != comm->intvalues ) {
     assert ( comm->nitem != 0 && "incorrect parameters in internal communicator" );
@@ -88,11 +89,11 @@ void PMMG_parmesh_ext_comm_free( PMMG_pParMesh parmesh,PMMG_pExt_comm listcomm,
     }
     if ( NULL != comm->rtosend ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtosend,int,"ext comm rtosend array");
+      PMMG_DEL_MEM(parmesh,comm->rtosend,double,"ext comm rtosend array");
     }
     if ( NULL != comm->rtorecv ) {
       assert ( comm->nitem != 0 && "incorrect parameters in external communicator" );
-      PMMG_DEL_MEM(parmesh,comm->rtorecv,int,"ext comm rtorecv array");
+      PMMG_DEL_MEM(parmesh,comm->rtorecv,double,"ext comm rtorecv array");
     }
   }
 }
@@ -137,13 +138,16 @@ void PMMG_edge_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_edge_comm,PMMG_Ext_comm,"ext edge comm");
 
   parmesh->next_edge_comm       = 0;
-  parmesh->int_edge_comm->nitem = 0;
+
+  if ( parmesh->int_edge_comm ) {
+    parmesh->int_edge_comm->nitem = 0;
+  }
 }
 
 /**
  * \param parmesh pointer toward a parmesh structure
  *
- * Deallocate the nodal communicatorsof the parmesh
+ * Deallocate the nodal communicators of the parmesh
  *
  */
 void PMMG_node_comm_free( PMMG_pParMesh parmesh )
@@ -163,7 +167,9 @@ void PMMG_node_comm_free( PMMG_pParMesh parmesh )
   PMMG_DEL_MEM(parmesh, parmesh->ext_node_comm,PMMG_Ext_comm,"ext node comm");
 
   parmesh->next_node_comm       = 0;
-  parmesh->int_node_comm->nitem = 0;
+  if ( parmesh->int_node_comm ) {
+    parmesh->int_node_comm->nitem = 0;
+  }
 }
 
 /**
@@ -256,7 +262,7 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
                                    PMMG_pExt_comm ext_edge_comm,MMG5_pTetra pt,int ifac,int iloc,int j,int color,int *item ) {
   MMG5_pEdge pa;
   int        edg;
-  int16_t    tag;
+  uint16_t   tag;
   int8_t     i1,i2;
 
   /* Take the edge opposite to vertex iloc+j on face ifac */
@@ -276,6 +282,10 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail.
  *
@@ -283,7 +293,7 @@ int PMMG_fillExtEdgeComm_fromFace( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HG
  * faces to detect all the processors to which each edge belongs.
  *
  */
-int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
+int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh, MPI_Comm comm ) {
   PMMG_pExt_comm    ext_edge_comm,*comm_ptr;
   PMMG_pInt_comm    int_edge_comm;
   PMMG_cellLnkdList **proclists,list;
@@ -385,7 +395,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
    * recieve the proc list of all the edges to/from the other processors. At the
    * end of this loop, each edge has the entire list of the proc to which it
    * belongs */
-  alloc_size = parmesh->next_edge_comm;
+  alloc_size = parmesh->nprocs;
   PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
   PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
@@ -397,9 +407,12 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
     glob_update = loc_update = 0;
 
     /** Send the list of procs to which belong each point of the communicator */
-    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
+    for ( k=0; k<alloc_size; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_edge_comm; ++k ) {
       ext_edge_comm = &parmesh->ext_edge_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
@@ -430,7 +443,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
       assert ( pos==nitem2comm );
 
       MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
-                           MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+                           MPI_COMMUNICATORS_EDGE_TAG,comm,
                            &request[color]),goto end );
     }
 
@@ -442,7 +455,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
 
       color         = ext_edge_comm->color_out;
 
-      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_EDGE_TAG,comm,
                            &status[0] ),goto end);
       MPI_CHECK( MPI_Get_count(&status[0],MPI_INT,&nitem2comm),goto end);
 
@@ -456,7 +469,7 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
 
         itorecv       = ext_edge_comm->itorecv;
         MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
-                            MPI_COMMUNICATORS_EDGE_TAG,parmesh->comm,
+                            MPI_COMMUNICATORS_EDGE_TAG,comm,
                             &status[0]), goto end );
 
         pos     = 0;
@@ -478,9 +491,9 @@ int PMMG_build_completeExtEdgeComm( PMMG_pParMesh parmesh ) {
       }
     }
 
-    MPI_CHECK( MPI_Waitall(parmesh->next_edge_comm,request,status), goto end );
+    MPI_CHECK( MPI_Waitall(alloc_size,request,status), goto end );
     MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
-                             parmesh->comm),goto end);
+                             comm),goto end);
 
   } while ( glob_update );
 
@@ -631,11 +644,18 @@ end:
 /**
  * \param parmesh pointer to parmesh structure
  * \param mesh pointer to the mesh structure
- * \param hpar hash table of parallel edges
+ * \param hpar hash table of parallel edges. Read only array.
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * Build edge communicator.
+ *
+ * \todo clean parallel error handling (without MPI_abort call and without deadlocks)
+ *
  */
-int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar ) {
+int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar,MPI_Comm comm) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_face_comm,int_edge_comm;
   PMMG_pExt_comm ext_face_comm,ext_edge_comm;
@@ -644,7 +664,7 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   MMG5_hgeom     *ph;
   int            *nitems_ext_comm,color,k,i,idx,ie,ifac,iloc,j,item;
   int            edg;
-  int16_t        tag;
+  uint16_t       tag;
   int8_t         ia,i1,i2;
 
   assert( parmesh->ngrp == 1 );
@@ -746,11 +766,13 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   }
 
   /** Complete the external edge communicator */
-  if( !PMMG_build_completeExtEdgeComm( parmesh ) ) return 0;
-
+  if( !PMMG_build_completeExtEdgeComm( parmesh,comm ) ) return 0;
 
   /* Reorder edge nodes */
-  if( !PMMG_color_commNodes( parmesh ) ) return 0;
+  if( !PMMG_color_commNodes( parmesh,comm ) ) {
+    MPI_Abort(parmesh->comm,PMMG_TMPFAILURE);
+  }
+
   MMG5_pPoint ppt0,ppt1;
   int swp;
   for( k = 1; k <= mesh->na; k++ ) {
@@ -766,11 +788,12 @@ int PMMG_build_edgeComm( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hpar 
   }
 
   /** Check the external edge communicator */
-  assert( PMMG_check_extEdgeComm( parmesh ) );
-
+  assert( PMMG_check_extEdgeComm( parmesh,comm ) );
 
   /* Free */
-  PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
+  if ( int_face_comm ) {
+    PMMG_DEL_MEM(parmesh,int_face_comm->intvalues,int,"int_face_comm");
+  }
   PMMG_DEL_MEM(parmesh,nitems_ext_comm,int,"nitem_int_face_comm");
 
   return 1;
@@ -849,29 +872,12 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
   /* Process tria stored in index1 */
   for( i=0; i<grp->nitem_int_face_comm; i++ ) {
     kt    = grp->face2int_face_comm_index1[i];
-    ptt = &mesh->tria[kt];
+    ptt    = &mesh->tria[kt];
     ie     = ptt->cc/4;
     ifac   = ptt->cc%4;
 
     /* Get triangle node with highest coordinates */
-    iploc  = 0;
-    ppt = &mesh->point[ptt->v[0]];
-    cmax[0] = ppt->c[0];
-    cmax[1] = ppt->c[1];
-    cmax[2] = ppt->c[2];
-    for( iloc=1; iloc<3; iloc++ ) {
-      ppt = &mesh->point[ptt->v[iloc]];
-      for( idim=0; idim<3; idim++ ) {
-        if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
-        if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
-          cmax[0] = ppt->c[0];
-          cmax[1] = ppt->c[1];
-          cmax[2] = ppt->c[2];
-          iploc  = iloc;
-          break;
-        }
-      }
-    }
+    iploc = PMMG_tria_highestcoord(mesh,ptt->v);
 
     /* Store ie-ifac-iploc in index1 */
     grp->face2int_face_comm_index1[i] = 12*ie+3*ifac+iploc;
@@ -881,6 +887,42 @@ void PMMG_tria2elmFace_coords( PMMG_pParMesh parmesh ) {
     for( iloc = 0; iloc < 3; iloc++ )
       PMMG_tag_par_node(&mesh->point[ptt->v[iloc]]);
   }
+}
+
+/**
+ * \param mesh  pointer toward the mesh structure
+ * \param ptt_v indices of a triangle vertices
+ * \return iploc (0, 1 or 2) local node index
+ *
+ * Get triangle node with highest coordinates
+ *
+ */
+int PMMG_tria_highestcoord( MMG5_pMesh mesh, MMG5_int *ptt_v) {
+  MMG5_pPoint  ppt;
+  int          idim,iloc,iploc;
+  double       cmax[3];
+
+  /* Get triangle node with highest coordinates */
+  iploc  = 0;
+  ppt = &mesh->point[ptt_v[0]];
+  cmax[0] = ppt->c[0];
+  cmax[1] = ppt->c[1];
+  cmax[2] = ppt->c[2];
+  for( iloc=1; iloc<3; iloc++ ) {
+    ppt = &mesh->point[ptt_v[iloc]];
+    for( idim=0; idim<3; idim++ ) {
+      if( ppt->c[idim] - cmax[idim] < -MMG5_EPSOK*20 ) break;
+      if( ppt->c[idim] - cmax[idim] >  MMG5_EPSOK*20 ) {
+        cmax[0] = ppt->c[0];
+        cmax[1] = ppt->c[1];
+        cmax[2] = ppt->c[2];
+        iploc  = iloc;
+        break;
+      }
+    }
+  }
+
+  return iploc;
 }
 
 /**
@@ -931,7 +973,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
       nitem_int_node_comm++;
     }
   }
- 
+
   /* Allocate group communicators */
   int_node_comm = parmesh->int_node_comm;
   int_node_comm->nitem = nitem_int_node_comm;
@@ -972,7 +1014,7 @@ int PMMG_build_nodeCommIndex( PMMG_pParMesh parmesh ) {
  * stored in the external face communicator.
  *
  */
-int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
+int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh, MMG5_int* permtria ) {
   PMMG_pGrp      grp;
   PMMG_pInt_comm int_face_comm;
   PMMG_pExt_comm ext_face_comm;
@@ -988,7 +1030,7 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
     nitem_int_face_comm += ext_face_comm->nitem;
   }
- 
+
   /* Allocate group communicators */
   int_face_comm = parmesh->int_face_comm;
   int_face_comm->nitem = nitem_int_face_comm;
@@ -1002,7 +1044,12 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
   for( iext_comm = 0; iext_comm < parmesh->next_face_comm; iext_comm++ ) {
     ext_face_comm = &parmesh->ext_face_comm[iext_comm];
     for( iext = 0; iext < ext_face_comm->nitem; iext++ ) {
-      grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      if (permtria) {
+        grp->face2int_face_comm_index1[iint] = permtria[ext_face_comm->int_comm_index[iext]];
+      }
+      else {
+        grp->face2int_face_comm_index1[iint] = ext_face_comm->int_comm_index[iext];
+      }
       grp->face2int_face_comm_index2[iint] = iint;
       ext_face_comm->int_comm_index[iext] = iint++;
     }
@@ -1012,7 +1059,20 @@ int PMMG_build_faceCommIndex( PMMG_pParMesh parmesh ) {
   return 1;
 }
 
-int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
+/**
+ * \param parmesh pointer toward the parmesh structure
+ *
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
+ *
+ * \return 0 if fail, 1 if succeed
+ *
+ * Construction of the face communicators from the node communicators
+ *
+ */
+int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh,MPI_Comm comm ) {
   PMMG_pExt_comm ext_node_comm;
   PMMG_pGrp      grp;
   MMG5_pMesh     mesh;
@@ -1022,13 +1082,10 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   int            *fNodes_loc,*fNodes_par,*fColors;
   int            nb_fNodes_loc,*nb_fNodes_par,*displs,*counter,*iproc2comm;
   int            kt,ia,ib,ic,i,icomm,iproc,iloc,iglob,myrank,next_face_comm,ier;
-  MPI_Comm       comm;
 
-  comm   = parmesh->comm;
   myrank = parmesh->myrank;
   grp    = &parmesh->listgrp[0];
   mesh   = grp->mesh;
-
 
   /** 1) Store global node ids in point flags */
   /* Reset point flags */
@@ -1168,7 +1225,7 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
   }
 
   /** 6) Set communicators indexing, convert tria index into iel face index */
-  ier = PMMG_build_faceCommIndex( parmesh );
+  ier = PMMG_build_faceCommIndex( parmesh, NULL );
   PMMG_tria2elmFace_flags( parmesh );
 
 
@@ -1194,16 +1251,20 @@ int PMMG_build_faceCommFromNodes( PMMG_pParMesh parmesh ) {
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail.
  *
  * Build the node communicators (externals and internals) from the faces ones.
  *
  */
-int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
+int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh, MPI_Comm comm ) {
   int ier, ier_glob;
 
-  assert ( PMMG_check_extFaceComm ( parmesh ) );
+  assert ( PMMG_check_extFaceComm ( parmesh,comm ) );
   assert ( PMMG_check_intFaceComm ( parmesh ) );
 
   /** Build the internal node communicator from the faces ones */
@@ -1230,12 +1291,12 @@ int PMMG_build_nodeCommFromFaces( PMMG_pParMesh parmesh ) {
 
   /* Check that all steps have successed until here (because the next function
    * involves MPI comms) */
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
   if ( !ier_glob ) return 0;
 
   /** Fill the external node communicator */
-  ier = PMMG_build_completeExtNodeComm(parmesh);
-  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
+  ier = PMMG_build_completeExtNodeComm(parmesh,comm);
+  MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, comm);
   if ( !ier ) {
     fprintf(stderr,"\n  ## Error: %s: unable to complete the external node"
             " communicators.\n",__func__);
@@ -1459,6 +1520,7 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
   /** Step 1: give a unique position in the internal communicator for each mesh
    * point but don't care about the unicity of the position for a point shared
    * by multiple groups */
+
   assert ( !parmesh->int_node_comm->nitem );
   nitem_node = 0;
 
@@ -1733,29 +1795,25 @@ int PMMG_build_intNodeComm( PMMG_pParMesh parmesh ) {
     coor_list[i].idx = i;
   }
 
-  /* Sort coor_list depending on its coordinates */
-  qsort(coor_list,nitem_node,sizeof(PMMG_coorCell),PMMG_compare_coorCell);
-
-  /* Travel the list and remove the identic nodes */
-  idx = 0;
+  /* Travel the list and remove the identic nodes (use naive algorithm after
+   * issues using point sorting). */
   if ( nitem_node ) {
-    new_pos[coor_list[0].idx] = 0;
 
-    for ( i=1; i<nitem_node; ++i ) {
-      if ( PMMG_compare_coorCell(&coor_list[i],&coor_list[idx]) ) {
-        ++idx;
-        if ( idx != i ) {
-          coor_list[idx].c[0] = coor_list[i].c[0];
-          coor_list[idx].c[1] = coor_list[i].c[1];
-          coor_list[idx].c[2] = coor_list[i].c[2];
-          coor_list[idx].idx  = coor_list[i].idx;
-        }
-        new_pos[coor_list[i].idx] = idx;
+    /* Detection of duplicated valies and assignation of a unique position in
+     * the internal communicator. For now these positions are not contiguous. */
+    for ( i = 0; i < nitem_node-1; ++i ) {
+
+      if ( new_pos[coor_list[i].idx] < i ) {
+        /* Point is a duplication so it has already been compared to everyone */
+        continue;
       }
-      else
-        new_pos[coor_list[i].idx] = new_pos[coor_list[idx].idx];
+
+      for ( j=i+1; j<nitem_node; ++j ) {
+        if ( !PMMG_compare_coorCell(&coor_list[i],&coor_list[j]) ) {
+          new_pos[coor_list[j].idx] = new_pos[coor_list[i].idx];
+        }
+      }
     }
-    nitem_node = idx+1;
   }
 
   /* Update node2int_node_comm arrays */
@@ -1816,6 +1874,10 @@ end:
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail.
  *
@@ -1823,7 +1885,7 @@ end:
  * faces to detect all the processors to which each node belongs.
  *
  */
-int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
+int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh, MPI_Comm comm ) {
   PMMG_pExt_comm    ext_node_comm,*comm_ptr;
   PMMG_pInt_comm    int_node_comm;
   PMMG_cellLnkdList **proclists,list;
@@ -1866,6 +1928,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
   PMMG_REALLOC(parmesh,parmesh->ext_node_comm,parmesh->nprocs,
                parmesh->next_node_comm,PMMG_Ext_comm,
                "list of external communicators",goto end);
+
   next_comm = parmesh->next_node_comm;
   parmesh->next_node_comm = parmesh->nprocs;
 
@@ -1925,7 +1988,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
    * recieve the proc list of all the nodes to/from the other processors. At the
    * end of this loop, each node has the entire list of the proc to which it
    * belongs */
-  alloc_size = parmesh->next_node_comm;
+  alloc_size = parmesh->nprocs;
   PMMG_MALLOC(parmesh,request,    alloc_size,MPI_Request,"mpi request array",goto end);
   PMMG_MALLOC(parmesh,status,     alloc_size,MPI_Status,"mpi status array",goto end);
   PMMG_CALLOC(parmesh,i2send_size,alloc_size,int,"size of the i2send array",goto end);
@@ -1937,9 +2000,12 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
     glob_update = loc_update = 0;
 
     /** Send the list of procs to which belong each point of the communicator */
-    for ( k=0; k<parmesh->next_node_comm; ++k ) {
+    for ( k=0; k<alloc_size; ++k ) {
 
       request[k] = MPI_REQUEST_NULL;
+    }
+
+    for ( k=0; k<parmesh->next_node_comm; ++k ) {
       ext_node_comm = &parmesh->ext_node_comm[k];
 
       /* Computation of the number of data to send to the other procs (we want
@@ -1970,7 +2036,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
       assert ( pos==nitem2comm );
 
       MPI_CHECK( MPI_Isend(itosend,nitem2comm,MPI_INT,color,
-                           MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                           MPI_COMMUNICATORS_NODE_TAG,comm,
                            &request[color]),goto end );
     }
 
@@ -1982,7 +2048,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
       color         = ext_node_comm->color_out;
 
-      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+      MPI_CHECK( MPI_Probe(color,MPI_COMMUNICATORS_NODE_TAG,comm,
                            &status[0] ),goto end);
       MPI_CHECK( MPI_Get_count(&status[0],MPI_INT,&nitem2comm),goto end);
 
@@ -1996,7 +2062,7 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
 
         itorecv       = ext_node_comm->itorecv;
         MPI_CHECK( MPI_Recv(itorecv,nitem2comm,MPI_INT,color,
-                            MPI_COMMUNICATORS_NODE_TAG,parmesh->comm,
+                            MPI_COMMUNICATORS_NODE_TAG,comm,
                             &status[0]), goto end );
 
         pos     = 0;
@@ -2018,9 +2084,9 @@ int PMMG_build_completeExtNodeComm( PMMG_pParMesh parmesh ) {
       }
     }
 
-    MPI_CHECK( MPI_Waitall(parmesh->next_node_comm,request,status), goto end );
+    MPI_CHECK( MPI_Waitall(alloc_size,request,status), goto end );
     MPI_CHECK( MPI_Allreduce(&loc_update,&glob_update,1,MPI_INT8_T,MPI_LOR,
-                             parmesh->comm),goto end);
+                             comm),goto end);
 
   } while ( glob_update );
 

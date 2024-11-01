@@ -36,8 +36,8 @@
  * \param a  pointer toward a PMMG_coorCell structure.
  * \param b  pointer toward a PMMG_coorCell structure.
  *
- * \return 1 if a is greater than b, -1 if b is greater than 1, 0 if they are
- * equals.
+ * \return 1 if a is different from b, 0 if they are
+ * equals to within a given tolerance.
  *
  * Compare 2 coor cells (can be used inside the qsort C fnuction), first on
  * their x-coordinates, second ond their y-coordinates then on their
@@ -62,9 +62,8 @@ int PMMG_compare_coorCell (const void * a, const void * b) {
   for ( k=0; k<3; ++k ) {
     dist[k] = cell1->c[k]-cell2->c[k];
 
-    if ( dist[k] >  MMG5_EPSOK*tol ) return 1;
+    if ( fabs(dist[k]) >  MMG5_EPSOK*tol ) return 1;
 
-    if ( dist[k] < -MMG5_EPSOK*tol ) return -1;
   }
 
   assert ( dist[0]*dist[0]+dist[1]*dist[1]+dist[2]*dist[2]<MMG5_EPSD*tol*tol

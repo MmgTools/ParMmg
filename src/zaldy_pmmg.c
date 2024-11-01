@@ -58,42 +58,61 @@ void PMMG_parmesh_SetMemGloMax( PMMG_pParMesh parmesh )
 
   assert ( (parmesh != NULL) && "trying to set glo max mem in empty parmesh" );
 
-  /** Step 1: Get the numper of processes per node */
+  /** Step 1: Get the number of processes per node */
   MPI_Initialized( &flag );
 
   if ( flag ) {
     MPI_Comm_split_type( parmesh->comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL,
                          &comm_shm );
     MPI_Comm_size( comm_shm, &parmesh->size_shm );
+    MPI_Comm_free( &comm_shm );
   }
   else {
     parmesh->size_shm = 1;
   }
 
-  /** Step 2: Set maximal memory per process depending on the -m option setting */
+  /** Step 2: Set maximal memory per process depending on the -m option setting:
+  - if the user doesn't provides a memory value or provides an invalid value: we equirepartite the memory over the MPI processes of the node. Functions that consumes different amounts of memory depending on the process have to manage internally the memory repartition (for example the \a PMMG_loadMesh_centralized function).
+  - if the user provides a valid memory value (under or equal to the physical memory), it is used as is guessing that the user know what he is asking (it may be useful during the parallel calls of Mmg to not have a memory equirepartition as some process may use a smaller amount of memory than others but we are not able to predict it.
+ */
   maxAvail = MMG5_memSize();
 
   if ( parmesh->info.mem <= 0 ) {
-    /* Nos users specifications */
+    /* Nos users specifications: equirepartition of */
     if ( !maxAvail ) {
       /* default value when not able to compute the available memory = 800 MB */
       printf("  Maximum memory per process set to default value: %d MB.\n",MMG5_MEMMAX);
-      parmesh->memGloMax = MMG5_MEMMAX << 20;
+      parmesh->memGloMax = (MMG5_MEMMAX/parmesh->size_shm) << 20;
     }
     else {
-      /* maximal memory = total physical memory */
-      parmesh->memGloMax = maxAvail;
+      /* maximal memory = equirepartition of total physical memory over the MPI processes of the node. */
+      parmesh->memGloMax = maxAvail/parmesh->size_shm;
     }
   }
   else {
-    /* memory asked by user if possible, otherwise total physical memory */
+    int memOverflow = 0;
+    /* Memory asked by user if possible (authorized to ask the entire memory nod per process, independently of the number of process per node). */
     if ( maxAvail && (size_t)parmesh->info.mem*MMG5_MILLION > maxAvail ) {
-      fprintf(stderr,"\n  ## Warning: %s: asking for %d MB of memory per process ",
+      /* User asks for more than the memory of the node */
+      fprintf(stdout,"\n  ## Warning: %s: asking for %d MB of memory per process ",
               __func__,parmesh->info.mem);
-      fprintf(stderr,"when only %zu available.\n",maxAvail/MMG5_MILLION);
+      fprintf(stdout,"when only %zu available on the node.\n",maxAvail/MMG5_MILLION);
+      memOverflow = 1;
     }
     else {
-      parmesh->memGloMax= (size_t)parmesh->info.mem*MMG5_MILLION;
+      if ( (size_t)parmesh->info.mem*MMG5_MILLION > maxAvail/parmesh->size_shm ) {
+      /* User asks for more than the equirepartition of the node memory across the MPI processes */
+        fprintf(stdout,"\n  ## Warning: %s: asking for %d MB per MPI process with %d process per node and %zu MB available on the node.\n",
+                __func__,parmesh->info.mem,parmesh->size_shm,maxAvail/MMG5_MILLION);
+        memOverflow = 1;
+      }
+    }
+
+    /* In all cases, impose what the user ask */
+    parmesh->memGloMax= (size_t)parmesh->info.mem*MMG5_MILLION;
+
+    if ( memOverflow ) {
+      fprintf(stdout,"              The program may run out of memory and be killed (Signal 9 or SIGKILL error).\n\n");
     }
   }
 
@@ -121,6 +140,10 @@ int PMMG_parmesh_SetMemMax( PMMG_pParMesh parmesh ) {
   for( i = 0; i < parmesh->ngrp; ++i ) {
     mesh = parmesh->listgrp[i].mesh;
     mesh->memMax = parmesh->memGloMax;
+
+    /* Hack to not let Mmg recomputes the available memory by itself (it has no
+     * knowledge that it is called in parallel) */
+    mesh->info.mem = mesh->memMax/MMG5_MILLION;
   }
 
   return 1;
@@ -291,22 +314,37 @@ int PMMG_setMeshSize_alloc( MMG5_pMesh mesh ) {
 int PMMG_setMeshSize_realloc( MMG5_pMesh mesh,int npmax_old,int xpmax_old,
                               int nemax_old,int xtmax_old ) {
 
-  PMMG_RECALLOC(mesh,mesh->point,mesh->npmax+1,npmax_old+1,MMG5_Point,
+  if ( !npmax_old )
+    PMMG_CALLOC(mesh, mesh->point, mesh->npmax+1, MMG5_Point,
                 "vertices array", return 0);
+  else
+    PMMG_RECALLOC(mesh,mesh->point,mesh->npmax+1,npmax_old+1,MMG5_Point,
+                  "vertices array", return 0);
+  if ( !xpmax_old )
+    PMMG_CALLOC(mesh, mesh->xpoint, mesh->xpmax+1, MMG5_xPoint,
+                "boundary vertices array", return 0);
+  else
+    PMMG_RECALLOC(mesh,mesh->xpoint,mesh->xpmax+1,xpmax_old+1,MMG5_xPoint,
+                  "boundary vertices array", return 0);
 
-  PMMG_RECALLOC(mesh,mesh->xpoint,mesh->xpmax+1,xpmax_old+1,MMG5_xPoint,
-              "boundary vertices array", return 0);
-
-  PMMG_RECALLOC(mesh,mesh->tetra,mesh->nemax+1,nemax_old+1,MMG5_Tetra,
-              "tetra array", return 0);
+  if ( !nemax_old )
+    PMMG_CALLOC(mesh, mesh->tetra, mesh->nemax+1, MMG5_Tetra,
+                "tetra array", return 0);
+  else
+    PMMG_RECALLOC(mesh,mesh->tetra,mesh->nemax+1,nemax_old+1,MMG5_Tetra,
+                  "tetra array", return 0);
 
   if ( mesh->adja ) {
     PMMG_RECALLOC(mesh,mesh->adja,4*mesh->nemax+5,4*nemax_old+5,int,
                   "adja array", return 0);
   }
 
-  PMMG_RECALLOC(mesh,mesh->xtetra,mesh->xtmax+1,xtmax_old+1,MMG5_xTetra,
-              "boundary tetra array", return 0);
+  if ( !xtmax_old )
+    PMMG_CALLOC(mesh, mesh->xtetra, mesh->xtmax+1, MMG5_xTetra,
+                "boundary tetra array", return 0);
+  else
+    PMMG_RECALLOC(mesh,mesh->xtetra,mesh->xtmax+1,xtmax_old+1,MMG5_xTetra,
+                  "boundary tetra array", return 0);
 
   return ( PMMG_link_mesh( mesh ) );
 }
@@ -643,7 +681,7 @@ int PMMG_resize_extCommArray ( PMMG_pParMesh parmesh,PMMG_pExt_comm *ext_comm,
       PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtosend, double,"rtosend" );
 
     if ( (*ext_comm+k)->rtorecv )
-      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,int,"rtorecv" );
+      PMMG_DEL_MEM ( parmesh,(*ext_comm+k)->rtorecv,double,"rtorecv" );
 
   }
 

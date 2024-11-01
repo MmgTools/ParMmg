@@ -2,25 +2,31 @@ IF( BUILD_TESTING )
   include( CTest )
 
   set( CI_DIR  ${CMAKE_BINARY_DIR}/testparmmg CACHE PATH "path to test meshes repository" )
-  set( CI_DIR_RESULTS  ${CI_DIR}/TEST_OUTPUTS )
+  set( CI_DIR_RESULTS  ${CMAKE_BINARY_DIR}/TEST_OUTPUTS )
   file( MAKE_DIRECTORY ${CI_DIR_RESULTS} )
   get_filename_component(PARENT_DIR ${CI_DIR} DIRECTORY)
 
 
   IF ( NOT ONLY_LIBRARY_TESTS )
 
-    IF ( NOT EXISTS ${CI_DIR} )
+    FIND_PACKAGE ( Git )
+
+    IF ( Git_FOUND )
+
+      IF ( NOT EXISTS ${CI_DIR} )
+        EXECUTE_PROCESS(
+          COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git --filter=blob:none
+          WORKING_DIRECTORY ${PARENT_DIR}
+          )
+      ENDIF()
       EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} clone https://gitlab.inria.fr/ParMmg/testparmmg.git
-        WORKING_DIRECTORY ${PARENT_DIR}
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
+        COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 5091f86924742
+        TIMEOUT 20
+        WORKING_DIRECTORY ${CI_DIR}
+        #COMMAND_ECHO STDOUT
         )
-    ENDIF()
-    EXECUTE_PROCESS(
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} fetch
-      COMMAND ${GIT_EXECUTABLE} -C ${CI_DIR} checkout 31a48498a537edc64149da013748b0b0aa498554
-      WORKING_DIRECTORY ${CI_DIR}
-      #COMMAND_ECHO STDOUT
-      )
+    ENDIF ( )
 
     set ( mesh_size 16384 )
     set ( myargs -niter 2 -metis-ratio 82 -v 5 )
@@ -31,7 +37,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME ${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/${MESH}.mesh
+          ${CI_DIR}/Cube/${MESH}.meshb
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -m 11000 -mesh-size ${mesh_size} ${myargs})
       endforeach()
@@ -42,7 +48,7 @@ IF( BUILD_TESTING )
       foreach( NP 1 2 4 6 8 )
         add_test( NAME cube-unit-coarse-${MESH}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-          ${CI_DIR}/Cube/cube-unit-coarse.mesh
+          ${CI_DIR}/Cube/cube-unit-coarse.meshb
           -sol ${CI_DIR}/Cube/cube-unit-coarse-${MESH}.sol
           -out ${CI_DIR_RESULTS}/${MESH}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
@@ -72,7 +78,7 @@ IF( BUILD_TESTING )
     foreach( NP 1 6 8 )
       add_test( NAME Sphere-${NP}
         COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
-        ${CI_DIR}/Sphere/sphere.mesh
+        ${CI_DIR}/Sphere/sphere.meshb
         -out ${CI_DIR_RESULTS}/sphere-${NP}-out.mesh
         -mesh-size ${mesh_size} ${myargs} )
     endforeach()
@@ -83,7 +89,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${OPTION}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           -${OPTION}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${OPTION}-${NP}-out.mesh
           -mesh-size ${mesh_size} ${myargs} )
       endforeach()
@@ -143,7 +149,7 @@ IF( BUILD_TESTING )
         add_test( NAME Sphere-optim-${test_name}-${NP}
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${test_option} ${test_val}
-          ${CI_DIR}/Sphere/sphere.mesh
+          ${CI_DIR}/Sphere/sphere.meshb
           -out ${CI_DIR_RESULTS}/sphere-${test_name}-${NP}-out.mesh
           -m 11000 -mesh-size ${test_mesh_size} ${myargs} )
       ENDFOREACH()
@@ -162,6 +168,31 @@ IF( BUILD_TESTING )
       -opnbdy
       ${CI_DIR}/OpnBdy_island/island.mesh
       -out ${CI_DIR_RESULTS}/opnbdy-island.o.mesh
+      )
+
+    ### test -m option
+    #### The 2 tests are intentionnaly failing (inside an assert in debug mode, with an error
+    #### message otherwise) due to lack of memory when computing the hash table
+    add_test ( NAME memory-pmmg_sphere-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -mmg-v 5 -v 5 -m 15
+      ${CI_DIR}/Sphere/sphere
+      -out ${CI_DIR_RESULTS}/memory-sphere.o.mesh
+      )
+    set_property(TEST memory-pmmg_sphere-2
+      PROPERTY
+      PASS_REGULAR_EXPRESSION "MAXIMUM MEMORY AUTHORIZED PER PROCESS \\(MB\\)    15"
+      )
+
+    add_test ( NAME memory-mmg_sphere-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -mmg-v 5 -v 5 -m 15
+      ${CI_DIR}/Sphere/sphere
+      -out ${CI_DIR_RESULTS}/memory-sphere.o.mesh
+      )
+    set_property(TEST memory-mmg_sphere-2
+      PROPERTY
+      PASS_REGULAR_EXPRESSION "MAXIMUM MEMORY AUTHORIZED \\(MB\\)    15"
       )
 
     ###############################################################################
@@ -207,6 +238,98 @@ IF( BUILD_TESTING )
       ${myargs}
       )
 
+    # Tests for distributed pvtu output with dots in filename.
+    # Replacement of dots by dashes.
+    IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+      set(OutputVtkErr "VTK library not found.")
+    ENDIF ( )
+
+    set(OutputVtkRenameFilename "3D-cube-PvtuOut-2-a-o.pvtu")
+    set(OutputVtkRenameWarning  "## WARNING: Filename has been changed.")
+
+    add_test( NAME PvtuOut-RenameOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -out ${CI_DIR_RESULTS}/3D-cube-PvtuOut-2.a.o.pvtu)
+
+    set_property(TEST PvtuOut-RenameOut-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${OutputVtkRenameFilename}.*${OutputVtkRenameWarning};
+       ${OutputVtkRenameWarning}.*${OutputVtkRenameFilename}")
+
+    # Test Medit and hdf5 distributed inputs, with npartin < npart or npartin ==
+    # npart with mesh only or mesh+metric.
+    ## Medit distributed with npart = 2 and  npartin = 1, only mesh and hdf5 output using .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse.mesh -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-2.o.h5)
+
+    ## Medit distributed with npart = 2 and  npartin = 1, mesh+met and hdf5 output using .xdmf ext
+    add_test( NAME Medit-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/1p/cube-unit-coarse-with-met -v 5
+      -out ${CI_DIR_RESULTS}/Medit-DisIn-MeshAndMet-2.o.xdmf)
+
+    ## Medit distributed with npart = 4 and  npartin = 4, only mesh .h5 ext
+    add_test( NAME Medit-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse.mesh -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-4.o.h5)
+
+    ## Medit distributed with npart = 6 and  npartin = 4, only mesh .xdmf ext
+    add_test( NAME Medit-DisIn-MeshOnly-6
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 6 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/Medit/4p/cube-unit-coarse -v 5
+      ${CI_DIR_RESULTS}/Medit-DisIn-MeshOnly-6.o.xdmf)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, only mesh and h5 output
+    add_test( NAME hdf5-DisIn-MeshOnly-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-2.o.h5)
+
+    ## hdf5 distributed with npart = 2 and  npartin = 1, mesh+met and xdmf (h5) output
+    add_test( NAME hdf5-DisIn-MeshAndMet-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Parallel_IO/hdf5/1p/cube-unit-coarse-with-met.h5 -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-2.o.xdmf)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 8 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-8
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 8 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh+met and h5 output
+    add_test( NAME hdf5-DisIn-MeshAndMet-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse-with-met.h5 -v 5
+      ${CI_DIR_RESULTS}/hdf5-DisIn-MeshAndMet-8.o.h5)
+
+    ## hdf5 distributed with npart = 4 and  npartin = 4, mesh only and medit centralized output
+    add_test( NAME hdf5-DisIn-MeshOnly-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      -in ${CI_DIR}/Parallel_IO/hdf5/4p/cube-unit-coarse.h5 -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/hdf5-DisIn-MeshOnly-8.o.mesh)
+
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST Medit-DisIn-MeshOnly-2 Medit-DisIn-MeshAndMet-2 Medit-DisIn-MeshOnly-4
+        Medit-DisIn-MeshOnly-6 hdf5-DisIn-MeshOnly-2 hdf5-DisIn-MeshAndMet-2
+        hdf5-DisIn-MeshAndMet-8  hdf5-DisIn-MeshOnly-8
+        hdf5-DisIn-MeshAndMet-4  hdf5-DisIn-MeshOnly-4
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
+
     ###############################################################################
     #####
     #####        Tests fields interpolation with or without metric
@@ -214,22 +337,22 @@ IF( BUILD_TESTING )
     ###############################################################################
     add_test( NAME InterpolationFields-withMet-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-withMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
-      -sol field3_iso-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
       -mesh-size 60000 ${myargs} )
 
     add_test( NAME InterpolationFields-hsiz-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-hsiz-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
       -mesh-size 60000 -hsiz 0.2 ${myargs} )
 
     add_test( NAME InterpolationFields-noMet-withFields-4
       COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
-      ${CI_DIR}/Interpolation/coarse.mesh
+      ${CI_DIR}/Interpolation/coarse.meshb
       -out ${CI_DIR_RESULTS}/InterpolationFields-noMet-withFields-4-out.mesh
       -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
       -mesh-size 60000 ${myargs} )
@@ -239,6 +362,116 @@ IF( BUILD_TESTING )
       ${CI_DIR}/Cube/cube-unit-coarse
       -out ${CI_DIR_RESULTS}/InterpolationFields-refinement-4-out.mesh
       -field ${CI_DIR}/Interpolation/cube-unit-coarse-field.sol ${myargs} )
+
+    ###############################################################################
+    #####
+    #####        Tests pure-partitioning option
+    #####
+    ###############################################################################
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-metAndFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-metAndFields-4-out.mesh
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -centralized-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-4-out.mesh
+      -pure-partitioning
+      -centralized-output )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-4-out.mesh
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMet
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-met-4-out.mesh
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -distributed-output )
+
+    add_test( NAME PurePartitioning-CenIn-CenOut-withMet
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-CenOut-met-4-out.mesh
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning
+      -centralized-output )
+
+   add_test( NAME PurePartitioning-CenIn-h5-withMetAndFields
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-h5-metAndFields-4-out.h5
+      -field ${CI_DIR}/Interpolation/sol-fields-coarse.sol
+      -sol ${CI_DIR}/Interpolation/field3_iso-coarse.sol
+      -pure-partitioning )
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withMetAndLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -distributed-output
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withMetAndLs-2.o.mesh)
+
+   add_test( NAME PurePartitioning-CenIn-h5-withMetAndLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withMetAndLs-2.o.h5)
+
+    add_test( NAME PurePartitioning-CenIn-DisOut-withLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -distributed-output
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withLs-2.o.mesh)
+
+   add_test( NAME PurePartitioning-CenIn-h5-withLs-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls
+      -pure-partitioning
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/PurePartitioning-CenIn-DisOut-withLs-2.o.h5)
+
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST
+        PurePartitioning-CenIn-h5-withMetAndFields
+        PurePartitioning-CenIn-h5-withMetAndLs-2
+        PurePartitioning-CenIn-h5-withLs-2
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
+
+
 
     ###############################################################################
     #####
@@ -270,7 +503,7 @@ IF( BUILD_TESTING )
         ADD_TEST( NAME DistribSphere_NOM-gen-${API_mode}-${NP}
           COMMAND  ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP}
           $<TARGET_FILE:libparmmg_distributed_external_gen_mesh>
-          ${CI_DIR}/Sphere_NOM/sphere_nom.mesh
+          ${CI_DIR}/Sphere_NOM/sphere_nom.meshb
           ${CI_DIR_RESULTS}/sphere_nom_${API_mode}-${NP}.mesh ${API_mode} )
 
         ADD_TEST( NAME DistribSphere_NOM-adp-${API_mode}-${NP}
@@ -303,8 +536,636 @@ IF( BUILD_TESTING )
       ENDFOREACH()
     ENDFOREACH()
 
-  ENDIF()
 
+    # Test to verify the patch on update MG_REF tag.
+    # This test fail if the tag MG_REF is not updated by PMMG_updateTagRef_node in PMMG_update_analys.
+    # See ParMmg PR#103
+    add_test( NAME update-ref-tag
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-nomat-1edge.mesh -v 10 -hsiz 0.1
+      -out ${CI_DIR_RESULTS}/update-ref-tag.o.mesh)
+
+    # Test to check that when not using -opnbdy option, internal triangles are correctly removed.
+    # See ParMmg PR#110
+    add_test( NAME extrainternaltriangles
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 3 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Cube/internaltriangles-P3.mesh -v 10
+      -out ${CI_DIR_RESULTS}/internaltriangles-P3.o.mesh)
+
+    ###############################################################################
+    #####
+    #####        Tests overlap
+    #####
+    ###############################################################################
+    # Test if overlap is created
+    set(overlapCreation " Create Overlap")
+
+    add_test( NAME overlap-create
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-create.o.mesh)
+
+    set_property(TEST overlap-create
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapCreation}"
+      )
+
+    # Test if overlap is deleted
+    set(overlapDelete " Delete Overlap")
+
+    add_test( NAME overlap-delete
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-delete.o.mesh)
+    set_property(TEST overlap-delete
+        PROPERTY PASS_REGULAR_EXPRESSION "${overlapDelete}")
+
+    # Tests if overlap is created correctly
+    set(overlapCheckP0P1 " part 0 sends 74 pts and 257 tetra to part 1")
+    set(overlapCheckP0P2 " part 0 sends 29 pts and 110 tetra to part 2")
+    set(overlapCheckP0P3 " part 0 sends 61 pts and 204 tetra to part 3")
+    set(overlapCheckP0P4 " part 0 sends 28 pts and 66 tetra to part 4")
+    set(overlapCheckP0 " part 0 has 433 pts and 1492 tetras after overlap creation")
+
+    add_test( NAME overlap-check-P0P1
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P1.o.mesh)
+    set_property(TEST overlap-check-P0P1
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P1}")
+
+    add_test( NAME overlap-check-P0P2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P2.o.mesh)
+    set_property(TEST overlap-check-P0P2
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P2}")
+
+    add_test( NAME overlap-check-P0P3
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P3.o.mesh)
+    set_property(TEST overlap-check-P0P3
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P3}")
+
+    add_test( NAME overlap-check-P0P4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0P4.o.mesh)
+    set_property(TEST overlap-check-P0P4
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0P4}")
+
+    add_test( NAME overlap-check-P0
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0.o.mesh)
+    set_property(TEST overlap-check-P0
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
+    add_test( NAME overlap-check-P0-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-P0-met.o.mesh)
+    set_property(TEST overlap-check-P0-met
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckP0}")
+
+    # Tests if overlap is deleted correctly
+    set(overlapCheckDelete " part 0 has 282 pts and 882 tetras after overlap deletion")
+    add_test( NAME overlap-check-delete
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-delete.o.mesh)
+    set_property(TEST overlap-check-delete
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
+    add_test( NAME overlap-check-delete-met
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 5 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube.mesh -v 10 -nomove -noinsert -noswap -nobalance -niter 1
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/5p_cubegeom/3D-cube-ls.sol
+      -out ${CI_DIR_RESULTS}/overlap-check-delete-met.o.mesh)
+    set_property(TEST overlap-check-delete-met
+      PROPERTY PASS_REGULAR_EXPRESSION "${overlapCheckDelete}")
+
+
+    # Temporary while snapval implementation is in progress and enabled only
+    # when the PMMG_SNAPVAL environment variable is defined
+    set_tests_properties(
+      overlap-check-P0
+      overlap-check-P0-met
+      overlap-check-P0P1
+      overlap-check-P0P2
+      overlap-check-P0P3
+      overlap-check-P0P4
+      overlap-check-delete
+      overlap-check-delete-met
+      overlap-create
+      overlap-delete
+      PROPERTIES ENVIRONMENT "PMMG_SNAPVAL=1"
+    )
+
+    ###############################################################################
+    #####
+    #####        Test isovalue mode - ls discretization
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    # Tests of ls discretization for centralized mesh input
+    foreach( NP 1 2 4 8 )
+      add_test( NAME ls-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-${NP}.o.mesh)
+    endforeach()
+
+    # Check that the ls file is correctly opened with or without the ls value given
+    set(lsOpenFile "3D-cube-ls.sol OPENED")
+    set(lsOpenFileDefault "3D-cube.sol  NOT FOUND. USE DEFAULT METRIC.")
+
+    # Test of opening ls file when ls val is given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfile-lsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-lsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfile-lsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+    endforeach()
+
+    # Test of opening ls file when ls val is not given
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfile-nolsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
+        -ls
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfile-nolsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfile-nolsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFile}")
+    endforeach()
+
+    # Test of opening ls file with a default name when ls val is given
+    # WRONG TEST:: Here we test metric file not LS file
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfiledefault-lsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
+        -ls 0.0
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-lsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfiledefault-lsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+    endforeach()
+
+    # Test of opening ls file with a default name when ls val is not given
+    # WRONG TEST:: Here we test metric file not LS file
+    foreach( NP 1 2)
+      add_test( NAME ls-arg-option-openlsfiledefault-nolsval-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -nomove -noinsert -noswap -nobalance
+        -ls
+        -out ${CI_DIR_RESULTS}/ls-arg-option-openlsfiledefault-nolsval-${NP}.o.mesh)
+      set_property(TEST ls-arg-option-openlsfiledefault-nolsval-${NP}
+        PROPERTY PASS_REGULAR_EXPRESSION "${lsOpenFileDefault}")
+    endforeach()
+
+    # Tests for ls + met for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-met-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-${NP}.o.mesh)
+    endforeach()
+
+    # Tests for ls + fields for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-fields-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -field ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-fields-${NP}.o.mesh)
+    endforeach()
+
+    # Tests for ls + met + fields for centralized mesh input
+    foreach( NP 1 2 4 8 )
+    add_test( NAME ls-CenIn-met-fields-${NP}
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+      -ls 0.0
+      -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+      -met ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-metric.sol
+      -field ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-met-fields-${NP}.o.mesh)
+    endforeach()
+
+    # Tests of distributed pvtu output when ls mode
+    foreach( NP 1 2 4 8 )
+      add_test( NAME ls-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/3D-cube-ls-CenIn-DisOut-${NP}-out.pvtu)
+
+      IF ( (NOT VTK_FOUND) OR USE_VTK MATCHES OFF )
+        set_property(TEST ls-CenIn-DisOut-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${OutputVtkErr}")
+      ENDIF ( )
+
+    endforeach()
+
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    #***********************
+    #** TOY GEOM LS tests
+    #***********************
+    foreach( NP 2 5)
+
+      foreach( MODE faces nodes)
+
+        # Toy geom:: ls_val not given + no remesh
+        add_test( NAME ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -noswap -nomove -noinsert -nobalance
+          -ls
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsnotgiven-${MODE}-${NP}.o.mesh)
+
+        # Toy geom:: ls_val=0.0 + no remesh
+        add_test( NAME ls-DisIn-toygeom-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -noswap -nomove -noinsert -nobalance
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-${MODE}-${NP}.o.mesh)
+
+        # Toy geom:: ls_val=0.5 + no remesh
+        add_test( NAME ls-DisIn-toygeom-lsval-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -noswap -nomove -noinsert -nobalance
+          -ls 0.5
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-lsval-${MODE}-${NP}.o.mesh)
+
+        # Toy geom:: ls_val=0.0 + remesh
+        add_test( NAME ls-DisIn-toygeom-remesh-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-remesh-${MODE}-${NP}.o.mesh)
+
+        # Toy geom:: ls_val=0.0 + remesh hsiz
+        add_test( NAME ls-DisIn-toygeom-hsiz-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -hsiz 0.1
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-hsiz-${MODE}-${NP}.o.mesh)
+
+        # Toy geom:: ls_val=0.0 + remesh metric
+        add_test( NAME ls-DisIn-toygeom-metric-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-${MODE}-${NP}.o.mesh)
+
+          SET(metric-open "cube-metric.0.sol OPENED")
+          SET_PROPERTY(
+            TEST ls-DisIn-toygeom-metric-${MODE}-${NP}
+            PROPERTY PASS_REGULAR_EXPRESSION "${metric-open}")
+
+       # Toy geom:: ls_val=0.0 + remesh metric
+       # TO DEBUG raises lot of warnings
+        add_test( NAME ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -met ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric-ani.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-${MODE}-${NP}.o.mesh)
+
+          SET(metric-ani-open "cube-metric-ani.0.sol OPENED")
+          SET_PROPERTY(
+            TEST ls-DisIn-toygeom-metric-ani-${MODE}-${NP}
+            PROPERTY PASS_REGULAR_EXPRESSION "${metric-ani-open}")
+
+
+        # Toy geom:: ls_val=0.0 + no remesh + fields
+        add_test( NAME ls-DisIn-toygeom-fields-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -noswap -nomove -noinsert -nobalance
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-fields-${MODE}-${NP}.o.mesh)
+
+          SET(fields-open "cube-fields.0.sol OPENED")
+          SET_PROPERTY(
+            TEST ls-DisIn-toygeom-fields-${MODE}-${NP}
+            PROPERTY PASS_REGULAR_EXPRESSION "${fields-open}")
+
+        # Toy geom:: ls_val=0.0 + remesh metric + fields
+        add_test( NAME ls-DisIn-toygeom-metric-fields-${MODE}-${NP}
+          COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+          ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-nomat-edges.mesh -v 5
+          -ls 0.0
+          -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+          -met   ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-metric.sol
+          -field ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-fields.sol
+          -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-metric-fields-${MODE}-${NP}.o.mesh)
+
+
+      endforeach()
+
+    endforeach()
+
+    foreach( MODE faces )
+
+      # Toy geom nosplit:  2 procs, ls_val=0.0 + remesh hsiz 0.1 + 4 iter + multimat nosplit
+      ## Remark : FAIL inside mmg3d scotch renum of iter 5 if niter = 5
+
+      SET( NP 2 )
+      add_test( NAME ls-DisIn-toygeom-nosplit-${MODE}-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-distributed-${MODE}-mat-edges.mesh -v 5
+        -f ${CI_DIR}/LevelSet/${NP}p_toygeom/nosplit.mmg3d
+        -hsiz 0.1 -niter 4
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_toygeom/cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-toygeom-nosplit-${MODE}-${NP}.o.mesh)
+    endforeach()
+
+    #***********************
+    #** COMPLEX GEOM LS tests
+    #***********************
+    foreach( NP 2 5)
+
+      # Complex geom:: ls_val=0.0 + remesh
+      add_test( NAME ls-DisIn-cubegeom-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh hsiz
+      add_test( NAME ls-DisIn-cubegeom-hsiz-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5 -hsiz 0.1
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-hisiz-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh iso metric
+      add_test( NAME ls-DisIn-cubegeom-metric-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh aniso metric
+      # Fail with "Assertion failed: (ps > 0. || ps2 > 0." error
+      # TO DEBUG
+      #
+      #dd_test( NAME ls-DisIn-cubegeom-metric-ani-${NP}
+      # COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+      # ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+      # -ls 0.0
+      # -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+      # -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric-ani.sol
+      # -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh + fields
+      add_test( NAME ls-DisIn-cubegeom-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -field ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-fields.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-fields-${NP}.o.mesh)
+
+      # Complex geom:: ls_val=0.0 + remesh metric + fields
+      add_test( NAME ls-DisIn-cubegeom-metric-fields-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube.mesh -v 5 -niter 5
+        -ls 0.0
+        -sol ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-ls.sol
+        -met ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-metric.sol
+        -field ${CI_DIR}/LevelSet/${NP}p_cubegeom/3D-cube-fields.sol
+        -out ${CI_DIR_RESULTS}/ls-DisIn-cubegeom-metric-fields-${NP}.o.mesh)
+
+    endforeach()
+
+
+   ###############################################################################
+    #####
+    #####        Test with multi-material input file *mmg3d 'LSReferences'
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    SET(lsRefReadFile ".mmg3d OPENED")
+    foreach (NP 1 4)
+      add_test( NAME lsRef-Read-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5 -nomove -noinsert -noswap -niter 1
+        -out ${CI_DIR_RESULTS}/lsRef-Read-CenIn-${NP}.o.mesh)
+
+        set_property(TEST lsRef-Read-CenIn-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${lsRefReadFile}")
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WHITOUT LS
+    foreach (NP 1 2 4)
+      add_test( NAME lsRef-Run-CenIn-CenOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5
+        -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-CenOut-${NP}.o.mesh)
+
+      add_test( NAME lsRef-Run-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/LevelSet/1p_cubegeom/3D-cube.mesh -v 5 -distributed-output
+        -out ${CI_DIR_RESULTS}/lsRef-Run-CenIn-DisOut-${NP}.o.mesh)
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WITH LS
+    # TODO once LS implemented
+
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    add_test( NAME lsRef-Read-DisIn-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5 -nomove -noinsert -noswap -niter 1
+      -out ${CI_DIR_RESULTS}/locParam-Read-DisIn-2.o.mesh)
+
+    set_property(TEST lsRef-Read-DisIn-2
+      PROPERTY PASS_REGULAR_EXPRESSION "${lsRefReadFile}")
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WHITOUT LS
+    add_test( NAME lsRef-Run-DisIn-DisOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5
+      -out ${CI_DIR_RESULTS}/lsRef-Run-DisIn-DisOut-2.o.mesh)
+
+    add_test( NAME lsRef-Run-DisIn-CenOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_toygeom/cube-distributed-faces-mat-edges.mesh -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/lsRef-Run-DisIn-CenOut-2.o.mesh)
+
+    #-- Test if tests with input file *mmg3d run correctly without errors WITH LS
+    # TODO once LS implemented
+
+    ###############################################################################
+    #####
+    #####        Test with fields input and output
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    # Test to read  distributed input  fields in Medit format
+    # and  to write distributed output fields in VTK   format
+    add_test( NAME fields-DisIn-DisOutVTK-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube.mesh -v 10
+      -field ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutVTK-2-out.pvtu)
+
+    set(InputDistributedFields "3D-cube-fields.0.sol OPENED")
+    set(OutputVtkFields "Writing mesh, metric and fields.")
+
+    set_property(TEST fields-DisIn-DisOutVTK-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${InputDistributedFields}.*${OutputVtkFields};
+      ${OutputVtkFields}.*${InputDistributedFields}")
+
+    # Test to write distributed output fields and metric in Medit format
+    add_test( NAME fields-DisIn-DisOutMesh-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube.mesh
+      -field ${CI_DIR}/LevelSet/2p_cubegeom/3D-cube-fields.sol
+      -out ${CI_DIR_RESULTS}/3D-cube-fields-DisIn-DisOutMesh-2.o.mesh)
+
+    set(OutputFieldsName "3D-cube-fields.o.0.sol OPENED.")
+    set(OutputMetricName "3D-cube-fields-DisIn-DisOutMesh-2.o.0.sol OPENED.")
+    set_property(TEST fields-DisIn-DisOutMesh-2
+      PROPERTY PASS_REGULAR_EXPRESSION
+      "${OutputFieldsName}.*${OutputMetricName};${OutputMetricName}.*${OutputFieldsName}")
+
+    # Test saving of solution fields on 4 procs at hdf5 format
+    add_test( NAME hdf5-CenIn-DisOutHdf5-4
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/Interpolation/coarse.meshb -v 5
+      -out ${CI_DIR_RESULTS}/hdf5-CenIn-DisOutHdf5-4.o.h5)
+
+    IF ( (NOT HDF5_FOUND) OR USE_HDF5 MATCHES OFF )
+      SET(expr "HDF5 library not found")
+      SET_PROPERTY(
+        TEST hdf5-CenIn-DisOutHdf5-4
+        PROPERTY PASS_REGULAR_EXPRESSION "${expr}")
+    ENDIF ( )
+
+    ###############################################################################
+    #####
+    #####        Test with local parameters input file *mmg3d 'parameters'
+    #####
+    ###############################################################################
+    #--------------------------------
+    #--- CENTRALIZED INPUT (CenIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    SET(locParamReadFile ".mmg3d OPENED")
+    foreach (NP 1 4)
+      add_test( NAME locParam-Read-CenIn-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -nomove -noinsert -noswap -niter 1
+        -out ${CI_DIR_RESULTS}/locParam-Read-CenIn-${NP}.o.mesh)
+
+        set_property(TEST locParam-Read-CenIn-${NP}
+          PROPERTY PASS_REGULAR_EXPRESSION "${locParamReadFile}")
+    endforeach()
+
+    #-- Test if tests with input file *mmg3d run correctly without errors
+    foreach (NP 1 2 4)
+      add_test( NAME locParam-Run-CenIn-CenOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5
+        -out ${CI_DIR_RESULTS}/locParam-Run-CenIn-CenOut-${NP}.o.mesh)
+
+      add_test( NAME locParam-Run-CenIn-DisOut-${NP}
+        COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
+        ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -distributed-output
+        -out ${CI_DIR_RESULTS}/locParam-Run-CenIn-DisOut-${NP}.o.mesh)
+    endforeach()
+
+
+    #--------------------------------
+    #--- DISTRIBUTED INPUT (DisIn)
+    #--------------------------------
+    #-- Test if the input file *mmg3d is read properly
+    add_test( NAME locParam-Read-DisIn-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -nomove -noinsert -noswap -niter 1
+      -out ${CI_DIR_RESULTS}/locParam-Read-DisIn-2.o.mesh)
+
+    set_property(TEST locParam-Read-DisIn-2
+      PROPERTY PASS_REGULAR_EXPRESSION "${locParamReadFile}")
+
+    #-- Test if tests with input file *mmg3d run correctly without errors
+    add_test( NAME locParam-Run-DisIn-DisOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5
+      -out ${CI_DIR_RESULTS}/locParam-Run-DisIn-DisOut-2.o.mesh)
+
+    add_test( NAME locParam-Run-DisIn-CenOut-2
+      COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} 2 $<TARGET_FILE:${PROJECT_NAME}>
+      ${CI_DIR}/HausdLoc_2Spheres/centralized/2spheres.mesh -v 5 -centralized-output
+      -out ${CI_DIR_RESULTS}/locParam-Run-DisIn-CenOut-2.o.mesh)
+
+  ENDIF()
 
   ###############################################################################
   #####
@@ -634,10 +1495,10 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${input_mesh} -sol ${input_met}
           -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 3 -nobalance -v 10 -surf )
+          -niter 3 -nobalance -v 10 )
       ENDFOREACH()
 
-      SET ( input_mesh ${CI_DIR}/Tennis/tennis.mesh )
+      SET ( input_mesh ${CI_DIR}/Tennis/tennis.meshb )
       SET ( input_met  ${CI_DIR}/Tennis/tennis.sol )
       SET ( test_name  TennisSurf_interp )
 
@@ -646,7 +1507,7 @@ IF( BUILD_TESTING )
           COMMAND ${MPIEXEC} ${MPI_ARGS} ${MPIEXEC_NUMPROC_FLAG} ${NP} $<TARGET_FILE:${PROJECT_NAME}>
           ${input_mesh} -sol ${input_met}
           -out ${CI_DIR_RESULTS}/${test_name}-${NP}-out.mesh
-          -niter 3 -nobalance -v 10 -surf )
+          -niter 3 -nobalance -v 10 )
       ENDFOREACH()
 
 

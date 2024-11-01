@@ -23,7 +23,8 @@
 
 #include "parmmg.h"
 #include <stddef.h>
-#include "inlined_functions_3d.h"
+#include "inlined_functions_3d_private.h"
+#include "mmgexterns_private.h"
 
 typedef struct {
   double min;
@@ -148,12 +149,16 @@ static void PMMG_compute_lenStats( void* in1,void* out1,int *len, MPI_Datatype *
  * \param opt PMMG_INQUA if called before the Mmg call, PMMG_OUTQUA otherwise
  * \param isCentral 1 for centralized mesh (no parallel communication), 0 for
  * distributed mesh
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail;
  *
  * Print quality histogram among all group meshes and all processors
  */
-int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
+int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral, MPI_Comm comm )
 {
   PMMG_pGrp    grp;
   PMMG_pInt_comm int_node_comm;
@@ -184,9 +189,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
   iel_grp = 0;
   np = 0;
   ne = 0;
-  max = DBL_MIN;
+  max = max_cur = DBL_MIN;
   avg = 0.;
-  min = DBL_MAX;
+  min = min_cur = DBL_MAX;
   iel = 0;
   good = 0;
   med = 0;
@@ -259,6 +264,10 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
 
     nrid += nrid_cur;
   }
+
+  if( int_node_comm )
+    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
+
   if ( parmesh->info.imprim0 <= PMMG_VERB_VERSION )
     return 1;
 
@@ -272,13 +281,13 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     max_result = max;
     optimLES_result = optimLES;
   } else {
-    MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, parmesh->comm );
-    MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,parmesh->comm );
+    MPI_Reduce( &np, &np_result, 1, MPI_INT64_T, MPI_SUM, 0, comm );
+    MPI_Reduce( &ne, &ne_result, 1, MPI_INT64_T, MPI_SUM, 0, comm );
+    MPI_Reduce( &avg, &avg_result, 1, MPI_DOUBLE, MPI_SUM, 0, comm );
+    MPI_Reduce( &med, &med_result, 1, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &good, &good_result, 1, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &max, &max_result, 1, MPI_DOUBLE, MPI_MAX, 0, comm );
+    MPI_Reduce( &optimLES,&optimLES_result,1,MPI_INT,MPI_MAX,0,comm );
   }
 
   min_iel.min = min;
@@ -299,9 +308,9 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     MPI_Type_commit( &mpi_iel_min_t );
 
     MPI_Op_create( PMMG_min_iel_compute, 1, &iel_min_op );
-    MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, parmesh->comm );
-    MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, parmesh->comm );
-    MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, parmesh->comm );
+    MPI_Reduce( &min_iel, &min_iel_result, 1, mpi_iel_min_t, iel_min_op, 0, comm );
+    MPI_Reduce( his, his_result, PMMG_QUAL_HISSIZE, MPI_INT, MPI_SUM, 0, comm );
+    MPI_Reduce( &nrid, &nrid_result, 1, MPI_INT, MPI_SUM, 0, comm );
     MPI_Type_free( &mpi_iel_min_t );
     MPI_Op_free( &iel_min_op );
   }
@@ -339,9 +348,6 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
     if ( !ier ) return 0;
   }
 
-  if( int_node_comm )
-    PMMG_DEL_MEM( parmesh,int_node_comm->intvalues,int,"intvalues" );
-
   return 1;
 }
 
@@ -361,15 +367,20 @@ int PMMG_qualhisto( PMMG_pParMesh parmesh, int opt, int isCentral )
  * \param metRidTyp (to fill).
  * \param bd_in (to fill).
  * \param hl (to fill).
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
- * \return 0 if fail, 1 otherwise.
+ * \return 2 without metric, 0 if fail, 1 otherwise.
  *
  * Compute the required information to print the length histogram
  *
  */
 int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, double* avlen,
                         double* lmin, double* lmax, int* ned, int* amin, int* bmin, int* amax,
-                        int* bmax, int* nullEdge,int8_t metRidTyp, double** bd_in, int hl[9] )
+                        int* bmax, int* nullEdge,int8_t metRidTyp, double** bd_in,
+                        int hl[9],MPI_Comm comm )
 {
   PMMG_pGrp       grp;
   PMMG_pInt_comm  int_edge_comm;
@@ -382,7 +393,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   double          len;
   int             i,k,ia,np,nq,n;
   int             ref;
-  int16_t         tag;
+  uint16_t        tag;
   int8_t          i0,i1,ier;
   static double   bd[9]= {0.0, 0.3, 0.6, 0.7071, 0.9, 1.3, 1.4142, 2.0, 5.0};
 
@@ -395,11 +406,17 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
   *amin = *amax = *bmin = *bmax = 0;
   *nullEdge = 0;
 
+  if ( (!met) || (!met->m) ) {
+    /* the functions that computes the edge length cannot be called without an
+     * allocated metric */
+    return 2;
+  }
+
   /* Hash parallel edges in the mesh */
-  if ( PMMG_hashPar(mesh,&hpar) != PMMG_SUCCESS ) return 0;
+  if ( PMMG_hashParTag_fromXtet(mesh,&hpar) != PMMG_SUCCESS ) return 0;
 
   /* Build parallel edge communicator */
-  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar ) ) return 0;
+  if( !PMMG_build_edgeComm( parmesh,mesh,&hpar,comm ) ) return 0;
 
   /* Initialize internal communicator with current rank */
   int_edge_comm = parmesh->int_edge_comm;
@@ -459,11 +476,18 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
       /* Remove edge from hash ; ier = 1 if edge has been found */
       ier = MMG5_hashPop(&hash,np,nq);
       if( ier ) {
-        if ( (!metRidTyp) && met->size==6 && met->m ) {
+        assert ( met->m );
+        if ( (!metRidTyp) && met->size==6 ) {
+          assert ( met->m );
+          /* We pass here if metric is aniso without metRidTyp */
           len = MMG5_lenSurfEdg33_ani(mesh,met,np,nq,(tag & MG_GEO));
         }
-        else
-          len = MMG5_lenSurfEdg_iso(mesh,met,np,nq,0);
+        else {
+          /* We pass here if metric is aniso with metRidTyp or iso with
+           * allocated metric. Note that the lenSurfEdg function segfault if called
+           * with met==NULL or met->m==NULL */
+          len = MMG5_lenSurfEdg(mesh,met,np,nq,0);
+        }
 
 
         if ( !len ) {
@@ -524,6 +548,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
       /* Remove edge from hash ; ier = 1 if edge has been found */
       ier = MMG5_hashPop(&hash,np,nq);
       if( ier ) {
+        assert ( met->m );
         if ( (!metRidTyp) && met->size==6 && met->m ) {
           len = MMG5_lenedg33_ani(mesh,met,ia,pt);
         }
@@ -577,6 +602,10 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
  * \param parmesh pointer to parmesh structure
  * \param metRidTyp Type of storage of ridges metrics: 0 for classic storage,
  * \param isCentral 1 for centralized mesh, 0 for distributed mesh.
+ * \param comm pointer toward the MPI communicator to use: when called before
+ * the first mesh balancing (at preprocessing stage) we have to use the
+ * read_comm communicator (i.e. the communicator used to provide the inputs).
+ * For all ather calls, comm has to be the communicator to use for computations.
  *
  * \return 1 if success, 0 if fail;
  *
@@ -588,7 +617,7 @@ int PMMG_computePrilen( PMMG_pParMesh parmesh,MMG5_pMesh mesh, MMG5_pSol met, do
  * \warning for now, only callable on "merged" parmeshes (=1 group per parmesh)
  *
  */
-int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
+int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral, MPI_Comm comm )
 {
   MMG5_pMesh    mesh;
   MMG5_pSol     met;
@@ -642,28 +671,45 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
   if ( parmesh->ngrp==1 ) {
     mesh = parmesh->listgrp[0].mesh;
     met = parmesh->listgrp[0].met;
-    if ( met && met->m ) {
-      if( isCentral )
-        ier = MMG3D_computePrilen( mesh, met,
-                                   &lenStats.avlen, &lenStats.lmin,
-                                   &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                                   &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                   &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
-      else
-        ier = PMMG_computePrilen( parmesh, mesh, met, 
-                                  &lenStats.avlen, &lenStats.lmin,
-                                  &lenStats.lmax, &lenStats.ned, &lenStats.amin,
-                                  &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
-                                  &lenStats.nullEdge, metRidTyp, &bd, lenStats.hl );
+    if( isCentral ) {
+      /* If metric is not allocated or if hash table alloc fails, the next
+       * function returns 0, which allows to detect that we cannot print the
+       * edge length histo. */
+      ier = MMG3D_computePrilen( mesh, met,
+                                 &lenStats.avlen, &lenStats.lmin,
+                                 &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                 &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                 &lenStats.nullEdge, metRidTyp, &bd,
+                                 lenStats.hl );
+    }
+    else {
+      /* The next function returns 0 if the hash table alloc fails and 2 if
+       * called without metric (in this case we are not able to compute the edge
+       * lengths). It allows to detect:
+       *   - if we can't print the histo due to an alloc error (ier = 0 on 1 MPI
+       *     process at least)
+       *   - if we can't print the histo because the metric is not allocated
+       *     (ier=2 on all the MPI process)
+       *   - if we can print the histo (metric is allocated on at least 1 MPI
+       *     process and no MPI process fail, thus ier is at least 1 on all the
+       *     MPI proc but may be 2 on some of them)
+       */
+      ier = PMMG_computePrilen( parmesh, mesh, met,
+                                &lenStats.avlen, &lenStats.lmin,
+                                &lenStats.lmax, &lenStats.ned, &lenStats.amin,
+                                &lenStats.bmin, &lenStats.amax, &lenStats.bmax,
+                                &lenStats.nullEdge, metRidTyp, &bd,
+                                lenStats.hl,comm );
     }
   }
 
   if( isCentral )
     ieresult = ier;
   else
-    MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, parmesh->comm );
+    MPI_Reduce( &ier, &ieresult,1, MPI_INT, MPI_MIN, parmesh->info.root, comm );
 
-  if ( !ieresult ) {
+  if ( (ieresult==0) || ieresult==2 ) {
+    /* We are not able to print the histogram */
     MPI_Type_free( &mpi_lenStats_t );
     MPI_Op_free( &mpi_lenStats_op );
     return 0;
@@ -672,7 +718,8 @@ int PMMG_prilen( PMMG_pParMesh parmesh, int8_t metRidTyp, int isCentral )
   if( isCentral )
     memcpy(&lenStats_result,&lenStats,sizeof(PMMG_lenStats));
   else
-    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op, 0, parmesh->comm );
+    MPI_Reduce( &lenStats, &lenStats_result, 1, mpi_lenStats_t, mpi_lenStats_op,
+                0, comm );
 
   MPI_Type_free( &mpi_lenStats_t );
   MPI_Op_free( &mpi_lenStats_op );

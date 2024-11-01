@@ -32,16 +32,19 @@
  *
  */
 #include "parmmg.h"
+#include "mmgexterns_private.h"
+
 
 /**
  * \param parmesh pointer toward a parmesh structure
+ * \param partitioning_mode strategy to use for repartitioning
  *
  * \return 1 if success, 0 if fail but we can save the meshes, -1 if we cannot.
  *
  * Load balancing of the mesh groups over the processors.
  *
  */
-int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
+int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   MMG5_pMesh mesh;
   int        ier,ier_glob,igrp,ne;
   mytime     ctim[5];
@@ -83,10 +86,29 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
   for ( igrp=0; igrp < parmesh->ngrp; igrp++ )
     ne += parmesh->listgrp[igrp].mesh->ne;
 
+  int k;
+#ifndef NDEBUG
+  for (k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
+
   if ( ier ) {
     /** Split the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1);
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
   }
+
+#ifndef NDEBUG
+  for ( k=0; k<parmesh->ngrp; ++k ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[k].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   /* There is mpi comms in distribute_grps thus we don't want that one proc
    * enters the function and not the other proc */
@@ -108,7 +130,18 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     chrono(ON,&(ctim[tim]));
   }
 
-  ier = PMMG_distribute_grps(parmesh);
+#ifndef NDEBUG
+  int i;
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
+
+  ier = PMMG_distribute_grps(parmesh,partitioning_mode);
+
   if ( ier <= 0 ) {
     fprintf(stderr,"\n  ## Group distribution problem.\n");
   }
@@ -130,12 +163,21 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
     chrono(ON,&(ctim[tim]));
   }
 
+#ifndef NDEBUG
+  for ( i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
+
   if ( ier ) {
-    /** Redistribute the ngrp groups of listgrp into a higher number of groups */
-    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0);
+    /** Redistribute the ngrp groups of listgrp into a lower number of groups */
+    ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,partitioning_mode);
     if ( ier<=0 )
       fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
-    }
+  }
 
   // Algiane: Optim: is this reduce needed?
   MPI_Allreduce( &ier, &ier_glob, 1, MPI_INT, MPI_MIN, parmesh->comm);
@@ -150,6 +192,15 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh) {
       }
     }
   }
+
+#ifndef NDEBUG
+  for (i=0; i<parmesh->ngrp; ++i ) {
+    if ( !MMG5_chkmsh(parmesh->listgrp[i].mesh,1,1) ) {
+      fprintf(stderr,"  ##  Problem. Invalid mesh.\n");
+      return 0;
+    }
+  }
+#endif
 
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));

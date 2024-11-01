@@ -97,7 +97,7 @@ int main (int argc, char ** argv)
     fprintf(file,"#include \"%s/libparmmgtypesf.h\"\n\n",libparmmg_include);
   }
   else {
-    fprintf(file,"#include \"mmg/mmg3d/libmmgtypesf.h\"\n\n");
+    fprintf(file,"#include \"mmg/common/libmmgtypesf.h\"\n\n");
   }
   fclose(file);
 
@@ -106,8 +106,8 @@ int main (int argc, char ** argv)
                                     strlen(libparmmg_h)+
                                     strlen(header_f)+128)*sizeof(char))))
     return EXIT_FAILURE;
-  sprintf(cmd, "perl %s -f %s >> %s;",
-          genfort, libparmmg_h, header_f);
+  snprintf(cmd,strlen(genfort)+strlen(libparmmg_h)+strlen(header_f)+15, "perl %s -f %s >> %s;",
+           genfort, libparmmg_h, header_f);
   fprintf(stdout, "%s\n", cmd);
   if (-1 == system(cmd))
     return EXIT_FAILURE;

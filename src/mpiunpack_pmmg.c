@@ -92,10 +92,12 @@ int PMMG_mpiunpack_meshSizes ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,
   ier_grp = MMG3D_Init_mesh(MMG5_ARG_start,
                             MMG5_ARG_ppMesh,&(grp->mesh),
                             MMG5_ARG_ppMet ,&(grp->met),
+                            MMG5_ARG_ppLs  ,&(grp->ls),
                             MMG5_ARG_end);
 
   mesh = grp->mesh;
   met  = grp->met;
+  ls   = grp->ls;
 
   /* Set maximum memory */
   mesh->memMax = parmesh->memGloMax;
@@ -410,21 +412,26 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
     if ( !MMG5_Set_outputSolName( mesh,met, parmesh->metout ) ) { *ier = 0; }
   }
 
-  if ( ier_ls ) {
+  if ( ier_ls && ls ) {
     /* ls structure is allocated */
     if ( parmesh->lsin && *parmesh->lsin ) {
       if ( !MMG5_Set_inputSolName( mesh, ls, parmesh->lsin ) ) { *ier = 0; }
     }
+    if ( parmesh->lsout && *parmesh->lsout ) {
+      if ( !MMG5_Set_outputSolName( mesh, ls, parmesh->lsout ) ) {
+        *ier = 0;
+      }
+    }
   }
 
-  if ( ier_disp ) {
+  if ( ier_disp && disp ) {
     /* disp structure is allocated */
     if ( parmesh->dispin && *parmesh->dispin ) {
       if ( !MMG5_Set_inputSolName( mesh, disp, parmesh->dispin ) ) { *ier = 0; }
     }
   }
 
-  if ( ier_field ) {
+  if ( ier_field && field ) {
     /* field structure is allocated */
     for ( is=0; is<nsols; ++is ) {
       if ( parmesh->fieldin ) {
@@ -457,7 +464,7 @@ int PMMG_copy_filenames ( PMMG_pParMesh parmesh,PMMG_pGrp grp,int *ier,int ier_m
  */
 static
 void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh ) {
-  int   k,nmat,npar;
+  int   k,nmat,npar,invsize;
 
   if ( ier_mesh ) {
     /** Mesh infos */
@@ -517,6 +524,19 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
         *buffer += sizeof(int8_t);
         *buffer += 3*sizeof(int);
       }
+
+      info->invmat.offset  = *( (int *) *buffer); *buffer += sizeof(int);
+      info->invmat.size    = *( (int *) *buffer); *buffer += sizeof(int);
+      MMG5_SAFE_CALLOC(info->invmat.lookup,info->invmat.size,int, *ier = 0);
+      if ( *ier ) {
+        for ( k=0; k<info->invmat.size; ++k ) {
+          info->invmat.lookup[k] = *( (int *) *buffer);
+          *buffer += sizeof(int);
+        }
+      }
+      else {
+        *buffer += info->invmat.size*sizeof(int);
+      }
     }
 
     /* local parameters */
@@ -552,10 +572,15 @@ void PMMG_mpiunpack_infos ( MMG5_Info *info,char **buffer,int *ier,int ier_mesh 
     *buffer += 7*sizeof(uint8_t);
 
     if ( nmat ) {
+      /* mat */
       *buffer += nmat*sizeof(int8_t);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
       *buffer += nmat*sizeof(int);
+      /* invmat */
+      *buffer += sizeof(int);
+      invsize = *( (int *) *buffer); *buffer += sizeof(int);
+      *buffer += invsize*sizeof(int);
     }
 
     /* local parameters */
@@ -1091,6 +1116,9 @@ int PMMG_mpiunpack_grp ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,char *
  * of type "x", we need to cast the void pointer toward the buffer into a
  * pointer toward a buffer of type "x". Then we can get the variable value by
  * dereferencing the adress of the buffer.
+ *
+ * \remark the \a buffer pointer is modified (shifted) thus, after this
+ * function, it cannot be used for deallocation anymore
  *
  */
 int PMMG_mpiunpack_parmesh ( PMMG_pParMesh parmesh,PMMG_pGrp listgrp,int igrp,

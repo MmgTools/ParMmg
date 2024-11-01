@@ -28,11 +28,11 @@
  * \author Algiane Froehly (Inria/UBordeaux)
  * \author Nikolas Pattakos (Inria)
  * \author Luca Cirrottola (Inria)
+ * \author Laetitia Mottet (UBordeaux)
  * \version
  * \copyright
  *
  */
-#include "mmg3d.h"
 #include "parmmg.h"
 
 int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash ) {
@@ -144,19 +144,19 @@ int PMMG_hashOldPar_pmmg( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_Hash *hash 
  * Hash the parallel edges. Only use face communicators to this purpose.
  *
  */
-int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
+int PMMG_hashPar_fromFaceComm( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
   PMMG_pGrp    grp = &parmesh->listgrp[0];
   MMG5_pMesh   mesh = grp->mesh;
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   PMMG_pInt_comm int_face_comm;
-  int          k,na;
-  int          i,ie,ifac,j,ia,i1,i2;
+  MMG5_int       na,ie;
+  int          i,ifac,j,ia,i1,i2;
 
   assert( parmesh->ngrp == 1 );
 
   /** Allocation of hash table to store parallel edges */
-  na = (int)(mesh->np*0.2); // Euler-Poincare
+  na = (MMG5_int)(mesh->np*0.2); // Euler-Poincare
 
   if ( 1 != MMG5_hNew( mesh, pHash, na, 3 * na ) ) return PMMG_FAILURE;
 
@@ -181,14 +181,18 @@ int PMMG_hashPar_pmmg( PMMG_pParMesh parmesh,MMG5_HGeom *pHash ) {
 /**
  * \param mesh pointer toward a MMG5 mesh structure.
  * \param pHash pointer to the edge hash table.
+ *
  * \return PMMG_FAILURE
  *         PMMG_SUCCESS
  *
- * Hash the edges. Use the assumption that all paralle edges are seen by a
- * MG_PARBDY face on an xtetra.
+ * Hash the edges belonging to parallel faces and store their tags with the
+ * additionnal MG_PARBDY tag.
+ *
+ * \remark Use the assumption that all paralle edges are
+ * seen by a MG_PARBDY face on an xtetra.
  *
  */
-int PMMG_hashPar( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
+int PMMG_hashParTag_fromXtet( MMG5_pMesh mesh,MMG5_HGeom *pHash ) {
   MMG5_pTetra  pt;
   MMG5_pxTetra pxt;
   int          k,na;
@@ -239,14 +243,14 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
   MMG5_pxTetra pxt;
   MMG5_HGeom   hash;
   int          k,edg;
-  int16_t      tag;
+  uint16_t     tag;
   int8_t       i,i1,i2;
 
 
   assert ( !mesh->htab.geom );
 
   /* Hash the MG_PARBDY edges */
-  if( PMMG_hashPar(mesh,&hash) != PMMG_SUCCESS ) return PMMG_FAILURE;
+  if( PMMG_hashParTag_fromXtet(mesh,&hash) != PMMG_SUCCESS ) return PMMG_FAILURE;
 
   /** Update xtetra edge tag if needed */
   for (k=1; k<=mesh->ne; ++k) {
@@ -273,4 +277,138 @@ int PMMG_bdryUpdate( MMG5_pMesh mesh )
     PMMG_DEL_MEM(mesh,mesh->edge,MMG5_Edge,"deallocating edges");
 
   return PMMG_SUCCESS;
+}
+
+/**
+ * \param mesh pointer to the mesh structure.
+ * \return 1 if success, 0 otherwise.
+ *
+ * - Remove double triangles from tria array.
+ *
+ * - Remove triangles that do not belong to a boundary (non opnbdy mode) from
+ *   tria array.
+ *
+ * - Check the matching between actual and given number of faces in the mesh:
+ * Count the number of faces in mesh and compare this number to the number of
+ *   given triangles.
+ *
+ * - If the founded number exceed the given one, add the missing
+ *   boundary triangles (call to MMG5_bdryTria). Do nothing otherwise.
+ *
+ * - Fill the adjacency relationship between prisms and tetra (fill adjapr with
+ *   a negative value to mark this special faces).
+ *
+ * - Set to required the triangles at interface betwen prisms and tet.
+ *
+ */
+int PMMG_chkBdryTria(MMG5_pMesh mesh, MMG5_int* permtria) {
+  MMG5_int       ntmesh,ntpres;
+  int            ier;
+  MMG5_Hash      hashElt;
+
+  /** Step 1: scan the mesh and count the boundaries */
+  ier = MMG5_chkBdryTria_countBoundaries(mesh,&ntmesh,&ntpres);
+
+  /** Step 2: detect the extra boundaries (that will be ignored) provided by the
+   * user */
+  if ( mesh->nt ) {
+    ier = MMG5_chkBdryTria_hashBoundaries(mesh,ntmesh,&hashElt);
+    // Travel through the tria, flag those that are not in the hash tab or
+    // that are stored more that once.
+    ier = MMG5_chkBdryTria_flagExtraTriangles(mesh,&ntpres,&hashElt);
+    // Delete flagged triangles
+    ier = MMG5_chkBdryTria_deleteExtraTriangles(mesh, permtria);
+  }
+  ntmesh +=ntpres;
+
+  /** Step 3: add the missing boundary triangles or, if the mesh contains
+   * prisms, set to required the triangles at interface betwen prisms and tet */
+  ier = MMG5_chkBdryTria_addMissingTriangles(mesh,ntmesh,ntpres);
+
+  return 1;
+}
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ * \param hash pointer toward the hash table of edges.
+ * \param a index of the first extremity of the edge.
+ * \param b index of the second extremity of the edge.
+ *
+ * \param s If ls mode: 1 for a parallel edge that belongs
+ * to at least one element whose reference has to be splitted (either because we
+ * are not in multi-mat mode or because the reference is split in multi-mat
+ * mode). To avoid useless checks, some non parallel edges may be marked.
+ * If the edge belongs only to non-split references, s has to be 0.
+ *
+ * \return PMMG_SUCCESS if success, PMMG_FAILURE if fail (edge is not found).
+ *
+ * Update the value of the s field stored along the edge \f$[a;b]\f$
+ *
+ */
+int PMMG_hashUpdate_s(MMG5_Hash *hash, MMG5_int a,MMG5_int b,MMG5_int s) {
+  MMG5_hedge  *ph;
+  MMG5_int     key;
+  MMG5_int    ia,ib;
+
+  ia  = MG_MIN(a,b);
+  ib  = MG_MAX(a,b);
+  key = (MMG5_KA*(int64_t)ia + MMG5_KB*(int64_t)ib) % hash->siz;
+  ph  = &hash->item[key];
+
+  while ( ph->a ) {
+    if ( ph->a == ia && ph->b == ib ) {
+      ph->s = s;
+      return PMMG_SUCCESS;
+    }
+
+    if ( !ph->nxt ) return PMMG_FAILURE;
+
+    ph = &hash->item[ph->nxt];
+
+  }
+
+  return PMMG_FAILURE;
+}
+
+/**
+ * \param hash pointer toward the hash table of edges.
+ * \param a index of the first extremity of the edge.
+ * \param b index of the second extremity of the edge.
+ * \param k index of new point along the edge [a,b].
+ * \param s If ls mode in ParMmg: index of new point in internal edge communicator;
+ *          otherwise, the value stored in variable s.
+ * \return PMMG_SUCCESS if success, PMMG_FAILURE if fail (edge is not found).
+ *
+ * Find the index of the new point stored along the edge \f$[a;b]\f$ (similar to MMG5_hashGet in mmg).
+ * If ls mode in ParMmg: find the index of the new point in internal edge communicator;
+ * otherwise, find the value stored in variable s.
+ *
+ */
+MMG5_int PMMG_hashGet_all(MMG5_Hash *hash,MMG5_int a,MMG5_int b,MMG5_int *k,MMG5_int *s) {
+  MMG5_hedge  *ph;
+  MMG5_int    key;
+  MMG5_int    ia,ib;
+
+  if ( !hash->item ) return 0;
+
+  ia  = MG_MIN(a,b);
+  ib  = MG_MAX(a,b);
+  key = (MMG5_KA*(int64_t)ia + MMG5_KB*(int64_t)ib) % hash->siz;
+  ph  = &hash->item[key];
+
+  if ( !ph->a )  return PMMG_FAILURE;
+  if ( ph->a == ia && ph->b == ib )  {
+    *k = ph->k;
+    *s = ph->s;
+    return PMMG_SUCCESS;
+  }
+  while ( ph->nxt ) {
+    ph = &hash->item[ph->nxt];
+    if ( ph->a == ia && ph->b == ib ) {
+      *k = ph->k;
+      *s = ph->s;
+      return PMMG_SUCCESS;
+    }
+  }
+  return PMMG_FAILURE;
 }

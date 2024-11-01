@@ -688,6 +688,7 @@ int PMMG_check_reachability( PMMG_pParMesh parmesh,int *counter ) {
       itosend[i]     = intvalues[idx] ;
     }
 
+#warning Luca: change this tag
     MPI_CHECK(
       MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
                    itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+1,
@@ -1280,6 +1281,10 @@ int PMMG_set_ifcDirection( PMMG_pParMesh parmesh,int **displsgrp,int **mapgrp ) 
   for( k=0; k<nproc; k++ )
     ngrps[k] = (*displsgrp)[k+1]-(*displsgrp)[k];
 
+  // Remark: with open-mpi (v4.1.2) the next allgatherv raises a valgrind error
+  // on rank 0 due to the use of memcpy with overlapping locations. It seems to
+  // be an error in the open-mpi implementation and to have no consequences on
+  // the results
   MPI_CHECK(
     MPI_Allgatherv(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,
                    &(*mapgrp)[0],ngrps,&(*displsgrp)[0],MPI_INT,
@@ -1389,6 +1394,7 @@ int PMMG_part_moveInterfaces( PMMG_pParMesh parmesh,int *displsgrp,int *mapgrp,i
         itosend[i]     = intvalues[idx] ;
       }
 
+#warning Luca: change this tag
       MPI_CHECK(
         MPI_Sendrecv(itosend,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
                      itorecv,nitem,MPI_INT,color,MPI_PARMESHGRPS2PARMETIS_TAG+3,
