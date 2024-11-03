@@ -485,10 +485,13 @@ SET(CMAKE_MACOSX_RPATH 1)
 #####
 ############################################################################
 SET(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
+add_library( ParMmg INTERFACE )
 
 IF ( LIBPARMMG_STATIC )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_a STATIC
     "${pmmg_library_files}" ${PROJECT_NAME} )
+
+  target_link_libraries( ParMmg INTERFACE lib${PROJECT_NAME}_a )
 
   IF ( DOWNLOAD_MMG )
     Add_Dependencies(lib${PROJECT_NAME}_a Mmg)
@@ -505,6 +508,8 @@ IF ( LIBPARMMG_SHARED )
   ADD_AND_INSTALL_LIBRARY ( lib${PROJECT_NAME}_so SHARED
     "${pmmg_library_files}" ${PROJECT_NAME} )
 
+  target_link_libraries( ParMmg INTERFACE lib${PROJECT_NAME}_so )
+
   IF ( DOWNLOAD_MMG )
     Add_Dependencies(lib${PROJECT_NAME}_so Mmg)
   ENDIF ( )
@@ -514,6 +519,14 @@ IF ( LIBPARMMG_SHARED )
   ENDIF ( )
 
 ENDIF()
+
+add_library(ParMmg::ParMmg ALIAS ParMmg)
+install(TARGETS ParMmg EXPORT ParMmgTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/parmmg
+  )
 
 # parmmg header files needed for library
 SET( pmmg_headers
@@ -540,11 +553,44 @@ ELSE()
   SET(LIBPARMMG_INTERNAL OFF )
 ENDIF()
 
+if ( BUILD_SHARED_LIBS )
+  set(LIBPARMMG lib${PROJECT_NAME}_so)
+else()
+  set(LIBPARMMG lib${PROJECT_NAME}_a)
+endif()
+
 install(EXPORT ParMmgTargets
   FILE ParMmgTargets.cmake
   NAMESPACE ParMmg::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/parmmg
   )
+
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/ParMmgConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/ParMmgConfig.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parmmg"
+)
+
+# Install ParMmgConfig.cmake and ParMmgConfigVersion.cmake
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/ParMmgConfig.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parmmg"
+)
+
+# Install ParMmgConfigVersion.cmake for version tracking
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/ParMmgConfigVersion.cmake"
+    VERSION ${CMAKE_RELEASE_VERSION}
+    COMPATIBILITY AnyNewerVersion
+)
+
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/ParMmgConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/parmmg"
+)
 
 ###############################################################################
 #####
