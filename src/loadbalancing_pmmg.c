@@ -97,7 +97,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
 #endif
 
   if ( ier ) {
-    /** Split the ngrp groups of listgrp into a higher number of groups */
+    /** Split the ngrp groups of listgrp into a larger number of groups */
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_DISTR_TARGET,1,partitioning_mode);
   }
 
@@ -116,15 +116,17 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"               group split for metis     %s\n",stim);
+    // this used to say "group split for metis", which is no longer accurate
+    // as interface migration is not done by Metis anymore
+    fprintf(stdout,"   group split for interface migration   %s\n",stim);
   }
 
   if ( ier_glob <= 0 && parmesh->myrank == parmesh->info.root ) {
-    fprintf(stderr,"\n  ## Problem when splitting into a higher number of groups.\n");
+    fprintf(stderr,"\n  ## Problem when splitting into a larger number of groups.\n");
     return ier_glob;
   }
 
-  /** Distribute the groups over the processor to load balance the meshes */
+  /** Distribute the groups over the processors to load balance the meshes */
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     tim = 2;
     chrono(ON,&(ctim[tim]));
@@ -176,7 +178,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
     /** Redistribute the ngrp groups of listgrp into a lower number of groups */
     ier = PMMG_split_n2mGrps(parmesh,PMMG_GRPSPL_MMG_TARGET,0,partitioning_mode);
     if ( ier<=0 )
-      fprintf(stderr,"\n  ## Problem when splitting into a lower number of groups.\n");
+      fprintf(stderr,"\n  ## Problem when splitting into a smaller number of groups.\n");
   }
 
   // Algiane: Optim: is this reduce needed?
@@ -205,7 +207,7 @@ int PMMG_loadBalancing(PMMG_pParMesh parmesh,int partitioning_mode) {
   if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
     chrono(OFF,&(ctim[tim]));
     printim(ctim[tim].gdif,stim);
-    fprintf(stdout,"               group split for mmg       %s\n",stim);
+    fprintf(stdout,"               group split for remeshing %s\n",stim);
   }
 
   return ier_glob;
