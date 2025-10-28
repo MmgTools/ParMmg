@@ -1699,16 +1699,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   MPI_CHECK( MPI_Allgather(&parmesh->nold_grp,1,MPI_INT,noldgrps_all,1,MPI_INT,
                            parmesh->comm), return 0 );
 
-  /* Print split info */
-  int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
-  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL ) {
-    spltinfo[0] = ngrp;
-    spltinfo[1] = meshOld->ne;
-
-    MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
-               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
-  }
-
   if ( parmesh->ngrp ) {
 
     /* Does the group need to be further subdivided to subgroups or not? */
@@ -1782,16 +1772,6 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
         if( !PMMG_fix_contiguity_split( parmesh,ngrp,part ) ) return 0;
     }
 
-    // Report after splitting because in case of the new interface migration
-    // method the number of groups is known only afterwards. If we printed it
-    // before it would report 2 groups on each rank.
-    if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
-      int i;
-      for( i=0; i<parmesh->nprocs; i++ ) {
-        fprintf(stdout,"         rank %d splitting %d elts into %d grps\n",
-                i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
-      }
-    }
   }
 
   /* Split the mesh */
@@ -1799,6 +1779,27 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
 
 fail_part:
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
+
+  // Print split info.
+  // Report after splitting because in case of the interface migration
+  // method the number of groups is known only afterwards. If we printed it
+  // before it would report 2 groups on each rank.
+  int spltinfo[2],spltinfo_all[2*parmesh->nprocs];
+  if ( parmesh->info.imprim0 > PMMG_VERB_DETQUAL ) {
+    spltinfo[0] = ngrp;
+    spltinfo[1] = meshOld->ne;
+    MPI_CHECK( MPI_Gather(spltinfo,2,MPI_INT,spltinfo_all,2,MPI_INT,0,parmesh->comm),
+               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
+  }
+  if ( parmesh->ngrp ) {
+    if ( parmesh->info.imprim > PMMG_VERB_DETQUAL ) {
+      int i;
+      for( i=0; i<parmesh->nprocs; i++ ) {
+        fprintf(stdout,"         rank %d split %d elts into %d grps\n",
+                i,spltinfo_all[2*i+1],spltinfo_all[2*i]);
+      }
+    }
+  }
 
   /* Check the communicators */
   assert ( PMMG_check_intNodeComm(parmesh) && "Wrong internal node comm" );
