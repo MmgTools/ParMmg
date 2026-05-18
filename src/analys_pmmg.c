@@ -1467,7 +1467,7 @@ int PMMG_hashNorver( PMMG_pParMesh parmesh,MMG5_pMesh mesh,MMG5_HGeom *hash,
   int            ie,i,ip,idx;
 
   assert( parmesh->ngrp == 1 );
-  assert( mesh = grp->mesh );
+  assert( mesh == grp->mesh );
 
   /* Communicators already allocated 2*int, 6*double*/
   int_node_comm = parmesh->int_node_comm;
