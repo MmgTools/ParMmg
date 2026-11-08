@@ -58,8 +58,7 @@ static void PMMG_endcod() {
  *
  * \todo refactoring to improve readibility
  */
-int main( int argc, char *argv[] )
-{
+int main( int argc, char *argv[] ) {
   PMMG_pParMesh parmesh = NULL;
   PMMG_pGrp     grp;
   int           rank;
@@ -88,7 +87,7 @@ int main( int argc, char *argv[] )
   if ( !rank ) {
     atexit(PMMG_endcod);
   }
-
+  
   tminit(PMMG_ctim,TIMEMAX);
   chrono(ON,&PMMG_ctim[0]);
 
@@ -104,8 +103,7 @@ int main( int argc, char *argv[] )
     return PMMG_FAILURE;
   }
 
-
-  /* reset default values for file names */
+  /* Reset default values for file names */
   if ( 1 != MMG3D_Free_names(MMG5_ARG_start,
                              MMG5_ARG_ppMesh, &parmesh->listgrp[0].mesh,
                              MMG5_ARG_ppMet,  &parmesh->listgrp[0].met,
@@ -146,22 +144,22 @@ int main( int argc, char *argv[] )
   iresult = 1;
   ier     = 1;
 
+  /* Compute input format from file name */
   ptr   = MMG5_Get_filenameExt(parmesh->meshin);
-
   fmtin = PMMG_Get_format(ptr,MMG5_FMT_MeditASCII);
 
-  /* Compute default output format */
+  /* Compute output format from file name */
   ptr = MMG5_Get_filenameExt(parmesh->meshout);
-
-  /* Format from output mesh name */
   fmtout = PMMG_Get_format(ptr,fmtin);
 
   distributedInput = 0;
 
+  /* Load data (mesh, metric, ls) depending on format */
   switch ( fmtin ) {
   case ( MMG5_FMT_MeditASCII ): case ( MMG5_FMT_MeditBinary ):
 
     // Algiane: Dirty (to be discussed, I don't have a clean solution)
+    // Try to load centralized mesh, and if that does not work, try distributed
     iermesh = PMMG_loadMesh_centralized(parmesh,parmesh->meshin);
     MPI_Bcast( &iermesh,     1, MPI_INT, parmesh->info.root, parmesh->comm );
 
@@ -222,6 +220,7 @@ int main( int argc, char *argv[] )
       goto check_mesh_loading;
     }
 
+    /* Lagrangian mode: not yet implemented */
     if ( grp->mesh->info.lag >= 0 ) {
 
       if ( rank == parmesh->info.root ) {
@@ -238,7 +237,8 @@ int main( int argc, char *argv[] )
       //}
       //MMG5_DEL_MEM(mesh,ls->namein);
     }
-
+    
+    /* Level set mode: load ls function */
     if ( grp->mesh->info.lag >= 0 || grp->mesh->info.iso ) {
       /* displacement or isovalue are mandatory */
       if( !distributedInput ) {
@@ -256,8 +256,8 @@ int main( int argc, char *argv[] )
         goto check_mesh_loading;
       }
     }
+    /* Load facultative metric */
     else {
-      /* Facultative metric */
       if ( !distributedInput ) {
         iermesh = PMMG_loadMet_centralized( parmesh, parmesh->metin );
       }
@@ -344,19 +344,21 @@ int main( int argc, char *argv[] )
     ier = 0;
     goto check_mesh_loading;
   }
-
+  
   chrono(OFF,&PMMG_ctim[tim]);
   if ( parmesh->info.imprim > PMMG_VERB_NO ) {
     printim(PMMG_ctim[tim].gdif,stim);
     fprintf(stdout,"  -- DATA READING COMPLETED.     %s\n",stim);
   }
-
+  /* End of load data */
+  
+/* MPI meeting point for loadings of all data */
 check_mesh_loading:
   MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( iresult != 1 )
     PMMG_RETURN_AND_FREE( parmesh, PMMG_LOWFAILURE );
 
-  /** Main call */
+  /** Call to the main functions */
   if ( parmesh->listgrp[0].mesh->mark ) {
     /* Save a local parameters file containing the default parameters */
     printf("  ## Error: default parameter file saving not yet implemented.\n");
@@ -380,6 +382,8 @@ check_mesh_loading:
   chrono(ON,&PMMG_ctim[tim]);
 
   grp = &parmesh->listgrp[0];
+  
+  /* Different displays depending on user options */
   if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
     if ( parmesh->info.fmtout == PMMG_FMT_DistributedMeditASCII ) {
       char *basename = MMG5_Remove_ext ( parmesh->meshout,".mesh" );
@@ -488,6 +492,7 @@ check_mesh_loading:
       break;
 
     default:
+      /* Meshes and solutions have already been merged between groups and on rank root */
       ierSave = PMMG_saveMesh_centralized(parmesh,parmesh->meshout);
 
       if ( ierSave && parmesh->listgrp[0].met && parmesh->listgrp[0].met->m ) {
@@ -510,7 +515,7 @@ check_mesh_loading:
   }
 
   /* Check output success */
-  if ( ierSave<1 ) {
+  if ( ierSave < 1 ) {
     PMMG_RETURN_AND_FREE(parmesh,PMMG_STRONGFAILURE);
   }
 

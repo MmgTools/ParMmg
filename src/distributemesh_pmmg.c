@@ -1140,7 +1140,8 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
         ier = 5;
       }
       if( !PMMG_fix_contiguity_centralized( parmesh,part ) ) ier = 5;
-    } else {
+    }
+    else {
       int k;
       for( k = 1; k <= mesh->ne; k++ ) {
         part[k-1] = mesh->tetra[k].ref;
@@ -1157,7 +1158,6 @@ int PMMG_distribute_mesh( PMMG_pParMesh parmesh )
     PMMG_DEL_MEM(parmesh,part,idx_t,"deallocate metis buffer");
   }
   /* At this point all communicators have been created and all tags are OK */
-
 
   /**
    * 2) Distribute the groups over the processors.

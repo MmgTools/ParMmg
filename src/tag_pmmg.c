@@ -135,7 +135,8 @@ void PMMG_untag_par_node(MMG5_pPoint ppt){
      * analysis so reapply the MG_REQ tag on it */
     if( ppt->tag & MG_NOSURF ) {
       ppt->tag &= ~MG_NOSURF;
-    } else {
+    }
+    else {
       ppt->tag |= MG_REQ;
     }
     ppt->tag &= ~MG_PARBDYBDY;
@@ -162,7 +163,8 @@ void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j){
      * analysis so reapply the MG_REQ tag on it */
     if( pxt->tag[j] & MG_NOSURF ) {
       pxt->tag[j] &= ~MG_NOSURF;
-    } else {
+    }
+    else {
       pxt->tag[j] |= MG_REQ;
     }
     pxt->tag[j] &= ~MG_PARBDYBDY;
@@ -189,13 +191,145 @@ void PMMG_untag_par_face(MMG5_pxTetra pxt,int j){
      * analysis so reapply the MG_REQ tag on it */
     if( pxt->ftag[j] & MG_NOSURF ) {
       pxt->ftag[j] &= ~MG_NOSURF;
-    } else {
+    }
+    else {
       pxt->ftag[j] |= MG_REQ;
     }
     /* do not delete the MG_PARBDYBDY tag, as it will be used to recognize
      * boundary faces */
   }
 }
+
+/**
+ * \param mesh pointer toward the mesh structure.
+ *
+ * parmmg version of the MMG3D_unset_reqBoundaries function;
+ * Remove MG_REQ tags from edges that were tagged such because of the nosurf option, BUT NOT BECAUSE THEY ARE PARBDY
+ */
+void PMMG_unset_reqBoundaries(MMG5_pMesh mesh) {
+  MMG5_pTetra pt;
+  MMG5_int    k;
+  int         i;
+
+  for (k=1; k<=mesh->ne; k++) {
+    pt   = &mesh->tetra[k];
+    if ( MG_EOK(pt) &&  pt->xt ) {
+
+      for (i=0; i<6; i++) {
+        if ( mesh->xtetra[pt->xt].tag[i] & MG_NOSURF && !(mesh->xtetra[pt->xt].tag[i] & MG_PARBDY) ) {
+          mesh->xtetra[pt->xt].tag[i] &= ~MG_REQ;
+          mesh->xtetra[pt->xt].tag[i] &= ~MG_NOSURF;
+        }
+      }
+    }
+  }
+  return;
+}
+
+#ifndef USE_SCOTCH
+/**
+ * \param mesh pointer to the mesh structure (unused).
+ * \param np pointer to the number of used points
+ * \param nc pointer to the number of packed corners
+ * \return 1 if success, 0 if fail.
+ *
+ * Parmmg counterpart of function MMG3D_mark_packedPoints, taking into account the slightly different use of the NOSURF and REQ tags
+ * Pack the mesh points and store the packed point index in tmp.
+ * Don't preserve numbering order.
+ *
+ */
+
+int PMMG_mark_packedPoints(MMG5_pMesh mesh,MMG5_int *np,MMG5_int *nc) {
+  MMG5_pPoint   ppt;
+  MMG5_int      k;
+
+  for ( k=1; k<=mesh->np; ++k ) {
+    mesh->point[k].tmp = 0;
+  }
+
+  (*nc) = 0;
+  k     = 1;
+  (*np) = mesh->np+1;
+
+  do {
+    ppt = &mesh->point[k];
+    if ( !MG_VOK(ppt) ) {
+      --(*np);
+      ppt = &mesh->point[*np];
+      assert ( ppt );
+
+      /* Search the last used point */
+      while ( !MG_VOK(ppt) && k < *np ) {
+        --(*np);
+        ppt = &mesh->point[*np];
+      }
+    }
+
+#ifndef NDEBUG
+    if ( !MG_VOK(ppt) ) {
+      assert ( k==*np );
+    }
+    if ( k==*np ) {
+      assert ( !MG_VOK(ppt) );
+    }
+#endif
+    if ( k==*np ) {
+      break;
+    }
+
+    ppt->tmp = k;
+
+    /* Sole change w.r.t. mmg3d's version */
+    if ( !(ppt->tag & MG_PARBDY) && ppt->tag & MG_NOSURF ) {
+      ppt->tag &= ~MG_NOSURF;
+      ppt->tag &= ~MG_REQ;
+    }
+
+    if ( ppt->tag & MG_CRN )  (*nc)++;
+
+    ppt->ref = MMG5_abs(ppt->ref);
+  }
+  while ( ++k < (*np) );
+
+  assert ( k==*np );
+  --(*np);
+
+#ifndef NDEBUG
+  for ( k=1; k<=mesh->np; ++k  ) {
+    if ( MG_VOK(&mesh->point[k]) ) {
+      /* Check that all the used points have a tmp field  */
+      assert(mesh->point[k].tmp);
+    }
+  }
+#endif
+
+  return 1;
+}
+
+#else
+int PMMG_mark_packedPoints(MMG5_pMesh mesh,MMG5_int *np,MMG5_int *nc) {
+  MMG5_pPoint   ppt;
+  MMG5_int      k;
+
+  (*np) = (*nc) = 0;
+  for (k=1; k<=mesh->np; k++) {
+    ppt = &mesh->point[k];
+    if ( !MG_VOK(ppt) )  continue;
+    ppt->tmp = ++(*np);
+
+    /* Sole change w.r.t. mmg3d's version */
+    if ( !(ppt->tag & MG_PARBDY) && ppt->tag & MG_NOSURF ) {
+      ppt->tag &= ~MG_NOSURF;
+      ppt->tag &= ~MG_REQ;
+    }
+
+    if ( ppt->tag & MG_CRN )  (*nc)++;
+
+    ppt->ref = MMG5_abs(ppt->ref);
+  }
+  return 1;
+}
+#endif
 
 /**
  * \param parmesh pointer toward a parmesh structure
@@ -245,8 +379,9 @@ inline int PMMG_resetOldTag(PMMG_pParMesh parmesh) {
           /* Check that there is no reference on an old parallel face that is
            * not a true boundary */
           if( !(pxt->ftag[j] & MG_PARBDYBDY) ) assert( !pxt->ref[j] );
-        } else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
-          /* Untag faces which are not parallel anymore */
+        }
+        /* Untag faces which are not parallel anymore */
+        else if ( pxt->ftag[j] & MG_OLDPARBDY ) {
           pxt->ftag[j] &= ~MG_OLDPARBDY;
         }
       }

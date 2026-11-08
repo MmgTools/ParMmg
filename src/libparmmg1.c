@@ -242,7 +242,7 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /** Store in tmp the pack index of each point and count the corner*/
-    if ( !MMG3D_mark_packedPoints(mesh,&np,&nc) ) return 0;
+    if ( !PMMG_mark_packedPoints(mesh,&np,&nc) ) return 0;
 
     /* node index update in internal communicator */
     if ( !PMMG_update_node2intPackedVertices( grp ) ) return 0;
@@ -260,14 +260,14 @@ int PMMG_packParMesh( PMMG_pParMesh parmesh )
     }
 
     /* Remove the MG_REQ tags added by the nosurf option */
-    MMG3D_unset_reqBoundaries(mesh);
+    PMMG_unset_reqBoundaries(mesh);
 
     if ( mesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf(stdout,"     NUMBER OF VERTICES   %8d   CORNERS %8d\n",mesh->np,nc);
       fprintf(stdout,"     NUMBER OF ELEMENTS   %8d\n",mesh->ne);
     }
 
-    /* to could save the mesh, the adjacency have to be correct */
+    /* To save the mesh, the adjacency have to be correct */
     if ( mesh->info.ddebug ) {
       if ( (!mesh->adja) && !MMG3D_hashTetra(mesh,1) ) {
         fprintf(stderr,"\n  ## Error: %s: tetra hashing problem. Exit program.\n",
@@ -540,7 +540,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
  * \param parmesh pointer toward a parmesh structure where the boundary entities
  * are stored into xtetra and xpoint strucutres
  *
- * Main program of the parallel remeshing library: split the meshes over each
+ * Main program of the parallel remeshing library: split the meshes inside each
  * proc into groups, then perform niter of sequential remeshing of each group
  * (with moving of the proc boundaries between two iterations) and last, merge
  * the groups over each proc.
@@ -549,8 +549,7 @@ int PMMG_scotchCall( PMMG_pParMesh parmesh,int igrp,int *permNodGlob ) {
  *         PMMG_LOWFAILURE    if  we can save the mesh
  *         PMMG_SUCCESS
  */
-int PMMG_parmmglib1( PMMG_pParMesh parmesh )
-{
+int PMMG_parmmglib1( PMMG_pParMesh parmesh ) {
   MMG5_pMesh mesh;
   MMG5_pSol  met,field,psl;
   mytime     ctim[TIMEMAX];
@@ -585,8 +584,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       break;
     }
   }
-
+  
   ier = 1;
+  
 #ifndef NDEBUG
   inputMet = 0;
   MPI_CHECK( MPI_Allreduce( &parmesh->info.inputMet,&inputMet,1,MPI_UNSIGNED_CHAR,MPI_MAX,
@@ -609,6 +609,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     ier = PMMG_splitPart_grps( parmesh,PMMG_GRPSPL_MMG_TARGET,0,
                                PMMG_REDISTRIBUTION_graph_balancing );
   }
+  
+  /* Il faut faire quelque chose là... si on n'a qu'un seul group, on n'a pas d'update size dans splitPart_grps...
+     Dans un cas de raffinement, àa peut causer des réallocs -> ralentissement */
+  /* if ( !PMMG_updateMeshSize(parmesh,0) ) { exit(0); }*/
 
   MPI_CHECK ( MPI_Allreduce( &ier,&ieresult,1,MPI_INT,MPI_MIN,parmesh->comm ),
               PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE) );
@@ -652,10 +656,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
-
-  /** Mesh adaptation */
+  
+  /*************************************************************************************************************************************************************/
+  /** ***********************************                                     Mesh adaptation: main loop                              ***********************************  */
+  /*************************************************************************************************************************************************************/
   warnScotch = 0;
   for ( parmesh->iter = 0; parmesh->iter < parmesh->niter; parmesh->iter++ ) {
+  
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
       if ( parmesh->iter > 0 ) {
@@ -669,11 +676,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       chrono(ON,&(ctim[tim]));
       fprintf(stdout,"\r       adaptation: iter %d   cumul. timer %s",parmesh->iter+1,stim);fflush(stdout);
     }
-
-
+    
     /** Update old groups for metrics and solution interpolation */
     PMMG_update_oldGrps( parmesh );
-
 
     tim = 4;
     if ( parmesh->info.imprim > PMMG_VERB_ITWAVES ) {
@@ -703,6 +708,10 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       /* Reset the value of the fem mode */
       mesh->info.fem = parmesh->info.setfem;
 
+      /* Require mmg3d not to compute the size at required edges from just other required edges.
+      Todo: proper fix in mmg3d, in Step 1 of defsiz_iso: skip MG_PARBDY edges. */
+      mesh->info.nosizreq = 1;
+      
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */
         continue;
@@ -761,8 +770,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
          * and scalem expects point flag to be lower or equal to mesh->base */
         for ( k=1 ; k<=mesh->npmax ; k++ ) {
           mesh->point[k].flag = mesh->base;
-        }
-
+        }              
+        
         /** Call the remesher */
         /* Here we need to scale the mesh */
         if ( !MMG5_scaleMesh(mesh,met,NULL) ) { goto strong_failed; }
@@ -848,6 +857,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
         if ( !ier ) { break; }
 
       }
+            
       /* Reset the mesh->gap field in case Mmg have modified it */
       mesh->gap = MMG5_GAP;
     }
@@ -895,13 +905,13 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     }
 
     if ( parmesh->iter == parmesh->niter-1 ) {
-
       if ( !parmesh->info.nobalancing ) {
         /** Load balancing of the output mesh */
         /* Load balance using mesh groups graph */
         ier = PMMG_loadBalancing(parmesh,PMMG_REDISTRIBUTION_graph_balancing);
       }
-    } else {
+    }
+    else {
       /** Standard parallel mesh repartitioning */
       ier = PMMG_loadBalancing(parmesh,parmesh->info.repartitioning);
     }
@@ -918,7 +928,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Try to save the mesh and exit program.\n");
       goto failed_handling;
-    } else if ( ieresult < 0 ) {
+    }
+    else if ( ieresult < 0 ) {
       if ( !parmesh->myrank )
         fprintf(stderr,"\n  ## Load balancing problem. Exit program.\n");
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE);
@@ -928,6 +939,9 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     if( !PMMG_update_analys(parmesh) )
       PMMG_CLEAN_AND_RETURN(parmesh,PMMG_LOWFAILURE);
   }
+  /*************************************************************************************************************************************************************/
+  /*************************************************************************************************************************************************************/
+
 
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
     printf("\n");
@@ -952,7 +966,8 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh )
     tim = 4;
     chrono(ON,&(ctim[tim]));
     }
-
+  
+  /* Merge all groups */
   ier = PMMG_packParMesh(parmesh);
   MPI_Allreduce( &ier, &ieresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
   if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {

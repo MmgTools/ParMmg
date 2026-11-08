@@ -822,7 +822,7 @@ int PMMG_mergeGrps2Send_errorHandler( PMMG_pParMesh parmesh,PMMG_pGrp *grps,
  * \return 0 if fail but the process can continue, -1 if the process cannot
  * continue, 1 if success.
  *
- * Merge all the groups that must be send to a given proc into 1 group.
+ * Merge all the groups that must be sent to a given proc into 1 group.
  * Update the \a part array to match with the new groups.
  *
  * \Warning To optimize...

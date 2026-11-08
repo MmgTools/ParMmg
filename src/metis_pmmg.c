@@ -1353,7 +1353,7 @@ int PMMG_part_meshElts2metis( PMMG_pParMesh parmesh, idx_t* part, idx_t nproc )
 int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
 {
   real_t     *tpwgts,*ubvec;
-  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,adjsize;
+  idx_t      *xadj,*adjncy,*vwgt,*adjwgt,*vtxdist,*rbuf,adjsize;
   idx_t      *xadj_seq,*adjncy_seq,*vwgt_seq,*adjwgt_seq,*part_seq;
   idx_t      sendcounts,*recvcounts,*displs;
   idx_t      wgtflag,numflag;
@@ -1366,7 +1366,7 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   ngrp   = parmesh->ngrp;
   nprocs = parmesh->nprocs;
   ier    = 1;
-
+    
   /** Build the parmetis graph */
   xadj   = adjncy = vwgt = adjwgt = vtxdist = NULL;
   tpwgts = ubvec  =  NULL;
@@ -1393,9 +1393,11 @@ int PMMG_part_parmeshGrps2metis( PMMG_pParMesh parmesh,idx_t* part,idx_t nproc )
   xadj_seq = NULL;
   if(parmesh->myrank == root)
     PMMG_CALLOC(parmesh,xadj_seq,vtxdist[nproc]+1,idx_t,"xadj_seq", return 0);
-
+  
+  rbuf = (parmesh->myrank == root) ? &xadj_seq[1] : NULL;
+  
   MPI_CHECK( MPI_Gatherv(&xadj[1],recvcounts[parmesh->myrank],MPI_INT,
-                         &xadj_seq[1],recvcounts,displs,MPI_INT,
+                         rbuf,recvcounts,displs,MPI_INT,
                          root,parmesh->comm), return 0);
 
   if(parmesh->myrank == root)

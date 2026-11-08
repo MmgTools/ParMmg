@@ -1042,7 +1042,6 @@ int PMMG_merge_grps( PMMG_pParMesh parmesh,int target )
     PMMG_grp_free(parmesh,grp);
   }
 
-
   /** Step 5: Update the communicators */
 
   if ( !PMMG_mergeGrps_communicators(parmesh) ) goto fail_comms;
@@ -1675,7 +1674,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
     MPI_CHECK( MPI_Bcast(&ieresult,1,MPI_INT,parmesh->info.root,parmesh->comm),
                ieresult=0 );
   }
-
+  
   /* Free useless receivers */
   if ( rcv_grps ) {
     PMMG_listgrp_free( parmesh, &rcv_grps, parmesh->nprocs );
@@ -1717,8 +1716,7 @@ int PMMG_merge_parmesh( PMMG_pParMesh parmesh ) {
     mesh = parmesh->listgrp[0].mesh;
 
     if ( mesh->info.nosurf ) {
-
-      MMG3D_unset_reqBoundaries(mesh);
+      PMMG_unset_reqBoundaries(mesh);
 
       for (k=1; k<=mesh->np; k++) {
         ppt = &mesh->point[k];

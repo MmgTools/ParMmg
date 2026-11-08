@@ -156,7 +156,6 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
     }
   }
 
-
   /* Read indices */
   if(!bin) {
     for( i = 0; i < ntot; i++ ) {
@@ -165,7 +164,8 @@ int PMMG_loadCommunicator( PMMG_pParMesh parmesh,FILE *inm,int bin,int iswp,
       idx_glo[icomm][inxt[icomm]] = idxg;
       inxt[icomm]++;
     }
-  } else {
+  }
+  else {
     for( i = 0; i < ntot; i++ ) {
       MMG_FREAD(&k,MMG5_SW,1,inm);
       if(iswp) k=MMG5_swapbin(k);

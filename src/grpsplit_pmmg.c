@@ -1321,6 +1321,7 @@ int PMMG_split_eachGrp( PMMG_pParMesh parmesh,int grpIdOld,PMMG_pGrp grpsNew,
               ret_val = 0;goto fail_facePos);
   PMMG_CALLOC(parmesh,f2ifc_max,ngrp,int,"f2ifc_max",
               ret_val = 0;goto fail_facePos);
+  /* Number of points per group */
   PMMG_CALLOC(parmesh,poiPerGrp,ngrp,int,"poiPerGrp",
               ret_val = 0;goto fail_facePos);
 
@@ -1488,14 +1489,14 @@ fail_facePos:
  * \param parmesh pointer toward the parmesh structure.
  * \param grpIdOld label of the original group to be splitted.
  * \param ngrp number of groups to split the mesh into.
- * \param part array of the mesh element partitioning.
+ * \param part array of the mesh element partitioning: part[iel-1] = number of the group.
  * \param fitMesh alloc the meshes at their exact sizes
  *
  * \return -1 : no possibility to save the mesh
  *         0  : failed but the mesh is correct
  *         1  : success
  *
- * Split one mesh it into into several meshes.
+ * Split one mesh into several meshes, from the datum of the partitioning in part
  *
  * \warning tetra must be packed.
  *
@@ -1507,16 +1508,15 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
   int *countPerGrp = NULL;
   int ret_val = 1;
 
-  if (!part) return 1;
+  if ( !part ) return 1;
 
   /* Get mesh to split */
   grpOld = &parmesh->listgrp[grpIdOld];
   meshOld = parmesh->listgrp[grpIdOld].mesh;
 
-
-  /* Create hash table to store edge tags (to keep tag consistency along
-   * boundary edges that doesn't belong to a boundary face in meshOld (and
-   * doesn't has valid tags) but that will belongs to a PARBDY face after group
+  /* Create and fill hash table to store edge tags (to keep tag consistency along
+   * boundary edges that do not belong to a boundary face in meshOld (and
+   * do not has valid tags) but that will belongs to a PARBDY face after group
    * splitting). Such kind of inconsistencies may be detected by calling the
    * MMG3D_chkmesh function. */
   MMG5_HGeom hash;
@@ -1566,7 +1566,7 @@ int PMMG_split_grps( PMMG_pParMesh parmesh,int grpIdOld,int ngrp,idx_t *part,int
 
   /* Set memMax of the new meshes */
   if ( PMMG_updateMeshSize(parmesh, fitMesh) ) {
-    /* No error so far, skip deallocation of lstgrps */
+    /* No error so far, skip deallocation of lstgrps (awkward name for the goto) */
     goto fail_counters;
   }
   else
@@ -1605,7 +1605,7 @@ int PMMG_check_allComm(PMMG_pParMesh parmesh,const int ier,MPI_Comm comm) {
 
 /**
  * \param parmesh pointer toward the parmesh structure.
- * \param target software for which we split the groups
+ * \param target software with which we split the groups
  * (\a PMMG_GRPSPL_DISTR_TARGET or \a PMMG_GRPSPL_MMG_TARGET)
  * \param fitMesh alloc the meshes at their exact sizes
  * \param redistrMode 0 for graph balancing, 1 for interface displacement
@@ -1614,8 +1614,7 @@ int PMMG_check_allComm(PMMG_pParMesh parmesh,const int ier,MPI_Comm comm) {
  *         0  : failed but the mesh is correct
  *         1  : success
  *
- * if the existing group of only one mesh is too big, split it into into several
- * meshes.
+ * if the existing group of only one mesh is too big, split it into into several meshes.
  *
  * \warning tetra must be packed.
  *
@@ -1641,7 +1640,8 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
     PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
     grpOld = NULL;
     meshOld = NULL;
-  } else {
+  }
+  else {
     assert ( (parmesh->ngrp == 1) && " split_grps can not split m groups to n");
     grpOld = &parmesh->listgrp[grpIdOld];
     meshOld = parmesh->listgrp[grpIdOld].mesh;
@@ -1661,8 +1661,8 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
        * computation (which is after a jump on ngrp==1) */
 #warning: fix this conditional jump
       ngrp = 2;
-    } else {
-
+    }
+    else {
       ngrp = PMMG_howManyGroups( meshOld->ne,abs(parmesh->info.target_mesh_size) );
       if ( parmesh->info.target_mesh_size < 0 ) {
         /* default value : do not authorize large number of groups */
@@ -1725,8 +1725,10 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
       }
+      /* PMMG_updateMeshSize(parmesh, fitMesh) */
       return PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
-    } else {
+    }
+    else {
       if ( parmesh->ddebug )
         fprintf( stdout,
                  "[%d-%d]: %d groups required, splitting into sub groups...\n",
@@ -1794,6 +1796,8 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
   ret_val = PMMG_split_grps( parmesh,grpIdOld,ngrp,part,fitMesh );
 
 fail_part:
+
+  /* PMMG_updateMeshSize(parmesh, fitMesh) */
   PMMG_DEL_MEM(parmesh,part,idx_t,"free metis buffer ");
 
   /* Check the communicators */

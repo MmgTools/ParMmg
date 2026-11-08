@@ -316,12 +316,12 @@ typedef struct {
   int        nitem; /*!< Nb items in the communicator */
   int        nitem_to_share; /*!< Nb items in the *send/recv arrays */
 
-  int*       int_comm_index; /*!< Index of the items in the internal communicators */
+  int*       int_comm_index; /*!< Index of the items in the internal communicator */
 
-  int*       itosend; /*!< Array to send the data to the remote processor */
-  int*       itorecv; /*!< Array to receive the data to the remote processor */
-  double*    rtosend; /*!< Array to send the data to the remote processor */
-  double*    rtorecv; /*!< Array to receive the data to the remote processor */
+  int*       itosend; /*!< Array to send integer data to the remote processor */
+  int*       itorecv; /*!< Array to receive integer data to the remote processor */
+  double*    rtosend; /*!< Array to send the real to the remote processor */
+  double*    rtorecv; /*!< Array to receive real data to the remote processor */
 
 } PMMG_Ext_comm;
 typedef PMMG_Ext_comm  * PMMG_pExt_comm;
@@ -395,12 +395,12 @@ typedef struct {
  * \brief Overlap structure.
  */
 typedef struct {
-  int color_in;     /*!< Color of the hosting processor */
+  int color_in;     /*!< Color of the host processor */
   int color_out;    /*!< Color of the remote processor */
-  int np_in2out;    /*!< Nbr of points sends    from color_in to   color_out */
-  int np_out2in;    /*!< Nbr of points receives on   color_in from color_out */
-  int nt_in2out;    /*!< Nbr of tetra  sends    from color_in to   color_out */
-  int nt_out2in;    /*!< Nbr of tetra  receives on   color_in from color_out */
+  int np_in2out;    /*!< Nbr of points sent     from  color_in to   color_out */
+  int np_out2in;    /*!< Nbr of points received by    color_in from color_out */
+  int nt_in2out;    /*!< Nbr of tetra  sent     from  color_in to   color_out */
+  int nt_out2in;    /*!< Nbr of tetra  received by    color_in from color_out */
   int *hash_in2out; /*!< Hash table to find pts index on color_out from pts index on color_in */
   int *hash_out2in; /*!< Hash table to find pts index on color_in  from pts index on color_out */
 

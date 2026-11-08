@@ -1051,6 +1051,7 @@ int PMMG_Compute_trianglesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ) {
  * \param comm pointer to the mpi communicator.
  *
  * Compute global numbering for vertices.
+ * At return, for each vertex, ppt->flag is the rank with highest number containing the point, and ppt->tmp is the global number
  *
  * \todo all MPI_abort have to be removed and replaced by a clean error handling
  * without deadlocks.
@@ -1080,7 +1081,6 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
               MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   intvalues = int_node_comm->intvalues;
 
-
   /** Step 0: Count nowned nodes */
   /* register heap arrays */
   size_t iptr,nptr = 2;
@@ -1095,7 +1095,7 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   status = NULL;
   itosend = itorecv =  NULL;
 
-  /* Array to reorder communicators */
+  /* Initialize array iproc2comm to reorder communicators: array inverts the relation ext_comm -> proc no */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",
               MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
 
@@ -1109,12 +1109,13 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 
   /* Mark nodes with the owner color (overwritten by higher-rank procs) */
+  /* Iterating over procs (not comms) allows to enforce the ownership rule */
   for( iproc = 0; iproc < parmesh->nprocs; iproc++ ) {
     /* Travel the communicators in increasing order of neighbour rank */
     icomm = iproc2comm[iproc];
     if( icomm == PMMG_UNSET ) continue;
     ext_node_comm = &parmesh->ext_node_comm[icomm];
-    color = MG_MAX(parmesh->myrank,ext_node_comm->color_out);
+    color = MG_MAX(parmesh->myrank,ext_node_comm->color_out); // Here, ext_node_comm->color_out = iproc (I suppose)
     /* Mark nodes */
     for( i = 0; i < ext_node_comm->nitem; i++ ) {
       idx = ext_node_comm->int_comm_index[i];
@@ -1125,7 +1126,9 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
     }
   }
 
-  /* Store owner in the point flag */
+  /* At this point, in the internal communicator, each slot is assigned the color (rank) with highest value */
+
+  /* Store owner in the point flag for vertices that are not shared */
   MMG5_int np_overlap = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
@@ -1149,12 +1152,12 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
     if( intvalues[idx] != parmesh->myrank ) nowned--;
   }
 
-  /* Compute offsets on each proc */
+  /* Compute offsets on each proc = displacement of each rank in the global numbering of vertices */
   PMMG_CALLOC(parmesh,offsets,parmesh->nprocs+1,int,"offsets",
               PMMG_destroy_int(parmesh,ptr_int,nptr,"vertGlobNum");
               MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   MPI_Allgather( &nowned,1,MPI_INT,
-                 &offsets[1],1,MPI_INT,comm );
+                 &offsets[1],1,MPI_INT,comm ); /* Check how this reduction works */
   for( i = 1; i <= parmesh->nprocs; i++ )
     offsets[i] += offsets[i-1];
 
@@ -1164,16 +1167,19 @@ int PMMG_Compute_verticesGloNum( PMMG_pParMesh parmesh,MPI_Comm comm ){
   }
 #endif
 
+  /* At this point, ppt->flag = the highest rank that contains ppt */
   /** Step 1: Pack */
   counter = 0;
   for( ip = 1; ip <= mesh->np; ip++ ) {
     ppt = &mesh->point[ip];
     if (ppt->tag & MG_OVERLAP) continue;
     if( ppt->flag != parmesh->myrank ) continue;
-    ppt->tmp = ++counter+offsets[parmesh->myrank];
+    ppt->tmp = ++counter + offsets[parmesh->myrank];
     assert(ppt->tmp);
   }
   assert( counter == nowned );
+  
+  /* At this step, for each vertex ppt not at the interface, or for those of the interface owned by the current rank, ppt->tmp contains the global number */
 
   /** Step 2: Communicate global numbering */
 
@@ -1367,7 +1373,7 @@ int PMMG_color_commNodes( PMMG_pParMesh parmesh, MPI_Comm comm ) {
               MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
   intvalues = int_node_comm->intvalues;
 
-  /* Array to reorder communicators */
+  /* Initialize array iproc2comm to reorder communicators */
   PMMG_MALLOC(parmesh,iproc2comm,parmesh->nprocs,int,"iproc2comm",
               PMMG_destroy_int(parmesh,ptr_int,nptr,"color_comm_nodes");
               MPI_Abort(parmesh->comm,PMMG_TMPFAILURE));
@@ -1667,7 +1673,6 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
 
     }
 
-
     chrono(OFF,&(ctim[tim]));
     if (  parmesh->info.imprim >  PMMG_VERB_VERSION ) {
       printim(ctim[tim].gdif,stim);
@@ -1675,15 +1680,15 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
     }
 
     break;
+  /* Centralized Output */
   default:
-    /* Centralized Output */
     /** Merge all the meshes on the proc 0 */
     tim = 1;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
       fprintf( stdout,"\n  -- PHASE 3 : MERGE MESHES OVER PROCESSORS\n" );
     }
-
+    
     ier = PMMG_merge_parmesh( parmesh );
     MPI_Allreduce( &ier, &iresult, 1, MPI_INT, MPI_MIN, parmesh->comm );
 
@@ -1694,7 +1699,7 @@ int PMMG_parmmglib_post(PMMG_pParMesh parmesh) {
                 " TRY TO SAVE DISTRIBUTED MESHES\n\n\n");
       }
     }
-
+    
     chrono(OFF,&(ctim[tim]));
     if ( parmesh->info.imprim >  PMMG_VERB_VERSION  ) {
       printim(ctim[tim].gdif,stim);
@@ -1745,6 +1750,15 @@ int PMMG_parmmgls_centralized(PMMG_pParMesh parmesh) {
   return PMMG_parmmg_centralized(parmesh);
 }
 
+/**
+ * \param parmesh pointer toward the parmesh
+ *
+ * \return PMMG_SUCCESS if success, PMMG_LOWFAILURE if merge or boundary
+ * reconstruction fail
+ *
+ * Main routine for processing centralized inputs; essentially encapsulates PMMG_parmmglib1
+ *
+ */
 int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
   PMMG_pGrp     grp;
   MMG5_pMesh    mesh;
@@ -1808,6 +1822,7 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
   }
 
   if ( !parmesh->info.pure_partitioning ) {
+    ier = 1;
     ier = PMMG_parmmglib1(parmesh);
     MPI_Allreduce( &ier, &ierlib, 1, MPI_INT, MPI_MAX, parmesh->comm );
 
@@ -1824,9 +1839,10 @@ int PMMG_parmmg_centralized(PMMG_pParMesh parmesh) {
     ierlib = 0;
   }
 
+  /* At this stage, all groups have been merged; now, different ranks are merged if a centralized output is required */
   ier = PMMG_parmmglib_post(parmesh);
   ierlib = MG_MAX ( ier, ierlib );
-
+  
   chrono(OFF,&ctim[0]);
   printim(ctim[0].gdif,stim);
   if ( parmesh->info.imprim >= PMMG_VERB_VERSION ) {
@@ -1958,8 +1974,8 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
     fprintf(stdout,"  -- PHASE 1 COMPLETED.     %s\n",stim);
   }
 
+  /** Remeshing when code is not asked to just partition */
   if ( !parmesh->info.pure_partitioning ) {
-    /** Remeshing */
     tim = 3;
     chrono(ON,&(ctim[tim]));
     if ( parmesh->info.imprim > PMMG_VERB_VERSION ) {
@@ -1980,6 +1996,7 @@ int PMMG_parmmg_distributed(PMMG_pParMesh parmesh) {
     }
   }
 
+  /* Post processing */
   ier = PMMG_parmmglib_post(parmesh);
   ierlib = MG_MAX ( ier, ierlib );
 

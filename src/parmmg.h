@@ -213,7 +213,7 @@ enum PMMG_Format {
 static const int PMMG_REMESHER_TARGET_MESH_SIZE = -30000000;
 
 /**< Subgroups target size for a fast remeshing step */
-static const int PMMG_REMESHER_NGRPS_MAX = 100;
+static const int PMMG_REMESHER_NGRPS_MAX = 1000;
 
 /**< Number of metis node per mmg mesh... to test*/
 static const int PMMG_RATIO_MMG_METIS = -100;
@@ -547,6 +547,8 @@ void PMMG_tag_par_tria(MMG5_pTria ptt);
 void PMMG_untag_par_node(MMG5_pPoint ppt);
 void PMMG_untag_par_edge(MMG5_pxTetra pxt,int j);
 void PMMG_untag_par_face(MMG5_pxTetra pxt,int j);
+void PMMG_unset_reqBoundaries(MMG5_pMesh mesh);
+int  PMMG_mark_packedPoints(MMG5_pMesh mesh,MMG5_int *np,MMG5_int *nc);
 int  PMMG_resetOldTag(PMMG_pParMesh parmesh);
 int  PMMG_updateTag(PMMG_pParMesh parmesh);
 void PMMG_updateTagRef_node(PMMG_pParMesh parmesh,MMG5_pMesh mesh);
