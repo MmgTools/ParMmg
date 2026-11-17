@@ -177,7 +177,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   if ( mesh->adja )
     usedMem += (4*mesh->ne+1)*sizeof(int);
 
-  if ( met->m )
+  if ( met && met->m )
     usedMem += met->size*(mesh->np+1)*sizeof(double);
 
   if ( usedMem > mesh->memMax  ) {
@@ -202,7 +202,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   if ( mesh->adja )
     bytes += 4*6*sizeof(int);
 
-  if ( met->m )
+  if ( met && met->m )
     bytes += met->size*sizeof(double);
 
   avMem = mesh->memMax-usedMem;
@@ -218,7 +218,7 @@ int PMMG_memOption_memRepartition(MMG5_pMesh mesh,MMG5_pSol met) {
   mesh->nemax = MG_MIN(mesh->nemax,6*npadd+mesh->ne);
   mesh->xtmax = MG_MIN(mesh->xtmax,ctri*npadd+mesh->xt);
 
-  met->npmax  = mesh->npmax;
+  if ( met ) met->npmax = mesh->npmax;
 
   if ( abs(mesh->info.imprim) > 5 || mesh->info.ddebug ) {
     fprintf(stdout,"  MAXIMUM MEMORY PER PROCESS AUTHORIZED (Mo)    %zu\n",
@@ -531,8 +531,7 @@ int PMMG_updateMeshSize( PMMG_pParMesh parmesh, int fitMesh )
 {
   MMG5_pMesh mesh;
   MMG5_pSol  met,ls,disp,field,psl;
-  size_t     available,used,delta;
-  int        remaining_ngrps,npmax_old,xpmax_old,nemax_old,xtmax_old;
+  int        npmax_old,xpmax_old,nemax_old,xtmax_old;
   int        i,is;
 
   for ( i = 0; i < parmesh->ngrp; ++i ) {

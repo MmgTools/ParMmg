@@ -656,12 +656,14 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh ) {
     /* if(!mesh->ntmax) mesh->ntmax = mesh->xtmax;*/
     /* if ( !MMG3D_analys(mesh) ) { PMMG_CLEAN_AND_RETURN(parmesh,PMMG_STRONGFAILURE); } */
   }
-  
+    
   /*************************************************************************************************************************************************************/
   /** ***********************************                                     Mesh adaptation: main loop                              ***********************************  */
   /*************************************************************************************************************************************************************/
   warnScotch = 0;
   for ( parmesh->iter = 0; parmesh->iter < parmesh->niter; parmesh->iter++ ) {
+    
+    printf("Rank %d ; number of elements %d\n",parmesh->myrank,parmesh->listgrp[0].mesh->ne);
   
     if ( parmesh->info.imprim > PMMG_VERB_STEPS ) {
       tim = 1;
@@ -710,7 +712,7 @@ int PMMG_parmmglib1( PMMG_pParMesh parmesh ) {
 
       /* Require mmg3d not to compute the size at required edges from just other required edges.
       Todo: proper fix in mmg3d, in Step 1 of defsiz_iso: skip MG_PARBDY edges. */
-      mesh->info.nosizreq = 1;
+      // mesh->info.nosizreq = 1;
       
       if ( (!mesh->np) && (!mesh->ne) ) {
         /* Empty mesh */

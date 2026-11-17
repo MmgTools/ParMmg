@@ -1725,7 +1725,7 @@ int PMMG_splitPart_grps( PMMG_pParMesh parmesh,int target,int fitMesh,int redist
                  "[%d-%d]: %d group is enough, no need to create sub groups.\n",
                  parmesh->myrank+1, parmesh->nprocs, ngrp );
       }
-      /* PMMG_updateMeshSize(parmesh, fitMesh) */
+      /*  if ( !PMMG_updateMeshSize(parmesh,fitMesh) ) ret_val = 0 */
       return PMMG_check_allComm(parmesh,ret_val,parmesh->comm);
     }
     else {
